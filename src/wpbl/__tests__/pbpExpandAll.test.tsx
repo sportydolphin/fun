@@ -28,8 +28,8 @@ const play = (over: Partial<WpblGamePlay>): WpblGamePlay => ({
 } as WpblGamePlay)
 
 const PLAYS: WpblGamePlay[] = [
-  play({ sequence: 1, inning: 1, half: 'top', batter_name: 'Ada Vance', narrative: 'Ada Vance singled to left field.' }),
-  play({ sequence: 2, inning: 1, half: 'bottom', team_id: 'LA', batter_name: 'Noor Haddad', narrative: 'Noor Haddad doubled to right center.' }),
+  play({ sequence: 1, inning: 1, half: 'top', batter_name: 'Ada Vance', pitcher_name: 'Ros Bell', narrative: 'Ada Vance singled to left field.' }),
+  play({ sequence: 2, inning: 1, half: 'bottom', team_id: 'LA', batter_name: 'Noor Haddad', pitcher_name: 'Jo Mata', narrative: 'Noor Haddad doubled to right center.' }),
 ]
 
 const LINE = {
@@ -83,8 +83,25 @@ describe('the half-inning headings', () => {
     const heading = (t: string) =>
       screen.getByText(new RegExp(`^${t}`)).parentElement!.textContent!.replace(/^▶/, '')
     // NY score 2 in the top of the 1st; LA answer with 1.
-    expect(heading('Top 1st')).toBe('Top 1st · NY batting+22–0')
-    expect(heading('Bottom 1st')).toBe('Bottom 1st · LA batting+12–1')
+    expect(heading('Top 1st')).toBe('Top 1st · NY · vs Ros Bell+22–0')
+    expect(heading('Bottom 1st')).toBe('Bottom 1st · LA · vs Jo Mata+12–1')
+  })
+
+  // WHO WAS THROWING, which the log could not say at all until Sep 11, 2026: the pitcher was
+  // named only inside the league's own substitution sentences, so a reader who opened the 5th
+  // was told everything about the at-bat except who it was against.
+  it('name the pitcher the half was played against', async () => {
+    await openPlays()
+    expect(screen.getByText(/^Top 1st/).textContent).toContain('vs Ros Bell')
+    expect(screen.getByText(/^Bottom 1st/).textContent).toContain('vs Jo Mata')
+  })
+
+  // "NY" AND NOT "NY BATTING". The club badge is already in the row and "vs" already says which
+  // way round the two clubs are, so the word was the one thing here two others were saying, and
+  // it was eight characters of the reason the pitcher's name truncated on a phone.
+  it('do not spend a word saying what the badge and the "vs" already say', async () => {
+    await openPlays()
+    expect(screen.getByText(/^Top 1st/).textContent).not.toContain('batting')
   })
 })
 

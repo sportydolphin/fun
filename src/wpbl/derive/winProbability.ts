@@ -335,3 +335,72 @@ export function gameWinProb(
 export function fmtWinPct(p: number): string {
   return `${Math.round(p * 100)}%`
 }
+
+// ─── The one play, and who is allowed to call it that ────────────────────────
+
+/** How far a play has to move the game before it counts as the swing of it. */
+export const SWING_FLOOR = 0.12
+
+/**
+ * The model, built once per league play log for the whole session.
+ *
+ * Building it is a few hundred thousand multiply-adds, which is milliseconds and would be fine
+ * to redo. What would not be fine is doing it inside a modal that opens and closes all evening
+ * while the input never changes: the league's play log is one cached array for the session, so
+ * its identity is the only cache key needed.
+ *
+ * IT LIVES HERE RATHER THAN IN THE CHART, which is where it used to, because it now has two
+ * callers: the chart, and the play-by-play's badge for the play the game turned on. Two caches
+ * would build the same model twice on every game anybody opens.
+ */
+let cached: { plays: unknown; games: unknown; model: WinProbModel } | null = null
+export function winProbModel(plays: WpblRunValuePlay[], games: WpblGame[]): WinProbModel {
+  if (cached && cached.plays === plays && cached.games === games) return cached.model
+  const model = buildWinProbModel(plays, games)
+  cached = { plays, games, model }
+  return model
+}
+
+/**
+ * What a surface is allowed to CALL the play it is resting on.
+ *
+ * THE LABEL CARRIES THE HONESTY. "Swing of the game" is a claim, and in a rout it is a false
+ * one: nothing decided the 17-3 on Aug 14, where the biggest play moved the game eight points
+ * and was merely the largest of a hundred small ones. So the play always shows and the wording
+ * tells the truth about it: the swing of the game where there was one, the biggest moment where
+ * there was not, and "so far" while the game is still being played and nothing is decided.
+ *
+ * ONE FUNCTION BECAUSE TWO SURFACES SAY IT. The chart rests on this play and the play-by-play
+ * badges the same row, and a list calling it the swing of the game beside a chart calling it the
+ * biggest moment is the shape CLAUDE.md warns about: two definitions, neither of them wrong.
+ */
+export function swingLabel(swing: number, decided: boolean, status: string): string {
+  return decided && Math.abs(swing) >= SWING_FLOOR ? 'Swing of the game'
+    : status === 'final' ? 'Biggest moment'
+    : 'Biggest moment so far'
+}
+
+/** The play a surface rests on, and whether it is the one that WON it. */
+export interface SwingOfGame {
+  point: WinProbPoint
+  /** True when this is the play that won it, as opposed to merely the largest swing in it.
+   *  False for a game still being played and for a tie, neither of which has a winner to have
+   *  swung towards. */
+  decided: boolean
+  /** From `swingLabel`. */
+  label: string
+}
+
+/**
+ * The play of the game, picked the one way.
+ *
+ * `decisive` before `biggest` for the reason `gameWinProb` sets out: a game can be turned by a
+ * three-run homer and lost anyway, and the largest swing full stop is then a sentence about the
+ * losing team going from 70% to 30%, which reads as a mistake.
+ */
+export function swingOfGame(wp: GameWinProb, status: string): SwingOfGame | null {
+  const point = wp.decisive ?? wp.biggest
+  if (!point) return null
+  const decided = point === wp.decisive
+  return { point, decided, label: swingLabel(point.swing, decided, status) }
+}

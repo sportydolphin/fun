@@ -356,6 +356,51 @@ are ordinary substitution and baserunning events: they carry narratives ("Madiso
 ruined rows is `unknown` rather than absent, which is the same value the feed uses for every
 pickoff and substitution, so it cannot be used to tell the two apart.
 
+### Sep 11, Semifinal A game 2: a pitching change naming a pitcher who had already left
+
+The second correction this project has written, and the first against a line that is not a play.
+San Francisco's sixth-inning change reads:
+
+> Liz Gilder to p for Jill Albayati.
+
+Albayati had been relieved in the bottom of the 3rd (sequence 34, *"Niki Eckert to p for Jill
+Albayati"*), and the 4th and 5th were Eckert's. **The feed contradicts itself on the same row**:
+`pitcher_name` on sequence 66 is Niki Eckert, and the boxscore beside it gives Albayati 2.2 IP
+against Eckert's 2.1 and the win. Nothing else in the game disagrees: every play is attributed
+correctly, the pitching lines are right, and one sentence of the league's prose is the whole of
+it. Reported by a reader watching the game, which is `source = 'video'`.
+
+Re-read against the live feed immediately before writing, per the standing lesson above. A
+finished game also goes read-only to the ingest (the two-minute pass is `mode: "active"` with no
+`force`), so unlike the Aug 15 case there is no window in which the league re-scoring this would
+land under the overlay and be doubled; the only thing that reopens the game is the TrackMan
+backfill.
+
+**AND LOOKING FOR OTHERS FOUND NINE MORE, WHICH CHANGED THE FIX.** Comparing every mid-half
+pitching change in the season against the `pitcher_name` on the rows around it: of 125, thirty-nine
+are announced as a bare "X to p" that names nobody as relieved, and ten of the remaining 86 name a
+departing pitcher who had already left. The incoming pitcher is right on all 125. So the prose is
+missing or wrong about the outgoing pitcher 49 times, and `pitcher_name` is right every time.
+
+**Those 49 are NOT corrections, and should not become them.** The play-by-play now derives its
+pitching-change line from `pitcher_name`, which fixes all of them at the surface with no rows
+written; `wpbl_play_corrections` still holds one row for this, the Sep 11 one, because that is the
+one somebody watched. The rule this follows is the one in §6: a correction is a considered act
+backed by evidence, and "the structured field disagrees with the prose" is a reason to prefer the
+field at read time rather than to assert a fact about a game nobody checked.
+
+**The first measurement of this was wrong and the reason generalises.** It was taken with SQL
+matching `to p for`, which misses the bare `X to p` form, and reported 39 changes as never
+announced. Re-run with the predicate the application actually applies, all 125 are announced and
+the finding is the ten wrong names instead, which is nearly the opposite story. A check written
+against a pattern that merely resembles the code's is a check on something else.
+
+**A CORRECTION ON A SUBSTITUTION ROW EXPOSED A HOLE IN THE FOOTNOTE.** `SourceNote` counts every
+play carrying a `corrected_source`, and the play list's substitution branch drew no dagger, so
+the foot of the page said "1 play corrected against video" with no mark above it to explain.
+Every correction before this one had landed on a row rendered as a play. The substitution line
+carries the mark now.
+
 ### Aug 29, New York at LA (LA 10 in the box, 9 in the log). Found Sep 1, 2026.
 
 A third one, and the cleanest yet: bottom of the 1st, two out, bases loaded, Caitlin Eynon

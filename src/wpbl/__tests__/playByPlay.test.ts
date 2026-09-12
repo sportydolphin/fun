@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parsePlay, runsOnPlay, endsInCalledThirdStrike } from '../derive/playByPlay'
+import { parsePlay, runsOnPlay, endsInCalledThirdStrike, stateAfter, pitchingChanges } from '../derive/playByPlay'
 
 // The real shortener maps a full name to a display form; here surnames stand in for it.
 const shorten = (t: string) => t
@@ -273,5 +273,142 @@ describe('endsInCalledThirdStrike', () => {
   it('survives a play with no sequence at all', () => {
     expect(endsInCalledThirdStrike('X Y struck out looking.', null)).toBe(false)
     expect(endsInCalledThirdStrike('', 'K')).toBe(false)
+  })
+})
+
+// ─── The situation a play left behind ────────────────────────────────────────
+//
+// The feed states only where a play STARTED, so the diamond and the out lamps in the
+// play-by-play are read off the next row of the same half-inning. Every case below is the top
+// of the 1st of San Francisco at Boston, Sep 11, 2026, which is the shape the whole rule turns
+// on: a leadoff single whose runner appears on the row after it, and a strikeout that strands
+// three.
+const half = [
+  { narrative: 'Amanda Gianelloni singled to right field (0-1 F).', outs: 0, first_base: '', second_base: '', third_base: '' },
+  { narrative: 'Kelsie Whitmore flied out to cf (2-1 FBB).', outs: 0, first_base: 'Amanda Gianelloni', second_base: '', third_base: '' },
+  { narrative: 'Skylar Kaplan popped up to 1b (1-0 B).', outs: 1, first_base: 'Amanda Gianelloni', second_base: '', third_base: '' },
+  { narrative: 'Andreanne Leblanc singled to center field (0-1 K); Amanda Gianelloni advanced to second.', outs: 2, first_base: 'Amanda Gianelloni', second_base: '', third_base: '' },
+  { narrative: 'Alexia Jorge walked (3-1 BBFBB).', outs: 2, first_base: 'Andreanne Leblanc', second_base: 'Amanda Gianelloni', third_base: '' },
+  { narrative: 'Jua Park struck out looking (1-2 BFFK).', outs: 2, first_base: 'Joely Leguizamon', second_base: 'Alexia Jorge', third_base: 'Andreanne Leblanc' },
+]
+
+describe('stateAfter', () => {
+  it('reads the next row of the half-inning, not the row it is on', () => {
+    // The leadoff single: empty and nobody out on its own row, a runner on first the moment after.
+    expect(stateAfter(half, 0)).toEqual({ bases: { first: true, second: false, third: false }, outs: 0 })
+    // The single that pushed Gianelloni to second, with two already away.
+    expect(stateAfter(half, 3)).toEqual({ bases: { first: true, second: true, third: false }, outs: 2 })
+    // The walk that loaded them.
+    expect(stateAfter(half, 4)).toEqual({ bases: { first: true, second: true, third: true }, outs: 2 })
+  })
+
+  // The out lamps and the diamond come from ONE read, so they cannot disagree about which
+  // moment they are describing.
+  it('moves the outs on the same row the bases move on', () => {
+    expect(stateAfter(half, 1)).toEqual({ bases: { first: true, second: false, third: false }, outs: 1 })
+    expect(stateAfter(half, 2)).toEqual({ bases: { first: true, second: false, third: false }, outs: 2 })
+  })
+
+  // An empty base is an EMPTY STRING from the ingest, not null. Read with `!= null` every one
+  // of these rows draws a loaded diamond.
+  it('does not read an empty string as a runner', () => {
+    expect(stateAfter(half, 1)!.bases).toEqual({ first: true, second: false, third: false })
+  })
+
+  // THE CASE THE NULL EXISTS FOR. Park struck out with the bases loaded: the side was stranded,
+  // not the bases cleared, and there is no next moment inside the half to report. Drawn as an
+  // empty diamond this row would say the opposite of what happened, and "3 out" cannot be filled
+  // in either, since a walk-off ends a half-inning on a run rather than on an out.
+  it('says nothing for the last play of a half-inning', () => {
+    expect(stateAfter(half, 5)).toBeNull()
+  })
+
+  // The ruined rows of Aug 20, 2026: a pitcher, a pitch sequence, and no account of anything.
+  // Their bases are empty and their outs frozen at 0 because the feed lost them, which is not
+  // the same fact as nobody on and nobody out.
+  it('says nothing when the next row carries no narrative', () => {
+    const gap = [half[4], { narrative: '', outs: 0, first_base: '', second_base: '', third_base: '' }]
+    expect(stateAfter(gap, 0)).toBeNull()
+  })
+})
+
+// ─── Pitching changes, off the field rather than the prose ───────────────────
+//
+// The Sep 11, 2026 semifinal is why this reads `pitcher_name`: the league's own sentence named
+// the wrong departing pitcher, and the same row's field named the right one.
+describe('pitchingChanges', () => {
+  it('finds the change and the announcement it stands in for', () => {
+    const rows = [
+      { pitcher_name: 'Niki Eckert', narrative: 'Liz Gilder to p for Jill Albayati.' },
+      { pitcher_name: 'Liz Gilder', narrative: 'Lexi Hastings singled to right field (0-1 F).' },
+      { pitcher_name: 'Liz Gilder', narrative: 'Gabrielle Haas grounded out to 3b (0-2 KK).' },
+    ]
+    expect(pitchingChanges(rows)).toEqual([
+      { index: 1, from: 'Niki Eckert', to: 'Liz Gilder', announcedAt: 0 },
+    ])
+  })
+
+  // THE BARE FORM IS A THIRD OF THEM: 39 of the season's 125 are announced as "X to p" with
+  // nobody named as leaving, which is exactly what the derived line supplies. A rule written
+  // against "to p for" alone reads all 39 as never announced.
+  it('treats the bare "to p" as an announcement, since it is one', () => {
+    const rows = [
+      { pitcher_name: 'Jamie Mackay', narrative: 'Tháima Maximiliana to p.' },
+      { pitcher_name: 'Tháima Maximiliana', narrative: 'Jamie Mackay to lf.' },
+    ]
+    expect(pitchingChanges(rows)).toEqual([
+      { index: 1, from: 'Jamie Mackay', to: 'Tháima Maximiliana', announcedAt: 0 },
+    ])
+  })
+
+  // The fallback the season never needed, kept so a pitcher cannot change in silence if the
+  // feed ever stops announcing one.
+  it('still finds a change the league never announced', () => {
+    const rows = [
+      { pitcher_name: 'Jamie Mackay', narrative: 'Denae Benites grounded out to ss (0-0).' },
+      { pitcher_name: 'Tháima Maximiliana', narrative: 'Raine Padgham walked (3-2 FBBBKFB).' },
+    ]
+    expect(pitchingChanges(rows)).toEqual([
+      { index: 1, from: 'Jamie Mackay', to: 'Tháima Maximiliana', announcedAt: null },
+    ])
+  })
+
+  // THE TEN. The feed names a departing pitcher who had already left, on ten changes across the
+  // season including the Sep 11 semifinal. The derived line takes both names off the field, so
+  // the prose being wrong cannot reach the page.
+  it('names the pitcher who was actually throwing, not the one the sentence claims', () => {
+    const rows = [
+      { pitcher_name: 'Niki Eckert', narrative: 'Liz Gilder to p for Jill Albayati.' },
+      { pitcher_name: 'Liz Gilder', narrative: 'Lexi Hastings singled to right field (0-1 F).' },
+    ]
+    expect(pitchingChanges(rows)[0].from).toBe('Niki Eckert')
+  })
+
+  // A defensive move is not a pitching change, however much it looks like one: only `p` counts.
+  it('does not read a fielding substitution as an announcement', () => {
+    const rows = [
+      { pitcher_name: 'Ayami Sato', narrative: 'Molly Paddison to rf.' },
+      { pitcher_name: 'Maggie Fox', narrative: 'Denver Bryant struck out swinging (1-2 KBS).' },
+    ]
+    expect(pitchingChanges(rows)[0].announcedAt).toBeNull()
+  })
+
+  it('is silent when nobody changes', () => {
+    const rows = [
+      { pitcher_name: 'Liz Gilder', narrative: 'Lexi Hastings singled to right field (0-1 F).' },
+      { pitcher_name: 'Liz Gilder', narrative: 'Denver Bryant grounded out to 3b (1-0 B).' },
+    ]
+    expect(pitchingChanges(rows)).toEqual([])
+  })
+
+  // A blank pitcher is a gap in the account, not two changes: the Aug 20 rows carry no pitcher
+  // at all, and reading one as a change would invent a reliever and then un-invent her.
+  it('does not invent a change out of a missing pitcher', () => {
+    const rows = [
+      { pitcher_name: 'Liz Gilder', narrative: 'Lexi Hastings singled to right field (0-1 F).' },
+      { pitcher_name: '', narrative: '' },
+      { pitcher_name: 'Liz Gilder', narrative: 'Denver Bryant grounded out to 3b (1-0 B).' },
+    ]
+    expect(pitchingChanges(rows)).toEqual([])
   })
 })

@@ -227,6 +227,159 @@ export function runsOnPlay(p: { event_type: string | null; runs_scored: number |
   return (p.runs_scored ?? 0) + (p.event_type === 'home_run' ? 1 : 0)
 }
 
+/** The three bases as a surface draws them, in the shape `BaseDiamond` takes. */
+export interface BasesOn { first: boolean; second: boolean; third: boolean }
+
+/** The whole situation a play left behind: who is on, and how many are away. */
+export interface PlayState { bases: BasesOn; outs: number }
+
+/** The columns this reads. A play's own base-out row, plus its narrative, which is the only
+ *  thing that says whether the row is an account of anything at all. */
+type PlayStateRow = {
+  narrative: string
+  outs: number
+  first_base: string | null
+  second_base: string | null
+  third_base: string | null
+}
+
+// The ingest writes `s(p.first_base)`, so an empty base is an EMPTY STRING and not null: a
+// `!= null` test reads every empty base as occupied. Same rule as `baseCode` in
+// derive/runExpectancy.ts, which reads the same three columns for the other direction.
+const onBase = (v: string | null) => (v ?? '').trim().length > 0
+
+/**
+ * The base-out state as this play LEFT it, read off the next play in the same half-inning.
+ *
+ * THE FEED ONLY EVER SAYS WHERE A PLAY STARTED. The three base columns are the runners standing
+ * there when the batter stepped in, and `outs` is the count before the pitch: that is why a
+ * leadoff row is always empty with 0 out, and why the runner from a single appears on the row
+ * after it. Run expectancy already leans on the other half of that fact ("the state a play
+ * ended in is the state the NEXT row reports", fetchWpblAllRunValuePlays), and this is the same
+ * read with the same guarantee: it is the feed's own account of the next moment, not a
+ * simulation of what the narrative implies. Nothing here re-runs the play, so a clause the feed
+ * lost cannot put a runner somewhere she never was.
+ *
+ * ONE FUNCTION FOR BOTH HALVES OF THE SITUATION, because they are one fact and they fail
+ * together. Read separately, the outs could come from somewhere that still has an answer at a
+ * half-inning boundary while the bases have none, and the row would then draw "3 out" beside a
+ * blank diamond, which is a situation nobody was ever in.
+ *
+ * **Callers pass ONE half-inning.** `plays[i + 1]` is only the next moment of the same half if
+ * the array does not cross into the next one; handed a whole game, the last play of an inning
+ * would borrow the leadoff state of the following one and draw an empty diamond that looks like
+ * a fact.
+ *
+ * NULL IS THE LAST PLAY OF A HALF-INNING, AND IT MUST NOT BE DRAWN AS EMPTY. Three outs with
+ * the bases loaded leaves the side stranded, not the bases cleared, and an empty diamond on that
+ * row says the opposite of what happened. The half is over and there is no next moment inside it
+ * to report, so the honest answer is to say nothing. Nor can the outs be filled in as 3: a
+ * walk-off ends a half-inning on a run rather than on an out, and so does a game called early.
+ * The same null covers the live game's newest row, where the next moment has not been played.
+ *
+ * A row the feed sent with no narrative is null for a third reason: those are the ruined rows of
+ * Aug 20, 2026, which carry `outs` frozen at 0 and no bases either (docs/PLAY_VALIDATION.md §9).
+ * Reading one as "nobody on, nobody out" would invent a cleared inning out of a gap in the
+ * account.
+ */
+export function stateAfter(plays: readonly PlayStateRow[], i: number): PlayState | null {
+  const next = plays[i + 1]
+  if (!next || !(next.narrative ?? '').trim()) return null
+  return {
+    bases: { first: onBase(next.first_base), second: onBase(next.second_base), third: onBase(next.third_base) },
+    outs: next.outs,
+  }
+}
+
+/** The columns the pitching-change rule reads. */
+type PlayPitcher = { pitcher_name: string | null; narrative: string }
+
+/**
+ * Is this narrative the league announcing a pitching change?
+ *
+ * BOTH FORMS THE FEED USES, and the second one is easy to miss: "Liz Gilder to p for Niki
+ * Eckert" names who left, and "Tháima Maximiliana to p" does not. 39 of the season's 125 are the
+ * bare kind, so a rule written against "to p for" alone reads a third of the league's pitching
+ * changes as never having been announced.
+ *
+ * Only `p` counts, against the 109 defensive moves that share the shape and mean something else
+ * ("Jamie Mackay to lf"). Every other position is a fielder moving, which is a separate fact that
+ * keeps its own line even when the same row also changed the pitcher.
+ */
+export function isPitchingChangeNarrative(narrative: string): boolean {
+  const clean = (narrative ?? '').trim().replace(/\.$/, '')
+  const m = clean.match(/^(.+?) to p(?: for (.+))?$/i)
+  return !!m && NAME_ONLY.test(m[1])
+}
+
+/** A pitching change we worked out ourselves, rather than one the league wrote a sentence for. */
+export interface PitchingChange {
+  /** Where the new pitcher's first row sits in this half-inning. */
+  index: number
+  from: string
+  to: string
+  /**
+   * The league's own announcement of this change: the index of the substitution row immediately
+   * before, whose prose the derived line stands in for.
+   *
+   * NULL IS A FALLBACK THE SEASON NEVER NEEDED, and it is kept deliberately. All 125 of the
+   * season's mid-half changes were announced, so a pitcher who simply appears without one is a
+   * shape the feed has not produced; if it ever does, the surface can still say who is throwing
+   * rather than changing pitcher in silence.
+   */
+  announcedAt: number | null
+}
+
+/**
+ * Every mid-half pitching change, worked out from `pitcher_name` instead of from the prose.
+ *
+ * THE FEED IS RELIABLE ABOUT WHO COMES IN AND UNRELIABLE ABOUT WHO GOES OUT. Measured across
+ * every mid-half change of the 2026 season, and the split is the whole argument for this
+ * function:
+ *
+ *   125  mid-half pitching changes
+ *    39  announced as a bare "Tháima Maximiliana to p", which never says who was relieved
+ *    86  announced as "X to p for Y"
+ *    10  of those 86 name the WRONG departing pitcher
+ *     0  name the wrong incoming pitcher
+ *
+ * So the prose is missing or wrong about the outgoing pitcher 49 times in 125, and right about
+ * the incoming one every time. `pitcher_name` is right about both, because the name it prints is
+ * the name the rows before it were actually pitched by: a derived line cannot be wrong about who
+ * left without the plays themselves being wrong about who was throwing.
+ *
+ * THE SEP 11, 2026 SEMIFINAL IS ONE OF THE TEN, and is how this was found. The league wrote San
+ * Francisco's sixth-inning change as "Liz Gilder to p for Jill Albayati" when Albayati had been
+ * relieved three innings earlier; the same row's `pitcher_name` said Niki Eckert, which is who it
+ * was, and so did the box score. A reader watching the game reported it. The other nine had been
+ * on the site all season and nobody could have caught them, because the sentence was the only
+ * place the play-by-play named a pitcher at all.
+ *
+ * MID-HALF ONLY, on purpose. A change between innings cannot be seen in one half's rows, and the
+ * half-inning heading names the pitcher each half opens with, so a between-innings change reads
+ * as the heading changing.
+ *
+ * **Callers pass ONE half-inning**, for the same reason `stateAfter` does: consecutive rows are
+ * only the same pitching side inside one half.
+ */
+export function pitchingChanges(plays: readonly PlayPitcher[]): PitchingChange[] {
+  const out: PitchingChange[] = []
+  for (let i = 1; i < plays.length; i++) {
+    const from = (plays[i - 1].pitcher_name ?? '').trim()
+    const to = (plays[i].pitcher_name ?? '').trim()
+    // A blank on either side is a gap in the account rather than a change: the ruined rows of
+    // Aug 20 carry no pitcher at all, and reading one as a change would invent two of them.
+    if (!from || !to || from === to) continue
+    out.push({
+      index: i,
+      from,
+      to,
+      announcedAt: isPitchingChangeNarrative(plays[i - 1].narrative) ? i - 1 : null,
+    })
+  }
+  return out
+}
+
 export function parsePlay(
   narrative: string,
   batterName: string | null,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { track, EVENTS } from '../lib/analytics'
-import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblGameRevisions, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
+import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblGameRevisions, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblSurface, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
 import { canonicalFeedName } from './feedNames'
@@ -20,9 +20,13 @@ import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
-import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
+import { ModalShell, SegNav, TapTip, TeamBadge, BaseDiamond, pressable, hoverOnly, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
-import { parsePlay, runsOnPlay, endsInCalledThirdStrike } from './derive/playByPlay'
+import { parsePlay, runsOnPlay, endsInCalledThirdStrike, stateAfter, pitchingChanges } from './derive/playByPlay'
+import type { WpblRunValuePlay } from './types'
+import { ENTRY_HASH, PLAY_HASH_RE, playHashSequence } from './entryUrl'
+import { isPitchingChangeNarrative } from './derive/playByPlay'
+import type { PitchingChange } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
@@ -594,6 +598,8 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   )
 }
 
+
+
 // ─── Play-by-play ──────────────────────────────────────────────────────────────
 //
 // Whether the reader has asked for every half-inning open. Per reader and per browser, not per
@@ -661,13 +667,16 @@ function PitchSequence({ seq, calledThirdStrike }: {
   )
 }
 
-function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
+function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   plays: WpblGamePlay[]; teams: Map<string, WpblTeam>; game: WpblGame
   /** This game's two rosters, by player id, so the batter each play opens with can be opened.
    *  Resolved on `batter_id` rather than by matching the printed name: the feed fills that
    *  column on all but a couple of percent of plays, and a name match would have to survive
    *  the shortening the line has already applied to it. */
   names: Map<string, WpblPlayer>
+  /** The play the game turned on, and what the win model is willing to call it. Null until the
+   *  league-wide read the model needs has landed, and on a game too short to have one. */
+  swing?: { sequence: number; label: string } | null
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const shortName = useWpblName()
@@ -738,13 +747,88 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
         gs.push({ key, label: `${half} ${ord}`, teamId: p.team_id, runs, awayTo, homeTo, plays: [p] })
       } else { last.plays.push(p) }
     }
-    return gs
+    // Who this half was pitched by, and who came in during it. BOTH FROM `pitcher_name` AND
+    // NEITHER FROM THE PROSE: the field is on all 3,079 plays of the season with no gaps, and the
+    // sentence is missing or wrong about the departing pitcher in 49 of the season's 125 mid-half
+    // changes. See `pitchingChanges` for that split.
+    //
+    // NOT SIMPLY THE FIRST ROW'S PITCHER, which is the version that shipped for ten minutes and
+    // named the wrong woman in the bottom of the 6th on Sep 11. An announcement row carries the
+    // pitcher being RELIEVED — "Liz Gilder to p for Niki Eckert" is filed under Eckert, who is
+    // the one leaving — so a half that opens with a change would be headed by a pitcher who
+    // never threw a pitch in it. Those rows are skipped; the first row that is an account of
+    // something is the one that says who was throwing.
+    return gs.map(g => ({
+      ...g,
+      pitcher: g.plays.find(p =>
+        (p.pitcher_name ?? '').trim() && !isPitchingChangeNarrative(p.narrative))?.pitcher_name
+        ?? null,
+      changes: pitchingChanges(g.plays),
+    }))
   }, [plays, game.away_line, game.home_line, game.status])
+
+  // ONLY THE PLAYS THAT SCORED, and only the half-innings that had one. A play log is the one
+  // surface where "what actually happened" and "everything that happened" are different
+  // questions, and the second answer is 80 rows: a reader catching up on a game they missed
+  // wants the runs. Half-innings that produced none are dropped whole rather than left as empty
+  // headings, so the list becomes the scoring summary the box score does not carry.
+  //
+  // `runsOnPlay`, NEVER the feed's `runs_scored`, for the reason that field has caught every
+  // reader: it omits the batter, so filtering on it would drop every solo home run in the game
+  // from a view whose entire job is not to miss a run.
+  //
+  // IT HIDES ROWS RATHER THAN REMOVING THEM, and that is the whole of the implementation note.
+  // Every derived thing in this list reads a play's NEIGHBOURS — the base-out state comes off
+  // the next row, a pitching change off the previous one — so a filtered array would quietly
+  // re-point all of it at the wrong play and draw a diamond for a moment three batters later.
+  // The half-inning keeps all of its plays and carries a set of the ones not to draw.
+  const [scoringOnly, setScoringOnly] = useState(false)
+  const shown = useMemo(() => {
+    if (!scoringOnly) return groups.map(g => ({ ...g, hidden: null as ReadonlySet<number> | null }))
+    const out: (typeof groups[number] & { hidden: ReadonlySet<number> | null })[] = []
+    for (const g of groups) {
+      const hidden = new Set<number>()
+      let kept = 0
+      g.plays.forEach((p, i) => { if (runsOnPlay(p) > 0) kept++; else hidden.add(i) })
+      if (kept > 0) out.push({ ...g, hidden })
+    }
+    return out
+  }, [groups, scoringOnly])
 
   // Innings start collapsed so the tab opens compact (and the modal can size down to it); the
   // reader expands the half-innings they care about. Tracking what's OPEN — not what's closed —
   // means innings that arrive later on a live game default closed too, without extra bookkeeping.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  /**
+   * The lens OPENS WHAT IT KEEPS, which is the whole point of it and was missing from the first
+   * version. Turned on over a collapsed log it left eight headings and no plays: a control whose
+   * entire job is "show me the runs" showing none of them, and eight more clicks than the state
+   * it was supposed to save.
+   *
+   * AND GIVES BACK WHAT IT TOOK. The reader's own expansion is put aside on the way in and
+   * restored on the way out, so using the lens for a moment does not cost them the three
+   * half-innings they had open. Kept in a ref rather than state: nothing renders from it, and it
+   * must not be a dependency of anything.
+   */
+  const beforeLens = useRef<Set<string> | null>(null)
+  const toggleScoringOnly = () => {
+    if (!scoringOnly) {
+      beforeLens.current = expanded
+      setExpanded(new Set(groups.filter(g => g.plays.some(p => runsOnPlay(p) > 0)).map(g => g.key)))
+    } else {
+      setExpanded(beforeLens.current ?? new Set())
+      beforeLens.current = null
+    }
+    setScoringOnly(!scoringOnly)
+  }
+
+  // What the reader can actually see, which is what the footnote has to count. Handed the whole
+  // game it would say "1 play corrected" under a filtered list whose corrected play is hidden,
+  // which is the same footnote-without-a-dagger hole the substitution line opened on Sep 11.
+  const visiblePlays = useMemo(
+    () => (scoringOnly ? shown.flatMap(g => g.plays.filter((_, i) => !g.hidden?.has(i))) : plays),
+    [scoringOnly, shown, plays])
   const toggle = (key: string) => setExpanded(prev => {
     const next = new Set(prev)
     next.has(key) ? next.delete(key) : next.add(key)
@@ -757,24 +841,109 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
   // the units and ERA-basis settings, defaulting off so the tab still opens compact for
   // everyone who has not asked.
   const [expandAll, setExpandAll] = useState(readPbpExpandAll)
-  const allOpen = groups.length > 0 && groups.every(g => expanded.has(g.key))
+  const allOpen = shown.length > 0 && shown.every(g => expanded.has(g.key))
   const toggleAll = () => {
     const next = !allOpen
     setExpandAll(next)
     writePbpExpandAll(next)
-    setExpanded(next ? new Set(groups.map(g => g.key)) : new Set())
+    setExpanded(next ? new Set(shown.map(g => g.key)) : new Set())
   }
 
   // A live game gains half-innings while the reader is watching, and with the preference on
   // those have to arrive open. Only the ones never seen before: reapplying it to every key
   // would reopen a half-inning the reader had just closed by hand, every two minutes.
+  //
+  // AND A LIVE GAME OPENS ON THE HALF-INNING BEING PLAYED, which is the one moment this list is
+  // worth the most and the one it used to serve worst: it landed fully collapsed, so the reader
+  // who came to see what just happened got fourteen shut headings and had to work out that the
+  // bottom one was the live one. Only the LAST fresh half, not all of them, since on first paint
+  // every half is fresh; and only while it is fresh, so a reader who closes it is not overruled
+  // two minutes later.
   const seenGroups = useRef<Set<string>>(new Set())
   useEffect(() => {
     const fresh = groups.map(g => g.key).filter(k => !seenGroups.current.has(k))
     if (!fresh.length) return
     for (const k of fresh) seenGroups.current.add(k)
-    if (expandAll) setExpanded(prev => new Set([...prev, ...fresh]))
-  }, [groups, expandAll])
+    if (expandAll) { setExpanded(prev => new Set([...prev, ...fresh])); return }
+    const current = groups[groups.length - 1]?.key
+    if (game.status === 'live' && current && fresh.includes(current)) {
+      setExpanded(prev => new Set([...prev, current]))
+    }
+  }, [groups, expandAll, game.status])
+
+  /**
+   * A link to one play, opened.
+   *
+   * The half-inning holding it has to be expanded before anything can be scrolled to, because a
+   * collapsed one does not render its rows at all, so the browser's own fragment handling finds
+   * nothing and does nothing. Runs once per hash: `groups` changes identity on every poll of a
+   * live game, and without the guard a reader who had scrolled away would be yanked back to the
+   * linked play every two minutes.
+   */
+  const [flashed, setFlashed] = useState<number | null>(null)
+  // THE FRAGMENT THE READER ARRIVED ON, not the one on the address bar, and the difference is
+  // load-bearing: this pane is remounted by the first refresh (the tab content is swapped for a
+  // spinner for about 200ms), so a live read gets the fragment on the first mount and an empty
+  // string on the second. `ENTRY_HASH` is a constant and says the same thing both times.
+  // `hashchange` then follows the address bar, which is what makes the `#` beside each play work
+  // as its own confirmation that the link was taken.
+  const [linkHash, setLinkHash] = useState<string>(ENTRY_HASH)
+  useEffect(() => {
+    const onHash = () => setLinkHash(window.location.hash)
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+  const hashDone = useRef<string | null>(null)
+  useEffect(() => {
+    const hash = linkHash
+    if (hashDone.current === hash || !groups.length) return
+    const seq = playHashSequence(hash)
+    if (seq == null) return
+    hashDone.current = hash
+    const holder = groups.find(g => g.plays.some(p => p.sequence === seq))
+    if (!holder) return
+    setExpanded(prev => new Set([...prev, holder.key]))
+    setFlashed(seq)
+    // THE ADDRESS BAR GETS THE FRAGMENT BACK. The section rewrites the URL on mount and the
+    // first of those rewrites happens before the schedule has landed, so it cannot build the
+    // game's own path and drops the fragment on the way past (entryUrl.ts). Re-asserting it here
+    // is the one place that knows the fragment named a play in THIS game, so it cannot leak to a
+    // URL it does not belong on, and it means the link a reader followed is the link they can
+    // copy back out. `replaceState`, never push: arriving somewhere is not a second navigation.
+    if (!window.location.hash) {
+      window.history.replaceState(window.history.state, '',
+        `${window.location.pathname}${window.location.search}${hash}`)
+    }
+    // SCROLLING UNTIL IT STAYS PUT, rather than once. Two things move underneath this. The row
+    // does not exist until the half-inning `setExpanded` just queued has painted, so a single
+    // frame scrolls nothing at all; and the whole pane is then REMOUNTED by the first refresh
+    // (the tab content is swapped for a spinner for about 200ms), which resets the scroller to
+    // the top and threw the reader back to the 1st inning on every attempt before this one.
+    //
+    // So it re-scrolls whenever the row has moved and stops once it has held still for three
+    // frames, with a ceiling of about a second and a half. `behavior: 'auto'`, deliberately:
+    // a smooth scroll is still moving on the next frame, so it can never satisfy the test that
+    // ends the loop. That ceiling is also what keeps this from fighting a reader who starts
+    // scrolling for themselves.
+    let raf = 0
+    let frames = 0
+    let held = 0
+    let lastTop = NaN
+    const settle = () => {
+      const el = document.getElementById(`play-${seq}`)
+      if (el) {
+        const top = el.getBoundingClientRect().top
+        if (Math.abs(top - lastTop) < 1) held++
+        else { held = 0; el.scrollIntoView({ block: 'center' }) }
+        lastTop = top
+        if (held >= 3) return
+      }
+      if (frames++ < 90) raf = requestAnimationFrame(settle)
+    }
+    raf = requestAnimationFrame(settle)
+    const off = setTimeout(() => setFlashed(null), 2600)
+    return () => { cancelAnimationFrame(raf); clearTimeout(off) }
+  }, [groups, linkHash])
 
   if (plays.length === 0) {
     return <EmptyBody title="No play-by-play yet" hint="The feed's play log appears here once the game begins." />
@@ -792,16 +961,53 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
        It leaves the expanded prose better off too, at roughly 50 characters a line rather than
        66, which is nearer the middle of a comfortable measure than the top of it. */
     <Box sx={{ p: 2, maxWidth: chromePx(720), mx: 'auto' }}>
-      {/* One control, right-aligned above the log, in the weight of the half-inning headings it
-          operates rather than as a button competing with them. It says what it will DO, so it
-          reads "Collapse all" only once everything actually is open, however that happened. */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+      {/* Two controls, right-aligned above the log, in the weight of the half-inning headings
+          they operate rather than as buttons competing with them. The expander says what it
+          will DO, so it reads "Collapse all" only once everything actually is open, however
+          that happened.
+
+          THE LENS COMES FIRST because it decides what the expander is even operating on, and
+          it goes away with the game rather than being remembered: "expand all" is a standing
+          preference about effort (fourteen half-innings to click is the same nuisance every
+          game, which is why it is stored), where "scoring only" HIDES most of the log, and a
+          setting that silently withholds plays on the next game anybody opens is the version
+          of this that reads as a page that failed to load. */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.25, mb: 0.5 }}>
+        <Box
+          {...pressable(toggleScoringOnly)}
+          role="switch"
+          aria-checked={scoringOnly}
+          aria-label="Show only the plays that scored"
+          sx={{
+            ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4,
+            // A REAL TAP TARGET. Both of these were 109x20 on a phone, ten pixels apart, which
+            // is two fiddly controls where one used to be: the height comes from the padding
+            // and the type, and the type is deliberately small. `chromePx` because this is a
+            // finger and not a letter — it must not shrink when the reader's text is small, and
+            // it must not grow when it is large.
+            px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
+            fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.6,
+            textTransform: 'uppercase', userSelect: 'none',
+            color: scoringOnly ? '#16a34a' : 'text.secondary',
+            '@media (hover: hover)': { '&:hover': { color: scoringOnly ? '#16a34a' : 'text.primary' } },
+          }}
+        >
+          {/* The same green the +N badges and the scoring rail already use, so the control and
+              the rows it keeps are obviously the same idea. */}
+          <Box component="span" aria-hidden sx={{
+            width: '0.5rem', height: '0.5rem', borderRadius: '50%', flexShrink: 0,
+            border: '1.5px solid', borderColor: scoringOnly ? '#16a34a' : 'text.disabled',
+            bgcolor: scoringOnly ? '#16a34a' : 'transparent',
+          }} />
+          Scoring only
+        </Box>
         <Box
           {...pressable(toggleAll)}
           aria-label={allOpen ? 'Collapse every half-inning' : 'Expand every half-inning'}
           sx={{
             ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4,
-            px: 0.5, py: 0.25, borderRadius: 1, cursor: 'pointer',
+            // Sized with the lens beside it: see the note there.
+            px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
             fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.6,
             textTransform: 'uppercase', color: 'text.secondary', userSelect: 'none',
             '@media (hover: hover)': { '&:hover': { color: 'text.primary' } },
@@ -811,9 +1017,22 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
           {allOpen ? 'Collapse all' : 'Expand all'}
         </Box>
       </Box>
-      {groups.map(g => {
+      {/* A SCORELESS GAME IS AN ORDINARY STATE, not an error, and it is the state a live game
+          spends its first innings in. Filtered to nothing the pane was blank below the toolbar,
+          which reads as a page that failed rather than as a game where nobody has scored. */}
+      {scoringOnly && shown.length === 0 && (
+        <Typography sx={{ py: 4, textAlign: 'center', fontSize: '0.82rem', color: 'text.secondary' }}>
+          No runs {game.status === 'final' ? 'in this game' : 'yet'}.
+        </Typography>
+      )}
+      {shown.map(g => {
         const team = g.teamId ? teams.get(g.teamId) : undefined
         const open = expanded.has(g.key)
+        // Keyed on where the line is DRAWN, which is the league's own announcement when it
+        // wrote one and the new pitcher's first row when it did not. One map rather than a
+        // search per row: a half-inning has at most a handful of these against eighty rows.
+        const changeAt = new Map<number, PitchingChange>(
+          g.changes.map(c => [c.announcedAt ?? c.index, c] as const))
         return (
           <Box key={g.key} sx={{ mb: 1.25 }}>
             <Box
@@ -836,7 +1055,24 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                   Large text setting multiplies every rem on this row, so the one thing that
                   must survive that is the number the row exists to show. */}
               <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}>
-                {g.label}{team ? ` · ${team.abbr} batting` : ''}
+                {g.label}{team ? ` · ${team.abbr}` : ''}
+                {/* WHO THEY BATTED AGAINST, which the log could not say at all before: the
+                    pitcher was named only inside the league's own substitution sentences, so a
+                    reader who opened the 5th was told everything about the at-bat except who
+                    was throwing. Last in the line and inside the same noWrap, so on a phone it
+                    is the part that gives way rather than the inning: a truncated name is
+                    recoverable, since every change is spelled out in full in the rows below,
+                    and a truncated inning is the one thing this heading exists to say.
+
+                    "NY" AND NOT "NY BATTING", which is the eight characters that stopped the
+                    name truncating on a phone at all. The club badge is already in this row and
+                    "vs" already says which way round the two clubs are, so the word was the one
+                    thing here that two other things were saying.
+
+                    The pitcher this half OPENED with, which is not always the only one: 115
+                    half-innings in the season used two or more, and those changes are their own
+                    lines in the list rather than a second name crowding this one. */}
+                {g.pitcher ? ` · vs ${shortenNames(g.pitcher)}` : ''}
               </Typography>
               {/* THE SCORE AFTER THIS HALF, and the runs that made it. The list used to carry
                   only the runs, which is the delta and never the state: a reader scrolling to
@@ -867,26 +1103,70 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
             {open && (
               <Box sx={{ mt: 0.75 }}>
                 {g.plays.map((p, i) => {
+                  // Hidden, not absent: `shown` keeps every play of the half so the neighbour
+                  // reads below still land on the right row. See the note on that memo.
+                  if (g.hidden?.has(i)) return null
                   const parsed = parsePlay(p.narrative, p.batter_name, shortenNames)
+                  // THE PITCHING CHANGE WE WORKED OUT OURSELVES, drawn where the league
+                  // wrote one and REPLACING its sentence rather than sitting beside it. Two
+                  // lines disagreeing about one change is worse than either alone, and they
+                  // would disagree: 39 of the season's 125 are announced as a bare "X to p"
+                  // that never says who was relieved, and 10 more name the wrong pitcher
+                  // leaving. `pitcher_name` is right about both ends of all 125. The fallback
+                  // wording is for a change the feed never announces, which has not happened
+                  // yet: it says who is throwing now and does not claim a roster move. See
+                  // `pitchingChanges`.
+                  const change = changeAt.get(i)
+                  const replaced = change?.announcedAt === i
+                  const changeLine = change ? (
+                    <Box sx={{ py: 0.4, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}>
+                      <Typography sx={{
+                        fontSize: '0.72rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
+                      }}>
+                        {change.announcedAt != null
+                          ? `${shortenNames(change.to)} to p for ${shortenNames(change.from)}`
+                          : `Now pitching: ${shortenNames(change.to)}`}
+                        {/* THE DAGGER RIDES THE ROW, NOT THE SENTENCE. This line is drawn from
+                            `pitcher_name` and needs no correction to be right, but the row
+                            underneath it is the one the overlay corrected and the one the
+                            footnote counts, and a footnote claiming a dagger the page never
+                            drew is the hole this closed on Sep 11. */}
+                        {replaced && p.corrected_source && <SourceMark source={p.corrected_source} />}
+                      </Typography>
+                    </Box>
+                  ) : null
+                  // WHAT THE SITUATION LOOKED LIKE WHEN THIS PLAY WAS DONE, which is the one
+                  // thing the sentence never says: the feed writes every runner's movement out
+                  // in full and leaves the reader to add them up down a fourteen-row inning.
+                  // `g.plays` is exactly one half-inning, which is what `stateAfter` requires;
+                  // null there is the last play of the half, where the honest answer is nothing
+                  // rather than an empty diamond reading as a cleared inning. See stateAfter.
+                  const after = stateAfter(g.plays, i)
                   // The feed sends a handful of plays with no narrative at all. Drawn, they are
                   // an empty bordered row mid-inning, which reads as a play that failed to load.
-                  if (parsed.kind === 'blank') return null
+                  // `replaced` is the other kind of nothing: the league's announcement of a
+                  // change the line above has already made, in better words.
+                  const body = parsed.kind === 'blank' || replaced ? null
                   // A substitution is roster bookkeeping between at-bats. Given the same
                   // weight as a play it reads like one, so it gets its own quieter line.
-                  if (parsed.kind === 'substitution') {
-                    return (
-                      <Box key={i} sx={{
+                  : parsed.kind === 'substitution' ? (
+                      <Box sx={{
                         py: 0.4, pl: 1, borderLeft: '2px solid', borderColor: 'divider',
                       }}>
                         <Typography sx={{
                           fontSize: '0.72rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
                         }}>
                           {parsed.what}
+                          {/* A SUBSTITUTION CAN BE THE CORRECTED ROW, and this line is the
+                              reason the footnote below could count a dagger the page never
+                              drew. The league wrote Sep 11's sixth-inning change as "Liz
+                              Gilder to p for Jill Albayati" when Albayati had been relieved
+                              three innings earlier, which is the first correction this project
+                              has written against a line that is not a play. */}
+                          {p.corrected_source && <SourceMark source={p.corrected_source} />}
                         </Typography>
                       </Box>
-                    )
-                  }
-                  return (
+                  ) : (
                     // `runsOnPlay`, NOT `is_scoring_play`. The feed's flag is exactly
                     // `runs_scored > 0` and `runs_scored` never counts the batter, so a SOLO
                     // HOME RUN is flagged false and drew as an ordinary play: the green rail
@@ -894,10 +1174,24 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                     // "+1" beside it, which reads `runsOnPlay`, said a run had scored. One row
                     // disagreeing with itself. Reported by a reader, Sep 9, 2026, and it is the
                     // fourth surface this same field has caught (see CLAUDE.md).
-                    <Box key={i} sx={{
+                    <Box id={`play-${p.sequence}`} sx={{
                       display: 'flex', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid',
                       borderColor: runsOnPlay(p) > 0 ? '#22c55e' : 'divider',
                       bgcolor: runsOnPlay(p) > 0 ? 'rgba(34,197,94,0.06)' : 'transparent',
+                      // WHERE A LINK LANDS. Loud for a moment and then gone: a reader who
+                      // followed a link to one at-bat out of eighty needs to be shown which,
+                      // and a permanent highlight would still be shouting at them ten minutes
+                      // later. `scrollIntoView` puts it mid-screen, which the outline then
+                      // names. Respects reduced motion by only ever fading, never moving.
+                      ...(flashed === p.sequence ? {
+                        outline: '2px solid', outlineColor: 'primary.main', borderRadius: 1,
+                        transition: 'outline-color 0.8s ease-out',
+                      } : {}),
+                      // The anchor is invisible until the row is pointed at, and on a touch
+                      // device until it is pressed. `hoverOnly` is the section's one helper for
+                      // that pair, so this reveals itself the same way every other quiet
+                      // affordance in the section does.
+                      ...hoverOnly({ '& .playLink': { opacity: 1 } }),
                     }}>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         {/* Who did what, on one line. The batter is the thing being scanned
@@ -928,6 +1222,25 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                             <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: '#16a34a' }}>
                               +{runsOnPlay(p)}
                             </Box>
+                          )}
+                          {/* THE ONE PLAY THE GAME TURNED ON. The chart on the Recap tab has
+                              named it since v1.48.1 and that sentence was a dead end: it told
+                              you Beth Greenwood grounded into a double play in the 7th and gave
+                              you no way to read the inning around it. The same play is marked
+                              here, in the same words, off the same `swingOfGame`.
+
+                              INLINE AND ALLOWED TO WRAP, because it is exactly one row in a
+                              game and a chip that never wraps would have to be an abbreviation
+                              of a phrase whose whole value is that it is honest about itself:
+                              "Biggest moment" is not "Swing of the game", and neither is
+                              "SWING". */}
+                          {swing?.sequence === p.sequence && (
+                            <Box component="span" sx={{
+                              ml: 0.6, px: 0.5, py: '1px', borderRadius: 0.75,
+                              fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.5,
+                              textTransform: 'uppercase', whiteSpace: 'nowrap',
+                              color: 'primary.main', border: '1px solid', borderColor: 'primary.main',
+                            }}>{swing.label}</Box>
                           )}
                         </Typography>
                         {/* Runners, quieter and condensed. Same information, roughly half the
@@ -960,15 +1273,99 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                           />
                         )}
                       </Box>
+                      {/* The situation this play left behind: who is on, and how many are
+                          away. Last in the row so the two of them form a column down the right
+                          edge whatever the pitch sequence beside them did.
+
+                          ART, SO `chrome`: they are glyphs and not numbers, and a diamond that
+                          grew with the reader's Large text setting would tower over the 0.82rem
+                          sentence it belongs to.
+
+                          TOP-ALIGNED, NOT CENTRED, and no nudge either way. The glyphs follow
+                          --app-chrome and the count beside them follows the reader's text scale,
+                          so the two can never be locked level by a fixed offset; what they can
+                          share is an edge. Centred, they drift down the row as the runners' line
+                          wraps, which on a three-line play put them a clear line below the count
+                          and broke the column they sit at the end of to make. */}
+                      {after && (
+                        <Box sx={{
+                          flexShrink: 0, alignSelf: 'flex-start',
+                          display: 'flex', alignItems: 'center', gap: chromePx(5),
+                        }}>
+                          <BaseDiamond {...after.bases} size={16} scale="chrome" context="After" />
+                          <OutDots outs={after.outs} />
+                        </Box>
+                      )}
+                      {/* A LINK TO THIS AT-BAT, which the section had no way to give before: a
+                          game has one URL and a reader wanting to point at one play could only
+                          send the whole game and describe it. A real `href`, so copy-link,
+                          middle-click and open-in-new-tab all work the way they should; the
+                          click is left to the browser, since a row you can see is a row the
+                          fragment can reach, and the effect above handles the other direction,
+                          where the link arrives from outside and its half-inning is shut.
+
+                          IT RESERVES ITS SPACE ON EVERY DEVICE rather than appearing on hover,
+                          because a column that widens under the pointer pushes the diamond and
+                          the pips left by ten pixels on the row you are trying to read. */}
+                      <Box
+                        component="a"
+                        href={`#play-${p.sequence}`}
+                        className="playLink"
+                        aria-label={parsed.who ? `Link to this play, ${parsed.who}` : 'Link to this play'}
+                        sx={{
+                          ...FOCUS_RING,
+                          flexShrink: 0, alignSelf: 'flex-start', lineHeight: 1.6,
+                          fontSize: '0.66rem', fontWeight: 700, textDecoration: 'none',
+                          color: 'text.disabled', opacity: 0, transition: 'opacity 0.12s',
+                          '&:focus-visible': { opacity: 1 },
+                        }}
+                      >#</Box>
                     </Box>
                   )
+                  return body || changeLine ? <Box key={i}>{changeLine}{body}</Box> : null
                 })}
               </Box>
             )}
           </Box>
         )
       })}
-      <SourceNote plays={plays} />
+      <SourceNote plays={visiblePlays} />
+    </Box>
+  )
+}
+
+/**
+ * How many are away, as the three lamps a scoreboard lights.
+ *
+ * ONLY EVER 0, 1 OR 2, AND THE THIRD LAMP IS NEVER LIT. `outs` on a feed row is the count
+ * BEFORE the pitch, so this is read off the next play of the half (see `stateAfter`), and a play
+ * that started with three away cannot exist: the half would have ended. The third lamp is
+ * therefore the one the half-inning is heading towards rather than one that is missing, and the
+ * row that would light it is the row that draws no glyphs at all.
+ *
+ * A GLYPH AND NOT A NUMBER, which is why it follows `--app-chrome` like the diamond it sits
+ * beside. "2 out" set in type would be the wider thing on the row and would grow with the
+ * reader's text scale while the diamond did not, which is how a pair drifts apart.
+ *
+ * It carries its own name for the same reason `BaseDiamond` does: three small circles are
+ * nothing at all to a screen reader.
+ */
+function OutDots({ outs }: { outs: number }) {
+  // Clamped for the reason Live.tsx clamps the count: the feed has published a state that
+  // cannot exist, and a value out of range should draw the nearest real thing rather than
+  // three-and-a-bit lamps.
+  const n = Math.max(0, Math.min(3, outs))
+  return (
+    <Box role="img" aria-label={`${n} out`} sx={{
+      display: 'flex', flexDirection: 'column', gap: chromePx(2), flexShrink: 0,
+    }}>
+      {[0, 1, 2].map(k => (
+        <Box key={k} sx={{
+          width: chromePx(4), height: chromePx(4), borderRadius: '50%',
+          border: '1px solid', borderColor: k < n ? 'text.secondary' : 'text.disabled',
+          bgcolor: k < n ? 'text.secondary' : 'transparent',
+        }} />
+      ))}
     </Box>
   )
 }
@@ -1493,7 +1890,12 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   // own choice.
   const urlTab = useRef(asTab(initialTab)).current
   const [tab, setTab] = useState<Tab>(() =>
-    urlTab ?? (seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box'))
+    // A LINK TO ONE AT-BAT LANDS ON THE LOG THAT HOLDS IT. Without this the fragment opened the
+    // modal on the Recap and waited for the reader to find the right tab, which is the whole of
+    // what the link was for. Under an explicit ?tab=, because that is the reader naming a tab
+    // and this is only ever inferring one.
+    urlTab ?? (PLAY_HASH_RE.test(ENTRY_HASH) ? 'plays'
+      : seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box'))
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
@@ -1515,6 +1917,36 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   // the video above.
   const [story, setStory] = useState<WpblArticle | null>(() =>
     getCachedWpblArticles()?.find(a => a.game_id === seed.id) ?? null)
+
+  /**
+   * The one play the game turned on, for the play-by-play to badge.
+   *
+   * DYNAMICALLY IMPORTED, which is the whole reason this is an effect rather than a memo. The
+   * win-probability engine is behind a lazy boundary on purpose (RecapCard), and a static import
+   * here would pull it into the entry chunk for every reader who opens a game and never looks at
+   * the chart. `preloadWinProb()` has already warmed it, so in practice this resolves at once.
+   *
+   * IT READS THE CACHE RATHER THAN FETCHING. The league-wide play log is what the model needs,
+   * the Run value board and the chart both fetch and cache it for the session, and the effect
+   * below kicks that fetch off anyway. Null until it lands, which is correct: a badge that
+   * appears a moment later costs nothing, where a play-by-play that waits for a league-wide read
+   * before drawing anything would be the tail wagging the dog.
+   */
+  const [swing, setSwing] = useState<{ sequence: number; label: string } | null>(null)
+  useEffect(() => {
+    if (plays.length < 2) { setSwing(null); return }
+    let cancelled = false
+    void (async () => {
+      const league = getCachedWpblAllRunValuePlays() ?? await fetchWpblAllRunValuePlays().catch(() => null)
+      if (cancelled || !league?.length) return
+      const wp = await import('./derive/winProbability')
+      if (cancelled) return
+      const model = wp.winProbModel(league, games.length > 0 ? games : [game])
+      const found = wp.swingOfGame(wp.gameWinProb(model, plays as unknown as WpblRunValuePlay[], game), game.status)
+      setSwing(found ? { sequence: found.point.play.sequence, label: found.label } : null)
+    })()
+    return () => { cancelled = true }
+  }, [plays, games, game])
 
   const reload = useCallback((withSpinner = false) => {
     if (withSpinner) setLoading(true)
@@ -1992,7 +2424,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
                     </Box>
                   )
                 })() : t.value === 'plays' ? (
-                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} onOpenPlayer={onOpenPlayer} />
+                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
                 ) : t.value === 'pitch' ? (
                   <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />
                 ) : null

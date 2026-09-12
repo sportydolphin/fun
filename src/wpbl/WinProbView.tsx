@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays } from './api'
 import {
-  buildWinProbModel, gameWinProb, fmtWinPct, type GameWinProb, type WinProbPoint,
+  gameWinProb, fmtWinPct, winProbModel, swingLabel,
+  type GameWinProb, type WinProbPoint,
 } from './derive/winProbability'
 import { parsePlay } from './derive/playByPlay'
 import { useChartScrub } from './chartScrub'
@@ -32,16 +33,6 @@ import type { WpblGame, WpblGamePlay, WpblRunValuePlay, WpblTeam } from './types
  * evening while the input never changes: the league's play log is one cached array for the
  * whole session, so its identity is the only cache key needed.
  */
-let cachedModel: { plays: unknown; games: unknown; model: ReturnType<typeof buildWinProbModel> } | null = null
-function modelFor(plays: WpblRunValuePlay[], games: WpblGame[]) {
-  if (cachedModel && cachedModel.plays === plays && cachedModel.games === games) return cachedModel.model
-  const model = buildWinProbModel(plays, games)
-  cachedModel = { plays, games, model }
-  return model
-}
-
-/** How far a play has to move the game before it counts as the swing of it. */
-const SWING_FLOOR = 0.12
 
 /** The inning axis: the row of numbers, and the word saying what they are. */
 const AXIS_H = 15
@@ -115,7 +106,7 @@ export default function WinProbView({ game, teams, plays, games }: Props) {
 
   const wp = useMemo<GameWinProb | null>(() => {
     if (!league || plays.length === 0) return null
-    const model = modelFor(league, games.length > 0 ? games : [game])
+    const model = winProbModel(league, games.length > 0 ? games : [game])
     return gameWinProb(model, plays as WpblRunValuePlay[], game)
   }, [league, plays, game, games])
 
@@ -557,9 +548,9 @@ export function restingReadout(
    *  game still being played and for a tie, neither of which has a winner to have swung to. */
   decided: boolean,
 ): Readout {
-  const label = decided && Math.abs(pt.swing) >= SWING_FLOOR ? 'Swing of the game'
-    : game.status === 'final' ? 'Biggest moment'
-    : 'Biggest moment so far'
+  // The words come from derive/winProbability, which is also what the play-by-play's badge
+  // reads: one definition, so the chart and the list cannot call the same play two things.
+  const label = swingLabel(pt.swing, decided, game.status)
   const { who, what } = playText(pt, short)
   return {
     // The inning goes where a scrubbed play keeps it, at the end of the label, and not on the

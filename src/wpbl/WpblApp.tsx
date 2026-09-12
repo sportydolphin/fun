@@ -38,6 +38,7 @@ import {
   WPBL_AWARDS_PATH, isWpblAwardsPage,
   type WpblView,
 } from './routes'
+import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
 import { useForegroundInterval } from './refresh'
 import { WpblHeadingOwnerProvider, useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
@@ -971,7 +972,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // Falls back to the query form while the schedule or the clubs are still in flight,
     // since a slug cannot be proven unique without the whole schedule (see wpblGameSlug).
     if (s.game && !s.player && games.length > 0 && teams.length > 0) {
-      return wpblGamePath(s.game, teams, games)
+      // The play fragment a reader arrived on rides the game's own URL and nothing else.
+      // See entryUrl.ts for why it has to be captured rather than read.
+      const path = wpblGamePath(s.game, teams, games)
+      return `${path}${playFragmentFor(path)}`
     }
 
     // An open player takes over the path, so a player has ONE canonical URL no matter which

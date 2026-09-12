@@ -4,6 +4,45 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.81.0',
+    date:    '2026-09-11',
+    title:   'The situation after every play, and who was throwing',
+    changes: [
+      {
+        short: 'A diamond and the outs down the play-by-play, showing what each play left behind',
+        full:  'The league writes every runner’s movement out in full and in its own sentence, so working out who was standing where with two down in the fifth meant reading and adding up. Each play now ends with the same base diamond the live scoreboard draws, filled in with the runners that play left behind, and the outs beside it. It is the league’s own account of the next moment rather than our reading of the sentence, so nothing here can invent a runner. The play that ends a half-inning carries neither: three outs with the bases loaded strands the side rather than clearing it, and an empty diamond there would say the opposite of what happened.',
+      },
+      {
+        short: 'Every half-inning says who was pitching, and every change names both pitchers',
+        full:  'The play-by-play named a pitcher in exactly one place: inside the league’s own substitution sentences. Open the 5th and you were told everything about the at-bat except who was throwing. Each half-inning now says, and every pitching change in the list is worked out from the pitcher recorded on the plays themselves rather than from that sentence. The league is reliable about who comes in and much less so about who goes out: of the season’s 125 mid-inning changes, 39 are announced without naming the pitcher being relieved at all, and 10 more name one who had already left. All 49 read correctly now, and nine of the ten had been wrong on the site all season with no way for anybody to notice.',
+      },
+      {
+        short: 'The play that won it is marked in the play-by-play, not just on the chart',
+        full:  'The win probability chart has named the swing of the game since it shipped, and that sentence was a dead end: it told you Beth Greenwood grounded into a double play in the 7th and gave you no way to read the inning around it. The same play now carries the same words in the log itself. It is honest about what it is claiming: in a game nothing decided, and in one still being played, it says biggest moment rather than swing of the game.',
+      },
+      {
+        short: 'Every at-bat has its own link',
+        full:  'A game had one address, so pointing somebody at one play meant sending the whole game and describing which. Hovering a play now shows a # you can copy, and following one opens the game on the play log, with that half-inning open, scrolled to the at-bat and marked for a moment so you can see which of the eighty rows you were sent to.',
+      },
+      {
+        short: 'A live game opens on the half-inning being played',
+        full:  'The log landed fully collapsed, which is right for a game that finished hours ago and wrong for the one moment this list is worth the most: a reader opening a game in progress got fourteen shut headings and had to work out that the bottom one was the live one. It opens the half-inning under way, and each new one as it starts, and stops doing it for any half you close yourself.',
+      },
+      {
+        short: 'Scoring only: the play-by-play as the list of runs',
+        full:  'A toggle above the log keeps the plays that scored and the half-innings that had one, opens them, and drops the rest. Catching up on a game you missed is the commonest reason to open a play log and it was the one thing it could not do: eighty rows, twelve of them the ones you wanted. The half-inning headings keep their running score, so the game still reads in order, and whatever you had open yourself comes back when you turn it off. It is a view of this game rather than a setting, so the next game you open is the whole log again. On a game where nobody has scored yet it says so rather than going blank.',
+      },
+      {
+        short: 'The two controls above the play log are big enough to hit on a phone',
+        full:  'They were twenty pixels tall and ten pixels apart, which was awkward enough with one control and worse with two beside each other. They are half again as tall now, without the labels growing: the words were never the problem.',
+      },
+      {
+        short: 'The Sep 11 semifinal had Jill Albayati leaving a game she had left three innings earlier',
+        full:  'The league wrote San Francisco’s sixth-inning pitching change as “Liz Gilder to p for Jill Albayati”, but Albayati had been relieved in the third and the two innings in between were Niki Eckert’s, which is also what the box score beside it says and who it credits with the win. Reported by a reader watching the game. The line now names Eckert and carries the mark every corrected play does. Looking for others turned up nine more of exactly this, going back to Aug 2, which is what the change above fixes for good.',
+      },
+    ],
+  },
+  {
     version: '1.80.0',
     date:    '2026-09-10',
     title:   'One board for what a play is worth',

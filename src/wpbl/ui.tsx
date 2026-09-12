@@ -538,14 +538,21 @@ export function basesPhrase(first: boolean, second: boolean, third: boolean): st
  * strip whose other lengths are raw px, where scaling one of them pulls the row apart.
  * See the scale rules in CLAUDE.md.
  */
-export function BaseDiamond({ first, second, third, size = 34, scale, color = '#60a5fa' }: {
+export function BaseDiamond({ first, second, third, size = 34, scale, color = '#60a5fa', context }: {
   first: boolean; second: boolean; third: boolean
   size?: number
   scale: 'chrome' | 'none'
   /** The fill for an occupied base. An empty base is an outline in `text.disabled` either way. */
   color?: string
+  /** What this diamond is a picture OF, when the surface means something narrower than "who is
+   *  on": "Bases after the play". A PREFIX AND NOT A LABEL, deliberately, for the reason above:
+   *  the eight phrases stay derived from the three flags, so no call site can caption a diamond
+   *  with bases it is not drawing. All this adds is the sentence a screen reader needs when the
+   *  glyph is one of eighty down a list rather than the one live state at the top of a card. */
+  context?: string
 }) {
-  const label = basesPhrase(first, second, third)
+  const phrase = basesPhrase(first, second, third)
+  const label = context ? `${context}: ${phrase}` : phrase
   const len = (px: number) => (scale === 'chrome' ? chromePx(px) : `${px}px`)
   // The corners are percentages of the frame, so they follow whichever unit the frame took.
   const sq = (occ: boolean, pos: object) => (

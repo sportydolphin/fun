@@ -1084,6 +1084,214 @@ is retired.
 
 ## Shipped log
 
+### Sep 11, 2026: the situation after every play, and a pitcher who had already left
+
+**THE PLAY-BY-PLAY DRAWS THE BASE-OUT STATE EACH PLAY LEFT BEHIND**, as the same `BaseDiamond` the
+live scoreboard and the run-expectancy table already use, with the outs as three lamps beside it.
+The information was always there and always as prose: the feed spells out every runner's movement
+in its own clause, so a reader working out who was on with two down in the fifth was adding up
+five sentences.
+
+**READ OFF THE NEXT ROW, NOT SIMULATED FROM THE SENTENCE.** The feed states only where a play
+STARTED, so `basesAfter` in [`derive/playByPlay.ts`](src/wpbl/derive/playByPlay.ts) takes the
+next play of the same half-inning and reports its before-state. That is the league's own account
+of the next moment, which is the same guarantee the run-value walk already leans on
+("the state a play ended in is the state the NEXT row reports"), and it means a clause the feed
+lost cannot put a runner somewhere she never was.
+
+**THE LAST PLAY OF A HALF-INNING CARRIES NEITHER, AND THAT IS THE DESIGN AND NOT A GAP.**
+Three outs with the bases loaded strands the side; it does not clear the bases, and an empty
+diamond on that row would say the opposite of what happened. The outs cannot be filled in as 3
+either, since a walk-off ends a half-inning on a run rather than on an out. The same null covers a
+live game's newest row and the ruined narrative-less rows of Aug 20. 62 of the 80 plays in the Sep
+11 semifinal draw one, which is every play but the four substitutions and the fourteen that end a
+half.
+
+**ONE READ FOR BOTH HALVES OF THE SITUATION**, which is why `stateAfter` returns them together
+rather than as two functions. Sourced separately, the outs could still have an answer at a
+half-inning boundary where the bases have none, and the row would draw "3 out" beside a blank
+diamond: a situation nobody was ever in. The third lamp is never lit for a different reason worth
+keeping: `outs` is the count BEFORE a pitch, so a row that started with three away cannot exist,
+and the moment that would light it is the moment that draws no glyphs at all.
+
+### Sep 11, 2026: the feed is reliable about who comes in and not about who goes out
+
+**THE PLAY-BY-PLAY NAMED A PITCHER IN EXACTLY ONE PLACE**, inside the league's own substitution
+sentences, which is how the Albayati error below survived being on the page. Every half-inning
+heading now names the pitcher it opened with, and every mid-half change is a line derived from
+`pitcher_name` rather than from the prose.
+
+**MEASURED FIRST, AND THE MEASUREMENT IS THE ARGUMENT.** Across every mid-half pitching change of
+the 2026 season:
+
+| | |
+|---:|---|
+| 125 | mid-half pitching changes |
+| 39 | announced as a bare "Tháima Maximiliana to p", naming nobody as relieved |
+| 86 | announced as "X to p for Y" |
+| 10 | of those 86 name the WRONG departing pitcher |
+| 0 | name the wrong incoming pitcher |
+
+So the sentence is missing or wrong about the outgoing pitcher **49 times in 125**, and right
+about the incoming one every time. `pitcher_name` is right about both, and cannot be wrong about
+who left without the plays themselves being wrong about who was throwing.
+
+**THE SEP 11 SEMIFINAL IS ONE OF THE TEN.** The other nine go back to Aug 2 and had been on the
+site all season; nobody could have caught them, because the sentence was the only place the log
+named a pitcher at all. They are fixed by the derivation rather than by nine correction rows: the
+overlay is for what we have verified, and `wpbl_play_corrections` still holds only the one written
+against video.
+
+**A FIRST DRAFT OF THIS SHIPPED A WRONG NUMBER AND IS WORTH THE PARAGRAPH.** The first count said
+39 changes had no announcement at all, measured with SQL matching `to p for`. That pattern misses
+the bare `X to p` form, which is what those 39 actually are. Re-measured with the rule the code
+applies, every one of the 125 is announced and the real finding is the ten wrong names, which is a
+better story and nearly the opposite one. **Measure with the predicate the code uses, not one that
+resembles it.**
+
+**THE HEADING TAKES THE FIRST ROW THAT IS AN ACCOUNT OF SOMETHING, NOT THE FIRST ROW.** An
+announcement row is filed under the pitcher being RELIEVED, so a half that opens with a change was
+briefly headed by a pitcher who never threw a pitch in it: the bottom of the 6th on Sep 11 read
+"vs Niki Eckert" for a half Liz Gilder pitched from the first batter. Those rows are skipped.
+
+**AND THE DERIVED LINE REPLACES THE LEAGUE'S RATHER THAN SITTING BESIDE IT.** Two lines disagreeing
+about one change is worse than either alone. The dagger stays on the row, not the sentence: the
+row underneath is the one the overlay corrected and the one the footnote counts.
+
+### Sep 11, 2026: the play-by-play as the list of runs
+
+**"SCORING ONLY"**, a toggle above the log that keeps the plays that scored and the half-innings
+that had one. Catching up on a game you missed is the commonest reason to open a play log and it
+was the one thing it could not do: eighty rows, twelve of them the ones you wanted.
+
+**IT HIDES ROWS RATHER THAN REMOVING THEM**, which is the whole of the implementation note. Every
+derived thing in the list reads a play's NEIGHBOURS, so a filtered array would quietly re-point
+the base-out state at a play three batters later and the pitching changes at the wrong row. The
+half-inning keeps all of its plays and carries a set of the ones not to draw.
+
+**IT IS NOT REMEMBERED, AND "EXPAND ALL" STILL IS.** The expander is a standing preference about
+effort, and fourteen half-innings to click is the same nuisance every game. This one HIDES plays,
+and a setting that silently withholds most of the log on the next game anybody opens is the
+version of it that reads as a page that failed to load.
+
+**`runsOnPlay`, NEVER `runs_scored`**, for the reason that field has caught every reader: it omits
+the batter, so filtering on the column would drop every solo home run in the game from the one
+view whose whole job is not to miss a run.
+
+**THE LENS OPENS WHAT IT KEEPS, AND THE FIRST VERSION DID NOT.** Turned on over a collapsed log it
+left eight headings and no plays: a control whose entire job is "show me the runs" showing none of
+them, and eight more clicks than the state it was meant to save. It now expands what survives the
+filter, and puts the reader's own expansion back when it is turned off, so borrowing the lens for a
+moment does not cost them the three half-innings they had open.
+
+**AND IT CAN COME UP EMPTY, WHICH IS ORDINARY.** A live game spends its first innings scoreless.
+Filtered to nothing the pane was blank under the toolbar, which reads as a page that failed rather
+than as a game where nobody has scored; it says which.
+
+**THE FOOTNOTE COUNTS WHAT IS ON SCREEN.** `SourceNote` is handed the visible plays rather than the
+game's, because under the lens it would otherwise say "1 play corrected against video" above a list
+whose corrected play is hidden. That is the same footnote-without-a-dagger hole the substitution
+line opened earlier the same day, arriving by a second route. Checked both ways: Sep 11's note
+disappears under the lens (its corrected play is a substitution) and Aug 20's recounts from 14 to 1
+(one of its filled plays scored), with the singular and plural following.
+
+### Sep 11, 2026: the play that won it, a link to every at-bat, and a live game that opens itself
+
+**THE SWING OF THE GAME IS MARKED IN THE LOG.** `WinProbView` has named it since v1.48.1 and that
+sentence was a dead end: it said Beth Greenwood grounded into a double play in the 7th and gave a
+reader no way to read the inning around it. `WinProbPoint.play` is a real play row carrying
+`game_id` and `sequence`, and `fetchWpblAllRunValuePlays` is already prefetched by Game Center, so
+the badge is a lookup and costs no new request.
+
+**ONE DEFINITION OF THE WORDS, MOVED INTO `derive/winProbability.ts`.** `swingLabel` and
+`swingOfGame` now live beside the model, with `SWING_FLOOR` and the model cache, because the chart
+and the list both say this out loud and a list calling a play the swing of the game beside a chart
+calling it the biggest moment is exactly the two-definitions shape CLAUDE.md warns about. The
+cache moving matters on its own: two callers each holding their own would have built the same
+few-hundred-thousand-multiply-add model twice per game opened.
+
+**LOADED DYNAMICALLY, so the lazy boundary survives.** The engine is behind `preloadWinProb` on
+purpose; a static import in GameDetail would pull it into the entry chunk for every reader who
+opens a game and never looks at the chart. The badge is null until the league-wide read lands,
+which is right: a badge that appears a moment later costs nothing, where a play log waiting on a
+league-wide read before drawing anything is the tail wagging the dog.
+
+**EVERY AT-BAT HAS A URL**, `…/2026-09-11-firebells-at-hunters#play-79`, and following one opens
+the play log, expands the half-inning holding it, scrolls to it and outlines it for two and a half
+seconds. Four things had to be true for that and each was found by it failing:
+
+- **The fragment has to be captured before the section rewrites the address bar.** `urlFor` builds
+  a path and a query and no fragment, and `openFromLink` replaces the entry with it on mount, so
+  the `#play-79` was gone a beat after the modal opened. `entryUrl.ts` captures it at module
+  evaluation, which is before any effect, and re-attaches it **only to the path it arrived on** so
+  it cannot follow a reader to another game, a player or Standings.
+- **Its own module, not WpblApp's**, because GameDetail needs the same constant and WpblApp renders
+  GameDetail. And not GameDetail's own module scope, which was the first attempt: that file is
+  lazily imported, so by the time it evaluated the fragment was already gone.
+- **The landing tab has to be the play log.** Without it the link opened the Recap and waited for
+  the reader to find the tab, which is the whole of what the link was for. Under an explicit
+  `?tab=`, because that is a reader naming a tab where this only infers one.
+- **The scroll has to converge rather than fire once.** The row does not exist until the expansion
+  paints, and the pane is then REMOUNTED by the first refresh, which resets the scroller to the
+  top: every single-shot version of this landed the reader back in the 1st inning. It re-scrolls
+  while the row keeps moving, stops once it has held still for three frames, and gives up after
+  about a second and a half so it cannot fight a reader who starts scrolling themselves.
+
+**A LIVE GAME OPENS ON THE HALF-INNING BEING PLAYED.** The log landed fully collapsed, which is
+right for a game that finished hours ago and wrong for the one moment it is worth the most. Only
+the LAST fresh half-inning, since on first paint every half is fresh, and only while it is fresh,
+so a reader who closes it is not overruled again two minutes later by the poll.
+
+**AND THE HEADING SHED A WORD.** "TOP 5TH · NY BATTING · VS O. BRICKER" truncated the pitcher on a
+phone; the club badge is in the same row and "vs" already says which way round the two clubs are,
+so "batting" was the one thing there that two other things were saying. Every heading fits at
+375px now. `pbpExpandAll.test.tsx` pinned the old copy and failed, which is the test doing its job;
+it pins the pitcher and the absence of "batting" instead.
+
+### Sep 11, 2026: what the visual audit of the play-by-play turned up
+
+**BOTH TOOLBAR CONTROLS WERE 109x20 ON A PHONE, TEN PIXELS APART.** That was tolerable with one
+control and is not with two beside each other. `minHeight: chromePx(32)` on each, with the type
+untouched: the words were never the problem, and this is a finger rather than a letter, so it takes
+`--app-chrome` and neither shrinks with small text nor grows with large.
+
+**Verified and found FINE**, so that nobody re-checks them: the glyph column sits flush at the
+content's right edge on a 375px phone with no horizontal scroll, at 1.35x text as well; light theme
+reads correctly, with the out lamps measured rather than eyeballed (`rgba(0,0,0,0.6)` filled
+against transparent, in the right places); the sticky half-inning headings still cover the rows
+scrolling under them; and the running score in a heading reconciles with the plays under it even on
+the Aug 20 game, where the corrections are what make it add up (9 and 4, exactly).
+
+**ONE PRE-EXISTING ISSUE FOUND AND NOT FIXED, because it is not this pane's.** Opening a game paints
+from `gameCache` immediately, then `reload()` shows a spinner for roughly 200ms (measured: it
+appears ~400ms after the modal opens and clears ~600ms) and swaps the tab content out. Anything the
+reader did in that window is discarded along with the component that held it, which is how three
+audit runs of "turn on Scoring only" silently came back off. It affects expand/collapse identically
+and has always done. The fix is in how `GameDetail` handles its refresh, not here.
+
+**AND ONE SHAPE WORTH WATCHING.** `SwipeableViews` keys its panels by INDEX and `tabs` is dynamic,
+so a game that gains or loses a tab mid-session (a live game gaining Live, a game gaining Pitch Data
+when TrackMan lands) can hand one pane's state to another. Not reproduced today, because the game
+audited had a stable three tabs throughout.
+
+### Sep 11, 2026: Jill Albayati leaves a game she left three innings earlier
+
+**THE FIRST CORRECTION WRITTEN AGAINST A LINE THAT IS NOT A PLAY.** The league wrote San
+Francisco's sixth-inning change in semifinal A game 2 as "Liz Gilder to p for Jill Albayati".
+Albayati had been relieved in the bottom of the 3rd, and the two innings in between were Niki
+Eckert's: the feed's own `pitcher_name` on that very row says Eckert, and its box score gives
+Albayati 2.2 IP against Eckert's 2.1 and the win. One row in `wpbl_play_corrections`,
+`source = 'video'`, reported by a reader watching the game.
+
+**WHICH FOUND A HOLE IN THE FOOTNOTE.** `SourceNote` counts every play carrying a
+`corrected_source`, and the substitution branch of the play list drew no dagger, so the foot of
+the page would have said "1 play corrected against video" with no mark anywhere above it to
+explain. Substitutions carry the mark now.
+
+**NOTHING ELSE IN THE GAME WAS WRONG**, which is the half worth writing down: the plays are
+attributed to Eckert, the box score is right, the usage view is right, and the only surface
+telling anybody otherwise was one sentence of the league's own prose.
+
 ### Sep 10, 2026: the fan awards open, and then ask for a name
 
 **THE BALLOT IS PUBLIC.** The gate is deleted rather than opened, the page is in the sitemap
