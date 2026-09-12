@@ -1354,7 +1354,18 @@ function lockBodyScroll() {
     // The viewport scroller is <html> here (not <body>), so lock both to cover
     // whichever element actually scrolls. Compensate the removed scrollbar width
     // on <body> so the page doesn't jump sideways when the bar disappears.
-    const gap = window.innerWidth - document.documentElement.clientWidth
+    //
+    // CLAMPED, BECAUSE `innerWidth - clientWidth` IS NOT ALWAYS THE SCROLLBAR. It is only the
+    // scrollbar when both are the same layout viewport in CSS px. In a scaled context, the
+    // desktop preview pane, a mobile webview/installed PWA, browser zoom, `window.innerWidth`
+    // reports a larger number (measured 705 against a 375 layout on a phone) while
+    // `clientWidth` stays the real width, so the difference is hundreds of px of nothing. Left
+    // unclamped it became `padding-right: 330px` on a 375px body and squeezed the whole app
+    // into a 45px column behind every open sheet: the reader pulled the player card down and
+    // found the home page gone. A real scrollbar is at most a couple dozen CSS px, so anything
+    // past that is the formula being fooled and there is no bar to compensate for anyway.
+    const rawGap = window.innerWidth - document.documentElement.clientWidth
+    const gap = rawGap > 0 && rawGap <= 40 ? rawGap : 0
     savedScroll.htmlOverflow = document.documentElement.style.overflow
     savedScroll.bodyOverflow = document.body.style.overflow
     savedScroll.bodyPaddingRight = document.body.style.paddingRight

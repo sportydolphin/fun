@@ -59,7 +59,7 @@ const rowFor = (
   c: ReturnType<typeof buildWpblComparison>, group: 'batting' | 'pitching', key: string,
 ) => {
   const g = c.groups.find(x => x.key === group)
-  return [...(g?.rate ?? []), ...(g?.counting ?? [])].find(r => r.key === key)
+  return [...(g?.playingTime ?? []), ...(g?.rate ?? []), ...(g?.counting ?? [])].find(r => r.key === key)
 }
 
 describe('who leads a row', () => {
@@ -91,6 +91,20 @@ describe('who leads a row', () => {
     expect(rowFor(c, 'pitching', 'era')?.a).toBeNull()
     expect(rowFor(c, 'pitching', 'era')?.leader).toBeNull()
     expect(rowFor(c, 'batting', 'avg')?.leader).toBeNull()
+  })
+
+  // Playing time is shown as its own rows now (Stathead's order), but it is never a win: more
+  // games or more innings is the context every tick is read against, not a tick of its own.
+  it('never hands a tick to more playing time', () => {
+    const c = build({
+      teams, games,
+      batting: [bat({ player_id: 'a', ab: 50, h: 15 }), bat({ player_id: 'b', ab: 4, h: 1 })],
+      pitching: [pit({ player_id: 'a', outs: 60, gs: 8 }), pit({ player_id: 'b', outs: 9 })],
+    })
+    for (const key of ['g', 'pa']) expect(rowFor(c, 'batting', key)?.leader).toBeNull()
+    for (const key of ['g', 'gs', 'ip']) expect(rowFor(c, 'pitching', key)?.leader).toBeNull()
+    // And the numbers are still there to read.
+    expect(rowFor(c, 'pitching', 'ip')?.aText).toBe('20.0')
   })
 
   it('names nobody on a tie', () => {
@@ -136,7 +150,9 @@ describe('the season totals', () => {
     })
     expect(rowFor(c, 'batting', 'hr')?.a).toBe(1)
     expect(rowFor(c, 'batting', 'h')?.a).toBe(2)
-    expect(c.groups.find(g => g.key === 'batting')?.sample.aText).toBe('1 G · 4 PA')
+    // Playing time is now its own rows, and the postseason game is out of both.
+    expect(rowFor(c, 'batting', 'g')?.aText).toBe('1')
+    expect(rowFor(c, 'batting', 'pa')?.aText).toBe('4')
   })
 })
 

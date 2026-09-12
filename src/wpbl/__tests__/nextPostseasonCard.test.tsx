@@ -80,22 +80,24 @@ describe('which game it calls next', () => {
     expect(screen.queryByText(/Semifinal B/)).toBeNull()
   })
 
-  // The strip skips these for want of slots. Here it is the stronger point: this card names ONE
-  // fixture, and a card headed "Next game" over a game that may never be played is worse than
-  // the hole it is filling. `postseasonScheduleRows` clears the flag the moment a series makes
-  // the game certain, so a decider arrives as soon as it is one.
-  it('will not head itself with a game that may never be played', () => {
+  // An if-necessary decider IS the next game when it is the earliest thing on the calendar: it
+  // is drawn with the caveat rather than skipped, so the card stops jumping a week to a certain
+  // fixture with the conditional game that comes first nowhere on it. `postseasonScheduleRows`
+  // drops the row once its series is decided, so a row still here genuinely might be played.
+  it('heads itself with an if-necessary decider when it is the earliest game', () => {
     vi.useFakeTimers().setSystemTime(new Date('2026-09-12T12:00:00Z'))
     draw([
       row({ id: 'a3', date: '2026-09-13', gameNumber: 3, ifNecessary: true }),
       row({ id: 'b2', date: '2026-09-14', gameNumber: 2, label: 'Semifinal B', key: 'B' }),
     ])
-    expect(screen.getByText(/Semifinal B · Game 2/)).toBeTruthy()
+    expect(screen.getByText(/Semifinal A · Game 3 of 3/)).toBeTruthy()
+    expect(screen.getByText(/Only played if the series is still alive/)).toBeTruthy()
   })
 
-  it('renders nothing at all when every row left is conditional', () => {
-    const { container } = draw([row({ ifNecessary: true })])
-    expect(container.textContent).toBe('')
+  it('draws a conditional game with its caveat rather than nothing', () => {
+    draw([row({ ifNecessary: true })])
+    expect(screen.getByText(/Semifinal A · Game 1 of 3/)).toBeTruthy()
+    expect(screen.getByText(/Only played if the series is still alive/)).toBeTruthy()
   })
 
   it('renders nothing during the regular season, when there are no rows', () => {

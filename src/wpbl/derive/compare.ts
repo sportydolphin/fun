@@ -7,9 +7,10 @@
 // 1. **A leader is only ever named on a row where both sides have the number.** A null is not
 //    a loss. A pitcher with no innings does not have the worse ERA, she has no ERA, and a tick
 //    against the other name would be the page inventing a result out of an absence.
-// 2. **Playing time is the FIRST thing in every group, before any rate.** Whoever is ahead on
-//    a rate is meaningless without it, and a compare page is precisely where a reader is
-//    invited to skip straight to the ticks. `sample` is built so the surface cannot omit it.
+// 2. **Playing time is the FIRST thing in every group, and it is never a win.** G / PA (or
+//    G / GS / IP) are their own rows now, mirroring Stathead, but they carry no tick: more
+//    games is the context every rate below is read against, not one more thing to be ahead on.
+//    The rows are built with `leader` forced null so the surface cannot draw a winner on them.
 // 3. **Nothing adds the ticks up.** There is no overall winner here and there is deliberately
 //    no field a caller could render one from: "7-3" is an aggregate of stats nobody agreed
 //    weighed the same, presented as a ranking of two people.
@@ -54,10 +55,10 @@ export interface WpblCompareRow {
 export interface WpblCompareGroup {
   key: 'batting' | 'pitching'
   label: string
-  /** How much each of them has played, in the unit this group's rates are set in. Rendered
-   *  above the rows, never inside them: it is the context for every tick below it, not one
-   *  more thing to be ahead on. */
-  sample: { aText: string; bText: string; label: string }
+  /** How much each of them has played, as its own rows at the TOP of the group: G / PA for a
+   *  hitter, G / GS / IP for a pitcher. These carry no leader (see `playedRow`): they are the
+   *  context every tick below is read against, not a tick of their own. */
+  playingTime: WpblCompareRow[]
   /** Does each side clear the rate-stat bar. False is not a reason to hide a row; see the
    *  header. */
   qualified: { a: boolean; b: boolean }
@@ -115,7 +116,42 @@ function strikeoutRate(t: WpblBattingTotals): number | null {
   return pa > 0 ? t.so / pa : null
 }
 
+/**
+ * A playing-time row: shown, but never won.
+ *
+ * Built on top of `row` and then stripped of its leader. G, PA, GS and IP are facts about how
+ * much of a season there is to compare, not results in it: highlighting the larger one, as
+ * Stathead does, reads as "more games is better", which is the one thing header note 3 exists
+ * to keep this page from saying. The numbers stand; nobody wins the row.
+ */
+function playedRow(
+  key: string, label: string, a: number | null, b: number | null,
+  fmt: (v: number | null) => string,
+): WpblCompareRow {
+  return { ...row(key, label, 'high', a, b, fmt), leader: null }
+}
+
+const ip = (v: number | null): string => (v == null ? '—' : outsToIp(v))
+
 function battingRows(a: WpblBattingTotals, b: WpblBattingTotals) {
+  // First, and untickable. See `playedRow`.
+  const playingTime = [
+    playedRow('g', 'G', a.g, b.g, int),
+    playedRow('pa', 'PA', plateAppearances(a), plateAppearances(b), int),
+  ]
+  // Ordered as Stathead orders them, the counting line before the slash line, and within it
+  // the four it leads with (H, HR, RBI, SB) before the ones only we carry.
+  const counting = [
+    row('h', 'H', 'high', a.h, b.h, int),
+    row('hr', 'HR', 'high', a.hr, b.hr, int),
+    row('rbi', 'RBI', 'high', a.rbi, b.rbi, int),
+    row('sb', 'SB', 'high', a.sb, b.sb, int),
+    row('r', 'R', 'high', a.r, b.r, int),
+    row('2b', '2B', 'high', a.doubles, b.doubles, int),
+    row('3b', '3B', 'high', a.triples, b.triples, int),
+    row('bb', 'BB', 'high', a.bb, b.bb, int),
+    row('tb', 'TB', 'high', a.tb, b.tb, int),
+  ]
   const rate = [
     row('avg', 'AVG', 'high', a.avg, b.avg, fmtRate),
     row('obp', 'OBP', 'high', a.obp, b.obp, fmtRate),
@@ -125,21 +161,28 @@ function battingRows(a: WpblBattingTotals, b: WpblBattingTotals) {
     // spells out: ranked on raw strikeouts, the hitter who barely plays always wins.
     row('k%', 'K%', 'low', strikeoutRate(a), strikeoutRate(b), pct),
   ]
-  const counting = [
-    row('h', 'H', 'high', a.h, b.h, int),
-    row('hr', 'HR', 'high', a.hr, b.hr, int),
-    row('rbi', 'RBI', 'high', a.rbi, b.rbi, int),
-    row('r', 'R', 'high', a.r, b.r, int),
-    row('2b', '2B', 'high', a.doubles, b.doubles, int),
-    row('3b', '3B', 'high', a.triples, b.triples, int),
-    row('bb', 'BB', 'high', a.bb, b.bb, int),
-    row('sb', 'SB', 'high', a.sb, b.sb, int),
-    row('tb', 'TB', 'high', a.tb, b.tb, int),
-  ]
-  return { rate, counting }
+  return { playingTime, rate, counting }
 }
 
 function pitchingRows(a: WpblPitchingTotals, b: WpblPitchingTotals, basis: EraBasis) {
+  // G, GS and IP, in Stathead's order, and untickable. IP prints from outs so 6.2 stays two
+  // thirds of an inning rather than a decimal. See `playedRow`.
+  const playingTime = [
+    playedRow('g', 'G', a.g, b.g, int),
+    playedRow('gs', 'GS', a.gs, b.gs, int),
+    playedRow('ip', 'IP', a.outs, b.outs, ip),
+  ]
+  // EVERY COUNTING ROW IS ONE WHERE MORE IS BETTER AND MORE IS EARNED BY PLAYING, which is
+  // the rule percentiles.ts states and the reason there is no walks-allowed row here. A 'low'
+  // counting stat rewards not pitching: three innings and one walk beats sixty innings and
+  // fifteen, and the tick would say so. Walks, hits and earned runs are already in WHIP and
+  // ERA below, where they are rates and the comparison is honest. GS is now up in the playing
+  // time block, where the usage counts belong.
+  const counting = [
+    row('w', 'W', 'high', a.w, b.w, int),
+    row('so', 'SO', 'high', a.so, b.so, int),
+    row('s', 'SV', 'high', a.s, b.s, int),
+  ]
   const rate = [
     // Rescaled at DISPLAY time from the one canonical basis, never recomputed from a literal.
     // Both stats are linear in the multiplier, so the leader is the leader on either basis
@@ -149,21 +192,7 @@ function pitchingRows(a: WpblPitchingTotals, b: WpblPitchingTotals, basis: EraBa
     row('k9', kRateLabel(basis), 'high', scaleToBasis(a.k9, basis), scaleToBasis(b.k9, basis), fmtTwo),
     row('kbb', 'K/BB', 'high', a.kbb, b.kbb, fmtTwo),
   ]
-  // EVERY COUNTING ROW IS ONE WHERE MORE IS BETTER AND MORE IS EARNED BY PLAYING, which is
-  // the rule percentiles.ts states and the reason there is no walks-allowed row here. A 'low'
-  // counting stat rewards not pitching: three innings and one walk beats sixty innings and
-  // fifteen, and the tick would say so. Walks, hits and earned runs are already in WHIP and
-  // ERA above, where they are rates and the comparison is honest.
-  //
-  // NO IP ROW EITHER. `sample` prints it for both of them already, and a card that says 23.0
-  // twice invites the reader to take the second one as a thing to be ahead on.
-  const counting = [
-    row('so', 'SO', 'high', a.so, b.so, int),
-    row('w', 'W', 'high', a.w, b.w, int),
-    row('s', 'SV', 'high', a.s, b.s, int),
-    row('gs', 'GS', 'high', a.gs, b.gs, int),
-  ]
-  return { rate, counting }
+  return { playingTime, rate, counting }
 }
 
 /**
@@ -246,11 +275,11 @@ export function buildWpblComparison(
   const aPa = plateAppearances(aBat)
   const bPa = plateAppearances(bBat)
   if (aPa > 0 || bPa > 0) {
-    const { rate, counting } = battingRows(aBat, bBat)
+    const { playingTime, rate, counting } = battingRows(aBat, bBat)
     groups.push({
       key: 'batting',
       label: 'Batting',
-      sample: { aText: `${aBat.g} G · ${aPa} PA`, bText: `${bBat.g} G · ${bPa} PA`, label: 'Played' },
+      playingTime,
       qualified: { a: q.active && aPa >= q.minPa, b: q.active && bPa >= q.minPa },
       barText: q.active ? `${q.minPa} PA` : null,
       rate,
@@ -260,15 +289,11 @@ export function buildWpblComparison(
 
   // On outs, for the reason above: a line with no innings in it is not a pitching season.
   if (aPit.outs > 0 || bPit.outs > 0) {
-    const { rate, counting } = pitchingRows(aPit, bPit, basis)
+    const { playingTime, rate, counting } = pitchingRows(aPit, bPit, basis)
     groups.push({
       key: 'pitching',
       label: 'Pitching',
-      sample: {
-        aText: `${aPit.g} G · ${outsToIp(aPit.outs)} IP`,
-        bText: `${bPit.g} G · ${outsToIp(bPit.outs)} IP`,
-        label: 'Pitched',
-      },
+      playingTime,
       qualified: { a: q.active && aPit.outs >= q.minOuts, b: q.active && bPit.outs >= q.minOuts },
       barText: q.active ? `${outsToIp(q.minOuts)} IP` : null,
       rate,

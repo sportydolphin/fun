@@ -1083,7 +1083,13 @@ export default function FanVoteCard({
           hidden-until-you-answer rule. It is the same list the sheet opens with and leaks
           nothing about how anyone voted; deliberately NOT `withWriteIns`, which sorts by votes
           once the tally is out and would turn this row into a running result. */}
-      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      {/* FILLS THE CARD, on the desktop pairing where it is stretched to match the taller card
+          beside it (Next game, with its season stats). Rather than let 70-odd pixels pool as a
+          gap under the last row, the rows GROW EQUALLY into it (`flex: 1 0 auto` each), so every
+          row gains the same few pixels with its faces centred and the dividers stay snug between
+          them. Spreading with a gap instead would open the "canyons" LeadersCard warns about.
+          Below md there is no stretch, so the rows sit at their content height as before. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
         {entries.map((e, i) => {
           const picked = state.ballot[e.award.id]
           const mineC = picked
@@ -1101,6 +1107,9 @@ export default function FanVoteCard({
               sx={{
                 ...TAPPABLE, ...FOCUS_RING, cursor: 'pointer',
                 textDecoration: 'none', color: 'text.primary',
+                // Grow to share the card's slack (see the note on the column above); `0 auto` so a
+                // row never shrinks below its own content and its natural height is the floor.
+                flex: '1 0 auto',
                 display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
                 py: 0.85, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider',
               }}

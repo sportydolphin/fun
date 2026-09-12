@@ -17,6 +17,7 @@ import { fetchWpblTeams, fetchWpblAllPlayers } from './api'
 import { wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
 import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
+import { navBack } from '../nav'
 import type { WpblTeam, WpblPlayer } from './types'
 
 export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: string) => void }) {
@@ -66,7 +67,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
       <Box
         component="a"
         href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate('/wpbl') } }}
+        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
         sx={{
           textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
           color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,

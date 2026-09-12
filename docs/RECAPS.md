@@ -61,6 +61,7 @@ person; that is not a byline and it is not used as one.
 | The job | [`.github/workflows/wpbl-recaps-sync.yml`](../.github/workflows/wpbl-recaps-sync.yml) |
 | The table | [`scripts/migrations/20260912061459_add_wpbl_recaps_table.sql`](../scripts/migrations/20260912061459_add_wpbl_recaps_table.sql) |
 | The card | `GameRecapLinkCard` in [`src/wpbl/Reading.tsx`](../src/wpbl/Reading.tsx) |
+| Where it renders | The game header in [`src/wpbl/GameDetail.tsx`](../src/wpbl/GameDetail.tsx), under the Substack story card when a game has both |
 | The read | `fetchWpblRecaps` in [`src/wpbl/api.ts`](../src/wpbl/api.ts) |
 | Tests | [`src/wpbl/__tests__/recaps.test.ts`](../src/wpbl/__tests__/recaps.test.ts) |
 

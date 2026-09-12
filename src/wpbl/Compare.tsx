@@ -41,6 +41,7 @@ import {
   findWpblComparePair, findWpblPlayerBySlug, wpblPlayerPath,
 } from './routes'
 import { setDynamicSeo } from '../seo'
+import { navBack } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 
@@ -178,7 +179,7 @@ function CompareCard({ title, subtitle, children }: {
       overflow: 'hidden',
     }}>
       <Box sx={{
-        px: 2, py: 1, textAlign: 'center',
+        px: 2, py: 0.6, textAlign: 'center',
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: CARD_BORDER,
       }}>
         <Typography component="h2" sx={{
@@ -193,7 +194,7 @@ function CompareCard({ title, subtitle, children }: {
           </Typography>
         )}
       </Box>
-      <Box sx={{ p: 2 }}>{children}</Box>
+      <Box sx={{ p: 1.25 }}>{children}</Box>
     </Box>
   )
 }
@@ -207,27 +208,23 @@ function CompareStatRow({ row }: { row: WpblCompareRow }) {
   const cell = (side: WpblCompareSide, text: string) => {
     const leads = row.leader === side
     return (
+      // THE WHOLE CELL IS THE HIGHLIGHT, the way Stathead shades a winner's column rather than
+      // ringing the glyph. A pill around a single digit is a dot nobody sees; on the counting
+      // rows, where most figures are one or two characters, it was doing nothing. The cell is
+      // fixed-width and the figure centred in it, so the wash is the same block whichever side
+      // leads and the number never shifts as the lead changes hands.
       <Box sx={{
-        flex: '0 0 5.5rem', display: 'flex',
-        justifyContent: side === 'a' ? 'flex-end' : 'flex-start',
+        flex: '0 0 5.5rem', alignSelf: 'stretch', borderRadius: 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        bgcolor: leads ? 'var(--wpbl-compare-lead)' : 'transparent',
       }}>
-        {/* THE PADDING IS ON EVERY CELL, WINNER OR NOT, and that is the whole trick. Put it
-            only on the leading one and the number shifts six pixels away from the label on
-            exactly the rows that are highlighted, so a column of figures visibly jitters as
-            the lead changes hands. Here only the background appears. */}
+        {/* A WASH AND A WEIGHT, NOT A SIZE. The leading figure keeps the losing one's font size:
+            drawing .477 larger than .400 turns seventy-seven thousandths of a batting average
+            into a picture of one player towering over another. Full-strength ink both sides so
+            the loser stays readable; the wash plus the bold is what names the winner. */}
         <Typography component="span" sx={{
-          px: 0.75, py: 0.2, borderRadius: 999,
-          fontSize: '0.85rem', fontWeight: leads ? 800 : 600,
-          fontVariantNumeric: 'tabular-nums',
-          // The accent through the theme variable, never the raw hue: #60a5fa measures
-          // 2.37:1 on white, so a light-mode reader gets pale blue on pale grey. See the
-          // note on --wpbl-accent-fg in styles.css.
-          color: leads ? 'var(--wpbl-accent-fg)' : 'text.primary',
-          // A WASH, NOT A SIZE. The leading figure keeps the same font size and the same
-          // position as the losing one: the only honest way to mark a lead is to say which
-          // side it is on, and drawing .477 larger than .400 turns seventy-seven thousandths
-          // of a batting average into a picture of one player towering over another.
-          bgcolor: leads ? 'rgba(96,165,250,0.16)' : 'transparent',
+          fontSize: '0.8rem', fontWeight: leads ? 800 : 600,
+          fontVariantNumeric: 'tabular-nums', color: 'text.primary',
         }}>
           {text}
         </Typography>
@@ -237,7 +234,7 @@ function CompareStatRow({ row }: { row: WpblCompareRow }) {
   return (
     <Box sx={{
       ...STAT_ROW,
-      py: 0.4, borderBottom: '1px solid', borderColor: 'divider',
+      py: 0.15, borderBottom: '1px solid', borderColor: 'divider',
       '&:last-of-type': { borderBottom: 'none' },
     }}>
       {cell('a', row.aText)}
@@ -254,65 +251,36 @@ function CompareStatRow({ row }: { row: WpblCompareRow }) {
 }
 
 /**
- * One group's table.
+ * One group's table, in Stathead's order: playing time, then the counting line, then the rates.
  *
- * NO "SHE HAS NOT REACHED 36 PA" FOOTNOTE, which this carried until it was read on a real
- * pair. The sentence was three lines of small type wedged between the rates and the totals,
- * it said in prose what the band at the top of the card already says in figures, and it
- * appeared on most pairs, so the commonest reading of the card was one interrupted by an
- * apology. The honesty it was there for is the SAMPLE BAND: "7 G · 0 PA" next to "15 G · 64 PA"
- * is the whole argument, stated first and in the reader's own arithmetic. `qualified` and
- * `barText` are still built and still tested, for a surface that wants to mark the bar without
- * writing a paragraph about it.
+ * THREE BLOCKS, EACH UNDER ONE RULE. G / PA (or G / GS / IP) lead, then H / HR / RBI / SB and
+ * the rest, then the slash line, which is how Stathead's own comparison reads top to bottom. The
+ * rule between blocks is all the labelling they need: "Totals" over a column of plain numbers
+ * tells a reader what they can already see, and the change of rule says the kind of number
+ * changed. `qualified` and `barText` are still built and still tested, for a surface that wants
+ * to mark the qualifying bar without writing a paragraph about it.
+ *
+ * NO "SHE HAS NOT REACHED 36 PA" FOOTNOTE, which this carried until it was read on a real pair:
+ * three lines of small type saying in prose what the playing-time rows already say in figures.
  */
 function CompareGroupCard({ group }: { group: WpblCompareGroup }) {
+  // Each block wrapped so `:last-of-type` inside CompareStatRow means "the last row of THIS
+  // block": flat among its siblings it meant the last row of the card, so every block but the
+  // final one kept its bottom rule and met the next block's top rule with a doubled hairline.
+  const rule = { borderTop: '1px solid', borderColor: CARD_BORDER, maxWidth: chromePx(400), mx: 'auto' } as const
   return (
     <CompareCard title={group.label}>
-      {/* PLAYING TIME FIRST, ALWAYS. Every tick below is read against it, and a compare page
-          is exactly where a reader is invited to skip to the ticks. It is drawn as a header
-          band rather than as a row so nothing about it looks like something to win. */}
-      <Box sx={{
-        ...STAT_ROW,
-        pb: 1, mb: 0.25, borderBottom: '1px solid', borderColor: CARD_BORDER,
-      }}>
-        {/* `px` MATCHING THE VALUE PILLS BELOW. Without it this band sits six pixels wider
-            than every column it is the heading for, which reads as a misalignment rather
-            than as a heading. */}
-        <Typography sx={{ flex: '0 0 5.5rem', textAlign: 'right', px: 0.75, fontSize: MICRO_TEXT, fontWeight: 700 }}>
-          {group.sample.aText}
-        </Typography>
-        <Typography sx={{
-          flex: '1 1 auto', textAlign: 'center', minWidth: 0, fontSize: MICRO_TEXT,
-          letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled',
-        }}>
-          {group.sample.label}
-        </Typography>
-        <Typography sx={{ flex: '0 0 5.5rem', textAlign: 'left', px: 0.75, fontSize: MICRO_TEXT, fontWeight: 700 }}>
-          {group.sample.bText}
-        </Typography>
-      </Box>
+      {/* PLAYING TIME FIRST, ALWAYS, and drawn with no tick (see playedRow): every rate below
+          is read against it, but more games is context, not a thing to be ahead on. */}
+      <Box>{group.playingTime.map(r => <CompareStatRow key={r.key} row={r} />)}</Box>
 
-      {/* WRAPPED, so `:last-of-type` inside CompareStatRow means "the last row of THIS group".
-          Flat among its siblings it meant the last element of the card, so the final rate row
-          kept its bottom rule and met the counting block's top rule with a gap between them:
-          two hairlines and an empty band, which reads as a row that failed to render. */}
-      <Box>{group.rate.map(r => <CompareStatRow key={r.key} row={r} />)}</Box>
+      {/* The counting line, under one rule. NO MARGIN AND NO PADDING ON THE BREAK: the last row
+          of the block above drops its own rule (`:last-of-type`) and this supplies it a shade
+          stronger, so the gap either side of a break is exactly the gap between two rows. */}
+      <Box sx={rule}>{group.counting.map(r => <CompareStatRow key={r.key} row={r} />)}</Box>
 
-      {/* The counting stats, under one rule. Deliberately unlabelled: "Totals" over nine rows
-          of plain numbers is a heading that tells a reader what they can already see, and the
-          rule is enough to say the kind of number changed. */}
-      {/* NO MARGIN AND NO PADDING ON THIS BREAK, which is what makes every row the same
-          height. The last rate row drops its own rule (`:last-of-type`) and this supplies it,
-          a shade stronger, so the gap either side of the group break measures exactly what the
-          gap between AVG and OBP measures. With 8px of margin and 8px of padding here the K%
-          row sat in 16px of extra air and read as a taller row, which is the one thing a table
-          of like-for-like figures must not do. */}
-      <Box sx={{
-        borderTop: '1px solid', borderColor: CARD_BORDER,
-        maxWidth: chromePx(400), mx: 'auto',
-      }}>
-        {group.counting.map(r => <CompareStatRow key={r.key} row={r} />)}
-      </Box>
+      {/* The rates last, the same way. */}
+      <Box sx={rule}>{group.rate.map(r => <CompareStatRow key={r.key} row={r} />)}</Box>
     </CompareCard>
   )
 }
@@ -595,13 +563,14 @@ export default function WpblComparePage({ path, onNavigate }: {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: chromePx(560), mx: 'auto', width: '100%' }}>
       {/* A WAY BACK TO THE SECTION. This is a standalone route, so the sticky pill nav that
-          carries Home / Schedule / Standings is not on the page: without this the only route
-          back into the section is the browser's own Back button. Same control the League and
-          Players pages carry, linking to /wpbl so the reader lands where the nav lives again. */}
+          carries Home / Schedule / Standings is not on the page. `navBack` returns the reader to
+          the screen they came from (usually the player page that opened this), and only falls
+          back to /wpbl when there is nothing behind it, a shared link opened cold. The href
+          stays /wpbl for a crawler, which has no history to go back through. */}
       <Box
         component="a"
         href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate('/wpbl') } }}
+        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
         sx={{
           alignSelf: 'flex-start',
           textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5,

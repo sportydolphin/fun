@@ -119,6 +119,11 @@
      colour contrast is absolute, so that fails in dark mode exactly as hard as in light, which
      is why this one value serves both themes rather than splitting. */
   --wpbl-accent-solid: #1565c0;
+  /* The winner's cell wash on the compare page. A FULL-CELL shade (Stathead marks a leader by
+     the whole column, not a ring round the glyph), so it is tuned lighter than any text colour:
+     it sits behind a full-strength number and a bold weight, which are what actually name the
+     winner, and must not fight them. Light surfaces need less of it than dark. */
+  --wpbl-compare-lead: rgba(21, 101, 192, 0.13);
   /* Positive / negative numerics (run differential, W-L streaks, form). The dark-mode pair is
      the original #22c55e / #ef4444, which measure 2.28 and 3.76 on a light background; the
      light-mode pair is the same hues taken down to 5.0 and 6.5. */
@@ -138,6 +143,7 @@
 }
 [data-theme="dark"] {
   --wpbl-accent-fg: #60a5fa;
+  --wpbl-compare-lead: rgba(96, 165, 250, 0.20);
   --wpbl-pos: #22c55e;
   --wpbl-neg: #ef4444;
   --wpbl-medal-1: #e0a100;

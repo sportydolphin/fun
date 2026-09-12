@@ -24,6 +24,7 @@ import MediaShelf from './MediaShelf'
 import { Chevron, FOCUS_RING, pressable, TAPPABLE, hoverOnly } from './ui'
 import { byCountry, ageSpread, placeOf } from './derive/hometowns'
 import { wpblPlayerPath } from './routes'
+import { navBack } from '../nav'
 import type { WpblArticle, WpblPhoto, WpblPlayer, WpblTeam, WpblVideo } from './types'
 
 const isModified = (e: React.MouseEvent) =>
@@ -94,7 +95,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
       <Box
         component="a"
         href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate('/wpbl') } }}
+        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
         sx={{
           textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
           color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,

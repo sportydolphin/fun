@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { track, EVENTS } from '../lib/analytics'
-import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblGameRevisions, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
+import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblGameRevisions, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblRecaps, getCachedWpblRecaps, fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblSurface, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
 import { canonicalFeedName } from './feedNames'
@@ -13,7 +13,7 @@ import { useForegroundInterval } from './refresh'
 import { wpblGameSlugFromPath } from './routes'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
-import { GameStoryCard } from './Reading'
+import { GameStoryCard, GameRecapLinkCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
 import LiveGameView from './LiveGameView'
 import { useExperiments } from '../ExperimentsContext'
@@ -33,7 +33,7 @@ import { prettyType } from './tracking'
 import FeedDelayNote from './FeedDelayNote'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
-  WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle, WpblGameDetails, WpblGameRevision,
+  WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle, WpblGameRecap, WpblGameDetails, WpblGameRevision,
   WpblCorrectionSource,
 } from './types'
 
@@ -1917,6 +1917,10 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   // the video above.
   const [story, setStory] = useState<WpblArticle | null>(() =>
     getCachedWpblArticles()?.find(a => a.game_id === seed.id) ?? null)
+  // And the outlet's recap of the same game. A second, independent write-up: see the note
+  // where the two cards render for why they stay two cards.
+  const [recap, setRecap] = useState<WpblGameRecap | null>(() =>
+    getCachedWpblRecaps()?.find(r => r.game_id === seed.id) ?? null)
 
   /**
    * The one play the game turned on, for the play-by-play to badge.
@@ -2036,6 +2040,16 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     let cancelled = false
     fetchWpblArticles()
       .then(as => { if (!cancelled) setStory(as.find(a => a.game_id === seed.id) ?? null) })
+      .catch(() => { /* keep last-good */ })
+    return () => { cancelled = true }
+  }, [seed.id])
+
+  // And the outlet's. They file within a couple of hours of the final, so this one is usually
+  // there on the first open of a finished game, which is the reverse of the Substack above.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblRecaps()
+      .then(rs => { if (!cancelled) setRecap(rs.find(r => r.game_id === seed.id) ?? null) })
       .catch(() => { /* keep last-good */ })
     return () => { cancelled = true }
   }, [seed.id])
@@ -2306,23 +2320,21 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           )}
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
 
-          {/* The written recap. The highlight reel used to sit directly above it here and now
-              renders at the foot of the Recap tab instead: everything in this header block is
-              paid for by every tab, and on a phone the header had grown past half the screen
-              (see the note in RecapCard). This card is a paragraph and stays. */}
-          {final && story && (
-            <Box sx={{ px: 2, mt: 1.5 }}><GameStoryCard article={story} /></Box>
-          )}
-          {/* HELD BACK ON PURPOSE, Sep 12, 2026. This is where This is Women's Baseball's recap
-              of the same game goes, and everything behind it is shipped and running: the table
-              is populated nightly, `GameRecapLinkCard` is written and styled, and the source is
-              credited on /wpbl/sources. Only the card on this page is waiting.
+          {/* The written recaps: two independent people who each wrote about this game, and
+              two cards rather than one "coverage" block. Merging them would put our heading
+              above somebody else's work and force a house style on both, when the one thing
+              each card has to say loudest is whose writing it is.
 
-              To turn it on: read the recap next to `story` below, and render
-              `<GameRecapLinkCard recap={recap} />` here, stacked under the story card rather
-              than merged with it. They are two independent people who each wrote about this
-              game, and one combined "coverage" block would have to pick a house style for both
-              and put our heading above somebody else's work. */}
+              The highlight reel used to sit directly above them here and now renders at the
+              foot of the Recap tab instead: everything in this header block is paid for by
+              every tab, and on a phone the header had grown past half the screen (see the note
+              in RecapCard). These two are a paragraph each and stay. */}
+          {final && (story || recap) && (
+            <Box sx={{ px: 2, mt: 1.5, display: 'grid', gap: 1 }}>
+              {story && <GameStoryCard article={story} />}
+              {recap && <GameRecapLinkCard recap={recap} />}
+            </Box>
+          )}
         </Box>
 
         {/* Why the game is not moving, when it is not. Directly under the matchup and above the
