@@ -282,13 +282,25 @@ export function buildBracket(rows: WpblStandingRow[], games: WpblGame[]): WpblBr
     entrant(hi), entrant(lo), series,
   ))
 
-  // The championship's entrants are the semifinal winners, and stay null until there are two.
-  // The higher seed is drawn first, so the bracket does not swap sides when a lower seed wins.
-  const winners = semifinals
-    .map(s => s.winner ? { team: s.winner, seed: seeds.find(x => x.team.id === s.winner!.id)?.seed ?? null } : null)
-  const [first, second] = winners.every(Boolean)
-    ? [winners[0]!, winners[1]!].sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99))
-    : [{ team: null, seed: null }, { team: null, seed: null }]
+  // The championship's entrants are the semifinal winners, and EACH seat fills the moment its
+  // own semifinal is decided rather than waiting on the other. A club that has clinched is IN
+  // the final with its opponent still reading "Semifinal B winner": the Firebells sweeping their
+  // semifinal 2-0 belong in the championship box on the day they do it, not on the day the other
+  // semifinal ends. Blanking both seats until both were known was the bug this replaced, and it
+  // hid a clinched finalist for as long as the other series ran (as much as five days). It was
+  // invisible until Sep 2026 because no semifinal had ever had a winner while the other did not.
+  const champEntrant = (i: number) => {
+    const w = semifinals[i].winner
+    return w ? { team: w, seed: seeds.find(x => x.team.id === w.id)?.seed ?? null } : { team: null, seed: null }
+  }
+  const a = champEntrant(0), b = champEntrant(1)
+  // Higher seed drawn first so the bracket does not swap sides once a lower seed wins, but only
+  // once BOTH are known: with one seat still a placeholder there is nothing to order it against,
+  // so semifinal A feeds the top (home) seat and B the bottom, which is the seat each one's
+  // "Semifinal A/B winner" label and the connector already assume.
+  const [first, second] = a.team && b.team
+    ? [a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99))
+    : [a, b]
 
   const championship = buildSeries('championship', null, 'Championship', first, second, series)
 

@@ -9,9 +9,10 @@ import type { WpblGame, WpblTeam } from '../types'
 // can be the same two clubs.
 //
 // What is pinned here is that the pairings follow the seeds (1v4, 2v3), that a series is
-// reconstructed from grouped games rather than from anything the feed calls them, that the
-// championship stays empty until both semifinals have a winner, and that a postseason game
-// the feed has NOT marked as postseason cannot leak into it.
+// reconstructed from grouped games rather than from anything the feed calls them, that each
+// championship seat fills the moment its own semifinal is decided (a clinched finalist does not
+// wait on the other series), and that a postseason game the feed has NOT marked as postseason
+// cannot leak into it.
 
 const TEAMS: WpblTeam[] = (['SF', 'LA', 'NY', 'BOS'] as const).map((id, i) => ({
   id, city: id, name: id, abbr: id, color: null, color_secondary: null,
@@ -149,11 +150,22 @@ describe('series state, reconstructed without a series id', () => {
 describe('the championship slot', () => {
   const season = seededSeason()
 
-  it('stays empty until both semifinals have a winner', () => {
+  // A clinched finalist appears in the final AT ONCE, with the other seat still a placeholder.
+  // This is the Sep 2026 case: SF swept BOS in semifinal A while NY and LA were still playing
+  // semifinal B, and the card used to hide SF until B finished, days later.
+  it('seats a clinched finalist while the other semifinal is still open', () => {
     const b = bracketOf([...season, post('SF', 'BOS', '2026-09-09'), post('SF', 'BOS', '2026-09-10')])
-    expect(b.championship.home.team).toBeNull()
+    expect(b.championship.home.team!.id).toBe('SF')  // semifinal A winner, in the top seat
+    expect(b.championship.home.seed).toBe(1)
+    expect(b.championship.away.team).toBeNull()       // semifinal B has no winner yet
     expect(b.championship.status).toBe('upcoming')
     expect(b.championship.summary).toBe('Awaiting semifinal')
+  })
+
+  it('is still both-empty before either semifinal is decided', () => {
+    const b = bracketOf([...season, post('SF', 'BOS', '2026-09-09')])  // SF up 1-0, nothing clinched
+    expect(b.championship.home.team).toBeNull()
+    expect(b.championship.away.team).toBeNull()
   })
 
   it('fills with the two winners, higher seed first', () => {
