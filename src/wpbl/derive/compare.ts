@@ -21,7 +21,7 @@
 //    with a page that says nothing about her at all.
 
 import {
-  sumBatting, sumPitching, plateAppearances, wpblQualifiers, fmtRate, fmtTwo,
+  sumBatting, sumPitching, plateAppearances, hasPlateAppearance, wpblQualifiers, fmtRate, fmtTwo,
   scaleToBasis, kRateLabel, ERA_BASIS_CANONICAL,
   aggregateBatting, aggregatePitching,
   type WpblBattingTotals, type WpblPitchingTotals, type EraBasis,
@@ -172,15 +172,17 @@ function pitchingRows(a: WpblPitchingTotals, b: WpblPitchingTotals, basis: EraBa
     playedRow('gs', 'GS', a.gs, b.gs, int),
     playedRow('ip', 'IP', a.outs, b.outs, ip),
   ]
-  // EVERY COUNTING ROW IS ONE WHERE MORE IS BETTER AND MORE IS EARNED BY PLAYING, which is
-  // the rule percentiles.ts states and the reason there is no walks-allowed row here. A 'low'
-  // counting stat rewards not pitching: three innings and one walk beats sixty innings and
-  // fifteen, and the tick would say so. Walks, hits and earned runs are already in WHIP and
-  // ERA below, where they are rates and the comparison is honest. GS is now up in the playing
-  // time block, where the usage counts belong.
+  // W and SO rank the usual way, more-is-better. BB is the deliberate exception, and the ONLY
+  // 'low' counting row anywhere here: fewer walks takes the tick. A 'low' counting stat normally
+  // rewards not pitching (three innings and one walk over sixty and fifteen), which is why hits
+  // and earned runs stay out as counts and appear only in WHIP and ERA below. BB earns the tick
+  // because IP sits a few rows above it in the same card, so the reader weighs the walk count
+  // against the innings it came in rather than in the abstract. Order and treatment follow how
+  // Baseball-Reference lays out a pitcher's line: G, GS, IP, W-L, ERA, SO, BB.
   const counting = [
     row('w', 'W', 'high', a.w, b.w, int),
     row('so', 'SO', 'high', a.so, b.so, int),
+    row('bb', 'BB', 'low', a.bb, b.bb, int),
     row('s', 'SV', 'high', a.s, b.s, int),
   ]
   const rate = [
@@ -262,8 +264,13 @@ export function buildWpblComparison(
   const forPlayer = <T extends { player_id: string }>(lines: T[], p: WpblPlayer) =>
     lines.filter(l => l.player_id === p.id)
 
-  const aBat = sumBatting(forPlayer(batting, a), games)
-  const bBat = sumBatting(forPlayer(batting, b), games)
+  // Batting lines are filtered to actual plate appearances, the same as the player page does
+  // (PlayerDetail's `battingReal`): a pitcher carries an all-zero batting line for every game
+  // she pitched, and summing those straight made her batting card read "8 G, 0 PA" as if she had
+  // come up eight times and done nothing, rather than never having batted. With the filter she
+  // reads 0 G / 0 PA, and if neither side ever batted the group below drops out entirely.
+  const aBat = sumBatting(forPlayer(batting, a).filter(hasPlateAppearance), games)
+  const bBat = sumBatting(forPlayer(batting, b).filter(hasPlateAppearance), games)
   const aPit = sumPitching(forPlayer(pitching, a), games)
   const bPit = sumPitching(forPlayer(pitching, b), games)
 

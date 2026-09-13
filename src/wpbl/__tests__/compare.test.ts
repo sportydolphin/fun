@@ -120,17 +120,38 @@ describe('who leads a row', () => {
   })
 })
 
-// The rule percentiles.ts states for its own strip, pinned here because the failure is
-// invisible: a walks-allowed row renders perfectly and hands the tick to whoever pitched less.
-it('never ranks a counting stat where fewer is better', () => {
+// A 'low' counting stat rewards not pitching (three innings and one walk over sixty and
+// fifteen), so it is kept out of the card — with ONE deliberate exception, BB, which earns the
+// tick because IP is shown right above it for context (see compare.ts). Pinned because the
+// failure is invisible: a hits- or earned-runs-allowed row would render perfectly and hand the
+// tick to whoever pitched less. BB is the only key allowed through.
+it('ranks no counting stat low except pitcher walks', () => {
   const c = build({
     teams, games: schedule(10),
     batting: [bat({ player_id: 'a', ab: 30, h: 10, bb: 8 })],
     pitching: [pit({ player_id: 'b', outs: 60, er: 5, bb: 4 })],
   })
-  for (const g of c.groups) {
-    expect(g.counting.every(r => r.better === 'high')).toBe(true)
-  }
+  const lows = c.groups.flatMap(g => g.counting.filter(r => r.better === 'low').map(r => `${g.key}:${r.key}`))
+  expect(lows).toEqual(['pitching:bb'])
+})
+
+// BB sits next to SO on the pitching card and ranks the LOWER total as better, which is the ask:
+// fewer walks takes the row, read against the IP shown above it.
+it('shows pitcher walks beside strikeouts and highlights the fewer', () => {
+  const c = build({
+    teams, games: schedule(10),
+    batting: [],
+    pitching: [pit({ player_id: 'a', outs: 60, bb: 4 }), pit({ player_id: 'b', outs: 60, bb: 15 })],
+  })
+  const g = c.groups.find(x => x.key === 'pitching')!
+  const keys = g.counting.map(r => r.key)
+  // Adjacent to SO, matching Baseball-Reference's …SO, BB order.
+  expect(keys.indexOf('bb')).toBe(keys.indexOf('so') + 1)
+  const bb = g.counting.find(r => r.key === 'bb')!
+  expect(bb.better).toBe('low')
+  expect(bb.aText).toBe('4')
+  expect(bb.bText).toBe('15')
+  expect(bb.leader).toBe('a')  // 4 walks beats 15
 })
 
 describe('the season totals', () => {
@@ -168,6 +189,27 @@ describe('which groups appear', () => {
       pitching: [pit({ player_id: 'a', outs: 30, er: 3 }), pit({ player_id: 'b', outs: 30, er: 2 })],
     })
     expect(c.groups.map(g => g.key)).toEqual(['pitching'])
+  })
+
+  // A pitcher is in the box score of every game she pitches, with an all-zero batting line.
+  // Those are appearances, not games batted, so beside a hitter her batting column must read
+  // 0 G / 0 PA, never "3 G, 0 PA" as if she had come up in three games and made nothing of it.
+  // Same rule the player page applies (hasPlateAppearance), shared now so the two agree.
+  it('does not count a pitcher’s zero batting lines as games batted', () => {
+    const c = build({
+      teams, games,
+      batting: [
+        bat({ player_id: 'a', game_id: 'g0', ab: 3, h: 1 }),   // the hitter batted once
+        bat({ player_id: 'b', game_id: 'g1', ab: 0 }),          // the pitcher, three games, never up
+        bat({ player_id: 'b', game_id: 'g2', ab: 0 }),
+        bat({ player_id: 'b', game_id: 'g3', ab: 0 }),
+      ],
+      pitching: [pit({ player_id: 'b', outs: 60 })],
+    })
+    const g = c.groups.find(x => x.key === 'batting')!
+    expect(g.playingTime.find(r => r.key === 'g')!.aText).toBe('1')   // hitter: one game batted
+    expect(g.playingTime.find(r => r.key === 'g')!.bText).toBe('0')   // pitcher: never batted, not three
+    expect(g.playingTime.find(r => r.key === 'pa')!.bText).toBe('0')
   })
 
   // The asymmetry is deliberate: one of them doing a thing the other does not IS the

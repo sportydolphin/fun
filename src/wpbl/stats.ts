@@ -195,6 +195,18 @@ export function plateAppearances(t: Pick<WpblBattingTotals, 'ab' | 'bb' | 'hbp' 
   return t.ab + t.bb + t.hbp + t.sf + t.sh
 }
 
+/** Did this line, or these totals, represent an actual trip to the plate?
+ *
+ *  A pitcher is listed in the box score of every game she pitches, with an all-zero batting
+ *  line, and a position player can enter a game only to run or field. Those rows are
+ *  appearances, not games batted, so a surface that sums them straight reads "8 G, 0 PA" for
+ *  someone who never came up, or draws a full batting card of dashes for two pitchers. Filter
+ *  batting lines through this before summing them into a batting line a reader will see. One
+ *  definition so the player page and the compare card cannot disagree about who batted. */
+export function hasPlateAppearance(l: Pick<WpblBattingTotals, 'ab' | 'bb' | 'hbp' | 'sf' | 'sh'>): boolean {
+  return plateAppearances(l) > 0
+}
+
 // ─── Rate-stat qualifiers ──────────────────────────────────────────────────────
 // A fixed threshold (the old flat 5 AB / 3 IP) stops meaning anything the moment the
 // season moves past its first week: five games in, 5 AB is one game's work, so the OPS

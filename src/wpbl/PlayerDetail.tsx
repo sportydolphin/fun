@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, type Theme } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getCachedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
-import { sumBatting, sumPitching, sumFielding, plateAppearances, fmtRate, fmtTwo } from './stats'
+import { sumBatting, sumPitching, sumFielding, plateAppearances, hasPlateAppearance, fmtRate, fmtTwo } from './stats'
 import { regularSeasonLines } from './season'
 import { computeWpblPlayerRanks, ordinal, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
@@ -122,10 +122,9 @@ const gamePosition = (raw: string | null | undefined): string => {
 
 // A batting line only counts as real batting if the player actually came to the plate — an
 // at-bat, a walk, a HBP, or a sacrifice. Zero-PA rows (a pinch-runner who scored, a defensive
-// sub) otherwise surface as an all-zero stat block and a phantom "0-for-0" game-log line, so
-// we drop them entirely rather than show empty stats.
-const hasPlateAppearance = (l: WpblBattingLine): boolean =>
-  l.ab + l.bb + l.hbp + l.sf + l.sh > 0
+// sub, a pitcher listed but never up) otherwise surface as an all-zero stat block and a phantom
+// "0-for-0" game-log line, so we drop them. `hasPlateAppearance` lives in stats.ts now, shared
+// with the compare card so the two cannot disagree about who batted.
 // The player modal sits at zIndex 1600; MUI's tooltip defaults to 1500, so it would
 // render behind the modal. Lift the popper above it.
 const TIP_Z = 1700
