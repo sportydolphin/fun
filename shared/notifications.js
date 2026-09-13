@@ -32,6 +32,10 @@ export const NOTIFICATION_TYPES = {
   GAME_START:      'game-start',
   MILESTONE:       'milestone',
   WPBL_GAME_START: 'wpbl-game-start',
+  // Owner-only: a background pipeline broke. Push-only, sent by scripts/check-admin-health.mjs
+  // so a red state reaches the owner without them opening /admin — the failure mode the Health
+  // group's amber chip could not escape on its own.
+  ADMIN_HEALTH:    'admin-health',
 }
 
 // Per-type metadata. `label` is user-facing (settings, grouping); `defaultUrl`
@@ -70,6 +74,14 @@ export const NOTIFICATION_META = {
     // The WPBL section isn't wired into the MLB deep-link router, so a click lands
     // on the WPBL home where the next game is featured up top — the honest fallback.
     defaultUrl: '/wpbl',
+  },
+  [NOTIFICATION_TYPES.ADMIN_HEALTH]: {
+    label:      'Site health alerts',
+    icon:       '🚨',
+    // Straight to the dashboard's Health group, where the failing pipeline's detail is. Not
+    // wired into the MLB deep-link router, so this is the honest landing spot rather than an
+    // `open=` intent nothing claims.
+    defaultUrl: '/admin',
   },
 }
 
@@ -155,6 +167,30 @@ export function buildWpblGameStart({ gameId, matchup, minutesToStart }) {
     body:  mins <= 0
       ? `${matchup}. First pitch is now.`
       : `${matchup}. First pitch in ${mins} min.`,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
+ * A background pipeline broke — pushed to the owner only.
+ *
+ * One payload per problem `key`, so the push `tag` (id) is stable per problem: a re-page for a
+ * still-broken pipeline REPLACES the old one on the lock screen rather than stacking a second
+ * copy. The detail the owner would otherwise open the SQL editor for rides in the body.
+ *
+ * @param {{ key: string, title: string, body: string }} args
+ *   key   — the HealthAlert.key from shared/adminHealth.js; scopes the id.
+ *   title — one-line headline.
+ *   body  — the detail (e.g. the ingest error strings).
+ */
+export function buildAdminHealthAlert({ key, title, body }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.ADMIN_HEALTH]
+  return {
+    id:    `${NOTIFICATION_TYPES.ADMIN_HEALTH}:${key}`,
+    type:  NOTIFICATION_TYPES.ADMIN_HEALTH,
+    icon:  meta.icon,
+    title,
+    body,
     url:   meta.defaultUrl,
   }
 }

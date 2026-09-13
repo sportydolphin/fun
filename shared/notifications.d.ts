@@ -26,6 +26,7 @@ export const NOTIFICATION_TYPES: {
   GAME_START:      string
   MILESTONE:       string
   WPBL_GAME_START: string
+  ADMIN_HEALTH:    string
 }
 
 export const NOTIFICATION_META: Record<string, NotificationMeta>
@@ -51,6 +52,12 @@ export function buildWpblGameStart(args: {
   gameId:         string
   matchup:        string
   minutesToStart: number
+}): NotificationPayload
+
+export function buildAdminHealthAlert(args: {
+  key:   string
+  title: string
+  body:  string
 }): NotificationPayload
 
 export function buildMilestoneNear(args: {

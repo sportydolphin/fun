@@ -1,0 +1,62 @@
+name: Admin Health Alert
+
+on:
+  schedule:
+    # Every 15 minutes during the season, so a stalled pipeline reaches the owner's phone in
+    # tens of minutes rather than whenever they next open /admin. GitHub's scheduler is
+    # best-effort and throttles a busy repo's schedule events to a handful a day (the WPBL
+    # game-start workflow documents the same and leans on pg_cron for the time-critical path);
+    # this cadence is the ceiling, not a promise. If a faster guarantee is wanted, add a
+    # repository_dispatch type here and a wpbl_nudge_* pg_cron job the way that workflow does.
+    #
+    # Months 3-10 mirror the other season workflows: off-season the ingest and nightly jobs are
+    # idle, so there is nothing to break; the check exits immediately when every pipeline is
+    # healthy, so a stray off-season pass is cheap, and workflow_dispatch covers a manual one.
+    - cron: '*/15 * * * 3-10'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Leave blank for a normal run. "dry-run" reads and prints without paging; "test" sends one sample alert to the owner.'
+        required: false
+        default: ''
+
+# A run that overruns the tick should skip, not stack — the state table would otherwise be
+# written by two copies racing.
+concurrency:
+  group: admin-health-alert
+  cancel-in-progress: false
+
+jobs:
+  check-admin-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same three packages the push senders need, versions pinned from package.json so there is
+      # one source of truth. The frontend toolchain is never imported here.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','web-push','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Check admin health and alert the owner
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT:             ${{ secrets.VAPID_SUBJECT }}
+          MODE:                      ${{ inputs.mode }}
+        run: |
+          if [ "$MODE" = "test" ]; then
+            node scripts/check-admin-health.mjs --test
+          elif [ "$MODE" = "dry-run" ]; then
+            node scripts/check-admin-health.mjs --dry-run
+          else
+            node scripts/check-admin-health.mjs
+          fi
