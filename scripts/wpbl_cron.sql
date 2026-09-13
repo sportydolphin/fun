@@ -81,6 +81,7 @@ select cron.schedule(
 --   wpbl-shop-watch-nudge       */10  public.wpbl_nudge_shop_watch()
 --   wpbl-game-start-nudge       */5   public.wpbl_nudge_game_start()
 --   wpbl-tracking-listen-nudge  */5   public.wpbl_nudge_tracking_listen()
+--   admin-health-nudge          */15  public.wpbl_nudge_admin_health()  (migration 20260912233000)
 --
 -- Measured Sep 7, 2026, over the shop watcher's last sixty scheduled runs: it asks for 144 runs
 -- a day and gets 7.1, median gap 3h23m. `wpbl-youtube-sync` and `wpbl-game-start-reminders` get
@@ -122,5 +123,6 @@ select cron.schedule(
 --                             select cron.unschedule('wpbl-shop-watch-nudge');
 --                             select cron.unschedule('wpbl-game-start-nudge');
 --                             select cron.unschedule('wpbl-tracking-listen-nudge');
+--                             select cron.unschedule('admin-health-nudge');
 -- One-off FULL backfill call (also runnable from the Dashboard → Edge Functions tester,
 -- or curl): POST the function with {"mode":"all"} once to pull every game's boxscore.

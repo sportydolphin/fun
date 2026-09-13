@@ -1,17 +1,18 @@
 name: Admin Health Alert
 
 on:
+  # PG_CRON DRIVES THIS, NOT THE SCHEDULE BELOW. This is the workflow that pages the owner when a
+  # pipeline breaks, so it is the worst one to leave to GitHub's throttled scheduler (measured at
+  # 5-7 runs a day against a */10 cron). public.wpbl_nudge_admin_health() pokes it every 15 min
+  # while the season is on; the cron line is the backstop for an expired dispatch token. See
+  # scripts/migrations/20260912233000_add_admin_health_nudge.sql and scripts/wpbl_cron.sql.
+  repository_dispatch:
+    types: [admin-health]
   schedule:
-    # Every 15 minutes during the season, so a stalled pipeline reaches the owner's phone in
-    # tens of minutes rather than whenever they next open /admin. GitHub's scheduler is
-    # best-effort and throttles a busy repo's schedule events to a handful a day (the WPBL
-    # game-start workflow documents the same and leans on pg_cron for the time-critical path);
-    # this cadence is the ceiling, not a promise. If a faster guarantee is wanted, add a
-    # repository_dispatch type here and a wpbl_nudge_* pg_cron job the way that workflow does.
-    #
-    # Months 3-10 mirror the other season workflows: off-season the ingest and nightly jobs are
-    # idle, so there is nothing to break; the check exits immediately when every pipeline is
-    # healthy, so a stray off-season pass is cheap, and workflow_dispatch covers a manual one.
+    # Backstop only (see above). Months 3-10 mirror the other season workflows: off-season the
+    # ingest and nightly jobs are idle, so there is nothing to break; the check exits immediately
+    # when every pipeline is healthy, so a stray pass is cheap, and workflow_dispatch covers a
+    # manual one.
     - cron: '*/15 * * * 3-10'
   workflow_dispatch:
     inputs:
