@@ -1121,8 +1121,24 @@ export default function FanVoteCard({
               <Box sx={{ flex: 1, minWidth: chromePx(8) }} />
               {/* Overlapped, with a ring in the card's own colour so the edges stay separate
                   against a portrait behind them. `chromePx` on the overlap because it is
-                  structure: left raw it would not shrink with the art it is overlapping. */}
-              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  structure: left raw it would not shrink with the art it is overlapping.
+
+                  `isolation` IS LOAD-BEARING AND THE PILE WAS DRAWING OVER THE TOOLBAR WITHOUT
+                  IT. The faces below order themselves with `zIndex`, and a FLEX ITEM honours
+                  z-index with no `position` at all, which is the part that surprises: each face
+                  became a stacking context in the page's own order rather than in this pile's.
+                  Their nearest such ancestor was then the swipe pager, three components up,
+                  whose `transform` makes one. So as Home scrolled, these three portraits carried
+                  their own compositing past the sticky toolbar and drew ON TOP of it, crisply,
+                  while the award's name beside them slid under it correctly. It reads as a
+                  rendering glitch rather than a z-index bug precisely because the rest of the
+                  row behaves.
+
+                  One line confines them: the three indexes now compete only with each other,
+                  which is all they were ever meant to do. Ordering siblings inside a pile is
+                  what this property is for, and any pile of overlapping art that reaches for
+                  z-index wants it. */}
+              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, isolation: 'isolate' }}>
                 {faces.map((c, j) => (
                   <Box key={c.key} sx={{
                     display: 'flex', borderRadius: '50%',

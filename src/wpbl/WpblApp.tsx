@@ -21,7 +21,7 @@ import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, ty
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton } from './Home'
-import WpblStatsView, { type WpblStatsFocus } from './StatsView'
+import WpblStatsView, { carryStatsParams, type WpblStatsFocus } from './StatsView'
 import SeasonShapeCard from './SeasonShapeCard'
 import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
 import { useRowFlip, useRowDividers } from './rowFlip'
@@ -844,23 +844,43 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>(
     () => (seedTracking() ? { group: 'tracking', token: 1 } : { group: 'hitting', token: 0 }))
 
-  // "Something new here" dot for the Run value board, which lives one level deeper than a
-  // tab: it is drawn on the Stats pill AND on the chip inside it, and only opening the board
-  // retires it (see the note in lib/seen.ts). Cleared from StatsView, which is the only thing
-  // that knows the reader actually got there. Read once at mount: shouldShowBadge() consults
-  // localStorage and an expiry date, and neither changes under us mid-session.
+  // "Something new here" dots for the two boards that shipped together on the Stats tab, Bests
+  // and Find. The Stats PILL in the nav wears ONE dot to say "there is something new in here";
+  // it is retired the moment the reader is on the Stats tab, by any route, because that is the
+  // whole of what the pill was asking. Each CHIP inside then wears its own dot to point the
+  // rest of the way, retired only by opening that board (reported by StatsView via onBoardSeen).
+  // Clearing the pill does NOT touch the chips: reaching a chip means being on the tab, so the
+  // pill is always retired at or before either chip anyway. Read once at mount: shouldShowBadge()
+  // consults localStorage and an expiry date, and neither changes under us mid-session.
   //
-  // Two tabs have carried this dot before and neither does now: Teams for the v1.45.0 rebuild,
-  // Pitch by pitch for v1.47.0. Each was pulled by hand rather than left to expire, and each
-  // registration went with its call site, which is what lib/seen.ts means by deleting a badge
-  // in one go. One dot at a time: a second would land on this same Stats pill and say nothing
-  // the first had not.
-  // Which tabs are wearing a dot, and today none are. The Run value badge ('runs-v152') was
-  // retired by hand on Sep 10, 2026 the way the two before it were: the board it pointed at has
-  // been on the Stats tab for three weeks, so the dot had stopped meaning "new" and had started
-  // meaning "there is a dot here". Kept as a function rather than deleted, because it is the
-  // seam a future badge is added at, in one place, so the two navs cannot disagree about it.
-  const navBadge = (_key: string): boolean => false
+  // History, and the seam the next badge is added at: Teams carried a dot for the v1.45.0
+  // rebuild, Pitch by pitch for v1.47.0, Run value ('runs-v152'), each pulled by hand once its
+  // board had been on the tab long enough that the dot meant "there is a dot" rather than
+  // "new". Each registration goes with its call site, which is what lib/seen.ts means by
+  // deleting a badge in one go.
+  const [statsPillNew, setStatsPillNew] = useState(() => shouldShowBadge('stats-tab-v184'))
+  const [newBoards, setNewBoards] = useState<Set<string>>(() => {
+    const s = new Set<string>()
+    if (shouldShowBadge('bests-v184')) s.add('bests')
+    if (shouldShowBadge('find-v184')) s.add('find')
+    return s
+  })
+  const markBoardSeen = useCallback((key: string) => {
+    const badge = key === 'bests' ? 'bests-v184' : key === 'find' ? 'find-v184' : null
+    if (!badge) return
+    markBadgeSeen(badge)
+    setNewBoards(prev => {
+      if (!prev.has(key)) return prev
+      const next = new Set(prev); next.delete(key); return next
+    })
+  }, [])
+  const navBadge = (key: string): boolean => key === 'stats' && statsPillNew
+  // Retire the Stats pill dot the moment the reader is on the tab, whichever board opens: a
+  // tap, a swipe, or a deep link all set view to 'stats'. The chip dots inside are untouched
+  // and keep pointing at the two new boards.
+  useEffect(() => {
+    if (view === 'stats' && statsPillNew) { markBadgeSeen('stats-tab-v184'); setStatsPillNew(false) }
+  }, [view, statsPillNew])
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [feedGames, setFeedGames] = useState<WpblGame[]>([])
@@ -997,6 +1017,23 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       if (players.length) return str ? `${path}?${str}` : path
       q.set('player', s.player.id)
       return `${path}?${q.toString()}`
+    }
+
+    // THE STATS BOARD'S OWN PARAMS RIDE THROUGH, and this is the only query this function does
+    // not mint itself. `urlFor` builds a URL out of the snapshot, so anything on the address the
+    // reader arrived at and that the snapshot has never heard of is discarded the moment the
+    // mount effect below stamps the first entry. That is a beat before the Stats pane renders,
+    // so `/wpbl/stats?board=runs` opened on Players with the query already gone, for every board,
+    // since the params shipped. See STATS_URL_PARAMS for why the list lives over there.
+    //
+    // ONLY ONTO THIS TAB, and only with nothing laid over it. Carried blindly, a reader leaving a
+    // sorted board for Schedule would take `?sort=ops` with them onto a page that has no columns,
+    // and a player opened from the board would get a URL claiming a board underneath her. Reading
+    // the CURRENT search is what makes it work at all: at mount that is still the address the
+    // reader opened, and on every later navigation it is wherever they actually are, so there is
+    // nothing to carry unless they are already on this tab.
+    if (s.view === 'stats' && !s.game && !s.player && !s.awards) {
+      carryStatsParams(new URLSearchParams(window.location.search), q)
     }
 
     // A CLUB SELECTED ON ITS OWN TAB OWNS THE PATH. Selecting one opens roughly 2,800px of
@@ -1693,7 +1730,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeTop} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
-                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />
+                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoards={newBoards} onBoardSeen={markBoardSeen} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} onOpenGame={openGame} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
               })()

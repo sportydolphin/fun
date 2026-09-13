@@ -119,6 +119,14 @@ const ROUTES: Record<string, Seo> = {
     description:
       "Every source behind this site's Women's Pro Baseball League coverage: the league's own feed and calendar, the independent writers and transcribers it links to, and what was used from each.",
   },
+  // The season as a finished thing: leaders, the numbers that make this league its own, and the
+  // plays that turned its games. Written for the query it can win in November, which is "WPBL
+  // 2026 season" rather than "WPBL stats", where /wpbl/stats and every club page already compete.
+  '/wpbl/season': {
+    title: "The 2026 WPBL season in review | sportydolphin.fun",
+    description:
+      "The inaugural Women's Pro Baseball League season, in one page: batting and pitching leaders, the numbers that set this league apart, its biggest plays and its most improbable win.",
+  },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
     description:

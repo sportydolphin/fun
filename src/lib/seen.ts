@@ -33,6 +33,21 @@ const BADGES = {
   // more than a nudge can afford, and both would have landed on the same Stats pill anyway,
   // where the second one says nothing the first did not.
   'runs-v152': new Date('2026-09-22T23:59:59Z'),
+  // The Bests and Find boards, shipped together on the Stats tab. THREE keys for two boards,
+  // and the split is the point. The Stats PILL wears one dot ('stats-tab-v184'), retired by
+  // reaching the Stats tab at all: the pill's whole job is "there is something new in here",
+  // which a reader has answered the moment they are looking at the tab, whichever board opens
+  // first. Each CHIP inside then wears its own dot ('bests-v184', 'find-v184'), retired only by
+  // opening that board, to point the rest of the way. Reaching a chip means being on the tab,
+  // so the pill is always retired at or before either chip; a lone pill dot therefore always
+  // means "not looked yet", with nothing behind it to have half-cleared.
+  //
+  // Outlives the feed by a few weeks rather than expiring with it, unlike the stats-board dots
+  // above: these boards are the durable archive (single-game and query-any records survive the
+  // feed stopping), so a reader returning after the season is exactly who the dot still points.
+  'stats-tab-v184': new Date('2026-10-31T23:59:59Z'),
+  'bests-v184': new Date('2026-10-31T23:59:59Z'),
+  'find-v184': new Date('2026-10-31T23:59:59Z'),
   // Not a dot: this one gates a one-line notice above the WPBL pitching board saying ERA
   // moved from per 7 to per 9. It is here rather than in its own store because the question
   // is identical ("has this reader been told yet") and the expiry matters more here than

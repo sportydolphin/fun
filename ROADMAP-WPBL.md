@@ -599,7 +599,7 @@ item, which is about *this* season's record. It does mean `/wpbl` is no longer c
 of reasons to visit in November, so the deadline pressure here is about the snapshotting, not
 about having something to show.
 
-### 2a. The season recap page 🎯🔬: *scoped Sep 8, 2026, and wanted next*
+### 2a. The season recap page 🎯🔬: ✅ **shipped Sep 13, 2026 as `/wpbl/season`** (see the log). The diamond, the baserunning read and a postseason section are the open remainder; ✅ **the best-game lines shipped the same day as the Bests board** (see the log), which answers them in more depth than this page wanted and which `/wpbl/season` should link to rather than duplicate
 
 #2 above is the RECORD. This is the READ of it: one page that says what the first season of
 professional women's baseball was actually like, for somebody who did not watch it. #2 lists "a
@@ -1085,6 +1085,211 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 13, 2026: three portraits were drawing on top of the toolbar
+
+**Scrolling Home, the Fan awards face piles punched through the sticky bar.** The award's name
+slid under it correctly and the three portraits beside it did not: they drew crisply over the
+chrome, which reads as a rendering glitch rather than as a z-index bug precisely because the rest
+of the row behaves.
+
+**A FLEX ITEM HONOURS `z-index` WITH NO `position` AT ALL**, which is the part that surprises and
+is the whole of the bug. The faces order themselves `3, 2, 1` so the pile reads left to right in
+seeded order, and with no containing stacking context each one became a stacking context in the
+PAGE's order rather than in the pile's. Their nearest such ancestor was then the swipe pager
+three components up, whose `transform` makes one, so the portraits carried their own compositing
+past the toolbar. **Hit testing says the bar is on top the whole time**, which is why this has to
+be found by looking: `elementFromPoint` across the whole bar band returns the toolbar at every
+pixel, before the fix and after it.
+
+`isolation: 'isolate'` on the pile's container. One line, and the three indexes now compete only
+with each other, which is all they were ever meant to do. A runtime sweep for the same shape
+found three more escapees on Home (the section nav row and the scoreboard's two hover-scroll
+zones) and all three draw correctly, the nav because it is meant to sit above the content and the
+zones because they are transparent.
+
+**Not pinned by a test, deliberately.** jsdom has no layout and no compositor, so nothing in the
+suite can see this; a source-level check for two strings in one file would break on any refactor
+and prove nothing. It is the same class as the fixed-px rules in CLAUDE.md, where the only check
+that works is opening the page and looking. The reasoning is written at the call site instead.
+
+### Sep 13, 2026: ask the season a question it has not been asked
+
+**`/wpbl/stats?board=find`.** Every other board answers a question somebody thought to put on a
+board. This answers the rest: how often has anyone struck out five in a game, who has gone four
+for four more than once, has a pitcher ever walked nobody through five, what happens to Boston on
+the road. Up to six `stat op value` conditions over every stored box-score line, ANDed, plus
+club, opponent, home/away and the season slice. Sixteen fields a side, which is every number the
+feed puts on a line plus the two sums a reader plainly means (times on base, baserunners
+allowed): a finder whose fields are a curated subset is a board with extra steps.
+
+**TWO ANSWERS, NOT ONE, and the second is the better one.** The list of matching games says when
+it happened; the tally beside it says who does it, which is the question behind most of the
+questions people bring, and it is free once the matching is done. Stathead charges for that half.
+
+**IT IS ONLY TRACTABLE BECAUSE OF THE SCALE, which is worth writing down.** Baseball Reference
+built Stathead because MLB has millions of game lines and no browser can sort them. The WPBL's
+entire season is about 750, already in memory when the tab opens. So the query engine is a
+`filter` and a `sort`: no index, no RPC, no new table, no new request. The searching was never
+the hard part of this feature at this league's size, and that is the general answer to "could we
+build Stathead here".
+
+**Four decisions that are stopping points rather than omissions.** Every condition is AND: "five
+strikeouts and no walks" is a question people ask out loud, "five strikeouts or no walks" is not,
+and a boolean tree would have cost the whole UI. An unrecognised field matches NOTHING rather
+than being dropped, because a dropped condition answers a wider question than the URL asked and
+the reader cannot see it happen, where an empty result is visibly the wrong shape. The result
+list caps at ten with the rest behind a tap, the section's own rule: uncapped, a question
+matching fifty games pushed the tally two screens below the fold on anything narrower than a
+desktop. And **innings are the one field whose typed unit is not its stored one**: "4.2" is four
+and two thirds, so the value control is a text input parsed with `ipToOuts` rather than a number
+input whose own stepper would offer 4.3, an innings figure that does not exist.
+
+**The query is ONE param and it is readable.** `?board=find&q=so.gte.5~bb.lte.1` rather than
+seven keys or a blob of base64. Seven keys would mean every new control is also an edit to the
+list WpblApp carries across a navigation and a fresh chance to forget one; base64 would mean a
+link that looks like a tracking string. Every character in the grammar is URL-safe unencoded,
+which `>=` would not have been. Pinned, along with the decoder refusing a field from the wrong
+side of the ball, in `finder.test.ts`.
+
+**The row is shared with Bests now** ([`GameLineRow.tsx`](src/wpbl/GameLineRow.tsx)). Two boards
+asking different questions and returning the same kind of answer would have been two rows that
+looked alike until one of them got a fix, and the first thing to drift would have been the
+identity rules on it: the club comes off the LINE and the two links cannot nest.
+
+Seventeen tests in `src/wpbl/__tests__/finder.test.ts`, written around the thing that makes a
+search different from a board: a board that is wrong shows a number nobody expected, and a search
+that is wrong shows a shorter list, which looks exactly like the honest answer.
+
+### Sep 13, 2026: a pasted board link opens the board it names
+
+**Every `?board=` link into the Stats tab was dead on a cold load, for every board, since the
+params shipped.** Paste `/wpbl/stats?board=runs` into a fresh tab and it opened on Players with
+the query already tidied out of the address bar. Switching boards in-session writes the param
+correctly, which is the expensive half: the link a reader copies off the address bar is right,
+and the same link pasted back quietly puts them somewhere else, so nothing about it looks broken
+from either end.
+
+**`urlFor` builds a URL out of the navigation snapshot and nothing else**, and the effect that
+stamps the section's first history entry calls it on mount. So anything on the address the
+reader arrived at that the snapshot has never heard of is discarded in the first tick, a beat
+before the Stats pane renders. Traced by hooking `history.replaceState` and watching the one
+call that did it. **This is the third member of a family already written into the file twice**:
+the ballot link lost its sheet the same way (fixed by teaching the snapshot about `awards`), a
+club slug lost its club, and `#play-79` lost its fragment, which needed `entryUrl.ts` to capture
+the address before anything could rewrite it. These four params are not snapshot state, they are
+a board's own view of itself, so `urlFor` carries whatever it finds under those names when the
+target is that tab and nothing is laid over it. Carried blindly instead, a reader leaving a
+sorted board for Schedule would take `?sort=ops` onto a page with no columns.
+
+**The existing test file passed through the whole of the bug**, which is the part worth keeping.
+`statsUrlState.test.tsx` renders StatsView on its own and sets the address bar itself, so all
+nine of its tests measured the half that always worked. It now also covers the cold load: that
+the writer and the carrier know the same four names (the original bug is exactly what happens
+when they do not, the writer knowing all four and the carrier none), and a SOURCE check that the
+call exists at all, since `urlFor` is a closure over component state and cannot be reached from a
+unit test. Verified by deleting the call and watching it go red.
+
+### Sep 13, 2026: the league gets a record book
+
+**`/wpbl/stats?board=bests`, a third board beside Players and Teams.** Every other board on the
+tab aggregates, and so answers "who was good this season". Nothing anywhere answered *what is
+the most strikeouts anyone has thrown in a game*, which is the question a fan asks out loud and
+the one a record book is made of. Six hitting boards (total bases, RBI, hits, home runs, times
+on base, steals) and four pitching ones (strikeouts, innings, longest scoreless outing, pitches)
+ranking individual box-score lines, each row carrying the line it came from and linking to both
+the player and the night.
+
+**IT COST NO FETCH, WHICH IS WHY IT WAS CHEAP.** `fetchWpblAllLines` is cached app-wide and
+every line carries its own `game_id`, so the whole board is a sort over arrays the Stats tab
+already held when it opened: no request, no table, no column, no migration. That is the general
+shape of the answer to "can we build Stathead here" and it is worth writing down: the league's
+entire season is about 750 box-score lines, where Stathead exists because MLB has millions. The
+query engine is not the hard part in this league. The calibration is.
+
+**AND THAT IS WHY THERE IS NO GAME SCORE.** The obvious version of this board is Bill James's
+formula, and it was computed over all 142 stored pitching lines before anything was built. It
+does not work here, and the reason is structural rather than a matter of taste: the formula
+spends 50 of its points before an out is recorded, and the longest outing this league has ever
+seen is 5.1 IP. So a two-inning relief cameo with no baserunners and three strikeouts scores 59
+against the season's best start, Ayami Sato's five scoreless, at 61. Shifting the innings bonus
+to "after the 3rd" for a seven-inning league re-sorts the same pile. A 9-inning constant applied
+to a league that never stretches a starter past five does not separate anything. **Longest
+scoreless outing** is on the board instead: it is the part of the question a box score can
+settle without inventing a constant, it is ranked by LENGTH so a tidy single inning cannot
+outrank a long shutout, and it counts unearned runs, because a pitcher who gave up a run on an
+error did not throw a scoreless outing whoever the box score charges it to. The honest composite
+prices an outing against `derive/runExpectancy.ts`, which is built from this league's own plays
+and already knows a WPBL inning is worth roughly double a major-league one; that needs the play
+log, which this board deliberately does not fetch. It is the obvious next thing here.
+
+**TIES SHARE A RANK, AND THE CUT EXTENDS THROUGH ONE.** Both are ordinary here rather than edge
+cases: the strikeout record is held jointly, three ways, and the hits board is seven players deep
+at four. Numbering those 1, 2, 3 would be the site inventing a winner between people who did the
+same thing, and taking a flat top five would publish "the five best" while silently dropping
+somebody who did exactly what the fifth did, which is the one error a records board cannot make.
+
+**Four things it had to get right, all of them the section's existing traps.** The club comes off
+the LINE and never off the roster row, so a traded player's August record is filed under the club
+she played it for. It is finals only, so a half-finished line cannot stand as a record; the cost
+is that a game whose status goes BACKWARDS drops off until it settles, which is visible and
+self-correcting, where the opposite failure is neither. The schedule is a required argument, for
+the same reason it is on `sumBatting`. And the scope chips now reach this board, which matters
+more here than on the season table: a postseason record is its own book rather than the same
+number counted over more games, so folding the two would quietly overwrite a league record with a
+playoff one. The intro sentence counts the SCOPED games for the same reason, since "4 playoff
+games" under a playoff board and "30 regular-season games" under the season one is the difference
+between a page that agrees with itself and one that does not.
+
+**One bug found by clicking rather than by a test.** Both links on a row render as a real
+`<a href>`, and `build` in `LinkContext` hands back an onClick that preventDefaults and then
+calls the opener: built with no opener, a link renders, highlights, shows its URL in the status
+bar and does nothing at all when clicked, with only cmd-click still working. Every other link
+in the section passes a callback and this one did not, which is what made `WpblStatsView` start
+taking an `onOpenGame`. Nothing types this and nothing tests it; it was found by pressing the
+link. Also worth keeping: the two destinations cannot NEST, since an `<a>` inside an `<a>` is
+silently unpicked by the browser, so the row is a plain container holding two anchors rather
+than the whole-row tap target `LeaderRow` gives every other board.
+
+**And one claim that was written as prose and is now derived.** "Nobody in this league has
+finished a game" is the most interesting fact on the innings board, and as a flat sentence in
+the blurb it would have kept reading exactly as confidently the day somebody threw a complete
+game. A sentence is not a number and no test watches prose. It is computed off the same leading
+value the board ranks, against `REGULATION_INNINGS`, so the claim and its evidence cannot
+disagree. `bests.test.ts` pins both branches.
+
+Twelve tests in `src/wpbl/__tests__/bests.test.ts`, and `BestsView.tsx` is enrolled in the type
+scale from its first line.
+
+### Sep 13, 2026: the season, read back
+
+**`/wpbl/season`**, the recap page (#2a). One page that says what the first season of professional
+women's baseball was actually like for somebody who did not watch it: the leaders, the numbers that
+make this league its own, its most improbable win and the plays its games turned on. A fourth
+footer-linked sibling on the same terms as the league, glossary and sources pages, out of the nav.
+
+**COMPOSITION, NOT NEW DATA.** Every number on it comes from the box-score lines and the play log
+the section already caches, run through the aggregates that already exist: `sumBatting`/`sumPitching`
+for the league totals, `aggregateBatting`/`aggregatePitching` plus `wpblQualifiers` for the leader
+boards, and the win-probability model (`winProbModel` → `gameWinProb` → `swingOfGame`) walked once
+per regular-season final for the biggest plays and the deepest comeback. No fetch the section did not
+already make, no table, no new derive.
+
+**REGULAR SEASON ONLY, EVERYWHERE, BY CONSTRUCTION.** The fun facts and the biggest-plays walk gate
+on `countsInStandings`, and the leader aggregates default to the regular-season scope, so a
+postseason box score cannot move a season number here for the same reason it cannot on the Stats
+tab. The postseason section is a later addition; until then the page is honest about being the
+regular-season record.
+
+**IT VALIDATED ITSELF ON THE WAY UP.** The numbers it computed match the ones recorded by hand under
+#2a on Sep 8 (277 walks to 269 strikeouts, 57 home runs, zero triples, 14-16 at home), and the most
+improbable win it surfaced is the SF 11-9 over New York on Aug 30 that the `/games` truncation trap
+nearly cost us a row for: San Francisco won from a low of 2%.
+
+**DEFERRED: the best-at-each-position diamond**, which #2a calls the centrepiece and the most
+shareable piece. It is the one block that is drawn rather than composed, so it is its own build; the
+page ships without it rather than waiting on it. Still open too: the baserunning-value read, the
+single best game line of each kind, and a postseason section after Sep 22.
 
 ### Sep 12, 2026: one page saying where all of it came from
 

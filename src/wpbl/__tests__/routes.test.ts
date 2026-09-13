@@ -30,6 +30,7 @@ import {
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
   isWpblGlossaryPage,
   isWpblSourcesPage,
+  isWpblSeasonPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
   WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, isCanonicalComparePath,
@@ -697,6 +698,38 @@ describe('/wpbl/sources, the provenance page', () => {
   // detail; if that pointer goes, the provenance is orphaned from the page that promises it.
   it('is what the Terms page points at for provenance', () => {
     expect(legalSource).toContain('/wpbl/sources')
+  })
+})
+
+describe('/wpbl/season, the season recap', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/season\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/season\/\s+\/wpbl\/season\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/wpbl/season': {")
+    expect(seoSource).toMatch(/'\/wpbl\/season':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/season</loc>')
+  })
+
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblSeasonPage('/wpbl/season')).toBe(true)
+    expect(isWpblSeasonPage('/wpbl/season/')).toBe(true)
+    expect(isWpblSeasonPage('/wpbl/seasons')).toBe(false)
+    expect(isWpblSeasonPage('/wpbl/season/extra')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/season')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/season')).toBe(false)
+  })
+
+  // No nav pill by design, so the footer is the only way in for a reader and the only link a
+  // crawler can follow. This is the page written to be found cold after the feed stops, which
+  // makes an orphaned copy of it worth nothing.
+  it('is linked from the site footer', () => {
+    expect(footerSource).toContain('WPBL_SEASON_PAGE')
   })
 })
 

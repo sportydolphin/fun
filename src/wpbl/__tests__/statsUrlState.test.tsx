@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { WpblTeam } from '../types'
 
 // The sorted column in the address bar, so a refresh lands where the reader was.
@@ -29,7 +31,7 @@ vi.mock('../api', async (importOriginal) => ({
   wpblStatsCacheAgeMs: () => 0,
 }))
 
-const { default: StatsView } = await import('../StatsView')
+const { default: StatsView, STATS_URL_PARAMS, carryStatsParams } = await import('../StatsView')
 
 const TEAMS: WpblTeam[] = [{
   id: 'SF', city: 'SF', name: 'SF', abbr: 'SF', color: null, color_secondary: null,
@@ -96,5 +98,62 @@ describe('the stats view in the address bar', () => {
     )
     await screen.findByText('Hitting')
     expect(url()).toBe('/wpbl/schedule')
+  })
+
+  // Matched on the empty state rather than on the board's own prose, because this harness
+  // renders with no games: that message is BestsView's alone, so seeing it is proof the named
+  // board is the one that opened, and the url surviving is proof the seed was not ignored.
+  it('opens on the board a pasted link names', async () => {
+    at('/wpbl/stats?board=bests')
+    draw()
+    expect(await screen.findByText('No games in this slice yet')).toBeTruthy()
+    expect(url()).toBe('/wpbl/stats?board=bests')
+  })
+})
+
+// ─── The cold load, which is where all of this was broken ────────────────────────
+//
+// EVERY TEST ABOVE PASSED THROUGH THE WHOLE OF THE BUG. They render StatsView on its own and
+// set the address bar themselves, so they measure the half that always worked. The half that
+// did not is one level up: `urlFor` in WpblApp builds a URL out of the navigation snapshot and
+// nothing else, and the effect that stamps the section's first history entry calls it on mount,
+// a beat before this pane renders. So a COLD LOAD of /wpbl/stats?board=runs had its query wiped
+// before anything here could read it, and opened on Players with the address bar tidied to
+// /wpbl/stats. Every board, since the params shipped. Found by pasting a link, not by a test.
+describe('the params a cold load arrives with', () => {
+  it('copies the board params onto a url and touches nothing else', () => {
+    const from = new URLSearchParams('board=bests&side=pitching&sort=so&dir=asc&utm_source=x')
+    const to = new URLSearchParams('game=abc')
+    carryStatsParams(from, to)
+    expect(to.toString()).toBe('game=abc&board=bests&side=pitching&sort=so&dir=asc')
+  })
+
+  it('carries nothing when there is nothing of ours to carry', () => {
+    const to = new URLSearchParams()
+    carryStatsParams(new URLSearchParams('utm_source=x'), to)
+    expect(to.toString()).toBe('')
+  })
+
+  // THE WRITER AND THE CARRIER HAVE TO KNOW THE SAME FOUR NAMES, and the original bug is what
+  // happens when they do not: the writer knew all of them and the carrier knew none. A fifth
+  // param added to the effect and not to the list would be written to the address bar, copied
+  // by a reader, and silently dropped on the way back in.
+  it('names every param the writer actually writes', async () => {
+    at('/wpbl/stats')
+    draw()
+    fireEvent.click(await screen.findByText('Pitching'))
+    fireEvent.click(await screen.findByText('Run value'))
+    const keys = [...new URLSearchParams(window.location.search).keys()]
+    expect(keys.length).toBeGreaterThan(0)
+    for (const k of keys) expect(STATS_URL_PARAMS).toContain(k)
+  })
+
+  // A SOURCE CHECK, DELIBERATELY. `urlFor` is a closure over WpblApp's component state and is
+  // not exported, so the wiring cannot be reached from a unit test, and rendering the whole
+  // section to assert one line of address bar would be a slow test of everything else. What
+  // broke was that this call did not exist at all, and that is a thing a file can be asked.
+  it('is wired into the url WpblApp builds for this tab', () => {
+    const src = readFileSync(join(process.cwd(), 'src/wpbl/WpblApp.tsx'), 'utf8')
+    expect(src).toContain('carryStatsParams(')
   })
 })

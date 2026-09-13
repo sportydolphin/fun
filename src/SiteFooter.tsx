@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
-import { WPBL_PLAYERS_INDEX, WPBL_LEAGUE_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE } from './wpbl/routes'
+import { WPBL_PLAYERS_INDEX, WPBL_LEAGUE_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE, WPBL_SEASON_PAGE } from './wpbl/routes'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -68,6 +68,13 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
             <Box component="a" href={WPBL_PLAYERS_INDEX} onClick={e => { e.preventDefault(); onNavigate(WPBL_PLAYERS_INDEX) }} sx={linkSx}>WPBL players</Box>
             <Dot />
             <Box component="a" href={WPBL_LEAGUE_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_LEAGUE_PAGE) }} sx={linkSx}>The league</Box>
+            <Dot />
+            {/* The one link that takes the row past four, which the note above says stops it
+                fitting a phone on one line. It wraps to a second line there and that is the right
+                trade: like the three pages beside it the season page has no nav pill, so the
+                footer is a reader's only way in and a crawler's only link to follow. Keyword-shaped
+                anchor for the same reason as the rest. */}
+            <Box component="a" href={WPBL_SEASON_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SEASON_PAGE) }} sx={linkSx}>2026 season</Box>
             <Dot />
             <Box component="a" href={WPBL_GLOSSARY_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_GLOSSARY_PAGE) }} sx={linkSx}>Rules &amp; glossary</Box>
             <Dot />

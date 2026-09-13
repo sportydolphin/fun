@@ -20,6 +20,12 @@ const ADOPTED = [
   'src/wpbl/GamePreview.tsx',
   'src/wpbl/RecapCard.tsx',
   'src/wpbl/PlayoffBracket.tsx',
+  // Written against the scale from its first line rather than converted to it, which is what
+  // adoption should look like from here: a new file has no legacy sizes to argue with, so the
+  // only reason not to enrol it is forgetting to.
+  'src/wpbl/BestsView.tsx',
+  'src/wpbl/GameLineRow.tsx',
+  'src/wpbl/FindView.tsx',
 ]
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')

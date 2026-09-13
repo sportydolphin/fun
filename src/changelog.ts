@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.84.0',
+    date:    '2026-09-13',
+    title:   'Two new ways into the stats',
+    changes: [
+      {
+        short: 'Bests: the best single game anyone has had, by each measure',
+        full:  'A record book of single games rather than whole seasons. The most total bases in a game, the most strikeouts thrown, the longest scoreless outing, and a handful more, each row a real night with a link straight into that box score. Tied numbers share a rank, because in a four-club league a single-game record is usually held jointly.',
+      },
+      {
+        short: 'Find: search every box-score line for the games that match',
+        full:  'Ask the questions no leaderboard was built for: how often has anyone struck out five in a game, who has gone four for four more than once, has a pitcher walked nobody through five. Stack up conditions, narrow by club, opponent and home or away, and get two answers at once, the games that match and who has done it most. The whole question lives in the address, so you can send somebody the search rather than describing it.',
+      },
+    ],
+  },
+  {
     version: '1.83.0',
     date:    '2026-09-12',
     title:   'Put any two players side by side',

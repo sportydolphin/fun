@@ -505,6 +505,23 @@ export const WPBL_SOURCES_PAGE = `${WPBL_BASE}/sources`
 export const isWpblSourcesPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_SOURCES_PAGE
 
+// ─── The season recap page ─────────────────────────────────────────────────────
+//
+// A fourth sibling, on the same footing as the league, glossary and sources pages: a real path
+// linked from the footer and absent from WPBL_NAV, so the pills never grow a destination it has
+// not earned from the events. It is the one page here whose whole subject is the season as a
+// finished thing rather than as a set of live games, which is why it wants its own URL rather
+// than a card on Home: after Sep 22 it is the READ of the record the archive keeps, and a
+// reader arriving cold in November wants "what happened", not today's scoreboard.
+//
+// `/wpbl/season` rather than `/wpbl/2026`: today there is one season and this is it. If the feed
+// ever returns for a second, this becomes the current-season page and the year-stamped ones hang
+// off it, which the year-first spelling could not do without a redirect.
+export const WPBL_SEASON_PAGE = `${WPBL_BASE}/season`
+
+export const isWpblSeasonPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_SEASON_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

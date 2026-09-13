@@ -45,6 +45,10 @@ const STATIC: Entry[] = [
   // Durable rather than daily: it changes when the roster does, and it is the one page here
   // that still says something after the feed stops.
   { loc: '/wpbl/league', changefreq: 'monthly', priority: '0.7' },
+  // The season in review. Monthly rather than daily: its leaders and totals are frozen once
+  // the season is final, and a scoring correction is the only thing that moves them after that.
+  // High priority because it is the page written to be found cold after the feed stops.
+  { loc: '/wpbl/season', changefreq: 'monthly', priority: '0.8' },
   // Yearly, and that is the point of it: the rules do not move with the season, so this is
   // one of the two pages here still worth serving in February.
   { loc: '/wpbl/glossary', changefreq: 'yearly', priority: '0.7' },

@@ -1,0 +1,572 @@
+// /wpbl/season: the inaugural season as a finished thing.
+//
+// EVERY OTHER SURFACE HERE IS ABOUT TODAY. The scoreboard, the standings, Home's Next game: all
+// of them answer "what is happening now", which is the right question until Sep 22 and a dead one
+// after it. This page answers "what happened", which is the question that still has an audience in
+// November, and it is the read of the record the archive keeps (ROADMAP-WPBL.md #2a). So it is
+// composition, not new data: every number below comes from the same box-score lines and play log
+// the rest of the section already caches, run through the same aggregates.
+//
+// REGULAR SEASON ONLY, on purpose and everywhere. `countsInStandings` gates the fun facts and the
+// biggest-plays walk, and the leader aggregates default to the regular-season scope, so a
+// postseason box score cannot move a season number here any more than it can on the Stats tab. A
+// postseason section is a later addition (the feed's bracket runs to Sep 22); until then the page
+// is honest about being the regular-season record.
+//
+// NO NAV PILL, like the league, glossary and sources pages beside it: a real path linked from the
+// footer, which is the crawl path that has actually worked. See WPBL_SEASON_PAGE in routes.ts.
+import { useEffect, useMemo, useState } from 'react'
+import { Box, Typography, CircularProgress } from '@mui/material'
+import {
+  fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines,
+  fetchWpblAllRunValuePlays, fetchWpblBattedBalls,
+} from './api'
+import SprayChart from './SprayChart'
+import {
+  aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances,
+  sumBatting, sumPitching, fmtRate, fmtTwo,
+  type WpblBatSeason, type WpblPitSeason,
+} from './stats'
+import { countsInStandings } from './season'
+import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
+import { wpblPlayerPath, wpblGamePath } from './routes'
+import { wpblColor } from './constants'
+import { TAPPABLE, FOCUS_RING, hoverOnly, pressable } from './ui'
+import { navBack } from '../nav'
+import type {
+  WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
+  WpblSprayPlay,
+} from './types'
+
+/** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
+ *  hitters ('S') and unknowns fall outside the two toggle states and simply are not counted in
+ *  either, the same way the per-batter spray chart leaves a switch hitter out of its pull rate. */
+const batSide = (bats: string | null | undefined): string => (bats ?? '').trim().toUpperCase()[0] ?? ''
+
+const isModified = (e: React.MouseEvent) =>
+  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+
+// ─── Leader boards ──────────────────────────────────────────────────────────────
+// One accessor per category. `null` from the accessor drops the row (no denominator), which is
+// what keeps a pitcher with no innings off the ERA board rather than sorting them to the top.
+
+type BatKey = { label: string; get: (t: WpblBatSeason['totals']) => number | null; fmt: (v: number) => string; asc?: boolean; rate?: boolean }
+type PitKey = { label: string; get: (t: WpblPitSeason['totals']) => number | null; fmt: (v: number) => string; asc?: boolean; rate?: boolean }
+
+const asInt = (v: number) => String(v)
+
+const BAT_BOARDS: BatKey[] = [
+  { label: 'AVG', get: t => t.avg, fmt: fmtRate, rate: true },
+  { label: 'OPS', get: t => t.ops, fmt: fmtRate, rate: true },
+  { label: 'Home runs', get: t => t.hr, fmt: asInt },
+  { label: 'RBI', get: t => t.rbi, fmt: asInt },
+  { label: 'Hits', get: t => t.h, fmt: asInt },
+  { label: 'Stolen bases', get: t => t.sb, fmt: asInt },
+]
+
+const PIT_BOARDS: PitKey[] = [
+  { label: 'Wins', get: t => t.w, fmt: asInt },
+  { label: 'ERA', get: t => t.era, fmt: fmtTwo, asc: true, rate: true },
+  { label: 'Strikeouts', get: t => t.so, fmt: asInt },
+  { label: 'WHIP', get: t => t.whip, fmt: fmtTwo, asc: true, rate: true },
+  { label: 'Saves', get: t => t.s, fmt: asInt },
+]
+
+const TOP_N = 3
+
+/** Rank a set of season lines by one accessor, dropping nulls and (for a rate title) anyone
+ *  short of the qualifying bar. Ties break on the value alone; a stable enough order for three
+ *  rows. */
+function rankBatting(seasons: WpblBatSeason[], board: BatKey, minPa: number, active: boolean): WpblBatSeason[] {
+  const eligible = seasons.filter(s => {
+    if (board.get(s.totals) == null) return false
+    if (board.rate && active && plateAppearances(s.totals) < minPa) return false
+    return true
+  })
+  eligible.sort((a, b) => {
+    const av = board.get(a.totals)!, bv = board.get(b.totals)!
+    return board.asc ? av - bv : bv - av
+  })
+  return eligible.slice(0, TOP_N)
+}
+
+function rankPitching(seasons: WpblPitSeason[], board: PitKey, minOuts: number, active: boolean): WpblPitSeason[] {
+  const eligible = seasons.filter(s => {
+    if (board.get(s.totals) == null) return false
+    if (board.rate && active && s.totals.outs < minOuts) return false
+    // A save or win board should not be topped by someone with one appearance and a fluke; but
+    // counting stats are their own qualifier (you cannot accumulate them without playing), so
+    // only the rate boards gate. The `w`/`s` boards drop a zero via the value sort naturally.
+    return true
+  })
+  eligible.sort((a, b) => {
+    const av = board.get(a.totals)!, bv = board.get(b.totals)!
+    return board.asc ? av - bv : bv - av
+  })
+  // Drop trailing zeros on a counting board so "Saves" does not list three players tied at 0.
+  const nonZero = eligible.filter(s => (board.get(s.totals) ?? 0) > 0)
+  return (nonZero.length ? nonZero : eligible).slice(0, TOP_N)
+}
+
+// ─── Biggest plays / most improbable win ─────────────────────────────────────────
+
+interface BigPlay {
+  game: WpblGame
+  narrative: string
+  /** Win probability for the eventual winner, before and after the play. */
+  winnerBefore: number
+  winnerAfter: number
+  teamId: string | null
+}
+
+interface Comeback {
+  game: WpblGame
+  /** The lowest win probability the eventual winner held at any point. */
+  low: number
+  winnerId: string
+}
+
+/** The eventual winner's win probability at a point, from the home-side number the model stores. */
+const winnerProb = (homeSide: number, homeWon: boolean) => (homeWon ? homeSide : 1 - homeSide)
+
+// ─── Small presentational bits ────────────────────────────────────────────────────
+
+function StatTile({ value, label, sub, highlight }: { value: string; label: string; sub?: string; highlight?: boolean }) {
+  return (
+    <Box sx={{
+      borderRadius: 2, p: { xs: 1.5, sm: 2 },
+      border: '1px solid', borderColor: highlight ? 'var(--wpbl-accent-solid)' : 'divider',
+      bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', gap: 0.25,
+    }}>
+      <Typography sx={{
+        fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 800, lineHeight: 1.05,
+        color: highlight ? 'var(--wpbl-accent-fg)' : 'text.primary',
+      }}>{value}</Typography>
+      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
+      {sub && <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary', lineHeight: 1.3 }}>{sub}</Typography>}
+    </Box>
+  )
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography component="h2" sx={{ fontSize: '1.15rem', fontWeight: 800, mt: 4, mb: 1.5 }}>
+      {children}
+    </Typography>
+  )
+}
+
+export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string) => void }) {
+  const [players, setPlayers] = useState<WpblPlayer[]>([])
+  const [teams, setTeams] = useState<WpblTeam[]>([])
+  const [games, setGames] = useState<WpblGame[]>([])
+  const [batting, setBatting] = useState<WpblBattingLine[]>([])
+  const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
+  const [plays, setPlays] = useState<WpblRunValuePlay[]>([])
+  const [battedBalls, setBattedBalls] = useState<WpblSprayPlay[]>([])
+  const [hand, setHand] = useState<'R' | 'L'>('R')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    // The four reads the leaders and fun facts need. All cached app-wide by the api layer, so on
+    // a reader who has already been to Home or Stats this resolves from memory. Gated together
+    // because the page has nothing to show without the lines and the schedule.
+    Promise.all([
+      fetchWpblAllPlayers(), fetchWpblTeams(), fetchWpblSchedule(), fetchWpblAllLines(),
+    ]).then(([p, t, g, lines]) => {
+      if (cancelled) return
+      setPlayers(p); setTeams(t); setGames(g)
+      setBatting(lines.batting); setPitching(lines.pitching)
+    }).catch(() => { /* the empty state below is the whole error path */ })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  // The play log is the biggest read on the page and only the biggest-plays and improbable-win
+  // blocks want it, so it is separate and never gates the leaders above it. A slow or failed
+  // play read leaves those two blocks out and the rest of the page whole.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblAllRunValuePlays().then(p => { if (!cancelled) setPlays(p) }).catch(() => { /* blocks omit themselves */ })
+    return () => { cancelled = true }
+  }, [])
+
+  // The spray chart's own read: every batted ball the narrative could place. Its own effect, and
+  // allowed to never arrive, for the same reason the play log is: the leaders and fun facts above
+  // it do not wait on it and the section simply omits the chart until it lands.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblBattedBalls().then(b => { if (!cancelled) setBattedBalls(b) }).catch(() => { /* section omits itself */ })
+    return () => { cancelled = true }
+  }, [])
+
+  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+
+  const batSeasons = useMemo(() => aggregateBatting(players, batting, games), [players, batting, games])
+  const pitSeasons = useMemo(() => aggregatePitching(players, pitching, games), [players, pitching, games])
+
+  // League totals, regular season, for the fun facts. sumBatting/sumPitching default to the
+  // regular scope, so the postseason is already out.
+  const leagueBat = useMemo(() => sumBatting(batting, games), [batting, games])
+  const leaguePit = useMemo(() => sumPitching(pitching, games), [pitching, games])
+
+  const regFinals = useMemo(
+    () => games.filter(g => g.status === 'final' && countsInStandings(g)),
+    [games],
+  )
+
+  // The batted balls behind the spray chart: regular season only (a Set of the finals' ids), and
+  // split by the batter's side of the plate. The join is batter_id -> roster `bats`, because a
+  // batted-ball row carries no handedness of its own. Switch hitters fall into neither side, so
+  // the two views together are slightly fewer than every ball, which the chart's own count shows.
+  const battedByHand = useMemo(() => {
+    const side = new Map(players.map(p => [p.id, batSide(p.bats)]))
+    const regularIds = new Set(regFinals.map(g => g.id))
+    return battedBalls.filter(p => regularIds.has(p.game_id) && side.get(p.batter_id) === hand)
+  }, [battedBalls, players, regFinals, hand])
+
+  // Home record: one hub venue means "home" is only batting last, so this is the cleanest read
+  // any league can produce on whether batting last is worth anything.
+  const homeRecord = useMemo(() => {
+    let w = 0, l = 0
+    for (const g of regFinals) {
+      if (g.home_score == null || g.away_score == null || g.home_score === g.away_score) continue
+      if (g.home_score > g.away_score) w++; else l++
+    }
+    return { w, l }
+  }, [regFinals])
+
+  // Biggest plays and the most improbable win, both a walk of the same per-game win-probability
+  // model. Built only once the plays are in; empty until then.
+  const { bigPlays, comeback } = useMemo(() => {
+    if (plays.length === 0 || regFinals.length === 0) return { bigPlays: [] as BigPlay[], comeback: null as Comeback | null }
+    const model = winProbModel(plays, games)
+    const byGame = new Map<string, WpblRunValuePlay[]>()
+    for (const p of plays) {
+      const arr = byGame.get(p.game_id) ?? []
+      arr.push(p); byGame.set(p.game_id, arr)
+    }
+    const big: BigPlay[] = []
+    let best: Comeback | null = null
+    for (const g of regFinals) {
+      const gp = byGame.get(g.id)
+      if (!gp || gp.length === 0) continue
+      if (g.home_score == null || g.away_score == null || g.home_score === g.away_score) continue
+      const homeWon = g.home_score > g.away_score
+      const wp = gameWinProb(model, gp, g)
+
+      // One play per game, the one it turned on. swingOfGame prefers the decisive play (largest
+      // swing toward the winner) over the merely most volatile one, which is the same choice
+      // Game Center's badge makes; ranking one per game keeps a single blowout from filling the
+      // whole list with its own at-bats.
+      const swing = swingOfGame(wp, g.status)
+      if (swing) {
+        big.push({
+          game: g,
+          narrative: swing.point.play.narrative ?? 'Big play',
+          winnerBefore: winnerProb(swing.point.before, homeWon),
+          winnerAfter: winnerProb(swing.point.after, homeWon),
+          teamId: swing.point.play.team_id ?? null,
+        })
+      }
+
+      // The lowest the eventual winner ever sat. A wire-to-wire winner never drops far below
+      // 0.5; a comeback does, and the deepest one across the season is the most improbable win.
+      let low = 1
+      for (const pt of wp.points) low = Math.min(low, winnerProb(pt.before, homeWon))
+      if (low < 0.5 && (!best || low < best.low)) {
+        best = { game: g, low, winnerId: homeWon ? g.home_team_id : g.away_team_id }
+      }
+    }
+    // Sort the plays by how far they moved the winner, and keep a handful.
+    big.sort((a, b) => (b.winnerAfter - b.winnerBefore) - (a.winnerAfter - a.winnerBefore))
+    return { bigPlays: big.slice(0, 6), comeback: best }
+  }, [plays, games, regFinals])
+
+  if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+  }
+
+  const gameCount = regFinals.length
+  const hasData = gameCount > 0 && leagueBat.ab > 0
+  const runsPerGame = gameCount > 0 ? leagueBat.r / gameCount : 0
+  const stealPct = leagueBat.sb + leagueBat.cs > 0
+    ? (leagueBat.sb / (leagueBat.sb + leagueBat.cs)) * 100 : null
+
+  const teamName = (id: string | null | undefined) => {
+    if (!id) return ''
+    const t = teamById.get(id)
+    return t ? t.city : id
+  }
+  const gameHref = (g: WpblGame) => wpblGamePath(g, teams, games)
+  const playerHref = (p: WpblPlayer) => wpblPlayerPath(p, players)
+
+  return (
+    <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
+      <Box
+        component="a"
+        href="/wpbl"
+        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
+        sx={{
+          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
+          color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
+          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
+          bgcolor: 'background.paper',
+          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
+        }}
+      >← Back to WPBL</Box>
+
+      <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 800, mb: 0.5 }}>
+        The 2026 season
+      </Typography>
+      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3 }}>
+        The Women&rsquo;s Pro Baseball League&rsquo;s first season, read back through its own
+        numbers: the leaders, the things that make it its own league, and the plays its games
+        turned on.{gameCount > 0 && ` Regular season, ${gameCount} games.`}
+      </Typography>
+
+      {!hasData && (
+        <Typography sx={{ color: 'text.secondary' }}>
+          The season fills in here once the league feed has been ingested.
+        </Typography>
+      )}
+
+      {hasData && (
+        <>
+          {/* ── By the numbers ───────────────────────────────────────────────── */}
+          <SectionHeading>By the numbers</SectionHeading>
+          <Box sx={{
+            display: 'grid', gap: 1,
+            gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr', md: 'repeat(4, 1fr)' },
+          }}>
+            <StatTile value={runsPerGame.toFixed(1)} label="Runs per game" sub="both clubs combined" />
+            <StatTile value={fmtRate(leagueBat.avg)} label="League average" sub="every plate appearance" />
+            <StatTile
+              value={`${leagueBat.bb}–${leagueBat.so}`}
+              label="Walks vs strikeouts"
+              sub={leagueBat.bb > leagueBat.so ? 'more walks than strikeouts' : 'league-wide'}
+            />
+            <StatTile value={String(leagueBat.hr)} label="Home runs" sub={`${leagueBat.doubles} doubles`} />
+            {leagueBat.triples === 0
+              ? <StatTile value="0" label="Triples" sub="none, all season" highlight />
+              : <StatTile value={String(leagueBat.triples)} label="Triples" />}
+            <StatTile
+              value={String(leagueBat.sb)}
+              label="Stolen bases"
+              sub={stealPct != null ? `${stealPct.toFixed(0)}% success` : undefined}
+            />
+            <StatTile value={String(leagueBat.hbp)} label="Hit batters" sub={`${leaguePit.wp} wild pitches`} />
+            <StatTile value={String(leaguePit.bk)} label="Balks" sub="not a footnote here" />
+            <StatTile
+              value={`${homeRecord.w}–${homeRecord.l}`}
+              label="Home record"
+              sub="one venue: home just means batting last"
+            />
+          </Box>
+
+          {/* ── Spray chart ──────────────────────────────────────────────────── */}
+          {battedBalls.length > 0 && (
+            <>
+              <SectionHeading>Where the ball goes</SectionHeading>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem', mt: -0.75, mb: 1.5 }}>
+                Every batted ball the league placed, by the hitter&rsquo;s side of the plate.
+                Right-handers pull to left field; the left-handed view is the mirror of it.
+              </Typography>
+              {/* Right and left, not a single mixed chart: pull, centre and oppo are defined by
+                  which box the batter stood in, so a league-wide chart is only readable one side
+                  at a time. The toggle is the whole point of the visual. */}
+              <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
+                {(['R', 'L'] as const).map(h => (
+                  <Box key={h} {...pressable(() => setHand(h))} sx={{
+                    ...FOCUS_RING,
+                    px: 1.5, py: 0.5, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+                    border: '1px solid', borderColor: hand === h ? 'transparent' : 'divider',
+                    bgcolor: hand === h ? 'text.primary' : 'transparent',
+                  }}>
+                    <Typography sx={{
+                      fontSize: '0.8rem', fontWeight: 800,
+                      color: hand === h ? 'background.paper' : 'text.secondary',
+                    }}>{h === 'R' ? 'Right-handed' : 'Left-handed'}</Typography>
+                  </Box>
+                ))}
+              </Box>
+              {battedByHand.length > 0 ? (
+                <SprayChart plays={battedByHand} bats={hand} />
+              ) : (
+                <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
+                  No batted balls placed for this side yet.
+                </Typography>
+              )}
+            </>
+          )}
+
+          {/* ── Leaders ──────────────────────────────────────────────────────── */}
+          <SectionHeading>Batting leaders</SectionHeading>
+          <LeaderGrid>
+            {BAT_BOARDS.map(board => {
+              const rows = rankBatting(batSeasons, board, qual.minPa, qual.active)
+              if (rows.length === 0) return null
+              return (
+                <LeaderBoard key={board.label} title={board.label}>
+                  {rows.map((s, i) => (
+                    <LeaderRow
+                      key={s.player.id}
+                      rank={i + 1}
+                      name={s.player.name}
+                      teamId={s.player.team_id}
+                      value={board.fmt(board.get(s.totals)!)}
+                      href={playerHref(s.player)}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                </LeaderBoard>
+              )
+            })}
+          </LeaderGrid>
+
+          <SectionHeading>Pitching leaders</SectionHeading>
+          <LeaderGrid>
+            {PIT_BOARDS.map(board => {
+              const rows = rankPitching(pitSeasons, board, qual.minOuts, qual.active)
+              if (rows.length === 0) return null
+              return (
+                <LeaderBoard key={board.label} title={board.label}>
+                  {rows.map((s, i) => (
+                    <LeaderRow
+                      key={s.player.id}
+                      rank={i + 1}
+                      name={s.player.name}
+                      teamId={s.player.team_id}
+                      value={board.fmt(board.get(s.totals)!)}
+                      href={playerHref(s.player)}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                </LeaderBoard>
+              )
+            })}
+          </LeaderGrid>
+
+          {/* ── The most improbable win ──────────────────────────────────────── */}
+          {comeback && (
+            <>
+              <SectionHeading>The most improbable win</SectionHeading>
+              <Box
+                component="a"
+                href={gameHref(comeback.game)}
+                onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(gameHref(comeback.game)) } }}
+                sx={{
+                  display: 'block', textDecoration: 'none', color: 'inherit',
+                  borderRadius: 2, p: 2, border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
+                  bgcolor: 'background.paper', ...TAPPABLE,
+                }}
+              >
+                <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, mb: 0.5 }}>
+                  {teamName(comeback.winnerId)} won from {fmtWinPct(comeback.low)}
+                </Typography>
+                <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+                  At its lowest point {teamName(comeback.winnerId)} had a {fmtWinPct(comeback.low)} chance
+                  of winning, and won anyway: {teamName(comeback.game.away_team_id)}{' '}
+                  {comeback.game.away_score} at {teamName(comeback.game.home_team_id)}{' '}
+                  {comeback.game.home_score}, {comeback.game.game_date}.
+                </Typography>
+              </Box>
+            </>
+          )}
+
+          {/* ── Biggest plays ────────────────────────────────────────────────── */}
+          {bigPlays.length > 0 && (
+            <>
+              <SectionHeading>The plays that turned a game</SectionHeading>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {bigPlays.map(bp => (
+                  <Box
+                    key={bp.game.id}
+                    component="a"
+                    href={gameHref(bp.game)}
+                    onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(gameHref(bp.game)) } }}
+                    sx={{
+                      display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
+                      color: 'inherit', borderRadius: 2, p: 1.5,
+                      border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+                      ...TAPPABLE,
+                    }}
+                  >
+                    <Box sx={{ flexShrink: 0, width: 4, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(bp.teamId) }} />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.35 }}>
+                        {bp.narrative}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.76rem', color: 'text.disabled', lineHeight: 1.35 }}>
+                        {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {bp.game.game_date}
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ flexShrink: 0, fontSize: '0.82rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>
+                      {fmtWinPct(bp.winnerBefore)} → {fmtWinPct(bp.winnerAfter)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </>
+          )}
+        </>
+      )}
+    </Box>
+  )
+}
+
+// ─── Leader board pieces ──────────────────────────────────────────────────────────
+
+function LeaderGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <Box sx={{
+      display: 'grid', gap: 1.5,
+      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+    }}>
+      {children}
+    </Box>
+  )
+}
+
+function LeaderBoard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Box sx={{ borderRadius: 2, p: 1.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <Typography component="h3" sx={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', mb: 1 }}>
+        {title}
+      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+        {children}
+      </Box>
+    </Box>
+  )
+}
+
+function LeaderRow({ rank, name, teamId, value, href, onNavigate }: {
+  rank: number; name: string; teamId: string | null; value: string; href: string; onNavigate: (to: string) => void
+}) {
+  return (
+    <Box
+      component="a"
+      href={href}
+      onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(href) } }}
+      sx={{
+        ...FOCUS_RING,
+        display: 'flex', alignItems: 'center', gap: 1, textDecoration: 'none', color: 'inherit',
+        borderRadius: 1.5, px: 0.75, py: 0.5, ...TAPPABLE,
+      }}
+    >
+      <Typography sx={{ flexShrink: 0, width: '1rem', fontSize: '0.8rem', fontWeight: 700, color: 'text.disabled' }}>
+        {rank}
+      </Typography>
+      <Box sx={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', bgcolor: wpblColor(teamId) }} />
+      <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {name}
+      </Typography>
+      <Typography sx={{ flexShrink: 0, fontSize: '0.88rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+        {value}
+      </Typography>
+    </Box>
+  )
+}

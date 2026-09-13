@@ -19,6 +19,10 @@ import {
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
 import { isPostseasonGame, scopedLines, type SeasonScope } from './season'
+import {
+  decodeFinderQuery, encodeFinderQuery, finderFields,
+  type FinderQuery, type FinderVenue,
+} from './derive/finder'
 import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
@@ -32,6 +36,8 @@ const WpblTrackingView = lazy(() => import('./TrackingView'))
 const WpblPitchView = lazy(() => import('./PitchView'))
 const WpblRunValueView = lazy(() => import('./RunValueView'))
 const WpblDraftValue = lazy(() => import('./DraftValue'))
+const WpblBestsView = lazy(() => import('./BestsView'))
+const WpblFindView = lazy(() => import('./FindView'))
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
 // pitching stat aggregated from box-score lines, mirroring the MLB Stats view. Fetches
@@ -63,11 +69,11 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // 'draft' sits on neither axis on purpose: it's a one-off analysis of the draft class that
 // spans both sides at once, so it's reached from a card under the table instead.
 type Side = 'hitting' | 'pitching'
-type Source = 'season' | 'tracked' | 'pitches' | 'runs' | 'draft'
+type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
 
 /** Boards that lay themselves out in two columns on a large desktop, and so take the wider
  *  page column. Everything else is one column and stays at the list measure. */
-const WIDE_BOARDS = new Set<Source>(['runs'])
+const WIDE_BOARDS = new Set<Source>(['runs', 'bests', 'find'])
 type Mode = 'players' | 'teams'
 
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
@@ -189,9 +195,42 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
  * sees one tab called Teams, where the code sees `source: 'season'` plus `mode: 'teams'`. The
  * URL is read by people, so it spells the thing on screen.
  */
-type BoardParam = 'players' | 'teams' | 'pitches' | 'runs' | 'draft' | 'tracked'
+type BoardParam = 'players' | 'teams' | 'bests' | 'find' | 'pitches' | 'runs' | 'draft' | 'tracked'
 
 const STATS_PATH = '/wpbl/stats'
+
+/**
+ * The query params this board owns, named so WpblApp can carry them.
+ *
+ * WHY WpblApp HAS TO KNOW. `urlFor` builds a URL out of the navigation snapshot and nothing
+ * else, and the effect that stamps the section's first history entry calls it on mount. So on a
+ * COLD LOAD every param on the address it was opened at is discarded in the first tick, before
+ * this component has rendered once: `/wpbl/stats?board=runs` opened on Players, with the query
+ * gone from the address bar and nothing anywhere saying it had been asked for. Every board has
+ * behaved that way since the params shipped, which is the expensive half: switching boards
+ * writes the param correctly, so a link a reader copies is right and the same link pasted back
+ * quietly lands them somewhere else.
+ *
+ * The same failure is written out twice already in WpblApp, for `awards` (the ballot link lost
+ * its sheet) and for a club slug, and both were fixed by teaching the snapshot about them.
+ * These four are not snapshot state: they are a board's own view of itself, owned and written
+ * here, so the list is exported instead and `urlFor` carries whatever it finds under these
+ * names when the target is this tab. See `playFragmentFor` in entryUrl.ts for the third member
+ * of this family, the fragment, which needed capturing rather than carrying.
+ */
+export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue'] as const
+
+/** Copy this board's params from one query onto another, leaving everything else alone.
+ *
+ *  ONE DEFINITION, used by the writer effect below and by `urlFor` in WpblApp, so a fifth param
+ *  added here cannot be carried by one and dropped by the other. That asymmetry is the shape the
+ *  original bug had: the writer knew about all four and the carrier knew about none. */
+export function carryStatsParams(from: URLSearchParams, to: URLSearchParams): void {
+  for (const k of STATS_URL_PARAMS) {
+    const v = from.get(k)
+    if (v != null) to.set(k, v)
+  }
+}
 
 function boardParam(source: Source, mode: Mode): BoardParam {
   if (source !== 'season') return source as BoardParam
@@ -202,6 +241,8 @@ function boardAxes(board: string | null): { source: Source; mode: Mode } | null 
   switch (board) {
     case 'players': return { source: 'season', mode: 'players' }
     case 'teams':   return { source: 'season', mode: 'teams' }
+    case 'bests':   return { source: 'bests', mode: 'players' }
+    case 'find':    return { source: 'find', mode: 'players' }
     case 'pitches': return { source: 'pitches', mode: 'players' }
     case 'runs':    return { source: 'runs', mode: 'players' }
     case 'draft':   return { source: 'draft', mode: 'players' }
@@ -214,7 +255,10 @@ function boardAxes(board: string | null): { source: Source; mode: Mode } | null 
 
 /** What the address bar is asking for, or nulls. Read once at mount: after that the reader's
  *  own controls are the truth and this module writes the URL rather than reading it. */
-function axesFromQuery(): { source?: Source; mode?: Mode; side?: Side; sortKey?: string; sortAsc?: boolean } {
+function axesFromQuery(): {
+  source?: Source; mode?: Mode; side?: Side; sortKey?: string; sortAsc?: boolean
+  find?: string | null; findTeam?: string | null; findOpp?: string | null; findVenue?: FinderVenue
+} {
   if (typeof window === 'undefined') return {}
   // Only on the stats tab. A player modal opened from here owns the path, and the axes on it
   // belong to the entry underneath rather than to the page being shown.
@@ -223,11 +267,18 @@ function axesFromQuery(): { source?: Source; mode?: Mode; side?: Side; sortKey?:
   const board = boardAxes(q.get('board'))
   const side = q.get('side')
   const dir = q.get('dir')
+  const venue = q.get('venue')
   return {
     ...(board ?? {}),
     side: side === 'hitting' || side === 'pitching' ? side : undefined,
     sortKey: q.get('sort') ?? undefined,
     sortAsc: dir === 'asc' ? true : dir === 'desc' ? false : undefined,
+    // The Find board's question. Decoded against the side the URL names, since the fields
+    // differ between the two and a hitting condition means nothing on a pitching board.
+    find: q.get('q'),
+    findTeam: q.get('team'),
+    findOpp: q.get('opp'),
+    findVenue: venue === 'home' || venue === 'away' ? (venue as FinderVenue) : undefined,
   }
 }
 
@@ -516,22 +567,29 @@ function SubViewFallback() {
 }
 
 export default function WpblStatsView({
-  teams, games, focus, active = true, newBoardBadge, onNewBoardSeen, onOpenPlayer, onOpenTeam,
+  teams, games, focus, active = true, newBoards, onBoardSeen, onOpenPlayer, onOpenTeam,
+  onOpenGame,
 }: {
   teams: WpblTeam[]
   games: WpblGame[]
   focus?: WpblStatsFocus
-  /** Draw the "new here" dot on the Run value chip. The same badge is on the Stats pill
-   *  one level up; this is the half that points the rest of the way. */
-  newBoardBadge?: boolean
-  /** Called once the reader has actually reached that board, by any route. Owned by WpblApp,
-   *  which holds the badge and writes the seen flag. */
-  onNewBoardSeen?: (via: string) => void
+  /** Board keys that should wear a "new here" dot on their chip. The same news is one dot on
+   *  the Stats pill a level up; these are the half that points the rest of the way to each
+   *  board. Owned by WpblApp, which reads the seen flags. */
+  newBoards?: ReadonlySet<string>
+  /** Called once the reader has actually reached one of those boards, by any route. Owned by
+   *  WpblApp, which writes the seen flag and drops the board from `newBoards`. */
+  onBoardSeen?: (key: string) => void
   // Whether this pane is the one on screen. The pager keeps visited tabs mounted, so without
   // it every return to Stats after the first would go unrecorded (see the board log below).
   active?: boolean
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
+  /** Opens a game page. Only the Bests board wants one: every other board on this tab ranks
+   *  people over a season, and that one ranks single NIGHTS, so each of its rows has a second
+   *  destination. Optional, so the tab still renders in a test or in isolation; the link is a
+   *  real href either way and keeps working under a modified click. */
+  onOpenGame?: (g: WpblGame) => void
 }) {
   // Seed from the shared session cache so swiping back to this tab (SwipeableViews
   // unmounts it on the way out) repaints instantly instead of flashing the spinner.
@@ -572,6 +630,19 @@ export default function WpblStatsView({
     fromUrl.side ?? seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
   const [source, setSource] = useState<Source>(fromUrl.source ?? seedAxes.source)
   const [mode, setMode] = useState<Mode>(fromUrl.mode ?? 'players')
+  // THE FIND BOARD'S QUESTION, seeded from the address bar exactly once, like the axes above.
+  // `scope` is NOT held in here: the season slice is a control the whole tab shares (the chips
+  // in the bar, the sheet on a phone), and duplicating it would give the board two answers to
+  // one question. It is folded in where the query is used instead.
+  const [findQuery, setFindQuery] = useState<Omit<FinderQuery, 'scope'>>(() => ({
+    conditions: decodeFinderQuery(
+      fromUrl.find ?? null,
+      fromUrl.side ?? (seedAxes.side === 'pitching' ? 'pitching' : 'hitting'),
+    ),
+    teamId: fromUrl.findTeam || null,
+    oppId: fromUrl.findOpp || null,
+    venue: fromUrl.findVenue ?? 'any',
+  }))
   const [teamId, setTeamId] = useState<string | null>(null)
   // One row and one integer (see fetchWpblTrackedGameCount), read so the chip row can decide
   // whether Tracked is worth offering without loading the tracking scan to find out. Null
@@ -647,8 +718,10 @@ export default function WpblStatsView({
   // Any route onto the board counts, not just a tap on the chip: a ?view= link and the back
   // button both land here without going through switchSource.
   useEffect(() => {
-    if (source === 'runs') onNewBoardSeen?.('board')
-  }, [source, onNewBoardSeen])
+    // Any route onto a newly shipped board retires its dot, not just a tap on the chip: a
+    // ?board= link and the back button both land here without going through selectBoard.
+    if (source === 'bests' || source === 'find') onBoardSeen?.(source)
+  }, [source, onBoardSeen])
   const [trackedSeen, setTrackedSeen] = useState(seedAxes.source === 'tracked')
   useEffect(() => { if (source === 'tracked') setTrackedSeen(true) }, [source])
   const trackedOffered = showTracked || trackedSeen
@@ -831,6 +904,17 @@ export default function WpblStatsView({
     setSide(s)
     if (s === 'hitting') { setSortKey('ops'); setSortAsc(false) }
     else { setSortKey('era'); setSortAsc(true) }
+    // The Find board's conditions are keyed to one side's fields: innings pitched and earned
+    // runs are pitching-only, total bases and stolen bases hitting-only. Left alone, a
+    // condition on a field the other side does not have survives the switch as a picker stuck
+    // on a blank option and a query that silently matches nothing, which reads as a broken
+    // board rather than as a stat that does not apply. Drop those on the switch; a shared field
+    // (strikeouts, home runs, walks) stays and changes sense with the side.
+    setFindQuery(prev => {
+      const valid = new Set(finderFields(s).map(f => f.key))
+      const conditions = prev.conditions.filter(c => valid.has(c.field))
+      return conditions.length === prev.conditions.length ? prev : { ...prev, conditions }
+    })
   }
   const switchSource = (s: Source) => {
     if (s !== source) logBoard('source', { source: s })
@@ -904,11 +988,19 @@ export default function WpblStatsView({
     set('side', side === 'hitting' ? null : side)
     set('sort', sortKey === def.key ? null : sortKey)
     set('dir', sortAsc === defaultSort(side, sortKey).asc ? null : (sortAsc ? 'asc' : 'desc'))
+    // THE FIND BOARD'S QUESTION, and only while that board is the one open. Left on, a reader
+    // who built a question and then walked to Players would carry `?q=so.gte.5` on a board that
+    // has no idea what it means, and would paste it to somebody who lands on a table.
+    const finding = source === 'find'
+    set('q', finding && findQuery.conditions.length ? encodeFinderQuery({ ...findQuery, scope }) : null)
+    set('team', finding ? findQuery.teamId : null)
+    set('opp', finding ? findQuery.oppId : null)
+    set('venue', finding && findQuery.venue !== 'any' ? findQuery.venue : null)
     const str = q.toString()
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, sortKey, sortAsc])
+  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc
@@ -1021,12 +1113,22 @@ export default function WpblStatsView({
   const boards: { key: string; label: string; badge?: boolean }[] = [
     { key: 'players', label: 'Players' },
     { key: 'teams', label: 'Teams' },
+    // Third, directly after the two season tables, because it is the same subject asked a
+    // different way: those rank a player's whole season, this ranks one night of it. Putting
+    // it after Run value would have filed a plain counting-stat board behind the most
+    // expert-looking one on the tab.
+    { key: 'bests', label: 'Bests', badge: newBoards?.has('bests') },
+    // Straight after Bests, because the two are the same idea at two levels of patience: Bests
+    // is the questions worth putting on a board, Find is everything else. A reader who has just
+    // read a records board and wondered "how often does that happen" is one tab away from the
+    // answer.
+    { key: 'find', label: 'Find', badge: newBoards?.has('find') },
     { key: 'pitches', label: 'Pitch by pitch' },
     // Live for everyone. It spent its first weeks behind the experimental-features switch,
     // which meant the board most likely to be misread was shown only to the readers least
     // likely to misread it; what it needed was the sentence above the table saying what a
     // "run" means here, not a flag almost nobody flips.
-    { key: 'runs', label: 'Run value', badge: newBoardBadge },
+    { key: 'runs', label: 'Run value' },
     // Hidden while the league has published radar for barely any games, and kept for the
     // session once a link has opened it anyway. See trackedOffered.
     ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
@@ -1047,7 +1149,13 @@ export default function WpblStatsView({
   // Scope counts as a filter on a phone, where it lives in the sheet: the dot is the only
   // thing saying a board is not showing the whole regular season, and a reader who set
   // Playoffs on one board and came back to it later has no other way to find out.
-  const filtersSet = teamId !== null || qualified !== qual.active || scope !== 'regular'
+  // Bests and Find take only the season slice; the team chip and the qualified toggle do not
+  // reach either (neither has a per-player population to cut or a rate to gate, and Find has a
+  // club picker of its own), so counting them here would light the dot on a board where nothing
+  // had been filtered.
+  const filtersSet = source === 'season'
+    ? teamId !== null || qualified !== qual.active || scope !== 'regular'
+    : scope !== 'regular'
 
   // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
   // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
@@ -1271,7 +1379,10 @@ export default function WpblStatsView({
           {boards.map(b => {
             const on = b.key === activeBoard
             return (
-              <Box key={b.key} {...pressable(() => selectBoard(b.key))} aria-current={on ? 'page' : undefined} sx={{
+              <Box key={b.key} {...pressable(() => selectBoard(b.key))} aria-current={on ? 'page' : undefined}
+                // The dot is aria-hidden, so a badged tab carries the news in its name instead,
+                // the same way SegNav's pills do one level up.
+                aria-label={b.badge ? `${b.label}, updated` : undefined} sx={{
                 ...FOCUS_RING,
                 pb: 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
                 whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center',
@@ -1358,7 +1469,14 @@ export default function WpblStatsView({
         // with prose rather than a table, sat across the page above the first sentence with
         // nothing above it to separate. Two rules within 70px of each other (the board tabs
         // draw the other) is one more than the hierarchy needs.
-        boxShadow: barStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+        //
+        // BOTTOM EDGE ONLY, which is what the negative spread buys. A plain `0 4px 12px` blurs
+        // 12px in every direction with no offset to pull it down, so on a full-bleed bar those
+        // 12px hung off the LEFT and RIGHT of the header as two vertical shadow strips down the
+        // sides of the page. Spread equal to the negative of the blur cancels the horizontal
+        // reach exactly (side extent = blur + spread = 0) while the y offset still drops a soft
+        // edge below, which is the only side content actually passes under.
+        boxShadow: barStuck ? '0 6px 6px -6px rgba(0,0,0,0.14)' : 'none',
         // Four pixels of the same paint above the top edge, for the seam with the bar above.
         // Two sticky bars meeting at a shared offset agree only to within a rounding error,
         // and a rounding error is a device pixel of the page showing between them. Same
@@ -1446,8 +1564,12 @@ export default function WpblStatsView({
         {/* Phones: the two controls that do the work, stating what they are set to. Desktop
             keeps the chips inline, where there is room for the whole filter set at once and
             the column headers already sort. */}
-        {source === 'season' && isNarrow && (
+        {(source === 'season' || source === 'bests' || source === 'find') && isNarrow && (
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+            {/* NO SORT PILL ON BESTS. Its boards each rank by their own stat and say so in
+                their own title, so there is no column to choose: the equivalent control would
+                be "which board", and that is the tab row above. */}
+            {source === 'season' && (
             <Box {...pressable(() => setSortOpen(true))} aria-haspopup="dialog" aria-expanded={sortOpen} sx={{
               ...FOCUS_RING,
               display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
@@ -1460,13 +1582,14 @@ export default function WpblStatsView({
               {activeCol.label}
               <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
             </Box>
+            )}
 
             {/* One pill for both filters. Which ones are on is not written here: the footer
                 under the board says the population in words ("34 players · Boston · qualified
                 only"), which is the same fact plus its consequence, and it costs no room in a
                 bar this narrow. The dot is only there to say "something is not the default",
                 so a filter can never be silently on. */}
-            {(mode === 'players' || hasPostseason) && (
+            {(source === 'season' ? mode === 'players' || hasPostseason : hasPostseason) && (
               <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={{
                 ...FOCUS_RING,
                 display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
@@ -1489,16 +1612,22 @@ export default function WpblStatsView({
             the data and not a switch between two views of it, and because it has three
             options where the side switch has two.
 
-            ONLY ON THE SEASON BOARDS, and only once a postseason game has actually finished.
-            The other boards (Pitch by pitch, Run value, Tracked, Draft) read their own data
-            through paths this does not touch, so offering the switch there would be a control
-            that silently does nothing. */}
+            ONLY WHERE IT DOES SOMETHING, and only once a postseason game has actually
+            finished. The season tables, Bests and Find all filter their lines through
+            `scopedLines`, so the switch moves all three; the other boards (Pitch by pitch, Run
+            value, Tracked, Draft) read their own data through paths this does not touch, so
+            offering it there would be a control that silently does nothing.
+
+            IT MATTERS MOST ON BESTS, which is the one board where the two slices are separate
+            books rather than one number counted over more games: a postseason record is its
+            own record, and folding it into the regular season's would quietly overwrite a
+            league record with a playoff one. */}
         {/* DESKTOP ONLY. On a phone these three wrapped onto a row of their own, and that row
             cost the table 44px of the little height it has: the board is capped so its column
             headers cannot be carried up behind the bar, so every pixel the bar takes is a pixel
             of table. They are in the Filters sheet there, which is what they are, and which
             also spares the one board that had no Filters pill at all. */}
-        {source === 'season' && hasPostseason && !isNarrow && (
+        {(source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {/* "Both" rather than "All", which is what this option is: the team filter sitting
                 immediately to its right already has an "All" chip, and two chips reading All
@@ -1552,6 +1681,27 @@ export default function WpblStatsView({
         <Suspense fallback={<SubViewFallback />}>
           <WpblTrackingView side={side} games={games} onOpenPlayer={onOpenPlayer} />
         </Suspense>
+      ) : source === 'bests' ? (
+        // FULL BLEED for the same reason Run value is, and the board caps and centres inside
+        // it: below `sm` the bleed is `calc(100vw - 24px)`, which is WIDER than the page
+        // column, and those 8px are the difference between a name fitting and being clipped at
+        // the reader's Large text setting. The cap simply never binds on a phone.
+        <Box sx={fullBleedSx}>
+          <Suspense fallback={<SubViewFallback />}>
+            <WpblBestsView side={side} players={players} batting={lines.batting}
+              pitching={lines.pitching} games={games} scope={scope}
+              onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+          </Suspense>
+        </Box>
+      ) : source === 'find' ? (
+        <Box sx={fullBleedSx}>
+          <Suspense fallback={<SubViewFallback />}>
+            <WpblFindView side={side} teams={teams} players={players} batting={lines.batting}
+              pitching={lines.pitching} games={games}
+              query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)}
+              onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+          </Suspense>
+        </Box>
       ) : source === 'pitches' ? (
         <Suspense fallback={<SubViewFallback />}>
           <WpblPitchView side={side} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
@@ -1878,7 +2028,7 @@ export default function WpblStatsView({
           qualified={qualified} onQualified={toggleQualified}
           side={side} minPa={qual.minPa} minIp={outsToIp(qual.minOuts)}
           scope={hasPostseason ? scope : null} onScope={setScope}
-          showWho={mode === 'players'}
+          showWho={source === 'season' && mode === 'players'}
           onClose={() => setFiltersOpen(false)} />
       )}
 

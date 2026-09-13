@@ -330,14 +330,14 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
       {pitching ? (
         <>
           <RateBoard
-            title="Swing and miss" explain="How often a pitch draws a swing and a miss"
+            title="Whiff rate" explain="How often a pitch draws a swing and a miss"
             league={fmtPct(league.swStrPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'swStrPct', min, false, league)}
             valueOf={p => fmtPct(p.swStrPct)}
             subOf={p => `${fmtPct(p.whiffPct)} of ${p.swings} swings missed`}
           />
           <RateBoard
-            title="Strike throwers" explain="How often a pitch is a strike"
+            title="Strike rate" explain="How often a pitch is a strike"
             league={fmtPct(league.strikePct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'strikePct', min, false, league)}
             valueOf={p => fmtPct(p.strikePct)}
@@ -346,7 +346,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
               : `${fmtPct(p.firstStrikePct)} first-pitch strikes · ${(p.pitchesPerPa ?? 0).toFixed(2)} per PA`}
           />
           <RateBoard
-            title="Putting hitters away" explain="How often a two-strike count ends in a strikeout"
+            title="Putaway rate" explain="How often a two-strike count ends in a strikeout"
             league={fmtPct(league.putawayPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'putawayPct', min, false, league)}
             valueOf={p => fmtPct(p.putawayPct)}
@@ -356,21 +356,21 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
       ) : (
         <>
           <RateBoard
-            title="Best contact" explain="How often a swing makes contact"
+            title="Contact rate" explain="How often a swing makes contact"
             league={fmtPct(league.contactPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'contactPct', min, false, league)}
             valueOf={p => fmtPct(p.contactPct)}
             subOf={p => `${fmtPct(p.swingPct)} swing rate · ${p.swings} swings`}
           />
           <RateBoard
-            title="Making them work" explain="Pitches seen in an average plate appearance"
+            title="Pitches per PA" explain="Pitches seen in an average plate appearance"
             league={(league.pitchesPerPa ?? 0).toFixed(2)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'pitchesPerPa', min, false, league)}
             valueOf={p => (p.pitchesPerPa ?? 0).toFixed(2)}
             subOf={p => `${fmtPct(p.swingPct)} swing rate · ${p.pa} PA`}
           />
           <RateBoard
-            title="Two-strike survivors" explain="How rarely two strikes turns into a strikeout"
+            title="Two-strike survival" explain="How rarely two strikes turns into a strikeout"
             league={fmtPct(league.putawayPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'putawayPct', min, true, league)}
             valueOf={p => fmtPct(p.putawayPct)}
