@@ -67,12 +67,11 @@ export const EVENTS = {
   WPBL_STATS_SORTED:   'wpbl_stats_sorted',   // tapped a column header, props {key, asc, side, mode}
   WPBL_STATS_FILTERED: 'wpbl_stats_filtered', // team chip or Qualified, props {filter, on, teamId?}
 
-  // The seeding card under the Standings table. It carries its own impression because the
-  // tab view can't distinguish "read the standings" from "read the standings and learned
-  // what the order is for", and because a club tapped from here is a team-page entry point
-  // opened from a surface that had none.
-  WPBL_SEEDING_SHOWN:  'wpbl_seeding_shown',  // seeding card rendered, props {settled, gamesLeft}
-  WPBL_SEEDING_TEAM:   'wpbl_seeding_team',   // opened a club from the card, props {teamId, seed, from}
+  // RETIRED when the standalone seeding card folded into the bracket (the seeding race now
+  // renders inside PlayoffBracket, which carries wpbl_bracket_shown / wpbl_bracket_team below).
+  // Nothing fires these; kept so the rows already in `events` still have a name here.
+  WPBL_SEEDING_SHOWN:  'wpbl_seeding_shown',  // retired
+  WPBL_SEEDING_TEAM:   'wpbl_seeding_team',   // retired
   // Home's bracket carries its own impression: `wpbl_tab_viewed` says a reader reached Home
   // and nothing else can say whether this card was on screen or under the fold. The Discord
   // card's bounce went unmeasured for exactly that reason when it was retired.
