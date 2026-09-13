@@ -982,7 +982,7 @@ function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlaye
   return (
     <Box
       {...linkTo(to)}
-      onClickCapture={() => track(EVENTS.WPBL_COMPARE_OPENED, { playerId: player.id })}
+      onClickCapture={() => track(EVENTS.WPBL_COMPARE_OPENED, { from: 'player', playerId: player.id })}
       title={`Compare ${player.name} with somebody`}
       aria-label={`Compare ${player.name} with another player`}
       sx={{

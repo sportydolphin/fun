@@ -31,7 +31,7 @@ import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
 import { LastGameCard } from './RecapCard'
 import FeedDelayNote from './FeedDelayNote'
 import { WpblGamePreview } from './GamePreview'
-import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
+import { mvpRaceIsWorthDrawing } from './MvpRace'
 import FanVoteCard, { FanAwardsCta } from './FanVote'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
@@ -721,7 +721,7 @@ function GameReminderRow({ game, away, home, startMs }: {
     const title = `${away ? wpblFullName(away) : 'Away'} @ ${home ? wpblFullName(home) : 'Home'} · WPBL`
     return (
       <Box
-        onClick={() => downloadIcs(`wpbl-${game.id}.ics`, makeGameIcs(game, title, startMs))}
+        onClick={() => { track(EVENTS.WPBL_GAME_CALENDAR, { gameId: game.id }); downloadIcs(`wpbl-${game.id}.ics`, makeGameIcs(game, title, startMs)) }}
         sx={{ ...cardFooterBand(isDark), cursor: 'pointer', ...TAPPABLE }}
       >
         <EventAvailableOutlined sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
@@ -1828,9 +1828,20 @@ function useNewTrackingBatch(tracking: WpblTrackRow[]): { newCount: number; ack:
 }
 
 function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView: () => void; onDismiss: () => void }) {
+  // One impression per mount, so the click-through is measurable. The `new here` events were
+  // defined for exactly this pointer-to-new-content pattern and had gone unwired: without the
+  // SHOWN denominator a quiet Tracking tab reads the same whether nobody saw the banner or
+  // everybody ignored it, and those call for opposite fixes.
+  const shown = useRef(false)
+  useEffect(() => {
+    if (shown.current) return
+    shown.current = true
+    track(EVENTS.NEW_BADGE_SHOWN, { badge: 'tracking', count })
+  }, [count])
+  const view = () => { track(EVENTS.NEW_BADGE_CLICKED, { badge: 'tracking', count }); onView() }
   return (
     <Box
-      onClick={onView}
+      onClick={view}
       role="button"
       sx={{
         mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
@@ -2065,6 +2076,20 @@ function pickComparePair(pool: WpblBatSeason[], seed: number): readonly [WpblBat
  * shorter, and the same centred column just collapses to that height with nothing to distribute.
  * So the one layout reads at both the tall desktop height and the short mobile one.
  */
+// linkTo plus a product event, fired on the PLAIN click only. A modified click is the reader
+// asking the browser for the URL (open in new tab), which linkTo lets through untouched; firing
+// the event there too would miscount it as an in-app open. Mirrors LeagueCard's `go`.
+function trackedLinkTo(to: string, event: string, props: Record<string, unknown> = {}) {
+  const base = linkTo(to)
+  return {
+    ...base,
+    onClick: (e: React.MouseEvent) => {
+      if (!(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) track(event, props)
+      base.onClick(e)
+    },
+  }
+}
+
 function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
   batSeasons: WpblBatSeason[]
   qual: ReturnType<typeof wpblQualifiers>
@@ -2102,6 +2127,16 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
     const b = batSeasons.find(s => s.player.id === pairIds[1])
     return a && b ? [a, b] as const : null
   }, [pairIds, batSeasons])
+
+  // One impression once the data has settled, so this card has the denominator every other card
+  // in the feed carries. `hasPair` separates "shown with a real preview" from the empty early-
+  // season state, which are different things to a reader deciding whether to tap through.
+  const shown = useRef(false)
+  useEffect(() => {
+    if (shown.current || loading) return
+    shown.current = true
+    track(EVENTS.WPBL_COMPARE_SHOWN, { hasPair: !!pair })
+  }, [loading, pair])
 
   const head = (s: WpblBatSeason) => {
     const team = s.player.team_id ? teamById.get(s.player.team_id) : undefined
@@ -2153,7 +2188,7 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
   }
 
   const cta = (
-    <Box {...linkTo(WPBL_COMPARE_BASE)} sx={{
+    <Box {...trackedLinkTo(WPBL_COMPARE_BASE, EVENTS.WPBL_COMPARE_OPENED, { from: 'home', pair: false })} sx={{
       ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)',
       flexShrink: 0, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
     }}>
@@ -2188,7 +2223,7 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
         return (
           // The whole comparison is one link to these two in the tool; the header's "Pick two"
           // opens the picker. Two separate anchors, siblings not nested, so the markup is valid.
-          <Box {...linkTo(wpblComparePath(a.player, b.player, players))} sx={{
+          <Box {...trackedLinkTo(wpblComparePath(a.player, b.player, players), EVENTS.WPBL_COMPARE_OPENED, { from: 'home', pair: true })} sx={{
             // `space-evenly` rather than `center`: on the tall desktop row this spreads the heads
             // and the stat block through the body instead of pooling the slack above and below a
             // tight group; on a phone the card is its own (short) height with no slack, so the two

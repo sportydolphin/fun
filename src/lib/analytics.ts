@@ -87,11 +87,12 @@ export const EVENTS = {
   WPBL_PICKEM_OPEN:    'wpbl_pickem_open',    // opened the picking sheet, props {answered, from}
   WPBL_PICKEM_CLEAR:   'wpbl_pickem_clear',   // withdrew picks rather than changing them, props {count}
   WPBL_PICKEM_CAST:    'wpbl_pickem_cast',    // called a series, props {category, choice}
-  // Home's MVP race. The impression is the point of the pair: the card costs a play-log fetch
-  // Home had otherwise stopped paying for, so "is it seen" and "is it tapped" have to be
-  // answerable before the next person decides whether that fetch is earning its keep.
-  WPBL_MVP_SHOWN:      'wpbl_mvp_shown',      // MVP race rendered, props {leader, lead, leadChanges, twoWay, gamesLeft}
-  WPBL_MVP_PLAYER:     'wpbl_mvp_player',     // opened a candidate from the card, props {playerId, rank}
+  // RETIRED when the fan-awards ballot took the MVP race's Home slot (Sep 10, 2026). The
+  // standalone race card is no longer rendered, so nothing fires these; the ballot's
+  // `wpbl_award_shown` is now the denominator for the play-log fetch they used to justify.
+  // Kept so the rows already in `events` still have a name here.
+  WPBL_MVP_SHOWN:      'wpbl_mvp_shown',      // retired
+  WPBL_MVP_PLAYER:     'wpbl_mvp_player',     // retired
 
   // Highlights, the third segment of Home's media shelf. It shipped with no events at all
   // while Reading and Archive each had an impression, a click-through and an off-site click,
@@ -141,7 +142,17 @@ export const EVENTS = {
   // question: these pages are deliberately absent from the sitemap, so which comparisons
   // readers actually build is the only evidence there is about what to link to.
   WPBL_COMPARE_VIEWED: 'wpbl_compare_viewed', // a pair page rendered, props {a, b}
-  WPBL_COMPARE_OPENED: 'wpbl_compare_opened', // opened the picker from a player page, props {playerId}
+  WPBL_COMPARE_OPENED: 'wpbl_compare_opened', // opened the compare tool, props {from, playerId?, pair?}
+  // Home's Compare card, which took the Leaders board's quadrant and shipped with no telemetry
+  // at all — the only card in the feed that could not report whether it was seen or used, the
+  // exact silence every other card here carries an impression to avoid. SHOWN is the
+  // denominator; the click-throughs go through WPBL_COMPARE_OPENED with `from: 'home'`.
+  WPBL_COMPARE_SHOWN:  'wpbl_compare_shown',  // Home compare card rendered, props {hasPair}
+  // The .ics calendar reminder on Next game. This is the ONLY reminder path most mobile readers
+  // have (Web Push is unsupported on most mobile browsers, which is when this row is shown at
+  // all), so without it the reminder feature's real usage is invisible: wpbl_game_reminder_on
+  // only ever measured the minority who could take the push.
+  WPBL_GAME_CALENDAR:  'wpbl_game_calendar',  // downloaded an .ics game reminder, props {gameId}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the
