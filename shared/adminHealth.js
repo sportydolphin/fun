@@ -57,6 +57,14 @@ export const HEARTBEAT_CHECKS = [
   // fact, so its silent death lets the scoreboard and the box score drift apart with nothing
   // saying so. Nightly, so 30h is a whole missed day plus margin.
   { job: 'wpbl-drift-check', label: 'Drift check', maxAgeMs: 30 * 60 * 60_000 },
+  // The game-start push sender and the recap sync are FAILURE-ONLY (maxAgeMs null): both run on a
+  // game-hours / window cadence, not daily, so a flat staleness alarm would false-fire every
+  // quiet night. This catches a run that ran and errored; a hard crash (which writes no
+  // heartbeat) is not caught here and waits on a future "a game started N hours ago but the
+  // sender never beat for it" gate. The push sender is the more user-facing of the two — a silent
+  // death there is missed game reminders.
+  { job: 'wpbl-game-start', label: 'Game-start push', maxAgeMs: null },
+  { job: 'wpbl-recaps-sync', label: 'Recap sync', maxAgeMs: null },
 ]
 
 /**

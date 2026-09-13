@@ -33,6 +33,7 @@ import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import webpush from 'web-push'
 import { buildWpblGameStart } from '../shared/notifications.js'
+import { recordHeartbeat } from '../shared/heartbeat.js'
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
@@ -341,6 +342,18 @@ async function main() {
   }
 
   console.log(`\n✅ Reminded ${notified} user(s).\n`)
+  // Heartbeat: this run finished. Failure-only monitoring (see HEARTBEAT_CHECKS), so ok=true here
+  // and ok=false in the catch; a no-op run (nothing opted in, no game due) is still a healthy run.
+  await recordHeartbeat(supabase, 'wpbl-game-start', true, `${notified} reminded`)
 }
 
-main().catch(err => { console.error('Fatal:', err); process.exit(1) })
+// A test run is a manual one-off and must not move the job's health, so it is excluded both ways:
+// success is recorded inside main() only on the normal path, and this catch skips the failure
+// write when --test is set.
+main().catch(async err => {
+  console.error('Fatal:', err)
+  if (!process.argv.includes('--test')) {
+    await recordHeartbeat(supabase, 'wpbl-game-start', false, err?.message ?? String(err))
+  }
+  process.exit(1)
+})

@@ -30,6 +30,7 @@ import {
   FEED_URL, PUBLICATION_NAME, matchRecaps, parseRecapFeed,
   type RecapGame,
 } from '../src/wpbl/derive/recaps'
+import { recordHeartbeat } from '../shared/heartbeat.js'
 
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === 'true'
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
@@ -143,9 +144,15 @@ async function main() {
     await writeOverPostgres(rows)
   }
   console.log(`\nwrote ${rows.length} row(s)`)
+  // Failure-only heartbeat (see HEARTBEAT_CHECKS): ok=true on a finished run, ok=false in the
+  // catch. Only when we have write access (SERVICE_KEY, i.e. CI) and are not dry-running — a
+  // by-hand read or a DB_URL-only write is not the scheduled job whose health this tracks.
+  if (!DRY_RUN && SERVICE_KEY) await recordHeartbeat(db, 'wpbl-recaps-sync', true, `${rows.length} rows`)
 }
 
-main().catch(err => {
-  console.error(err instanceof Error ? err.message : err)
+main().catch(async err => {
+  const msg = err instanceof Error ? err.message : String(err)
+  console.error(msg)
+  if (!DRY_RUN && SERVICE_KEY) await recordHeartbeat(db, 'wpbl-recaps-sync', false, msg)
   process.exit(1)
 })
