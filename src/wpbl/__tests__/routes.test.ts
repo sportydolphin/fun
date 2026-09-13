@@ -32,7 +32,8 @@ import {
   isWpblSourcesPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
-  WPBL_COMPARE_BASE, wpblComparePath, wpblCompareStartPath, wpblCompareSlugFromPath,
+  WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, isCanonicalComparePath,
+  wpblCompareStartPath, wpblCompareSlugFromPath,
   findWpblComparePair, isWpblComparePage, isWpblComparePicker,
 } from '../routes'
 // The real club list, so the four files below are pinned against what the app actually ships
@@ -297,13 +298,25 @@ describe('comparison pages', () => {
     { id: 'bbbbbbbb-2', name: 'Sam Rivers' },
   ]
 
-  it('puts the pair in the path, alphabetically, whichever way round it is asked for', () => {
+  it('puts the pair in the path in the order it was built, left then right', () => {
     const forwards = wpblComparePath(roster[0], roster[1], roster)
     const backwards = wpblComparePath(roster[1], roster[0], roster)
     expect(forwards).toBe('/wpbl/compare/denae-benites-vs-molly-paddison')
-    // THE WHOLE REASON THE ORDER IS FORCED. Without this a comparison lives at two URLs, each
-    // looking to a search engine like a near-duplicate of the other.
-    expect(backwards).toBe(forwards)
+    // ORDER IS THE READER'S NOW. The player they started from stays on the left, so the two
+    // spellings are deliberately different URLs. The near-duplicate they used to be is handled
+    // by the canonical below, not by refusing to serve one of them.
+    expect(backwards).toBe('/wpbl/compare/molly-paddison-vs-denae-benites')
+    expect(backwards).not.toBe(forwards)
+  })
+
+  it('consolidates both orders onto one alphabetical canonical', () => {
+    const canonical = wpblCompareCanonicalPath(roster[0], roster[1], roster)
+    expect(canonical).toBe('/wpbl/compare/denae-benites-vs-molly-paddison')
+    // Alphabetical whichever way round it is asked for: this is the rel=canonical both spellings
+    // declare, so a search engine treats them as the same page.
+    expect(wpblCompareCanonicalPath(roster[1], roster[0], roster)).toBe(canonical)
+    expect(isCanonicalComparePath('/wpbl/compare/denae-benites-vs-molly-paddison', roster)).toBe(true)
+    expect(isCanonicalComparePath('/wpbl/compare/molly-paddison-vs-denae-benites', roster)).toBe(false)
   })
 
   it('round-trips through the path', () => {
@@ -722,7 +735,7 @@ describe('the shell claims no canonical of its own', () => {
 
   // The counterpart: the per-route tag has to come from somewhere, and it is seo.ts.
   it('sets one per route at runtime instead', () => {
-    expect(seoSource).toContain("upsertLink('canonical', url)")
+    expect(seoSource).toContain("upsertLink('canonical', canonicalUrl)")
   })
 })
 

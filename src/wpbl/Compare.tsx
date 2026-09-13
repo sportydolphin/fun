@@ -31,14 +31,14 @@ import {
 } from './derive/compare'
 import {
   CARD_BORDER, SectionCard, TYPE_SCALE, TeamBadge, PlayerPortrait, chromePx, hoverOnly,
-  MICRO_TEXT, FOCUS_RING,
+  MICRO_TEXT, FOCUS_RING, useWpblDark,
 } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import { useWpblHeadingTag } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 import {
-  WPBL_COMPARE_BASE, wpblComparePath, wpblCompareStartPath, wpblCompareSlugFromPath,
-  findWpblComparePair, findWpblPlayerBySlug, wpblPlayerPath,
+  WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, wpblCompareStartPath,
+  wpblCompareSlugFromPath, findWpblComparePair, findWpblPlayerBySlug, wpblPlayerPath,
 } from './routes'
 import { setDynamicSeo } from '../seo'
 import { navBack } from '../nav'
@@ -195,6 +195,41 @@ function CompareCard({ title, subtitle, children }: {
         )}
       </Box>
       <Box sx={{ p: 1.25 }}>{children}</Box>
+      <CompareStamp />
+    </Box>
+  )
+}
+
+/**
+ * The source stamp at the foot of every comparison card.
+ *
+ * WHY IT IS ON EACH CARD RATHER THAN ONCE ON THE PAGE. This page exists to be screenshotted mid
+ * argument (it is the reason it has its own URL), and the crop is almost always ONE stat card, not
+ * the whole page. A stamp only in the header or at the very bottom is cropped out of exactly the
+ * shot that travels. Stathead puts its logo down the middle of the table for the same reason; this
+ * is the same idea placed where our card actually gets cut. Muted and aria-hidden: it is
+ * attribution, not a control and not a second thing for a screen reader to read on every card.
+ *
+ * `/logo-mark.png` and the dark-mode invert are the toolbar's own brand mark and treatment (see
+ * App.tsx), so the stamp cannot drift from the logo in the bar above it. Height rides --app-chrome
+ * like every other badge, since it is art rather than type.
+ */
+function CompareStamp() {
+  const dark = useWpblDark()
+  return (
+    <Box aria-hidden sx={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5,
+      px: 1.25, py: 0.6, borderTop: '1px solid', borderColor: CARD_BORDER,
+    }}>
+      <Box component="img" src="/logo-mark.png" alt="" sx={{
+        height: `calc(12px * var(--app-chrome, 1))`, width: 'auto', display: 'block',
+        opacity: 0.5, ...(dark && { filter: 'invert(1)' }),
+      }} />
+      <Typography sx={{
+        fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: 0.3, color: 'text.disabled',
+      }}>
+        sportydolphin.fun
+      </Typography>
     </Box>
   )
 }
@@ -539,6 +574,10 @@ export default function WpblComparePage({ path, onNavigate }: {
         description:
           `${a.name} and ${b.name} side by side in the 2026 Women's Pro Baseball League: `
           + 'batting, pitching, playing time, and what happened when they faced each other.',
+        // The columns follow the URL's order (the reader's), but both orders declare the same
+        // alphabetical canonical, so the two spellings are one page to a search engine. This is
+        // what replaced the edge 301 that used to force the order and lose it.
+        canonical: wpblCompareCanonicalPath(a, b, players),
       },
     })
     return () => setDynamicSeo(null)

@@ -363,15 +363,36 @@ export const isWpblComparePage = (pathname: string) =>
   isWpblComparePicker(pathname) || wpblCompareSlugFromPath(pathname) !== null
 
 /**
- * The canonical URL for a pair, which is the two player slugs in ALPHABETICAL order.
+ * The URL for a pair, in the ORDER IT WAS BUILT: `a` on the left, `b` on the right.
  *
- * The order is forced because a pair has no natural first: whoever opened the page picked one
- * of them first, and left alone that would mint two URLs for one comparison, each half as
- * linked as the other and each looking to Google like a near-duplicate of the other. Sorting
- * is the cheapest rule that cannot drift, and the edge function 301s the other spelling onto
- * it rather than serving both.
+ * This used to force alphabetical order so a pair had one URL, and it cost the reader the one
+ * thing they expressed: open Ada's page, add Zoe, and the comparison flipped to Zoe-vs-Ada
+ * because Z sorts after A is false, A sorts first, so the player you started from jumped to the
+ * right. The order the reader built now survives into the URL and the columns.
+ *
+ * A pair still has ONE canonical spelling for a search engine, and it is still alphabetical:
+ * `wpblCompareCanonicalPath` below, published as the page's rel=canonical, collapses both orders
+ * to a single indexed page. That is the same near-duplicate protection the forced sort gave, now
+ * done the way it should be, by declaring the canonical rather than by refusing to serve the
+ * other order. The edge no longer 301s one spelling onto the other.
  */
 export function wpblComparePath(
+  a: WpblSluggable,
+  b: WpblSluggable,
+  roster: readonly WpblSluggable[],
+): string {
+  return `${WPBL_COMPARE_BASE}/${wpblPlayerSlug(a, roster)}${WPBL_COMPARE_JOIN}${wpblPlayerSlug(b, roster)}`
+}
+
+/**
+ * The ONE canonical spelling of a pair, alphabetical, whichever way round it was asked for.
+ *
+ * The rel=canonical target, so `/wpbl/compare/zoe-vs-ada` and `/wpbl/compare/ada-vs-zoe` are one
+ * page to Google and share their links. Kept separate from `wpblComparePath` on purpose: the
+ * link a reader follows and the link a crawler consolidates to are now different jobs, and one
+ * function cannot be both without bringing back the flip this pair of functions exists to undo.
+ */
+export function wpblCompareCanonicalPath(
   a: WpblSluggable,
   b: WpblSluggable,
   roster: readonly WpblSluggable[],
@@ -424,8 +445,9 @@ export function findWpblComparePair<T extends WpblSluggable>(
   return hits.length === 1 ? hits[0] : null
 }
 
-/** Is this compare URL the canonical spelling of the pair it names? False for the reversed
- *  order, which the edge function 301s rather than serving. */
+/** Is this compare URL the canonical (alphabetical) spelling of the pair it names? False for the
+ *  reversed order, which is now served as its own URL with this one declared as its rel=canonical
+ *  rather than 301'd away. This is what tells a surface which spelling to point that tag at. */
 export function isCanonicalComparePath<T extends WpblSluggable>(
   pathname: string,
   roster: readonly T[],
@@ -433,7 +455,7 @@ export function isCanonicalComparePath<T extends WpblSluggable>(
   const slug = wpblCompareSlugFromPath(pathname)
   if (!slug) return false
   const pair = findWpblComparePair(slug, roster)
-  return pair != null && wpblComparePath(pair[0], pair[1], roster) === `${WPBL_COMPARE_BASE}/${slug}`
+  return pair != null && wpblCompareCanonicalPath(pair[0], pair[1], roster) === `${WPBL_COMPARE_BASE}/${slug}`
 }
 
 // ─── The league page ──────────────────────────────────────────────────────────

@@ -15,6 +15,11 @@ interface Seo {
   description: string
   /** Keep this route out of search results. See the `robots` note in `useSeo`. */
   noindex?: boolean
+  /** A canonical PATH to declare instead of this route's own URL, so several URLs can
+   *  consolidate to one indexed page. The comparison uses it: `a-vs-b` and `b-vs-a` are two
+   *  real URLs preserving the reader's order, both pointing here at the alphabetical spelling,
+   *  so a search engine treats them as one. Leading slash, no origin; `useSeo` adds the origin. */
+  canonical?: string
   /** Route-level schema.org, injected as a second ld+json block beside the site-wide graph
    *  in index.html. Only worth setting where the page is genuinely a type Google renders
    *  differently: the rules page is a real FAQPage, and a list of questions nothing else on
@@ -246,10 +251,14 @@ export function useSeo(path: string) {
     const base = path.split('?')[0].replace(/\/+$/, '') || '/'
     const seo = (dynamicSeo?.path === base ? dynamicSeo.seo : null) ?? ROUTES[base] ?? DEFAULT
     const url = `${SITE}${base === '/' ? '/wpbl' : base}`
+    // The canonical is the route's own URL unless it names another to consolidate onto (the
+    // comparison's alphabetical spelling). og:url follows the canonical, which is the whole point
+    // of declaring one: an unfurl and a search result should agree on which URL the page IS.
+    const canonicalUrl = seo.canonical ? `${SITE}${seo.canonical}` : url
 
     document.title = seo.title
     upsertMeta('name', 'description', seo.description)
-    upsertLink('canonical', url)
+    upsertLink('canonical', canonicalUrl)
 
     // Written on EVERY route change, never only when noindex is set. The app is a SPA, so
     // a tag left behind by a previous route persists in <head>: set this conditionally and
@@ -258,7 +267,7 @@ export function useSeo(path: string) {
 
     upsertMeta('property', 'og:title', seo.title)
     upsertMeta('property', 'og:description', seo.description)
-    upsertMeta('property', 'og:url', url)
+    upsertMeta('property', 'og:url', canonicalUrl)
     upsertMeta('name', 'twitter:title', seo.title)
     upsertMeta('name', 'twitter:description', seo.description)
 

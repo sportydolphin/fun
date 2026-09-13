@@ -28,7 +28,7 @@ import { settleGames } from '../../src/wpbl/gameOver'
 import {
   wpblPlayerSlug, wpblPlayerSlugFromPath, findWpblPlayerBySlug, type WpblSluggable,
   wpblGameSlug, wpblGameSlugFromPath, findWpblGameBySlug,
-  wpblCompareSlugFromPath, findWpblComparePair, wpblComparePath, WPBL_COMPARE_BASE,
+  wpblCompareSlugFromPath, findWpblComparePair, WPBL_COMPARE_BASE,
 } from '../../src/wpbl/routes'
 import { wpblGameCard, type WpblCardGame, type WpblCardTeam } from '../../src/wpbl/ogCard'
 
@@ -144,10 +144,12 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   // indexable page about two players who do not exist. There are 13,000 ways to misspell one
   // of these URLs and only 6,903 real ones.
   //
-  // SECOND, the canonical order. A pair has no natural first, so the app sorts the two slugs
-  // and this 301s the other spelling onto that. Left alone every comparison would exist at two
-  // URLs, each looking to a search engine like a near-duplicate of the other and each holding
-  // half the links.
+  // SECOND, resolve the pair so a slug naming nobody 404s instead of rendering an empty page.
+  // It no longer 301s the reversed order onto the alphabetical one: both orders are real URLs
+  // now, so the reader's chosen order survives a shared link and a reload, and the near-duplicate
+  // is handled instead by the rel=canonical the page declares (Compare.tsx / seo.ts), which is
+  // where that job belongs. Both spellings point at the same alphabetical canonical, so they are
+  // one page to a search engine without either being refused.
   const compareSlug = wpblCompareSlugFromPath(url.pathname)
   if (compareSlug === null && url.pathname.replace(/\/+$/, '').startsWith(`${WPBL_COMPARE_BASE}/`)) {
     return notFound(context)
@@ -167,12 +169,6 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
     if (!pair) {
       if (!findWpblPlayerBySlug(compareSlug, roster)) return notFound(context)
       return next()
-    }
-    const canonical = wpblComparePath(pair[0], pair[1], roster)
-    if (canonical !== url.pathname.replace(/\/+$/, '')) {
-      const to = new URL(url)
-      to.pathname = canonical
-      return Response.redirect(to.toString(), 301)
     }
     return next()
   }
