@@ -2363,23 +2363,26 @@ export function WpblHomeSkeleton() {
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          <CardSkeleton minHeight="20rem" titleWidth="6rem" lines={5} />
+          <CardSkeleton minHeight={{ xs: '15.5rem', md: '16.4rem' }} titleWidth="6rem" lines={5} />
           {/* Last Game and the bracket are both COLLAPSED on a phone by default, which is why
-              their two reserves are so far apart: 3.45rem is the header of a shut card. */}
-          <CardSkeleton minHeight={{ xs: '3.45rem', md: '16rem' }} titleWidth="6rem" lines={0} />
+              their two reserves are so far apart: 3.45rem is the header of a shut card. The md
+              figure is the SUBGRID row, not this card: row 2 is max(Last game, Compare) and
+              Compare is the taller at ~19rem, so a 16rem reserve here left the loaded page 3rem
+              taller than its own placeholder. */}
+          <CardSkeleton minHeight={{ xs: '3.45rem', md: '19rem' }} titleWidth="6rem" lines={0} />
         </Box>
         <Box sx={{
           minWidth: 0, gap: 1.5,
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          <CardSkeleton minHeight={{ xs: '17.6rem', md: '20rem' }} titleWidth="5.5rem" lines={4} />
-          <CardSkeleton minHeight={{ xs: '12.1rem', md: '16rem' }} titleWidth="4.5rem" lines={4} />
+          <CardSkeleton minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />
+          <CardSkeleton minHeight={{ xs: '19rem', md: '19rem' }} titleWidth="4.5rem" lines={4} />
         </Box>
       </Box>
 
       <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '3.45rem', md: '30.5rem' }} titleWidth="8rem" lines={0} />
+        <CardSkeleton minHeight={{ xs: '3.45rem', md: '24rem' }} titleWidth="8rem" lines={0} />
       </Box>
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
@@ -2832,8 +2835,16 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             // for exactly that long, then moved it to row 2 when the race arrived. The reader
             // gets the page, starts on the leader board, and it slides 400px down the screen
             // under them. Holding the slot costs a placeholder and settles the layout once.
+            //
+            // THE PLACEHOLDER MUST NOT BE TALLER THAN Next game. On desktop this slot is row 1 of
+            // a subgrid whose other column is Next game (~16.4rem), so Next game already sets the
+            // row height; a placeholder that overshot it (this was 20rem) inflated row 1 while the
+            // play log was in flight, then let it COLLAPSE ~72px the instant the ballot landed —
+            // the delayed upward jump the whole slot exists to prevent. Kept at/under Next game so
+            // the row is governed by Next game throughout and the late arrival moves nothing. On a
+            // phone the two are stacked, so this matches the ballot's own ~16rem instead.
             : !playsSettled
-              ? [<CardSkeleton key="mvp" minHeight={{ xs: '17.6rem', md: '20rem' }} titleWidth="5.5rem" lines={4} />, compareCard]
+              ? [<CardSkeleton key="mvp" minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />, compareCard]
               // Answered, and there is genuinely no race to draw (a season too young). Leaders
               // takes row 1 and an empty grid cell takes row 2, which is the layout this column
               // had before the race existed: the row collapses to whatever Next game needs
