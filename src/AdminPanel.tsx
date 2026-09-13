@@ -75,7 +75,9 @@ export function payrollStatus(updatedAt: string): Status {
 // WPBL feed-mirror ingest health, consolidated here from the WPBL home header. Cron runs
 // ~every 2 min: green = fresh + clean, amber = stale (>6 min) or per-game errors on the
 // last run, red = the last run failed outright.
-interface WpblRunRow { ran_at: string; ok: boolean; mode: string | null; games: number; boxscores: number; error_count: number }
+// `errors` is optional because `ingestStatus` reads only the count and the freshness, so the
+// health tests build rows without it; the Health group renders it when the select supplies it.
+interface WpblRunRow { ran_at: string; ok: boolean; mode: string | null; games: number; boxscores: number; error_count: number; errors?: string[] | null }
 export function ingestStatus(run: WpblRunRow): Status {
   const stale = Date.now() - new Date(run.ran_at).getTime() > 6 * 60_000
   if (!run.ok) return { tone: 'bad', label: 'Failed' }
@@ -441,8 +443,6 @@ function FeedbackModal({ open, onClose, onChanged }: {
 // `HealthStrip` puts the same four states in the header so a dead pipeline is visible from
 // whichever group is open.
 
-interface PayrollRow { updated_at: string; season: number }
-
 export interface OpsHealth {
   payroll:     PayrollRow | null
   ingest:      WpblRunRow | null
@@ -481,9 +481,12 @@ export function useOpsHealth(): OpsHealth {
       supabase.from('game_predictions')
         .select('*', { count: 'exact', head: true }),
 
-      // Most-recent WPBL feed-mirror ingest run (health/freshness)
+      // Most-recent WPBL feed-mirror ingest run (health/freshness). `errors` too, not just the
+      // count: an amber "N errors" chip the owner then has to open the SQL editor to explain is
+      // the exact round trip this page exists to remove, and the postseason "unmapped team" trap
+      // is the one that logs ok:true and is only ever visible here.
       supabase.from('wpbl_ingest_runs')
-        .select('ran_at, ok, mode, games, boxscores, error_count')
+        .select('ran_at, ok, mode, games, boxscores, error_count, errors')
         .order('ran_at', { ascending: false })
         .limit(1),
 
@@ -582,12 +585,24 @@ export function HealthGroup({ health }: { health: OpsHealth }) {
     <>
       <Section title="Pipelines">
         <Box sx={{ px: 1.5 }}>
-          {/* The feed mirror runs every two minutes, so it leads. */}
+          {/* The feed mirror runs every two minutes, so it leads. When the last run logged
+              errors, the messages themselves go here, not just the count: a run that reports
+              ok:true while pushing "unmapped team" into its errors array is the one failure mode
+              this table exists to catch, and an owner who can only see "3 errors" is back in the
+              SQL editor to read them. */}
           <StatRow
             label="WPBL ingest"
-            sub={ingest
-              ? `${ingest.mode ?? '—'} · ${ingest.games} games, ${ingest.boxscores} boxscores · ${timeAgoMin(ingest.ran_at)}${ingest.error_count > 0 ? ` · ${ingest.error_count} error(s)` : ''}`
-              : 'No ingest runs logged yet.'}
+            sub={ingest ? (
+              <>
+                {`${ingest.mode ?? '—'} · ${ingest.games} games, ${ingest.boxscores} boxscores · ${timeAgoMin(ingest.ran_at)}${ingest.error_count > 0 ? ` · ${ingest.error_count} error(s)` : ''}`}
+                {ingest.errors && ingest.errors.length > 0 && (
+                  <Box component="span" sx={{ display: 'block', mt: 0.3, color: 'warning.main', fontSize: '0.66rem', wordBreak: 'break-word' }}>
+                    {ingest.errors.slice(0, 4).join(' · ')}
+                    {ingest.errors.length > 4 ? ` · +${ingest.errors.length - 4} more` : ''}
+                  </Box>
+                )}
+              </>
+            ) : 'No ingest runs logged yet.'}
             value={<StatusPill {...(ingest ? ingestStatus(ingest) : IDLE)} />}
           />
           {/* Not our job failing: this one watches for the LEAGUE's radar publishing to resume. */}
