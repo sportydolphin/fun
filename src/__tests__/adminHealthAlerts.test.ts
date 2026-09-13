@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { healthAlerts, INGEST_STALE_MS, VALIDATION_STALE_MS } from '../../shared/adminHealth.js'
+import { healthAlerts, INGEST_STALE_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS } from '../../shared/adminHealth.js'
 
 // The thresholds ARE the feature: a job that quietly broke while still looking fine is the
 // whole failure mode, and paging on an expected state (a "behind" TrackMan feed, a nightly
@@ -63,6 +63,30 @@ describe('healthAlerts — scoring', () => {
   it('pages when the nightly run has gone missing', () => {
     expect(keys({ validation: freshValidation({ ran_at: ago(VALIDATION_STALE_MS + 60_000) }) }))
       .toContain('scoring-stale')
+  })
+})
+
+describe('healthAlerts — heartbeat jobs', () => {
+  const job = HEARTBEAT_CHECKS[0].job          // wpbl-drift-check, a nightly (staleable) job
+  const beat = (over: Record<string, unknown> = {}) => ({ job, ran_at: ago(60 * 60_000), ok: true, ...over })
+
+  it('is silent on a configured job with no heartbeat row (never run, not failed)', () => {
+    expect(healthAlerts({ heartbeats: [] }, NOW)).toEqual([])
+  })
+
+  it('is silent on a fresh, successful heartbeat', () => {
+    expect(healthAlerts({ heartbeats: [beat()] }, NOW)).toEqual([])
+  })
+
+  it('pages when a heartbeat reports failure, carrying the detail', () => {
+    const [a] = healthAlerts({ heartbeats: [beat({ ok: false, detail: 'db timeout' })] }, NOW)
+    expect(a.key).toBe(`${job}:failed`)
+    expect(a.body).toContain('db timeout')
+  })
+
+  it('pages when a nightly job has gone quiet past its cadence', () => {
+    const stale = beat({ ran_at: ago((HEARTBEAT_CHECKS[0].maxAgeMs ?? 0) + 60_000) })
+    expect(healthAlerts({ heartbeats: [stale] }, NOW).map(x => x.key)).toContain(`${job}:stale`)
   })
 })
 

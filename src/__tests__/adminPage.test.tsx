@@ -42,6 +42,7 @@ vi.mock('../AdminPanel', async (importOriginal) => {
       validation: null,
       tracking: null,
       predictions: 1234,
+      heartbeats: [],
       loading: false,
       reload: () => {},
     }),

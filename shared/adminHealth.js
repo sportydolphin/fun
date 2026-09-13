@@ -41,6 +41,25 @@ export const INGEST_STALE_MS = 15 * 60_000
 export const VALIDATION_STALE_MS = 30 * 60 * 60_000
 
 /**
+ * The rest of the fleet, monitored through the generic cron_heartbeats table rather than a
+ * bespoke health table each. A job here writes a heartbeat at the end of every run; this pages
+ * when a job that HAS been running fails or goes quiet past its own cadence.
+ *
+ * `maxAgeMs` is that cadence plus margin. Only jobs with a PREDICTABLE cadence belong here: a
+ * staleness alarm on a job that only runs when there is a game to act on would false-fire every
+ * quiet night, so those are added as failure-only (a null maxAgeMs) when their turn comes.
+ *
+ * A job with no heartbeat row at all is treated as never-run (idle), never as failed — absence
+ * is not evidence of a stall, only staleness is, exactly as an empty ingest/validation table is.
+ */
+export const HEARTBEAT_CHECKS = [
+  // The nightly drift checker: the only thing that catches the league revising a final after the
+  // fact, so its silent death lets the scoreboard and the box score drift apart with nothing
+  // saying so. Nightly, so 30h is a whole missed day plus margin.
+  { job: 'wpbl-drift-check', label: 'Drift check', maxAgeMs: 30 * 60 * 60_000 },
+]
+
+/**
  * @typedef {Object} HealthAlert
  * @property {string} key        Stable id for the kind of problem (dedupe scope).
  * @property {string} signature  Changes only when the problem itself changes; the sender pages
@@ -113,6 +132,30 @@ export function healthAlerts(rows, nowMs = Date.now()) {
     }
     // Deliberately silent on new_findings: they are expected and mostly known, and paging on
     // them is how the owner learns to swipe this away. The panel shows them; a phone should not.
+  }
+
+  // The heartbeat-backed jobs. A configured job with no row yet has simply never run under this
+  // mechanism (idle), so it is skipped rather than paged; only a failed run or one that has gone
+  // stale past the job's own cadence pages.
+  const beats = new Map((rows?.heartbeats ?? []).map(b => [b.job, b]))
+  for (const check of HEARTBEAT_CHECKS) {
+    const b = beats.get(check.job)
+    if (!b) continue
+    if (b.ok === false) {
+      out.push({
+        key: `${check.job}:failed`,
+        signature: `failed:${b.detail ?? ''}`,
+        title: `${check.label} failed`,
+        body: b.detail ? `Last run failed: ${b.detail}` : `The ${check.label.toLowerCase()} job reported a failure.`,
+      })
+    } else if (check.maxAgeMs != null && nowMs - Date.parse(b.ran_at) > check.maxAgeMs) {
+      out.push({
+        key: `${check.job}:stale`,
+        signature: 'stale',
+        title: `${check.label} is missing`,
+        body: `No ${check.label.toLowerCase()} run since ${b.ran_at}. The job may have stopped.`,
+      })
+    }
   }
 
   return out

@@ -9,6 +9,8 @@ import { isSubscribed } from './lib/push'
 import { fetchFeedback, setFeedbackHandled, deleteFeedback, FeedbackRow } from './lib/feedback'
 import { UsersPanel } from './AdminUsers'
 import { AwardsPanel } from './AdminAwards'
+import { HEARTBEAT_CHECKS } from '../shared/adminHealth'
+import type { Heartbeat, HeartbeatCheck } from '../shared/adminHealth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,6 +136,18 @@ export function trackingStatus(row: WpblTrackingRow): Status {
 /** Kept as a component because a test renders it directly. */
 export function WpblValidationChip({ run }: { run: WpblValidationRow }) {
   return <StatusPill {...validationStatus(run)} />
+}
+
+// A generic cron_heartbeats-backed job (the drift checker today; the push and recap senders
+// next). Takes a PRESENT beat — a missing row is the caller's IDLE, exactly as the pipelines
+// above do it. `maxAgeMs` null means the job's cadence is not predictable enough to call stale,
+// so only an outright failure shows red (see HEARTBEAT_CHECKS in shared/adminHealth.js).
+export function heartbeatStatus(beat: Heartbeat, check: HeartbeatCheck): Status {
+  if (!beat.ok) return { tone: 'bad', label: 'Failed' }
+  if (check.maxAgeMs != null && Date.now() - Date.parse(beat.ran_at) > check.maxAgeMs) {
+    return { tone: 'warn', label: 'Stale' }
+  }
+  return { tone: 'ok', label: 'Fresh' }
 }
 
 // ─── Stat row ─────────────────────────────────────────────────────────────────
@@ -449,6 +463,8 @@ export interface OpsHealth {
   validation:  WpblValidationRow | null
   tracking:    WpblTrackingRow | null
   predictions: number | null
+  /** One row per generic heartbeat-backed job (cron_heartbeats), keyed by `job`. */
+  heartbeats:  Heartbeat[]
   loading:     boolean
   /** Re-read every table. Wired to the page's refresh button, which used to reload the
       analytics half and silently leave the pipeline states as they were. */
@@ -463,7 +479,7 @@ export interface OpsHealth {
  */
 export function useOpsHealth(): OpsHealth {
   const [state, setState] = useState<Omit<OpsHealth, 'loading' | 'reload'>>({
-    payroll: null, ingest: null, validation: null, tracking: null, predictions: null,
+    payroll: null, ingest: null, validation: null, tracking: null, predictions: null, heartbeats: [],
   })
   const [loading, setLoading] = useState(true)
   const [nonce, setNonce] = useState(0)
@@ -501,7 +517,10 @@ export function useOpsHealth(): OpsHealth {
       supabase.from('wpbl_tracking_watch')
         .select('last_tracked_game_date, tracked_game_count, last_final_game_date, last_checked_at, last_advanced_at')
         .limit(1),
-    ]).then(([pr, pc, wp, wv, wt]) => {
+
+      // The generic per-job heartbeats (drift checker today; more to come). One row per job.
+      supabase.from('cron_heartbeats').select('job, ran_at, ok, detail'),
+    ]).then(([pr, pc, wp, wv, wt, hb]) => {
       if (!live) return
       setState({
         payroll:     (((pr.data ?? [])[0]) ?? null) as PayrollRow | null,
@@ -509,6 +528,7 @@ export function useOpsHealth(): OpsHealth {
         ingest:      (((wp.data ?? [])[0]) ?? null) as WpblRunRow | null,
         validation:  (((wv.data ?? [])[0]) ?? null) as WpblValidationRow | null,
         tracking:    (((wt.data ?? [])[0]) ?? null) as WpblTrackingRow | null,
+        heartbeats:  ((hb.data ?? []) as Heartbeat[]),
       })
     }).finally(() => { if (live) setLoading(false) })
     return () => { live = false }
@@ -526,11 +546,17 @@ export function useOpsHealth(): OpsHealth {
 const IDLE: Status = { tone: 'idle', label: 'Not yet run' }
 
 export function healthStatuses(h: OpsHealth): Array<Status & { key: string; name: string }> {
+  const beats = new Map(h.heartbeats.map(b => [b.job, b]))
   return [
     { key: 'ingest',   name: 'Ingest',   ...(h.ingest     ? ingestStatus(h.ingest)              : IDLE) },
     { key: 'trackman', name: 'TrackMan', ...(h.tracking   ? trackingStatus(h.tracking)          : IDLE) },
     { key: 'scoring',  name: 'Scoring',  ...(h.validation ? validationStatus(h.validation)      : IDLE) },
     { key: 'payrolls', name: 'Payrolls', ...(h.payroll    ? payrollStatus(h.payroll.updated_at) : IDLE) },
+    // The generic heartbeat jobs (drift checker today), so a silent death shows in the strip too.
+    ...HEARTBEAT_CHECKS.map(c => {
+      const b = beats.get(c.job)
+      return { key: c.job, name: c.label, ...(b ? heartbeatStatus(b, c) : IDLE) }
+    }),
   ]
 }
 
@@ -573,7 +599,7 @@ export function HealthStrip({ health, onOpen }: { health: OpsHealth; onOpen: () 
  * lines, in an order that put the every-two-minutes job below the once-a-day ones.
  */
 export function HealthGroup({ health }: { health: OpsHealth }) {
-  const { payroll, ingest, validation, tracking, loading } = health
+  const { payroll, ingest, validation, tracking, heartbeats, loading } = health
   if (loading) {
     return (
       <Section title="Pipelines">
@@ -630,6 +656,21 @@ export function HealthGroup({ health }: { health: OpsHealth }) {
               : 'No payroll data. Run npm run payrolls'}
             value={<StatusPill {...(payroll ? payrollStatus(payroll.updated_at) : IDLE)} />}
           />
+          {/* Generic heartbeat jobs — the crons that had no health surface until they started
+              writing cron_heartbeats. A job with no row yet reads "Not yet run", not green. */}
+          {HEARTBEAT_CHECKS.map(c => {
+            const b = heartbeats.find(x => x.job === c.job)
+            return (
+              <StatRow
+                key={c.job}
+                label={c.label}
+                sub={b
+                  ? `${b.detail ?? '—'} · ${timeAgoMin(b.ran_at)}`
+                  : 'Nothing recorded yet.'}
+                value={<StatusPill {...(b ? heartbeatStatus(b, c) : IDLE)} />}
+              />
+            )
+          })}
         </Box>
       </Section>
 

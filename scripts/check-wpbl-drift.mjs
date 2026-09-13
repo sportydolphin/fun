@@ -525,6 +525,27 @@ async function recordRevisions(url, drift) {
   return stored
 }
 
+// Record a heartbeat so /admin and the health-alert cron can tell this ran, and how it went.
+// ok=true even when drift was found: drift is this job WORKING, not failing; a real failure is
+// a crash, which writes nothing and is caught as staleness (see shared/adminHealth.js). Uses the
+// same direct pg connection everything else here does, and never throws — a heartbeat that fails
+// to record must not turn a clean run into a red one.
+async function recordHeartbeat(url, ok, detail) {
+  const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
+  try {
+    await client.connect()
+    await client.query(
+      `insert into cron_heartbeats (job, ran_at, ok, detail, updated_at)
+         values ('wpbl-drift-check', now(), $1, $2, now())
+       on conflict (job) do update set ran_at = now(), ok = $1, detail = $2, updated_at = now()`,
+      [ok, detail])
+  } catch (err) {
+    console.error(`  heartbeat write failed (non-fatal): ${err.message}`)
+  } finally {
+    await client.end().catch(() => {})
+  }
+}
+
 async function scan(ours) {
   const byApi = new Map(ours.map(r => [r.api_game_id, r]))
 
@@ -612,6 +633,10 @@ async function main() {
     }
     if (!drift.length && !missing.length) console.log('In sync: no drift.')
   }
+  // The run finished, so heartbeat ok=true regardless of whether drift was found (that is the
+  // job doing its work). A crash never reaches here, and its silence is the staleness signal.
+  await recordHeartbeat(url, true,
+    `${drift.length} drifted, ${missing.length} missing${repaired.length ? `, ${repaired.length} repaired` : ''}`)
   process.exit(drift.length || missing.length ? 1 : 0)
 }
 

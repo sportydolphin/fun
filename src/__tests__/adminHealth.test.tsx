@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import {
-  payrollStatus, ingestStatus, trackingStatus, validationStatus,
+  payrollStatus, ingestStatus, trackingStatus, validationStatus, heartbeatStatus,
   healthStatuses, HealthStrip, HealthGroup, WpblValidationChip, type OpsHealth,
 } from '../AdminPanel'
+import { HEARTBEAT_CHECKS } from '../../shared/adminHealth'
 
 // The four pipelines report their state through these functions, and the state is the whole
 // feature: /admin is the only place any of them is visible, and none of the four jobs fails
@@ -99,23 +100,51 @@ describe('payrollStatus', () => {
 
 const EMPTY: OpsHealth = {
   payroll: null, ingest: null, validation: null, tracking: null,
-  predictions: null, loading: false, reload: () => {},
+  predictions: null, heartbeats: [], loading: false, reload: () => {},
 }
 
 describe('healthStatuses', () => {
   it('never reports a pipeline that has not run as ok', () => {
     // "Not yet run" and "ran and was fine" are different answers. Collapsing them is how a
-    // job that never started would read green.
+    // job that never started would read green. The heartbeat jobs follow the same rule: no row
+    // yet is idle, not ok.
     const rows = healthStatuses(EMPTY)
-    expect(rows).toHaveLength(4)
+    expect(rows).toHaveLength(4 + HEARTBEAT_CHECKS.length)
     expect(rows.every(r => r.tone === 'idle')).toBe(true)
-    expect(rows.map(r => r.key)).toEqual(['ingest', 'trackman', 'scoring', 'payrolls'])
+    expect(rows.slice(0, 4).map(r => r.key)).toEqual(['ingest', 'trackman', 'scoring', 'payrolls'])
+    for (const c of HEARTBEAT_CHECKS) expect(rows.find(r => r.key === c.job)?.tone).toBe('idle')
   })
 
   it('carries each pipeline its own state', () => {
     const rows = healthStatuses({ ...EMPTY, ingest: ingest({ ok: false }), validation: validation() })
     expect(rows.find(r => r.key === 'ingest')).toMatchObject({ tone: 'bad', label: 'Failed' })
     expect(rows.find(r => r.key === 'scoring')).toMatchObject({ tone: 'ok', label: 'Clean' })
+  })
+
+  it('surfaces a failed heartbeat job in the strip', () => {
+    const job = HEARTBEAT_CHECKS[0].job
+    const rows = healthStatuses({ ...EMPTY, heartbeats: [{ job, ran_at: new Date().toISOString(), ok: false }] })
+    expect(rows.find(r => r.key === job)).toMatchObject({ tone: 'bad', label: 'Failed' })
+  })
+})
+
+describe('heartbeatStatus', () => {
+  const check = { job: 'j', label: 'Job', maxAgeMs: 30 * 60 * 60_000 }
+  const fresh = new Date().toISOString()
+  it('is fresh on a recent successful beat', () => {
+    expect(heartbeatStatus({ job: 'j', ran_at: fresh, ok: true }, check)).toEqual({ tone: 'ok', label: 'Fresh' })
+  })
+  it('is failed when the run reported failure', () => {
+    expect(heartbeatStatus({ job: 'j', ran_at: fresh, ok: false }, check)).toMatchObject({ tone: 'bad', label: 'Failed' })
+  })
+  it('is stale past the job cadence', () => {
+    const old = new Date(Date.now() - 40 * 60 * 60_000).toISOString()
+    expect(heartbeatStatus({ job: 'j', ran_at: old, ok: true }, check)).toEqual({ tone: 'warn', label: 'Stale' })
+  })
+  it('never calls a failure-only job (null maxAgeMs) stale', () => {
+    const old = new Date(Date.now() - 1000 * 60 * 60_000).toISOString()
+    expect(heartbeatStatus({ job: 'j', ran_at: old, ok: true }, { ...check, maxAgeMs: null }))
+      .toEqual({ tone: 'ok', label: 'Fresh' })
   })
 })
 

@@ -117,6 +117,14 @@ async function latestRun(table, cols) {
   return data?.[0] ?? null
 }
 
+// The generic per-job heartbeats (drift checker today; the push and recap senders next). One row
+// per job; shared/adminHealth.js decides which are stale or failed.
+async function fetchHeartbeats() {
+  const { data, error } = await supabase.from('cron_heartbeats').select('job, ran_at, ok, detail')
+  if (error) { console.warn(`⚠️  Reading cron_heartbeats failed: ${error.message}`); return [] }
+  return data ?? []
+}
+
 // ─── Test mode ────────────────────────────────────────────────────────────────
 
 async function runTest() {
@@ -133,12 +141,13 @@ async function runTest() {
 async function main() {
   if (TEST) return runTest()
 
-  const [ingest, validation] = await Promise.all([
+  const [ingest, validation, heartbeats] = await Promise.all([
     latestRun('wpbl_ingest_runs', 'ran_at, ok, error_count, errors'),
     latestRun('wpbl_pbp_validation_runs', 'ran_at, ok'),
+    fetchHeartbeats(),
   ])
 
-  const alerts = healthAlerts({ ingest, validation })
+  const alerts = healthAlerts({ ingest, validation, heartbeats })
 
   // Prior dedupe state. If the table is missing (migration not applied) we alert WITHOUT
   // dedupe rather than going silent — a noisy alert is recoverable, a missed outage is the

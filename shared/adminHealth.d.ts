@@ -26,10 +26,30 @@ export interface ValidationRunRow {
   ok:     boolean
 }
 
+/** One cron_heartbeats row: a background job's last run. */
+export interface Heartbeat {
+  job:     string
+  ran_at:  string
+  ok:      boolean
+  detail?: string | null
+}
+
+/** A heartbeat-monitored job. `maxAgeMs` null means failure-only (no staleness alarm). */
+export interface HeartbeatCheck {
+  job:      string
+  label:    string
+  maxAgeMs: number | null
+}
+
 export const INGEST_STALE_MS: number
 export const VALIDATION_STALE_MS: number
+export const HEARTBEAT_CHECKS: HeartbeatCheck[]
 
 export function healthAlerts(
-  rows: { ingest?: IngestRunRow | null; validation?: ValidationRunRow | null },
+  rows: {
+    ingest?: IngestRunRow | null
+    validation?: ValidationRunRow | null
+    heartbeats?: Heartbeat[]
+  },
   nowMs?: number,
 ): HealthAlert[]
