@@ -20,6 +20,7 @@
 // docs/DISCORD.md.
 import { searchPlayers } from '../../src/wpbl/playerSearch'
 import { buildPlayerReply, buildNoMatchReply, buildAmbiguousReply, type DiscordReply } from '../../src/wpbl/discordPlayerCard'
+import { buildLiveBoxReply } from '../../src/wpbl/discordLiveBox'
 import { buildPositionIndex, displayPositionFromIndex } from '../../src/wpbl/positions'
 import { buildRunsRound, halfIndex, halfInningStarted, nextHalfInning } from '../../src/wpbl/derive/predictions'
 import {
@@ -31,7 +32,7 @@ import {
   type PredictGameRow, type PredictRound, type PredictStore, type PredictTeam,
 } from '../../src/wpbl/predictStore'
 import { gameBoard, matchupLabel, refreshCard, settleGame } from '../../src/wpbl/predictEngine'
-import type { WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../../src/wpbl/types'
+import type { WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine } from '../../src/wpbl/types'
 import type { WpblSeasonGame } from '../../src/wpbl/season'
 
 interface Env {
@@ -113,6 +114,7 @@ export async function onRequestPost(context: Ctx): Promise<Response> {
 
   if (interaction.type === APPLICATION_COMMAND) {
     if (interaction.data?.name === 'predict') return predictCommand(interaction, env, waitUntil)
+    if (interaction.data?.name === 'score') return scoreCommand(interaction, env, waitUntil)
     const reply = await lookup(typed(interaction), env, waitUntil)
     return json({ type: CHANNEL_MESSAGE, data: reply })
   }
@@ -374,6 +376,71 @@ async function lookup(
 /** Ephemeral: a failure is between the reader and the bot, not channel content. */
 function errorReply(message: string): DiscordReply {
   return { allowed_mentions: { parse: [] }, content: message, flags: 64 }
+}
+
+// ─── /score: the box score of a game happening now ────────────────────────────
+//
+// Every column the box score reads, and only those. Deliberately NOT cached with the roster:
+// these move on every pitch, and a five-minute-old live line is the one staleness anyone
+// watching the game would notice at once, exactly as the /player box-score lines are.
+const LIVE_BOX_COLUMNS =
+  'id,home_team_id,away_team_id,home_score,away_score,home_hits,away_hits,'
+  + 'home_errors,away_errors,home_line,away_line,live_state,live_inning,status,start_time'
+
+/**
+ * Reply with the current box score of a live game. Public, so it can be shared.
+ *
+ * With two games live at once the reader has to say which — the `team` option filters, and
+ * without it the two are listed rather than guessed at. Never throws: every failure is a
+ * message, so an unreachable database reads as a sentence rather than "the application did not
+ * respond".
+ */
+async function scoreCommand(
+  interaction: Interaction,
+  env: Env,
+  waitUntil?: (p: Promise<unknown>) => void,
+): Promise<Response> {
+  const reply = (data: DiscordReply) => json({ type: CHANNEL_MESSAGE, data })
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), DATA_TIMEOUT_MS)
+  try {
+    const roster = await loadRoster(env, abort.signal, waitUntil)
+    const read = roster ? reader(env, abort.signal) : null
+    if (!roster || !read) return reply(errorReply('The stats database is not configured for this bot yet.'))
+
+    const games = await read<WpblGame>(`wpbl_games?select=${LIVE_BOX_COLUMNS}&status=eq.live&order=start_time`)
+    if (!games.length) return reply(errorReply('No WPBL game is live right now. Try /player for a season line.'))
+
+    const teams = roster.teams
+    const wanted = String(interaction.data?.options?.find(o => o.name === 'team')?.value ?? '').trim().toLowerCase()
+    let candidates = games
+    if (wanted) {
+      const involves = (g: WpblGame) => [g.away_team_id, g.home_team_id].some(id => {
+        const team = teams.find(t => t.id === id)
+        return [id, team?.name ?? '', team?.city ?? '', team?.abbr ?? ''].some(v => v.toLowerCase().includes(wanted))
+      })
+      candidates = games.filter(involves)
+      if (!candidates.length) return reply(errorReply(`No live game involves "${wanted}".`))
+    }
+    if (candidates.length > 1) {
+      const name = (id: string) => {
+        const t = teams.find(x => x.id === id)
+        return t ? `${t.city} ${t.name}`.trim() : id
+      }
+      const list = candidates.map(g => `- ${name(g.away_team_id)} at ${name(g.home_team_id)}`).join('\n')
+      return reply(errorReply(`More than one game is live. Add the team option to say which one.\n${list}`))
+    }
+
+    const game = candidates[0]
+    const away = teams.find(t => t.id === game.away_team_id)
+    const home = teams.find(t => t.id === game.home_team_id)
+    if (!away || !home) return reply(errorReply('That game is live but its clubs are not in the database yet.'))
+    return reply(buildLiveBoxReply(game, away, home))
+  } catch {
+    return reply(errorReply("Couldn't reach the WPBL stats just now. Try again in a moment."))
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // ─── /predict: the in-game predictions game ───────────────────────────────────

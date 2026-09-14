@@ -20,6 +20,7 @@ There are also two things that **answer** in the server, which webhooks cannot d
 | What | Written by | Behaviour |
 |---|---|---|
 | **`/player` slash command** | [`functions/discord/wpbl.ts`](../functions/discord/wpbl.ts) | Looks up any WPBL player by name and replies with their season. Suggests names as you type. |
+| **`/score` slash command** | the same function | Posts the box score of a game happening right now: line score, current inning and count, who is at bat and on base. Names the game to pick between two live at once. |
 | **`/predict`, the in-game game** | the same function, settled by [`settle-predictions.ts`](../supabase/functions/wpbl-ingest/settle-predictions.ts) | A mod opens a round on the half-inning coming up next; the channel answers with buttons; it closes itself as the inning starts and the feed settles it. One winner a game. |
 
 ## How it fits together
@@ -558,6 +559,26 @@ The reply is public so lookups can be shared. A miss, an ambiguous name, or a fa
 **ephemeral** (only the person who ran it sees it), so a channel doesn't fill up with other
 people's typos. Both are built in
 [`src/wpbl/discordPlayerCard.ts`](../src/wpbl/discordPlayerCard.ts) and unit tested.
+
+### The `/score` command
+
+The box score of a game happening right now, on the same Cloudflare endpoint. It reads the
+`status = 'live'` rows of `wpbl_games` directly (never the cached roster: a live line moves on
+every pitch, and a stale one is the staleness a viewer notices at once), and renders the line
+score, the score, the current inning and count, who is at bat, and who is on base.
+
+The reply is **public** so a box score can be shared into the channel; the "no game is live",
+"which of the two" and failure cases are **ephemeral**. With two games live it lists them and
+asks for the `team` option rather than guessing, exactly as `/predict open` does.
+
+The message is built in [`src/wpbl/discordLiveBox.ts`](../src/wpbl/discordLiveBox.ts), pure and
+unit tested. It shares the live-situation reading with the site through
+[`src/wpbl/derive/liveSituation.ts`](../src/wpbl/derive/liveSituation.ts) (extracted from
+`Live.tsx`, which drags MUI in and cannot enter the Functions bundle), so the between-innings
+break and the clamped count are derived once rather than in a second copy that drifts. The line
+score is deliberately **not** the recap's `lineScoreBlock`: that one prints an `X` for a final
+half the home side never batted, a judgement about a finished game that is wrong for one still
+being played.
 
 ### The `/predict` game ("Call It Early")
 

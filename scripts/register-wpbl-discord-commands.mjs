@@ -64,6 +64,18 @@ const COMMANDS = [
     ],
   },
   {
+    name: 'score',
+    description: 'Show the box score of a WPBL game happening right now',
+    options: [
+      {
+        name: 'team',
+        description: 'Which game, when more than one is live at once',
+        type: 3,
+        required: false,
+      },
+    ],
+  },
+  {
     name: 'predict',
     description: 'Run the in-game predictions game',
     default_member_permissions: MANAGE_MESSAGES,
