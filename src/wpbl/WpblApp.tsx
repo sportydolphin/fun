@@ -29,7 +29,6 @@ import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './BottomNav'
-import { useExperiments } from '../ExperimentsContext'
 import {
   WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
   wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex, wpblAppOwnsPath,
@@ -1051,13 +1050,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [loading, setLoading] = useState(true)
   const isMobileView = useMediaQuery('(max-width:600px)')
   const navRef = useRef<HTMLDivElement>(null)
-  // Experimental bottom tab bar — phones only, opt-in from Settings. While it's on it
-  // REPLACES the sticky top pills rather than sitting alongside them: two navs for the same
-  // five destinations would be worse than either alone, and the point is to feel the bottom
-  // bar as it would actually ship. Desktop keeps the pills regardless — a bottom bar is
-  // wrong at 1280px.
-  const experiments = useExperiments()
-  const bottomNav = experiments && isMobileView
+  // Bottom tab bar — phones only. It REPLACES the sticky top pills rather than sitting
+  // alongside them: two navs for the same five destinations would be worse than either alone.
+  // Desktop keeps the pills regardless — a bottom bar is wrong at 1280px. Shipped for every
+  // mobile reader on Sep 14, 2026; it was behind the experiments flag while being evaluated.
+  const bottomNav = isMobileView
   // The bottom bar's More sheet (the mobile way into the non-tab pages). Owned here, not in the
   // bar, because the sheet renders above the bar and outlives a tab swipe.
   const [moreSheetOpen, setMoreSheetOpen] = useState(false)
@@ -1072,8 +1069,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // desktop, this bar on mobile — so a view that wants to pin something of its own below
   // the chrome can offset by the sum and be right on both. Keyed off the computed position
   // (and re-measured on resize) so the static desktop case reports 0 rather than a height
-  // nothing is actually holding, and so the bottom-nav experiment, which hides this bar
-  // entirely, collapses to 0 on its own.
+  // nothing is actually holding: on desktop the bottom bar is absent and the top pills are
+  // sticky instead, so this collapses to 0 on its own.
   useEffect(() => {
     const el = navRef.current
     const publish = () => {

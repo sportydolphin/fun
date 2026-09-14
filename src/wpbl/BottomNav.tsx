@@ -10,10 +10,10 @@ import {
 } from '@mui/icons-material'
 import { WPBL_ACCENT } from './constants'
 
-// Floating bottom tab bar for the WPBL section — phones only, and only when the reader has
-// turned on experimental features in Settings. Being evaluated as a replacement for the
-// sticky top pill nav: six destinations at the top of an 812px screen is the least
-// reachable place on the device, and the sixth used to sit off-screen entirely.
+// Floating bottom tab bar for the WPBL section — phones only. It replaces the sticky top pill
+// nav on mobile: six destinations at the top of an 812px screen is the least reachable place
+// on the device, and the sixth used to sit off-screen entirely. It shipped to every mobile
+// reader on Sep 14, 2026, having been evaluated behind the Settings experiments flag first.
 //
 // DELIBERATELY NOT GLASS. A backdrop-filter needs something worth blurring, and this app is
 // dark cards on a near-black page — the blur would cost a compositing layer over a long
