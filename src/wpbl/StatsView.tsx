@@ -29,13 +29,14 @@ import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
-// Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
-// tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
-// separate sub-tab with its own layout and neither is reachable without a deliberate tap.
+// The boards that render outside the shared season table, behind their own chunks. Hitting and
+// Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
+// its own layout, not reachable without a deliberate tap. The draft-value model used to be here
+// too; it moved to /wpbl/league on Sep 13, 2026 (it was one analysis of the draft class, not a
+// season stat, and Stats had eight boards in one row).
 const WpblTrackingView = lazy(() => import('./TrackingView'))
 const WpblPitchView = lazy(() => import('./PitchView'))
 const WpblRunValueView = lazy(() => import('./RunValueView'))
-const WpblDraftValue = lazy(() => import('./DraftValue'))
 const WpblBestsView = lazy(() => import('./BestsView'))
 const WpblFindView = lazy(() => import('./FindView'))
 
@@ -66,10 +67,8 @@ const WpblFindView = lazy(() => import('./FindView'))
 // it does. The internal value stays 'pitches' so the board-usage analytics keep one name
 // across the rename.
 //
-// 'draft' sits on neither axis on purpose: it's a one-off analysis of the draft class that
-// spans both sides at once, so it's reached from a card under the table instead.
 type Side = 'hitting' | 'pitching'
-type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
+type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs'
 
 /** Boards that lay themselves out in two columns on a large desktop, and so take the wider
  *  page column. Everything else is one column and stays at the list measure. */
@@ -78,7 +77,7 @@ type Mode = 'players' | 'teams'
 
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
 // column, and a legacy ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
-type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'runs' | 'findings' | 'draft'
+type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'runs' | 'findings'
 
 // Whether this page-load has already logged an arrival at Stats. Module scope rather than a
 // ref inside the component, because the pager unmounts the pane on the way out of the tab:
@@ -95,7 +94,6 @@ function axesOf(g: Group): { side?: Side; source: Source } {
   // the union rather than being deleted: nothing in the app constructs it any more, but a
   // bookmark or a stale link still can, and the honest answer is the board its cards moved to.
   if (g === 'findings') return { source: 'runs' }
-  if (g === 'draft') return { source: 'draft' }
   return { side: g, source: 'season' }
 }
 
@@ -195,7 +193,7 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
  * sees one tab called Teams, where the code sees `source: 'season'` plus `mode: 'teams'`. The
  * URL is read by people, so it spells the thing on screen.
  */
-type BoardParam = 'players' | 'teams' | 'bests' | 'find' | 'pitches' | 'runs' | 'draft' | 'tracked'
+type BoardParam = 'players' | 'teams' | 'bests' | 'find' | 'pitches' | 'runs' | 'tracked'
 
 const STATS_PATH = '/wpbl/stats'
 
@@ -245,7 +243,6 @@ function boardAxes(board: string | null): { source: Source; mode: Mode } | null 
     case 'find':    return { source: 'find', mode: 'players' }
     case 'pitches': return { source: 'pitches', mode: 'players' }
     case 'runs':    return { source: 'runs', mode: 'players' }
-    case 'draft':   return { source: 'draft', mode: 'players' }
     case 'tracked': return { source: 'tracked', mode: 'players' }
     // Anything else is a hand-edited or stale link, and the honest answer to one of those is
     // the default board rather than a blank screen.
@@ -1132,11 +1129,6 @@ export default function WpblStatsView({
     // Hidden while the league has published radar for barely any games, and kept for the
     // session once a link has opened it anyway. See trackedOffered.
     ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
-    // Last, and a tab rather than the card it used to be. That card sat under the season
-    // board, which meant it sat under the players table AND the teams table, an invitation to
-    // somewhere else pinned to the bottom of two different pages. It is a destination like
-    // the other four, the row above is the list of destinations, and it costs nothing there.
-    { key: 'draft', label: 'Draft' },
   ]
   const activeBoard = source === 'season' ? mode : source
   const selectBoard = (k: string) => {
@@ -1342,9 +1334,6 @@ export default function WpblStatsView({
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
   }
 
-  // Draft takes the whole panel rather than sitting in a bar as a fourth tab. It's one
-  // analysis covering hitters and pitchers at once, so a side switch above it would be inert
-  // and a source switch meaningless — every control would be a control that does nothing.
   const thBase = {
     position: 'sticky' as const, top: 0, zIndex: 3, bgcolor: 'background.paper',
     fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4,
@@ -1502,7 +1491,6 @@ export default function WpblStatsView({
           shape on every board (the right-hand controls just empty out), so the bar no longer
           grows and shrinks under a sticky header as you move between boards. Emptying them out
           is not enough on its own to hold that height on a phone: see the switch below. */}
-      {source !== 'draft' && (
       <Box sx={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5,
         // THE SWITCH SITS OVER THE BOARD IT SWITCHES, which is not the same place on every
@@ -1615,8 +1603,8 @@ export default function WpblStatsView({
             ONLY WHERE IT DOES SOMETHING, and only once a postseason game has actually
             finished. The season tables, Bests and Find all filter their lines through
             `scopedLines`, so the switch moves all three; the other boards (Pitch by pitch, Run
-            value, Tracked, Draft) read their own data through paths this does not touch, so
-            offering it there would be a control that silently does nothing.
+            value, Tracked) read their own data through paths this does not touch, so offering it
+            there would be a control that silently does nothing.
 
             IT MATTERS MOST ON BESTS, which is the one board where the two slices are separate
             books rather than one number counted over more games: a postseason record is its
@@ -1654,7 +1642,6 @@ export default function WpblStatsView({
           </Box>
         )}
       </Box>
-      )}
       </Box>
 
       {/* Only on the season pitching board: it is the surface the numbers actually moved on,
@@ -1672,12 +1659,7 @@ export default function WpblStatsView({
           rather than the shared table: a different shape of data, not more columns. Both read
           the same `side` as the table, so switching Hitting/Pitching above carries straight
           through instead of being asked again inside them. */}
-      {source === 'draft' ? (
-        <Suspense fallback={<SubViewFallback />}>
-          <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching} games={games}
-            onOpenPlayer={onOpenPlayer} />
-        </Suspense>
-      ) : source === 'tracked' ? (
+      {source === 'tracked' ? (
         <Suspense fallback={<SubViewFallback />}>
           <WpblTrackingView side={side} games={games} onOpenPlayer={onOpenPlayer} />
         </Suspense>

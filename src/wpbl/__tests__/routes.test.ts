@@ -31,6 +31,7 @@ import {
   isWpblGlossaryPage,
   isWpblSourcesPage,
   isWpblSeasonPage,
+  isWpblScorigamiPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
   WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, isCanonicalComparePath,
@@ -730,6 +731,37 @@ describe('/wpbl/season, the season recap', () => {
   // makes an orphaned copy of it worth nothing.
   it('is linked from the site footer', () => {
     expect(footerSource).toContain('WPBL_SEASON_PAGE')
+  })
+})
+
+describe('/wpbl/scorigami, the final-scores grid', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/scorigami\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/scorigami\/\s+\/wpbl\/scorigami\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/wpbl/scorigami': {")
+    expect(seoSource).toMatch(/'\/wpbl\/scorigami':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/scorigami</loc>')
+  })
+
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblScorigamiPage('/wpbl/scorigami')).toBe(true)
+    expect(isWpblScorigamiPage('/wpbl/scorigami/')).toBe(true)
+    expect(isWpblScorigamiPage('/wpbl/scorigamis')).toBe(false)
+    expect(isWpblScorigamiPage('/wpbl/scorigami/extra')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/scorigami')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/scorigami')).toBe(false)
+  })
+
+  // No nav pill by design, so the footer is the only way in for a reader and the only link a
+  // crawler can follow. An orphaned copy of a page written to be found is worth nothing.
+  it('is linked from the site footer', () => {
+    expect(footerSource).toContain('WPBL_SCORIGAMI_PAGE')
   })
 })
 

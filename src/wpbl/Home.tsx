@@ -2031,7 +2031,8 @@ function LeagueCard() {
           The league
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.25 }}>
-          Where all 118 players are from, plus the reading, the highlight reels and the archive.
+          Where all 118 players are from and how the draft class turned out, plus the reading, the
+          highlight reels and the archive.
         </Typography>
       </Box>
       <Box aria-hidden sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.display, flexShrink: 0 }}>›</Box>

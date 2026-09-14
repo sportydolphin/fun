@@ -522,6 +522,19 @@ export const WPBL_SEASON_PAGE = `${WPBL_BASE}/season`
 export const isWpblSeasonPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_SEASON_PAGE
 
+// ─── The scorigami page ─────────────────────────────────────────────────────────
+//
+// A fifth sibling, on the same footing as the league, glossary, sources and season pages: a real
+// path linked from the footer and absent from WPBL_NAV, so the pills never grow a destination they
+// have not earned. It is a single durable visual (every final score the league has produced) and a
+// share image, which is what earns a URL of its own rather than a card that scrolls away under Home.
+// Indexable because "WPBL scorigami" is a term a fan of the format types, and no other site covering
+// this league has one.
+export const WPBL_SCORIGAMI_PAGE = `${WPBL_BASE}/scorigami`
+
+export const isWpblScorigamiPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_SCORIGAMI_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

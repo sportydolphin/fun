@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
-import { WPBL_PLAYERS_INDEX, WPBL_LEAGUE_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE, WPBL_SEASON_PAGE } from './wpbl/routes'
+import { WPBL_PLAYERS_INDEX, WPBL_LEAGUE_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE } from './wpbl/routes'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -75,6 +75,10 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
                 footer is a reader's only way in and a crawler's only link to follow. Keyword-shaped
                 anchor for the same reason as the rest. */}
             <Box component="a" href={WPBL_SEASON_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SEASON_PAGE) }} sx={linkSx}>2026 season</Box>
+            <Dot />
+            {/* Same reasoning as the season link beside it: no nav pill, so the footer is the only
+                way in for a reader and the only link a crawler can follow. Keyword-shaped anchor. */}
+            <Box component="a" href={WPBL_SCORIGAMI_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SCORIGAMI_PAGE) }} sx={linkSx}>Scorigami</Box>
             <Dot />
             <Box component="a" href={WPBL_GLOSSARY_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_GLOSSARY_PAGE) }} sx={linkSx}>Rules &amp; glossary</Box>
             <Dot />

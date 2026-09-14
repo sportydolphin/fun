@@ -14,10 +14,11 @@
 // WHY IT MATTERS THAT IT IS DULL TEXT. This is the only page in the section that still says
 // something after the feed stops on Sep 22, and it is 118 player names as real anchors, which
 // is the same crawl-path argument PlayersIndex.tsx is built on. Every name here is a link.
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblTeams, fetchWpblVideos, fetchWpblArticles, fetchWpblPhotos,
+  fetchWpblSchedule, fetchWpblAllLines,
   getCachedWpblVideos, getCachedWpblArticles, getCachedWpblPhotos,
 } from './api'
 import MediaShelf from './MediaShelf'
@@ -25,7 +26,16 @@ import { Chevron, FOCUS_RING, pressable, TAPPABLE, hoverOnly } from './ui'
 import { byCountry, ageSpread, placeOf } from './derive/hometowns'
 import { wpblPlayerPath } from './routes'
 import { navBack } from '../nav'
-import type { WpblArticle, WpblPhoto, WpblPlayer, WpblTeam, WpblVideo } from './types'
+import type {
+  WpblArticle, WpblPhoto, WpblPlayer, WpblTeam, WpblVideo, WpblGame,
+  WpblBattingLine, WpblPitchingLine,
+} from './types'
+
+// The draft-value model, its own chunk. It moved here off the Stats tab on Sep 13, 2026: it is a
+// question about the DRAFT CLASS ("did earlier picks produce better players"), not a season stat,
+// and it belongs beside the roster and the hometowns rather than as an eighth board on Stats. See
+// DraftValue.tsx.
+const WpblDraftValue = lazy(() => import('./DraftValue'))
 
 const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
@@ -37,6 +47,13 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
   const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
   const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
   const [photos, setPhotos] = useState<WpblPhoto[]>(() => getCachedWpblPhotos() ?? [])
+  // The draft model's own reads: the schedule and every box-score line. Held separately from the
+  // roster above and never gating it, the same way the media shelf's reads are: the draft chart
+  // simply is not there until its data is, and a slow lines read can never blank the roster that
+  // is this page's whole point.
+  const [games, setGames] = useState<WpblGame[]>([])
+  const [batting, setBatting] = useState<WpblBattingLine[]>([])
+  const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -59,7 +76,24 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
     return () => { cancelled = true }
   }, [])
 
+  // The draft chart's two reads. Its own effect, gating nothing, so the roster and shelf render
+  // on their own schedule and the chart appears when its data lands. All cached app-wide, so a
+  // reader who has been to Stats or Home pays nothing.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblSchedule().then(g => { if (!cancelled) setGames(g) }).catch(() => { /* chart omits itself */ })
+    fetchWpblAllLines().then(l => {
+      if (cancelled) return
+      setBatting(l.batting); setPitching(l.pitching)
+    }).catch(() => { /* chart omits itself */ })
+    return () => { cancelled = true }
+  }, [])
+
   const countries = useMemo(() => byCountry(players), [players])
+  // Whether the draft class can be drawn yet: at least one player carries a pick, and the season
+  // lines have arrived. Below this the section leaves itself out rather than drawing empty panels.
+  const hasDraft = games.length > 0 && batting.length > 0
+    && players.some(p => p.draft_round != null && p.draft_pick != null)
   const ages = useMemo(() => ageSpread(players), [players])
   const placed = countries.reduce((n, c) => n + c.players.length, 0)
   const widest = countries[0]?.players.length ?? 1
@@ -127,6 +161,27 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
       <Box sx={{ mb: 4 }}>
         <MediaShelf articles={articles} videos={videos} photos={photos} teams={teams} />
       </Box>
+
+      {/* HOW THE LEAGUE WAS BUILT, above the roster on purpose: the hometowns list is 118 rows and
+          the note there says anything under it is unreachable in practice, so a section that wants
+          to be seen has to sit over it. Left out entirely until its data lands, rather than drawing
+          two empty axes. Clicking a dot opens that player, the same navigation the roster uses. */}
+      {hasDraft && (
+        <Box sx={{ mb: 4 }}>
+          <Typography component="h2" sx={{ fontSize: '1.15rem', fontWeight: 800, mb: 0.5 }}>
+            The draft class
+          </Typography>
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>}>
+            <WpblDraftValue
+              players={players}
+              batting={batting}
+              pitching={pitching}
+              games={games}
+              onOpenPlayer={p => onNavigate(wpblPlayerPath(p, players))}
+            />
+          </Suspense>
+        </Box>
+      )}
 
       {countries.length === 0 && (
         <Typography sx={{ color: 'text.secondary' }}>

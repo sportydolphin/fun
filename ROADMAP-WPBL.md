@@ -920,6 +920,54 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 - **The season in 30 seconds** 🎯. Each club's W-L path and run differential over time as one
   chart, from 30 game rows. Makes a good share image.
 
+### Visuals (Sep 13, 2026)
+
+A second pass at the same data, asking what could be DRAWN rather than tabulated. Nothing here
+repeats a chart that already exists (season shape, win probability, spray, team radar, pitch
+location, the count and take/swing boards). Three of these extend entries above rather than
+replacing them, and say so. Suggested first three: Scorigami, Road to Springfield, the count
+subway map, because all three are cheap, survive Sep 22 and make a share image.
+
+**Durable**
+
+- ~~**WPBL Scorigami** 🎯🎮. A grid of every final score, lit the first time it happened and linked to
+  that game. In an inaugural season every score is a first, so the grid is mostly dark and fills in
+  next year. From `wpbl_games` alone; postseason finals count here, since a score is a score.~~
+  ✅ *Shipped Sep 13, 2026 as `/wpbl/scorigami` (see the log).*
+- **Road to Springfield** 🎯. Arcs from all 118 hometowns across 11 countries, converging on the
+  one ballpark (see "One ballpark, all season" above). The visual half of "Where they come from",
+  and it belongs on `/wpbl/league` beside the prose. Share image and indexable.
+- **The count as a subway map** 🔬🎯. The 12 counts as stations, edge thickness for how many
+  plate appearances travelled it, colour for on-base rate from there. Draws "What a single pitch is
+  worth" above: the 1-0 against 0-1 split (48.4% vs 37.2%) becomes a visible fork.
+- **Umpire zone personalities** 🔬. Called-strike rate per plate umpire, `K` against `B` from
+  `pitch_sequence`, keyed on `umpire_crew`. Only as wide as RetroWPBL's coverage (20 of 25 finals
+  on Sep 1), and it must read the STARTING plate umpire per inning, not the crew list, since one
+  game swapped the plate umpire in the 6th.
+- **Pitcher barcodes** 🎯🔬. A pitcher's season as a strip of coloured ticks, one per pitch (ball,
+  called strike, whiff, foul, in play). An attacker and a nibbler look different before a number is
+  read. Doubles as share-card art.
+- **Game quilt** 🎯. Every game's win-probability line as a small tile, ordered by `excitement`,
+  which is computed on every game and drawn nowhere. Tap a tile to open the game.
+- **Who owns whom, as a web** 🔬. Batters and pitchers as nodes, edges weighted by plate
+  appearances and coloured by who won the matchup. A drawn form of the league-wide board still
+  open under "Who owns whom" above; four clubs make the web dense enough to read.
+
+**Postseason, while games are still being played**
+
+- **When the runs come** 🎯. Runs by inning per club as a heatmap, regular season beside the
+  postseason. From the line scores.
+- **Longest battles** 🎮. The season's longest at-bats drawn pitch by pitch, foul after foul, to the
+  result. From `fouls` and `pitch_sequence`.
+- **Tug of war** 🎮. A small rope per bracket game that moves on every lead change, sized to sit on
+  the scoreboard strip.
+
+**Odd, and real**
+
+- **The league's edit history** 🔬. A diff-style timeline of what the league changed on a box score
+  after final, from `wpbl_game_revisions`. Read-only by nature, and the only record of those edits.
+- **Hear the game** 🎮. A game's win probability as a rising and falling tone, a click on each run.
+
 ## Parked, with reasons
 
 - **Game predictions / pick'em (+ bots)** 🎮: *demoted from "the marquee open item",
@@ -1085,6 +1133,32 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 13, 2026: every final score, as a grid
+
+**`/wpbl/scorigami`, the first of the Visuals list.** One square per (winning score, losing score):
+the winning runs read down the side, the losing runs across the top, so a square's position IS the
+score and the grid prints no number inside it. A lit square is a final that has happened and links
+to the first game that ended on it; a brighter square with a count is a score that has come up more
+than once. 28 different finals across the season's 34 games on the day it shipped.
+
+**FROM `wpbl_games` ALONE.** A final carries both scores on its own row, so the whole thing is a
+group-by over the schedule the section already caches: no lines, no plays, no roster, no request the
+page did not already have. `derive/scorigami.ts` is the arithmetic and `Scorigami.tsx` is the
+drawing.
+
+**THE POSTSEASON COUNTS HERE, ALONE ON THE SECTION.** Everywhere else a bracket game is held out of
+season totals, because it is not part of the 34-game record. A score is not a record: 11-9 happened
+whether it happened in July or in the semifinal, and a grid of "scores this league has produced"
+that dropped the postseason would be lying by a different name. So the derive deliberately does not
+filter on `counts_in_standings` or `game_type`. Sep 9's Firebells 6-4 Hunters is in the grid.
+
+**A SIBLING PAGE, the fifth, on the same footing as `/wpbl/season` and `/wpbl/league`:** a real path
+linked from the footer, absent from `WPBL_NAV`, with its own title and description. Wired through the
+four places `routes.test.ts` pins together (routes, `_redirects`, sitemap, seo) plus App.tsx and the
+footer, because three of those four fail invisibly in `npm run dev`. It earns a URL rather than a
+card because it is a durable, backward-looking artifact and a share image, and because "WPBL
+scorigami" is a term the format's fans type and no other site covering this league answers.
 
 ### Sep 13, 2026: three portraits were drawing on top of the toolbar
 

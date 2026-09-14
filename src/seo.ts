@@ -127,6 +127,14 @@ const ROUTES: Record<string, Seo> = {
     description:
       "The inaugural Women's Pro Baseball League season, in one page: batting and pitching leaders, the numbers that set this league apart, its biggest plays and its most improbable win.",
   },
+  // Every final score the league has produced, as a grid. Written for the term a fan of the format
+  // types ("scorigami"), which no other site covering this league answers, rather than for "WPBL
+  // scores", where the schedule and every game page already compete.
+  '/wpbl/scorigami': {
+    title: "WPBL Scorigami: every final score | sportydolphin.fun",
+    description:
+      "A grid of every final score the Women's Pro Baseball League has produced, winning runs down the side and losing runs across the top. Each lit square opens the game it came from.",
+  },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
     description:

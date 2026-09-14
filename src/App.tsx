@@ -23,7 +23,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblComparePage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblComparePage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
@@ -70,6 +70,7 @@ const WpblLeaguePage = lazy(() => import('./wpbl/LeaguePage'))
 const WpblGlossaryPage = lazy(() => import('./wpbl/GlossaryPage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
 const WpblSeasonPage = lazy(() => import('./wpbl/SeasonPage'))
+const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
 const WpblComparePage = lazy(() => import('./wpbl/Compare'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // The owner's dashboard. Its own route rather than a dialog: charts and tables need the
@@ -123,7 +124,7 @@ const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
-  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p)
+  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p)
 
 // Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
 // two read as one unit, and the wordmark is held back until the viewport can show it
@@ -1340,6 +1341,11 @@ function AppInner() {
           {isWpblSeasonPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblSeasonPage onNavigate={navigate} />
+            </Suspense>
+          )}
+          {isWpblScorigamiPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblScorigami onNavigate={navigate} />
             </Suspense>
           )}
           {isWpblComparePage(path) && (

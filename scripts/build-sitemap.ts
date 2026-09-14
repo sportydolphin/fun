@@ -49,6 +49,9 @@ const STATIC: Entry[] = [
   // the season is final, and a scoring correction is the only thing that moves them after that.
   // High priority because it is the page written to be found cold after the feed stops.
   { loc: '/wpbl/season', changefreq: 'monthly', priority: '0.8' },
+  // The scorigami grid. Weekly while games are still going final (each new final can light a new
+  // square), and durable after: it is a season-over-season artifact that only grows.
+  { loc: '/wpbl/scorigami', changefreq: 'weekly', priority: '0.7' },
   // Yearly, and that is the point of it: the rules do not move with the season, so this is
   // one of the two pages here still worth serving in February.
   { loc: '/wpbl/glossary', changefreq: 'yearly', priority: '0.7' },

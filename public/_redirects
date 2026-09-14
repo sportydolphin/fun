@@ -35,6 +35,7 @@
 /wpbl/glossary/  /wpbl/glossary   301
 /wpbl/sources/   /wpbl/sources    301
 /wpbl/season/    /wpbl/season     301
+/wpbl/scorigami/ /wpbl/scorigami  301
 /wpbl/compare/   /wpbl/compare    301
 /mlb/          /mlb       301
 /privacy/      /privacy   301
@@ -73,6 +74,8 @@
 /wpbl/sources    /  200
 # The season recap. Not a tab: see WPBL_SEASON_PAGE in src/wpbl/routes.ts.
 /wpbl/season     /  200
+# The scorigami grid. Not a tab: see WPBL_SCORIGAMI_PAGE in src/wpbl/routes.ts.
+/wpbl/scorigami  /  200
 # Not a tab either: see the note on WPBL_COMPARE_BASE in src/wpbl/routes.ts.
 /wpbl/compare    /  200
 # The one wildcard in this file, and the exception that proves the rule. A player URL is
