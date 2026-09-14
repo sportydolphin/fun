@@ -6,6 +6,7 @@ import {
   FormatListNumberedOutlined, FormatListNumbered,
   BarChartOutlined, BarChart,
   GroupsOutlined, Groups,
+  MoreHoriz,
 } from '@mui/icons-material'
 import { WPBL_ACCENT } from './constants'
 
@@ -36,7 +37,15 @@ const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
   standings: { on: FormatListNumbered,  off: FormatListNumberedOutlined },
   stats:     { on: BarChart,            off: BarChartOutlined },
   teams:     { on: Groups,              off: GroupsOutlined },
+  // Not a destination but a menu trigger, so there is no filled/outlined pair to swap: three dots
+  // are three dots. It rides the same slot machinery as the tabs and just changes colour when its
+  // sheet is open. See the MORE_KEY handling below and WpblMoreSheet.
+  more:      { on: MoreHoriz,           off: MoreHoriz },
 }
+
+// The sixth slot. It is a menu opener, not a view, so it is kept out of the selection machinery
+// (`shown`/`pending`/the sliding indicator never land on it) and calls `onMore` instead.
+export const MORE_KEY = 'more'
 
 // The bar's vertical geometry, in px and in one place, because the pieces have to agree:
 // the selection bubble is centred on the icon, and the label has to clear the bubble's
@@ -56,6 +65,22 @@ const FLOAT_GAP = 10       // how far the bar hovers above the bottom edge
 // How long the optimistic selection may outlive reality before the bar gives up on it.
 const PENDING_STALL_MS = 2000
 
+// The inactive tab colour, and it is OPAQUE ON PURPOSE. MUI's dark `text.secondary` is white at
+// 0.7 alpha (the theme does not override it), and animating THAT to the opaque accent on tap raises
+// the alpha toward 1 while the hue is still white — so the icon flashed white before it turned blue.
+// An opaque grey of about the same weight interpolates straight to the accent with nothing white in
+// between. Two values because the resting shade differs by mode; both clear AA on every skin's paper.
+const INACTIVE_TAB = { dark: '#a7adb7', light: '#5f6570' } as const
+
+// ONE DURATION AND CURVE FOR EVERY PART OF A SELECTION. A tap changes three things — the indicator
+// bubble slides to the tab, the icon fills in (outline → filled), and the icon + label recolour —
+// and if any of them runs on its own timing it reads as disjoint: the glyph snapping first and the
+// colour catching up as the bubble arrives is exactly that. Sharing the duration and easing makes
+// them start and finish together, so a tap is one motion. The same 300ms / curve the page pager's
+// tap slide uses (SLIDE_EASE / TAP_MS in SwipeableViews), so the whole screen moves as a unit.
+const SELECT_MS = 300
+const SELECT_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+
 // What the bar actually measures: the px pieces above plus its 1px border top and bottom,
 // and then the label, which is the one part measured in rem.
 const BAR_PX = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + 2
@@ -73,10 +98,15 @@ const BAR_PX = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + 2
  *  so callers can compose it with their own terms. */
 export const BOTTOM_NAV_SPACE = `${BAR_PX + FLOAT_GAP + 10}px + ${(LABEL_REM * LABEL_LINE_HEIGHT).toFixed(3)}rem`
 
-export default function WpblBottomNav({ items, value, onChange }: {
+export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen = false }: {
   items: BottomNavItem[]
   value: string
   onChange: (key: string) => void
+  /** Tapping the More slot (MORE_KEY) calls this instead of selecting a view; the parent opens the
+   *  sheet. Omit it and no More slot should be passed in `items`. */
+  onMore?: () => void
+  /** Whether the More sheet is open, so its slot can read as active while it is. */
+  moreOpen?: boolean
 }) {
   // Optimistic selection. Tapping a tab used to look like it stalled: the tap and the new
   // panel's render landed in the same paint, so the bar couldn't light up until the tab's
@@ -164,8 +194,10 @@ export default function WpblBottomNav({ items, value, onChange }: {
           display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
           // Centred on the icon: start at the icon's top, then lift by the bubble's overhang.
           pt: `${TAB_PAD_Y - (BUBBLE_H - ICON_PX) / 2}px`,
+          // Shared timing (see SELECT_MS/SELECT_EASE): the bubble, the icon fill and the recolour
+          // all run this, and it matches the page pager's tap slide, so a tap moves as one unit.
           transform: `translateX(${index * 100}%)`,
-          transition: 'transform 340ms cubic-bezier(0.32, 0.72, 0, 1)',
+          transition: `transform ${SELECT_MS}ms ${SELECT_EASE}`,
           pointerEvents: 'none',
         }}>
           {/* Wraps the ICON, not the whole slot. A full-slot bubble is only as wide as one
@@ -180,15 +212,20 @@ export default function WpblBottomNav({ items, value, onChange }: {
         </Box>
 
         {items.map(item => {
-          const active = item.key === shown
+          const isMore = item.key === MORE_KEY
+          // More is a menu opener, not a view: it reads active while its sheet is open, and it is
+          // never the `shown` tab, so the sliding bubble never travels to it.
+          const active = isMore ? moreOpen : item.key === shown
           const set = ICONS[item.key]
           return (
             <Box
               key={item.key}
-              onClick={() => select(item.key)}
-              role="tab"
-              aria-selected={active}
-              aria-label={item.badge ? `${item.label}, updated` : item.label}
+              onClick={() => isMore ? onMore?.() : select(item.key)}
+              role={isMore ? 'button' : 'tab'}
+              aria-selected={isMore ? undefined : active}
+              aria-haspopup={isMore ? 'menu' : undefined}
+              aria-expanded={isMore ? moreOpen : undefined}
+              aria-label={isMore ? 'More WPBL pages' : (item.badge ? `${item.label}, updated` : item.label)}
               sx={{
                 position: 'relative', // above the sliding indicator
                 flex: 1, minWidth: 0,
@@ -196,21 +233,21 @@ export default function WpblBottomNav({ items, value, onChange }: {
                 gap: `${ICON_LABEL_GAP}px`, py: `${TAB_PAD_Y}px`,
                 cursor: 'pointer', userSelect: 'none',
                 WebkitTapHighlightColor: 'transparent',
-                color: active ? WPBL_ACCENT : 'text.secondary',
-                transition: 'color 200ms ease',
+                color: t => active ? WPBL_ACCENT : (t.palette.mode === 'dark' ? INACTIVE_TAB.dark : INACTIVE_TAB.light),
+                // Drives the icon and the label (both inherit currentColor), on the shared timing
+                // so the recolour finishes with the fill and the bubble rather than ahead of them.
+                transition: `color ${SELECT_MS}ms ${SELECT_EASE}`,
               }}
             >
-              {/* Both icons are mounted and swapped by opacity. Swapping the COMPONENT on
-                  selection unmounted one SVG and mounted the other, which read as a dark
-                  flash on the tab you just pressed — there was nothing to paint for a frame.
-
-                  The two fades are staggered rather than simultaneous: outlined and filled
-                  are the same glyph, so a plain cross-fade holds both at half opacity in the
-                  middle, and the overlapping strokes make the icon swell and darken before
-                  settling. That is the pulse you see on the tab you land on. Handing over in
-                  sequence — old one out, then new one in — means only ever one glyph is
-                  drawn. There is no scale on the swap either, for the same reason: a tab bar
-                  changes tabs often enough that a zoom on every change is noise. */}
+              {/* THE OUTLINE IS ALWAYS DRAWN; selection only fades the FILLED glyph in over it.
+                  This is the whole trick to a smooth swap. The two glyphs share a silhouette and a
+                  colour, so with the outline permanently at full opacity the icon can never leave
+                  the tab (the disappear) and two half-lit glyphs can never double into a dark pulse
+                  (the "turns black"): both are what you get when you animate the two glyphs AGAINST
+                  each other. Here only the fill moves, so the icon simply fills in and empties out,
+                  and the parent's colour shift rides along. Filled is second in the DOM, so it sits
+                  ON TOP and covers the outline cleanly when lit. No scale on the swap: a tab bar
+                  changes often enough that a zoom on it is noise. */}
               <Box sx={{ position: 'relative', width: ICON_PX, height: ICON_PX, flexShrink: 0 }}>
                 {/* Sits on the icon's top-right corner, outside its box so it never
                     overlaps the glyph. Same static dot as the pill nav. */}
@@ -224,18 +261,17 @@ export default function WpblBottomNav({ items, value, onChange }: {
                     boxShadow: theme => `0 0 0 1.5px ${theme.palette.background.paper}`,
                   }} />
                 )}
-                {set && ([['off', set.off] as const, ['on', set.on] as const]).map(([kind, Icon]) => {
-                  const visible = kind === 'on' ? active : !active
-                  return (
-                    <Icon key={kind} sx={{
+                {set && (
+                  <>
+                    <set.off sx={{ position: 'absolute', inset: 0, fontSize: `${ICON_PX}px` }} />
+                    {/* Matches the parent's colour transition, so the fill and the tint settle
+                        together rather than one chasing the other. */}
+                    <set.on sx={{
                       position: 'absolute', inset: 0, fontSize: `${ICON_PX}px`,
-                      opacity: visible ? 1 : 0,
-                      transition: visible
-                        ? 'opacity 110ms ease-in 90ms'   // arriving: wait for the other to clear
-                        : 'opacity 90ms ease-out',        // leaving: go first, quickly
+                      opacity: active ? 1 : 0, transition: `opacity ${SELECT_MS}ms ${SELECT_EASE}`,
                     }} />
-                  )
-                })}
+                  </>
+                )}
               </Box>
               {/* Fixed weight on purpose. Going 600 → 800 on selection changed the label's
                   width and nudged the row, which is the jolt that made the change feel janky;
@@ -247,7 +283,9 @@ export default function WpblBottomNav({ items, value, onChange }: {
                 letterSpacing: 0.1,
                 maxWidth: '100%',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                transition: 'color 200ms ease',
+                // The label inherits the item's colour, so it already follows that transition; this
+                // just keeps the declared timing consistent rather than leaving a stale 200ms here.
+                transition: `color ${SELECT_MS}ms ${SELECT_EASE}`,
               }}>
                 {item.label}
               </Typography>

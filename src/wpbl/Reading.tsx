@@ -177,7 +177,7 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
       href={PUBLICATION_URL}
       {...linkProps}
       onClick={() => track(EVENTS.WPBL_AUTHOR_OPENED, { from })}
-      aria-label={`Written by ${AUTHOR_NAME} for her Substack, ${PUBLICATION_NAME}, opens in a new tab`}
+      aria-label={`Written by ${AUTHOR_NAME} for their Substack, ${PUBLICATION_NAME}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
         p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
@@ -212,7 +212,7 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
           “{AUTHOR_BIO}”
         </Typography>
         <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled', mt: 0.2 }}>
-          {PUBLICATION_NAME} · her Substack ↗
+          {PUBLICATION_NAME} · their Substack ↗
         </Typography>
       </Box>
     </Box>

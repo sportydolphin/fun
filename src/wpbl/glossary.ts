@@ -26,7 +26,7 @@ export interface GlossaryTerm {
 
 export const STAT_TERMS: Record<string, GlossaryTerm> = {
   AVG: { full: 'Batting average', plain: 'Hits divided by at-bats. .300 is a very good season.' },
-  OBP: { full: 'On-base percentage', plain: 'How often she reaches base at all, walks included. Higher is better.' },
+  OBP: { full: 'On-base percentage', plain: 'How often a batter reaches base at all, walks included. Higher is better.' },
   SLG: { full: 'Slugging percentage', plain: 'Total bases per at-bat, so it rewards extra-base hits instead of counting every hit alike.' },
   OPS: { full: 'On-base plus slugging', plain: 'Reaching base and hitting for power, added together. The quickest one-number read on a hitter; over 1.000 is excellent.' },
   G: { full: 'Games' },
@@ -36,12 +36,12 @@ export const STAT_TERMS: Record<string, GlossaryTerm> = {
   '2B': { full: 'Doubles' },
   '3B': { full: 'Triples' },
   HR: { full: 'Home runs' },
-  RBI: { full: 'Runs batted in', plain: 'Runners who scored because of her, plus herself on a home run.' },
+  RBI: { full: 'Runs batted in', plain: 'Runners who scored because of the batter, plus the batter on a home run.' },
   BB: { full: 'Walks' },
   SO: { full: 'Strikeouts' },
   SB: { full: 'Stolen bases' },
   TB: { full: 'Total bases' },
-  ERA: { full: 'Earned run average', plain: `Runs she is charged with per ${ERA_BASIS_CANONICAL} innings, which is one full WPBL game. Lower is better.` },
+  ERA: { full: 'Earned run average', plain: `Runs the pitcher is charged with per ${ERA_BASIS_CANONICAL} innings, which is one full WPBL game. Lower is better.` },
   WHIP: { full: 'Walks + hits per inning pitched', plain: 'Base runners allowed per inning. Around 1.00 is strong.' },
   'W-L': { full: 'Wins–Losses', plain: 'A pitcher’s record. A starter needs four innings and a lead that holds; see the win rule.' },
   SV: { full: 'Saves', plain: 'Credited to a reliever who finishes a close win without giving up the lead.' },
@@ -99,12 +99,12 @@ export const WPBL_RULES: WpblRule[] = [
   {
     id: 'winning-pitcher',
     question: 'How does a pitcher qualify for a win?',
-    answer: 'A starter has to complete four innings and leave with a lead her team never gives up. '
+    answer: 'A starter has to complete four innings and leave with a lead their team never gives up. '
       + 'Fall short of either and the win goes to whichever reliever the official scorer judges most effective.',
     source: 'observed',
     note: 'The league does not publish this one. Taken from every decision it has scored this season: no '
       + 'starter has ever won with fewer than four innings, and on Aug 22 one went 3.2 innings leading 8–2 '
-      + 'and lost the win to a reliever who had thrown fewer innings than she had. It is the standard '
+      + 'and lost the win to a reliever who had thrown fewer innings. It is the standard '
       + 'baseball rule scaled to a seven-inning game.',
   },
   {

@@ -70,6 +70,21 @@ export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string)
   const losers = Array.from({ length: Math.max(grid.maxWin, 1) }, (_, i) => i) // 0..maxWin-1
   const winners = Array.from({ length: grid.maxWin }, (_, i) => i + 1)         // 1..maxWin
 
+  // The grid is exactly as wide as its data (a label track + one cell per losing score + the
+  // gaps between them), which is narrower than the page column, so the intro and footnote were
+  // wrapping at 60ch and ending short of the table's right edge. Compute that same width from the
+  // grid's own geometry and cap the prose at it, so text and table share one right edge. The label
+  // track is pinned (LABEL_COL) rather than `auto` for the same reason: an auto width can't be
+  // named here. `min(…, 100%)` keeps it honest on a viewport too narrow for the full grid, where
+  // the table scrolls and the text just fills the column.
+  const LABEL_COL = '2.25rem'
+  const GRID_GAP = 4 // px, matches the grid's own gap below
+  const n = losers.length
+  const gridWidth = {
+    xs: `min(calc(${LABEL_COL} + ${n} * 1.75rem + ${n * GRID_GAP}px), 100%)`,
+    sm: `min(calc(${LABEL_COL} + ${n} * 2.1rem + ${n * GRID_GAP}px), 100%)`,
+  }
+
   return (
     <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
       <Box
@@ -88,12 +103,12 @@ export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string)
       <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 800, mb: 0.5 }}>
         WPBL Scorigami
       </Typography>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3, maxWidth: '60ch' }}>
+      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3, maxWidth: gridWidth }}>
         Every final score the Women&rsquo;s Pro Baseball League has produced. The winning score reads
         down the side, the losing score across the top, so each lit square is one score that has
-        happened. Tap a square to open the game.{' '}
+        happened.{' '}
         {hasData
-          ? `${grid.cells.size} different final scores across ${grid.totalGames} games so far. In an inaugural season nearly every score is a first; the grid fills in as the seasons stack.`
+          ? `${grid.cells.size} different final scores across ${grid.totalGames} games so far, and in an inaugural season nearly every one is a first: the grid fills in as the seasons stack.`
           : ''}
       </Typography>
 
@@ -113,17 +128,19 @@ export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string)
             sx={{
               '--cell': { xs: '1.75rem', sm: '2.1rem' },
               display: 'grid',
-              gap: '3px',
+              gap: '4px',
               width: 'max-content',
             }}
             // The column count is data, so it is spelled here rather than in the stylesheet:
-            // a label track plus one track per losing score.
-            style={{ gridTemplateColumns: `auto repeat(${losers.length}, var(--cell))` }}
+            // a fixed label track (LABEL_COL, so the prose above can match this width) plus one
+            // track per losing score.
+            style={{ gridTemplateColumns: `${LABEL_COL} repeat(${losers.length}, var(--cell))` }}
           >
-            {/* Corner: the two axes named. */}
+            {/* Corner: the two axes named. Extra bottom padding on the whole header row lifts the
+                axis numbers clear of the first cell row, which otherwise sit almost on top of it. */}
             <Box sx={{
               display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end',
-              pr: 0.5, pb: 0.25,
+              pr: 0.75, pb: 0.75,
             }}>
               <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>
                 W&nbsp;\&nbsp;L
@@ -131,7 +148,7 @@ export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string)
             </Box>
             {/* Top axis: losing scores. */}
             {losers.map(l => (
-              <Box key={`h${l}`} sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', pb: 0.25 }}>
+              <Box key={`h${l}`} sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', pb: 0.75 }}>
                 <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                   {l}
                 </Typography>
@@ -141,7 +158,7 @@ export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string)
             {/* One row per winning score. */}
             {winners.map(w => (
               <Box key={`r${w}`} sx={{ display: 'contents' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 0.75 }}>
                   <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                     {w}
                   </Typography>
@@ -199,10 +216,10 @@ export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string)
       )}
 
       {hasData && (
-        <Typography sx={{ color: 'text.disabled', fontSize: '0.78rem', mt: 2, maxWidth: '60ch' }}>
-          Regular season and postseason together: a score is a score wherever it happened. A brighter
-          square with a number means that final has come up more than once, and links to the first
-          time it did.
+        <Typography sx={{ color: 'text.disabled', fontSize: '0.78rem', mt: 2, maxWidth: gridWidth }}>
+          Tap any lit square to open the first game that ended on it. A brighter square with a number
+          is a score that has come up more than once. Regular season and postseason together: a score
+          is a score wherever it happened.
         </Typography>
       )}
     </Box>

@@ -12,7 +12,7 @@ import {
 import { wpblManagerPortrait } from '../portraits'
 import { awardStatsLookup, buildAwardBallot, withWriteIns } from '../derive/awards'
 import {
-  WPBL_MVP_SWAPS, WPBL_ARM_ORDER_LAST, WPBL_GLOVE_SHORTLIST, WPBL_AURA_SHORTLIST,
+  WPBL_MVP_SWAPS, WPBL_ARM_ORDER_LAST,
 } from '../awards'
 import { POSTSEASON_SCHEDULE } from '../derive/bracket'
 import { MIN_FIELDED_GAMES } from '../positions'
@@ -637,7 +637,7 @@ describe('what a catcher is carded on', () => {
     const c = card([caught('Runner out at second c to 2b, caught stealing.')])
     expect(c.stats?.map(s => s.label)).toEqual(['CS', 'Assists', 'Errors'])
     expect(c.stats?.[0].value).toBe('1')
-    expect(c.line).toBe('Threw out 1 of 12 who ran on her')
+    expect(c.line).toBe('Threw out 1 of 12 who ran on them')
     // 90 putouts, and every one of them is her pitcher's strikeout. It must not appear.
     expect(JSON.stringify(c)).not.toContain('90')
   })

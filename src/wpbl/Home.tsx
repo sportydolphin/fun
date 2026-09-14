@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFull
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
 import { linkTo, UNSTYLED_LINK } from '../nav'
-import { useWpblHeadingTag, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
+import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
@@ -517,11 +517,13 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
   if (strip.length === 0) return null
   return (
     // 12px UNDER IT ON A PHONE, NOT 20. Measured on the running page: every card on the mobile
-    // feed is 12px from the next one (the grid's own gap), and this one section sat 20px clear
-    // of what follows it, which is the gap the eye reads as "and now something else" on a page
-    // where the scoreboard is the same kind of block as the cards under it. The desktop keeps
-    // SECTION_GAP, where this row is separating a full-width strip from a two-column grid and
-    // the extra 8px is doing that work.
+    // feed is 12px from the next one (the grid's own gap), and this one section sat 20px clear of
+    // what follows it, which is the gap the eye reads as "and now something else" on a page where
+    // the scoreboard is the same kind of block as the cards under it. That is truer than ever with
+    // the league title now sitting above the strip: the title frames the page, and the scoreboard
+    // is the first content block, so it flows into the cards below at the same 12px they use
+    // between themselves. The desktop keeps SECTION_GAP, where this row separates a full-width
+    // strip from a two-column grid and the extra 8px is doing that work.
     <Box sx={{ mb: { xs: 1.5, sm: SECTION_GAP } }}>
       {/* Match the card-title treatment (Next game / Standings / Teams) so every section
           on the feed announces itself the same way, instead of a lone tiny eyebrow. That now
@@ -2458,6 +2460,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const headingTag = useWpblHeadingTag()
+  // Both read the same fact (the nav is at the foot of the screen): the h1's sx reveals it on a
+  // phone, and `navAtBottom` opens the gap under it. See useTabHeadingPhoneSx.
+  const hidePhone = useTabHeadingPhoneSx()
+  const navAtBottom = useWpblNavAtBottom()
 
   // Leaders + tracking data, fetched here so only the home view pays for it. Seeded from the
   // shared session cache so swiping back to Home (the default tab, so the most re-entered)
@@ -2632,13 +2638,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
       {/* Slim league header. On mobile it's just the title; on wider screens the club chips
           sit inline to the right. */}
-      {/* No margin under it on a phone, where the row has nothing left in it: the club chips
-          are already `sm`-only and the heading is now hidden there too, so 20px of margin
-          under an empty box would be the whole saving given back. */}
+      {/* No margin under it on a phone with the PILL NAV up top, where the row has nothing left
+          in it: the chips are `sm`-only and the h1 is hidden there because the nav already names
+          the league, so 20px under an empty box would be the whole saving given back. With the
+          BOTTOM BAR that nav is gone, the h1 is drawn (below), and the row needs a gap under it. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
-        mb: { xs: 0, sm: SECTION_GAP },
+        mb: { xs: navAtBottom ? 1.5 : 0, sm: SECTION_GAP },
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* The page's one <h1>. It carries the full league name (an exact match for that
@@ -2665,9 +2672,15 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               exact match for the search people type for this league, and Google indexes the
               MOBILE DOM. Deleting it, or hiding it in a way that removes it, would cost the
               brand term. Game Center made this same call for the same reason. */}
+          {/* DRAWN ON A PHONE ONLY WITH THE BOTTOM BAR. The hide was justified by the pill nav
+              overhead naming the league (see the long note this block carried); move that nav to
+              the foot of the screen and the phone opens onto bare scoreboard tiles with no idea
+              which league it is looking at, so the page's own h1 becomes the top label. It fits
+              one line at this size on a 375px phone. Desktop and the pill-nav layout keep it
+              clipped-but-in-DOM exactly as before. */}
           <Typography component={headingTag} sx={{
             fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15,
-            ...HIDE_ON_PHONE,
+            ...hidePhone,
           }}>
             Women's Pro Baseball League
           </Typography>

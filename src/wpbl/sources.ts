@@ -97,10 +97,10 @@ export const WPBL_SOURCES: readonly WpblSource[] = [
     name: 'towards a more perfect game',
     url: 'https://towardsamoreperfectgame.substack.com',
     kind: 'writing',
-    who: 'mary mustard, a writer and amateur ballplayer from Albany, covering women’s baseball on her own Substack.',
+    who: 'mary mustard, a writer and amateur ballplayer from Albany, covering women’s baseball on their own Substack.',
     uses: 'A headline, a dek, a cover image and a date. The article itself is never stored or shown here.',
     seenOn: 'The Reading shelf on the league page, the story card on a game, and the “written about” lists on players and clubs.',
-    basis: 'Mirrored with her explicit permission, granted August 17, 2026. Every card links straight to her post, and her name is on all of them. The writing is hers.',
+    basis: 'Mirrored with explicit permission, granted August 17, 2026. Every card links straight to the post, with a byline on all of them. The writing is theirs.',
   },
   {
     name: 'RetroWPBL',

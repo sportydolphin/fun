@@ -259,11 +259,11 @@ export default function WpblApiDocs() {
       <Note title="Team stats are summed over the CURRENT roster">
         <Code>/teams/{'{id}'}/stats</Code> reports <Code>aggregation: "roster_player_sums"</Code>,
         and it means what it says: the club's season totals are the sum of whoever is on its
-        roster today. A player who changed clubs mid-season therefore brings her whole season with
-        her, counted for the club she is on now and missing from the one she played those games
+        roster today. A player who changed clubs mid-season therefore brings their whole season with
+        them, counted for the club they are on now and missing from the one they played those games
         for. The league mints a new <Code>player_id</Code> on a move, so this is easy to miss. If
         you need a club's real season, sum the box-score lines instead: each line carries the
-        team she played that game for. The standings block is unaffected, being counted from
+        team that player played that game for. The standings block is unaffected, being counted from
         results rather than from players.
       </Note>
       <Note title="The qualified leaderboards are empty, and that is arithmetic">

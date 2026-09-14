@@ -30,13 +30,17 @@ const SCROLLER_FLICK_VELOCITY = 0.5 // px/ms — a horizontal flick faster than 
                             // flick reads as tab intent, since nobody flicks fast just to nudge a
                             // table over. Slower drags still scroll the table as before.
 const ANIM_MS = 260          // a swipe's release (commit or spring-back)
-// A nav-tap slide: snappier than a swipe release, and it grows a little with distance so a
-// two-tabs-away jump visibly travels PAST the tab between rather than teleporting one screen.
-// Capped so a far jump never drags.
-const TAP_STEP_MS = 170
-const TAP_STEP_ADD = 55
-const TAP_MS_CAP = 340
-const tapSlideMs = (steps: number) => Math.min(TAP_STEP_MS + (Math.abs(steps) - 1) * TAP_STEP_ADD, TAP_MS_CAP)
+// A nav-tap slide is ALWAYS one screen, whatever the distance: the target slides in from the
+// tapped side and the current slides out, the way a tab bar should feel. An earlier version grew
+// the travel with distance so a far jump slid PAST every tab in between — spatially honest, but the
+// least smooth thing here, whizzing several screens of heavy content past in a third of a second.
+// One screen means one duration, tuned to move in lockstep with the bottom bar's own indicator
+// (same length, same curve), so the page and the little selector bubble travel together.
+const TAP_MS = 300
+// The one easing both the tap slide and a swipe's release use. It is the SAME curve the bottom
+// nav's indicator rides (see BottomNav), which is what lets the two stay in sync: a fast start and
+// a long, soft settle, so the page arrives without a hard stop.
+const SLIDE_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 const RESIST = 0.3          // rubber-band factor when dragging past the first/last tab
 const GAP = 16              // gutter shown between panes while swiping, so they aren't cramped
 
@@ -197,27 +201,25 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     animating.current = false
   }
 
-  // Slide to `to` because the parent changed `index` off the pager (a nav tap). The outgoing
-  // pane stays in flow at its current scroll; every pane between it and `to` is laid out in a
-  // row one screen apart, and the track slides across all of them so a two-away jump travels
-  // past the tab in between. commitTo then swaps `to` into flow. Distance-scaled so it stays
-  // snappy near and never drags far.
+  // Slide to `to` because the parent changed `index` off the pager (a nav tap). The outgoing pane
+  // stays in flow at its current scroll; the target is parked ONE screen over on the tapped side
+  // (never its true distance — see TAP_MS) and the track slides that one screen across. commitTo
+  // then swaps `to` into flow. So a tab four away arrives on the same short, smooth slide as the
+  // one next door, instead of the track racing past the tabs in between.
   const startSlide = (to: number) => {
     const el = containerRef.current
     const from = activeIndex
     if (to === from || !el) { setActiveIndex(to); return }
-    const steps = to - from
-    const d: 1 | -1 = steps > 0 ? 1 : -1
+    const d: 1 | -1 = to > from ? 1 : -1
     const width = el.clientWidth
-    const ms = tapSlideMs(steps)
     if (paneMode) setPinTop(0)
     else { const curY = window.scrollY; setPinTop(curY - targetFor(to, curY)) }
-    setSlideTarget(to); setSlideMs(ms); setOffset(0); setAnim(false); setEngaged(true)
+    setSlideTarget(to); setSlideMs(TAP_MS); setOffset(0); setAnim(false); setEngaged(true)
     animating.current = true
-    // Next frame: with the row parked to the side, animate the track the full distance across.
-    requestAnimationFrame(() => { setAnim(true); setOffset(-steps * (width + GAP)) })
+    // Next frame: with the target parked one screen to the side, animate the track across to it.
+    requestAnimationFrame(() => { setAnim(true); setOffset(-d * (width + GAP)) })
     if (slideTimer.current) window.clearTimeout(slideTimer.current)
-    slideTimer.current = window.setTimeout(() => { slideTimer.current = null; commitTo(to, false) }, ms)
+    slideTimer.current = window.setTimeout(() => { slideTimer.current = null; commitTo(to, false) }, TAP_MS)
   }
 
   // The parent moved `index` (a nav tap, a Back, a deep link). Turn it into a slide when the
@@ -469,11 +471,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   const engagedExtras: number[] = []
   if (engaged) {
     if (slideTarget != null && slideTarget !== activeIndex) {
-      const st = slideTarget > activeIndex ? 1 : -1
-      for (let i = activeIndex + st; ; i += st) {
-        if (i >= 0 && i < panels.length) engagedExtras.push(i)
-        if (i === slideTarget) break
-      }
+      // Single-screen slide: only the target rides the track, parked one screen over (it does not
+      // matter how many tabs away it really is). The panes in between are never laid out.
+      engagedExtras.push(slideTarget)
     } else if (incoming >= 0 && incoming < panels.length && incoming !== activeIndex) {
       engagedExtras.push(incoming)
     }
@@ -505,7 +505,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         style={{
           position: 'relative',
           transform: engaged ? `translateX(${offset}px)` : undefined,
-          transition: anim ? `transform ${slideMs}ms cubic-bezier(0.25, 0.8, 0.4, 1)` : 'none',
+          transition: anim ? `transform ${slideMs}ms ${SLIDE_EASE}` : 'none',
           willChange: engaged ? 'transform' : undefined,
           ...(paneMode ? { height: '100%' } : {}),
         }}
@@ -520,11 +520,14 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
           // placed (i - activeIndex) screens over and pinned to the viewport, so the track's
           // translate slides it — and any panes before it — through the viewport.
           if (engagedExtras.includes(i)) {
-            const steps = i - activeIndex
+            // On-track position is the DIRECTION, not the index delta: a tap target rides in from
+            // one screen over on the tapped side whatever its true distance (single-screen slide),
+            // and a swipe neighbour is one away regardless. So both park at ±1 screen.
+            const step = slideTarget != null ? (slideTarget > activeIndex ? 1 : -1) : (i - activeIndex)
             return (
               <div
                 key={i}
-                style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', ...paneInset, ...paneScroll, transform: `translateX(calc(${steps * 100}% + ${steps * GAP}px))` }}
+                style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', ...paneInset, ...paneScroll, transform: `translateX(calc(${step * 100}% + ${step * GAP}px))` }}
               >
                 {panel}
               </div>

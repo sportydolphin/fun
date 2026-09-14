@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Box, Typography, Skeleton, CircularProgress, useMediaQuery } from '@mui/material'
+import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
   fetchWpblAllLines, fetchWpblAllTracking, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
@@ -8,7 +8,7 @@ import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFi
 import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf } from './ui'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, FOCUS_RING } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
@@ -28,7 +28,7 @@ import { useRowFlip, useRowDividers } from './rowFlip'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
 import SwipeableViews from './SwipeableViews'
-import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
+import WpblBottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
 import {
   WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
@@ -36,12 +36,15 @@ import {
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
+  WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
+  WPBL_PLAYERS_INDEX,
   type WpblView,
 } from './routes'
+import { linkTo } from '../nav'
 import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
 import { useForegroundInterval } from './refresh'
-import { WpblHeadingOwnerProvider, useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
+import { WpblHeadingOwnerProvider, WpblNavAtBottomProvider, useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
 
@@ -182,6 +185,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
   const isDark = useWpblDark()
   const gameLink = useWpblGameLink()
   const headingTag = useWpblHeadingTag()
+  const hidePhone = useTabHeadingPhoneSx()
   // The postseason is series-shaped and this list was not: a best-of-three read as three
   // unrelated games between the same two clubs. Empty all regular season, and empty for as
   // long as the feed marks no game as postseason, so nothing here changes shape on its own.
@@ -272,9 +276,9 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
   // from a game card: dashed rather than solid, no score column, no link, and slots that name a
   // seed rather than a club. A reader must not be able to mistake it for a fixture that exists.
   const renderPostseason = (r: PostseasonScheduleRow) => {
-    // Away over home when the league has designated one, seed order when it has not, and the
-    // same muted "@" a real game card uses either way it goes. See postseasonSlots.
-    const { slots, homeKnown } = postseasonSlots(r)
+    // Away over home when the league has designated one, seed order when it has not, and no venue
+    // marker either way, matching the real game card: one ballpark means "home" is only batting last.
+    const { slots } = postseasonSlots(r)
     const slot = (p: PostseasonSlot, i: number) => (
       <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
         {p.team ? <TeamBadge team={p.team} size={26} /> : (
@@ -291,7 +295,6 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
           fontSize: '0.9rem', fontWeight: p.team ? 600 : 500, flex: 1, minWidth: 0,
           color: p.team ? 'text.primary' : 'text.secondary',
         }}>
-          {homeKnown && i === 1 && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, mr: 0.5 }}>@</Box>}
           {p.team ? wpblFullName(p.team) : p.label}
         </Typography>
         {p.team && recordById.get(p.team.id) && (
@@ -397,10 +400,10 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
                       <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
                     )}
                     <TeamBadge team={t} size={26} />
-                    {/* Away is the top row, home the bottom — a muted "@" prefix on the home team
-                        reads as "away @ home" without a reserved gutter throwing off the spacing. */}
+                    {/* Away on top, home on the bottom, and no "@" marking the home side: the league
+                        plays every game in one ballpark, so "home" means batting last and nothing
+                        else, and a venue marker pointing at a ground that never changes is noise. */}
                     <Typography noWrap sx={{ fontSize: '0.9rem', fontWeight: won ? 800 : 600, flex: 1, minWidth: 0, color: final && !won ? 'text.secondary' : 'text.primary' }}>
-                      {i === 1 && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, mr: 0.5 }}>@</Box>}
                       {wpblFullName(t)}
                     </Typography>
                     {(final || live) ? (
@@ -474,7 +477,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
       {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. Demoted to
           a plain div while a game or player modal is the page; see PageHeading.tsx. */}
-      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25, ...HIDE_ON_PHONE }}>
+      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25, ...hidePhone }}>
         WPBL Schedule
       </Typography>
       {lead.map(renderDate)}
@@ -539,6 +542,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
       : 'Before opening day'
   })()
   const headingTag = useWpblHeadingTag()
+  const hidePhone = useTabHeadingPhoneSx()
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
   }
@@ -577,7 +581,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
     {/* The page's one <h1>. This is /wpbl/standings, a distinct route with its own title, so
         it gets a heading that names the term someone would search ("WPBL standings"). */}
-    <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, ...HIDE_ON_PHONE }}>
+    <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, ...hidePhone }}>
       WPBL Standings
     </Typography>
     {/* WHICH DAY THIS TABLE IS. Always drawn, never toggled, and that is the whole design: a
@@ -787,6 +791,145 @@ function viewFromLocation(): string | null {
     ?? wpblViewFromPath(window.location.pathname)
 }
 
+// The WPBL pages that are not tabs: the league, the season recap, the scorigami grid, the players
+// index, the rules and the data sources. Every one is a real route that until now was linked only
+// from the footer, which is a fine crawl path and a poor way for a reader to find anything. This
+// menu is one discovery surface for all of them, WITHOUT a sixth nav pill: WPBL_NAV, the pager and
+// the mobile bottom bar all stay at five, which is the constraint the section has held to since the
+// sixth pill used to sit off-screen on a phone (see BottomNav.tsx and the note on WPBL_LEAGUE_PAGE).
+//
+// Not a tab and switches nothing in the pager: it opens a menu. Each item is a real <a href> via
+// linkTo, so it is crawlable and cmd/middle-click opens it in a new tab, the same rule the footer
+// and the nav pills already follow. The footer keeps these links too; this adds a way in, it does
+// not move one.
+// `hint` is drawn only in the mobile bottom sheet (MoreSheet), which has room for a line under
+// each name; the desktop Menu shows the label alone.
+const MORE_LINKS: { href: string; label: string; hint?: string }[] = [
+  { href: WPBL_LEAGUE_PAGE,    label: 'The league',       hint: 'Where the players are from, the reading and the archive' },
+  { href: WPBL_SEASON_PAGE,    label: '2026 season',      hint: 'The season read back through its numbers' },
+  { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',        hint: 'Every final score the league has produced' },
+  { href: WPBL_PLAYERS_INDEX,  label: 'All players',      hint: 'Every roster, by club' },
+  { href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary', hint: 'How the league works, and what a stat means' },
+  { href: WPBL_SOURCES_PAGE,   label: 'Data sources',     hint: 'Where this site’s data comes from' },
+]
+
+function NavMore() {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const open = Boolean(anchor)
+  return (
+    <>
+      {/* Deliberately LIGHTER than a nav pill: a bordered, transparent chip against the pills'
+          filled active state, so it reads as a way out of the five rather than a sixth peer. */}
+      <Box
+        component="button"
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="More WPBL pages"
+        onClick={e => setAnchor(e.currentTarget)}
+        sx={{
+          ...FOCUS_RING,
+          display: 'inline-flex', alignItems: 'center', gap: 0.25,
+          px: 1.25, py: 0.5, borderRadius: 999, cursor: 'pointer',
+          border: '1px solid', borderColor: 'divider', bgcolor: 'transparent',
+          color: open ? 'text.primary' : 'text.secondary',
+          fontSize: '0.75rem', fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
+          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
+        }}
+      >
+        More
+        <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▾</Box>
+      </Box>
+      <Menu
+        anchorEl={anchor}
+        open={open}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        MenuListProps={{ dense: true }}
+      >
+        {MORE_LINKS.map(l => {
+          const props = linkTo(l.href)
+          return (
+            <MenuItem
+              key={l.href}
+              {...props}
+              // linkTo handles the navigation and lets a modified click through to the browser;
+              // the menu only has to close itself once a plain click has been taken.
+              onClick={e => { props.onClick(e); if (e.defaultPrevented) setAnchor(null) }}
+              sx={{ fontSize: '0.82rem', fontWeight: 600, ...UNSTYLED_MENU_LINK }}
+            >
+              {l.label}
+            </MenuItem>
+          )
+        })}
+      </Menu>
+    </>
+  )
+}
+
+// An anchor carries a browser underline and link colour; a MenuItem should look like a menu row.
+const UNSTYLED_MENU_LINK = { textDecoration: 'none', color: 'text.primary' } as const
+
+// The mobile counterpart to NavMore: the same six non-tab pages, reached from the bottom bar's
+// More slot as a bottom sheet instead of a dropdown. The bottom bar replaces the top pill nav on a
+// phone (so NavMore is not on screen there); this is how those pages stay reachable without a
+// footer scroll. Every row is a real <a href> (linkTo), so it is crawlable and cmd/long-press opens
+// a new tab, the same rule the footer and the menu follow.
+function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      // SwipeableDrawer, not Drawer, so a phone can flick the sheet down to dismiss it (the grabber
+      // above is the affordance). onOpen is required by the type but never fires: the sheet is only
+      // ever opened by the bar's More slot, never by an edge swipe, so disableSwipeToOpen is on.
+      onOpen={() => {}}
+      disableSwipeToOpen
+      // Capped and centred to the bar's own width, with rounded top corners and clearance for the
+      // iOS home indicator, so it reads as a sheet the bar raised rather than a full-bleed slab.
+      PaperProps={{ sx: {
+        maxWidth: 460, mx: 'auto', left: 0, right: 0,
+        borderTopLeftRadius: 16, borderTopRightRadius: 16,
+        bgcolor: 'background.paper',
+        pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
+      } }}
+    >
+      <Box sx={{ px: 2, pt: 1 }}>
+        <Box aria-hidden sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+          More
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          {MORE_LINKS.map(l => {
+            const props = linkTo(l.href)
+            return (
+              <Box
+                key={l.href}
+                {...props}
+                // linkTo navigates and lets a modified click through to the browser; the sheet only
+                // has to close itself once a plain click has been taken.
+                onClick={e => { props.onClick(e); if (e.defaultPrevented) onClose() }}
+                sx={{
+                  display: 'flex', flexDirection: 'column', gap: 0.1,
+                  textDecoration: 'none', color: 'text.primary',
+                  py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
+                  '&:last-of-type': { borderBottom: 'none' },
+                  ...hoverOnly({ color: 'text.primary' }),
+                }}
+              >
+                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{l.label}</Typography>
+                {l.hint && <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{l.hint}</Typography>}
+              </Box>
+            )
+          })}
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  )
+}
+
 export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Section is public/read-only (feed-driven). Ingest-health freshness moved to the site
   // Admin panel, so the section no longer needs an admin flag.
@@ -915,6 +1058,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // wrong at 1280px.
   const experiments = useExperiments()
   const bottomNav = experiments && isMobileView
+  // The bottom bar's More sheet (the mobile way into the non-tab pages). Owned here, not in the
+  // bar, because the sheet renders above the bar and outlives a tab swipe.
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false)
 
   // Mobile: once the page scrolls and the sticky pill bar pins to the top, give it a
   // hairline + soft shadow so content reads as sliding *under* a bar rather than under a
@@ -1653,6 +1799,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     {/* While a player or game modal is open it IS the page, so the tab underneath stops
         rendering an <h1> and the modal supplies it. See PageHeading.tsx. */}
     <WpblHeadingOwnerProvider owned={!detailPlayer && !detailGame}>
+    <WpblNavAtBottomProvider value={bottomNav}>
     {/* Cap + center on wide screens (site convention); full width on mobile.
         On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav: the
         toolbar already sits right above it, so the extra gap just reads as dead space at rest. */}
@@ -1666,7 +1813,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         break out of this column on purpose and DO spend extra width, on another chip and more
         columns; a list has nothing to spend it on. `chromePx` keeps the ratio the design was
         drawn at whatever the scale becomes. */}
-    <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
+    {/* The -1.5 on a phone pulls the sticky PILL BAR up close under the toolbar, where a sticky
+        bar wants to sit. With the bottom bar on, that bar is gone and the first block (the
+        scoreboard) would otherwise inherit the tuck and sit ~4px under the toolbar; give it real
+        breathing room instead. Keyed on bottomNav so it is correct in the target state and a
+        no-op until the gate flips. */}
+    <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: bottomNav ? 0.5 : -1.5, sm: 0 } }}>
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
           when swiping to a tab or when the schedule snaps to the next game. */}
@@ -1687,14 +1839,32 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         boxShadow: navStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
       }}>
         {/* href per pill: these are five separate URLs now, and a crawler only finds the
-            other four by following a real link from this bar. */}
-        <SegNav
-          options={NAV.map(n => ({
-            value: n.key, label: n.label, badge: navBadge(n.key), href: wpblPathFor(n.key),
-          }))}
-          value={view}
-          onChange={v => selectTab(v as WpblView, 'pill')}
-        />
+            other four by following a real link from this bar. The "More" control beside it is
+            NOT a sixth pill (see NavMore): the pills stay centred in the flex-1 track, and More
+            is pinned to the right edge of the nav column, out of the pager and out of WPBL_NAV.
+            It anchors to the column edge, not to Home's team badges: those live on Home's wider
+            breakout row and on no other tab, so chasing them would leave More floating against
+            nothing everywhere else. The column edge is the one right edge every tab shares. */}
+        {/* The gap below the nav to the content lives HERE, on the row, not on SegNav's own
+            `mb`. With alignItems:center that bottom margin gets folded into SegNav's margin box
+            and centred with it, floating the pills ~15px up off More, which is what read as More
+            "hanging halfway below the pill bar". Zero SegNav's margin (mb=0) so pills and More
+            share one marginless row and centre on the same line; the row carries the gap. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { sm: 3 } }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <SegNav
+              options={NAV.map(n => ({
+                value: n.key, label: n.label, badge: navBadge(n.key), href: wpblPathFor(n.key),
+              }))}
+              value={view}
+              onChange={v => selectTab(v as WpblView, 'pill')}
+              mb={0}
+            />
+          </Box>
+          <Box sx={{ flexShrink: 0, pr: { xs: 2, sm: 0 } }}>
+            <NavMore />
+          </Box>
+        </Box>
       </Box>
 
       {/* Floor the view height on mobile so even a short tab (e.g. Standings) is tall enough to
@@ -1760,11 +1930,19 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
       {bottomNav && (
         <WpblBottomNav
-          items={NAV.map(n => ({ key: n.key, label: n.label, badge: navBadge(n.key) }))}
+          items={[
+            ...NAV.map(n => ({ key: n.key, label: n.label, badge: navBadge(n.key) })),
+            // The sixth slot: opens the sheet of non-tab pages (the mobile counterpart to NavMore,
+            // which is on the top pill nav that the bottom bar replaces here).
+            { key: MORE_KEY, label: 'More' },
+          ]}
           value={view}
           onChange={k => selectTab(k as WpblView, 'pill')}
+          onMore={() => setMoreSheetOpen(true)}
+          moreOpen={moreSheetOpen}
         />
       )}
+      {bottomNav && <MoreSheet open={moreSheetOpen} onClose={() => setMoreSheetOpen(false)} />}
 
       {detailPlayer && (
         <Suspense fallback={<ModalChunkFallback />}>
@@ -1793,6 +1971,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         </Suspense>
       )}
     </Box>
+    </WpblNavAtBottomProvider>
     </WpblHeadingOwnerProvider>
     </WpblLinkProvider>
   )

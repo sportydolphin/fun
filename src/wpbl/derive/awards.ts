@@ -622,8 +622,8 @@ function gloveLine(t: WpblFieldingTotals, arm: CatcherArm | null, catcher: boole
   if (!catcher) return `${t.po + t.a + t.e} chances, ${errs}`
   if (!arm) return `${t.a} assists, ${errs}`
   return arm.attempts
-    ? `Threw out ${arm.caught} of ${arm.attempts} who ran on her`
-    : `Nobody tried to run on her, ${errs}`
+    ? `Threw out ${arm.caught} of ${arm.attempts} who ran on them`
+    : `Nobody tried to run on them, ${errs}`
 }
 
 function wheelsSlate({ players, batting, games }: AwardBallotInput): AwardCandidate[] {

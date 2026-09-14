@@ -342,11 +342,13 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
             gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr', md: 'repeat(4, 1fr)' },
           }}>
             <StatTile value={runsPerGame.toFixed(1)} label="Runs per game" sub="both clubs combined" />
-            <StatTile value={fmtRate(leagueBat.avg)} label="League average" sub="every plate appearance" />
+            <StatTile value={fmtRate(leagueBat.avg)} label="League average" sub={`${fmtRate(leagueBat.obp)} on-base`} />
             <StatTile
               value={`${leagueBat.bb}–${leagueBat.so}`}
               label="Walks vs strikeouts"
-              sub={leagueBat.bb > leagueBat.so ? 'more walks than strikeouts' : 'league-wide'}
+              sub={leagueBat.bb === leagueBat.so
+                ? 'dead even'
+                : `${Math.abs(leagueBat.bb - leagueBat.so)} more ${leagueBat.bb > leagueBat.so ? 'walks' : 'strikeouts'}`}
             />
             <StatTile value={String(leagueBat.hr)} label="Home runs" sub={`${leagueBat.doubles} doubles`} />
             {leagueBat.triples === 0
@@ -358,11 +360,11 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
               sub={stealPct != null ? `${stealPct.toFixed(0)}% success` : undefined}
             />
             <StatTile value={String(leagueBat.hbp)} label="Hit batters" sub={`${leaguePit.wp} wild pitches`} />
-            <StatTile value={String(leaguePit.bk)} label="Balks" sub="not a footnote here" />
+            <StatTile value={String(leaguePit.bk)} label="Balks" />
             <StatTile
               value={`${homeRecord.w}–${homeRecord.l}`}
               label="Home record"
-              sub="one venue: home just means batting last"
+              sub="batting last, one venue"
             />
           </Box>
 

@@ -1134,6 +1134,39 @@ is retired.
 
 ## Shipped log
 
+### Sep 14, 2026: a collapse on the roster page, and a sheet you can flick away
+
+**A polish pass over the four sibling pages and the section nav, shipped as v1.85.0.**
+
+**`/wpbl/players`: each club folds away.** The full roster runs long, so a club's header is now a
+button that collapses its grid, with a chevron that turns to say which way it will go. It uses MUI
+`Collapse`, which keeps the children mounted (height only), so every one of the 118 player anchors
+stays in the DOM while collapsed. That matters here more than anywhere: this page exists for the
+crawl path, and unmounting a collapsed club would take its links out of it. Default is expanded, so
+first paint and the crawl are unchanged; the toggle is a reader convenience.
+
+**The More sheet swipes down.** The mobile bottom-nav More slot opens a bottom sheet; it was a plain
+`Drawer`, which only closes on a tap outside. It is a `SwipeableDrawer` now, so a phone can flick it
+down. `disableSwipeToOpen` keeps the only way in the More slot itself (no accidental edge-swipe),
+and the required `onOpen` is a no-op.
+
+**The More control on desktop lines up with the pills.** It was pinned to the far edge and, because
+`SegNav` carries its own bottom margin, `alignItems:center` folded that margin in and dropped More
+~15px below the pill row. The gap now lives on the nav row rather than on `SegNav` (passed `mb={0}`),
+so pills and More sit on one line; More stays pinned to the nav column's right edge, the one right
+edge every tab shares (Home's team badges live on a wider breakout row, so chasing them would leave
+More adrift on every other tab).
+
+**Scorigami text now matches the grid width.** The intro and footnote were capped at `60ch` and
+ended short of the table's right edge. They take the grid's own computed width now (a pinned label
+track plus one cell per losing score plus the gaps), wrapped in `min(…, 100%)` for a viewport too
+narrow for the full grid. The axis numbers also got clear of the first cell row, and the copy lost a
+line that duplicated the footnote.
+
+**Copy audit on `/wpbl/season` and `/wpbl/league`.** The season "By the numbers" tiles had a few
+sub-labels that leaned caption over fact ("not a footnote here", "every plate appearance"); they are
+concrete second facts now or gone. The League intro dropped its age line.
+
 ### Sep 13, 2026: every final score, as a grid
 
 **`/wpbl/scorigami`, the first of the Visuals list.** One square per (winning score, losing score):

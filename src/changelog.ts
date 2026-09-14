@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.85.0',
+    date:    '2026-09-14',
+    title:   'Every score the league has produced, in one grid',
+    changes: [
+      {
+        short: 'WPBL Scorigami: every final score the league has produced, as a grid',
+        full:  'One square for every final: the winning runs read down the side, the losing runs across the top, so a square’s position is the score and the grid prints no number inside it. A lit square is a final that has happened, and it opens the first game that ended on it; a brighter square with a number is a score that has come up more than once. 28 different finals across the season’s 34 games so far. It counts the postseason too, because a score is a score wherever it happened. Linked from the players page and the footer, with its own address to share.',
+      },
+      {
+        short: 'Collapse a club on the players page',
+        full:  'The full-roster page runs long, so each club’s list now folds away: tap a club’s name to collapse it, tap again to open it. Every player is still a real link underneath, so nothing changes about finding anyone, there is just less to scroll past.',
+      },
+      {
+        short: 'Flick the More menu down to close it on a phone',
+        full:  'The More sheet at the foot of the screen can be swiped down to dismiss now, the way a sheet on a phone should, rather than only closing on a tap outside it.',
+      },
+    ],
+  },
+  {
     version: '1.84.0',
     date:    '2026-09-13',
     title:   'Two new ways into the stats',
@@ -90,7 +109,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'They were twenty pixels tall and ten pixels apart, which was awkward enough with one control and worse with two beside each other. They are half again as tall now, without the labels growing: the words were never the problem.',
       },
       {
-        short: 'The Sep 11 semifinal had Jill Albayati leaving a game she had left three innings earlier',
+        short: 'The Sep 11 semifinal had Jill Albayati leaving a game they had left three innings earlier',
         full:  'The league wrote San Francisco’s sixth-inning pitching change as “Liz Gilder to p for Jill Albayati”, but Albayati had been relieved in the third and the two innings in between were Niki Eckert’s, which is also what the box score beside it says and who it credits with the win. Reported by a reader watching the game. The line now names Eckert and carries the mark every corrected play does. Looking for others turned up nine more of exactly this, going back to Aug 2, which is what the change above fixes for good.',
       },
     ],
@@ -117,8 +136,8 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'A reader counted two Katherine Murphy singles in the Aug 20 play-by-play against a box score crediting her one, and the page gave them no way to tell why. The league published the whole of New York’s sixth and seventh that night as rows carrying a pitcher and a pitch sequence and nothing else, so those at-bats were filled in from RetroWPBL, an independent transcription of the same game. Those plays now carry a small mark, and a line at the foot of the play-by-play says how many there are and where they came from. Both readings disagree about that one at-bat and neither can settle it; what was wrong was showing them as one account that did not add up. Two games in the season have any of these.',
       },
       {
-        short: 'Claire O’Sullivan’s postseason opener is back under her name',
-        full:  'The league published New York’s Sep 10 box score with her first name as Catherine, under a player id it had never used for her before, so the game was filed under a second player nobody recognises and her own page was missing it. Both are one person again, and the three at-bats, the walk and the RBI are hers. Reported by a reader. A check now runs twice a day for the same shape of mistake anywhere on the roster, since the only thing that caught this one was somebody noticing.',
+        short: 'Claire O’Sullivan’s postseason opener is back under the right name',
+        full:  'The league published New York’s Sep 10 box score with the first name as Catherine, under a player id it had never used for O’Sullivan before, so the game was filed under a second player nobody recognises and O’Sullivan’s own page was missing it. Both are one person again, and the three at-bats, the walk and the RBI are theirs. Reported by a reader. A check now runs twice a day for the same shape of mistake anywhere on the roster, since the only thing that caught this one was somebody noticing.',
       },
       {
         short: 'The run expectancy table draws each situation instead of spelling it',
@@ -388,7 +407,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'A pickoff attempt no longer reads as if the runner failed at something',
-        full:  'The league writes these as "Lexi Hastings Failed pickoff attempt", and Hastings is the runner: the pitcher threw over and did not get her. On the page it read as though she had failed at something. All 139 of them now read "Failed pickoff attempt at Lexi Hastings", which is the same fact the right way round.',
+        full:  'The league writes these as "Lexi Hastings Failed pickoff attempt", and Hastings is the runner: the pitcher threw over and did not get them. On the page it read as though Hastings had failed at something. All 139 of them now read "Failed pickoff attempt at Lexi Hastings", which is the same fact the right way round.',
       },
       {
         short: 'Substitutions stopped being printed as if they were plays',
@@ -486,22 +505,22 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'A pitcher who has never played for Los Angeles was listed on their roster',
-        full:  'Emi Saiki was showing as a Queen. She has never played a game for them: all six of her batting lines and both of her pitching lines are New York, and on Sep 4 she threw six innings and won the Heights’ 14-2 over San Francisco. She was not traded, she was flapping between the two clubs, once each way per game, eleven times. The league lists a second, unidentified "Emi Saiki" in Los Angeles box scores, and the part of the ingest that recognises a trade took the matching name as one. It now wants the league’s own player id before it will move anybody between clubs, which a real trade always carries, and her roster row is back on New York.',
+        full:  'Emi Saiki was showing as a Queen, a club they have never played a game for: all six batting lines and both pitching lines are New York, and on Sep 4 Saiki threw six innings and won the Heights’ 14-2 over San Francisco. It was not a trade, it was flapping between the two clubs, once each way per game, eleven times. The league lists a second, unidentified "Emi Saiki" in Los Angeles box scores, and the part of the ingest that recognises a trade took the matching name as one. It now wants the league’s own player id before it will move anybody between clubs, which a real trade always carries, and the roster row is back on New York.',
       },
       {
         short: 'Suzu Narasaki was on the wrong club too, from the same night',
-        full:  'Checking every player’s club against the club she last actually played for turned up one more. Suzu Narasaki really was traded, from Los Angeles to New York on Aug 27, and she has played for the Heights ever since. The same Sep 5 Los Angeles box score that moved Saiki moved her back, within the same minute. Both are corrected, and the check now comes back clean for all 118 players.',
+        full:  'Checking every player’s club against the club they last actually played for turned up one more. Suzu Narasaki really was traded, from Los Angeles to New York on Aug 27, and has played for the Heights ever since. The same Sep 5 Los Angeles box score that moved Saiki moved Narasaki back, within the same minute. Both are corrected, and the check now comes back clean for all 118 players.',
       },
     ],
   },
   {
     version: '1.68.1',
     date:    '2026-09-06',
-    title:   'Every player in a box score gets her name back',
+    title:   'Every player in a box score gets their name back',
     changes: [
       {
-        short: 'A player who has changed clubs is named in the games she played before the move',
-        full:  'A box score identifies its players by an id and nothing else, and the game page was looking those ids up against the two clubs’ rosters as they stand today. Anybody whose roster row had moved on was simply missing, and her name came out as a dash. On the Sep 4 game, New York 14 San Francisco 2, that was the winning pitcher: a dash on the decision line, a dash under a blank portrait as a Star of the Game, and a dash in the pitching table, on a night she threw six innings and struck out four. The page now looks names up against the whole league, which is the only list that can answer a question about who played in a game last month.',
+        short: 'A player who has changed clubs is named in the games they played before the move',
+        full:  'A box score identifies its players by an id and nothing else, and the game page was looking those ids up against the two clubs’ rosters as they stand today. Anybody whose roster row had moved on was simply missing, and the name came out as a dash. On the Sep 4 game, New York 14 San Francisco 2, that was the winning pitcher: a dash on the decision line, a dash under a blank portrait as a Star of the Game, and a dash in the pitching table, on a night they threw six innings and struck out four. The page now looks names up against the whole league, which is the only list that can answer a question about who played in a game last month.',
       },
     ],
   },
@@ -524,7 +543,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'The last play is broken into its parts instead of printed as one sentence',
-        full:  'The league writes one long sentence with everything in it: the batter, what she did, the ball-strike count with the raw pitch letters in brackets, and every runner’s movement chained on with semicolons. The Live tab splits it the same way the Play-by-Play tab already does. The batter is bold and opens her page, the runners go on a quieter second line, and the count moves to its own column on the right so it is in the same place every time instead of floating mid-sentence.',
+        full:  'The league writes one long sentence with everything in it: the batter, what they did, the ball-strike count with the raw pitch letters in brackets, and every runner’s movement chained on with semicolons. The Live tab splits it the same way the Play-by-Play tab already does. The batter is bold and opens their page, the runners go on a quieter second line, and the count moves to its own column on the right so it is in the same place every time instead of floating mid-sentence.',
       },
       {
         short: 'One thing the Live tab cannot do, and will not pretend to',
@@ -665,8 +684,8 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'A postseason game needs two clubs, and nobody knows who plays whom until the last regular-season game sets the seeds, so the league’s feed carries no rows for it and the schedule tab simply ended at the last regular-season day. It now runs through the championship’s game 5 on Sep 22, from the calendar the league published on Aug 24. A row names a seed rather than a club until that seed can no longer move, so it says “1 seed” until the club holding it is actually locked in. Games that are only played if a series is still alive are marked, and disappear once the series is won. When the league draws the real bracket, its own games take these places automatically.',
       },
       {
-        short: 'Search a player by her number',
-        full:  'Type 7 in the search box and you get every player in the league wearing it, one per club, grouped by club. The hash is optional, so “7” and “#7” both work. A single digit is enough, which it is not for a name, because no name contains a number and so there is nothing else it could mean. Every search row now shows the player’s number beside her position and club. Players who have not been issued a number cannot be found this way, which is 49 of the 119 on the league’s books.',
+        short: 'Search a player by their number',
+        full:  'Type 7 in the search box and you get every player in the league wearing it, one per club, grouped by club. The hash is optional, so “7” and “#7” both work. A single digit is enough, which it is not for a name, because no name contains a number and so there is nothing else it could mean. Every search row now shows the player’s number beside their position and club. Players who have not been issued a number cannot be found this way, which is 49 of the 119 on the league’s books.',
       },
       {
         short: 'A team’s leaders in OPS and ERA now need enough playing time',
@@ -907,8 +926,8 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'Nothing on the section said who is having the best season, because there was no single number a hitter and a pitcher could both be measured on. There is now: runs created at the plate plus runs saved on the mound, both priced against the league’s own run expectancy, which is the same table behind the Run value board. The card draws the top two and the whole season between them, so you can see the lead as it moves rather than only where it ended up. Both names open that player’s page.',
       },
       {
-        short: 'Kelsie Whitmore leads it by counting both halves of what she does',
-        full:  'She is second in the league in runs created at the plate and has saved four and a half more on the mound, and adding the two puts her ahead of a hitter who leads her on the batting board. That is the whole argument for the metric: a two-way player is undercounted by any leaderboard that only reads one side of the ball, and this is the first surface here that reads both. The card marks her as two-way and shows the split, so the total is never a number you have to take on trust.',
+        short: 'Kelsie Whitmore leads it by counting both halves of what they do',
+        full:  'Whitmore is second in the league in runs created at the plate and has saved four and a half more on the mound, and adding the two moves ahead of a hitter who leads on the batting board. That is the whole argument for the metric: a two-way player is undercounted by any leaderboard that only reads one side of the ball, and this is the first surface here that reads both. The card marks the player as two-way and shows the split, so the total is never a number you have to take on trust.',
       },
       {
         short: 'Run value now explains itself in one place, in three steps',
@@ -1095,7 +1114,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Clearer credit for the writing in the Reading rail',
-        full:  'The articles on Home are written by mary mustard for her own Substack, towards a more perfect game, and this site only links to them. That was not saying itself clearly enough: the card carried her masthead as though it were ours and printed her own bio in the first person with nothing in front of it, and readers were coming away thinking she writes this site. The credit now says "Written by" before her name, keeps her description in quotation marks as the words of hers that they are, and names her Substack as hers. She keeps the full credit; it just says whose it is.',
+        full:  'The articles on Home are written by mary mustard for their own Substack, towards a more perfect game, and this site only links to them. That was not saying itself clearly enough: the card carried the masthead as though it were ours and printed the bio in the first person with nothing in front of it, and readers were coming away thinking mary mustard writes this site. The credit now says "Written by" before the name, keeps the description in quotation marks as the writer’s own words, and names the Substack as theirs. The full credit stays; it just says whose it is.',
       },
       {
         short: 'Club colours carry further across a player\u2019s name band',
@@ -1201,7 +1220,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'A break between innings now looks like a break',
-        full:  'While a WPBL game is on, the live card on the home page and the banner at the top of the Game Center show the inning, the bases, the outs and the count. Between innings none of that is happening. The league’s feed does not have a way of saying so: the moment a side is retired it puts the next half-inning on the board and leaves it empty until the first pitch, which on Wednesday night was a wait of two minutes and forty-two seconds. Drawn literally that read as a game in play, with a batter standing in and a count on her, for the whole of every pitching change. The card now recognises an empty half-inning for what it is and says which break it is instead, like “End of the 4th”, putting the diamond, the outs, the count and the at-bat away until somebody is actually batting. The pulsing dot that marks the side at bat goes out with them, because between innings neither side is.',
+        full:  'While a WPBL game is on, the live card on the home page and the banner at the top of the Game Center show the inning, the bases, the outs and the count. Between innings none of that is happening. The league’s feed does not have a way of saying so: the moment a side is retired it puts the next half-inning on the board and leaves it empty until the first pitch, which on Wednesday night was a wait of two minutes and forty-two seconds. Drawn literally that read as a game in play, with a batter standing in and a count on them, for the whole of every pitching change. The card now recognises an empty half-inning for what it is and says which break it is instead, like “End of the 4th”, putting the diamond, the outs, the count and the at-bat away until somebody is actually batting. The pulsing dot that marks the side at bat goes out with them, because between innings neither side is.',
       },
       {
         short: 'A playoff bracket on the home page, if you turn experimental features on',

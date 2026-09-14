@@ -15,6 +15,10 @@ import { describe, it, expect } from 'vitest'
 import indexHtml from '../../../index.html?raw'
 import redirects from '../../../public/_redirects?raw'
 import footerSource from '../../SiteFooter.tsx?raw'
+// The section shell, read as source: the "More" menu is the reader-facing discovery path for the
+// pages that have no nav pill, and dropping one from it fails invisibly (the page still works and
+// the footer still links it).
+import wpblAppSource from '../WpblApp.tsx?raw'
 // The Terms page's pointer at /wpbl/sources, read as source: the provenance page is only
 // reachable from the pages that promise it exists.
 import legalSource from '../../LegalPages.tsx?raw'
@@ -762,6 +766,41 @@ describe('/wpbl/scorigami, the final-scores grid', () => {
   // crawler can follow. An orphaned copy of a page written to be found is worth nothing.
   it('is linked from the site footer', () => {
     expect(footerSource).toContain('WPBL_SCORIGAMI_PAGE')
+  })
+})
+
+describe('the More menu surfaces every non-tab WPBL page', () => {
+  // Six pages have no nav pill (league, season, scorigami, players index, glossary, sources), so
+  // the "More" menu in the section nav is a reader's way in besides the footer. The menu is built
+  // from MORE_LINKS in WpblApp; pin its contents, because a page silently dropped from it still
+  // works and is still footer-linked, which is exactly the failure nothing else here would catch.
+  // The array body between `= [` and its closing `]`. Skipping past the type annotation (which
+  // carries its own `[]`) is why this keys on the `=` rather than the first bracket after the name.
+  const block = /MORE_LINKS[^=]*=\s*\[([\s\S]*?)\]/.exec(wpblAppSource)?.[1] ?? ''
+
+  it('has a MORE_LINKS array', () => {
+    expect(block).not.toBe('')
+  })
+
+  const expected = [
+    'WPBL_LEAGUE_PAGE', 'WPBL_SEASON_PAGE', 'WPBL_SCORIGAMI_PAGE',
+    'WPBL_PLAYERS_INDEX', 'WPBL_GLOSSARY_PAGE', 'WPBL_SOURCES_PAGE',
+  ]
+  for (const c of expected) {
+    it(`lists ${c}`, () => {
+      expect(block).toContain(c)
+    })
+  }
+
+  // On a phone the bottom bar REPLACES the top pill nav, so NavMore (the desktop dropdown) is not
+  // on screen; the same six pages are reached from the bar's More slot as a sheet instead. If that
+  // wiring is dropped, the pages are footer-only on a phone again — the exact regression the More
+  // menu exists to prevent, and invisible on desktop. Pin that the bar carries the slot and the
+  // sheet is rendered.
+  it('reaches the same pages from the bottom bar (MoreSheet + MORE_KEY)', () => {
+    expect(wpblAppSource).toContain('MoreSheet')
+    expect(wpblAppSource).toContain('MORE_KEY')
+    expect(wpblAppSource).toContain('onMore=')
   })
 })
 

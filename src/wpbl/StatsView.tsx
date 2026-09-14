@@ -27,7 +27,7 @@ import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
-import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
+import { useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
@@ -72,7 +72,11 @@ type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs'
 
 /** Boards that lay themselves out in two columns on a large desktop, and so take the wider
  *  page column. Everything else is one column and stays at the list measure. */
-const WIDE_BOARDS = new Set<Source>(['runs', 'bests', 'find'])
+// Boards whose CONTENT is a wide multi-column grid and so earns the wider page column. Find is
+// deliberately NOT one: it is a form and a pair of result cards, and at the wide column its
+// controls stretched to absurd widths (a stat dropdown ran the whole row) and the cards read as
+// sparse. It caps at the ordinary board column instead; its results still split into two under it.
+const WIDE_BOARDS = new Set<Source>(['runs', 'bests'])
 type Mode = 'players' | 'teams'
 
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
@@ -600,6 +604,7 @@ export default function WpblStatsView({
   const shortName = useWpblName(0)
   const playerLink = useWpblPlayerLink()
   const headingTag = useWpblHeadingTag()
+  const hidePhone = useTabHeadingPhoneSx()
   const isNarrow = useMediaQuery('(max-width:600px)')
   const { basis: eraBasis, offLeague: eraOffLeague, setBasis: setEraBasis, fmtEra } = useEraBasis()
   // Read ONCE, not on every render: `shouldShowBadge` reads localStorage, and re-reading it
@@ -1420,9 +1425,10 @@ export default function WpblStatsView({
       <Typography component={headingTag} sx={{
         ...fullBleedSx,
         fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1,
-        // Spread LAST: it is absolute positioning at 1px square, and it has to beat the width
-        // and the negative margins the full-bleed rule above just set.
-        ...HIDE_ON_PHONE,
+        // Spread LAST: when it hides, it is absolute positioning at 1px square and has to beat the
+        // width and negative margins the full-bleed rule above just set. Drawn on a phone once the
+        // nav is at the foot of the screen (see useTabHeadingPhoneSx), same as every tab title.
+        ...hidePhone,
       }}>
         WPBL Stats
       </Typography>

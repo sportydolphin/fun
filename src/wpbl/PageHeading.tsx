@@ -31,6 +31,39 @@ export function useWpblHeadingTag(): 'h1' | 'div' {
   return useContext(OwnsHeading) ? 'h1' : 'div'
 }
 
+// Whether the section's nav sits at the FOOT of the screen (the mobile bottom bar) rather than as
+// the pill row above the content.
+//
+// It is the one fact HIDE_ON_PHONE below depends on and cannot see for itself. Every tab heading is
+// clipped on a phone BECAUSE a nav overhead already names it (see that note); move the nav to the
+// foot and that justification is gone, so the heading becomes the page's top-of-screen label and is
+// drawn. A context for the same reason OwnsHeading is one: five tab headings would otherwise each
+// need the flag threaded through WpblApp's panel map.
+const NavAtBottom = createContext(false)
+
+export function WpblNavAtBottomProvider({ value, children }: { value: boolean; children: React.ReactNode }) {
+  return <NavAtBottom.Provider value={value}>{children}</NavAtBottom.Provider>
+}
+
+/** Whether the section's nav is the foot-of-screen bottom bar. For the few spots that need the bare
+ *  fact rather than the heading `sx` (e.g. the gap Home opens under its now-drawn h1). */
+export function useWpblNavAtBottom(): boolean {
+  return useContext(NavAtBottom)
+}
+
+/**
+ * The `sx` a TAB heading spreads to hide itself on a phone. Spread this in place of `HIDE_ON_PHONE`
+ * on the five tab titles: it returns `HIDE_ON_PHONE` while the pill nav is overhead, and NOTHING
+ * (drawn at every width) once the nav has moved to the foot of the screen, where the heading is the
+ * only thing left naming the page at the top.
+ *
+ * NOT for a within-page section label like "Scoreboard", which the nav never named and which stays
+ * on the plain `HIDE_ON_PHONE`: revealing it would stack a redundant heading under the tab title.
+ */
+export function useTabHeadingPhoneSx() {
+  return useContext(NavAtBottom) ? {} : HIDE_ON_PHONE
+}
+
 /**
  * The page heading for a surface whose real heading is a graphic rather than a line of text.
  *

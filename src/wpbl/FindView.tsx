@@ -7,7 +7,7 @@ import {
 } from './derive/finder'
 import { wpblAccentFg, wpblFullName } from './constants'
 import {
-  SectionCard, LeaderRow, ExpandRow, BOARD_COLUMN, BOARD_COLUMN_WIDE, TYPE_SCALE, CARD_BORDER,
+  SectionCard, LeaderRow, ExpandRow, BOARD_COLUMN, TYPE_SCALE, CARD_BORDER,
   FOCUS_RING, pressable, useWpblDark, hoverOnly,
 } from './ui'
 import GameLineRow from './GameLineRow'
@@ -42,12 +42,11 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam 
  * Painted to match the chips around it rather than left at the UA default, which on Windows is a
  * grey 3D box that looks like a bug next to the rest of the bar.
  */
-function Picker({ value, onChange, options, label, grow }: {
+function Picker({ value, onChange, options, label }: {
   value: string
   onChange: (v: string) => void
   options: { value: string; label: string }[]
   label: string
-  grow?: boolean
 }) {
   return (
     <Box
@@ -64,8 +63,7 @@ function Picker({ value, onChange, options, label, grow }: {
         backgroundPosition: 'right 12px center, right 7px center',
         backgroundSize: '5px 5px, 5px 5px',
         backgroundRepeat: 'no-repeat',
-        minWidth: 0,
-        ...(grow ? { flex: 1 } : { flexShrink: 0 }),
+        minWidth: 0, flexShrink: 0,
         minHeight: 34, pl: 1.25, pr: 3, py: 0.4,
         borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
         bgcolor: 'background.paper', color: 'text.primary',
@@ -104,8 +102,9 @@ function ConditionRow({ side, n, condition, onChange, onRemove }: {
   useEffect(() => { setDraft(null) }, [condition.field])
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+      {/* Sized to its content, not stretched: a stat dropdown that ran the whole row was the
+          worst of the Find tool's desktop sizing. The row packs left instead. */}
       <Picker
-        grow
         label={`Stat, condition ${n}`}
         value={condition.field}
         options={fields.map(f => ({ value: f.key, label: f.label }))}
@@ -223,13 +222,14 @@ export default function WpblFindView({
       : `Every line so far: ${result.total} ${games_}. Add a condition to narrow it.`
 
   return (
-    /* CAPPED AND CENTRED inside the full-bleed box StatsView puts this board in, and two columns
-       on a large desktop: the results and the tally are two answers to one question and belong
-       side by side where there is room. Below `lg` the tally sits under the list, which is the
-       right order on a phone, since the list is what was asked for. */
+    /* CAPPED AND CENTRED inside the full-bleed box StatsView puts this board in. The ORDINARY
+       board column, not the wide one Bests and Run value take: this is a form and two result
+       cards, and at the wide column the controls stretched halfway across a desktop and the cards
+       read as sparse. The results still split into two under the question where there is room; the
+       tally drops under the list below `lg`, which is the right order on a phone. */
     <Box sx={{
       display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 },
-      maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto',
+      maxWidth: BOARD_COLUMN, mx: 'auto',
     }}>
       <Box sx={{ maxWidth: '70ch' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>

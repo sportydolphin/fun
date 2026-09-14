@@ -23,7 +23,7 @@ import {
 } from './api'
 import MediaShelf from './MediaShelf'
 import { Chevron, FOCUS_RING, pressable, TAPPABLE, hoverOnly } from './ui'
-import { byCountry, ageSpread, placeOf } from './derive/hometowns'
+import { byCountry, placeOf } from './derive/hometowns'
 import { wpblPlayerPath } from './routes'
 import { navBack } from '../nav'
 import type {
@@ -94,7 +94,6 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
   // lines have arrived. Below this the section leaves itself out rather than drawing empty panels.
   const hasDraft = games.length > 0 && batting.length > 0
     && players.some(p => p.draft_round != null && p.draft_pick != null)
-  const ages = useMemo(() => ageSpread(players), [players])
   const placed = countries.reduce((n, c) => n + c.players.length, 0)
   const widest = countries[0]?.players.length ?? 1
 
@@ -149,8 +148,6 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
         The Women&rsquo;s Pro Baseball League&rsquo;s first season, 2026: four clubs and{' '}
         {players.length} players
         {countries.length > 1 && ` from ${countries.length} countries`}.
-        {ages && ` The youngest is ${ages.youngest.age}, the oldest ${ages.oldest.age}, and half
-          the league is ${ages.median} or under.`}
       </Typography>
 
       {/* Reading, Highlights and the archive, moved here off Home on Aug 27. This is where they

@@ -367,7 +367,7 @@ export const WPBL_AWARDS: readonly WpblAward[] = [
   },
   {
     id: 'franchise-2027',
-    title: 'Build Around Her',
+    title: 'Build Around Them',
     emoji: '🔮',
     blurb: 'One player to start the second season with. No stat can answer this, which is the point.',
     pick: 'player', slate: 'everyone', serious: false, openField: true, closesAt: NEXT_SEASON_CLOSE_AT,

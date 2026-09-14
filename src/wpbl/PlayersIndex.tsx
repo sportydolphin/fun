@@ -12,7 +12,8 @@
 // elements with the player's name as the link text, since anchor text is most of what tells
 // a search engine what the destination is about.
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, CircularProgress, Collapse } from '@mui/material'
+import { ExpandMore } from '@mui/icons-material'
 import { fetchWpblTeams, fetchWpblAllPlayers } from './api'
 import { wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
@@ -24,6 +25,17 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [loading, setLoading] = useState(true)
+  // Which club groups the reader has collapsed, keyed by team id ('unassigned' for the loose
+  // group). Default empty, so every group opens expanded: the roster is in the DOM on first
+  // paint exactly as before, which is what the crawl path this page exists for depends on.
+  // Collapse only hides height (children stay mounted), so a collapsed club's links are still
+  // followable; the toggle is a reader convenience over a long page, not an SEO lever.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggle = (key: string) => setCollapsed(prev => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key); else next.add(key)
+    return next
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -105,9 +117,27 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
         </Typography>
       )}
 
-      {groups.map(({ team, roster }) => (
-        <Box key={team?.id ?? 'unassigned'} sx={{ mb: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+      {groups.map(({ team, roster }) => {
+        const key = team?.id ?? 'unassigned'
+        const isCollapsed = collapsed.has(key)
+        return (
+        <Box key={key} sx={{ mb: 4 }}>
+          {/* The whole header is the toggle. A real <button> so it is keyboard- and
+              screen-reader-operable; the <h2> stays inside it, unchanged, so the heading
+              outline the crawl path wants is intact. */}
+          <Box
+            component="button"
+            type="button"
+            onClick={() => toggle(key)}
+            aria-expanded={!isCollapsed}
+            aria-controls={`roster-${key}`}
+            sx={{
+              width: '100%', border: 0, background: 'none', p: 0, m: 0, mb: 1.5,
+              display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', textAlign: 'left',
+              color: 'text.primary', font: 'inherit',
+              ...hoverOnly({ color: 'text.primary' }),
+            }}
+          >
             {team && <TeamBadge team={team} size={26} />}
             <Typography component="h2" sx={{ fontSize: '1.05rem', fontWeight: 700 }}>
               {team ? wpblFullName(team) : 'Unassigned'}
@@ -115,7 +145,13 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
             <Typography sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
               {roster.length}
             </Typography>
+            <ExpandMore sx={{
+              ml: 'auto', color: 'text.disabled',
+              transform: isCollapsed ? 'rotate(-90deg)' : 'none',
+              transition: 'transform 0.2s',
+            }} />
           </Box>
+          <Collapse in={!isCollapsed} id={`roster-${key}`}>
           <Box sx={{
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
@@ -152,8 +188,10 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
               )
             })}
           </Box>
+          </Collapse>
         </Box>
-      ))}
+        )
+      })}
     </Box>
   )
 }
