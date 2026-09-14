@@ -68,8 +68,12 @@ export function buildPlayerReply(
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
   const bt = sumBatting(batted, games)
   const pt = sumPitching(pitching, games)
-  const hasBatting = batted.length > 0
-  const hasPitching = pitching.length > 0
+  // Regular-season production, not raw line count. `batted` and `pitching` include postseason
+  // rows, but `bt`/`pt` are summed through the schedule, which drops them, so a side whose only
+  // work was in the playoffs would otherwise push a field reading .000/.000/.000 or 0.0 IP. Same
+  // fix as the player page and the compare card.
+  const hasBatting = plateAppearances(bt) > 0
+  const hasPitching = pt.outs > 0 || pt.bf > 0
   const pitcherFirst = leadsWithPitching({
     position: player.position, hasBatting, hasPitching,
     gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),

@@ -1180,6 +1180,15 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const ft = useMemo(() => sumFielding(fielding), [fielding])
   const hasBatting = battingReal.length > 0
   const hasPitching = pitching.length > 0
+  // WHETHER THERE IS ANYTHING TO SUMMARISE, in the SAME scope the summary shows. `hasBatting`
+  // and `hasPitching` above count every line the player has, postseason included, because the
+  // game log lists those. `bt` and `pt` are summed through the schedule, which drops the
+  // postseason, so the hero and the cameos below must gate on the regular-season sum having
+  // content. Without this a pitcher who batted only in the playoffs has `hasBatting` true (the
+  // postseason line has a plate appearance) but an empty `bt`, and the "Also batted" block
+  // renders `.000/.000/.000, 0-for-0`. Symmetric for a hitter who only pitched in the postseason.
+  const hasSeasonBatting = plateAppearances(bt) > 0
+  const hasSeasonPitching = pt.outs > 0 || pt.bf > 0
   const hasFielding = fielding.some(f => f.po || f.a || f.e || f.dp || f.pb)
   // Off the BATTING lines, which are the only rows carrying a position at all: a fielding row
   // has none and a pitching row is always the mound. A pitching-only appearance still shows up
@@ -1206,9 +1215,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
   })
   const BAT_CAMEO_AB = 10, PIT_CAMEO_OUTS = 9
-  const battingCameo = pitcherFirst && hasBatting && bt.ab < BAT_CAMEO_AB
-  const pitchingCameo = !pitcherFirst && hasPitching && pt.outs < PIT_CAMEO_OUTS
-  const twoWay = hasBatting && hasPitching && !battingCameo && !pitchingCameo
+  const battingCameo = pitcherFirst && hasSeasonBatting && bt.ab < BAT_CAMEO_AB
+  const pitchingCameo = !pitcherFirst && hasSeasonPitching && pt.outs < PIT_CAMEO_OUTS
+  // A tab per role only when BOTH sides have real regular-season production: a side whose only
+  // work was in the postseason is not a second role, it is a line in the game log, and giving
+  // it a tab would open onto an empty regular-season pane.
+  const twoWay = hasSeasonBatting && hasSeasonPitching && !battingCameo && !pitchingCameo
 
   // Sample-size meta for each pane, flagged as thin below a rough one-week-ish bar.
   //

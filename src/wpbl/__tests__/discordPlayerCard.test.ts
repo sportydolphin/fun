@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildPlayerReply } from '../discordPlayerCard'
-import type { WpblBattingLine, WpblTeam } from '../types'
+import type { WpblBattingLine, WpblPitchingLine, WpblTeam } from '../types'
 import type { WpblSeasonGame } from '../season'
 
 // The uniform number on the /player card. Worth pinning rather than eyeballing in Discord
@@ -28,6 +28,30 @@ const subject = (jersey: string | null) =>
     { id: 'p1', name: "Mo'ne Davis", position: 'CF', jersey_number: jersey },
     team, [line()], [], games,
   ).embeds?.[0].description
+
+describe('the /player card by role', () => {
+  // A pitcher who came to the plate only in a playoff game. The season line is the regular
+  // season, so her regular-season batting is empty; the raw batting line still exists because
+  // the postseason PA is real. The card must not push a "Batting" field of .000/.000/.000.
+  it('drops the batting field for a pitcher who only batted in the postseason', () => {
+    const games2: WpblSeasonGame[] = [
+      { id: 'g1', game_type: 'regular', counts_in_standings: true },
+      { id: 'gp', game_type: 'postseason', counts_in_standings: true },
+    ]
+    const postBat = { ...line(), id: 'pb', game_id: 'gp' } as WpblBattingLine
+    const regPitch = {
+      id: 'r1', game_id: 'g1', player_id: 'p1', team_id: 'LA',
+      outs: 18, bf: 24, h: 4, r: 1, er: 1, bb: 1, so: 8, hr: 0, pitches: 90, decision: 'W',
+      gs: 1, hbp: 0, ibb: 0, wp: 0, bk: 0, strikes: 60, doubles: 0, triples: 0,
+    } as unknown as WpblPitchingLine
+    const reply = buildPlayerReply(
+      { id: 'p1', name: 'Ayami Sato', position: 'RHP', jersey_number: '11' },
+      team, [postBat], [regPitch], games2)
+    const names = reply.embeds?.[0].fields?.map(f => f.name) ?? []
+    expect(names.some(n => n.startsWith('Pitching'))).toBe(true)
+    expect(names.some(n => n.startsWith('Batting'))).toBe(false)
+  })
+})
 
 describe("the /player card's uniform number", () => {
   it('leads the line, ahead of the position and the club', () => {

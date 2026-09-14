@@ -68,14 +68,17 @@ function describeSeason(
   // Zero-PA rows (a pinch-runner who scored, a defensive sub) would otherwise read as an
   // 0-for-0 game — the same reason the player page drops them.
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
-  const hasBatting = batted.length > 0
-  const hasPitching = pitching.length > 0
   // Both sides summed up front, because the role rule needs a number from each of them.
   const bt = sumBatting(batted as WpblBattingLine[], games)
   // ERA here is the league's per-9, always, and this function deliberately has no way to ask
   // for anything else. The reader of an unfurled card did not open the site and never chose a
   // basis; what they DID do is see a number somewhere that came from the league.
   const pt = sumPitching(pitching as WpblPitchingLine[], games)
+  // Regular-season production, not raw line count: the lines include postseason rows but the
+  // sums above drop them, so a side whose only appearance was in the playoffs is not a season to
+  // describe and must not push a line of zeroes. Same fix as the player page.
+  const hasBatting = plateAppearances(bt) > 0
+  const hasPitching = pt.outs > 0 || pt.bf > 0
   const pitcherFirst = leadsWithPitching({
     position: player.position, hasBatting, hasPitching,
     gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),

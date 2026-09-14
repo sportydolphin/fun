@@ -123,7 +123,7 @@ export default function WpblBestsView({
           the other half, since a record out of 30 games is a different thing from one out of 300. */}
       <Box sx={{ maxWidth: '70ch' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
-          Single-game totals, not season totals{finals > 0 ? `, from ${finals} ${gamesWord} so far` : ''}.
+          Single-game totals, not season totals{finals > 0 ? `, from ${finals} ${gamesWord}` : ''}.
         </Typography>
       </Box>
 

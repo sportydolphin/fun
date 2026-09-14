@@ -209,6 +209,22 @@ describe('PlayerDetail: when the role tabs exist', () => {
     expect(screen.queryByText('Two-way')).not.toBeInTheDocument()
   })
 
+  // A pitcher who came to the plate once, in a playoff game. The season line is the regular
+  // season, so her regular-season batting is empty; the all-lines flag that drives the game log
+  // is still true because the postseason line has a plate appearance. "Also batted" must gate on
+  // the regular-season sum or it renders .000/.000/.000, 0-for-0 for a pitcher who did not bat.
+  it('does not show a batting cameo when the only plate appearance was in the postseason', async () => {
+    const games = [...GAMES, { ...GAMES[0], id: 'post1', game_type: 'postseason' } as WpblGame]
+    lines.batting = [bat({ game_id: 'post1', ab: 2, h: 0 })]
+    lines.pitching = [pit({ outs: 45, er: 5, h: 12, bb: 3, so: 20 })]
+    const p = player({ position: 'RHP' })
+    render(<PlayerDetailModal player={p} teams={TEAMS} games={games} players={[p]} onClose={() => {}} />)
+
+    await waitFor(() => expect(pitchingShown()).toBe(true))
+    expect(screen.queryByText('Also batted')).not.toBeInTheDocument()
+    expect(rolePills()).toHaveLength(0)
+  })
+
   it('folds a pitching cameo into the batting pane the same way', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     lines.pitching = [pit({ outs: 3, er: 2, h: 2, bb: 1, so: 1 })]

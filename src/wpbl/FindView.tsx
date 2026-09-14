@@ -275,17 +275,23 @@ export default function WpblFindView({
             display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap',
             pt: 1, mt: 0.5, borderTop: '1px solid', borderColor: 'divider',
           }}>
-            <Picker label="Club" value={query.teamId ?? ''} options={clubOptions('Any club')}
-              onChange={v => onQuery({ ...query, teamId: v || null })} />
+            {/* The club and where the game was played read as one clause ("New York, at home"),
+                so they stay on one row: the venue means nothing without the club it is measured
+                against. The opponent is a separate axis, and on a phone it is the one that wraps
+                to the next line, before this pair is allowed to split. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Picker label="Club" value={query.teamId ?? ''} options={clubOptions('Any club')}
+                onChange={v => onQuery({ ...query, teamId: v || null })} />
+              <Picker label="Home or away" value={query.venue}
+                options={[
+                  { value: 'any', label: 'Home or away' },
+                  { value: 'home', label: 'At home' },
+                  { value: 'away', label: 'On the road' },
+                ]}
+                onChange={v => onQuery({ ...query, venue: v as FinderVenue })} />
+            </Box>
             <Picker label="Opponent" value={query.oppId ?? ''} options={clubOptions('Any opponent')}
               onChange={v => onQuery({ ...query, oppId: v || null })} />
-            <Picker label="Home or away" value={query.venue}
-              options={[
-                { value: 'any', label: 'Home or away' },
-                { value: 'home', label: 'At home' },
-                { value: 'away', label: 'On the road' },
-              ]}
-              onChange={v => onQuery({ ...query, venue: v as FinderVenue })} />
           </Box>
         </Box>
       </SectionCard>
