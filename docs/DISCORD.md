@@ -20,7 +20,7 @@ There are also two things that **answer** in the server, which webhooks cannot d
 | What | Written by | Behaviour |
 |---|---|---|
 | **`/player` slash command** | [`functions/discord/wpbl.ts`](../functions/discord/wpbl.ts) | Looks up any WPBL player by name and replies with their season. Suggests names as you type. |
-| **`/score` slash command** | the same function | Posts the state of a game happening right now: score, inning and count, who is at bat and who is pitching. Names the game to pick between two live at once. |
+| **`/score` slash command** | the same function | Posts the state of a game happening right now: score, inning and count, who is at bat, who is pitching, and who is on base. Names the game to pick between two live at once. |
 | **`/predict`, the in-game game** | the same function, settled by [`settle-predictions.ts`](../supabase/functions/wpbl-ingest/settle-predictions.ts) | A mod opens a round on the half-inning coming up next; the channel answers with buttons; it closes itself as the inning starts and the feed settles it. One winner a game. |
 
 ## How it fits together
@@ -564,11 +564,10 @@ people's typos. Both are built in
 
 The state of a game happening right now, on the same Cloudflare endpoint. It reads the
 `status = 'live'` rows of `wpbl_games` directly (never the cached roster: a live line moves on
-every pitch, and a stale one is the staleness a viewer notices at once), and renders four
-things and no more: the score, the inning and count, who is at bat, and who is pitching. It is
-deliberately spare, with **no emoji, no line score, and no base diamond** — a `/score` in a
-chat channel wants the state in a line or two, and the linked game page carries the rest. An
-earlier version drew all of that; it came out on the reader's ask, and the test pins it out.
+every pitch, and a stale one is the staleness a viewer notices at once), and renders the score,
+the inning and count, who is at bat, who is pitching, and who is on base. It is deliberately
+spare, with **no emoji and no line score** — a `/score` in a chat channel wants the state in a
+few lines, and the linked game page carries the rest.
 
 The reply is **public** so a score can be shared into the channel; the "no game is live",
 "which of the two" and failure cases are **ephemeral**. With two games live it lists them and

@@ -75,13 +75,22 @@ export function buildLiveBoxReply(
   const description = [scoreLine, inningLine].filter(Boolean).join('\n')
 
   const fields: DiscordEmbed['fields'] = []
-  // Who is at bat against whom, dropped during a break for the reason above. Names corrected to
-  // the roster's spelling, so the feed's prose typos never reach the channel.
+  // Who is at bat against whom, and who is on base, all dropped during a break for the reason
+  // above. Names corrected to the roster's spelling, so the feed's prose typos never reach the
+  // channel.
   if (s && !s.between) {
     const batter = canon(s.batterName)
     const pitcher = canon(s.pitcherName)
     if (batter) fields.push({ name: 'At bat', value: batter, inline: true })
     if (pitcher) fields.push({ name: 'Pitching', value: pitcher, inline: true })
+    // Third down to first, the order they would score in, matching the live panel on the site.
+    // An occupied base the feed does not name falls back to "runner on" rather than a blank.
+    const runners = [
+      s.third ? `3B ${canon(s.thirdName) ?? 'runner on'}` : null,
+      s.second ? `2B ${canon(s.secondName) ?? 'runner on'}` : null,
+      s.first ? `1B ${canon(s.firstName) ?? 'runner on'}` : null,
+    ].filter(Boolean) as string[]
+    fields.push({ name: 'On base', value: runners.length ? runners.join('\n') : 'Bases empty', inline: true })
   }
 
   return {

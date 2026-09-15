@@ -104,6 +104,21 @@ describe('the /score box score', () => {
     expect(field(g, 'At bat')).toBe('Someone Unknown')
   })
 
+  it('lists who is on base, third to first, in the roster spelling', () => {
+    const g = game({ live_state: liveState({ first_base: 'Val Perez', third_base: "Clare O'Sullivan" }) })
+    expect(field(g, 'On base')).toBe("3B Claire O'Sullivan\n1B Valerie Perez")
+  })
+
+  it('says the bases are empty rather than leaving the field blank', () => {
+    const g = game({ live_state: liveState({ first_base: '', second_base: '', third_base: '' }) })
+    expect(field(g, 'On base')).toBe('Bases empty')
+  })
+
+  it('falls back to "runner on" for a base occupied without a named runner', () => {
+    const g = game({ live_state: liveState({ first_base: '', second_base: ' ', third_base: '' }) })
+    expect(field(g, 'On base')).toBe('2B runner on')
+  })
+
   it('drops the at-bat between innings and says which break it is', () => {
     // Nobody out, no count, bases empty, batting side scoreless this inning: a break.
     const g = game({
