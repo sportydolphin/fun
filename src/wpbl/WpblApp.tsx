@@ -1048,7 +1048,15 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
    */
   const games = useMemo(() => applyLeagueStartTimes(feedGames, siteGames), [feedGames, siteGames])
   const [loading, setLoading] = useState(true)
-  const isMobileView = useMediaQuery('(max-width:600px)')
+  // `noSsr` so this is right on the FIRST render, not one tick late. Without it MUI returns
+  // `false` on the initial client render and corrects in an effect, which flips `bottomNav`
+  // from false to true a frame later. That flip meant the floating bottom bar was absent from
+  // the first paint and then INSERTED into an already-laid-out, tall, scrolled Home — and iOS
+  // Safari paints a late-inserted `position: fixed` element at its document position (the
+  // bottom-right of the content, only visible scrolled to the foot of the page) until the next
+  // reflow, which a tab swipe supplied. Reading matchMedia synchronously here keeps the bar in
+  // the initial layout, so it is fixed to the viewport from the start.
+  const isMobileView = useMediaQuery('(max-width:600px)', { noSsr: true })
   const navRef = useRef<HTMLDivElement>(null)
   // Bottom tab bar — phones only. It REPLACES the sticky top pills rather than sitting
   // alongside them: two navs for the same five destinations would be worse than either alone.
