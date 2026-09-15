@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.86.0',
+    date:    '2026-09-14',
+    title:   'When in a game the runs come',
+    changes: [
+      {
+        short: 'Runs by inning: a heatmap of when each club scores, on the season page',
+        full:  'One row for every club and one for the league, one column for every inning, and each square is the runs that club put up in that inning, per time it batted in it. Red squares are more runs than the league’s average inning, blue fewer and grey about average, and the number is printed in every square too. Flip it to Allowed to see when a club gives them up instead, and to Postseason to see the bracket on its own, kept apart from the regular season. A bottom of the 7th the home side never needed to bat is left out rather than counted as a scoreless inning, which is how the league’s own line score records it and would otherwise make every club look quiet late.',
+      },
+    ],
+  },
+  {
     version: '1.85.0',
     date:    '2026-09-14',
     title:   'Every score the league has produced, in one grid',

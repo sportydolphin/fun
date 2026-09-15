@@ -955,8 +955,9 @@ subway map, because all three are cheap, survive Sep 22 and make a share image.
 
 **Postseason, while games are still being played**
 
-- **When the runs come** 🎯. Runs by inning per club as a heatmap, regular season beside the
-  postseason. From the line scores.
+- ~~**When the runs come** 🎯. Runs by inning per club as a heatmap, regular season beside the
+  postseason. From the line scores.~~ ✅ *Shipped Sep 14, 2026 as Runs by inning on `/wpbl/season`
+  (see the log).*
 - **Longest battles** 🎮. The season's longest at-bats drawn pitch by pitch, foul after foul, to the
   result. From `fouls` and `pitch_sequence`.
 - **Tug of war** 🎮. A small rope per bracket game that moves on every lead change, sized to sit on
@@ -1133,6 +1134,30 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 14, 2026: when in a game the runs come (v1.86.0)
+
+A Runs by inning section on `/wpbl/season`: a heatmap with a row per club plus the league, a
+column per inning, and runs per half-inning batted in each square, with Scored / Allowed and
+Regular season / Postseason toggles. Maths in
+[`derive/runsByInning.ts`](src/wpbl/derive/runsByInning.ts), drawing in
+[`RunsByInning.tsx`](src/wpbl/RunsByInning.tsx), pinned by `__tests__/runsByInning.test.ts`.
+
+**THE FEED STORES AN UNBATTED BOTTOM HALF AS A ZERO.** Checked against all 35 finals: every line
+score sums exactly to its final, and 14 of the 15 home wins end on `{ inning: 7, runs: 0 }` for a
+half that was never played. Averaged over games, that is a scoreless 7th charged to every club for
+roughly half its home games. The derive infers the unbatted half (home side ahead after the top of
+the last inning) and divides by halves batted instead. Anything else that ever reads `home_line`
+per inning has to make the same call.
+
+**Extras are one column** (four regular-season games reached an 8th, none a 9th), still divided by
+halves batted. **The colour diverges around the league's own average half-inning**, blue below,
+grey at, red above, stretched to the furthest club square. A one-hue ramp from zero was tried first
+and every square came out the same mid-blue, because this league averages over a run a half-inning
+and nothing sits near zero. The midpoint and stretch come from regulation innings only and are
+shared between Scored and Allowed, so a four-game extras column cannot set the scale for the grid
+and flipping sides does not repaint squares whose numbers did not move. It is a real `<table>` with every value
+printed, so the colour is never the only way to read a square.
 
 ### Sep 14, 2026: a collapse on the roster page, and a sheet you can flick away
 

@@ -1,17 +1,18 @@
 // /wpbl/season: the inaugural season as a finished thing.
 //
 // EVERY OTHER SURFACE HERE IS ABOUT TODAY. The scoreboard, the standings, Home's Next game: all
-// of them answer "what is happening now", which is the right question until Sep 22 and a dead one
-// after it. This page answers "what happened", which is the question that still has an audience in
-// November, and it is the read of the record the archive keeps (ROADMAP-WPBL.md #2a). So it is
+// of them answer "what is happening now", which is the right question during a season and a dead
+// one after it. This page answers "what happened", the question that still has an audience in the
+// offseason, and it is the read of the record the archive keeps (ROADMAP-WPBL.md #2a). So it is
 // composition, not new data: every number below comes from the same box-score lines and play log
 // the rest of the section already caches, run through the same aggregates.
 //
 // REGULAR SEASON ONLY, on purpose and everywhere. `countsInStandings` gates the fun facts and the
 // biggest-plays walk, and the leader aggregates default to the regular-season scope, so a
-// postseason box score cannot move a season number here any more than it can on the Stats tab. A
-// postseason section is a later addition (the feed's bracket runs to Sep 22); until then the page
-// is honest about being the regular-season record.
+// postseason box score cannot move a season number here any more than it can on the Stats tab.
+// The one exception is Runs by inning, which offers the postseason as a SEPARATE scope behind its
+// own toggle, split by the same `countsInStandings`, so a bracket run never lands in a
+// regular-season square.
 //
 // NO NAV PILL, like the league, glossary and sources pages beside it: a real path linked from the
 // footer, which is the crawl path that has actually worked. See WPBL_SEASON_PAGE in routes.ts.
@@ -22,6 +23,8 @@ import {
   fetchWpblAllRunValuePlays, fetchWpblBattedBalls,
 } from './api'
 import SprayChart from './SprayChart'
+import RunsByInning from './RunsByInning'
+import { battedHalves } from './derive/runsByInning'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances,
   sumBatting, sumPitching, fmtRate, fmtTwo,
@@ -217,6 +220,10 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
     [games],
   )
 
+  // Whether the heatmap has anything to draw, checked here so its heading never renders over an
+  // empty section: a final whose line score is missing or does not add up is skipped by the derive.
+  const inningsReady = useMemo(() => regFinals.some(g => battedHalves(g) != null), [regFinals])
+
   // The batted balls behind the spray chart: regular season only (a Set of the finals' ids), and
   // split by the batter's side of the plate. The join is batter_id -> roster `bats`, because a
   // batted-ball row carries no handedness of its own. Switch hitters fall into neither side, so
@@ -401,6 +408,14 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
                   No batted balls placed for this side yet.
                 </Typography>
               )}
+            </>
+          )}
+
+          {/* ── Runs by inning ───────────────────────────────────────────────── */}
+          {inningsReady && (
+            <>
+              <SectionHeading>Runs by inning</SectionHeading>
+              <RunsByInning games={games} teams={teams} />
             </>
           )}
 
