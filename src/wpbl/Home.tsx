@@ -548,6 +548,15 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
         <Box ref={scrollRef} onScroll={syncEdges}
           onPointerDown={takeOver} onWheel={takeOver} onKeyDown={takeOver} sx={{
           display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
+          // THE SCROLLER MUST BE A CONTAINING BLOCK, and the bottom nav is what breaks without it.
+          // `overflow` only clips an absolutely positioned descendant whose containing block is
+          // inside the scroller. PostseasonChip's VISUALLY_HIDDEN ", if necessary" is absolute,
+          // so it resolved against the wrapper above instead, kept its static position at the
+          // far end of the scrolled row (x≈1009 on a 375px phone) and widened the DOCUMENT. A
+          // phone then grows its layout viewport to fit (1010x2187), and every `position: fixed`
+          // element is placed against that: the bottom bar dropped to the foot of the page and
+          // centred off to the right, the moment the bracket games loaded, on Home only.
+          position: 'relative',
           // No scroll-snap: the strip stays wherever it's left rather than locking to a chip when
           // scrolling settles (or when desktop hover-scroll ends). Initial placement is done by
           // scrollLeft in the anchor effect, so it doesn't need snapping.
