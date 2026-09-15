@@ -162,11 +162,17 @@ export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen
         px: 1.5,
         // Under modals (Game Center / player pages open above it) but over page content.
         zIndex: 1100,
-        // Keep the bar on its own compositor layer. A fixed element over a long scrolling
-        // list is re-rastered as the page moves under it, and on Android that shows up as
-        // the icons flickering while you scroll — this hands the bar to the compositor so
-        // scrolling never repaints it.
-        willChange: 'transform',
+        // NO `will-change: transform` HERE, and this is the whole of the bug it was added to
+        // prevent turning into a worse one. It was meant to keep the bar on its own compositor
+        // layer so a long scroll under it does not re-raster the icons (a flicker seen on
+        // Android). But promoting a `position: fixed` element to its own layer on Android Chrome
+        // dropped the bar out of viewport-fixed positioning: it painted correct for one frame,
+        // then anchored to the DOCUMENT and sat at the bottom-right of the (tall) Home page,
+        // reachable only by scrolling to the foot of it, until a tab swipe forced a relayout.
+        // Reported on a real device Sep 14, 2026. A bar that scrolls away is far worse than a
+        // few repaints, and modern Chrome composites a plain fixed bar cleanly anyway, so the
+        // hint comes out. `transform`/`translateZ(0)` are NOT substitutes — they promote the
+        // same way and reintroduce the same drop.
         pointerEvents: 'none', // the strip is a positioning shell; only the pill takes taps
       }}
     >
