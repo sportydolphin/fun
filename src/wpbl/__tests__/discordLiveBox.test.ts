@@ -34,8 +34,19 @@ const game = (over: Partial<WpblGame> = {}): WpblGame => ({
   ...over,
 })
 
-const desc = (g: WpblGame) => buildLiveBoxReply(g, away, home).embeds?.[0].description ?? ''
-const fields = (g: WpblGame) => buildLiveBoxReply(g, away, home).embeds?.[0].fields ?? []
+// The feed's live_state carries the league's own spelling of the batter and pitcher, which
+// disagrees with the roster; the roster is what gets printed. Val Perez / Ada Cruz are the
+// feed spellings in `liveState`; these are the roster rows they must resolve to.
+const roster: { name: string; team_id: string }[] = [
+  { name: 'Valerie Perez', team_id: 'SF' },   // batting for SF (home) in the fixture
+  { name: 'Ada Cruz', team_id: 'BOS' },        // pitching for BOS (away)
+  { name: 'Emi Saiki', team_id: 'BOS' },
+  { name: "Claire O'Sullivan", team_id: 'BOS' },
+  { name: "Elodie O'Sullivan", team_id: 'SF' }, // a same-surname player on the other club
+]
+
+const desc = (g: WpblGame) => buildLiveBoxReply(g, away, home, roster).embeds?.[0].description ?? ''
+const fields = (g: WpblGame) => buildLiveBoxReply(g, away, home, roster).embeds?.[0].fields ?? []
 const field = (g: WpblGame, name: string) => fields(g).find(f => f.name === name)?.value ?? ''
 
 // The output is deliberately spare: score, inning, batter, pitcher. No emoji, no line score,
@@ -44,11 +55,11 @@ const EMOJI = /\p{Extended_Pictographic}|[▲▼◆◇]/u
 
 describe('the /score box score', () => {
   it('is a public reply (no ephemeral flag) so it can be shared', () => {
-    expect(buildLiveBoxReply(game(), away, home).flags).toBeUndefined()
+    expect(buildLiveBoxReply(game(), away, home, roster).flags).toBeUndefined()
   })
 
   it('titles the matchup and links the game page', () => {
-    const embed = buildLiveBoxReply(game(), away, home).embeds?.[0]
+    const embed = buildLiveBoxReply(game(), away, home, roster).embeds?.[0]
     expect(embed?.title).toBe('Boston Hunters @ San Francisco Firebells')
     expect(embed?.url).toContain('/wpbl?game=g1')
   })
@@ -61,7 +72,7 @@ describe('the /score box score', () => {
   })
 
   it('uses no emoji anywhere in the message', () => {
-    const embed = buildLiveBoxReply(game(), away, home).embeds?.[0]
+    const embed = buildLiveBoxReply(game(), away, home, roster).embeds?.[0]
     const text = [embed?.title, embed?.description, ...(embed?.fields ?? []).flatMap(f => [f.name, f.value])].join(' ')
     expect(text).not.toMatch(EMOJI)
   })
@@ -71,9 +82,26 @@ describe('the /score box score', () => {
     expect(desc(game({ live_state: liveState({ balls: 3, strikes: 3 }) }))).toContain('3-2')
   })
 
-  it('names who is at bat and who is pitching while a half-inning is being played', () => {
-    expect(field(game(), 'At bat')).toBe('Val Perez')
+  it('prints the roster spelling of the batter and pitcher, never the feed prose', () => {
+    // Feed sends "Val Perez"; the roster says "Valerie Perez", and that is what ships.
+    expect(field(game(), 'At bat')).toBe('Valerie Perez')
     expect(field(game(), 'Pitching')).toBe('Ada Cruz')
+  })
+
+  it('corrects a misspelled feed name to the roster (Emi Saki → Emi Saiki)', () => {
+    const g = game({ live_state: liveState({ pitcher_name: 'Emi Saki' }) })
+    expect(field(g, 'Pitching')).toBe('Emi Saiki')
+  })
+
+  it('resolves a shared surname by first name, never to the other club (Claire vs Elodie)', () => {
+    // A slightly-off first name on the pitching club still lands on Claire, not Elodie.
+    const g = game({ live_state: liveState({ pitcher_name: "Clare O'Sullivan" }) })
+    expect(field(g, 'Pitching')).toBe("Claire O'Sullivan")
+  })
+
+  it('leaves a name it cannot place exactly as the feed sent it', () => {
+    const g = game({ live_state: liveState({ batter_name: 'Someone Unknown' }) })
+    expect(field(g, 'At bat')).toBe('Someone Unknown')
   })
 
   it('drops the at-bat between innings and says which break it is', () => {

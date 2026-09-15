@@ -435,7 +435,10 @@ async function scoreCommand(
     const away = teams.find(t => t.id === game.away_team_id)
     const home = teams.find(t => t.id === game.home_team_id)
     if (!away || !home) return reply(errorReply('That game is live but its clubs are not in the database yet.'))
-    return reply(buildLiveBoxReply(game, away, home))
+    // The roster, so the box score prints the roster's spelling of the batter and pitcher rather
+    // than the feed's prose (which has "Emi Saki", "Val Perez", …). Same correction the site
+    // makes everywhere; see canonicalFeedName. Cached, so it costs nothing.
+    return reply(buildLiveBoxReply(game, away, home, roster.players))
   } catch {
     return reply(errorReply("Couldn't reach the WPBL stats just now. Try again in a moment."))
   } finally {
