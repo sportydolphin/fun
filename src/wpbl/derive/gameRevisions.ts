@@ -105,7 +105,7 @@ export function describeRevision(
       const sheet = c.kind === 'pitching' ? 'pitching line' : 'batting line'
       // `unidentified` is a feed entry the league published with no player id. It cannot be
       // matched to anybody, and guessing by name is exactly the mistake that put one player on
-      // a club she has never played for, so it is reported as what it is.
+      // a club they have never played for, so it is reported as what it is.
       lines.push({
         who: c.player ?? null, playerId: c.player_id ?? null,
         what: c.change === 'added' ? `Added to the ${sheet}`

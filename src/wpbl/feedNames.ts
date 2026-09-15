@@ -10,17 +10,17 @@
 //
 // Left alone that is not merely a typo on screen. Everything hanging off a live name is keyed
 // on it: `wpblPortraitSet` looks a headshot up BY NAME, `lineFor` finds the batting line by
-// name, and the link to her page comes from the player that lookup returned. So the seven lose
-// their picture, their statline and their page all at once and fall back to initials on a
-// coloured circle, which reads as a player the site has never heard of rather than as a
-// spelling we failed to match. Reported by a reader watching the Sep 10 postseason game, where
-// the pitcher of record was "Emi Saki" on the card and Emi Saiki in the box score beneath it.
+// name, and the link to the player's page comes from the player that lookup returned. So the
+// seven lose their picture, their statline and their page all at once and fall back to
+// initials on a coloured circle, which reads as a player the site has never heard of rather
+// than as a spelling we failed to match: in the Sep 10 postseason game the pitcher of record
+// was "Emi Saki" on the card and Emi Saiki in the box score beneath it.
 //
 // WHY THIS IS NOT A TABLE OF THE SEVEN. A hardcoded map is right until the feed produces the
 // eighth, and nothing here could notice: the failure is a missing picture, which is exactly
 // what a player with no portrait bundled looks like. The rule below generalises instead, and
-// it is not new: `computeFirsts` has carried its own copy since the Hall of Firsts shipped,
-// for the same reason and against four of the same names. This is that rule, lifted out.
+// it is the same rule the Hall of Firsts needs, for the same reason and against four of the
+// same names.
 //
 // IT REFUSES TO GUESS, which is the whole safety argument. Two players in one game can share a
 // name, and a wrong match here does not mislabel a row, it puts somebody else's face and

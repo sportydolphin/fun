@@ -1,4 +1,4 @@
-// The Discord reply for `/score` — a game happening right now, at a glance.
+// The Discord reply for `/score`: a game happening right now, at a glance.
 //
 // Pure and asset-free, beside discordPlayerCard.ts and for the same reasons: what gets posted
 // into a public channel is worth unit testing, and the endpoint that sends it
@@ -6,11 +6,11 @@
 // Nothing here may reach constants.ts, which pulls the team logos in as Vite assets and fails
 // the Functions build; team names are assembled from the plain WpblTeam fields instead.
 //
-// Deliberately terse: the score, the inning, and who is at bat against whom. The full line
-// score and the base diamond were dropped on the reader's ask — a `/score` in a chat channel
-// wants the state in a line or two, and the game's own page (linked in the title) carries the
-// rest. The live-situation reading is shared with the site through derive/liveSituation.ts so
-// the count clamp and the between-innings break stay one definition rather than two that drift.
+// Deliberately terse: the score, the inning, and who is at bat against whom. No full line
+// score and no base diamond: a `/score` in a chat channel wants the state in a line or two,
+// and the game's own page (linked in the title) carries the rest. The live-situation reading
+// is shared with the site through derive/liveSituation.ts so the count clamp and the
+// between-innings break stay one definition rather than two that drift.
 import { deriveSituation, ORDINAL } from './derive/liveSituation'
 import { canonicalFeedName } from './feedNames'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
@@ -32,15 +32,14 @@ function embedColor(team: WpblTeam | undefined): number | undefined {
  * assumed live: the endpoint has already filtered to `status = 'live'` games and handled the
  * none/many cases, so this only has to render one.
  *
- * `roster` is REQUIRED, not optional, and that is the whole fix for the misspelled names. The
- * feed's `live_state` is prose: `batter_name` and `pitcher_name` are the league's own spelling,
- * which disagrees with the roster on a growing list of real players ("Emi Saki" for Emi Saiki,
- * "Val Perez" for Valerie Perez — see feedNames.ts). Every other surface on the site runs those
- * names through `canonicalFeedName` and this one shipped without it, so the feed's typos reached
- * the channel raw. Threading the roster through here and correcting inside the builder means no
- * caller can reintroduce that: a `/score` with no roster does not type-check. It resolves only
- * within the two clubs playing, so two players who share a surname across clubs (Claire and
- * Elodie O'Sullivan) can never be confused for each other.
+ * `roster` is REQUIRED, not optional. The feed's `live_state` is prose: `batter_name` and
+ * `pitcher_name` are the league's own spelling, which disagrees with the roster on a growing
+ * list of real players ("Emi Saki" for Emi Saiki, "Val Perez" for Valerie Perez; see
+ * feedNames.ts). Every other surface on the site runs those names through `canonicalFeedName`,
+ * and without the roster the feed's typos reach the channel raw. Correcting inside the builder
+ * means no caller can reintroduce that: a `/score` with no roster does not type-check. It
+ * resolves only within the two clubs playing, so two players who share a surname across clubs
+ * (Claire and Elodie O'Sullivan) can never be confused for each other.
  */
 export function buildLiveBoxReply(
   game: WpblGame,
@@ -50,7 +49,7 @@ export function buildLiveBoxReply(
 ): DiscordReply {
   // The correction pool is the two clubs on the field. `canonicalFeedName` rewrites only on a
   // unique match and returns the feed's own spelling otherwise, so a name it cannot place is
-  // left exactly as it would have been — never guessed at.
+  // left exactly as it would have been, never guessed at.
   const pool = roster.filter(p => p.team_id === away.id || p.team_id === home.id)
   const canon = (name: string | null): string | null =>
     name ? canonicalFeedName(name, pool.length ? pool : roster) : name

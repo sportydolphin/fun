@@ -18,10 +18,10 @@ import type {
 // the section renders an empty shell instead of throwing. Same tolerance the rest of
 // the app uses for not-yet-migrated features.
 
-// Upper bound on any single read. If the database stalls (the failure mode behind the
-// old infinite spinner), the read resolves to its fallback instead of hanging forever;
-// the section then shows its empty state and the next poll refills it once the DB
-// recovers. Generous enough that a healthy request never trips it.
+// Upper bound on any single read. If the database stalls, the read resolves to its fallback
+// instead of hanging forever (an infinite spinner); the section then shows its empty state and
+// the next poll refills it once the DB recovers. Generous enough that a healthy request never
+// trips it.
 const READ_TIMEOUT_MS = 8000
 
 async function safe<T>(label: string, run: () => PromiseLike<{ data: T | null; error: unknown }>, fallback: T): Promise<T> {
@@ -49,7 +49,7 @@ async function safe<T>(label: string, run: () => PromiseLike<{ data: T | null; e
 
 // Collapse concurrent duplicate reads. On a cold load several views mount at once and ask
 // for the same bulk dataset (WpblApp's search pool and Home both pull the full roster; the
-// schedule poll can overlap a focus-refresh) — without this each fires its own DB query.
+// schedule poll can overlap a focus-refresh), and without this each fires its own DB query.
 // Keyed by dataset, the in-flight promise is shared until it settles, then cleared: this
 // only dedupes genuine overlap. Reads that land near each other but don't actually overlap
 // are handled a layer up, by the BULK_FRESH_MS window on the cached bulk fetchers below.
@@ -73,9 +73,9 @@ export function fetchWpblTeams(): Promise<WpblTeam[]> {
 // copy when a played one exists for the same matchup-day; genuine doubleheaders (two
 // played, or two upcoming) are left untouched.
 //
-// The wpbl-ingest function now suppresses these server-side too (deletes the phantom row
-// from the mirror), so on a healthy DB this filter is a no-op. It's kept as a cheap
-// fallback for the window before a re-ingest clears an already-stored phantom.
+// wpbl-ingest also suppresses these server-side (deletes the phantom row from the mirror),
+// so on a healthy DB this filter is a no-op, kept as a cheap fallback for the window before
+// a re-ingest clears an already-stored phantom.
 function dedupeSchedule(games: WpblGame[]): WpblGame[] {
   const played = (g: WpblGame) => g.status === 'final' || g.status === 'live'
   const hasPlayed = new Set<string>()
@@ -117,10 +117,9 @@ let lastGoodSchedule: WpblGame[] | null = null
  *
  * INSTALLED, not imported, and that is the whole design. The simulator behind it
  * (`dev/devLiveGame.ts`) is reachable only from `DevSettings`, which is proven absent from the
- * production bundle, so an import from here would be the one edge dragging it back in. The MLB
- * predictor's simulator is in the shipped bundle today for exactly that reason: a production
- * call site imports it, and its top-level state load counts as a side effect that tree-shaking
- * will not remove. A slot costs three null checks and cannot leak.
+ * production bundle, so an import from here would be the one edge dragging it back in: a
+ * production import of a module with top-level state is a side effect tree-shaking will not
+ * remove. A slot costs three null checks and cannot leak.
  *
  * Every method is a pure transform of what the real read returned, so an uninstalled slot and
  * an installed-but-idle one are the same code path. See devLiveGame.ts for what it replays and
@@ -160,11 +159,10 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
 // (GameDetail.tsx), and those push within a second of the write. The poll exists for the case
 // where a subscription drops silently, which websockets do.
 //
-// It was 5s, which bought nothing: it cannot beat Realtime to a change, so all it did was ask
-// three times as often for an answer that was already on screen. Over a three-hour game that
-// is 2,160 requests per viewer per surface instead of 720. Raise it further and a dropped
-// subscription starts to show; lower it and you are paying for latency Realtime already gave
-// you for free.
+// Not faster: a poll cannot beat Realtime to a change, so a 5s poll only asks three times as
+// often for an answer already on screen (over a three-hour game, 2,160 requests per viewer per
+// surface instead of 720). Raise it further and a dropped subscription starts to show; lower it
+// and you are paying for latency Realtime already gave you for free.
 export const LIVE_POLL_MS = 15000
 
 // Every column of `wpbl_games` that can change while a game is in progress. The live poll
@@ -194,8 +192,8 @@ const LIVE_GAME_COLUMNS = [
  *  have (`{ ...prev, ...delta }`); every column it omits is immutable, so the merge is
  *  complete rather than a best effort. */
 export async function fetchWpblGameLive(gameId: string): Promise<Partial<WpblGame> | null> {
-  // Explicit, because the fallback alone no longer pins the generic now that the result is
-  // bound rather than returned: inference walks off into PostgREST's error row type.
+  // Explicit, because the fallback alone does not pin the generic once the result is bound
+  // rather than returned: inference walks off into PostgREST's error row type.
   const delta = await safe<Partial<WpblGame> | null>('fetchWpblGameLive', () =>
     supabase.from('wpbl_games').select(LIVE_GAME_COLUMNS).eq('id', gameId).maybeSingle() as unknown as
       PromiseLike<{ data: Partial<WpblGame> | null; error: unknown }>,
@@ -210,11 +208,11 @@ function readWpblRoster(teamId: string): Promise<WpblPlayer[]> {
 }
 
 // ─── Session cache for the shared bulk reads ────────────────────────────────────
-// The Stats and Home tabs both pull the full player roster and box-score lines, and
-// SwipeableViews unmounts a tab when you swipe away — so without a cache each return
-// re-queried the DB and flashed the tab's loading spinner (the "full reload"). Keep
-// the last successful result so a remount repaints instantly, with a timestamp so a
-// caller can still revalidate once it's stale (box scores change as games are played).
+// The Stats and Home tabs both pull the full player roster and box-score lines, and a tab can
+// remount (on desktop only the active tab is rendered), so without a cache each return would
+// re-query the DB and flash the tab's loading spinner. Keep the last successful result so a
+// remount repaints instantly, with a timestamp so a caller can still revalidate once it's
+// stale (box scores change as games are played).
 export type WpblLinesResult = { batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }
 let allPlayersCache:  { data: WpblPlayer[]; at: number } | null = null
 let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
@@ -231,15 +229,14 @@ let siteGamesCache:   { data: WpblSiteGame[]; at: number } | null = null
 // How long a bulk result is served straight from the cache without re-querying.
 //
 // `once()` above collapses reads that overlap in time; this collapses reads that merely
-// land close together, which on a cold load is most of them. Five components ask for these
-// same league-wide datasets independently — Home's leaders, GamePreview's "next game" card,
-// StatsView, TeamPage, TrackingView — and only some of them gated on their own staleness
-// helper, so a single load re-pulled the full roster and every box-score line two or three
-// times, hundreds of milliseconds apart. That is what a session cache is for; the callers
-// should not each have to remember to check it.
+// land close together, which on a cold load is most of them. Several components ask for these
+// same league-wide datasets independently (Home, GamePreview, StatsView, TeamPage,
+// TrackingView), and a caller should not have to remember to check its own staleness: without
+// this a single load re-pulls the full roster and every box-score line two or three times,
+// hundreds of milliseconds apart.
 //
 // Kept comfortably below the 30s window Home's own gate uses, so nothing that revalidates
-// on a schedule (the live-game poll runs at 60s) gets held back — this only absorbs the
+// on a schedule (the live-game poll runs at 60s) gets held back; this only absorbs the
 // fan-out within one page load or one quick tab switch.
 const BULK_FRESH_MS = 20_000
 
@@ -259,26 +256,25 @@ export function getCachedWpblSiteGames(): WpblSiteGame[] | null { return siteGam
 
 // ─── Per-entity session cache ───────────────────────────────────────────────────
 //
-// The bulk caches above solved this for the league-wide reads and left every PER-THING read
-// out, which is what the two surfaces a reader opens over and over are made of: the four club
-// buttons on a team page, whose whole job is to be tapped back and forth, and a player card
-// opened from a leaderboard, closed, and opened again. Each visit refetched, so the second one
-// spun exactly as long as the first, on data that had not changed since ten seconds ago.
+// The same contract as the bulk caches, for PER-THING reads, which is what the two surfaces a
+// reader opens over and over are made of: the four club buttons on a team page, whose whole job
+// is to be tapped back and forth, and a player card opened from a leaderboard, closed, and
+// opened again. Uncached, the second visit spins exactly as long as the first, on data that has
+// not changed since ten seconds ago.
 //
-// Keyed by entity id and otherwise the same contract as the bulk caches: `isFresh` decides
-// whether a read is skipped, `once` collapses two callers landing together, and a `getCached*`
-// accessor lets a component paint from the cache SYNCHRONOUSLY on its first render. That last
-// part is what removes the spinner rather than merely shortening it: seeding state in an effect
-// still gives you one frame of empty, and one frame of empty is a flash.
+// Keyed by entity id: `isFresh` decides whether a read is skipped, `once` collapses two callers
+// landing together, and a `getCached*` accessor lets a component paint from the cache
+// SYNCHRONOUSLY on its first render. That last part is what removes the spinner rather than
+// merely shortening it: seeding state in an effect still gives you one frame of empty, and one
+// frame of empty is a flash.
 //
 // AN EMPTY RESULT NEVER EVICTS A GOOD ONE. `safe()` answers a failed or timed-out read with its
 // fallback, which is `[]` or null here, so without this guard one dropped request would replace
 // a club's roster with "no players" and keep serving that for the rest of the freshness window.
 // Same reasoning as `mergeBulkLines`, one section up. `isEmpty` is per-cache because the shapes
-// differ: a list is empty when it has no rows, a player's season when all three of hers do.
+// differ: a list is empty when it has no rows, a player's season when all three of its reads are.
 //
-// NOT FOR ANYTHING A POLL DEPENDS ON, AND THE PER-GAME READS ARE ALL OF THEM. This was swept
-// for on Sep 4, 2026 and the answer for every remaining per-entity read is deliberately no:
+// NOT FOR ANYTHING A POLL DEPENDS ON, AND THE PER-GAME READS ARE ALL OF THEM:
 //
 //   * `fetchWpblGameLive` is the live scoreboard's refresh. A cache on it is a scoreboard that
 //     stops moving.
@@ -320,8 +316,7 @@ const usageCache   = keyedCache('usage', readWpblPitchingUsage, emptyList)
 // A PLAYER PAGE IS THE THING PEOPLE OPEN TWICE. It is the section's retention event (a reader
 // who opens one comes back at 76.5%, against 7.8% for one who opens neither it nor Game
 // Center; see ROADMAP-WPBL.md), and it is reached from a leaderboard, which is a list of
-// twenty of them: open, read, close, open the next, come back to the first. Every one of those
-// was a fresh three-table read behind a spinner.
+// twenty of them: open, read, close, open the next, come back to the first.
 const playerLinesCache = keyedCache('playerLines', readWpblPlayerLines,
   v => v.batting.length === 0 && v.pitching.length === 0 && v.fielding.length === 0)
 const pitchLocsCache = keyedCache('pitchLocs', readWpblPitcherLocations, emptyList)
@@ -362,8 +357,8 @@ export function wpblHomeCacheAgeMs(): number {
   return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, allTrackingCache.at, allPlaysCache.at)
 }
 
-// Every player in the league (all four rosters). Used to attach names/teams to the
-// aggregated league-leader rows on the home view.
+// Every player in the league (all four rosters): the name pool for search, for slugs, and for
+// any surface that names a player off a box-score line.
 export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
   if (isFresh(allPlayersCache)) return Promise.resolve(allPlayersCache!.data)
   return once('allPlayers', async () => {
@@ -379,7 +374,7 @@ export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
 
 // Only the play columns the Hall of Firsts reads (see WpblFirstsPlay). Deliberately omits
 // `pitch_events` (a JSON array of every pitch in the play) and the base/count fields, which
-// dominate the row size but the firsts computation never uses — so this scans the whole
+// dominate the row size but the firsts computation never uses, so this scans the whole
 // season's plays at a fraction of the transfer of select('*').
 const FIRSTS_PLAY_SELECT =
   'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,narrative,event_type,is_hit,runs_scored'
@@ -460,17 +455,15 @@ export function fetchWpblTrackedGameCount(): Promise<number | null> {
 }
 
 // Every play-by-play row in the league that could set a Hall of Firsts milestone (first HR,
-// first strikeout, first stolen base, …). The heaviest WPBL read — one row per play for the
-// whole season — so it is column-projected, filtered server-side, and cached last-good so
-// the Home tab repaints on a swipe-back without re-pulling it. Empty pre-migration.
+// first strikeout, first stolen base, …): one row per play for the whole season, so it is
+// column-projected, filtered server-side, and cached last-good. Empty pre-migration.
 //
 // Paginated, and this is not optional. PostgREST caps an unbounded select at 1000 rows and
-// returns them in no defined order, so before this the season scan silently stopped at that
-// cap — `wpbl_game_plays` passed it mid-season — and the rows that came back were an
-// arbitrary slice. computeFirsts sorts what it is handed and takes the earliest match, so a
-// dropped opening-day play did not just omit a milestone, it reassigned it to whoever did it
-// next. The explicit order also makes the paging deterministic: without it, PostgREST can
-// return the same row on two pages and miss another entirely.
+// returns them in no defined order, so an unpaged scan silently stops at that cap (the play log
+// is well past it) with an arbitrary slice. computeFirsts sorts what it is handed and takes the
+// earliest match, so a dropped opening-day play would not just omit a milestone, it would
+// reassign it to whoever did it next. The explicit order also makes the paging deterministic:
+// without it, PostgREST can return the same row on two pages and miss another entirely.
 export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
   if (isFresh(allPlaysCache)) return Promise.resolve(allPlaysCache!.data)
   return once('allPlays', async () => {
@@ -510,7 +503,7 @@ const PITCH_PLAY_SELECT =
 /** Every plate appearance in the league, as its pitch sequence.
  *
  *  Paged, for the reason spelled out on fetchWpblAllPlays: an unbounded select stops at 1000
- *  rows with no error, and the play log passed that mid-season. A truncated read here does not
+ *  rows with no error, and the play log is well past that. A truncated read here does not
  *  fail, it just makes every rate on the boards a rate over an arbitrary slice of the season.
  *
  *  Corrected on the way out like the firsts read, because a correction to a play's batter or
@@ -567,7 +560,7 @@ export function fetchWpblAllPitchPlays(): Promise<WpblPitchPlay[]> {
 /**
  * Read a whole table, a page at a time.
  *
- * PostgREST silently caps a bare `select` at 1000 rows — no error, just a short array — so
+ * PostgREST silently caps a bare `select` at 1000 rows (no error, just a short array), so
  * anything that means "every row" has to page explicitly or it quietly returns a prefix.
  * The `order` the caller passes matters as much as the paging does: without a deterministic
  * total order PostgREST can hand back the same row on two pages and skip another entirely
@@ -587,10 +580,10 @@ async function fetchAllPaged<T>(
   return out
 }
 
-// Every box-score line in the league — for computing season league leaders. Paged, because
-// a truncated read here doesn't fail, it just makes every league-wide rate quietly wrong:
-// OPS+ and ERA+ derive their league baseline from these rows. Returns empty (no leaders)
-// until games start being entered.
+// Every box-score line in the league, for season aggregates. Paged, because a truncated read
+// here doesn't fail, it just makes every league-wide rate quietly wrong: OPS+ and ERA+ derive
+// their league baseline from these rows. Returns empty (no leaders) until games start being
+// entered.
 // The bulk line reads take every column EXCEPT `created_at`, which nothing in the section
 // reads and which costs 17 KB across the season's batting lines (145 KB to 128 KB, 12%). The
 // per-game reads still take `select('*')`: they are one game's worth of rows and the saving
@@ -615,13 +608,10 @@ const BATTING_LINE_COLUMNS = [
  *
  * `fetchWpblAllPlayers` gets last-good right because it holds one array: an empty result with a
  * good cache means the read failed, so the cache is left alone. Two arrays make that test
- * ambiguous, and the first version of this asked `batting.length > 0 || pitching.length > 0`,
- * i.e. "cache the pair unless BOTH failed". The two reads run in parallel and fail
- * independently, so a run where only the batting read came up short cached a league with no
- * batting at all: the Team stats card said "team stats appear once games are played" for a club
- * that had played thirteen, and the spec chart drew four confident 50s across Power, Contact,
- * Eye and Speed (the honest answer to "how far above an average of nothing") beside completely
- * correct Arms and Glove. It looked finished and was half fiction. Seen on Sep 3, 2026.
+ * ambiguous. "Cache the pair unless BOTH failed" is wrong, because the two reads run in parallel
+ * and fail independently: a run where only the batting read came up short would cache a league
+ * with no batting at all, and every surface built on it (team stats, the spec chart's Power,
+ * Contact, Eye and Speed) would look finished while being half fiction.
  *
  * `complete` is false when either side came back short, and the caller uses it to leave the
  * cache's timestamp alone so the next read RETRIES rather than serving the half it knows is
@@ -649,19 +639,18 @@ export function mergeBulkLines(fresh: WpblLinesResult, prev: WpblLinesResult | n
  * Every fielding line in the league, for the one thing that needs them: the fan ballot's
  * Defensive Wizard shortlist.
  *
- * WHY THIS DID NOT EXIST UNTIL NOW. Fielding has only ever been read one game or one player at
- * a time, because the section has no defensive leaderboard and deliberately does not pretend to
- * have one. A ballot line still has to offer six names, and assists plus double plays across the
- * league is the closest a box score gets to a play made.
+ * League-wide fielding is read nowhere else: the section has no defensive leaderboard and
+ * deliberately does not pretend to have one. A ballot line still has to offer names, and the
+ * box score's fielding line is the closest it gets to a play made.
  *
  * PAGED, AND ORDERED, which on this table is the whole risk. PostgREST caps a bare select at
- * 1000 rows and says nothing about it, and there are already 469 fielding lines in a 30-game
- * season, so a second season walks straight into a silent truncation that would quietly drop
+ * 1000 rows and says nothing about it, and one season already runs to hundreds of fielding
+ * lines, so a second season walks straight into a silent truncation that would quietly drop
  * whole clubs off the shortlist. `fetchAllPaged` with a deterministic order is the section's one
  * answer to that; see CLAUDE.md.
  *
  * Cached on the same clock as the other bulk reads, and empty on error rather than throwing: a
- * ballot that cannot draw one shortlist should draw the other four.
+ * ballot that cannot draw one shortlist should draw the others.
  */
 const FIELDING_LINE_COLUMNS = [
   'id', 'game_id', 'player_id', 'team_id', 'po', 'a', 'e', 'pb', 'sba', 'ci', 'dp',
@@ -714,7 +703,7 @@ export function fetchWpblAllLines(): Promise<WpblLinesResult> {
 }
 
 // Every TrackMan tracking row in the league, slimmed to the fields the velocity board
-// needs (see WpblTrackRow) — the raw-payload sub-fields are projected server-side so we
+// needs (see WpblTrackRow): the raw-payload sub-fields are projected server-side so we
 // never transfer the whole `raw` blob. Paginated past PostgREST's 1000-row default so it
 // keeps working as the season fills in. Empty pre-migration / on error.
 const TRACK_SELECT =
@@ -739,9 +728,9 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
     const page = await safe<Record<string, unknown>[]>('fetchWpblAllTracking', () =>
       // `.order()` is not decoration: paging with `.range()` alone lets Postgres hand the same
       // row to two pages and skip another, which here would double-count a pitch in a velocity
-      // average and silently drop another. Free to get away with while tracking sits at 766
-      // rows in one page, wrong the first time the league publishes a third game.
-      // `activity_id` is the table's natural key; readWpblPitcherLocations pages the same way.
+      // average and silently drop another. Invisible while tracking fits in one page, wrong the
+      // moment it does not. `activity_id` is the table's natural key; readWpblPitcherLocations
+      // pages the same way.
       supabase.from('wpbl_pitch_tracking').select(TRACK_SELECT)
         .order('activity_id', { ascending: true })
         .range(from, from + PAGE - 1) as unknown as
@@ -797,10 +786,10 @@ export function fetchWpblRecaps(): Promise<WpblGameRecap[]> {
   })
 }
 
-// The league's mirrored YouTube uploads, newest first — for the Home highlights rail and
-// the per-game recap card. Small table (the feed carries ~15 uploads), so this is one cheap
-// read cached last-good: the rail repaints on a swipe-back without re-querying, and the
-// GameDetail recap reads the same cache instead of its own request. Empty pre-migration.
+// The league's mirrored YouTube uploads, newest first, for the highlights rail and the
+// per-game recap card. A small table, so this is one cheap read cached last-good: the rail
+// repaints on a revisit without re-querying, and the GameDetail recap reads the same cache
+// instead of its own request. Empty pre-migration.
 export function fetchWpblVideos(): Promise<WpblVideo[]> {
   if (isFresh(allVideosCache)) return Promise.resolve(allVideosCache!.data)
   return once('allVideos', async () => {
@@ -820,12 +809,12 @@ export function fetchWpblVideos(): Promise<WpblVideo[]> {
  * `scripts/sync-wpbl-site-calendar.mjs`.
  *
  * A SECOND SOURCE, FOR THE GAMES THE STATS FEED HAS NOT PUBLISHED. Everything else here comes
- * from the feed, which needs two clubs before it will carry a game row and therefore held
- * nothing for the postseason until the seeds were set. The website had all eleven games six
- * weeks out, with the times, the tickets and, for the semifinals, which club bats last. Only
+ * from the feed, which needs two clubs before it will carry a game row and so holds nothing for
+ * a postseason until the seeds are set, while the website publishes those games weeks out with
+ * the times, the tickets and, for the semifinals, which club bats last. Only
  * `postseasonScheduleRows` reads it, and only for a fixture the feed has no row for.
  *
- * Forty-one rows for the whole season, so it is read whole, ordered, and cached app-wide like
+ * A few dozen rows for a whole season, so it is read whole, ordered, and cached app-wide like
  * the videos above it. An empty result keeps the last good list: the postseason placeholders
  * fall back to their own published constant rather than losing their home clubs on one bad
  * read.
@@ -907,13 +896,13 @@ export async function fetchWpblGameLines(gameId: string): Promise<{ batting: Wpb
   return { batting, pitching, fielding }
 }
 
-// Lineup history for one team — which slot and position each player filled, game by game.
+// Lineup history for one team: which slot and position each player filled, game by game.
 //
 // Reads the wpbl_lineup_history view rather than wpbl_batting_lines, because "did they start
 // or come in later?" can only be answered by cross-referencing play sequence, and that join
 // belongs in the database next to the rule it implements (see the view's migration).
 //
-// Deliberately narrow: the grid needs slot, position and started — not the stat line — so
+// Deliberately narrow: the grid needs slot, position and started (not the stat line), so
 // the columns are listed rather than select('*'). One team's season is a few hundred rows.
 function readWpblLineupHistory(teamId: string): Promise<WpblLineupHistoryRow[]> {
   return safe('fetchWpblLineupHistory', () =>
@@ -925,7 +914,7 @@ function readWpblLineupHistory(teamId: string): Promise<WpblLineupHistoryRow[]> 
     [] as WpblLineupHistoryRow[])
 }
 
-// Pitcher usage for one team — every appearance, with rest days already computed.
+// Pitcher usage for one team: every appearance, with rest days already computed.
 //
 // days_rest comes from the view rather than being derived here: the gap that matters is
 // between a pitcher's own consecutive outings, which is a window function over their whole
@@ -981,7 +970,7 @@ const strongestSource = (all: WpblCorrectionSource[]): WpblCorrectionSource =>
  *
  *  `sequence` restarts at 1 in every game, so game_id is load-bearing and not belt-and-braces:
  *  the Hall of Firsts hands this the whole season at once, and on a sequence-only match one
- *  game's correction would rewrite the same-numbered play in all 28 of them. */
+ *  game's correction would rewrite the same-numbered play in every game. */
 export function applyPlayCorrections<T extends { game_id: string; sequence: number }>(
   plays: T[], corrections: WpblPlayCorrection[],
 ): T[] {
@@ -1040,11 +1029,10 @@ export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]
   return readOverlay ? readOverlay.plays(gameId, corrected) : corrected
 }
 
-// The same game's plays, projected to what buildRecap reads (see WpblRecapPlay).
-//
-// Home's "Last Game" card was calling fetchWpblGamePlays for this: ~80 KB of pitch-by-pitch
-// JSON, on the landing view, to answer whether anyone hit back-to-back home runs. The Game
-// Center still takes the full rows when a reader actually opens a game.
+// The same game's plays, projected to what buildRecap reads (see WpblRecapPlay), so Home's
+// Last Game card does not pull ~80 KB of pitch-by-pitch JSON on the landing view to answer
+// whether anyone hit back-to-back home runs. Game Center still takes the full rows when a
+// reader actually opens a game.
 export async function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecapPlay[]> {
   const [plays, corrections] = await Promise.all([
     safe<WpblRecapPlay[]>('fetchWpblGameRecapPlays', () =>
@@ -1059,7 +1047,6 @@ export async function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecap
   return applyPlayCorrections(plays, corrections)
 }
 
-// TrackMan pitch/hit tracking for one game (chronological).
 // The transcribed extras for one game: first pitch, duration, crew, weather. Absent for any
 // game RetroWPBL has not written up yet, which is the recent ones, so this resolves to null
 // rather than erroring and every caller renders nothing at all in that case.
@@ -1073,8 +1060,8 @@ export function fetchWpblGameDetails(gameId: string): Promise<WpblGameDetails | 
  *
  *  Written once per detected revision by scripts/check-wpbl-drift.mjs, at the only moment both
  *  versions of the scoring exist. Nothing regenerates it, so an empty answer means "we have not
- *  caught a revision to this game", never "this game was never revised": the table starts on the
- *  day it shipped, and 23 of the season's first 30 games had already been revised by then.
+ *  caught a revision to this game", never "this game was never revised": the table only holds
+ *  revisions caught since it started recording, and many earlier ones never were.
  *  `wpbl_games.source_updated_at` is still the one that says a game was revised at all. */
 export function fetchWpblGameRevisions(gameId: string): Promise<WpblGameRevision[]> {
   return safe('fetchWpblGameRevisions', () =>
@@ -1083,6 +1070,7 @@ export function fetchWpblGameRevisions(gameId: string): Promise<WpblGameRevision
     [] as WpblGameRevision[])
 }
 
+// TrackMan pitch/hit tracking for one game (chronological).
 export function fetchWpblGameTracking(gameId: string): Promise<WpblPitchTracking[]> {
   return safe('fetchWpblGameTracking', () =>
     supabase.from('wpbl_pitch_tracking').select('*').eq('game_id', gameId).order('occurred_at', { ascending: true }),
@@ -1120,8 +1108,8 @@ export interface WpblPitchLoc {
 // non-pitchers and for players the feed has no id for.
 //
 // Takes EVERY feed id the player has held, not just the current one. The tracking rows are
-// keyed on the feed's player id, and the feed mints a new id per club — so reading only
-// `api_id` would show a traded pitcher's work for her new team and silently nothing before
+// keyed on the feed's player id, and the feed mints a new id per club, so reading only
+// `api_id` would show a traded pitcher's work for their new team and silently nothing before
 // it, which looks exactly like a pitcher who has not thrown much rather than like a bug.
 // Paginated past PostgREST's 1000-row default so it holds up as the season fills in.
 async function readWpblPitcherLocations(idsKey: string): Promise<WpblPitchLoc[]> {
@@ -1157,11 +1145,11 @@ async function readWpblPitcherLocations(idsKey: string): Promise<WpblPitchLoc[]>
 // were played in, is `standingsFinals` in season.ts: one definition, for the reason written
 // beside it there.
 
-// `countsInStandings` lives in season.ts now, which imports nothing but types. The predicate
-// is needed by stats.ts, which is bundled into the Cloudflare Pages Functions behind the OG
-// cards and the Discord /player command; importing it from here would drag the whole supabase
-// client into those. Re-exported so every existing importer keeps working and there is still
-// exactly one definition of "counts toward the season".
+// `countsInStandings` lives in season.ts, which imports nothing but types. The predicate is
+// needed by stats.ts, which is bundled into the Cloudflare Pages Functions behind the OG cards
+// and the Discord /player command; importing it from here would drag the whole supabase client
+// into those. Re-exported so every existing importer keeps working and there is still exactly
+// one definition of "counts toward the season".
 export { regularSeasonLines, excludedGameIds } from './season'
 export { standingsFinals, standingsStartMin } from './season'
 export { countsInStandings }

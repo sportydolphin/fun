@@ -5,8 +5,8 @@ import { countsInStandings } from '../season'
 //
 // All four clubs qualify for the postseason, so a clinch tracker or a playoff-odds board has
 // nothing to say, which is why both stay parked. Seeding is the opposite: the standings order
-// IS the bracket (1v4 and 2v3 in the semifinals), it is the only thing the last games decide,
-// and until now nothing on the section said so.
+// IS the bracket (1v4 and 2v3 in the semifinals), and it is the only thing the last games
+// decide.
 //
 // Pure: standings rows and the schedule in, plain shapes out. No supabase, no React, mirroring
 // stats.ts / matchups.ts. Everything here derives from `computeStandings`, which means no new
@@ -177,13 +177,12 @@ export function headToHead(games: WpblGame[], a: string, b: string): {
 /**
  * Whether `me` is GUARANTEED to finish above `rival`, tiebreak included.
  *
- * WHY THIS EXISTS, AND WHAT IT FIXES. The rest of this module reasons on wins alone and treats
- * any possible tie as unresolved, which is the safe reading for a magic number and was wrong for
- * a clinch. On Sep 3, 2026 San Francisco were 9-4 with two to play and Los Angeles 7-6 with two:
- * LA's ceiling was 9 and SF's floor was 9, so the only way LA could catch them was a 9-6 tie,
- * and SF held that series 3-2 with NO GAMES LEFT IN IT. San Francisco had clinched the top seed
- * outright and the site said the race was open, because nothing here knew the standings break
- * ties on head to head.
+ * WHY THIS EXISTS. The rest of this module reasons on wins alone and treats any possible tie as
+ * unresolved, which is the safe reading for a magic number and the wrong one for a clinch. On
+ * Sep 3, 2026 San Francisco were 9-4 with two to play and Los Angeles 7-6 with two: LA's ceiling
+ * was 9 and SF's floor was 9, so the only way LA could catch them was a 9-6 tie, and SF held
+ * that series 3-2 with NO GAMES LEFT IN IT. San Francisco had clinched the top seed outright,
+ * and a rule that does not know the standings break ties on head to head calls that race open.
  *
  * The three certainties, in order:
  *   1. The rival's ceiling is below my floor. They cannot catch me on wins at all.
@@ -204,11 +203,10 @@ export function finishesAhead(
 
   // COMPARED AS PERCENTAGES, NOT AS WINS, because that is what `computeStandings` sorts on and
   // a claim here that disagrees with the table beside it is worse than no claim. The two only
-  // coincide while every club has played the same number of games, which is true today and is
-  // not a property of the fixture list: a postponement makes 9-5 and 7-3 two different orders
-  // depending on which number you read. Cross-multiplied so the equality below is exact rather
-  // than a float comparison, and each club's final games played is fixed (`total`) whatever
-  // happens in them.
+  // coincide while every club has played the same number of games, which is not a property of
+  // the fixture list: a postponement makes 9-5 and 7-3 two different orders depending on which
+  // number you read. Cross-multiplied so the equality below is exact rather than a float
+  // comparison, and each club's final games played is fixed (`total`) whatever happens in them.
   const myTotal = me.wins + me.losses + me.remaining
   const rivalTotal = rival.wins + rival.losses + rival.remaining
   if (myTotal === 0 || rivalTotal === 0) return false

@@ -8,18 +8,17 @@
 // scripts (the sitemap), neither of which can load anything that touches Vite assets: the
 // same reasoning that keeps constants.ts out of the recap engine.
 //
-// The tabs were `/wpbl?view=standings` until Aug 21, 2026. A query string is one URL as far
-// as a search engine is concerned, so the whole section had a single title, a single
-// description and a single canonical no matter which tab you were on, and Google had
-// exactly one WPBL page it could rank. Paths give each tab its own. The old spelling still
-// resolves: functions/wpbl/index.ts 301s it here, so shared links and notification payloads
-// from before the change keep working.
+// PATHS, NOT A QUERY STRING. A query string is one URL as far as a search engine is concerned,
+// so `/wpbl?view=standings` would give the whole section a single title, description and
+// canonical, and Google exactly one WPBL page it could rank. Paths give each tab its own. The
+// legacy spelling still resolves: functions/wpbl/index.ts 301s it here, so old shared links and
+// notification payloads keep working.
 
 // The one exception to the no-imports rule. slug.ts is itself dependency-free, and it is
 // deliberately the single definition of name-to-slug shared by the app and the Pages
 // Function, so re-deriving it here is exactly the drift that file exists to prevent.
 //
-// THE `.ts` IS LOAD-BEARING. This module is now reached from Deno inside `wpbl-ingest`
+// THE `.ts` IS LOAD-BEARING. This module is reached from Deno inside `wpbl-ingest`
 // (announce-final.ts builds a game's URL for the Discord recap), and Deno resolves a local
 // specifier literally: extensionless, it simply does not find the file, and the ingest's
 // announce step fails at import time. Vite and esbuild both accept the explicit extension,
@@ -46,9 +45,9 @@ export function wpblPathFor(view: WpblView): string {
 
 export const isWpblView = (v: unknown): v is WpblView => WPBL_NAV.some(n => n.key === v)
 
-// Tracking used to be its own tab; it's now a stat group inside Stats. Any old bookmark,
-// shared link, or restored history snapshot still naming it lands on Stats instead of
-// falling back to Home. `wasTracking` tells the caller to open Stats *on* that group.
+// Tracking is a stat group inside Stats rather than a tab. Any old bookmark, shared link, or
+// restored history snapshot still naming it lands on Stats instead of falling back to Home.
+// `wasTracking` tells the caller to open Stats *on* that group.
 export const WPBL_LEGACY_TRACKING = 'tracking'
 
 export function normalizeWpblView(v: unknown): { view: WpblView; wasTracking: boolean } {
@@ -63,7 +62,7 @@ export function normalizeWpblView(v: unknown): { view: WpblView; wasTracking: bo
  * whether this path belongs to the section, and `/wpbl/api` is a sibling route with its own
  * page rather than a tab. Collapsing an unknown path to Home there would swallow the API
  * docs, and would also make every mistyped `/wpbl/anything` render the section instead of
- * the 404 it now gets.
+ * the 404 it gets.
  */
 export function wpblViewFromPath(pathname: string): WpblView | null {
   const p = pathname.replace(/\/+$/, '') || '/'
@@ -134,10 +133,10 @@ export function findWpblPlayerBySlug<T extends WpblSluggable>(
 
 // ─── The fan awards ballot ────────────────────────────────────────────────────
 //
-// A MODAL WITH A URL, ON THE SAME TERMS AS A PLAYER OR A GAME. The ballot lives in a sheet over
-// Home and had no address at all, so the only way to send somebody to it was "go to /wpbl, scroll
-// to Fan awards, press Vote". That is the whole point of a poll: it has to be linkable, into a
-// Discord message or a Bluesky post, by somebody who is not going to narrate three steps.
+// A MODAL WITH A URL, ON THE SAME TERMS AS A PLAYER OR A GAME. Without an address the only way to
+// send somebody to the ballot would be "go to /wpbl, scroll to Fan awards, press Vote", and a poll
+// has to be linkable, into a Discord message or a Bluesky post, by somebody who is not going to
+// narrate three steps.
 //
 // NOT A SIXTH TAB, deliberately. WPBL_NAV is the section's nav and the mobile pager's swipe
 // order, so a tab is a permanent cost paid by every reader on every visit for a card that Home
@@ -147,7 +146,7 @@ export function findWpblPlayerBySlug<T extends WpblSluggable>(
 // NOT A SIBLING PAGE like /wpbl/api either, which is the other shape available. That one renders
 // outside WpblApp, and the ballot needs the roster, the schedule, both stat tables, the fielding
 // lines and the MVP race to build its shortlists: every one of those is already loaded and cached
-// behind Home, and a standalone page would fetch the lot a second time to draw the same six names.
+// behind Home, and a standalone page would fetch the lot a second time to draw the same names.
 
 export const WPBL_AWARDS_PATH = '/wpbl/awards'
 
@@ -161,13 +160,13 @@ export const isWpblAwardsPage = (pathname: string): boolean =>
  * Every path WpblApp itself renders: the tabs, plus a player page, which is a modal the
  * section opens over a tab and so is still the section's own route.
  *
- * It is exported because two places in two files have to agree on it, and they did not.
- * App.tsx uses it to decide whether to MOUNT the section; WpblApp's popstate handler uses it
- * to decide whether a Back or Forward belongs to the section or is the shell swapping between
- * MLB and WPBL. The handler tested `wpblViewFromPath` alone, which is null for
- * /wpbl/players/<slug>, so every pop that LANDED on a player page was dropped: the address bar
- * moved to her URL and the modals stayed exactly as they were. Reachable by Forward onto any
- * player, and by Back out of any game opened from a player's game log.
+ * It is exported because two places in two files have to agree on it. App.tsx uses it to decide
+ * whether to MOUNT the section; WpblApp's popstate handler uses it to decide whether a Back or
+ * Forward belongs to the section or is the shell swapping between MLB and WPBL.
+ * `wpblViewFromPath` alone is null for /wpbl/players/<slug>, so a handler testing only that would
+ * drop every pop that LANDS on a player page: the address bar would move to the player's URL and
+ * the modals would stay as they were (reachable by Forward onto any player, and by Back out of a
+ * game opened from a player's game log).
  *
  * The players INDEX is deliberately not here. It is a page of its own, not a tab with a modal
  * over it, and App.tsx routes it separately.
@@ -181,15 +180,14 @@ export const wpblAppOwnsPath = (pathname: string): boolean =>
 
 // ─── Game pages ───────────────────────────────────────────────────────────────
 //
-// Game Center was deep-linkable as `?game=<uuid>` from the start, which is not the same
-// thing as having a page. seo.ts canonicalises a query string back to the tab underneath on
-// purpose (a hundred shared game links must not read as a hundred near-duplicates of
-// Schedule), so every game recap on the section was, by design, unindexable and unlinkable:
-// the schedule cards were bare onClick divs because there was no href to give them.
+// A `?game=<uuid>` deep link is not the same thing as having a page. seo.ts canonicalises a query
+// string back to the tab underneath on purpose (a hundred shared game links must not read as a
+// hundred near-duplicates of Schedule), so a game reachable only by query would be unindexable
+// and would give the schedule cards no href.
 //
-// A game gets the same treatment a player got. One canonical path, readable, with the date
-// and both clubs in it, so a pasted link says what it is before anyone opens it. That also
-// makes 41 recaps the only content on the section that is worth anything after Sep 22.
+// So a game gets the same treatment a player got: one canonical path, readable, with the date and
+// both clubs in it, so a pasted link says what it is before anyone opens it. The recaps are also
+// the section's most durable content once the feed stops.
 
 export const WPBL_GAMES_BASE = '/wpbl/games'
 
@@ -211,7 +209,7 @@ export interface WpblSluggableTeam { id: string; name: string }
  *  abbreviation) so a game whose club is missing from `teams` still gets a stable slug
  *  rather than a hole in the middle of one.
  *
- *  EXPORTED because it now names two URL shapes rather than one: the club in a game slug
+ *  EXPORTED because it names two URL shapes rather than one: the club in a game slug
  *  ('...-heights-at-firebells') and the club's own page ('/wpbl/teams/firebells'). Two
  *  spellings of one club would be the shape of drift slug.ts exists to prevent, and would
  *  show up as a team page that a game link cannot agree with. */
@@ -289,16 +287,14 @@ export const isWpblPlayersIndex = (pathname: string) =>
 
 // ─── Team pages ───────────────────────────────────────────────────────────────
 //
-// Selecting a club on the Teams tab opens roughly 2,800px of content: results, team stats,
-// lineup history, pitching usage, both leader boards and the full roster. Until Sep 2, 2026
-// none of it had a URL. It could not be indexed, it could not be linked from a recap or from
-// the Discord bot, and there was no way to send anyone to "the Firebells page" because there
-// was no such page. The cards were bare role="button" divs for the honest reason that there
-// was no href to give them, which is the same state /wpbl games were in before they got one.
+// Selecting a club on the Teams tab opens a whole page of content: results, team stats, lineup
+// history, pitching usage, both leader boards and the full roster. Without a URL it could not be
+// indexed, linked from a recap or the Discord bot, or sent to anyone as "the Firebells page", and
+// its cards would have no href to give.
 //
 // Four clubs is four more indexable pages, and each one is a hub: a roster of ~18 names is a
 // crawl path to the player pages that are the section's retention event, which Googlebot can
-// otherwise only reach from Home's single star row and the players index.
+// otherwise only reach from a handful of links on Home and the players index.
 //
 // The slug is the nickname, the same one `teamSlug` already puts in every game URL, so
 // /wpbl/games/2026-08-30-heights-at-firebells and /wpbl/teams/firebells name the club the
@@ -365,16 +361,15 @@ export const isWpblComparePage = (pathname: string) =>
 /**
  * The URL for a pair, in the ORDER IT WAS BUILT: `a` on the left, `b` on the right.
  *
- * This used to force alphabetical order so a pair had one URL, and it cost the reader the one
- * thing they expressed: open Ada's page, add Zoe, and the comparison flipped to Zoe-vs-Ada
- * because Z sorts after A is false, A sorts first, so the player you started from jumped to the
- * right. The order the reader built now survives into the URL and the columns.
+ * Not forced into alphabetical order, which would cost the reader the one thing they
+ * expressed: start from Zoe's page, add Ada, and a sorted pair moves the player you started
+ * from to the right. The order the reader built survives into the URL and the columns.
  *
- * A pair still has ONE canonical spelling for a search engine, and it is still alphabetical:
+ * A pair still has ONE canonical spelling for a search engine, and it is alphabetical:
  * `wpblCompareCanonicalPath` below, published as the page's rel=canonical, collapses both orders
- * to a single indexed page. That is the same near-duplicate protection the forced sort gave, now
- * done the way it should be, by declaring the canonical rather than by refusing to serve the
- * other order. The edge no longer 301s one spelling onto the other.
+ * to a single indexed page. That gives the near-duplicate protection by declaring the canonical
+ * rather than by refusing to serve the other order, so the edge does not 301 one spelling onto
+ * the other.
  */
 export function wpblComparePath(
   a: WpblSluggable,
@@ -389,8 +384,8 @@ export function wpblComparePath(
  *
  * The rel=canonical target, so `/wpbl/compare/zoe-vs-ada` and `/wpbl/compare/ada-vs-zoe` are one
  * page to Google and share their links. Kept separate from `wpblComparePath` on purpose: the
- * link a reader follows and the link a crawler consolidates to are now different jobs, and one
- * function cannot be both without bringing back the flip this pair of functions exists to undo.
+ * link a reader follows and the link a crawler consolidates to are different jobs, and one
+ * function cannot be both without reintroducing the flip described above.
  */
 export function wpblCompareCanonicalPath(
   a: WpblSluggable,
@@ -401,10 +396,10 @@ export function wpblCompareCanonicalPath(
   return `${WPBL_COMPARE_BASE}/${slugs[0]}${WPBL_COMPARE_JOIN}${slugs[1]}`
 }
 
-/** Where "compare her with somebody" goes: one slug, no pair yet. A real path rather than a
- *  query string, so the half-finished state is still a URL the Back button understands, and
- *  it renders the picker with one slot already filled. `noindex`, since it is a state rather
- *  than a page. */
+/** Where "compare this player with somebody" goes: one slug, no pair yet. A real path rather
+ *  than a query string, so the half-finished state is still a URL the Back button understands,
+ *  and it renders the picker with one slot already filled. `noindex`, since it is a state
+ *  rather than a page. */
 export function wpblCompareStartPath(player: WpblSluggable, roster: readonly WpblSluggable[]): string {
   return `${WPBL_COMPARE_BASE}/${wpblPlayerSlug(player, roster)}`
 }
@@ -428,7 +423,7 @@ export function wpblCompareSlugFromPath(pathname: string): string | null {
  * accepted outcome: zero means the URL names nobody, and two would mean it names two different
  * pairs, and serving one of those is the guess this file refuses to make everywhere else.
  *
- * A player compared with herself resolves to null. It is not a comparison, and left alone it
+ * A player compared with themselves resolves to null. It is not a comparison, and left alone it
  * would be a second URL for every player rendering a page of identical columns.
  */
 export function findWpblComparePair<T extends WpblSluggable>(
@@ -477,8 +472,8 @@ export const isWpblLeaguePage = (pathname: string) =>
 // belong. That is right about the shape of the section and wrong about this one thing, for a
 // reason that is entirely about search: /wpbl/league is titled and described for where players
 // come from, and one URL cannot rank for both that and "WPBL rules". The rules are also the
-// only page here answering a question nothing else on the web does — the league does not
-// publish how a pitcher earns a win, and this page does — so burying them under someone else's
+// only page here answering a question nothing else on the web does (the league does not
+// publish how a pitcher earns a win, and this page does), so burying them under someone else's
 // title spends the one thing they have going for them.
 //
 // No nav pill, same as the league page and for the same reasons: the footer is the proven
@@ -511,8 +506,8 @@ export const isWpblSourcesPage = (pathname: string) =>
 // linked from the footer and absent from WPBL_NAV, so the pills never grow a destination it has
 // not earned from the events. It is the one page here whose whole subject is the season as a
 // finished thing rather than as a set of live games, which is why it wants its own URL rather
-// than a card on Home: after Sep 22 it is the READ of the record the archive keeps, and a
-// reader arriving cold in November wants "what happened", not today's scoreboard.
+// than a card on Home: once the feed stops it is the READ of the record the archive keeps, and a
+// reader arriving cold in the offseason wants "what happened", not a frozen scoreboard.
 //
 // `/wpbl/season` rather than `/wpbl/2026`: today there is one season and this is it. If the feed
 // ever returns for a second, this becomes the current-season page and the year-stamped ones hang
@@ -540,10 +535,9 @@ export const isWpblScorigamiPage = (pathname: string) =>
  *
  * The section owns its own history: it pushes a snapshot (`history.state.wpbl`) rather than
  * going through the shell's `navigate()`, because Back has to unwind tab → team → modal one
- * step at a time. That was invisible to src/App.tsx while every tab was the same `/wpbl`,
- * and became a bug the moment they weren't: the shell holds the `path` that feeds `useSeo`,
- * so without this the title, description and canonical would stay on whichever tab the
- * reader first landed on while the address bar moved underneath them.
+ * step at a time. The shell holds the `path` that feeds `useSeo`, so without this the title,
+ * description and canonical would stay on whichever tab the reader first landed on while the
+ * address bar moved underneath them.
  *
  * A plain Event rather than re-dispatching `popstate`: WpblApp listens for popstate itself
  * and would re-apply a structured-clone of the snapshot it just pushed, handing every

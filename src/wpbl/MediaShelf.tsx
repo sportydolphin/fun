@@ -8,24 +8,24 @@ import { AUTHOR_NAME, PUBLICATION_NAME } from './derive/articles'
 import type { WpblArticle, WpblVideo, WpblPhoto, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 
-// Home's media shelf: reading, video and photography in ONE full-width card, switched by a
-// segmented control, sitting under the two-column feed.
+// The league page's media shelf: reading, video and photography in ONE full-width card,
+// switched by a segmented control.
 //
-// WHY THIS REPLACED THREE STACKED RAILS. They were three separate cards in Home's left
-// column, and measured at 1440px they came to 1415px between them: 67% of that column, against
-// a right column of 838px total. So the page had 1286px of dead space running down one side
-// while the other ran on for three screens. They are also the same UI doing the same job (a
-// sideways-scrolling shelf of thumbnail cards), and three of those stacked vertically reads as
-// repetition rather than as three offers.
+// WHY ONE CARD AND NOT THREE STACKED RAILS. As three separate cards in one column they measured
+// 1415px between them at 1440px wide: 67% of that column, against 838px in the column beside
+// it, so the page had 1286px of dead space running down one side while the other ran on for
+// three screens. They are also the same UI doing the same job (a sideways-scrolling shelf of
+// thumbnail cards), and three of those stacked vertically reads as repetition rather than as
+// three offers.
 //
-// Full width rather than back in a column, because a horizontal strip is the one thing on this
-// page that genuinely converts width into content: the same card height shows five or six
-// cards instead of three.
+// Full width rather than in a column, because a horizontal strip is the one thing on a page
+// that genuinely converts width into content: the same card height shows five or six cards
+// instead of three.
 //
-// WHAT IT COSTS. Only the active segment paints, so Highlights and Archive lose the free
-// impression they used to get. That is the actual trade and it is worth naming: the events
-// below measure it, and if the archive's open rate collapses, the answer is to change which
-// segment leads rather than to go back to three rails.
+// WHAT IT COSTS. Only the active segment paints, so Highlights and Archive get no free
+// impression. That is the actual trade and it is worth naming: the events below measure it,
+// and if the archive's open rate collapses, the answer is to change which segment leads rather
+// than to go back to three rails.
 
 type Segment = 'reading' | 'highlights' | 'archive'
 
@@ -34,10 +34,9 @@ type Segment = 'reading' | 'highlights' | 'archive'
 const SEGMENT_KEY = 'wpbl_shelf_segment'
 const COLLAPSE_KEY = 'wpbl_shelf_collapsed'
 
-// The three rails each had their own collapse key (wpbl_reading_collapsed,
-// wpbl_highlights_collapsed, wpbl_photos_collapsed). Those are dead now and deliberately not
-// migrated: they recorded "hide this rail", and there is no honest way to turn three of those
-// into one answer about a card that did not exist when they were written. Anyone who had
+// The old per-rail collapse keys (wpbl_reading_collapsed, wpbl_highlights_collapsed,
+// wpbl_photos_collapsed) are deliberately not read: they recorded "hide this rail", and there
+// is no honest way to turn three of those into one answer about this card. A reader who had
 // collapsed a rail gets the shelf open once, and can collapse it again.
 
 function readSegment(): Segment | null {
@@ -64,12 +63,11 @@ export default function MediaShelf({ articles, videos, photos, teams }: {
   // promises content and then explains itself.
   const available = useMemo(() => {
     const out: { value: Segment; label: string; subtitle: string }[] = []
-    // Every subtitle here NAMES ITS SOURCE, and Reading's has to as much as the other two.
-    // It used to be the bare masthead, which put "towards a more perfect game" directly under
-    // our own "More from the league" heading with nothing to say whose it was, and readers
-    // duly took it for this site's tagline and mary mustard for the person writing this site.
-    // The other two segments never had that problem because they say "the WPBL channel" and
-    // "Wikimedia Commons" out loud. Hers now does too.
+    // Every subtitle here NAMES ITS SOURCE, and Reading's has to as much as the other two. The
+    // bare masthead ("towards a more perfect game") directly under our own "More from the league"
+    // heading, with nothing to say whose it is, reads as this site's tagline, and readers have
+    // taken mary mustard for the person writing this site. The other two segments say "the WPBL
+    // channel" and "Wikimedia Commons" out loud, and this one does too.
     if (articles.length > 0) out.push({ value: 'reading', label: 'Reading', subtitle: `${PUBLICATION_NAME}, by ${AUTHOR_NAME}` })
     if (videos.length > 0) out.push({ value: 'highlights', label: 'Highlights', subtitle: 'Game recaps from the WPBL channel' })
     if (photos.length > 0) out.push({ value: 'archive', label: 'Archive', subtitle: "Women's baseball on Wikimedia Commons" })
@@ -138,11 +136,11 @@ export default function MediaShelf({ articles, videos, photos, teams }: {
       subtitle={current.subtitle}
       collapsed={collapsed}
       onToggleCollapse={toggleCollapsed}
-      // In the header rather than on a row of its own. The header row was carrying a title, a
-      // subtitle and a chevron across the full page width with nothing in the middle, while
-      // the control below it cost a whole band of vertical space on the page's longest card.
-      // Nothing is lost by folding one into the other: the subtitle already names the active
-      // segment, so the two were describing the same thing on two lines.
+      // In the header rather than on a row of its own. A header row carrying a title, a subtitle
+      // and a chevron across the full page width has nothing in the middle, while a control on its
+      // own row below costs a whole band of vertical space on a long card. Nothing is lost by folding
+      // one into the other: the subtitle already names the active segment, so the two would be
+      // describing the same thing on two lines.
       //
       // Header placement is sm and up only. At 375px the row is title + three pills + chevron,
       // which is where the title starts wrapping, so phones keep the control under the header.

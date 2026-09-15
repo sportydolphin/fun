@@ -5,13 +5,12 @@ import { countsInStandings, scopedLines, isPostseasonGame,
 // EVERY aggregate here takes the schedule, and it is not optional.
 //
 // A box-score line carries a `game_id` and nothing else about the game, so it cannot say for
-// itself whether it belongs in a season total. Before this, none of these functions had a
-// parameter through which a postseason line could have been filtered, which meant the first
-// semifinal box score would silently have changed every season number on the site: the Stats
-// tab, the home leaders, team and player pages, the draft-value model, the Discord /player
-// card and the OG images on shared links. Unevenly, too, since a finalist's hitter gains up
-// to eight extra games and a team swept in the semis gains two, so the leaderboards would
-// have reordered by how far a club went rather than by how anyone played.
+// itself whether it belongs in a season total. Without a schedule to filter by, the first
+// semifinal box score silently changes every season number on the site: the Stats tab, the
+// home leaders, team and player pages, the draft-value model, the Discord /player card and the
+// OG images on shared links. Unevenly, too, since a finalist's hitter gains up to eight extra
+// games and a team swept in the semis gains two, so the leaderboards would reorder by how far a
+// club went rather than by how anyone played.
 //
 // `games` is REQUIRED rather than defaulted for that reason: an optional argument makes
 // forgetting it silent, and silence is the entire failure mode here. Pass the schedule you
@@ -25,33 +24,31 @@ import { countsInStandings, scopedLines, isPostseasonGame,
 // high school baseball on MaxPreps all scale to their own game length, and Little League
 // scales to 6.
 //
-// **The league now does too, and this file used to say the opposite.** Until early September
-// 2026 womensprobaseballleague.com published per 9, which is why everything here was stored
-// per 9: agreeing with the source a reader arrives from mattered more than being right on the
-// arithmetic, and a site showing 2.58 against an official 3.32 for the same arm looks broken
-// rather than better. Sometime in the first days of September the league switched, and this was
-// re-verified against its own stat page rather than assumed: on Sep 3, 2026 all 38 pitchers and
-// all 4 clubs on that page matched per 7 and only the two 0.00 lines were consistent with per 9
-// (Kelsie Whitmore, 18 ER in 24.0 IP, printed as 5.25, which is only per 7; per 9 is 6.75).
+// **The league publishes per 7 as well, and agreeing with the league is the rule.** A site
+// showing 2.58 against an official 3.32 for the same arm looks broken rather than better, so
+// what is stored follows womensprobaseballleague.com's own basis. Verified against its stat
+// page on Sep 3, 2026 rather than assumed: all 38 pitchers and all 4 clubs matched per 7, and
+// only the two 0.00 lines were also consistent with per 9 (Kelsie Whitmore, 18 ER in 24.0 IP,
+// printed as 5.25, which is only per 7; per 9 is 6.75).
 //
 // So: STORED PER 7, ALWAYS, everywhere, including the OG share cards and the Discord bot, which
 // are read next to league numbers by people who did not choose anything. A reader who prefers
-// the old convention flips one setting and the app rescales at DISPLAY time (`scaleToBasis`),
-// because both stats are linear in the multiplier and nothing that sorts, ranks or compares can
-// move when they are rescaled together. Do not reintroduce a second basis into an aggregate:
-// the moment two functions each hold their own, a leaderboard and the player page it opens can
-// disagree and neither is wrong. That hazard is unchanged by which number is canonical.
+// per 9 flips one setting and the app rescales at DISPLAY time (`scaleToBasis`), because both
+// stats are linear in the multiplier and nothing that sorts, ranks or compares can move when
+// they are rescaled together. Do not reintroduce a second basis into an aggregate: the moment
+// two functions each hold their own, a leaderboard and the player page it opens can disagree
+// and neither is wrong. That hazard is unchanged by which number is canonical.
 //
-// THE ONE THING TO CHECK IF THIS EVER LOOKS WRONG AGAIN is the league's own stat page, because
+// THE ONE THING TO CHECK IF THIS EVER LOOKS WRONG is the league's own stat page, because
 // nothing we run can see this. The drift checker compares plays against the feed, and the feed
 // publishes WHIP but no ERA at all, so a change of denominator on their side is invisible to
-// every check here and surfaced only because a reader mentioned it.
+// every check here.
 export type EraBasis = 7 | 9
 
 /** What `era` and `k9` are stored on, and what the league itself publishes. Not a setting:
  *  see above. Changing this one number changes both the computation (`summarisePitching`
- *  multiplies by it) and the rescale (`scaleToBasis` divides by it), which is why the switch
- *  from 9 was a single line rather than a sweep. */
+ *  multiplies by it) and the rescale (`scaleToBasis` divides by it), which is why a change of
+ *  basis is a single line rather than a sweep. */
 export const ERA_BASIS_CANONICAL: EraBasis = 7
 
 /** The heading a strikeout-rate column carries, which moves with the basis. ERA and WHIP
@@ -72,13 +69,12 @@ export interface WpblBattingTotals {
   /** Sac hits (bunts). Carried so `plateAppearances` can be right, and shown beside SF on the
    *  board. It is not in OBP's denominator and must not be added to one. */
   sh: number
-  /** Grounded into a double play. On the feed's line since the start and summed by nothing
-   *  until Aug 27; 28 of them in the first 21 games. */
+  /** Grounded into a double play. */
   gdp: number
   tb: number
   avg: number | null; obp: number | null; slg: number | null; ops: number | null
   /**
-   * Runners left on base — **team rows only**, filled in by the caller from the game row.
+   * Runners left on base, **team rows only**, filled in by the caller from the game row.
    * Always null here; see the note in `sumBatting`.
    */
   lob: number | null
@@ -106,8 +102,8 @@ function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
   const ops = obp != null && slg != null ? obp + slg : null
   // LOB is deliberately null and never summed from the lines. Two reasons: the feed sends a
   // per-player `lob` but has never populated it (every row in the table is 0), and even a
-  // populated one wouldn't add up to the team's LOB — individual LOB charges the same
-  // stranded runner to every batter who came up while he was aboard, so the sum overcounts.
+  // populated one wouldn't add up to the team's LOB: individual LOB charges the same stranded
+  // runner to every batter who came up while that runner was aboard, so the sum overcounts.
   // The team number lives on wpbl_games (home_lob/away_lob); StatsView fills it in there.
   return { ...t, tb, avg, obp, slg, ops, lob: null }
 }
@@ -131,9 +127,9 @@ export function sumFielding(lines: WpblFieldingLine[]): WpblFieldingTotals {
 export interface WpblPitchingTotals {
   g: number; outs: number; h: number; r: number; er: number; bb: number; so: number; hr: number
   w: number; l: number; s: number
-  /** All five arrive on every pitching line and were summed by nothing until Aug 27, which
-   *  left the boards unable to say how much work an outing was, only what it gave up.
-   *  `gs` separates a starter from a reliever, which nothing else here does. */
+  /** All five arrive on every pitching line and are summed so the boards can say how much work
+   *  an outing was, not only what it gave up. `gs` separates a starter from a reliever, which
+   *  nothing else here does. */
   bf: number; pitches: number; strikes: number; gs: number; hbp: number; wp: number; bk: number
   /** Share of pitches thrown for strikes. The one rate the pitch counts make possible, and
    *  the closest thing to a command number the box score can give. Null before a pitch. */
@@ -144,10 +140,9 @@ export interface WpblPitchingTotals {
   era: number | null
   whip: number | null
   /** Strikeouts per `ERA_BASIS_CANONICAL` innings, canonical for the same reason `era` is.
-   *  The field name is historical: it held a per-9 figure until Sep 3, 2026 and now holds a
-   *  per-7 one. Renaming it would touch the stats board, the percentile strip, the share cards
-   *  and the Discord card for no gain, since every label a reader sees comes from
-   *  `kRateLabel(basis)` and already moves on its own. */
+   *  The field name is historical and does not mean per 9. Renaming it would touch the stats
+   *  board, the percentile strip, the share cards and the Discord card for no gain, since every
+   *  label a reader sees comes from `kRateLabel(basis)` and already moves on its own. */
   k9: number | null
   /** Strikeout-to-walk ratio. Null when nobody has walked, since the ratio has no value. */
   kbb: number | null
@@ -176,8 +171,8 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
   const era = ip > 0 ? (t.er * ERA_BASIS_CANONICAL) / ip : null
   const whip = ip > 0 ? (t.bb + t.h) / ip : null
   const k9 = ip > 0 ? (t.so * ERA_BASIS_CANONICAL) / ip : null
-  // Null, not Infinity, on a staff that hasn't issued a walk — the ratio genuinely doesn't
-  // exist, and fmtTwo renders null as an em dash rather than a nonsense number.
+  // Null, not Infinity, on a staff that hasn't issued a walk: the ratio genuinely doesn't
+  // exist, and fmtTwo renders null as the no-value dash rather than a nonsense number.
   const kbb = t.bb > 0 ? t.so / t.bb : null
   const strikePct = t.pitches > 0 ? t.strikes / t.pitches : null
   return { ...t, era, whip, k9, kbb, strikePct }
@@ -188,16 +183,15 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
  *  one swing as a full day.
  *
  *  Summed the way OBP's denominator is (see `sumBatting`) plus sac hits, which OBP leaves
- *  out on purpose and playing time does not. Exported because three call sites had each
- *  derived their own copy of this and all three had dropped `sh`, which the feed does
- *  report. */
+ *  out on purpose and playing time does not. Exported so no call site derives its own copy:
+ *  a copy taken from OBP's denominator drops `sh`, which the feed does report. */
 export function plateAppearances(t: Pick<WpblBattingTotals, 'ab' | 'bb' | 'hbp' | 'sf' | 'sh'>): number {
   return t.ab + t.bb + t.hbp + t.sf + t.sh
 }
 
 /** Did this line, or these totals, represent an actual trip to the plate?
  *
- *  A pitcher is listed in the box score of every game she pitches, with an all-zero batting
+ *  A pitcher is listed in the box score of every game they pitch, with an all-zero batting
  *  line, and a position player can enter a game only to run or field. Those rows are
  *  appearances, not games batted, so a surface that sums them straight reads "8 G, 0 PA" for
  *  someone who never came up, or draws a full batting card of dashes for two pitchers. Filter
@@ -208,7 +202,7 @@ export function hasPlateAppearance(l: Pick<WpblBattingTotals, 'ab' | 'bb' | 'hbp
 }
 
 // ─── Rate-stat qualifiers ──────────────────────────────────────────────────────
-// A fixed threshold (the old flat 5 AB / 3 IP) stops meaning anything the moment the
+// A fixed threshold (a flat 5 AB / 3 IP, say) stops meaning anything the moment the
 // season moves past its first week: five games in, 5 AB is one game's work, so the OPS
 // board fills with 4-for-5 cameos and the ERA board with three relievers tied at 0.00.
 // So the bar SCALES with how far the season has actually gone, the way a real rate title
@@ -223,8 +217,7 @@ export function hasPlateAppearance(l: Pick<WpblBattingTotals, 'ab' | 'bb' | 'hbp
 // THE BATTING BAR IS PLATE APPEARANCES, NOT AT-BATS, and the unit is the whole point. AB
 // discards every walk, so gating OPS (half of which is OBP) on it charges a patient hitter
 // for the thing the stat exists to reward: 40 AB with 18 BB is more playing time than 55 AB
-// with none, and the AB bar qualified only the second. The pitching side was already in
-// MLB's unit; this side was not, for no reason anyone recorded.
+// with none, and an AB bar would qualify only the second. Both bars are in MLB's own units.
 //
 // The floors keep the opening days sane, and we scale off the LEAST-played team so a club
 // with a game in hand can't push its own players below the line.
@@ -337,7 +330,7 @@ export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine
 // The WPBL analogue of the MLB app's fetchTeamSeasonStats: each team's season totals,
 // ranked against the rest of the league so the game-preview card can draw a diverging
 // bar per stat (bar length = position in the league range, always growing toward
-// "better" — including ERA/WHIP where the lower number wins). Computed client-side from
+// "better", including ERA/WHIP where the lower number wins). Computed client-side from
 // the same box-score lines the leaders read, so it needs no extra fetch beyond what Home
 // already caches.
 
@@ -360,8 +353,7 @@ export interface WpblTeamStatDef {
 
 // Render order for the comparison table. The K label below is a PLACEHOLDER and never
 // reaches a screen: every consumer swaps it for `kRateLabel(basis)` at render, because the
-// denominator moves with the reader's setting. (This comment used to name a `teamStatLabel`
-// helper that does not exist and may never have.)
+// denominator moves with the reader's setting.
 export const WPBL_TEAM_STAT_DEFS: WpblTeamStatDef[] = [
   { key: 'avg',  label: 'AVG',  group: 'hitting',  better: 'high' },
   { key: 'obp',  label: 'OBP',  group: 'hitting',  better: 'high' },
@@ -391,7 +383,7 @@ export function computeWpblTeamStats(
 ): Map<string, WpblTeamSeasonStats> {
   // Games each team has played IN THIS SLICE, the denominator for R/G. It has to move in step
   // with the numerator, or a finalist's playoff runs end up divided by a regular-season count.
-  // Shares the helper above rather than keeping the copy of it that used to live here.
+  // Shares the helper above so the two counts cannot drift apart.
   const played = gamesPlayed(games, scope)
 
   const batByTeam = new Map<string, WpblBattingLine[]>()

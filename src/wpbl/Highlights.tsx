@@ -6,9 +6,9 @@ import type { WpblVideo, WpblTeam } from './types'
 
 // The WPBL highlights surface: a mirror of the league's official YouTube uploads, read from
 // the wpbl_videos table (populated by scripts/sync-wpbl-youtube.mjs). Two consumers share
-// this file — the Home "Highlights" rail and the per-game recap card in GameDetail — plus
-// the lightbox they both open. Nothing here touches YouTube until a viewer clicks Play: the
-// cards are static thumbnail facades, and only then do we mount the privacy-mode embed.
+// this file, the media shelf's Highlights strip and the per-game recap card in GameDetail,
+// plus the lightbox they both open. Nothing here touches YouTube until a viewer clicks Play:
+// the cards are static thumbnail facades, and only then do we mount the privacy-mode embed.
 
 // A recognisable friendly label for a video's date. Highlights carry the game date parsed
 // from the title (game_date_hint); everything else falls back to the upload time.
@@ -47,7 +47,7 @@ function PlayBadge({ size = 44 }: { size?: number }) {
 }
 
 // The click-to-play lightbox. Rendered only while a video is selected, so the YouTube embed
-// (privacy-enhanced youtube-nocookie host) mounts on demand and autoplays — no network to
+// (privacy-enhanced youtube-nocookie host) mounts on demand and autoplays: no network to
 // YouTube happens from any list view.
 export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClose: () => void }) {
   const src = `https://www.youtube-nocookie.com/embed/${video.video_id}?autoplay=1&rel=0&modestbranding=1`
@@ -139,8 +139,8 @@ function RailCard({ video, teamById, onPlay }: {
 }
 
 /**
- * The Highlights strip, as one segment of Home's media shelf. Bare: the card, the title and the
- * collapse control belong to the shelf (see MediaShelf.tsx).
+ * The Highlights strip, as one segment of the league page's media shelf. Bare: the card, the
+ * title and the collapse control belong to the shelf (see MediaShelf.tsx).
  *
  * Nothing here touches YouTube until a viewer clicks Play. The cards are static thumbnail
  * facades and only then does the privacy-mode embed mount.

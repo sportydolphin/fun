@@ -6,21 +6,21 @@ import { CARD_BORDER } from './ui'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 import { regularSeasonLines, type WpblSeasonGame } from './season'
 
-// "Do earlier draft picks actually produce better players?" — a scatter of every drafted
+// "Do earlier draft picks actually produce better players?": a scatter of every drafted
 // player's season rate stat against where they were taken, with the per-round average drawn
 // over the top as a line.
 //
 // The honest answer this season is no, and the chart is built so that reads correctly
 // rather than accidentally. Three deliberate choices, all of them guarding the same
-// failure — a six-round draft against two weeks of baseball leaves the late rounds with
-// one or two players each, and a naive line through those means would show a dramatic
+// failure: a six-round draft against one short season leaves the late rounds with one or
+// two players each, and a naive line through those means would show a dramatic
 // "5th rounders rake" trend that is really one hot bat:
 //
 //   • dot area scales with playing time, so a 2-PA cameo can't look like a regular's season
 //   • every round-average marker is labelled with the n behind it, and goes hollow and
 //     faint below MIN_SOLID_N, so a point resting on one player never reads as a finding
 //   • the correlation is computed live and stated in words above the chart, including when
-//     it is nothing — the number is the headline, not the shape of the line
+//     it is nothing: the number is the headline, not the shape of the line
 //
 // Hitters and pitchers are two separate panels on purpose. They are different measures on
 // different scales, and putting them on one plot with two y-axes would invent a
@@ -55,7 +55,7 @@ const MIN_SOLID_N = 5
 interface Pt {
   x: number            // overall pick
   y: number            // the rate stat
-  weight: number       // playing time (PA or IP) — drives dot area
+  weight: number       // playing time (PA or IP): drives dot area
   name: string
   player: WpblPlayer
   round: number
@@ -102,13 +102,13 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
     const padY = (yHi - yLo) * 0.12
     yLo -= padY; yHi += padY
     // Both measures are rates that floor at zero, so the padding must never open up a
-    // negative stretch of axis — a gridline reading "-0.248 OPS" is nonsense.
+    // negative stretch of axis: a gridline reading "-0.248 OPS" is nonsense.
     yLo = Math.max(0, yLo)
 
     const px = (x: number) => PAD.l + (x / (xMax + 1)) * plotW
     const py = (y: number) => PAD.t + plotH - ((y - yLo) / (yHi - yLo)) * plotH
 
-    // Round averages — the line the question is really asking about.
+    // Round averages: the line the question is really asking about.
     const byRound = new Map<number, Pt[]>()
     for (const p of points) byRound.set(p.round, [...(byRound.get(p.round) ?? []), p])
     const rounds = [...byRound.entries()]
@@ -160,7 +160,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
         sx={{ width: '100%', height: 'auto', display: 'block', color: 'text.secondary', overflow: 'visible' }}
         onMouseLeave={() => setHover(null)}
       >
-        {/* y grid — hairline, solid, recessive */}
+        {/* y grid: hairline, solid, recessive */}
         {yTicks.map((t, i) => (
           <g key={i}>
             <line x1={PAD.l} y1={py(t)} x2={VB.w - PAD.r} y2={py(t)}
@@ -197,12 +197,12 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
           />
         ))}
 
-        {/* The round-average line — what "do earlier picks do better" actually looks like.
-            Drawn as separate segments between CONSECUTIVE rounds rather than one polyline
-            through every point: under a playing-time cut whole rounds drop out (no hitter
-            from round 3 or 4 clears 20 PA), and a single line would run straight across
-            that hole, drawing a confident decline through two rounds it never measured. A
-            gap is the honest mark for "no data here". */}
+        {/* The round-average line: what "do earlier picks do better" actually looks like.
+        Drawn as separate segments between CONSECUTIVE rounds rather than one polyline
+        through every point: under a playing-time cut whole rounds drop out (no hitter
+        from round 3 or 4 clears 20 PA), and a single line would run straight across
+        that hole, drawing a confident decline through two rounds it never measured. A
+        gap is the honest mark for "no data here". */}
         {rounds.slice(1).map((rd, i) => {
           const prev = rounds[i]
           if (rd.round !== prev.round + 1) return null
@@ -220,9 +220,9 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
                 fill={solid ? LINE : surface} stroke={LINE} strokeWidth={2}
                 opacity={solid ? 1 : 0.75} />
               {/* n is a direct label, always: it is the difference between a trend and a fluke.
-                  Painted with a surface-coloured halo (stroke first, then fill) because it
-                  lands wherever the round average lands — which in the busy early rounds is
-                  right on top of a cluster of player dots. */}
+              Painted with a surface-coloured halo (stroke first, then fill) because it
+              lands wherever the round average lands, which in the busy early rounds is
+              right on top of a cluster of player dots. */}
               <text x={px(rd.meanX)} y={py(rd.meanY) - 11} textAnchor="middle"
                 fill="currentColor" fillOpacity={solid ? 0.85 : 0.55}
                 stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke"
@@ -234,7 +234,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
         })}
       </Box>
 
-      {/* legend — two series, so it is always present */}
+      {/* legend: two series, so it is always present */}
       <Box sx={{ display: 'flex', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
         <LegendKey color={DOT} label="one player, sized by playing time" />
         <LegendKey color={LINE} label="round average" />
@@ -294,8 +294,8 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
   const { basis: eraBasis } = useEraBasis()
   const [cut, setCut] = useState<Cut>('all')
 
-  // The two floors the "meaningful sample" cut applies. Deliberately low — this is a
-  // two-week-old season — but enough to drop one-game cameos.
+  // The two floors the "meaningful sample" cut applies. Deliberately low, since this is one
+  // short season, but enough to drop one-game cameos.
   const MIN_PA = 20, MIN_IP = 5
 
   const { hitters, pitchers, roundSize, roundCount, drafted, gamesPlayed } = useMemo(() => {
@@ -384,7 +384,7 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
   )
 }
 
-// Matches the chip in StatsView — same shape, same states.
+// Matches the chip in StatsView: same shape, same states.
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <Box onClick={onClick} sx={{

@@ -25,36 +25,34 @@ import { readSequence } from './pitches'
 //     not the same as one that costs three, and this is the only axis that knows the difference.
 //     It also needs no new data: `r` minus `er` is already on the pitching line.
 //
-// EVERY AXIS IS A RAW RATE, AND DIRECTION IS APPLIED AT SCORING TIME. The first draft wrote
-// Contact as "1 minus K%", which put all four clubs between 46 and 53: the variation is real in
-// the bad event and vanishes as a share of the good one. Anything of that form compresses the
-// league into the middle of the ring. If a new axis is ever added, state it as the thing itself
-// and set `better: 'low'`.
+// EVERY AXIS IS A RAW RATE, AND DIRECTION IS APPLIED AT SCORING TIME. Contact written as "1 minus
+// K%" puts all four clubs between 46 and 53: the variation is real in the bad event and vanishes
+// as a share of the good one. Anything of that form compresses the league into the middle of the
+// ring. If a new axis is ever added, state it as the thing itself and set `better: 'low'`.
 //
-// ─── Contact is WHIFF%, and was K% until Sep 4, 2026 ─────────────────────────
+// ─── Contact is WHIFF%, not K% ───────────────────────────────────────────────
 //
 // K% IS NOT A CONTACT STAT, and the number that settles it is this: 38.2% of strikeouts in this
-// league are called, with no swing taken. So an axis named Contact was counting an event where
-// nobody attempted contact, two times in five. The share is not even constant across the clubs
-// it is comparing, running 31.5% (Boston) to 43.6% (San Francisco), so the contamination is
-// itself a variable. What K% picks up instead is plate approach, which is what Eye measures one
-// spoke over: San Francisco take the most called strikeouts AND draw the second most walks, and
-// a chart whose axes overlap is a chart carrying less than six axes' worth of information.
+// league are called, with no swing taken. So an axis named Contact built on K% counts an event
+// where nobody attempted contact, two times in five. The share is not even constant across the
+// clubs it is comparing, running 31.5% (Boston) to 43.6% (San Francisco), so the contamination
+// is itself a variable. What K% picks up instead is plate approach, which is what Eye measures
+// one spoke over: San Francisco take the most called strikeouts AND draw the second most walks,
+// and a chart whose axes overlap is a chart carrying less than six axes' worth of information.
 //
 // WHIFF% IS THE SAME TRICK APPLIED TO THE RIGHT EVENT. Swings and misses over swings: every
 // term is a swing, so taking a pitch cannot enter it, and it is bat-to-ball and nothing else.
-// It is stated as the miss rather than the contact rate for exactly the reason the first draft
-// found, and the measurement is not close. Live on Sep 4, 2026, relative spread across the four
-// clubs:
+// It is stated as the miss rather than the contact rate for the reason above, and the
+// measurement is not close. Relative spread across the four clubs, Sep 4, 2026:
 //
 //     whiff%     league 15.4%    50.1% spread     <- what this axis uses
-//     K%         league 13.2%    41.3% spread     <- what it used to
+//     K%         league 13.2%    41.3% spread     <- the obvious alternative
 //     contact%   league 84.6%     9.1% spread     <- "1 minus", the collapse
 //
-// So the switch costs nothing on the axis the old note was protecting: whiff% separates the
-// league BETTER than K% did, as well as measuring the thing the spoke is named after. The two
-// already disagree on the order (K% has New York ahead of San Francisco, whiff% the reverse),
-// though that particular pair sits inside a standard error and is not the argument.
+// So whiff% gives up nothing on spread: it separates the league BETTER than K% does, as well as
+// measuring the thing the spoke is named after. The two disagree on the order (K% has New York
+// ahead of San Francisco, whiff% the reverse), though that particular pair sits inside a
+// standard error and is not the argument.
 //
 // THE DIRECTION IS SAID OUT LOUD, via `specDirectionHint`: a spoke called Contact over a number
 // that falls as the spoke grows needs to say so, and this axis and Glove are the only two.
@@ -76,11 +74,10 @@ export interface TeamSpecAxis {
 /**
  * The direction, as words, for an axis whose stat runs the OTHER WAY from its spoke.
  *
- * FOR THE ACCESSIBLE NAME ONLY. It was drawn on screen for a day and taken back off: the chart
- * says which way is better by being a chart, the spoke is longer and the fill is bigger, and
- * three words of hedging under every second axis is a caption apologising for a drawing that
- * did not need it. A screen reader has no polygon to read that off, which is the one place the
- * words still earn their room.
+ * FOR THE ACCESSIBLE NAME ONLY, never drawn on screen. The chart says which way is better by
+ * being a chart, the spoke is longer and the fill is bigger, and three words of hedging under
+ * every second axis would be a caption apologising for a drawing that does not need it. A screen
+ * reader has no polygon to read that off, which is the one place the words earn their room.
  *
  * Empty for a `high` axis rather than "higher is better": four of the six axes are the obvious
  * direction, and labelling all of them would bury the two that are not.
@@ -100,10 +97,10 @@ export const TEAM_SPEC_AXES: TeamSpecAxis[] = [
 /**
  * Games every club must have played before the chart is drawn at all.
  *
- * Checked across the WHOLE LEAGUE rather than per club, which is the part worth keeping: every
- * score here is a ratio to the league average, so one club sitting on two games does not just
- * make its own shape noise, it drags the mean every other shape is measured against. Gating per
- * club would draw three confident hexagons around an average that three games are setting.
+ * Checked across the WHOLE LEAGUE rather than per club, and that is the point: every score here
+ * is a ratio to the league average, so one club sitting on two games does not just make its own
+ * shape noise, it drags the mean every other shape is measured against. Gating per club would
+ * draw three confident hexagons around an average that three games are setting.
  */
 export const TEAM_SPEC_MIN_GAMES = 5
 
@@ -245,23 +242,22 @@ export function teamSpecs(
       power:   safe(tb - b.h, b.ab),
       contact: safe(swingsOf.get(id)!.whiffs, swingsOf.get(id)!.swings),
       eye:     safe(b.bb, pa),
-      // STEALS, NOT ATTEMPTS. This was `sb + cs` on the day it shipped, on the reasoning that
-      // attempts measure how much a club RUNS independently of how well, which is the identity
-      // a spec chart is after. Two things are wrong with that. Every other axis here is an
-      // outcome (extra bases produced, strikeouts taken, walks drawn, strikeouts recorded, runs
-      // allowed), so Speed was the only one counting tries. And a caught stealing is a lost
-      // runner and an out, so a denominator of attempts made the spoke LONGER for doing a bad
-      // thing more often: Los Angeles succeed on 72% of theirs, which is a running game that
-      // costs them runs, and their five CS were lengthening the axis. Ordering is unchanged by
-      // the switch (NY, BOS, LA, SF either way), so nothing was bought for it either.
+      // STEALS, NOT ATTEMPTS. Attempts (`sb + cs`) look like the better measure of how much a club
+      // RUNS independently of how well, which is the identity a spec chart is after. Two things are
+      // wrong with that. Every other axis here is an outcome (extra bases produced, strikeouts taken,
+      // walks drawn, strikeouts recorded, runs allowed), so attempts would make Speed the only one
+      // counting tries. And a caught stealing is a lost runner and an out, so a denominator of
+      // attempts makes the spoke LONGER for doing a bad thing more often: Los Angeles succeed on 72%
+      // of theirs, which is a running game that costs them runs, and their caught stealings would
+      // lengthen the axis. The ordering is the same either way (NY, BOS, LA, SF), so attempts buy
+      // nothing for it either.
       speed:   safe(b.sb, onFirst),
       // On the canonical basis, matching what the league publishes and what every other
-      // pitching aggregate here stores. Through the constant rather than a literal, which is
-      // what let the league's Sep 2026 switch from per 9 to per 7 be one line: a literal here
-      // would have left this one axis on the old denominator with nothing to say so. A reader
-      // on the other setting sees it rescaled at DISPLAY time, which cannot move the chart
-      // anyway, since the score is a ratio to the league mean and both sides of it carry the
-      // same multiplier.
+      // pitching aggregate here stores. Through the constant rather than a literal, so a change
+      // of basis is one line: a literal here would leave this one axis on the old denominator
+      // with nothing to say so. A reader on the other setting sees it rescaled at DISPLAY time,
+      // which cannot move the chart anyway, since the score is a ratio to the league mean and
+      // both sides of it carry the same multiplier.
       arms:    safe(ERA_BASIS_CANONICAL * p.so, p.outs / 3),
       glove:   safe(p.r - p.er, gp),
     })
@@ -270,13 +266,13 @@ export function teamSpecs(
   // A league that has played games and has no box-score lines is broken input, not a league
   // that did nothing, and it must not be drawn.
   //
-  // SEEN IN THE WILD. `fetchWpblAllLines` reads batting and pitching in parallel and keeps its
-  // last-good result only when BOTH come back empty, so a run where the batting read alone came
-  // up short cached a half-empty league. Every club's at-bats were zero, every batting mean was
-  // therefore zero, and the four offensive axes all scored exactly 50 (the honest answer to "how
-  // far above an average of nothing") beside completely correct pitching. The chart looked
-  // finished and was half fiction. The games gate above cannot catch this: the games were real,
-  // it was the lines that were missing.
+  // IT HAPPENS. `fetchWpblAllLines` reads batting and pitching in parallel and keeps its
+  // last-good result only when BOTH come back empty, so a run where the batting read alone comes
+  // up short caches a half-empty league. Every club's at-bats are then zero, every batting mean
+  // is zero, and the four offensive axes all score exactly 50 (the honest answer to "how far
+  // above an average of nothing") beside completely correct pitching: a chart that looks
+  // finished and is half fiction. The games gate above cannot catch this: the games are real,
+  // it is the lines that are missing.
   const leagueAb = teamIds.reduce((n, id) => n + sumBatting(batting.filter(l => l.team_id === id), games).ab, 0)
   const leagueOuts = teamIds.reduce((n, id) => n + sumPitching(pitching.filter(l => l.team_id === id), games).outs, 0)
   if (leagueAb === 0 || leagueOuts === 0) return null
@@ -319,7 +315,7 @@ export function teamSpecs(
  *
  * Ranked on the SCORE rather than the raw stat, which is what makes one function enough for all
  * six: the score has already had direction applied, so 1st is the fewest unearned runs on Glove
- * and the most steal attempts on Speed, and no caller has to remember which way an axis runs.
+ * and the highest steal rate on Speed, and no caller has to remember which way an axis runs.
  */
 export function specRank(specs: TeamSpecs, teamId: string, key: TeamSpecKey): number {
   const mine = specs.byTeam.get(teamId)

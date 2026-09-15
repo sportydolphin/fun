@@ -7,9 +7,9 @@
 // Why the bell needs its own copy rather than leaning on the push: sw.js records a push
 // in the bell by posting it to open tabs, so a reminder that arrives while the app is
 // closed is shown by the OS and then exists nowhere in the app. For MLB that gap is
-// covered by the derived sources; WPBL had none, which left the bell of a WPBL-only
-// reader permanently empty while their lock screen was getting reminders. Deriving it
-// here means the reminder is in the bell when they open the app, however it arrived.
+// covered by the derived sources; without this one, a WPBL-only reader's bell stays
+// permanently empty while their lock screen gets reminders. Deriving it here means the
+// reminder is in the bell when they open the app, however it arrived.
 //
 // Scope and timing mirror the sender exactly, so the two agree on what "starting soon"
 // means. It appears LEAD_MIN before first pitch and retracts once the game is underway.

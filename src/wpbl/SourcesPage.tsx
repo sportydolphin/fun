@@ -1,11 +1,12 @@
 // /wpbl/sources: where everything on this section comes from, and who it belongs to.
 //
 // WHY THIS IS ITS OWN PAGE. Credit already sits beside the content that uses it, which is the
-// part that actually stops a reader mistaking somebody else's work for ours (Aug 26, 2026: they
-// were doing exactly that with the mirrored Substack, and the fix was the byline on the card).
-// What did not exist was a URL answering "where does this site's data come from" for all of it
-// at once. The only place naming any of it together was the Terms page, which is the worst home
-// there is: nobody reads it, and it frames credit as a legal disclaimer rather than as thanks.
+// part that actually stops a reader mistaking somebody else's work for ours (readers have done
+// exactly that with the mirrored Substack, and the answer there is the byline on the card).
+// What this adds is a URL answering "where does this site's data come from" for all of it at
+// once. The only other place naming any of it together is the Terms page, which is the worst
+// home there is: nobody reads it, and it frames credit as a legal disclaimer rather than as
+// thanks.
 //
 // AND IT IS THE PAGE TO HAND SOMEBODY. docs/BACKLINKS.md says the site's remaining constraint is
 // not code, it is inbound links. Four independent parties are linked FROM here, three of them by
@@ -33,11 +34,11 @@ export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) =
   const headingTag = useWpblHeadingTag()
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* NO STANDFIRST UNDER THIS HEADING. The first draft opened "almost nothing on this site
-          is original reporting", which is both true and a terrible thing to say to a reader:
-          this is the page handed to somebody deciding whether to trust or link to the site, and
-          it opened by talking it down. The heading names the page and each group's own line
-          says what that group is; a paragraph apologising for the whole thing helps nobody. */}
+      {/* NO STANDFIRST UNDER THIS HEADING. An opener like "almost nothing on this site is
+      original reporting" is both true and a terrible thing to say to a reader: this is the
+      page handed to somebody deciding whether to trust or link to the site, and it would open
+      by talking it down. The heading names the page and each group's own line says what that
+      group is; a paragraph apologising for the whole thing helps nobody. */}
       <Typography component={headingTag} sx={{
         fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2,
       }}>
@@ -94,11 +95,11 @@ export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) =
         )
       })}
 
-      {/* THE API DOCS, WHICH USED TO BE A FOOTER LINK OF THEIR OWN. Moved here because the two
-          are one conversation: this page says where the numbers came from, and that one says how
-          to take them. It also bought the footer a line back on a phone. Consequence worth
-          knowing: `/wpbl/api` now has exactly one internal door and this is it, so this link is
-          the only thing keeping that page out of the orphan shape Google discounts. */}
+      {/* THE API DOCS LIVE HERE RATHER THAN IN THE FOOTER, because the two are one
+      conversation: this page says where the numbers came from, and that one says how to
+      take them. It also saves the footer a line on a phone. Consequence worth knowing:
+      `/wpbl/api` has exactly one internal door and this is it, so this link is the only
+      thing keeping that page out of the orphan shape Google discounts. */}
       <SectionCard title="Using this data">
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.6 }}>
           The WPBL numbers on this site are readable as JSON, free and without a key.{' '}

@@ -7,8 +7,8 @@ import type { WpblGame, WpblPlayer } from './types'
 //
 // SHARED BY THE TWO BOARDS THAT RANK SINGLE GAMES, Bests and Find. They ask different questions
 // and return the same kind of answer, so drawing that answer twice would mean two rows that look
-// alike until one of them gets a fix. The first thing that would have drifted is the identity
-// rules below, which are the section's two standing traps and are easy to get right once.
+// alike until one of them gets a fix. The first thing that would drift is the identity rules
+// below, which are the section's two standing traps and are easy to get right once.
 
 /** How the game a line came from is labelled: "Aug 12 vs LA", or "8/12 vs LA" when compact. */
 export function gameLineLabel(game: WpblGame | null, teamId: string | null, compactDate = false): string | null {
@@ -41,7 +41,7 @@ export function gameLineLabel(game: WpblGame | null, teamId: string | null, comp
  * LinkContext returns a real `<a href>` whose onClick preventDefaults and then calls the opener,
  * so a link built with no opener renders, highlights, shows its URL in the status bar, and does
  * nothing at all when clicked. Only a modified click still works, which is the one path nobody
- * tests. This shipped that way for an afternoon and was found by pressing a link.
+ * tests.
  *
  * THE GAME LINK COMES FIRST ON THE SECOND LINE, ahead of the rest of the box-score line, and
  * that ordering is doing a job. The line truncates with an ellipsis on a narrow phone, and

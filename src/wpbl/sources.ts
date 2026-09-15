@@ -6,11 +6,11 @@
  * stated once, the page renders it, and a test asserts the one property that actually matters
  * (see below).
  *
- * WHAT THIS PAGE IS FOR. Credit today is scattered across the surfaces that use each source,
- * which is right and is not enough: RetroWPBL is credited twice inside Game Center, the two
- * writers on their own cards, Commons in the photo gallery, and the only place naming any of it
- * together was the Terms page, which is the worst home for it. Nothing answered "where does this
- * site's data come from" at a URL you could hand somebody.
+ * WHAT THIS PAGE IS FOR. Credit is scattered across the surfaces that use each source, which
+ * is right and is not enough: RetroWPBL is credited twice inside Game Center, the two writers
+ * on their own cards, Commons in the photo gallery, and the only other place naming any of it
+ * together is the Terms page, which is the worst home for it. Without this page nothing answers
+ * "where does this site's data come from" at a URL you could hand somebody.
  *
  * IT IS A CREDITS PAGE, NOT A LINKS PAGE. Every entry is something the site actually uses. The
  * moment it grows a "other sites you might like" section it becomes a link farm and stops being
@@ -18,9 +18,9 @@
  * remaining constraint is inbound links, and the honest way to ask for one is to have already
  * given one).
  *
- * IT DOES NOT REPLACE THE CREDIT BESIDE THE CONTENT. Readers came away from Home on Aug 26,
- * 2026 believing the writer of the mirrored Substack ran this site, and the fix was the byline
- * on the card, not a page elsewhere. This is additional.
+ * IT DOES NOT REPLACE THE CREDIT BESIDE THE CONTENT. Readers have come away believing the writer
+ * of the mirrored Substack ran this site, and the answer to that is the byline on the card, not
+ * a page elsewhere. This is additional.
  *
  * Data only, no React, so the page and the tests read the same list.
  */

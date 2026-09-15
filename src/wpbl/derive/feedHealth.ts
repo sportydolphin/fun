@@ -131,9 +131,8 @@ export interface WpblRevision {
    * What a surface prints, and not `at` formatted locally. A revision stamped late in the
    * evening in Springfield is the small hours of the next day in UTC and the previous
    * afternoon on the west coast, so the reader's own midnight would move the date by a day for
-   * most of them: six of the eight marked on the schedule the day this shipped. The decision
-   * that this IS a revision is made against the league's day, and the date shown has to be the
-   * same day the decision used.
+   * most of them (six of the first eight measured). The decision that this IS a revision is made
+   * against the league's day, and the date shown has to be the same day the decision used.
    */
   on: string
   /** Whole days from the day it was played to the day it was last revised. */

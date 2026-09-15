@@ -25,8 +25,8 @@ const play = (over: Partial<WpblRunValuePlay> = {}): WpblRunValuePlay => ({
 
 // Scoreless by default, and that is not a detail. A last half-inning is measured only once
 // the log has been reconciled against the published score, so a fixture that states no score
-// proves nothing and keeps the old behaviour of dropping it. Every test below that wants one
-// measured says what the game finished.
+// proves nothing and falls back to dropping it. Every test below that wants one measured says
+// what the game finished.
 const game = (id = 'g1', over: Partial<RunValueGame> = {}): RunValueGame => ({
   id, game_type: 'regular', counts_in_standings: true, status: 'final',
   home_team_id: 'BOS', away_team_id: 'SF', home_score: null, away_score: null, ...over,
@@ -513,10 +513,10 @@ describe('the worked example', () => {
     expect(best?.event.event).toBe('single')
   })
 
-  // BEING TYPICAL AND BEING LEGIBLE ARE DIFFERENT PROPERTIES, and only the first was being
-  // selected for. Ranked on the arithmetic alone this card picked a single on which the batter
-  // took an extra base on the throw, a runner was thrown out at third, and a third runner
-  // scored: three events in one sentence, under three numbers the reader has just met.
+  // BEING TYPICAL AND BEING LEGIBLE ARE DIFFERENT PROPERTIES, and ranking on the arithmetic
+  // alone selects only for the first: it picks a single on which the batter took an extra base
+  // on the throw, a runner was thrown out at third, and a third runner scored: three events in
+  // one sentence, under three numbers the reader has just met.
   const withNarrative = (event: string, value: number, narrative: string, gameId = 'g1') =>
     ex({ event, value, play: {
       game_id: gameId, sequence: 1, event_type: event, batter_name: 'A Batter',

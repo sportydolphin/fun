@@ -18,7 +18,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam 
 // WHY IT EXISTS. Every other board answers a question somebody thought to put on a board. This
 // answers the ones nobody did, which is most of them: how often has anyone struck out five in a
 // game, who has gone four for four more than once, has a pitcher ever walked nobody through
-// five. Until now the only way to settle one of those was to read thirty box scores.
+// five. Without it the only way to settle one of those is to read thirty box scores.
 //
 // THE ENGINE IS IN derive/finder.ts, including the reasoning about what can be asked, why every
 // condition is AND, and why the query encodes into one query param rather than seven. What is
@@ -27,8 +27,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam 
 // IT COSTS NO FETCH, for the same reason the Bests board does not: the season's ~750 box-score
 // lines are already in memory when this tab opens. Baseball Reference built Stathead because
 // MLB has millions of these and no browser can sort them; at this league's size the query engine
-// is a filter and a sort. That is the whole reason this feature was a day's work rather than a
-// backend.
+// is a filter and a sort, which is why this is a board rather than a backend.
 
 /**
  * A native `<select>`, which is the one place this section does not use its own chip idiom.
@@ -197,7 +196,7 @@ export default function WpblFindView({
   // it reads as a bug.
   // TEN ROWS, AND THE REST BEHIND A TAP. The list is the obvious answer and the tally beside it
   // is the more interesting one, and below `lg` the tally sits underneath: uncapped, a question
-  // matching fifty games put it two full screens down, where a reader who has not scrolled that
+  // matching fifty games puts it two full screens down, where a reader who has not scrolled that
   // far has no idea it exists. The section's own rule, written on `ExpandRow`: ten rows is a
   // leaderboard, thirty is a directory.
   const shownRows = allRows ? result.rows : result.rows.slice(0, RESULT_CAP)
@@ -223,10 +222,10 @@ export default function WpblFindView({
 
   return (
     /* CAPPED AND CENTRED inside the full-bleed box StatsView puts this board in. The ORDINARY
-       board column, not the wide one Bests and Run value take: this is a form and two result
-       cards, and at the wide column the controls stretched halfway across a desktop and the cards
-       read as sparse. The results still split into two under the question where there is room; the
-       tally drops under the list below `lg`, which is the right order on a phone. */
+    board column, not the wide one Bests and Run value take: this is a form and two result
+    cards, and at the wide column the controls stretch halfway across a desktop and the cards
+    read as sparse. The results still split into two under the question where there is room; the
+    tally drops under the list below `lg`, which is the right order on a phone. */
     <Box sx={{
       display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 },
       maxWidth: BOARD_COLUMN, mx: 'auto',

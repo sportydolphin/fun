@@ -1,10 +1,10 @@
-// Where a player actually plays, as opposed to what the league's roster calls her.
+// Where a player actually plays, as opposed to what the league's roster calls them.
 //
 // The roster position is filed once, before a ball is thrown, and the season then disagrees
 // with it. Alyssa Zettlemoyer is listed at catcher and has played third base in all six games
-// she has taken the field. Natsuki Yonetani is listed in left and has played right seven times
-// out of seven. Ticara Geldenhuis is listed as the un-helpful "OF". Showing the filed position
-// on a player page, a roster and a search result means showing something the box scores
+// in the field. Natsuki Yonetani is listed in left and has played right seven times out of
+// seven. Ticara Geldenhuis is listed as the un-helpful "OF". Showing the filed position on a
+// player page, a roster and a search result means showing something the box scores
 // contradict.
 //
 // So every surface that prints a position asks this module instead, and gets the position the
@@ -40,9 +40,9 @@ export const MIN_FIELDED_GAMES = 4
  * A game's position as a single place on the field.
  *
  * The feed writes a slash when a player moved mid-game: "lf/p" started in left and pitched
- * later, "p/cf" started on the mound. The FIRST token is where she took the field, which is
- * the honest answer to "what position did she play that day" and the only one that keeps the
- * count to one game, one vote. Splitting a game's vote between two positions would let a
+ * later, "p/cf" started on the mound. The FIRST token is where the player took the field, which
+ * is the honest answer to "what position did they play that day" and the only one that keeps
+ * the count to one game, one vote. Splitting a game's vote between two positions would let a
  * utility player out-vote a regular by moving around a lot.
  */
 function fieldedAt(raw: string | null | undefined): string | null {
@@ -53,21 +53,21 @@ function fieldedAt(raw: string | null | undefined): string | null {
 /** Anything with a `position`, which is all this needs from a box-score line.
  *
  *  Optional, not merely nullable: a caller that selected narrow stat columns and never asked
- *  for the position (the unfurl card's Pages function used to) still type-checks, and simply
- *  gets no override. Missing evidence and evidence of nothing are the same answer here. */
+ *  for the position still type-checks, and simply gets no override. Missing evidence and
+ *  evidence of nothing are the same answer here. */
 export interface PositionedLine { position?: string | null }
 
 /**
  * A box-score line as the three season-scoped functions below need it: the position, and the
  * game it was played in.
  *
- * THE `game_id` IS THE WHOLE POINT. These answer "where does she play THIS SEASON", and the
- * answer moved on Sep 9, 2026 the moment a postseason game landed: Kelsie Whitmore's one
- * playoff start on the mound broke her strict majority in centre field, `primaryPosition`
- * returned null, and her label fell back to the roster listing this module exists to override.
- * It did not add a position, it destroyed one, and it did it to the two-way player the file's
- * own comments are written around. A line carries no other clue about its game, so the caller
- * has to hand over the schedule, and it is required for the reason season.ts gives.
+ * THE `game_id` IS THE WHOLE POINT. These answer "where does this player play THIS SEASON", and
+ * one postseason game is enough to move the answer: a single playoff start on the mound breaks
+ * Kelsie Whitmore's strict majority in centre field, `primaryPosition` returns null, and the
+ * label falls back to the roster listing this module exists to override. It does not add a
+ * position, it destroys one, and it does it to the two-way player the file's own comments are
+ * written around. A line carries no other clue about its game, so the caller has to hand over
+ * the schedule, and it is required for the reason season.ts gives.
  */
 export type SeasonPositionedLine = PositionedLine & { game_id: string }
 
@@ -89,8 +89,8 @@ export interface PrimaryPosition {
  * of informative.
  *
  * DH, PH and PR are left out of both the count and the total. They are batting roles rather
- * than places on the field, so a catcher who DHs half the time is still a catcher, and her
- * catching share is measured against the games she actually fielded.
+ * than places on the field, so a catcher who DHs half the time is still a catcher, and the
+ * catching share is measured against the games actually fielded.
  */
 export function primaryPosition(lines: readonly PositionedLine[]): PrimaryPosition | null {
   const counts = new Map<string, number>()
@@ -111,21 +111,22 @@ export function primaryPosition(lines: readonly PositionedLine[]): PrimaryPositi
 }
 
 /**
- * Every place on the field she has actually stood, most-played first.
+ * Every place on the field the player has actually stood, most-played first.
  *
  * A DIFFERENT QUESTION from `primaryPosition`, and it counts differently on purpose. That one
- * asks "what position is she", so it takes only the FIRST token of "p/cf" and counts one game
- * once, or a utility player who moves around a lot would out-vote a regular. This asks "where
- * have these fielding numbers come from", and the answer to that is BOTH: she pitched and she
- * played centre field in the same game, and both are in the totals.
+ * asks "what position is this player", so it takes only the FIRST token of "p/cf" and counts one
+ * game once, or a utility player who moves around a lot would out-vote a regular. This asks
+ * "where have these fielding numbers come from", and the answer to that is BOTH: the player
+ * pitched and played centre field in the same game, and both are in the totals.
  *
  * IT EXISTS BECAUSE A FIELDING LINE CARRIES NO POSITION. The feed's fielding row is
  * `game_id, po, a, e, dp, pb, sba` and nothing else, so a season's fielding cannot be split by
  * position at all, by us or by anyone. On a card with role tabs that silence reads as a claim:
- * Kelsie Whitmore's pitching pane showed "1.000 FPCT · 21 PO · 0 A · 0 E" under the heading
- * "Fielding", and a pitcher with 21 putouts in five appearances does not happen. They are
- * catches in centre field. The numbers were right and the pane made them mean something false,
- * so the fix is to name the positions rather than to divide numbers we cannot divide.
+ * a pitching pane showing Kelsie Whitmore's "1.000 FPCT · 21 PO · 0 A · 0 E" under the heading
+ * "Fielding" describes a pitcher with 21 putouts in five appearances, which does not happen.
+ * They are catches in centre field. The numbers are right and the pane makes them mean
+ * something false, so the answer is to name the positions rather than to divide numbers we
+ * cannot divide.
  */
 export function positionsPlayed(
   lines: readonly SeasonPositionedLine[],
@@ -183,9 +184,9 @@ export interface DisplayPosition {
  * change is visible rather than silently rewritten.
  *
  * Note this WILL relabel a pitcher who mostly plays the field: Maïka Dumais is filed RHP and
- * has played first base in four of her six fielded games. That is the correct answer to "what
- * position does she play", and the player page still shows "listed RHP" beside it, so the
- * two-way half is never hidden.
+ * has played first base in four of six fielded games. That is the correct answer to "what
+ * position does this player play", and the player page still shows "listed RHP" beside it, so
+ * the two-way half is never hidden.
  */
 export function displayPosition(
   official: string | null | undefined,
@@ -251,30 +252,30 @@ const PITCHER_LEAD_EDGE = 1.5
  * Which half of a two-way player's season a card should LEAD with.
  *
  * Here for the same reason everything else in this file is: the player page, the shared-link
- * unfurl (functions/wpbl/) and the Discord `/player` card each answered this themselves, in
- * three copies of one line, and a card posted into a channel that leads with a player's
- * batting while the site leads with her pitching is the shape of bug nobody reports.
+ * unfurl (functions/wpbl/) and the Discord `/player` card would otherwise each answer this
+ * themselves, in three copies of one line, and a card posted into a channel that leads with a
+ * player's batting while the site leads with the pitching is the shape of bug nobody reports.
  *
  * THE FILED POSITION FIRST, and it is right nearly always: every pitcher code carries a 'P'
  * (RHP/LHP/P/SP/RP) and no position-player code does, so "RHP, UTL" leads with pitching even
  * beside a full set of at-bats. What it cannot describe is a league where a shortstop starts
- * games on the mound. Emi Saiki is filed SS, and on Sep 4, 2026 she also owned the longest
- * start anyone had thrown all season (6.0 IP, 11.0 IP in two starts); her card opened on
- * twelve at-bats and put the league lead behind a tab.
+ * games on the mound. Emi Saiki is filed SS, and as of Sep 4, 2026 also owned the longest start
+ * anyone had thrown all season (6.0 IP, 11.0 IP in two starts); by the filed position alone the
+ * card opens on twelve at-bats and puts the league lead behind a tab.
  *
  * So the box score gets a say, on two conditions, and it needs both:
  *
- *   A START. A club gives a position player mop-up innings in a blowout; it does not give her
- *   the first inning. Of the nineteen non-'P' players who have pitched this season, the ones
- *   who are plainly hitters doing a favour have zero starts between them.
+ *   A START. A club gives a position player mop-up innings in a blowout; it does not give that
+ *   player the first inning. Of the nineteen non-'P' players who have pitched this season, the
+ *   ones who are plainly hitters doing a favour have zero starts between them.
  *
  *   MORE CONFRONTATIONS ON THE MOUND THAN AT THE PLATE, by `PITCHER_LEAD_EDGE`. Batters faced
- *   against plate appearances is one unit measured twice, so it says which half of her season
+ *   against plate appearances is one unit measured twice, so it says which half of the season
  *   is the bigger half without having to weigh an inning against an at-bat.
  *
  * Falls back to the filed position when `bf` is missing, which older mirrored rows carry as
- * null. That is exactly the behaviour this replaced, so a feed that stops publishing the
- * column degrades to the old answer rather than to nonsense.
+ * null, so a feed that stops publishing the column degrades to the filed-position answer rather
+ * than to nonsense.
  */
 export function leadsWithPitching(a: {
   /** The FILED position, not the played one. Relabelling where she stands on the field is a

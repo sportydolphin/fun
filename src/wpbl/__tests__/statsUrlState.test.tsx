@@ -74,7 +74,7 @@ describe('the stats view in the address bar', () => {
     await screen.findByText('Hitting')
     // THE URL SURVIVING IS THE PROOF. The effect rewrites the query from the component's own
     // state on every change and strips anything that matches a default, so had the seed been
-    // ignored it would have tidied these two away and left a bare /wpbl/stats — which is
+    // ignored it would have tidied these two away and left a bare /wpbl/stats, which is
     // exactly what the nonsense case below asserts. Both params still standing means the state
     // behind them is pitching, sorted by WHIP.
     expect(url()).toBe('/wpbl/stats?side=pitching&sort=whip')
@@ -111,15 +111,15 @@ describe('the stats view in the address bar', () => {
   })
 })
 
-// ─── The cold load, which is where all of this was broken ────────────────────────
+// ─── The cold load ────────────────────────────────────────────────────────────
 //
-// EVERY TEST ABOVE PASSED THROUGH THE WHOLE OF THE BUG. They render StatsView on its own and
-// set the address bar themselves, so they measure the half that always worked. The half that
-// did not is one level up: `urlFor` in WpblApp builds a URL out of the navigation snapshot and
-// nothing else, and the effect that stamps the section's first history entry calls it on mount,
-// a beat before this pane renders. So a COLD LOAD of /wpbl/stats?board=runs had its query wiped
-// before anything here could read it, and opened on Players with the address bar tidied to
-// /wpbl/stats. Every board, since the params shipped. Found by pasting a link, not by a test.
+// EVERY TEST ABOVE CAN PASS WITH THE COLD LOAD BROKEN. They render StatsView on its own and
+// set the address bar themselves, so they measure the half inside this pane. The other half
+// is one level up: `urlFor` in WpblApp builds a URL out of the navigation snapshot and nothing
+// else, and the effect that stamps the section's first history entry calls it on mount, a beat
+// before this pane renders. So unless WpblApp carries these params, a COLD LOAD of
+// /wpbl/stats?board=runs has its query wiped before anything here can read it, and opens on
+// Players with the address bar tidied to /wpbl/stats.
 describe('the params a cold load arrives with', () => {
   it('copies the board params onto a url and touches nothing else', () => {
     const from = new URLSearchParams('board=bests&side=pitching&sort=so&dir=asc&utm_source=x')
@@ -134,10 +134,9 @@ describe('the params a cold load arrives with', () => {
     expect(to.toString()).toBe('')
   })
 
-  // THE WRITER AND THE CARRIER HAVE TO KNOW THE SAME FOUR NAMES, and the original bug is what
-  // happens when they do not: the writer knew all of them and the carrier knew none. A fifth
-  // param added to the effect and not to the list would be written to the address bar, copied
-  // by a reader, and silently dropped on the way back in.
+  // THE WRITER AND THE CARRIER HAVE TO KNOW THE SAME FOUR NAMES. When they do not, a param the
+  // effect writes is dropped on the way back in: a fifth param added to the effect and not to
+  // the list would be written to the address bar, copied by a reader, and silently lost.
   it('names every param the writer actually writes', async () => {
     at('/wpbl/stats')
     draw()
@@ -150,8 +149,8 @@ describe('the params a cold load arrives with', () => {
 
   // A SOURCE CHECK, DELIBERATELY. `urlFor` is a closure over WpblApp's component state and is
   // not exported, so the wiring cannot be reached from a unit test, and rendering the whole
-  // section to assert one line of address bar would be a slow test of everything else. What
-  // broke was that this call did not exist at all, and that is a thing a file can be asked.
+  // section to assert one line of address bar would be a slow test of everything else. The
+  // failure to catch is this call not existing at all, and that is a thing a file can be asked.
   it('is wired into the url WpblApp builds for this tab', () => {
     const src = readFileSync(join(process.cwd(), 'src/wpbl/WpblApp.tsx'), 'utf8')
     expect(src).toContain('carryStatsParams(')

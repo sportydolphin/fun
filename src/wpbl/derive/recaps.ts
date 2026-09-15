@@ -4,7 +4,7 @@
  * They write one recap per WPBL game and gave us explicit permission to link to them. What this
  * module does is the only hard part of that: their posts carry no game id, no date field beyond
  * a publication timestamp, and a headline written for a reader rather than for us. Deciding
- * which of our 33 games a given headline is about is a judgement call, and this is where every
+ * which of our games a given headline is about is a judgement call, and this is where every
  * one of those calls lives, pure and testable.
  *
  * WHAT WE KEEP IS A LINK. A headline, their picture, the date, their name. The feed offers the
@@ -25,9 +25,9 @@ export const FEED_URL = 'https://thisiswomensbaseball.com/f.rss'
  * Every post they have published, which the feed does not give you.
  *
  * The feed stops at 50 items and ignores `?page=`, `?limit=` and `?offset=` alike, so it is a
- * window rather than an archive. It reaches back to March today and covers every recap of the
- * season; it will not once they have published fifty more. Nothing reads this yet, and it is
- * here so that the day the window closes over the back catalogue, the fix is known.
+ * window rather than an archive: it covers a season's recaps only until fifty newer posts push
+ * them out. Nothing reads this yet, and it is here so that the day the window closes over the
+ * back catalogue, the fix is known.
  */
 export const SITEMAP_URL = 'https://thisiswomensbaseball.com/sitemap.blog.xml'
 
@@ -149,9 +149,9 @@ export function clubsNamed(title: string): string[] {
 /**
  * The Central calendar date an instant falls on.
  *
- * `Intl` rather than subtracting five hours, which is what the first draft did. The season ends
- * in September so the offset happens to be constant through it, and a constant that is only
- * right until November is the kind that is wrong in the spring with nobody watching.
+ * `Intl` rather than subtracting five hours. The season ends in September so the offset happens
+ * to be constant through it, and a constant that is only right until November is the kind that
+ * is wrong in the spring with nobody watching.
  */
 export function centralDate(at: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -192,11 +192,11 @@ export interface RecapMatch {
  * Their recaps, placed against our schedule.
  *
  * TWO PHASES, AND THE ORDER IS THE DESIGN. Every tight same-night match is made first, across
- * all games, before anything is allowed to reach into the following night. A draft that widened
- * the window to a day either side for every game at once scored WORSE than the tight rule alone
- * (31 of 33 down to 23), because a recap posted the next night competes with the game that night
- * actually had, and both end up ambiguous. Phase two only ever sees a game nothing claimed and a
- * post nothing claimed.
+ * all games, before anything is allowed to reach into the following night. Widening the window
+ * to a day either side for every game at once scores WORSE than the tight rule alone (31 of 33
+ * down to 23), because a recap posted the next night competes with the game that night actually
+ * had, and both end up ambiguous. Phase two only ever sees a game nothing claimed and a post
+ * nothing claimed.
  *
  * THE RULES, IN DESCENDING CONFIDENCE. All of them are same-night except the last:
  *
@@ -208,10 +208,10 @@ export interface RecapMatch {
  *   no club, sole game  a headline naming a player and no club, on a single-game night   (1)
  *   next night          phase two: both clubs AND the exact score, for a recap filed late   (1)
  *
- * "Club played once" replaced "only one game was played that day", which is the same thing on a
- * quiet night and gives up on a two-game night where each club still played once. That cost one
- * game: Aug 8 had two, and "Hunters Erase Six-Run Deficit for First Win" names one club that
- * played one game and is therefore unambiguous.
+ * "Club played once" rather than "only one game was played that day": the two agree on a quiet
+ * night, and the second gives up on a two-game night where each club still played once. Aug 8
+ * had two, and "Hunters Erase Six-Run Deficit for First Win" names one club that played one
+ * game and is therefore unambiguous.
  *
  * THE BIAS IS TOWARDS SAYING NOTHING, exactly as derive/articles.ts puts it. An unmatched game
  * shows no card, which is a small loss; a recap of somebody else's game shown under this one is

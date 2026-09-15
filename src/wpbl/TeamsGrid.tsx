@@ -14,10 +14,10 @@ import { useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
 /**
  * The Teams tab's landing screen: one card per club, in standings order.
  *
- * It used to be four cards holding a badge, a name and an abbreviation: a menu, and a
- * near-duplicate of the Teams card already on Home, so a whole nav slot bought nothing you
- * couldn't get by scrolling. Everything below is derived from `teams` + `games`, both of
- * which the section already has in memory, so the upgrade costs no request.
+ * Not four cards holding a badge, a name and an abbreviation: that is a menu, and a
+ * near-duplicate of the Teams card on Home, so a whole nav slot would buy nothing you couldn't
+ * get by scrolling. Everything below is derived from `teams` + `games`, both of which the
+ * section already has in memory, so the cards cost no request.
  *
  * What each card says that the Standings table can't: the SHAPE of the record (five form
  * dots, where the table can only count them), and what's next. What it deliberately leaves
@@ -124,11 +124,10 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
   const link = teamLink(row.team, onOpen)
 
   return (
-    // A REAL ANCHOR NOW, NOT A role="button" DIV. There was no href to give this until clubs
-    // got their own URLs on Sep 2, 2026, and the card was honest about it. Now there is one,
-    // and this is the only link on the page a crawler can follow to a club, which is the hub
-    // that leads it to eighteen player pages. Same treatment, same reasons, as every player
-    // name on the section: see the note at the top of LinkContext.tsx.
+    // A REAL ANCHOR, NOT A role="button" DIV. This is the only link on the page a crawler can
+    // follow to a club, which is the hub that leads it to eighteen player pages. Same treatment,
+    // same reasons, as every player name on the section: see the note at the top of
+    // LinkContext.tsx.
     <Box {...link} sx={{
       ...FOCUS_RING,
       display: 'flex', flexDirection: 'column', gap: 0.9,
@@ -231,7 +230,7 @@ export default function TeamsGrid({ teams, games, onSelect }: {
   // the four club cards above never blink.
   //
   // BOTH, OR NOTHING. `teamSpecs` takes the plays as a required argument because Contact is
-  // whiff rate now; a chart drawn from the lines alone would be five axes and a lie.
+  // whiff rate; a chart drawn from the lines alone would be five axes and a lie.
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
   const [pitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
   useEffect(() => {
@@ -266,10 +265,9 @@ export default function TeamsGrid({ teams, games, onSelect }: {
         ))}
       </Box>
       {/* All four overlaid, which is the one place in the section they can be. A club's own
-          page draws its shape solid against three faint outlines, because there is a subject
-          there; here there is not, and the comparison IS the page. Sits with Head to head
-          rather than above the cards: both answer "how do these four differ", while the cards
-          answer "who is who". */}
+      page draws its shape alone, because there is a subject there; here there is not, and
+      the comparison IS the page. Sits with Head to head rather than above the cards: both
+      answer "how do these four differ", while the cards answer "who is who". */}
       {ranked && (
         <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1.5 }}>
           <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, mb: 0.25 }}>Club profiles</Typography>

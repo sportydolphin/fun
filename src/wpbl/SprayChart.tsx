@@ -18,15 +18,14 @@ import { TYPE_SCALE, chromePx } from './ui'
 // gain real points inside them; a chart that had been faking it until then would have no way
 // to tell a reader which season was which.
 //
-// THE ZONES TILE THE WHOLE FIELD, which is the third arrangement of this and the first that
-// reads as a spray chart. It went: discs floating on an empty fan, then discs on a drawn
-// field, and both had the same flaw underneath, which is that A POSITION IS NOT A REGION. A
-// ball is hit somewhere, every somewhere on this field belongs to exactly one zone, and the
-// picture should therefore have no gaps in it: the pitcher's circle at the apex, four infield
-// wedges across the dirt, five outfield wedges beyond it, and the catcher behind the plate in
-// the one piece of foul ground a batted ball routinely lands in.
+// THE ZONES TILE THE WHOLE FIELD, because A POSITION IS NOT A REGION. Discs floating on an empty
+// fan, or on a drawn field, both miss that. A ball is hit somewhere, every somewhere on this
+// field belongs to exactly one zone, and the picture should therefore have no gaps in it: the
+// pitcher's circle at the apex, four infield wedges across the dirt, five outfield wedges beyond
+// it, and the catcher behind the plate in the one piece of foul ground a batted ball routinely
+// lands in.
 //
-// TWO EARLIER MISTAKES ARE KEPT IN THE COMMENTS BELOW, because both are easy to make again:
+// TWO MISTAKES ARE WARNED AGAINST IN THE COMMENTS BELOW, because both are easy to make:
 // painting a count in the same ink as the zone under it, and drawing fielders with no field.
 
 // Geometry. The fan is 90 degrees, so a radius r is r*sin(45) = 0.707r wide EITHER SIDE of
@@ -72,8 +71,8 @@ function sector(a1: number, a2: number, r0: number, r1: number): string {
  * Two rings divided differently is how a real spray chart reads anyway.
  *
  * THE CATCHER IS BEHIND THE PLATE, in foul ground, which is the one region here outside the
- * fair 90 degrees. Her 23 balls in a season are almost all foul pops, and putting her among
- * the infielders, as the first two versions did, drew every one of them in fair territory.
+ * fair 90 degrees. The catcher's 23 balls in a season are almost all foul pops, and a catcher
+ * placed among the infielders draws every one of them in fair territory.
  */
 const ZONE_SHAPE: Record<SprayZone, [number, number, number, number]> = {
   LF:   [-SPAN, -27, R_DIRT, R_OUT],
@@ -131,10 +130,10 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
    * The plays the chart is currently showing, which is what the pull rate has to be measured
    * over too.
    *
-   * It was measured over ALL batted balls regardless of the mode, so on Hits the three figures
-   * at the top of the breakdown described a different set of balls from the list directly
-   * beneath them: a hitter reading 56% pull over a list whose zones sum to a different split.
-   * Two numbers on one card that disagree about the same question.
+   * Measured over ALL batted balls regardless of the mode, the three figures at the top of the
+   * breakdown would describe, on Hits, a different set of balls from the list directly beneath
+   * them: a hitter reading 56% pull over a list whose zones sum to a different split. Two numbers
+   * on one card that disagree about the same question.
    */
   const modePlays = useMemo(
     () => (mode === 'all' ? plays : plays.filter(p => !!p.is_hit === (mode === 'hits'))),
@@ -171,16 +170,16 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
   // curve here would make a hot zone look hotter than it is.
   const shade = (n: number) => (n === 0 ? 0 : 0.18 + 0.72 * (n / max))
 
-  // THE NUMBER HAS TO BEAT ITS OWN BACKGROUND, and in the first version it did not: the count
-  // and the zone under it were both `currentColor`, so a zone's figure faded out exactly as
-  // that zone got busier and the hottest cell on the chart was the least readable thing on it.
-  // The fill is the heat and the number is the fact; they cannot be the same ink.
+  // THE NUMBER HAS TO BEAT ITS OWN BACKGROUND. With the count and the zone under it both
+  // `currentColor`, a zone's figure fades out exactly as that zone gets busier and the hottest
+  // cell on the chart is the least readable thing on it. The fill is the heat and the number is
+  // the fact; they cannot be the same ink.
   //
   // THE THRESHOLD IS CALIBRATED FOR LIGHT MODE AND ONLY LIGHT MODE, which is why one constant
   // does for both. In dark mode `text.primary` is already near-white, so both branches return
   // a light ink and where the line sits changes nothing. In light mode it is near-black, and
   // the crossover is the only thing standing between a mid-red zone and an unreadable figure:
-  // at 0.5 the middle of the scale printed white on medium red, which is the worst pairing on
+  // at 0.5 the middle of the scale prints white on medium red, which is the worst pairing on
   // the card.
   const inkFor = (n: number) => (shade(n) >= 0.62 ? '#fff' : theme.palette.text.primary)
 
@@ -202,7 +201,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
    *
    * Every other chart in this section is drawn in the WPBL blue, which is exactly the problem:
    * on a player page the accent is already carrying the club, the header band and half the
-   * furniture, so a blue field read as more chrome. Red is the convention for a spray chart
+   * furniture, so a blue field reads as more chrome. Red is the convention for a spray chart
    * anyway, and it is the only warm thing on the page, which is what makes the busy zones the
    * first thing the eye lands on.
    *
@@ -236,13 +235,13 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
       </Box>
 
       {/* THE PICTURE AND THE NUMBERS, SIDE BY SIDE ON A DESKTOP.
-          
-          The chart was capped at 460px and centred inside a 1,080px card, so most of the block
-          was empty and the only place to read a small zone was the 11px label inside it. A
-          list beside it fixes both at once: the space is used, and every zone has a figure in
-          ordinary type that does not depend on the wedge being big enough to hold one.
-          
-          It stacks below `md`, where the card is a sheet and there is no width to share. */}
+
+      A chart capped at 460px and centred inside a 1,080px card leaves most of the block
+      empty, and the only place to read a small zone is the 11px label inside it. A list
+      beside it fixes both at once: the space is used, and every zone has a figure in
+      ordinary type that does not depend on the wedge being big enough to hold one.
+
+      It stacks below `md`, where the card is a sheet and there is no width to share. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', md: 'row' },
         alignItems: { md: 'center' }, gap: { xs: 1, md: 2.5 },
@@ -288,11 +287,11 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         })}
 
         {/* THE OUTLINE OF THE FIELD ON TOP, THE DIAMOND UNDERNEATH. The diamond crosses the
-            infield band at exactly the radius the figures live at, so drawn over the shading
-            it ran a line through every infield label. Beneath them it still says "this is a
-            ballfield" wherever the shading is light, and gets out of the way where it is not.
-            The foul lines, the fence and the dirt's edge stay on top: those are the outline,
-            and an outline a busy zone can swallow is not one. */}
+        infield band at exactly the radius the figures live at, so drawn over the shading
+        it runs a line through every infield label. Beneath them it still says "this is a
+        ballfield" wherever the shading is light, and gets out of the way where it is not.
+        The foul lines, the fence and the dirt's edge stay on top: those are the outline,
+        and an outline a busy zone can swallow is not one. */}
         <line x1={CX} y1={CY} x2={lfx} y2={lfy} stroke={line} strokeWidth={1.5} />
         <line x1={CX} y1={CY} x2={rfx} y2={rfy} stroke={line} strokeWidth={1.5} />
         <path d={sector(-SPAN, SPAN, R_OUT - 1.5, R_OUT)} fill={line} />
@@ -303,11 +302,11 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
           const n = valueOf(byZone.get(z), mode)
           const [x, y] = centreOf(z)
           const named = NAMED_INSIDE.includes(z)
-          // AN EMPTY POSITION IS THE HARDEST THING ON THE CHART TO READ, and it used to be
-          // drawn in the faintest ink the theme has, at 9px, over ground that is nearly the
-          // page colour. In Hits mode most of the infield is empty, so most of the labels
-          // were the unreadable case. `text.secondary` is the quietest colour that is still
-          // meant to be read, which is what a label is.
+          // AN EMPTY POSITION IS THE HARDEST THING ON THE CHART TO READ. In the faintest ink the
+          // theme has, at 9px, over ground that is nearly the page colour, it cannot be read, and in
+          // Hits mode most of the infield is empty, so most of the labels are that case.
+          // `text.secondary` is the quietest colour that is still meant to be read, which is what a
+          // label is.
           const ink = n === 0 ? theme.palette.text.secondary : inkFor(n)
           return (
             <g key={`f-${z}`}>
@@ -337,9 +336,9 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
       {/* The breakdown. Busiest zone first, which is the order a reader asks for it in. */}
       <Box sx={{ flex: { md: '0 0 auto' }, width: { md: chromePx(210) }, minWidth: 0 }}>
         {/* WHERE THE MISSING FIGURE IS, rather than in the note at the foot of the card. "Pull"
-            is defined by which box she stood in, and the feed records a switch hitter's
-            handedness only on the roster, never per plate appearance. Eight players are in
-            that position and the blank was previously explained a paragraph away from it. */}
+        is defined by which box the batter stood in, and the feed records a switch hitter's
+        handedness only on the roster, never per plate appearance. Eight players are in that
+        position, and a blank explained a paragraph away from it is not explained. */}
         {pull.pullPct == null && profile.placed > 0 && (
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mb: 1, lineHeight: 1.45 }}>
             No pull rate: the feed records a switch hitter only on the roster.
@@ -387,12 +386,12 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
       </Box>
 
       {/* ONE LINE, AND IT STILL HAS TO SAY THE HONEST THING. The zones are read out of the
-          scorer's words rather than measured, and a reader who takes them for coordinates has
-          been misled by us. What went is the explanation of WHY the league has none, which is
-          our problem rather than theirs, and the switch-hitter caveat, which has moved to the
-          Pull tiles where the figure it explains is missing. The count that could not be
-          placed stays, because a chart quietly dropping what it cannot read claims a
-          completeness it does not have. */}
+      scorer's words rather than measured, and a reader who takes them for coordinates has
+      been misled by us. Left out: the explanation of WHY the league has none, which is our
+      problem rather than the reader's, and the switch-hitter caveat, which sits on the Pull
+      tiles where the figure it explains is missing. The count that could not be placed
+      stays, because a chart quietly dropping what it cannot read claims a completeness it
+      does not have. */}
       <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.5, lineHeight: 1.5 }}>
         Read from each play's description, not measured locations.
         {profile.unplaced > 0 && ` ${profile.unplaced} not placed.`}

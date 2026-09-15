@@ -1,11 +1,11 @@
 // The live-situation derivation, pure and asset-free so it can run outside the app bundle.
 //
-// It used to live inside Live.tsx, which imports MUI, so the only reader was the app. The
-// Discord `/live` box score (functions/discord/wpbl.ts → src/wpbl/discordLiveBox.ts) needs the
-// exact same reading of the feed's `status` object, and pulling Live.tsx into a Cloudflare
-// Functions bundle is not possible: it drags React and MUI in. Extracted here so both surfaces
-// derive the count clamp and the between-innings break from ONE definition rather than a second
-// copy that drifts. Live.tsx re-exports everything below, so its own callers are unchanged.
+// It lives outside Live.tsx, which imports MUI, because the Discord `/live` box score
+// (functions/discord/wpbl.ts → src/wpbl/discordLiveBox.ts) needs the exact same reading of the
+// feed's `status` object, and a Cloudflare Functions bundle cannot pull in React and MUI. One
+// definition here means both surfaces derive the count clamp and the between-innings break the
+// same way rather than from a second copy that drifts. Live.tsx re-exports everything below,
+// so its callers can keep importing from there.
 //
 // No .ts on the type imports because nothing here is loaded by Deno; the app (Vite) and the
 // Cloudflare esbuild bundle both resolve extensionless specifiers.
@@ -17,10 +17,9 @@ export interface Situation {
   first: boolean; second: boolean; third: boolean
   /** WHO is on each base, which is what the feed actually sends: `first_base` is a runner's
    *  name ("Val Perez") and an empty string when the base is empty, not a flag. The booleans
-   *  above are that name emptied out, which is all a 34px glyph can use and all this carried
-   *  until the Live tab had room to name them. Null where the base is empty, and also where
-   *  the feed marks a base occupied without saying by whom, so a consumer has to handle a
-   *  nameless runner rather than assume the pair move together. */
+   *  above are that name emptied out, which is all a 34px glyph can use. Null where the base is
+   *  empty, and also where the feed marks a base occupied without saying by whom, so a consumer
+   *  has to handle a nameless runner rather than assume the pair move together. */
   firstName: string | null; secondName: string | null; thirdName: string | null
   /** The side is retired and the next one has not come to bat. */
   between: boolean
@@ -103,9 +102,9 @@ function breakLabelFor(half: 'top' | 'bottom', inning: number): string {
 }
 
 export function deriveSituation(state: WpblLiveState, away: WpblTeam, home: WpblTeam, lines?: LineScores): Situation {
-  // A blank half cannot be read as 'top' the way this used to read it: that named the away
-  // team as batting whenever the feed left the half out. Fall back to the batting side the
-  // feed names instead, and only then to the top of the inning.
+  // A blank half cannot be read as 'top': that names the away team as batting whenever the
+  // feed leaves the half out. Fall back to the batting side the feed names instead, and only
+  // then to the top of the inning.
   const half: 'top' | 'bottom' =
     state.half === 'bottom' ? 'bottom'
     : state.half === 'top' ? 'top'
@@ -118,8 +117,8 @@ export function deriveSituation(state: WpblLiveState, away: WpblTeam, home: Wpbl
     // publishes the PREVIOUS at-bat's full count between batters (watched on Sep 5, 2026: balls
     // 3, strikes 3 on a batter with nobody out), and the stored plays carry the same shape,
     // with the terminal pitch counted: 557 of them hold balls 4 or strikes 3. The bulbs in
-    // LiveGameView clamp their own input and always did; the 34-character strip printed
-    // "3–3" for months, which is a fourth ball and a third strike sitting on screen.
+    // LiveGameView clamp their own input as well; an unclamped strip prints "3–3", which is a
+    // fourth ball and a third strike sitting on screen.
     balls: Math.min(state.balls || 0, 3), strikes: Math.min(state.strikes || 0, 2),
     battingTeam: half === 'top' ? away : home,
     batterName: state.batter_name || null, pitcherName: state.pitcher_name || null,

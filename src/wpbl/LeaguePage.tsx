@@ -1,14 +1,14 @@
 // /wpbl/league: the league itself, as opposed to its games, its clubs or its players.
 //
 // THE NOUN THE SECTION WAS MISSING. Everything else here is a game, a club or a player, so
-// anything about the league as a thing had nowhere to be: the media shelf ended up on Home,
-// and the primer, the glossary, the archive and this map had nowhere at all. This page is that
-// home, and the first tenant is the one fact about the WPBL that needs no season to be true.
+// anything about the league as a thing has nowhere else to be: the media shelf, the primer, the
+// glossary, the archive and this map. This page is that home, and the first tenant is the one
+// fact about the WPBL that needs no season to be true.
 //
-// NO NAV PILL, DELIBERATELY. It ships as a real path linked from the footer and earns a sixth
-// pill from the events or does not get one. The top pills are already the least reachable part
-// of an 812px phone and the sixth used to sit off-screen entirely (see BottomNav.tsx), while
-// the footer is a proven crawl path: it is how Google found /privacy and /terms while /mlb sat
+// NO NAV PILL, DELIBERATELY. It is a real path linked from the footer and earns a sixth pill
+// from the events or does not get one. The top pills are already the least reachable part of
+// an 812px phone and a sixth would sit off-screen entirely (see BottomNav.tsx), while the footer
+// is a proven crawl path: it is how Google found /privacy and /terms while /mlb sat
 // undiscovered for months. Promoting this later costs four lines. Demoting it costs a redirect.
 //
 // WHY IT MATTERS THAT IT IS DULL TEXT. This is the only page in the section that still says
@@ -31,9 +31,9 @@ import type {
   WpblBattingLine, WpblPitchingLine,
 } from './types'
 
-// The draft-value model, its own chunk. It moved here off the Stats tab on Sep 13, 2026: it is a
-// question about the DRAFT CLASS ("did earlier picks produce better players"), not a season stat,
-// and it belongs beside the roster and the hometowns rather than as an eighth board on Stats. See
+// The draft-value model, its own chunk. Here rather than on the Stats tab: it is a question
+// about the DRAFT CLASS ("did earlier picks produce better players"), not a season stat, and it
+// belongs beside the roster and the hometowns rather than as an eighth board on Stats. See
 // DraftValue.tsx.
 const WpblDraftValue = lazy(() => import('./DraftValue'))
 
@@ -150,11 +150,10 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
         {countries.length > 1 && ` from ${countries.length} countries`}.
       </Typography>
 
-      {/* Reading, Highlights and the archive, moved here off Home on Aug 27. This is where they
-          belonged: all three are about the league rather than about today's games, none of them
-          needs a live feed, and on Home they were three screens that 575 browsers saw and 39
-          used. Above the roster, because the roster is 118 rows and anything under it is
-          unreachable in practice. */}
+      {/* Reading, Highlights and the archive, here rather than on Home: all three are about the
+      league rather than about today's games, and none of them needs a live feed. On Home they
+      were three screens that 575 browsers saw and 39 used. Above the roster, because the roster
+      is 118 rows and anything under it is unreachable in practice. */}
       <Box sx={{ mb: 4 }}>
         <MediaShelf articles={articles} videos={videos} photos={photos} teams={teams} />
       </Box>

@@ -1,16 +1,16 @@
 import { countsInStandings } from '../season.ts'
 import type { WpblGamePlay, WpblGame } from '../types'
 
-// Matchup derivations — batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
+// Matchup derivations: batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
 // arrays in, plain shapes out (no supabase / React), mirroring stats.ts and firsts.ts.
 //
-// The one judgement call — "what counts as a plate appearance" — lives in classifyPa() so
+// The one judgement call, "what counts as a plate appearance", lives in classifyPa() so
 // every consumer (and any future producer: RISP, two-strike, player-of-the-game) agrees on
 // it instead of re-deriving it. It reads only a play's event_type + narrative, exactly the
 // fields `WpblMatchupPlay` below names.
 
 // A plate-appearance outcome distilled from one play. null = the play is NOT a plate
-// appearance (a steal, wild pitch, pickoff, substitution — mid-PA or between-PA noise).
+// appearance (a steal, wild pitch, pickoff, substitution: mid-PA or between-PA noise).
 interface PaOutcome { ab: number; h: number; hr: number; xbh: number; bb: number; so: number }
 
 const HIT_EVENTS    = new Set(['single', 'double', 'triple', 'home_run'])
@@ -32,12 +32,12 @@ export function classifyPa(play: Pick<WpblMatchupPlay, 'event_type' | 'narrative
 /**
  * The columns a batter-versus-pitcher line reads, and no more.
  *
- * DELIBERATELY NOT `WpblFirstsPlay`, which is what this took until the compare page became its
- * first consumer. That type names the projection behind `fetchWpblAllPlays`, and that read
- * drops routine outs AT THE DATABASE because none of them can set a milestone. Feed it here
- * and every hitter in the league bats about .650: the outs are most of the denominator and
- * none of them arrive, with no error and nothing short about the array to notice. The only
- * league-wide read that belongs here is the unfiltered one, `fetchWpblAllRunValuePlays`.
+ * DELIBERATELY NOT `WpblFirstsPlay`. That type names the projection behind
+ * `fetchWpblAllPlays`, and that read drops routine outs AT THE DATABASE because none of them
+ * can set a milestone. Feed it here and every hitter in the league bats about .650: the outs
+ * are most of the denominator and none of them arrive, with no error and nothing short about
+ * the array to notice. The only league-wide read that belongs here is the unfiltered one,
+ * `fetchWpblAllRunValuePlays`.
  *
  * A structural type cannot enforce that, since the filtered read satisfies it too. Naming it
  * something other than the wrong read's own type is what the type CAN do.
@@ -58,8 +58,8 @@ export interface WpblMatchupLine {
 
 // One line per batter/pitcher pair with at least `minPa` plate appearances, ranked by how
 // compelling the duel is (lopsided splits, homers, and extreme averages float up; raw
-// familiarity barely counts) rather than by who's simply been faced the most — otherwise
-// the early-season workhorse pitcher fills the whole list. Keyed by name (ids can be null
+// familiarity barely counts) rather than by who's simply been faced the most, which would let
+// the early-season workhorse pitcher fill the whole list. Keyed by name (ids can be null
 // when the feed name didn't resolve to a roster player); ids carry through so the UI can link.
 //
 // minPa is 3, not 4, on purpose: at 4+ the pool collapses to the one or two pitchers with the
@@ -121,12 +121,11 @@ export interface WpblH2HCell { wins: number; losses: number; runsFor: number; ru
 // grid.get(rowId, colId) → the row team's record + runs vs the column team, or null if they
 // haven't met (or it's the diagonal). Only decisive finals count, same rule as computeStandings.
 //
-// AND THAT LAST CLAUSE HAD TO BECOME TRUE. This said "the same rule as computeStandings" while
-// applying only half of it: the decisive-final test was here, the `countsInStandings` test was
-// not. It cost nothing for as long as the schedule was all regular season, and then the first
-// postseason game went final on Sep 9, 2026 and the grid read San Francisco 6-0 over Boston
-// against a season series of 5-0, one row above a standings table that said 10-5. Nothing
-// marked the extra win as a playoff win, because from in here it looks like any other final.
+// BOTH HALVES OF THAT RULE: the decisive-final test AND `countsInStandings`. With only the
+// first, the first postseason game to go final reads as one more meeting: San Francisco 6-0
+// over Boston against a season series of 5-0, one row above a standings table that says 10-5.
+// Nothing marks the extra win as a playoff win, because from in here it looks like any other
+// final.
 export interface WpblH2H { get(rowId: string, colId: string): WpblH2HCell | null }
 
 export function headToHead(games: WpblGame[]): WpblH2H {

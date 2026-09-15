@@ -40,54 +40,34 @@ import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
-// WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
-// on top, then a two-column card feed (The League / Around the League) that stacks on
-// mobile. All content is built from existing WPBL data — schedule, standings, and
-// season totals aggregated from box-score lines.
+// WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
+// column on a phone. Everything on it is derived from data the section already caches: the
+// schedule, the standings and season totals from box-score lines.
 
-// Rate-leader qualifiers live in stats.ts (`wpblQualifiers`) and scale with the season, so
-// the OPS and ERA boards can't fill up with one-game cameos as the schedule goes on.
 
-// Home breaks out of the section's 720px page column on a wide screen.
-//
-// WITHOUT THIS THE PAGE IS 1008px WIDE ON EVERY MONITOR. WpblApp caps the whole section at 720
-// LAYOUT px, and the desktop `zoom: 1.4` renders that as 1008: 216px of dead margin per side at
-// 1440 and 456px at 1920, where the two card columns, the leader boards and the bracket's shape
-// are all fixed at whatever fits inside it. Every spacing complaint on this page started there.
-//
-// Same device as StatsView's full-bleed table (see FULL_BLEED_W). Both used to divide the
-// viewport term by `--app-zoom`, because `vw` is not shrunk by `zoom` while a CSS length is;
-// with the zoom gone the two agree and neither divides.
-//
-// The viewport term is what makes this safe rather than a step change: below the cap the width
-// tracks the screen less the app's own 16px gutters, which is what the page was already doing,
-// so this is a no-op at 1024 and only starts widening once there is margin to spend. It also
-// keeps the 24px of slack that stops `100vw` (which counts a classic scrollbar) from giving the
-// whole site a horizontal scrollbar.
-//
-// APPLIED TO THE WHOLE PAGE, not to the grid alone. The scoreboard, the h1 and the league row
-// are the same column as the cards, and a grid that is 250px wider than the strip above it
-// reads as a mistake, not as emphasis. `xs` opts out: the page already fills a phone, and the
-// transform would only fight the gutter SwipeableViews hands each pane.
-// 1260 is the 900 layout px this asked for times the 1.4 it was rendered at, so the column is
-// the same WIDTH ON SCREEN it has been; what changed is that it is now the number it says. The
-// `vw` term no longer divides by anything, because `vw` and a CSS length are finally the same
-// pixel here. The 24px of slack still stops `100vw` (which counts a classic scrollbar) from
-// giving the whole site a horizontal scrollbar.
 /**
  * The gap between one top-level block of Home and the next, in MUI spacing units.
  *
- * IT HAS TO BEAT THE GAP INSIDE A BLOCK, AND AT 1.5 IT BARELY DID. A section heading sits
- * `mb: 1` above its own content, so at 1.5 the space separating "Scoreboard" from the league
- * name above it was 15px against the 10px tying it to its own chips: a 1.5:1 ratio, which is
- * not enough for proximity to group anything, and the whole top of the page read as one dense
- * stack. 2.5 makes it 25px against 10px. Change this rather than a literal, and change
- * nothing else: the loading skeleton mirrors these blocks pixel for pixel so the real
- * heading lands where the placeholder was, and a literal left behind in one of the four
- * places is a jump on first paint.
+ * IT HAS TO BEAT THE GAP INSIDE A BLOCK. A section heading sits `mb: 1` above its own content,
+ * so the step between blocks must be clearly larger for proximity to group anything: 2.5 gives
+ * 25px against 10px, where 1.5 (15 against 10) reads the whole top of the page as one stack.
+ * Change this rather than a literal, and change nothing else: the loading skeleton mirrors these
+ * blocks pixel for pixel so the real heading lands where the placeholder was, and a literal left
+ * behind in one of the four places is a jump on first paint.
  */
 const SECTION_GAP = 2.5
 
+// Home breaks out of the section's 720px page column on a wide screen: the two card columns and
+// the bracket's shape need more than 720px, and a desktop has the margin to spend. The viewport
+// term keeps it safe rather than a step change: below the cap the width tracks the screen less
+// the app's own gutters, so this is a no-op at 1024 and only widens once there is room. The 24px
+// of slack stops `100vw` (which counts a classic scrollbar) from giving the whole site a
+// horizontal scrollbar.
+//
+// APPLIED TO THE WHOLE PAGE, not to the grid alone: the scoreboard, the h1 and the league row are
+// the same column as the cards, and a grid wider than the strip above it reads as a mistake. `xs`
+// opts out: the page already fills a phone, and the transform would only fight the gutter
+// SwipeableViews hands each pane. Same device as StatsView's FULL_BLEED_W.
 const HOME_WIDE_W = 'min(1260px, calc(100vw - 24px))'
 const homeWideSx = {
   width: { xs: 'auto', md: HOME_WIDE_W },
@@ -107,15 +87,15 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   const awayWon = final && (game.away_score ?? 0) > (game.home_score ?? 0)
   const homeWon = final && (game.home_score ?? 0) > (game.away_score ?? 0)
 
-  // "Today" / "Yesterday", else "Aug 15" — shared with the schedule's labels so a date reads
-  // the same wherever you meet it (relativeDayShort drops the weekday, and Tomorrow, neither
-  // of which this chip has room for).
+  // "Today" / "Yesterday", else "Aug 15": shared with the schedule's labels so a date reads the
+  // same wherever you meet it (relativeDayShort drops the weekday, and Tomorrow, neither of which
+  // this chip has room for).
   const dateText = relativeDayShort(game.game_date)
   const timeText = formatGameTime(game.game_date, game.start_time)
-  // A final now carries WHEN it was played. The status leads and the date follows, the reverse
-  // of an upcoming game, because each puts its own headline first — and because if the line
-  // ever has to ellipsise it should lose the date rather than the result. A live game is by
-  // definition today, so a date there would be noise.
+  // A final carries WHEN it was played. The status leads and the date follows, the reverse of an
+  // upcoming game, because each puts its own headline first, and because if the line ever has to
+  // ellipsise it should lose the date rather than the result. A live game is by definition today,
+  // so a date there would be noise.
   const statusText = final
     ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''} · ${dateText}`
     : live ? 'Live'
@@ -124,8 +104,8 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   const isDark = useWpblDark()
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-      {/* Winner caret — only on finals, where a fixed-width slot keeps both rows' badges aligned.
-          Upcoming/live games omit the slot entirely so the badge sits flush left. */}
+      {/* Winner caret, only on finals, where a fixed-width slot keeps both rows' badges aligned.
+          Upcoming and live games omit the slot entirely so the badge sits flush left. */}
       {final && (
         <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.45, textAlign: 'center', fontSize: ICON_SIZE.sm, lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
       )}
@@ -147,17 +127,11 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 
   return (
     <Box {...gameLink(game, onOpen)} sx={{
-      // 8.5rem, which is the 136px this has always been at the default root size. It went up
-      // 4 from the pre-date 132 when the eyebrow's longest string became "Final · Yesterday"
-      // rather than "Aug 15 · 7:05 PM": one character more, in uppercase letters where the old
-      // one had narrow digits.
-      //
-      // IN rem BECAUSE THE WIDTH IS DECIDED BY A STRING. Every chip has to be the same width
-      // or the strip loses its rhythm, so this cannot be `max-content`; but a fixed pixel box
-      // holding text that the reader can enlarge is a clipped eyebrow waiting to happen, and
-      // it is exactly what caps the Large text setting at 1.125 (see AccessibilityContext).
-      // rem keeps the box and its contents on one scale. Art and tap targets on this card stay
-      // in px: they are not holding type and must not grow with it.
+      // IN rem BECAUSE THE WIDTH IS DECIDED BY A STRING. Every chip has to be the same width or the
+      // strip loses its rhythm, so this cannot be `max-content`, and a fixed pixel box holding text the
+      // reader can enlarge clips its eyebrow under the Large text setting (see AccessibilityContext).
+      // Sized for the longest eyebrow, "Final · Yesterday". Art and tap targets on this card stay in
+      // px: they are not holding type and must not grow with it.
       flexShrink: 0, width: '8.5rem', cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
@@ -181,11 +155,10 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 /**
  * A postseason game the league has dated but not yet played, on the same strip as the feed's own.
  *
- * WHY THE STRIP CARRIES THESE. `wpbl_games` ends on Sep 6 and will until the league publishes
- * the bracket, so from Sep 7 the scoreboard would have been six weeks of finals with nothing
- * ahead of it: the week of the season a reader is most likely to open Home for is the week it
- * had least to say. The Schedule tab has printed these since Sep 3 (postseasonScheduleRows);
- * this is the same rows in the shape the strip uses.
+ * WHY THE STRIP CARRIES THESE. The feed has no postseason game until the league seeds the
+ * bracket, so between the regular season and the bracket the strip would be all finals with
+ * nothing ahead, in the week a reader is most likely to open Home to see what is next. These are
+ * the rows the Schedule tab prints (postseasonScheduleRows), in the shape the strip uses.
  *
  * DELIBERATELY NOT A GameChip, AND NOT A LINK. There is no game to open, no score column and no
  * away-at-home, so it is dashed rather than solid and it does not respond to a click. What it
@@ -206,11 +179,9 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
   // does spell it out (the schedule rows, SeriesPreview), and the words are here too, for a
   // screen reader and as a tooltip, since an asterisk with no key beside it explains nothing.
   const eyebrow = `${round} G${row.gameNumber}${row.ifNecessary ? '*' : ''} · ${relativeDayShort(row.date)}`
-  // Away over home once the league has designated one, and the ROW ORDER carries that on its
-  // own: no "@" marker, the same call the neighbouring GameChip makes, where the home club is
-  // simply the bottom row. A marker here was the one thing on the strip saying "away @ home"
-  // out loud, on a speculative game that may not be played, while every fixture beside it says
-  // it by position alone.
+  // Away over home once the league has designated one, and the ROW ORDER carries that on its own:
+  // no "@" marker, the same call the neighbouring GameChip makes, where the home club is simply the
+  // bottom row.
   const { slots } = postseasonSlots(row)
 
   const slot = (p: PostseasonSlot, i: number) => (
@@ -286,26 +257,17 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   /**
-   * A WINDOW ROUND NOW, not the season. Three finished games, then what is still to come.
+   * A WINDOW ROUND NOW, not the season: three finished games, then what is still to come.
    *
-   * IT USED TO BE ALL THIRTY, on the reasoning that a scroll strip costs nothing by length and
-   * a reader who wants to look ahead to September can. Measured at 1360px on Sep 3, 2026, what
-   * that actually built was 5,390px of chips in a 1,260px window: seven visible, twenty-three
-   * hidden, and the strip resting pinned at the far end with 4,130px behind it. The only thing
-   * advertising those was a 24px gradient over an invisible hover zone that glides at 8px a
-   * frame, so reaching the season opener meant holding a cursor still for 8.6 seconds, and a
-   * keyboard could not do it at all. The scroll was nominally there and practically unusable,
-   * and the fade was decorating that rather than solving it.
-   *
-   * Seven chips is 1,238px with the gaps, so at a desktop width the strip does not scroll,
-   * which means there is no fade and no hidden affordance to discover. A phone still scrolls
-   * it, where a swipe crosses the whole thing in one gesture and an edge fade is the right
-   * idiom. The season it no longer carries is the Schedule tab, whose nav pill is 40px above
-   * this strip.
+   * A whole season of chips is thousands of pixels in a window of about 1,260, reachable only
+   * through an invisible hover zone that glides slowly, and not by keyboard at all. Seven chips
+   * (1,238px with the gaps) fit a desktop without scrolling, so there is nothing hidden to
+   * discover; a phone still scrolls it, where one swipe crosses the whole strip. The season it does
+   * not carry is the Schedule tab, one tap away.
    *
    * The caps are per SIDE on purpose. Capping the total would make the window lopsided at both
    * ends of a season: in April every game is upcoming and no result would show, and in the last
-   * week there is one game left and the strip would be six weeks of old scores.
+   * week there is one game left and the strip would be weeks of old scores.
    */
   const RECENT_FINALS = 3
   const UPCOMING = 4
@@ -313,17 +275,11 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
    * The anchor is the NEXT game, not the last final, and that only matters where the strip
    * scrolls, which is a phone.
    *
-   * It used to open on the previous game, on the reasoning that landing at the "now" boundary
-   * shows you the result you just missed with what is coming beside it. What that reasoning did
-   * not account for is what sits underneath: Last Game and Next game are the next two cards down
-   * the page and render exactly those two fixtures in full. At 390px the strip shows 2.8 chips,
-   * so anchoring behind the boundary spent both legible slots echoing the two cards below it,
-   * and the four games nothing else on Home mentions were all off-screen to the right.
-   *
-   * Anchored ahead of it, the same strip reads today, then the rest of the week. One chip still
-   * overlaps Next game, which is unavoidable and fine: it is the fixture the whole page is about.
-   * The finals do not disappear, they sit one swipe to the left, which is where a result you have
-   * already been shown in a card belongs.
+   * Last game and Next game are the next two cards down the page and render the two fixtures
+   * either side of "now" in full. A phone shows under three chips, so anchoring on the last final
+   * spends both legible slots echoing those cards and pushes the games nothing else on Home
+   * mentions off-screen. Anchored ahead, the strip reads today and then the rest of the week, and
+   * the finals sit one swipe to the left, where a result already shown in a card belongs.
    *
    * Falls back to the last final when nothing is upcoming, which is the last day of a season and
    * the one time a strip of results is the whole story.
@@ -333,23 +289,19 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
       .map(g => ({ kind: 'game', id: g.id, game: g }))
     const rest: StripItem[] = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
       .map(g => ({ kind: 'game', id: g.id, game: g }))
-    // The postseason fills whatever is left of the four upcoming slots, which all through the
-    // regular season is nothing and from Sep 7 is all of them.
+    // The postseason fills whatever is left of the four upcoming slots: none of them during the
+    // regular season, all of them once it ends.
     //
-    // IF-NECESSARY GAMES ARE ON THE STRIP, AND THIS USED TO SKIP THEM. The reasoning was slot
-    // scarcity: four is not many, and one spent on a game that may never be played pushes off a
-    // game that certainly will. What that missed is that `postseason` is DATE-SORTED, so the
-    // slots already go to the nearest fixtures, and the conditional games it was dropping were
-    // the near ones. On Sep 12, 2026 the strip ran tonight's semifinal game 2 and then jumped
-    // to the championship on Sep 16, with the possible game 3 on Sep 14 — the game the whole
-    // evening was about to decide the existence of — nowhere on the page. "Is there baseball on
-    // Monday" is the question a reader opens Home with, and "maybe, depending on tonight" is a
-    // better answer than silence. The chip says so; see `PostseasonChip`.
+    // IF-NECESSARY GAMES ARE ON THE STRIP. `postseason` is DATE-SORTED, so the slots go to the
+    // nearest fixtures, and a conditional game is usually one of them: skipping it runs tonight's
+    // game straight into the next round, with the possible decider that tonight's result settles
+    // nowhere on the page. "Is there baseball on Monday" is the question a reader opens Home with,
+    // and "maybe, depending on tonight" is a better answer than silence. The chip says so; see
+    // `PostseasonChip`.
     //
-    // Nothing is needed to keep a certain game ahead of a conditional one on the same day,
-    // because no two postseason games share a date. And `postseasonScheduleRows` drops a
-    // conditional game outright once its series is decided, so this can never show a game that
-    // will not be played.
+    // Nothing is needed to keep a certain game ahead of a conditional one on the same day, because
+    // no two postseason games share a date. And `postseasonScheduleRows` drops a conditional game
+    // outright once its series is decided, so this can never show a game that will not be played.
     for (const r of postseason) {
       if (rest.length >= UPCOMING) break
       rest.push({ kind: 'post', id: r.id, row: r })
@@ -360,28 +312,12 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
     }
   }, [games, postseason])
 
-  // Where the strip is. Nothing is DRAWN from this any more, now that both edge gradients are
-  // gone; it gates the two desktop hover-scroll zones, neither of which should be offered at
-  // the end it would scroll towards.
+  // Where the strip is scrolled to. Nothing is drawn from this: it gates the two desktop
+  // hover-scroll zones, neither of which should be offered at the end it would scroll towards.
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(true)
-  // BOTH FADES ARE THE SAME PLAIN VIGNETTE, and the left one is not allowed to grow to
-  // cover the chip behind it.
-  //
-  // It was, for one version: the mask measured the clipped leading chip and held SOLID across
-  // the whole of it, on the theory that half a game card reads as a rendering fault. What that
-  // actually buys is worse than the thing it was hiding, in two ways a static mock never shows.
-  // At rest the strip is pinned at max scroll (once the rest of the season fits on screen there
-  // is nowhere further to go), the leading chip is cut wherever that arithmetic leaves it, and
-  // the band covering it is then ~90px of flat background between the page's left margin and
-  // the first legible chip: the scoreboard reads as inset from a column every other block on
-  // Home fills. And in motion the width tracks the clip, so a chip is fully hidden the instant
-  // its left edge crosses the edge and reappears whole on the way back. Chips do not scroll off
-  // this strip, they blink out of it.
-  //
-  // A partly scrolled card under a soft edge is what every scroll strip on the web looks like,
-  // it is what the right-hand side of THIS one has always looked like, and it is the half
-  // nobody has ever complained about. The two sides are now the same 24px in both directions.
+  // Reads the scroll position into `atStart` / `atEnd`. A pure read, so it is safe to call from
+  // anywhere, including outside the placement guard below.
   const syncEdges = useCallback(() => {
     const c = scrollRef.current
     if (!c) return
@@ -389,8 +325,8 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
     setAtEnd(c.scrollLeft + c.clientWidth >= c.scrollWidth - 1)
   }, [])
 
-  // The reader taking the strip over. Set from real input only, never from onScroll — that
-  // fires for our own placement too, which would cancel the anchoring on the first frame.
+  // The reader taking the strip over. Set from real input only, never from onScroll: that fires
+  // for our own placement too, which would cancel the anchoring on the first frame.
   const takenOverRef = useRef(false)
   const takeOver = useCallback(() => { takenOverRef.current = true }, [])
 
@@ -418,25 +354,20 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
   }, [stopAutoScroll, syncEdges, takeOver])
   useEffect(() => stopAutoScroll, [stopAutoScroll])
 
-  // Put the anchor chip at the container's left edge, and keep putting it there until either
-  // the layout stops moving or the reader scrolls.
+  // Put the anchor chip at the container's left edge, and keep putting it there until either the
+  // layout stops moving or the reader scrolls.
   //
-  // One placement is not enough, however late it is deferred: the chips keep resizing after
-  // first paint as their team logos decode and the webfont swaps in, so whatever we measure
-  // is a snapshot of a strip that is still growing. That is why the landing spot came out a
-  // little different on every reload — it depended on which of those had finished. Instead of
-  // guessing a settling time, re-run the placement on each layout change the strip reports.
-  // The math is a delta from where the anchor currently sits, so re-running is idempotent:
-  // once it is in place the delta is zero and every later call is a no-op.
+  // One placement is not enough, however late it is deferred: the chips keep resizing after first
+  // paint as their team logos decode and the webfont swaps in, so any single measurement is of a
+  // strip still growing and the landing spot would differ by reload. Instead of guessing a
+  // settling time, re-run the placement on each layout change the strip reports. The math is a
+  // delta from where the anchor currently sits, so re-running is idempotent: once it is in place
+  // the delta is zero and every later call is a no-op.
   //
-  // Layout effect, not a plain one, and that matters twice on a reload. A useEffect runs
-  // AFTER the browser paints, so the reader got one frame of the strip sitting at scrollLeft
-  // 0 — the oldest finals — before it jumped to the anchor, which is the flash of a
-  // different running order. It also meant the first syncEdges landed after that paint, so
-  // the edge fades popped in a frame late over chips that had already drawn. Running before
-  // paint does the placement and the fade state in the same pass, and the reader only ever
-  // sees the settled strip. ResizeObserver callbacks are delivered pre-paint too, so the
-  // later corrections are invisible the same way.
+  // A layout effect, not a plain one. A useEffect runs AFTER the browser paints, so the reader
+  // would get one frame of the strip at scrollLeft 0 (the oldest finals) before it jumps to the
+  // anchor. ResizeObserver callbacks are delivered before paint too, so the later corrections are
+  // invisible the same way.
   useLayoutEffect(() => {
     const c = scrollRef.current
     if (!c || strip.length === 0) return
@@ -445,38 +376,30 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
       const el = scrollRef.current
       const anchor = el?.children[anchorIndex] as HTMLElement | undefined
       if (!el || !anchor || takenOverRef.current) return
-      // FLUSH WITH THE CONTAINER'S LEFT EDGE, which is the page's own text column: the anchor
-      // chip starts exactly where Next game, Last game and every card below it start. It used
-      // to be inset by the width of a leading gradient, so that the older game peeking behind
-      // it had somewhere to sit; the cost was that on a phone the scoreboard was the one block
-      // on Home indented from the column everything else shares. Both gradients are gone (see
-      // the note where they used to render), so there is nothing left for an inset to buy.
+      // No inset: the anchor chip sits flush with the container's left edge, which is the page's own
+      // text column, so it starts exactly where every card below it starts.
       const inset = 0
-      // A rect and `scrollLeft` are the same pixel again, so this is plain subtraction. It was
-      // not: the section used to sit in a `zoom: 1.4` wrapper, which getBoundingClientRect
-      // reports AFTER and scrollLeft counts BEFORE, so the raw difference undershot the scroll
-      // by a factor of the zoom and the strip opened 51px off. The zoom is gone (ROADMAP-WPBL
-      // item 0), and with it the whole class of bug. Do not reintroduce a scale here that only
-      // one of these two terms can see.
+      // A rect and `scrollLeft` are the same pixel here, so this is plain subtraction. Do not put a
+      // scale (a CSS `zoom` on an ancestor, say) where only one of the two terms can see it:
+      // getBoundingClientRect reports after it and scrollLeft before, and the strip opens off by the
+      // scale factor.
       const delta = anchor.getBoundingClientRect().left - el.getBoundingClientRect().left - inset
       if (Math.abs(delta) > 0.5) el.scrollLeft += delta
 
-      // AT MAX SCROLL THE CUT CHIP MOVES TO THE RIGHT-HAND EDGE, because a chip cut on its left
-      // is the one thing on this strip that reads as broken.
+      // AT MAX SCROLL THE CUT CHIP MOVES TO THE RIGHT-HAND EDGE, because a chip cut on its left is the
+      // one thing on this strip that reads as broken.
       //
-      // Once the rest of the season fits on screen the anchor cannot reach its inset: the strip
-      // runs out of scroll first and stops wherever the arithmetic left it, which put a game
-      // cut through the middle at the leading edge. A chip cut on the LEFT loses its date, its
-      // badges and its clubs and keeps only the score column, so the page opened with two bare
-      // numerals stacked in the corner. Cut the same chip on the RIGHT and it keeps the eyebrow,
-      // both badges and both abbreviations and loses only the scores, which reads as a card
-      // continuing past the edge, which is what it is. So give back the part-chip: one whole
-      // game more on the left, the last scheduled game part-shown under the trailing fade.
+      // Once the rest of the season fits on screen the anchor cannot reach the left edge: the strip
+      // runs out of scroll first and can leave a chip cut through the middle at the leading edge. A
+      // chip cut on the LEFT loses its date, its badges and its clubs and keeps only the score column.
+      // Cut on the RIGHT it keeps the eyebrow, both badges and both abbreviations and loses only the
+      // scores, which reads as a card continuing past the edge. So give back the part-chip: one whole
+      // game more on the left, and the last one part-shown on the right.
       //
-      // Only at max scroll, where the anchor cannot reach the left edge however hard this
-      // pushes. Everywhere else the placement above has already put a whole chip there, and
-      // re-running is idempotent: the next pass pushes back to max and lands here again, in the
-      // same frame, so nothing is ever painted mid-way.
+      // Only at max scroll, where the anchor cannot reach the left edge however hard this pushes.
+      // Everywhere else the placement above has already put a whole chip there, and re-running is
+      // idempotent: the next pass pushes back to max and lands here again in the same frame, so
+      // nothing is ever painted mid-way.
       const maxScroll = el.scrollWidth - el.clientWidth
       if (maxScroll > 0 && el.scrollLeft >= maxScroll - 0.5) {
         const edge = el.getBoundingClientRect().left
@@ -492,22 +415,14 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
     }
 
     place()
-    // Watching the chips as well as the container is the point: a logo decoding changes a
-    // chip's width without changing the container's.
+    // Watching the chips as well as the container is the point: a logo decoding changes a chip's
+    // width without changing the container's.
     //
-    // AND `syncEdges` RUNS OUTSIDE `place`, which returns early once the reader has taken the
-    // strip over. That guard is right for the placement (their scroll position is theirs) and
-    // wrong for the fade state, which is only ever a reading of where the strip already is.
-    // Without this, widening a window until the strip stops overflowing left both gradients
-    // painted over a strip with nothing behind them, for as long as the page stayed open.
     // `syncEdges` RUNS OUTSIDE `place`, which returns early once the reader has taken the strip
-    // over. That guard is right for the placement, since their scroll position is theirs to
-    // keep, and wrong for the fade state, which is only ever a reading of where the strip
-    // already is. Inside the guard, a strip that stopped overflowing (a widened window, a
-    // shorter fixture list) would keep both gradients painted over nothing until the next
-    // scroll. Not a bug anyone has reported and not one that could be reproduced here, because
-    // this harness's viewport emulation fires neither resize nor ResizeObserver; it is simply
-    // that a pure read has no business behind a guard about intent.
+    // over. That guard is right for the placement (their scroll position is theirs to keep) and
+    // wrong for the edge state, which is only ever a reading of where the strip already is: behind
+    // the guard, a strip that stops overflowing (a widened window, a shorter fixture list) would keep
+    // offering a hover-scroll zone toward an end it cannot reach.
     const ro = new ResizeObserver(() => { place(); syncEdges() })
     ro.observe(c)
     for (const chip of Array.from(c.children)) ro.observe(chip)
@@ -516,30 +431,20 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
 
   if (strip.length === 0) return null
   return (
-    // 12px UNDER IT ON A PHONE, NOT 20. Measured on the running page: every card on the mobile
-    // feed is 12px from the next one (the grid's own gap), and this one section sat 20px clear of
-    // what follows it, which is the gap the eye reads as "and now something else" on a page where
-    // the scoreboard is the same kind of block as the cards under it. That is truer than ever with
-    // the league title now sitting above the strip: the title frames the page, and the scoreboard
-    // is the first content block, so it flows into the cards below at the same 12px they use
-    // between themselves. The desktop keeps SECTION_GAP, where this row separates a full-width
-    // strip from a two-column grid and the extra 8px is doing that work.
+    // 12px UNDER IT ON A PHONE, NOT SECTION_GAP. Every card on the mobile feed is 12px from the next
+    // (the grid's own gap), and the scoreboard is the same kind of block as the cards under it, so
+    // it flows into them at the same 12px. The desktop keeps SECTION_GAP, where this row separates a
+    // full-width strip from a two-column grid and the extra room is doing that work.
     <Box sx={{ mb: { xs: 1.5, sm: SECTION_GAP } }}>
-      {/* Match the card-title treatment (Next game / Standings / Teams) so every section
-          on the feed announces itself the same way, instead of a lone tiny eyebrow. That now
-          includes the TAG: the scoreboard is the only section on Home that is not a
-          SectionCard, so without this it would be the one section a screen reader could not
-          jump to.
+      {/* The card-title treatment (Next game / Teams / Compare), so every section on the feed
+          announces itself the same way, and a real `h2`: the scoreboard is the only section on
+          Home that is not a SectionCard, so without it a screen reader could not jump here.
 
-          READ BUT NOT DRAWN ON A PHONE, for the reason the page's `h1` is (see the note
-          there): a horizontal row of tiles, each carrying a date, a time and two clubs with
-          their scores, is a scoreboard, and it is the only thing on the page with that shape.
-          The word is 26px of the ~300px above the first card and it labels the one section
-          nobody needs labelled. It stays in the DOM and in the accessibility tree, because the
-          reason it became a real `h2` in the first place was that this section was otherwise
-          unreachable by heading navigation, and that is exactly as true when it is not drawn.
-          Drawn from `sm` up, where the page is a grid rather than a scroll and the section
-          headings are what tell the two columns apart. */}
+          READ BUT NOT DRAWN ON A PHONE, for the reason the page's `h1` is (see the note there): a
+          row of tiles, each with a date, two clubs and their scores, is already recognisably a
+          scoreboard, and the word costs room above the first card. It stays in the DOM and the
+          accessibility tree, which is what the heading is for. Drawn from `sm` up, where the page
+          is a grid rather than a scroll and section headings tell the two columns apart. */}
       <Typography component="h2" sx={{
         fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, mb: 1,
         ...HIDE_ON_PHONE,
@@ -549,13 +454,12 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
           onPointerDown={takeOver} onWheel={takeOver} onKeyDown={takeOver} sx={{
           display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
           // THE SCROLLER MUST BE A CONTAINING BLOCK, and the bottom nav is what breaks without it.
-          // `overflow` only clips an absolutely positioned descendant whose containing block is
-          // inside the scroller. PostseasonChip's VISUALLY_HIDDEN ", if necessary" is absolute,
-          // so it resolved against the wrapper above instead, kept its static position at the
-          // far end of the scrolled row (x≈1009 on a 375px phone) and widened the DOCUMENT. A
-          // phone then grows its layout viewport to fit (1010x2187), and every `position: fixed`
-          // element is placed against that: the bottom bar dropped to the foot of the page and
-          // centred off to the right, the moment the bracket games loaded, on Home only.
+          // `overflow` only clips an absolutely positioned descendant whose containing block is inside the
+          // scroller. PostseasonChip's VISUALLY_HIDDEN ", if necessary" is absolute, so without this it
+          // resolves against the wrapper above, keeps its static position at the far end of the scrolled
+          // row and widens the DOCUMENT. A phone then grows its layout viewport to fit, and every
+          // `position: fixed` element is placed against that: the bottom bar lands at the foot of the page
+          // and off to the right. Anything absolutely positioned inside a scroller needs the same.
           position: 'relative',
           // No scroll-snap: the strip stays wherever it's left rather than locking to a chip when
           // scrolling settles (or when desktop hover-scroll ends). Initial placement is done by
@@ -567,14 +471,11 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
             ? <GameChip key={item.id} game={item.game} teams={teams} onOpen={() => onOpenGame(item.game)} />
             : <PostseasonChip key={item.id} row={item.row} />)}
         </Box>
-        {/* NO EDGE FADES, EITHER SIDE. The leading one went because the anchor chip is flush with
-            the page's column now, so a gradient there paints over its own date. Keeping the
-            trailing one alone then left the strip fading on one side and cutting hard on the
-            other, which reads as a bug rather than as a style: a reader does not know the two
-            edges mean different things, they just see one that is finished and one that is not.
-            Symmetry is worth more here than either fade was, and the chip running off the right
-            keeps its eyebrow, both badges and both clubs and loses only the score column, which
-            is a card continuing past the edge, which is what it is. */}
+        {/* NO EDGE FADES. A leading fade paints over the anchor chip's date, since the chip sits
+            flush with the page's column; a trailing fade alone leaves one edge fading and the
+            other cutting hard, which reads as a bug rather than a style. A chip running off the
+            right keeps its eyebrow, both badges and both clubs and loses only the score column,
+            which reads as a card continuing past the edge. */}
         {/* Hover-to-scroll zones over each edge (desktop only; touch keeps swipe). */}
         {!atStart && (
           <Box onMouseEnter={() => startAutoScroll(-1)} onMouseLeave={stopAutoScroll}
@@ -597,31 +498,25 @@ function Countdown({ target }: { target: number }) {
   const [now, setNow] = useState(() => Date.now())
   const isDark = useWpblDark()
   // Once every 15s, not once a second. The label is minute-granular (`countdownLabel`), so a
-  // per-second timer was re-rendering the card 59 times out of 60 to paint the same string,
-  // on a page a phone leaves open. 15s keeps the worst lag behind a minute boundary short
-  // enough that nobody catches it.
+  // per-second timer would re-render the card 59 times in 60 to paint the same string, on a page a
+  // phone leaves open. 15s keeps the worst lag behind a minute boundary short enough that nobody
+  // catches it.
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 15000)
     return () => clearInterval(id)
   }, [])
-  // IN THE HEADER LINE, BESIDE THE CARD TITLE, rather than as a block under the matchup.
-  //
-  // It has now been in three places, each time for less room: a headline row of its own under
-  // the team rows, then a tinted block under them beside the start time, now the header's
-  // right-hand slot. What moved it the last time is the phone: the block was a 34px band plus
-  // 12px of margin inside a card that already scrolls, spent on a line that duplicates nothing
-  // but says the same thing the header row had space for. "Next game ... Today, 4:30 PM ·
-  // in 5h 52m" is one sentence, and the header is where a card says what it is about.
-  //
-  // The accent and the tint stay, so the live figure is still the thing the eye lands on in a
-  // row that is otherwise a title and a muted date.
+  // IN THE HEADER LINE, BESIDE THE CARD TITLE, rather than as a block under the matchup. A block
+  // costs a band plus its margin inside a card that already scrolls on a phone, to say what the
+  // header row has room for: "Next game ... Today, 4:30 PM · in 5h 52m" is one sentence, and the
+  // header is where a card says what it is about. The accent and the tint keep the live figure the
+  // thing the eye lands on in a row that is otherwise a title and a muted date.
   //
   // THE CHIP IS DRAWN IN HERE, not by the caller, because it has to be able to not exist. Once
   // the start time is far enough past that `countdownLabel` will no longer assert a start it
-  // cannot confirm, the whole tinted chip goes with it; wrapped from outside, a null label left
-  // an empty tinted box on the card, which reads as a value that failed to load rather than as
-  // one deliberately not claimed. The header then falls back to the date alone, which is all
-  // we actually know.
+  // cannot confirm, the whole tinted chip goes with it; wrapped from outside, a null label would
+  // leave an empty tinted box on the card, which reads as a value that failed to load rather than
+  // one deliberately not claimed. The header then falls back to the date alone, which is all we
+  // actually know.
   const label = countdownLabel(target, now)
   if (!label) return null
   return (
@@ -636,9 +531,9 @@ function Countdown({ target }: { target: number }) {
   )
 }
 
-// Build a downloadable .ics so anyone can get a calendar reminder even where Web Push
-// isn't available (most mobile browsers) — no account needed. Mirrors the push timing
-// with a 30-min-before alarm. Timed event when we know first pitch, else an all-day event.
+// Build a downloadable .ics so anyone can get a calendar reminder where Web Push isn't
+// available (most mobile browsers), with no account needed. Mirrors the push timing with a
+// 30-min-before alarm: a timed event when we know first pitch, else an all-day event.
 function makeGameIcs(game: WpblGame, title: string, startMs: number | null): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   const utc = (d: Date) =>
@@ -667,16 +562,13 @@ function downloadIcs(filename: string, ics: string) {
   URL.revokeObjectURL(url)
 }
 
-// Opt-in row under the matchup: a Web Push reminder before every WPBL game's first pitch.
-//
-// It used to opt into THIS game only, one wpbl_game_reminders row at a time, which meant
-// coming back to tap it again after every game and no way to say "all of them". It is now a
+// Opt-in row under the matchup: a Web Push reminder before every WPBL game's first pitch. A
 // standing preference (user_preferences.notify_wpbl_all_games) that the server cron
-// (scripts/send-wpbl-game-start.mjs) expands into a reminder for each scheduled game. Old
-// per-game rows are still honoured by that sender, so nobody lost one.
+// (scripts/send-wpbl-game-start.mjs) expands into a reminder for each scheduled game; that
+// sender still honours legacy per-game wpbl_game_reminders rows.
 //
-// Signed out, the whole row prompts sign-in — Web Push is user-scoped, so there's no
-// anonymous reminder to store.
+// Signed out, the whole row prompts sign-in: Web Push is user-scoped, so there's no anonymous
+// reminder to store.
 function GameReminderRow({ game, away, home, startMs }: {
   game: WpblGame; away?: WpblTeam; home?: WpblTeam; startMs: number | null
 }) {
@@ -685,8 +577,8 @@ function GameReminderRow({ game, away, home, startMs }: {
   const supported  = pushSupported()
   const configured = pushConfigured()
 
-  // Seed from the session cache so a remount (swiping tabs unmounts Home) shows the
-  // right switch state on the first frame — no off→on flicker, no per-swipe refetch.
+  // Seed from the session cache so a remount shows the right switch state on the first frame:
+  // no off-to-on flicker, no refetch per visit.
   const [on,   setOn]   = useState(() => (user ? getCachedAllGamesPref() : false))
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState(() => !user)
@@ -725,9 +617,9 @@ function GameReminderRow({ game, away, home, startMs }: {
     setBusy(false)
   }
 
-  // Where Web Push can't work at all (most mobile browsers, or an unconfigured deploy),
-  // don't dead-end on "this browser can't do notifications" — offer a calendar download
-  // instead. It needs no account and works everywhere, with the same 30-min heads-up.
+  // Where Web Push can't work at all (most mobile browsers, or an unconfigured deploy), offer a
+  // calendar download instead of dead-ending on "this browser can't do notifications". It needs no
+  // account and works everywhere, with the same 30-min heads-up.
   if (!supported || !configured) {
     const title = `${away ? wpblFullName(away) : 'Away'} @ ${home ? wpblFullName(home) : 'Home'} · WPBL`
     return (
@@ -748,26 +640,16 @@ function GameReminderRow({ game, away, home, startMs }: {
   // through to sign-in (a switch has nothing to toggle yet).
   const blocked = !!user && (!supported || !configured || perm === 'denied')
 
-  // ONE LINE, IN EVERY STATE, AND THE STRING HAS A MEASURED BUDGET.
+  // ONE LINE, IN EVERY STATE, AND THE STRING HAS A MEASURED BUDGET: 183px, which is a 320px phone
+  // at the reader's Large text setting minus the bell, the switch and two gaps. Every string below
+  // is measured against it, which is why they are as short as they are: the switch is the verb,
+  // and the line only says what it turns on. Leave headroom, because a string that fits a mock-up
+  // exactly wraps on a real handset. Anything over budget ellipsises rather than wrapping, so it
+  // cannot silently grow a second line, and `title` carries the full sentence.
   //
-  // This row used to be a title over a hint, and the hint was only supposed to appear when the
-  // switch could not speak for itself. It cost two lines anyway, because the TITLE wrapped:
-  // "Remind me 30 min before every game" measures 242px against the 241px this row has beside a
-  // switch on a 375px phone. One pixel, so it looked fine in a mock-up and wrapped on a real
-  // handset, and the reader never sees the fallback state that the second line was rationed for.
-  //
-  // The budget is 183px, measured in the running app: a 320px phone at the reader's Large text
-  // setting, minus the bell, the switch and two gaps. Every string below is measured against
-  // that, which is why they are as short as they are and why the offer no longer opens with
-  // "Remind me" — 195px for the "every game" half alone left nothing for the cadence. The
-  // switch is the verb now; the line says what it turns on. "Every game" became "All games"
-  // for 15px of headroom, because the version that fit EXACTLY is how this row got here.
-  // Anything over budget ellipsises rather than wrapping, so it cannot silently grow a second
-  // line again, and `title` carries the full sentence.
-  //
-  // The status REPLACES the offer instead of stacking under it. A reader whose browser has
-  // blocked notifications does not need to be told what she would get; she needs to know why
-  // the switch beside her is dead.
+  // The status REPLACES the offer instead of stacking under it. A reader whose browser has blocked
+  // notifications does not need to be told what they would get; they need to know why the switch
+  // beside them is dead.
   //
   // (`!supported` and `!configured` are unreachable here: they return the calendar row above.)
   let label = 'All games, 30 min early'
@@ -835,9 +717,7 @@ function seasonSeries(games: WpblGame[], homeId: string, awayId: string): { home
 // HOW MANY RESULTS THE FORM STRIP DRAWS, AND WHY IT IS FIFTEEN.
 //
 // It is the whole season, and it is also the most that provably fits. A WPBL regular season is
-// 15 games a club, so today this shows every one of them and the strip is a season at a glance
-// rather than a peephole onto the last five, which is what it was and which left two thirds of
-// the row empty on a desktop.
+// 15 games a club, so the strip is a season at a glance rather than a peephole onto the last few.
 //
 // The number is a WIDTH, though, not a fact about the schedule, so it is derived from the
 // narrowest screen the site supports rather than from the fixture list. At 320px: 32px of page
@@ -875,25 +755,18 @@ function recentForm(games: WpblGame[], teamId: string, beforeMs: number, n = FOR
  * What Next game says about the fixture, under the clock: the series it belongs to, and the
  * one sentence describing where that series stands.
  *
- * THE POSTSEASON IS A DIFFERENT SERIES, AND THIS CARD USED TO SHOW THE WRONG ONE.
- * `seasonSeries` filters through `countsInStandings`, so it only ever counts regular-season
- * meetings. From Sep 9 that made the loudest card on the page read "Season series tied 2-2"
- * during a semifinal: the August head-to-head, on a card whose entire subject is the game
- * about to be played, with no word of which game of the series it is or who leads it. The
- * card directly BENEATH it got this right the whole time, because RecapCard has been
- * series-aware since #1b shipped and Home is the surface that pass did not reach, so the two
- * would have contradicted each other 200px apart.
+ * THE POSTSEASON IS A DIFFERENT SERIES. `seasonSeries` filters through `countsInStandings`, so it
+ * only ever counts regular-season meetings: during a semifinal it would read "Season series tied
+ * 2-2", the summer's head-to-head, on a card whose entire subject is the game about to be played,
+ * while RecapCard directly beneath it names the playoff series.
  *
  * It fails toward the regular season by construction: `seriesContext` returns null for
  * anything `countsInStandings` accepts, and that helper counts everything it does not
- * recognise, so a feed that renames its game types gives this card exactly the reading it has
- * today rather than a blank one.
+ * recognise, so a feed that renames its game types gives this card the regular-season reading
+ * rather than a blank one.
  *
- * A PURE FUNCTION AND EXPORTED, WHICH IT WOULD NOT OTHERWISE NEED TO BE. This ships blind:
- * the mirror holds no postseason row until the semifinals are seeded on Sep 6, so there is no
- * way to open this card and look at it before the fortnight it was written for. The test is
- * the only thing standing between "Home is series-aware" and finding out on Sep 9 that it is
- * not, which is the same reasoning series.test.ts opens with.
+ * A PURE FUNCTION AND EXPORTED, so it can be tested without rendering Home: the postseason branch
+ * cannot be looked at on the page outside the postseason.
  */
 export function nextGameContext(
   game: WpblGame,
@@ -919,22 +792,20 @@ export function nextGameContext(
   }
 
   /**
-   * The two clubs' current runs, folded into the series line rather than drawn as their own
-   * block of dots.
+   * The two clubs' current runs, folded into the series line rather than drawn as their own block
+   * of dots.
    *
-   * WHY THE DOTS WENT. This card had THREE stacked answers to one question, all at about the
-   * same weight: the season-series line, a strip of ten dots per club, and the tale of the
-   * tape. Three comparisons is not a hierarchy, it is a list, and the reader has no reason to
-   * start at any of them. The dots survive where they earn their space, on the Teams page,
-   * where they sit in a table row and the shape of a season is the column's whole job.
+   * NO DOTS HERE. A season-series line, a strip of dots per club and the tale of the tape at about
+   * the same weight are three answers to one question, which is a list rather than a hierarchy.
+   * The dots earn their space on the Teams page, where they sit in a table row and the shape of a
+   * season is the column's whole job.
    *
-   * The streak is the part a strip of dots is slowest to yield and the part this card actually
-   * wanted, so it is kept as words on a line that was already there. Three and up, which is the
-   * same bar the Teams page uses for the same fact: below three it is something the last two
-   * results already say, and at three it is the headline about the club.
+   * The streak is the part a strip of dots is slowest to yield and the part this card wants, so it
+   * is kept as words on a line that is already there. Three and up, the same bar the Teams page
+   * uses for the same fact: below three it is something the last two results already say.
    *
-   * FORM IS STILL COMPUTED FROM THE SAME `recentForm`, so nothing here can disagree with the
-   * strip on the Teams page about what a club's run is.
+   * FORM IS COMPUTED FROM THE SAME `recentForm`, so nothing here can disagree with the strip on the
+   * Teams page about what a club's run is.
    */
   const streakClause = (t: WpblTeam | undefined): string | null => {
     if (!t) return null
@@ -961,12 +832,8 @@ export function nextGameContext(
 }
 
 /**
- * Sizes on this card come from `TYPE_SCALE`, like the rest of the page.
- *
- * The audit that produced that scale started here: this one card carried TEN distinct sizes,
- * six of them between 0.72rem and 0.85rem, which is six steps a reader cannot tell apart doing
- * six different jobs. The scale, and the test that keeps a raw rem literal out of this file,
- * live in ui.tsx.
+ * Sizes on this card come from `TYPE_SCALE`, like the rest of the page. The scale, and the test
+ * that keeps a raw rem literal out of this file, live in ui.tsx.
  */
 function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
@@ -996,15 +863,13 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
     return (id: string) => by.get(id) ?? null
   }, [teams, games])
 
-  // NO FEED GAME AHEAD IS NOT THE SAME AS NO NEXT GAME, and from Sep 7 it stopped being the
-  // same for six weeks. `wpbl_games` ends on Sep 6 and stays there until the league publishes
-  // the bracket, so this card returned null and left a hole in the grid on the one page a
-  // reader opens to find out what is on next, in the week they are most likely to ask. The
-  // scoreboard strip above it was already carrying the postseason (v1.67.0); this is the same
-  // rows, in the shape this card uses.
+  // NO FEED GAME AHEAD IS NOT THE SAME AS NO NEXT GAME. Between the regular season and the league
+  // publishing the bracket, `wpbl_games` has nothing ahead, and a null card leaves a hole in the
+  // grid on the page a reader opens to find out what is on next. The scoreboard strip above carries
+  // the same dated rows; this draws them in the shape this card uses.
   //
-  // It retires itself the same way the strip's do: `postseasonScheduleRows` drops a row as soon
-  // as the feed carries a real game on its date, so the branch below stops being reached
+  // It retires itself the same way the strip's rows do: `postseasonScheduleRows` drops a row as
+  // soon as the feed carries a real game on its date, so the branch below stops being reached
   // without anything having to be deleted.
   if (!next) return <NextPostseasonCard rows={postRows} teams={teams} games={games} />
   const g = next.g
@@ -1016,87 +881,68 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
   const { postseason, line: contextLine } = nextGameContext(g, games, teams, next.ms)
 
   /**
-   * The matchup, at headline weight, which it was not.
+   * The matchup, at headline weight.
    *
-   * IT USED TO BE THE SAME ROW AS LastGameCard's `scoreRow`, tier for tier, on the reasoning
-   * that the two cards sit in one column and should not disagree about how a club is drawn.
-   * That symmetry is given up here deliberately, because the two rows carry different weight
-   * of fact: LastGameCard's trailing number is the SCORE, which is the whole point of a game
-   * that has been played, and this one's is a win-loss record, which is the least important
-   * thing on a card about a game that has not.
+   * NOT THE SAME ROW AS LastGameCard's `scoreRow`, deliberately. The two rows carry different
+   * weight of fact: LastGameCard's trailing number is the SCORE, which is the whole point of a game
+   * that has been played, and this one's is a win-loss record, the least important thing on a card
+   * about a game that has not. So the names are 1.2rem/700 and the record 0.72rem/600 in secondary
+   * ink, which is the order anyone reads them in.
    *
-   * Measured before the change, every text node in this card: the records were 16px/800, the
-   * largest and heaviest text on it, ahead of the card's own title at 15.2/700 and the club
-   * names at 14.4/600. The eye landed on "6-7" and had to work back to find out whose it was.
-   * Names are now 1.2rem/700 and the record 0.72rem/600 in secondary ink, which is the order
-   * anyone reads them in.
+   * SIZE CARRIES THE HIERARCHY, NOT WEIGHT. 800 at 1.2rem across a saturated band is a poster
+   * rather than a card: heavy enough that the letterforms close up and the row reads as a block of
+   * ink before it reads as a club. 700 is the weight of the card's own title three steps down in
+   * size, which is the point. Not a rule for the section: LastGameCard's winning club stays at 800
+   * at a smaller size, where the weight is what says which side won.
    *
-   * SIZE CARRIES THE HIERARCHY, NOT WEIGHT. The names were 800 until the band went full bleed,
-   * and 800 at 1.2rem across a saturated field is a poster rather than a card: heavy enough
-   * that the letterforms close up and the row reads as a block of ink before it reads as a
-   * club. 700 is the same weight as the card's own title three steps down in size, which is
-   * the point, the names are bigger than everything here and no louder than they need to be.
-   * Do not read this as a rule for the section: LastGameCard's winning club stays at 800 at a
-   * smaller size, where the weight is not decoration but the thing saying which side won.
-   *
-   * NO "AWAY" AND "HOME" WORDS. Two 10.9px caps per card for something the row order already
-   * says, and the section has an idiom for it: away on top, "@" before the home club, which is
-   * what every schedule row draws. Reusing it costs one glyph instead of two labels.
+   * NO "AWAY" AND "HOME" WORDS, and no "@": the row order says it (see the note on the rows below).
    */
   const teamRow = (t: WpblTeam | undefined) => {
     const record = t ? recordOf(t.id) : null
     return (
-      // THE ROW WEARS THE CLUB'S COLOUR, which is the one thing this page had none of.
-      // Measured before: 2.31% of the visible page carried any saturated colour at all, and
-      // the largest coloured object on it was a 55px badge, so four clubs with real
-      // identities were told apart by a logo the size of a fingernail and nothing else. Two
-      // bands here are worth more than that on their own.
+      // THE ROW WEARS THE CLUB'S COLOUR, so four clubs with real identities are told apart by more
+      // than a badge the size of a fingernail.
       //
-      // BOTH ROWS, EVEN THOUGH ONE CLUB IS AT HOME. This card is a fixture and the two clubs
-      // are equals in it; Last Game tints the winner alone, because that card is a result and
-      // there the colour is carrying which way it went. Same device, two meanings, and the
-      // difference is the point rather than an inconsistency.
+      // BOTH ROWS, EVEN THOUGH ONE CLUB IS AT HOME. This card is a fixture and the two clubs are
+      // equals in it; Last Game tints the winner alone, because that card is a result and there the
+      // colour is carrying which way it went. Same device, two meanings.
       //
-      // NO RADIUS AND NO MARGIN OF ITS OWN: the two rows are cut out of one band (below), so
-      // the shape belongs to the band and each row is just a field of colour inside it. Drawn
-      // as two separate pills with a gap between them, two identically shaped tinted rects
-      // read as two unrelated chips that happen to be stacked, which is the opposite of what a
-      // fixture is.
+      // NO RADIUS AND NO MARGIN OF ITS OWN: the two rows are cut out of one band (below), so the shape
+      // belongs to the band and each row is just a field of colour inside it. Two separately shaped
+      // pills with a gap between them read as unrelated chips that happen to be stacked, the opposite
+      // of what a fixture is.
       <Box sx={{
         display: 'flex', alignItems: 'center', gap: 1,
         px: 2, py: 1,
         bgcolor: t ? wpblSurface(t.id, isDark) : 'transparent',
       }}>
         {t && <TeamBadge team={t} size={30} />}
-        {/* NO "@", AND NOTHING IN ITS PLACE. It marked the home club, and it cost more than it
-            said: inline it pushed only one of the two names (21px apart, measured), and given a
-            reserved slot to fix that it became a column of mostly nothing on a card whose whole
-            point is two big names.
+        {/* NO "@", AND NOTHING IN ITS PLACE. Inline it pushes only one of the two names out of
+            line, and given a reserved slot it becomes a column of mostly nothing on a card whose
+            whole point is two big names.
 
             Away on top, home underneath, which is the order the Scoreboard strip at the top of
-            this same page already uses with no marker at all, and the order every schedule in
-            the sport is written in. The full fixture with its "@" is one tap away on the game
-            page. What is lost is that a reader who does not know the convention cannot tell who
-            is at home from this card alone; what is gained is that the two club names line up. */}
+            this page uses with no marker, and the order every schedule in the sport is written
+            in. The full fixture is one tap away on the game page. What is lost is that a reader
+            who does not know the convention cannot tell who is at home from this card alone;
+            what is gained is that the two club names line up. */}
         {/* NOT `flex: 1`. The name takes the width it needs so the record can sit against it;
-            the spacer below eats the rest of the row. With flex on the name the record went
-            back to the card's right edge, which is the thing the record note underneath is
-            about. */}
+            the spacer below eats the rest of the row. With flex on the name the record would
+            go back to the card's right edge, which is what the record note underneath is about. */}
         <Typography noWrap sx={{
           minWidth: 0, fontSize: TYPE_SCALE.display, fontWeight: 700, letterSpacing: '-0.2px', lineHeight: 1.15,
         }}>
           {t ? wpblFullName(t) : '?'}
         </Typography>
-        {/* BESIDE THE NAME, NOT AGAINST THE CARD'S EDGE. Right-aligned it was 290px from the
-            club it belongs to on a 623px card, floating in a column of its own with nothing
-            else in it, which is what made a muted 0.75rem number look accidental rather than
-            deliberate. The slack now falls to the right of the pair instead of between them.
+        {/* BESIDE THE NAME, NOT AGAINST THE CARD'S EDGE. Right-aligned, a muted record floats a
+            long way from the club it belongs to, in a column with nothing else in it, and looks
+            accidental rather than deliberate. The slack falls to the right of the pair instead.
             LastGameCard keeps its right-aligned column and should: a score is a number the eye
             goes looking for down the edge of a card, and a record is not.
 
             SECONDARY INK, NOT DISABLED: disabled is tuned against the card's own paper, and
-            these two numbers sit on a club tint, where a 38%-alpha grey on Firebells red at
-            95% lightness goes muddy rather than quiet. */}
+            these two numbers sit on a club tint, where a low-alpha grey on a light club tint
+            goes muddy rather than quiet. */}
         {record && (
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.secondary', flexShrink: 0 }}>
             {record}
@@ -1142,17 +988,15 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
           then a rule and the row you can act on. Everything inside the clickable block is a
           fact about THIS game, so it all opens the game, the way the team rows already did.
 
-          `flex: 1` + centred absorbs whatever height Standings forces on this card, splitting
-          it above and below rather than dropping it in one hole. With the card nearly full it
-          is a few pixels either side, but it keeps the card even if the series line drops out,
-          which it does the first time two clubs meet. */}
+          `flex: 1` + centred absorbs whatever height the card beside it forces on this one,
+          splitting it above and below rather than dropping it in one hole, so the card stays
+          even when the series line drops out, which it does the first time two clubs meet. */}
       <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE }}>
-        {/* THE GROUPS ARE THE RHYTHM. Gaps ran 15 / 5 / 10 / 10 / 24 down the card, which is
-            five different distances and no grouping. The two club rows are tight because they
-            are one fact; the series line stands off them because it is a different one; the
-            rule below opens the season context. */}
+        {/* THE GROUPS ARE THE RHYTHM. The two club rows are tight because they are one fact; the
+            series line stands off them because it is a different one; the rule below opens the
+            season context. */}
         {/* ONE BAND, EDGE TO EDGE, TWO FIELDS AND A ONE-PIXEL SEAM.
-            
+
             The seam is the card showing through a `gap`, not a border: two saturated tints
             meeting edge to edge blend into a third colour along the join (Firebells red into
             Heights blue reads purple for a pixel), and a `divider` rule there would be a third
@@ -1160,19 +1004,15 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
             adding any ink.
 
             FULL BLEED, because a tinted rectangle inset a few pixels inside a card is the one
-            shape that reads as an accident. It was two separate pills 6px in, then one panel
-            6px in, and at that inset a reader who is not looking for the change does not see
-            one: the tint is a soft wash, and against the card's own edge a 6px margin of paper
-            just looks like the tint failed to fill. Run to the edge it is a band, which is
-            what a broadcast graphic does with a fixture and what the eye reads as deliberate.
-            `mx: -2` is SectionCard's body padding cancelled through the clickable block's own
-            `p: 0.5, mx: -0.5`, so it lands exactly on the card's inner edge and the card's
-            `overflow: hidden` takes care of the corners.
+            shape that reads as an accident: against the card's edge, a thin margin of paper just
+            looks like the tint failed to fill. Run to the edge it is a band, which is what a
+            broadcast graphic does with a fixture. `mx: -2` is SectionCard's body padding
+            cancelled through the clickable block's own `p: 0.5, mx: -0.5`, so it lands exactly
+            on the card's inner edge and the card's `overflow: hidden` takes care of the corners.
 
             The rows get that padding back as `px: 2` so the club names stay on the text
-            column: the whole point of the tint bleeding past the words is that it is a field
-            the row sits in, and a name that starts 10px left of the series line under it would
-            trade one accident for another. */}
+            column: a name that starts left of the series line under it would trade one
+            accident for another. */}
         <Box sx={CLUB_BAND}>
           {teamRow(away)}
           {teamRow(home)}
@@ -1184,8 +1024,8 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
 
             "of 3" is the one addition, and this is the card with room for it. A bare "Game 2"
             leaves "Firebells lead 1-0" underneath meaning nothing in particular; against a
-            best-of-three it means the Firebells win tonight or play a decider, which is the
-            whole reason anyone is reading this card in October. `gameNumber` is deliberately
+            best-of-three it means the Firebells win tonight or play a decider, which is why
+            anyone is reading this card in the postseason. `gameNumber` is deliberately
             un-clamped upstream, so "Game 4 of 3" can appear and is a real signal (a doubled
             row in the mirror), not a rendering fault to defend against here. */}
         {postseason && (
@@ -1197,18 +1037,13 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
           </Typography>
         )}
         {/* THE POSTSEASON KEEPS ITS LINE, THE REGULAR SEASON DOES NOT.
-            
-            Through the summer this line said "Season series tied 2–2 · Firebells have won 4",
-            which is true, quiet, and the same shape every night: a sentence a reader stops
-            reading after the second week, sitting between the two loudest things on the card.
-            The colour band above it now does the work it was doing, which is to say that this
-            is a fixture with a story.
 
-            In October the same slot carries "Firebells lead 1-0 · Firebells can clinch", and
-            that is the whole reason anyone opens the card. Same component, and the postseason
-            branch of `nextGameContext` is what makes the two different: a series record IS the
-            stakes, where a season-series record is trivia. The WPBL postseason starts Sep 9,
-            2026, so this is not a hypothetical branch. */}
+            A regular-season line ("Season series tied 2–2 · Firebells have won 4") is true,
+            quiet, and the same shape every night, sitting between the two loudest things on
+            the card, and the colour band above already says this is a fixture with a story.
+            In the postseason the same slot carries "Firebells lead 1-0 · Firebells can clinch",
+            which is the stakes, and the postseason branch of `nextGameContext` is what makes
+            the two different. */}
         {postseason && contextLine && (
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.4 }}>
             {contextLine}
@@ -1217,16 +1052,15 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
         {/* The tale of the tape, BELOW A HAIRLINE AND AT FOOTER WEIGHT. Same component Game
             Center draws for an unplayed game, cut down to a block (see its `compact` note).
 
-            It used to sit here at full strength and it was winning: at 900 weight in a club
-            accent the values out-punched the club NAMES at 14.4/600. That is backwards for a
-            card whose subject is the fixture. The rule and the quieter type make it what it
-            should always have been, the thing you read if you are still here rather than the
-            thing you meet first.
+            At full strength its values, heavy and in a club accent, out-punch the club names,
+            which is backwards for a card whose subject is the fixture. The rule and the
+            quieter type make it the thing you read if you are still here rather than the thing
+            you meet first.
 
             NO EXTRA FETCH. It reads the season lines out of the same session cache Home has
-            already filled for the leaders, so on this page it is arithmetic on data in hand.
-            It renders nothing at all until there is something to compare, so the season's
-            opening days get the card as it was rather than an empty frame. */}
+            already filled, so on this page it is arithmetic on data in hand. It renders nothing
+            at all until there is something to compare, so the season's opening days get the
+            card without an empty frame. */}
         {away && home && (
           <Box sx={{ mt: 1.5 }}>
             <WpblGamePreview away={away} home={home} teams={[...teams.values()]} games={games} compact />
@@ -1252,10 +1086,10 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
 /**
  * Next game, when the only games left are ones the league has dated and not yet published.
  *
- * THE SAME CARD IN THE SAME SLOT, deliberately. Home's grid pairs Next game with Standings and
- * takes the taller of the two for both columns, so a card that vanishes does not free its
- * space, it leaves a hole in the middle of the page. From Sep 7, 2026 that hole would have
- * lasted six weeks, through the only part of the season anybody is checking daily.
+ * THE SAME CARD IN THE SAME SLOT, deliberately. Home's grid pairs Next game with the card beside
+ * it and takes the taller of the two for both columns, so a card that vanishes does not free its
+ * space, it leaves a hole in the middle of the page, through the part of the season anybody is
+ * checking daily.
  *
  * WHAT IT WILL NOT DO IS PRETEND. There is no `wpbl_games` row behind this, so:
  *
@@ -1271,13 +1105,9 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
  * is never left silent is a pairing whose two seeds are still being argued over, because that a
  * reader cannot infer.
  *
- * NO "@", AND NOTHING IN ITS PLACE, which is the call `NextGameCard` already made and this card
- * had not: two cards in the same slot on the same page, one printing the marker and one not.
- * The order carries it. Away over home is how a fixture is written, the rows are stacked in
- * that order, and a card whose whole point is the next game does not need a character to say
- * which of two clubs is at home. The scoreboard strip above still prints one, deliberately:
- * there the clubs are three-letter abbreviations in an 8.5rem box, where the order alone is
- * harder to read and one character is cheap.
+ * NO "@", AND NOTHING IN ITS PLACE, the same call `NextGameCard` and the scoreboard strip make:
+ * away over home is how a fixture is written, the rows are stacked in that order, and a card
+ * whose whole point is the next game does not need a character to say which club is at home.
  */
 export function NextPostseasonCard({ rows, teams, games }: {
   rows: PostseasonScheduleRow[]; teams: Map<string, WpblTeam>; games: WpblGame[]
@@ -1287,13 +1117,13 @@ export function NextPostseasonCard({ rows, teams, games }: {
   const next = useMemo(() => {
     const now = Date.now()
     const dated = rows
-      // AN IF-NECESSARY GAME IS STILL THE NEXT GAME, and it is drawn as one with the caveat on it
-      // (see the "if necessary" note below). A conditional decider is the one thing actually on
-      // the calendar between now and the next certain fixture, so hiding it left this card jumping
-      // a week to the championship with the game that decides whether that championship even needs
-      // this club nowhere on it. Safe because `postseasonScheduleRows` DROPS an if-necessary row
-      // the moment its series is decided and CLEARS the flag the moment the game is forced, so a
-      // row that is still `ifNecessary` here is one that genuinely might still be played.
+      // AN IF-NECESSARY GAME IS STILL THE NEXT GAME, and it is drawn as one with the caveat on it (see
+      // the "if necessary" note below). A conditional decider is the one thing actually on the
+      // calendar between now and the next certain fixture, so skipping it would jump a week ahead past
+      // the game that decides whether that fixture involves this club at all. Safe because
+      // `postseasonScheduleRows` DROPS an if-necessary row the moment its series is decided and CLEARS
+      // the flag the moment the game is forced, so a row still `ifNecessary` here genuinely might
+      // still be played.
       .map(r => ({ r, ms: gameStartMs(r.date, r.time) }))
       .filter((x): x is { r: PostseasonScheduleRow; ms: number } => x.ms != null)
       .sort((a, b) => a.ms - b.ms)
@@ -1357,13 +1187,10 @@ export function NextPostseasonCard({ rows, teams, games }: {
           alignItems: 'baseline', columnGap: 0.75, rowGap: 0.2,
         }}>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
-            {/* CONVERTED, like every other clock in the section. This printed `r.time` raw,
-                which is the league's CENTRAL wall clock (see PostseasonGame in derive/bracket
-                .ts): a Pacific reader was told the first postseason game in league history
-                started at 6:00 PM when it starts at 4:00 PM where they are. The schedule strip
-                in WpblApp already converts the same field, so the two disagreed by two hours
-                about the same fixture. Found by printing times in the series overview, which
-                made the contradiction visible on one page. */}
+            {/* CONVERTED, like every other clock in the section. `r.time` is the league's CENTRAL
+                wall clock (see PostseasonGame in derive/bracket.ts), so printed raw it would tell a
+                Pacific reader 6:00 PM for a 4:00 PM start, and contradict the schedule strip, which
+                converts the same field, about the same fixture. */}
             {relativeDayLabel(r.date)}{r.time ? `, ${formatGameTime(r.date, r.time) || r.time}` : ''}
           </Typography>
           <Countdown target={next.ms} />
@@ -1396,9 +1223,9 @@ export function NextPostseasonCard({ rows, teams, games }: {
         )}
 
         {/* THE ONE THING A READER CANNOT WORK OUT FROM THE ROWS. A pairing can close before the
-            seeds inside it do: on Sep 5, 2026 New York and Los Angeles were certain to play
-            each other and still arguing over 2 and 3. Both clubs are named, so the card looks
-            as settled as the other semifinal, and the order it prints them in is a guess. */}
+            seeds inside it do: two clubs certain to meet can still be contesting 2 and 3. Both
+            clubs are named, so the card looks as settled as the other semifinal, and the order
+            it prints them in is a guess. */}
         {r.seedOrderTbd && (
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.4 }}>
             These two play each other. Which of them is the higher seed is still to be settled.
@@ -1800,8 +1627,8 @@ function LeadersCard({ title, groups, loading, hasData, teamById, onOpenPlayer }
 // The league publishes TrackMan tracking in batches that land days after a game, often in
 // bulk for several games at once (see wpbl-ingest's late-backfill note). When the set of
 // games that carry tracking grows beyond what this browser last saw, surface a dismissible
-// banner pointing to the Ballpark Tracking section. First-ever visit seeds silently (no
-// nag); the "new" state clears once the user views or dismisses it.
+// banner pointing to the Tracked board. First-ever visit seeds silently (no nag); the "new"
+// state clears once the user views or dismisses it.
 
 const TRACK_SEEN_KEY = 'wpbl:trackingSeenGames'
 
@@ -1810,7 +1637,7 @@ function readSeen(): string[] {
   catch { return [] }
 }
 function writeSeen(ids: Iterable<string>) {
-  try { localStorage.setItem(TRACK_SEEN_KEY, JSON.stringify([...ids])) } catch { /* private mode / quota — non-fatal */ }
+  try { localStorage.setItem(TRACK_SEEN_KEY, JSON.stringify([...ids])) } catch { /* private mode / quota: non-fatal */ }
 }
 
 // Returns how many newly-tracked games appeared since this browser last acknowledged, and
@@ -1825,7 +1652,7 @@ function useNewTrackingBatch(tracking: WpblTrackRow[]): { newCount: number; ack:
   const [newCount, setNewCount] = useState(0)
 
   useEffect(() => {
-    if (trackedIds.size === 0) return // tracking not loaded yet — don't seed on an empty set
+    if (trackedIds.size === 0) return // tracking not loaded yet: don't seed on an empty set
     const seen = readSeen()
     if (seen.length === 0) { writeSeen(trackedIds); setNewCount(0); return } // first visit: seed, no banner
     const seenSet = new Set(seen)
@@ -1839,10 +1666,9 @@ function useNewTrackingBatch(tracking: WpblTrackRow[]): { newCount: number; ack:
 }
 
 function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView: () => void; onDismiss: () => void }) {
-  // One impression per mount, so the click-through is measurable. The `new here` events were
-  // defined for exactly this pointer-to-new-content pattern and had gone unwired: without the
-  // SHOWN denominator a quiet Tracking tab reads the same whether nobody saw the banner or
-  // everybody ignored it, and those call for opposite fixes.
+  // One impression per mount, so the click-through is measurable. Without the SHOWN denominator
+  // a quiet Tracked board reads the same whether nobody saw the banner or everybody ignored it,
+  // and those call for opposite fixes.
   const shown = useRef(false)
   useEffect(() => {
     if (shown.current) return
@@ -1902,12 +1728,12 @@ const DISCORD_BLURPLE = '#5865F2'
 
 function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
   // Dismissal is remembered (localStorage) and owned by the parent, which only mounts this card
-  // when it hasn't been dismissed — so once closed it stays gone and leaves no empty slot behind.
+  // when it hasn't been dismissed, so once closed it stays gone and leaves no empty slot behind.
   // Count one impression per mount, i.e. only for users who actually see the card.
   useEffect(() => { track(EVENTS.DISCORD_SHOWN) }, [])
   const dismiss = () => {
     track(EVENTS.DISCORD_DISMISSED)
-    try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota — non-fatal */ }
+    try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota: non-fatal */ }
     onDismiss()
   }
   return (
@@ -1918,17 +1744,14 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
       rel="noopener noreferrer"
       onClick={() => track(EVENTS.DISCORD_JOINED)}
       sx={{
-        // `px: 2` and `borderRadius: 3` are NOT free choices: they are what every SectionCard
-        // on this page uses, and this card sits in the middle of a stack of them. At `p: 1.25`
-        // and radius 2 its avatar started 11px in where the Scoreboard above it and Next Game
-        // below it both start their content at 17px, and its corners were 4px tighter than
-        // theirs. Six pixels and four pixels are each too small to look like a bug and plenty
-        // to look wrong: the eye reads the left edges of a vertical stack as one line, and this
-        // was the only card that broke it.
+        // `px: 2` and `borderRadius: 3` are NOT free choices: they are what every SectionCard on this
+        // page uses, and this card sits in the middle of a stack of them. The eye reads the left edges of
+        // a vertical stack as one line, so a card whose content starts a few pixels off, or whose corners
+        // are a few pixels tighter, looks wrong without looking like a bug.
         //
-        // The vertical padding stays tighter than the horizontal on purpose. This is a promo
-        // strip rather than a section, and the row's height is set by the 34px avatar anyway,
-        // so `py: 2` would only add 12px of nothing to a card that is one line tall.
+        // The vertical padding stays tighter than the horizontal on purpose. This is a promo strip
+        // rather than a section, and the row's height is set by the 34px avatar anyway, so `py: 2` would
+        // only add empty space to a card that is one line tall.
         display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25,
         textDecoration: 'none', cursor: 'pointer',
         borderRadius: 3, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
@@ -1945,13 +1768,12 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
           <path fill="#fff" d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
         </Box>
       </Box>
-      {/* ONE LINE, AND THE SECOND ONE WAS PAYING FOR ITSELF OUT OF THE FOLD. This card sits
-          third on a phone, between the scoreboard and the first thing about a game, and at two
-          lines it was 76px of the 812 a reader gets before scrolling. "Live game chats and
-          more." is what a Discord is; the title already says which one and the button already
-          says what tapping does. Wrapping is off for the same reason it is off on the reminder
-          row: a title that grows a second line puts the height straight back, and this one is a
-          hair under its budget at 320px with the Join button beside it. */}
+      {/* ONE LINE. This card sits third on a phone, between the scoreboard and the first thing
+          about a game, so a second line is fold space. "Live game chats and more." is what a
+          Discord is; the title already says which one and the button says what tapping does.
+          Wrapping is off for the same reason it is off on the reminder row: a title that grows
+          a second line puts the height straight back, and this one is a hair under its budget
+          at 320px with the Join button beside it. */}
       <Typography noWrap sx={{
         flex: 1, minWidth: 0, fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2, color: 'text.primary',
       }}>
@@ -1965,17 +1787,14 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
         role="button"
         aria-label="Dismiss Discord invite"
         sx={{
-          // 28px, not 22: WCAG 2.2 wants 24 as a floor and this is the one control on the card
-          // whose only job is to make the card go away, which is a bad thing to have to aim at
-          // twice. Sized through `chromePx` because a tap target is structure and must not ride
-          // the reader's text scale.
+          // 28px, not 22: WCAG 2.2 wants 24 as a floor and this is the one control on the card whose only
+          // job is to make the card go away, which is a bad thing to have to aim at twice. Sized through
+          // `chromePx` because a tap target is structure and must not ride the reader's text scale.
           //
-          // The negative margin is the older half of this and still applies: the ✕ is an 8px
-          // glyph in a much larger box, so left at the padding line the MARK sits further from
-          // the card edge than the avatar does on the left and the row looks lopsided. The pull
-          // grew with the box, by half the 6px the box gained, so the glyph stays where it was
-          // and only the target around it got bigger. Measured, not computed: see the note in
-          // ROADMAP-WPBL for why optical alignment here is checked by looking.
+          // The negative margin: the ✕ is an 8px glyph in a much larger box, so left at the padding line
+          // the MARK sits further from the card edge than the avatar does on the left and the row looks
+          // lopsided. The pull is half the box's growth past the glyph, so the mark stays put and only the
+          // target around it is bigger. Optical alignment is checked by eye, not computed.
           flexShrink: 0, width: chromePx(28), height: chromePx(28), ml: 0, mr: -1,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: '50%', color: 'text.disabled', fontSize: TYPE_SCALE.body, lineHeight: 1,
@@ -1991,19 +1810,15 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
 
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
-// ─── Ingest health (admin-only) ──────────────────────────────────────────────────
-// The feed-mirror ingest freshness indicator lives in the site Admin panel now
-// (consolidated with the payroll/contract freshness) — see AdminPanel's "WPBL Ingest".
 
 /**
- * One line on Home pointing at /wpbl/league, where Reading, Highlights and the archive went.
+ * One line on Home pointing at /wpbl/league, where Reading, Highlights and the archive live.
  *
- * IT MEASURES ITSELF, and that is not boilerplate. The Discord card taught this the hard way:
- * it was retired on Aug 19 and took its own impression event with it, so the 554 browsers whose
- * only event was that card became unmeasurable the same day. Anything that lands on Home now
- * carries its own impression, and this one has a specific question to answer. The shelf was
- * seen by 575 browsers and clicked by 39. If this card is shown as often and opened less, the
- * move was wrong and the shelf should come back rather than the link being made louder.
+ * IT MEASURES ITSELF, and that is not boilerplate. Anything on Home carries its own impression
+ * event, so a card that stops rendering does not take its denominator with it. This one has a
+ * specific question to answer: the shelf this line replaced was seen far more often than it was
+ * opened, and if this card is shown as often and opened less, the move was wrong and the shelf
+ * should come back rather than the link being made louder.
  */
 function LeagueCard() {
   const shown = useRef(false)
@@ -2053,10 +1868,9 @@ function LeagueCard() {
 
 // ─── Compare preview ──────────────────────────────────────────────────────────────
 //
-// Replaces the Leaders board in Home's second column. Leaders was a summary of the Stats tab two
-// taps away; this points at the compare tool, which is the one thing on this column a reader
-// cannot reach any other way from Home. It costs NO reads: `batSeasons`, `teams` and `players`
-// are already in hand, and the pick is pure client-side selection over them.
+// Home's second column points at the compare tool, the one thing in that column a reader cannot
+// reach any other way from Home. It costs NO reads: `batSeasons`, `teams` and `players` are
+// already in hand, and the pick is pure client-side selection over them.
 //
 // A DIFFERENT PAIR EACH VISIT, NOT EACH RENDER. The seed is drawn once per mount, so the pair
 // holds steady while the reader is on the page and rotates on the next visit. Choosing in the
@@ -2078,16 +1892,6 @@ function pickComparePair(pool: WpblBatSeason[], seed: number): readonly [WpblBat
   return [pool[anchor], pool[(anchor + step) % n]] as const
 }
 
-/**
- * The compare card: two hitters, two stats, a way into the tool.
- *
- * FILL, LIKE THE LEADERS CARD IT REPLACES. On desktop it is the shorter card in a subgrid row
- * whose height is set by Last game, so the body is a `flex: 1` column that CENTRES its content:
- * the slack sits as equal air above and below rather than stretching the heads apart. Below md
- * the grid falls back to a flex column and the card takes its content height, which is much
- * shorter, and the same centred column just collapses to that height with nothing to distribute.
- * So the one layout reads at both the tall desktop height and the short mobile one.
- */
 // linkTo plus a product event, fired on the PLAIN click only. A modified click is the reader
 // asking the browser for the URL (open in new tab), which linkTo lets through untouched; firing
 // the event there too would miscount it as an in-app open. Mirrors LeagueCard's `go`.
@@ -2102,6 +1906,15 @@ function trackedLinkTo(to: string, event: string, props: Record<string, unknown>
   }
 }
 
+/**
+ * The compare card: two hitters, two stats, a way into the tool.
+ *
+ * FILL. On desktop it is the shorter card in a subgrid row whose height is set by Last game, so
+ * its body is a `flex: 1` column that spreads the heads and the stats through the slack (see the
+ * `space-evenly` note inside) rather than pooling it in one place. Below md the grid falls back
+ * to a flex column and the card takes its own, much shorter, content height, with nothing to
+ * distribute, so the one layout reads at both heights.
+ */
 function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
   batSeasons: WpblBatSeason[]
   qual: ReturnType<typeof wpblQualifiers>
@@ -2243,10 +2056,9 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
             ...UNSTYLED_LINK, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly',
             gap: 1.5, borderRadius: 2, p: 0.5, mx: -0.5, ...TAPPABLE, ...FOCUS_RING,
           }}>
-            {/* FULL WIDTH, not a capped strip. Each head is its own half and each stat value its
-                own column, so the content uses the card's whole width and leaves no margin down
-                the sides. A cap here (it was chromePx(380)/(300)) pulled everything into the
-                middle and left the left and right thirds of the card empty. */}
+            {/* FULL WIDTH, not a capped strip. Each head is its own half and each stat value its own
+                column, so the content uses the card's whole width; a cap pulls everything into the
+                middle and leaves the left and right thirds of the card empty. */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%' }}>
               {head(a)}
               <Typography aria-hidden sx={{ alignSelf: 'center', px: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled' }}>
@@ -2313,23 +2125,20 @@ function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
  * Home, before its first read lands.
  *
  * IT IS A COPY OF HOME'S LAYOUT, NOT A STACK OF GREY BARS, and it lives beside the page it
- * mirrors so the two are edited together. The generic section skeleton it replaced was drawn
- * for the 720px page column every other tab uses, and Home is the one view that breaks out of
- * that column (see homeWideSx): it painted 900px wide and centred, and the page then arrived
- * 1260px wide and 180px further left, so the whole thing jumped sideways on every cold load.
- * It was also about 570px tall against a page of roughly 1830, which put the footer a third of
- * the way up the screen and then dropped it 1,200px. Every block below therefore reuses the
- * real element's own wrapper and spacing rather than approximating them.
+ * mirrors so the two are edited together. Home is the one view that breaks out of the 720px page
+ * column (see homeWideSx), so a generic section skeleton paints at the wrong width and a fraction
+ * of the height: the whole page would jump sideways and drop its footer on every cold load. Every
+ * block below therefore reuses the real element's own wrapper and spacing rather than
+ * approximating them.
  *
- * The Discord invite is read from the same key the card is, because it is 57px of the mobile
- * stack and reserving it for someone who dismissed it months ago is the same mistake in the
- * other direction.
+ * The Discord invite is read from the same key the card is, because reserving its height for
+ * someone who dismissed it is the same mistake in the other direction.
  *
  * A skeleton is still an approximation, and the reserves are deliberately FLOORS: content that
- * comes in taller pushes the page down, which is the failure that costs nothing, while a
- * reserve nobody fills leaves a hole. That is also why the postseason bracket is drawn here at
- * all: it is the tallest block on the page on a desktop, and a season where it does not render
- * is a season with no finals in it, which is over in the first week.
+ * comes in taller pushes the page down, which is the failure that costs nothing, while a reserve
+ * nobody fills leaves a hole. That is also why the postseason bracket is drawn here at all: it is
+ * the tallest block on the page on a desktop, and a season where it does not render is a season
+ * with no finals in it, which is over in the first week.
  */
 export function WpblHomeSkeleton() {
   let discordDismissed = false
@@ -2414,8 +2223,8 @@ export function WpblHomeSkeleton() {
           {/* Last Game and the bracket are both COLLAPSED on a phone by default, which is why
               their two reserves are so far apart: 3.45rem is the header of a shut card. The md
               figure is the SUBGRID row, not this card: row 2 is max(Last game, Compare) and
-              Compare is the taller at ~19rem, so a 16rem reserve here left the loaded page 3rem
-              taller than its own placeholder. */}
+              Compare is the taller at ~19rem, so a reserve sized to Last game alone would leave
+              the loaded page taller than its own placeholder. */}
           <CardSkeleton minHeight={{ xs: '3.45rem', md: '19rem' }} titleWidth="6rem" lines={0} />
         </Box>
         <Box sx={{
@@ -2458,10 +2267,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
    * The fan awards ballot, which is a route rather than a piece of local state.
    *
    * IT IS OWNED BY WpblApp AND NOT BY THE CARD, because /wpbl/awards has to open it: a sheet
-   * that holds its own `open` boolean cannot be addressed, and that was the whole ask. So the
-   * card reports the intent upward and renders whatever the history entry says, exactly as the
-   * player and game modals in this section already do. Optional so the card still works if a
-   * future caller has no router to hand.
+   * that holds its own `open` boolean cannot be addressed. So the card reports the intent upward
+   * and renders whatever the history entry says, exactly as the player and game modals in this
+   * section do. Optional so the card still works if a caller has no router to hand.
    */
   awardsOpen?: boolean
   onOpenAwards?: () => void
@@ -2484,18 +2292,17 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
-  // The play log, for the MVP race alone, and DELIBERATELY NOT in the fetch below.
+  // The play log, for the MVP race that seeds the ballot's MVP and Pitcher shortlists, and
+  // DELIBERATELY NOT in the fetch below.
   //
-  // Home stopped pulling play-by-play when the Hall of Firsts came off, and that was the most
-  // expensive read on the section: this brings it back, so it has to be brought back on terms
-  // that cannot cost the page its first paint. 2,265 rows is about 80KB gzipped and a second
-  // or so on a phone, against a page where 670 of 2,037 browsers fired exactly one event and
-  // left. So it is a SEPARATE effect that starts after the ones above and blocks nothing:
-  // every card on Home renders on its own schedule, and the MVP card simply is not there
-  // until its data is, which is the one card on the page nobody is waiting for.
+  // It is the most expensive read on the section (about 80KB gzipped and a second or so on a
+  // phone), on a page where many visitors fire one event and leave, so it must not cost the page
+  // its first paint. It is a SEPARATE effect that starts after the ones above and blocks nothing:
+  // every card on Home renders on its own schedule, and the ballot slot holds a placeholder until
+  // this lands (see the right-hand column).
   //
-  // The fetcher is the same session-cached one the Run value board uses, so a reader who
-  // opens both pays once, in whichever order they happen to visit.
+  // The fetcher is the same session-cached one the Run value board uses, so a reader who opens
+  // both pays once, in whichever order they happen to visit.
   const [plays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
   // Whether that read has ANSWERED yet, which is not the same question as whether it returned
   // anything, and the right column's ordering turns on the difference. See the note at the
@@ -2542,16 +2349,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     return () => { cancelled = true }
   }, [])
 
-  // While a game is live, refresh only the box-score lines (what the leaders read), and on a
-  // gentle cadence. Deliberately NOT re-pulled on the tick: the full player roster (static)
-  // and the whole pitch_tracking table (large). That repeated full-table scan every 25s was
-  // the main load pegging the WPBL database. Tracking now only feeds the new-batch banner,
-  // and the league publishes it in batches days after a game, so a live tick could not
-  // surface anything new anyway; it refreshes on the next visit.
-  //
-  // The whole-season play-by-play used to be pulled here too, for the Hall of Firsts. That
-  // card is gone, and with it the most expensive read on the section: nothing on Home needs
-  // play-by-play now.
+  // While a game is live, refresh only the box-score lines, and on a gentle cadence. Deliberately
+  // NOT re-pulled on the tick: the full player roster (static) and the whole pitch_tracking table
+  // (large), because a full-table scan on every tick is enough load to peg the WPBL database.
+  // Tracking only feeds the new-batch banner, and the league publishes it in batches days after a
+  // game, so a live tick could not surface anything new anyway; it refreshes on the next visit.
   useForegroundInterval(() => {
     fetchWpblAllLines()
       .then(setLines)
@@ -2559,11 +2361,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   }, liveGame ? 60000 : null)
 
 
-  // Which of the two cards holds the ballot slot below. THE SAME HOOK THE CARD ITSELF USES,
-  // so the outer gate and the inner one cannot drift apart into an empty slot. See the note
-  // The league's batting seasons, the pool the compare preview draws its pair from. (The Leaders
-  // board that used to live in this column, and the pitching seasons and stat blocks that fed it,
-  // came out when the compare card replaced it: see ComparePreviewCard.)
+  // The league's batting seasons: the pool the compare preview draws its pair from.
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])
 
   // Only enforce the PA / IP rate qualifier once every team has played 2+ games.
@@ -2661,32 +2459,25 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               search) while the <title> in seo.ts leads with "WPBL Stats"; between them the
               home page covers both the brand term and the acronym people actually type. Every
               other WPBL tab is a separate route with its own h1. */}
-          {/* WEIGHT 800, NOT 600. At 600 the page's one `h1` sat a step LIGHTER than the seven
-              `h2`s beneath it (0.95rem/700) while being only 0.1rem bigger, so it read as a
-              caption above "Scoreboard" rather than as the top of anything. Size alone does
-              not make a title on this page: the heaviest ink on it is the MVP number at
-              display/900 and the club names at display/800, and a title has to be in that
-              conversation to win. */}
-          {/* READ BUT NOT DRAWN ON A PHONE. Measured on a 375x812 handset, the first card
-              starts 344px down, and this line is 39px of that: 19px of type and 20px of
-              margin. What makes it the right 39px to spend is not the size, it is that a
-              phone reader has already been told twice. The toolbar carries a live MLB/WPBL
-              switch with WPBL lit, and the section nav under it reads Home / Schedule /
-              Standings / Stats / Teams, which is a league's nav and nothing else's. The
-              desktop keeps it, where it pairs with the club chips on the same row and 39px of
-              a 900px viewport is not a decision.
+          {/* WEIGHT 800. At 600 the page's one `h1` sits lighter than the `h2`s beneath it
+              (0.95rem/700) while being only slightly bigger, so it reads as a caption above
+              "Scoreboard" rather than as the top of anything. Size alone does not make a title
+              on this page: the heaviest ink on it is the club names at display/800, and a title
+              has to be in that conversation to win. */}
+          {/* READ BUT NOT DRAWN ON A PHONE WITH THE PILL NAV, where a phone reader has already
+              been told twice: the toolbar carries a live MLB/WPBL switch with WPBL lit, and the
+              section nav under it is a league's nav and nothing else's. The desktop keeps it,
+              where it pairs with the club chips on the same row and costs nothing.
 
               It stays in the DOM and in the accessibility tree, clipped rather than
-              `display: none` (see VISUALLY_HIDDEN): this is the page's one `h1`, it is an
-              exact match for the search people type for this league, and Google indexes the
-              MOBILE DOM. Deleting it, or hiding it in a way that removes it, would cost the
-              brand term. Game Center made this same call for the same reason. */}
-          {/* DRAWN ON A PHONE ONLY WITH THE BOTTOM BAR. The hide was justified by the pill nav
-              overhead naming the league (see the long note this block carried); move that nav to
-              the foot of the screen and the phone opens onto bare scoreboard tiles with no idea
-              which league it is looking at, so the page's own h1 becomes the top label. It fits
-              one line at this size on a 375px phone. Desktop and the pill-nav layout keep it
-              clipped-but-in-DOM exactly as before. */}
+              `display: none` (see VISUALLY_HIDDEN): this is the page's one `h1`, it is an exact
+              match for the search people type for this league, and Google indexes the MOBILE
+              DOM. Deleting it, or hiding it in a way that removes it, would cost the brand term.
+              Game Center makes the same call for the same reason. */}
+          {/* DRAWN ON A PHONE WITH THE BOTTOM BAR. With no section nav overhead naming the
+              league, the phone would open onto bare scoreboard tiles with no idea which league it
+              is looking at, so the page's own h1 becomes the top label. It fits one line at this
+              size on a 375px phone. Desktop and the pill-nav layout keep it clipped-but-in-DOM. */}
           <Typography component={headingTag} sx={{
             fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15,
             ...hidePhone,
@@ -2697,7 +2488,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         {/* Team chips: badge + abbreviation in a tappable pill so they read as controls (not
             decoration) on touch, where there's no hover. Ring adopts the club colour on hover,
             and a press-scale gives tactile feedback. Each jumps to that team's page. Hidden on
-            mobile — the chips are redundant there with the full Teams tab a swipe away. */}
+            mobile: the chips are redundant there with the full Teams tab a swipe away. */}
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
           {teams.map(t => (
             <Box
@@ -2720,22 +2511,21 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         </Box>
       </Box>
 
-      {/* New pitch-tracking batch just published — point folks to the Tracking section */}
+      {/* A new pitch-tracking batch was just published: point readers to the Tracked board */}
       {newTrackingCount > 0 && (
         <NewTrackingBanner count={newTrackingCount} onView={viewTracking} onDismiss={ackTracking} />
       )}
 
-      {/* Live game hero — the one in-progress game, front and center */}
+      {/* Live game hero: the one in-progress game, front and centre */}
       {liveGame && <LiveHero game={liveGame} teams={teams} players={players} onOpen={() => onOpenGame(liveGame)} />}
 
       {/* Scoreboard. The postseason rows come from the calendar the league published, and each
           one retires itself the day the feed carries a real game on its date. */}
       <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} />
 
-      {/* Discord invite, mobile only for now. Sits between the scoreboard and the feed, where
-          it used to lead the single-column stack. Hidden at md+ because the desktop feed is a
-          two-column subgrid with shared row boundaries that a loose card would break; a desktop
-          home for it is a later job. */}
+      {/* Discord invite, mobile only. Sits between the scoreboard and the feed. Hidden at md+
+          because the desktop feed is a two-column subgrid with shared row boundaries that a
+          loose card would break; a desktop home for it is a later job. */}
       {!discordDismissed && (
         <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
           <DiscordCard onDismiss={() => setDiscordDismissed(true)} />
@@ -2749,65 +2539,53 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           by side need the room, and the two columns down there share row boundaries through
           subgrid, which a third card of a different shape would break.
 
-          It normally sits under the season's numbers, so it does not displace Next game and its
+          It normally sits under the season's cards, so it does not displace Next game and its
           countdown. Between the last regular-season game and the first postseason one that
-          ordering is wrong: Last game is a September 6 game nobody is waiting on, the bracket is
-          the only thing on the page about what happens next, and it carries the pick'em, which
-          has a deadline. The moment a postseason game is final, Last game IS that game and wins
-          the argument again, and this puts itself back without anyone deciding to.
+          ordering is wrong: Last game is a regular-season final nobody is waiting on, the
+          bracket is the only thing on the page about what happens next, and it carries the
+          pick'em, which has a deadline. The moment a postseason game is final, Last game IS that
+          game and wins the argument again, and this puts itself back without anyone deciding to.
 
           Keyed on a postseason FINAL rather than on the calendar, so a rain-out moves it too. */}
-      {/* Two columns: today's games on the left, the season's numbers on the right.
+      {/* Two columns: today's games on the left, the season's cards on the right.
 
-          EVEN TRACKS, and three up was tried and rejected. Laying the season cards out as a
-          row of three gives each 317px at this page's width, and at 317px the standings table
-          clips every club name and both leader boards clip every player name. Two columns at
-          490px clip nothing. A tidier bottom edge is not worth reading "Meggie Meidling…".
+          EVEN TRACKS, not three up. Three columns at this page's width give each card about
+          317px, which clips club and player names; two at about 490px clip nothing. A tidier
+          bottom edge is not worth reading "Meggie Meidling…".
 
           SUBGRID, so the two columns share their ROW boundaries. As two independent flex
-          columns they only agreed at the top: Next game ended above Standings, Last game and
-          Leaders ended wherever their content ran out, and the ragged bottom edge left a notch
-          under the shorter column that the full-width shelf below made impossible to miss.
-          The parent declares two rows; each column spans both and re-uses them, so row 1 is
-          max(Next game, Standings) in BOTH columns and row 2 is max(Last game, Leaders). The
-          bottom edge is then flush by construction rather than by luck of the content.
+          columns they would agree only at the top, and the ragged bottom edge would leave a
+          notch under the shorter column. The parent declares two rows; each column spans both
+          and re-uses them, so row 1 is max(Next game, ballot) in BOTH columns and row 2 is
+          max(Last game, Compare). The bottom edge is flush by construction rather than by luck
+          of the content.
 
           Every card in here is `fill`, and the shorter one in each row places the difference
-          deliberately (see the `mt: 'auto'` in NextGameCard and LastGameCard, and the board's
-          `flex: 1` in LeadersCard). Without that, stretching a card would just move the ragged
-          edge inside it.
+          deliberately (see the `mt: 'auto'` in NextGameCard and LastGameCard, and the body
+          distribution in ComparePreviewCard). Without that, stretching a card would just move
+          the ragged edge inside it.
 
-          NO `order` VALUES, AND STILL NONE NEEDED, which is the reason for subgrid rather
-          than four bare grid items. Four items in one grid would align rows for free, but the
-          single mobile column would then read Next game, Standings, Last game, Leaders, and
-          fixing that needs `order` at one breakpoint: a second numbering scheme to keep in
-          step with DOM order by hand, which is exactly what a previous layout here did and
-          what removing it was worth. Keeping the columns as real elements means mobile is
-          plain DOM order, and the columns just drop back to flex below md.
+          NO `order` VALUES, which is the reason for subgrid rather than four bare grid items.
+          Four items in one grid would align rows for free, but the single mobile column would
+          then interleave the two columns, and fixing that needs `order` at one breakpoint: a
+          second numbering scheme to keep in step with DOM order by hand. Keeping the columns as
+          real elements means mobile is plain DOM order, and the columns drop back to flex below md.
 
           Subgrid is Chrome 117 / Safari 16 / Firefox 71. Where it is missing the declaration
-          is dropped and each column falls back to its own two auto rows, which is the ragged
-          edge this replaced: degraded, not broken. */}
+          is dropped and each column falls back to its own two auto rows: degraded, not broken. */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
         gridTemplateRows: { md: 'auto auto' },
-        // Its OWN top margin, rather than living off the scoreboard's bottom one.
-        //
-        // This stack is a plain block with no gap: every child brings its own margin, and the
-        // blocks below this grid all carry `mt`. This one carried nothing and was spaced only
-        // by the scoreboard's `mb`, which worked exactly until something was inserted between
-        // them. The Discord invite was, and it collected that margin on the way past: 12px
-        // above the invite, and the grid then sat flush against it with no gap at all. A block
-        // that depends on its neighbour for its own spacing breaks the next time it gets a new
-        // neighbour, so this one now says what it wants. Margins collapse, so the invite being
-        // dismissed still leaves 12px here rather than 24.
+        // Its OWN top margin, rather than living off the scoreboard's bottom one. Every block in this
+        // stack brings its own margin, and a block that depends on its neighbour for its spacing breaks
+        // the next time something (the Discord invite) is inserted between them. Margins collapse, so a
+        // dismissed invite still leaves 12px here rather than 24.
         mt: 1.5,
-        // One gap in both directions, and it is Home's gap: 1.5 is the step between the
-        // scoreboard and this grid, between this grid and the shelf, and between the two cards
-        // stacked in each column. The 20px column gap was the odd one out, and with the cards
-        // now sharing row boundaries the mismatch showed: a 20px vertical channel crossing
-        // 12px horizontal ones reads as two grids rather than one.
+        // One gap in both directions, and it is Home's gap: 1.5 is the step between the scoreboard and
+        // this grid, between this grid and the league card, and between the two cards stacked in each
+        // column. With the cards sharing row boundaries, a wider column gap crossing narrower row gaps
+        // reads as two grids rather than one.
         gap: 1.5,
       }}>
         {/* Today's games. */}
@@ -2820,93 +2598,57 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
         </Box>
 
-        {/* The season's numbers.
+        {/* The season's cards.
 
-            THE STANDINGS TABLE USED TO LEAD THIS COLUMN AND HAS BEEN REMOVED, not moved: it is
-            a whole tab of its own, two taps from here in the nav that is on screen the entire
-            time, and Home was redrawing it in miniature underneath. That is 224px on a phone
-            spent on the one card every reader already knows where to find, on a page measured
-            at three full screens. The MVP race takes the quadrant, which is a better trade than
-            it looks: it is the only card here that cannot be got anywhere else, and in the
-            column headed "the season's numbers" it sits with Leaders, which is the same kind of
-            claim about the same season.
-
-            Home still computes `computeStandings` for the bracket below, so nothing about the
-            postseason card changed. */}
+            NO STANDINGS TABLE: it is a whole tab of its own, in the nav that is on screen the
+            entire time, and a miniature copy spends a phone's screen on the one card every reader
+            already knows where to find. Home still computes `computeStandings` for the bracket
+            below. */}
         <Box sx={{
           minWidth: 0, gap: 1.5,
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          {/* THE MVP RACE LEADS THIS COLUMN, SO IT IS THE ONE SEASON CARD ABOVE THE FOLD.
-              It used to be second, and the ordering was picked purely on height: Next game
-              (214) with Leaders (~200), then Last Game (256) with the MVP race (279), which
-              paired the cards by how tall they happened to be rather than by what they are.
-              That was the right call when the alternative was a 65px hole in Next game, and it
-              cost the page the thing it is least able to spare. At 1440x900 the second row
-              starts at y=734, so the MVP race was rendering entirely below the fold: the ONE
-              card on Home that cannot be got from another tab, drawn where a reader who does
-              not scroll never meets it. Leaders is a summary of the Stats tab two taps away.
+          {/* THE BALLOT LEADS THIS COLUMN, SO IT IS THE ONE SEASON CARD ABOVE THE FOLD on a
+              desktop. Row 1 pairs it with Next game and row 2 pairs Compare with Last game.
 
-              The pairing still works, because the two cards that were short have both been
-              given something to do: Next game now carries each club's recent form, and Leaders
-              draws every category at once from md up instead of one behind a chip. Row 1 is
-              Next game against the MVP race and row 2 is Last Game against Leaders, and the
-              stretch in each is single figures again. If either of those is reverted, put this
-              back to Leaders-first or the hole comes with it.
-
-              KEYED, because the MVP race appears about a second after first paint (its play log
-              is deliberately fetched last) and these two swap SLOTS when it does. Without keys
-              React reconciles by position, sees a different component type in slot 1, and
-              remounts Leaders: the reader's pill selection resets under them one second in. */}
+              KEYED, because the ballot waits on the play log (its shortlists come from the MVP race)
+              and the slot contents change when that lands, about a second after first paint.
+              Without stable keys React reconciles by position and remounts the compare card, which
+              holds a per-mount seed and would re-deal its pair mid-visit. */}
           {(mvpRaceIsWorthDrawing(race)
             ? [
               /* It spends whatever slack the row gives it on the chart, which is the one child
                  that gets better with height; see the note on RaceChart's `fill`. */
-              /* THE FAN BALLOT HOLDS THIS SLOT NOW, not the MVP race. The race is a number and
-                 the number is already on the Stats tab and on the player pages it ranks, so the
-                 card was a third rendering of an answer the site had given twice; it still seeds
-                 the MVP and Pitcher shortlists inside the ballot, which is the use it was always
-                 best at. What replaces it asks something the section cannot answer on its own,
-                 and it is the one card on this page that still works on Sep 23, when the feed
-                 stops and everything else here freezes at its final value.
-
-                 It keeps `fill` and the same key for the same reason the note above gives: the
-                 two cards in this column swap slots when the play log lands, and React would
-                 remount Leaders and reset the reader's pill selection without a stable key. */
-              /* THE BALLOT IS PUBLIC AS OF SEP 10, 2026, and the branch that used to stand here
-                 is gone with the gate: for its first day this slot had two tenants, the ballot
-                 for the owner and a collaborator, the MVP race for everybody else. It keeps
-                 the key `mvp` from that arrangement on purpose, since the two cards in this
-                 column still swap slots when the play log lands and a changed key would remount
-                 Leaders beside it and reset the reader's pill selection. */
+              /* THE FAN BALLOT, not an MVP race card. The race is a number already on the Stats tab
+                  and on the player pages it ranks, so here it only seeds the ballot's MVP and Pitcher
+                  shortlists. The ballot asks something the section cannot answer on its own, and it
+                  keeps working after the feed stops and everything else here freezes. */
+              /* Keyed `mvp`, the key the placeholder and the empty cell below also use, so the slot
+                  keeps one identity across all three branches and the compare card beside it is never
+                  remounted. */
               <FanVoteCard key="mvp" players={players} teams={teams} games={games}
                 batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
                 onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
                 open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />,
               compareCard,
             ]
-            // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW, and treating them alike was
-            // worth a second reflow on every cold load. The play log is fetched last and on
-            // purpose (it is the one read allowed to be slow), so for the second or so after
-            // the page paints there is no race yet, and the branch below put Leaders in row 1
-            // for exactly that long, then moved it to row 2 when the race arrived. The reader
-            // gets the page, starts on the leader board, and it slides 400px down the screen
-            // under them. Holding the slot costs a placeholder and settles the layout once.
+            // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW. The play log is fetched last and on
+            // purpose (it is the one read allowed to be slow), so for the second or so after the page paints
+            // there is no race yet. Treating that like "no race" would put Compare in row 1 for that second
+            // and move it when the race arrives, sliding it down the screen under the reader. Holding the
+            // slot costs a placeholder and settles the layout once.
             //
-            // THE PLACEHOLDER MUST NOT BE TALLER THAN Next game. On desktop this slot is row 1 of
-            // a subgrid whose other column is Next game (~16.4rem), so Next game already sets the
-            // row height; a placeholder that overshot it (this was 20rem) inflated row 1 while the
-            // play log was in flight, then let it COLLAPSE ~72px the instant the ballot landed —
-            // the delayed upward jump the whole slot exists to prevent. Kept at/under Next game so
-            // the row is governed by Next game throughout and the late arrival moves nothing. On a
-            // phone the two are stacked, so this matches the ballot's own ~16rem instead.
+            // THE PLACEHOLDER MUST NOT BE TALLER THAN Next game. On desktop this slot is row 1 of a subgrid
+            // whose other column is Next game (~16.4rem), so Next game already sets the row height; a taller
+            // placeholder inflates row 1 while the play log is in flight and lets it COLLAPSE the instant the
+            // ballot lands, which is the jump the slot exists to prevent. On a phone the two are stacked, so
+            // this matches the ballot's own ~16rem instead.
             : !playsSettled
               ? [<CardSkeleton key="mvp" minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />, compareCard]
-              // Answered, and there is genuinely no race to draw (a season too young). Leaders
-              // takes row 1 and an empty grid cell takes row 2, which is the layout this column
-              // had before the race existed: the row collapses to whatever Next game needs
-              // rather than reserving a slot for a card that is never coming.
+              // Answered, and there is genuinely no race to draw (a season too young). Compare takes row 1 and
+              // an empty grid cell takes row 2, so the row collapses to whatever Next game needs rather than
+              // reserving a slot for a card that is never coming.
               : [compareCard, <Box key="mvp-empty" />])}
         </Box>
       </Box>
@@ -2914,15 +2656,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       {/* Its ordinary home, under the season's numbers. See bracketLeads. */}
       {!bracketLeads && bracketCard}
 
-      {/* Reading, Highlights and the Archive, in one full-width card under the feed.
-
-          Outside the columns on purpose, and full width on purpose. These are horizontal strips,
-          THE SHELF ITSELF MOVED. Reading, Highlights and Archive now live on /wpbl/league, and
-          what is left here is one line pointing at them. Two reasons, both measured: 575
-          browsers saw the shelf and 39 clicked it, so it was not earning three screens of the
-          page it sat on; and 670 of 2,037 browsers fired exactly one event on Home, which is a
-          page that needs to get SHORTER before it gets anything else. The card carries its own
-          impression event so the trade can be read later rather than assumed.
+      {/* One line pointing at /wpbl/league, where Reading, Highlights and the archive live. A
+          shelf of three horizontal strips is not worth screens of Home when few readers open
+          it, and Home needs to get shorter before it gets anything else. The card carries its
+          own impression event so the trade can be read rather than assumed.
 
           Last on the page at both breakpoints, which is also the right editorial answer during
           a season: everything above is about games that just happened or are about to. */}

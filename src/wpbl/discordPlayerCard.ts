@@ -11,7 +11,7 @@ import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo } from './st
 import { displayPosition, leadsWithPitching } from './positions'
 // From innings.ts directly, NOT via the constants.ts re-export. constants.ts imports the
 // team logos as .webp assets, which Vite resolves and the Cloudflare Functions bundler does
-// not — pulling it in here fails the whole functions build, which silently leaves the last
+// not: pulling it in here fails the whole functions build, which silently leaves the last
 // good deployment serving and the endpoint 405ing. Everything this module reaches for has
 // to stay asset-free for the same reason.
 import { outsToIp } from './innings'
@@ -49,8 +49,8 @@ function embedColor(team: WpblTeam | undefined): number | undefined {
  * A player's season. Batting and pitching are separate fields rather than one blended line,
  * and the one the player is actually here for leads. Which one that is comes from
  * `leadsWithPitching` in positions.ts, the same call the player page and the unfurl card
- * make: three copies of the rule meant a shortstop who starts on the mound could be led with
- * one way here and the other way on the site she links to.
+ * make: three copies of the rule would let a shortstop who starts on the mound be led one way
+ * here and the other way on the site the card links to.
  */
 export function buildPlayerReply(
   // Only the fields the card actually shows, so a caller holding a partial roster row
@@ -110,7 +110,7 @@ export function buildPlayerReply(
   // embed still links under the plain name, and a blank one just drops out of the line: the
   // feed only started carrying uniforms into our roster rows partway through the season, so
   // an older player who has not appeared since can genuinely have none. Note it is a string,
-  // not a number — "0" and "00" are different players' jerseys, so this must never be
+  // not a number: "0" and "00" are different players' jerseys, so this must never be
   // coerced or falsy-tested against the number 0.
   const jersey = (player.jersey_number ?? '').trim()
   const subject = [

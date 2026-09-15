@@ -8,16 +8,16 @@ import { feedHealth, describeGap, type FeedHealthGame } from './derive/feedHealt
  *
  * A game sitting at its scheduled state twenty minutes after first pitch is, to a reader, a
  * broken page. They refresh it, they refresh it again, and then they decide the site does not
- * work. That happened on Aug 30, 2026: our ingest was polling every two minutes with zero
- * errors while the league's own record sat frozen at 21:54:31Z, thirty-five minutes before a
- * first pitch it never acknowledged. Nothing on the page said any of that, so every reader
- * who opened it was told, by omission, that we were broken.
+ * work. On Aug 30, 2026 our ingest was polling every two minutes with zero errors while the
+ * league's own record sat frozen at 21:54:31Z, thirty-five minutes before a first pitch it never
+ * acknowledged, and with nothing on the page saying so, every reader who opened it was told, by
+ * omission, that we were broken.
  *
- * IT NAMES THE SOURCE, WHICH IS THE ENTIRE MECHANISM. "Something went wrong" would have been
- * useless here and mildly dishonest. A timestamp and the words "the league's feed" let the
- * reader work out where the silence is coming from without us telling them how to feel about
- * it. Nobody is blamed and nothing is excused; the provenance is simply on the page, which is
- * the same thing the run-value explainer does with its numbers.
+ * IT NAMES THE SOURCE, WHICH IS THE ENTIRE MECHANISM. "Something went wrong" would be useless
+ * here and mildly dishonest. A timestamp and the words "the league's feed" let the reader work
+ * out where the silence is coming from without us telling them how to feel about it. Nobody is
+ * blamed and nothing is excused; the provenance is simply on the page, which is the same thing
+ * the run-value explainer does with its numbers.
  *
  * AND IT SAYS WHEN IT IS OUR FAULT, in the same slot, with the same weight. `feedHealth`
  * checks our own write clock before the league's precisely so this component cannot point

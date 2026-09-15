@@ -8,24 +8,24 @@
 // on demand: there is one live game every few days, it lasts two hours, and the two states
 // that are hardest to get right (the break between half-innings, and a count the feed sends
 // impossible) each last about thirty seconds. Everything else in `/wpbl` can be looked at any
-// time; this could be looked at almost never, which is why the pane it draws shipped with
-// three of its states never having been seen on a screen.
+// time; this could be looked at almost never, which is how a pane ends up shipping with states
+// nobody has seen on a screen.
 //
 // WHAT IS REAL AND WHAT IS NOT. Everything the simulator publishes is derived from the plays
 // the league actually logged for that game, so the situation, the runners, the count, the
 // score, the line score and the win-probability line are all the real thing, arriving in the
 // real order. What is NOT replayed is the BOX SCORE: `wpbl_batting_lines` holds one cumulative
 // row per player for the whole game, so there is nothing in it to rewind to, and a batter's
-// statline in the Live pane therefore shows what she finished with. That is a lie the panel
-// tells and it is the reason this is a dev tool rather than a feature.
+// statline in the Live pane therefore shows what that batter finished with. That is a lie the
+// panel tells and it is the reason this is a dev tool rather than a feature.
 //
 // HOW IT REACHES THE APP. Through a slot in api.ts that this module fills in, NOT through an
 // import from api.ts into the dev module and NOT through a dev import in the read path. The
 // difference is production: `DevSettings` is the only thing that imports this file and it is
 // proven absent from the production bundle, so everything here goes with it. An import the
 // other way round would have to survive on tree-shaking, and the MLB predictor simulator next
-// door shows how that goes: `devSim.ts` is in the shipped bundle today because one production
-// call site imports it and its top-level `load()` counts as a side effect.
+// door shows how that goes: `devSim.ts` is in the shipped bundle because one production call
+// site imports it and its top-level `load()` counts as a side effect.
 //
 // Which is also why there is nothing at the top level of this module that runs. State loads on
 // first touch.
@@ -110,7 +110,7 @@ function ensurePlays(gameId: string | null) {
   playsInFlight = gameId
   void fetchWpblGamePlays(gameId).finally(() => { playsInFlight = null }).then(() => {
     listeners.forEach(l => l())
-    // A SPREAD OF KICKS, not one, and both reasons were found the hard way.
+    // A SPREAD OF KICKS, not one, for two reasons.
     //
     // An immediate kick is swallowed: pressing Start commits (which kicks, pulling a schedule
     // the simulator cannot yet replay because these plays are still in flight) and this lands a
@@ -277,7 +277,7 @@ export function momentOf(game: WpblGame, plays: WpblGamePlay[], done: number): W
   // simulator gets to skip a rule the real thing applies.
   // Both clocks, or the page says the feed has gone quiet. `feedHealth` reads `updated_at` (when
   // we last wrote the row) and `source_updated_at` (when the league last stamped it), and on a
-  // game played yesterday both are hours old: the Live tab opened under a "Waiting on the
+  // game played yesterday both are hours old: the Live tab opens under a "Waiting on the
   // league, no update since 7:00 PM" banner, which is exactly the state a real live game is not
   // in. A replay is pretending the game is happening now, so it has to pretend about the clocks
   // too, and the note it silences is one of the things worth being able to look at.
@@ -335,9 +335,9 @@ export const devLiveOverlay = {
    * MERGED OVER THE FULL ROW FIRST, and that is not tidiness. `LIVE_GAME_COLUMNS` is only the
    * columns that can move during a game, so the delta has no `home_team_id`: handed to
    * `momentOf` on its own, every `p.team_id === game.home_team_id` test is false and the whole
-   * game is scored to the visitors. It looked entirely plausible, too. Home's LIVE hero read
+   * game is scored to the visitors. It looks entirely plausible, too: Home's LIVE hero reads
    * 11-0 in a game that finished 10-6, and only the scoreboard chip beside it (which comes off
-   * the schedule, where the row IS complete) disagreed.
+   * the schedule, where the row IS complete) disagrees.
    */
   live(gameId: string, delta: Partial<WpblGame> | null): Partial<WpblGame> | null {
     const s = get()

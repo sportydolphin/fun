@@ -1,4 +1,4 @@
-// The Discord message for a finished game — the box score as it appears in the fan
+// The Discord message for a finished game: the box score as it appears in the fan
 // server's recap channel.
 //
 // Pure, and kept beside the recap engine it renders (recap.ts) rather than inside the job
@@ -42,7 +42,7 @@ function inningRuns(line: WpblLineScoreEntry[] | null | undefined, innings: numb
 }
 
 /**
- * The line score as a monospace table — the shape anyone who has read a box score expects:
+ * The line score as a monospace table, the shape anyone who has read a box score expects:
  *
  *         1  2  3  4  5  6  7 │  R   H   E
  *   BOS   2  0  0  1  3  0  0 │  6  11   0
@@ -50,7 +50,7 @@ function inningRuns(line: WpblLineScoreEntry[] | null | undefined, innings: numb
  *
  * A code block is what makes it hold together: Discord renders proportional text
  * everywhere else, so the columns would only line up by accident. Teams are abbreviated
- * for the same reason — the block does not wrap, and "San Francisco Firebells" against
+ * for the same reason: the block does not wrap, and "San Francisco Firebells" against
  * seven innings runs past the width of a phone, which is where most of Discord is read.
  */
 export interface LineScoreRow { teamId: string; abbr: string; cells: (number | 'X')[]; r: number; h: number; e: number }
@@ -59,10 +59,10 @@ export interface LineScoreGrid { innings: number; rows: [LineScoreRow, LineScore
 /**
  * The line score as data, shared by every renderer of it.
  *
- * Extracted from `lineScoreBlock` when the Bluesky card arrived, because the X rule below is a
- * real baseball judgement and two copies of it would drift: one renderer would start claiming a
- * scoreless bottom of the 7th that nobody batted, and nothing about that looks wrong until
- * somebody who reads box scores notices.
+ * Separate from `lineScoreBlock` because the Bluesky card draws the same grid, and the X rule
+ * below is a real baseball judgement that two copies would drift on: one renderer would start
+ * claiming a scoreless bottom of the 7th that nobody batted, and nothing about that looks wrong
+ * until somebody who reads box scores notices.
  */
 export function lineScoreGrid(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>): LineScoreGrid {
   const innings = Math.max(playedInnings(game.away_line, game.home_line), game.innings ?? 7)
@@ -70,7 +70,7 @@ export function lineScoreGrid(game: WpblGame, recap: GameRecap, teams: Map<strin
   const abbr = (teamId: string, fallback: string) => teams.get(teamId)?.abbr ?? fallback
   // A home team that's already ahead never bats in the bottom of the final inning. The feed
   // still reports 0 runs for that half, but printing it as a 0 claims a scoreless frame that
-  // was never played, so use the X a scorebook would. A walk-off is the other branch — the
+  // was never played, so use the X a scorebook would. A walk-off is the other branch: the
   // home team was tied or trailing going in, so it batted and its runs stand. Same rule the
   // app's Scoreboard applies.
   const aRuns = inningRuns(game.away_line, innings)
@@ -133,9 +133,10 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
   // Which game of which series, in the footer where the date already sits: it is filing
   // information rather than news, and the news (who leads, who just won it) is in the blurb
   // and the first of the fields. Added ONLY when the game is a postseason one, so every
-  // regular-season recap renders byte for byte as before. That matters more than it looks:
-  // recapMessageFingerprint is the whole message, so a footer that changed unconditionally
-  // would make the scheduled job re-edit all 30 already-posted recaps on its next pass.
+  // regular-season recap renders byte for byte the same with or without it. That matters more
+  // than it looks: recapMessageFingerprint is the whole message, so a footer that changed
+  // unconditionally would make the scheduled job re-edit every already-posted recap on its
+  // next pass.
   const round = recap.series ? ` · ${recap.series.label} Game ${recap.series.gameNumber} of ${recap.series.bestOf}` : ''
   return {
     // A recap should never ping a channel, however it is worded.
@@ -166,9 +167,9 @@ export function recapMessageFingerprint(message: DiscordRecapMessage): string {
 }
 
 /**
- * The stored form of that fingerprint. TWO different posters write it — the edge function
+ * The stored form of that fingerprint. TWO different posters write it (the edge function
  * that announces a final the moment the ingest sees it, and the scheduled job that keeps
- * the message current afterwards — so they have to agree to the character, or the job
+ * the message current afterwards), so they have to agree to the character, or the job
  * would "correct" a message the function had only just posted. One implementation, on Web
  * Crypto because it is the digest both Deno and Node have.
  */

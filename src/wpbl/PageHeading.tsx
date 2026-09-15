@@ -5,12 +5,12 @@ import React, { createContext, useContext } from 'react'
 //
 // The problem this solves: /wpbl/players/denae-benites and /wpbl/games/<slug> are real pages
 // with their own titles, canonicals and sitemap entries, but they are drawn as a modal over
-// whichever tab you opened them from. So the tab underneath was still rendering its own
-// <h1>, and the modal rendered none at all. Every player page, and every game page, answered
-// "what is this page about" with "Women's Pro Baseball League" — the home page's heading —
-// on 139 of the sitemap's 168 URLs, with the player's own name not a heading of any level.
+// whichever tab you opened them from. Left alone, the tab underneath renders its own <h1> and
+// the modal renders none, so every player page and every game page answers "what is this page
+// about" with the home page's heading, "Women's Pro Baseball League", across most of the
+// sitemap, with the player's own name not a heading of any level.
 //
-// The fix is not a second <h1>. It is that the tab stops claiming to be the page when it
+// The answer is not a second <h1>. It is that the tab stops claiming to be the page when it
 // isn't: its title keeps every pixel of its styling and becomes a plain <div>, and the modal
 // supplies the one <h1>. A context rather than a prop because five tab headings and three
 // modals would otherwise all need threading through WpblApp's panel map.

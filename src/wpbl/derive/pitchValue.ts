@@ -192,15 +192,15 @@ export interface TakeSwingLine {
 /**
  * Split every player's season into the pitches they took and the pitches they offered at.
  *
- * THE ONE QUESTION THE SECTION COULD NOT ASK. A hitter's run value is one number and the
- * discipline board is a table of rates, so a hitter with the best eye in the league and
- * nothing behind it looks average on the first and excellent on the second, and no surface
- * puts the two together. Split in runs it reads in one line: Maggie Foxx is +4.4 on the
- * pitches she takes and −12.8 on the ones she swings at.
+ * THE ONE QUESTION THE SECTION COULD NOT OTHERWISE ASK. A hitter's run value is one number and
+ * the discipline board is a table of rates, so a hitter with the best eye in the league and
+ * nothing behind it looks average on the first and excellent on the second, and no other
+ * surface puts the two together. Split in runs it reads in one line: Maggie Foxx is +4.4 on the
+ * pitches taken and −12.8 on the ones swung at.
  *
  * Plate appearances only, for the reason `runValueLeaders` gives: on a steal the feed still
  * fills `batter_name` with whoever is standing at the plate, so a row built from every play
- * would credit her with the runner's work.
+ * would credit the batter with the runner's work.
  *
  * A pitcher's numbers are the batting side's NEGATED, like every other pitching total here,
  * so bigger is better on both sides of the board.
@@ -242,8 +242,8 @@ export function takeSwingSplit(
         player: id ? byId.get(id) ?? null : null,
         name,
         // The club that was batting is on the play, and the fielding one is worked out from
-        // the schedule: a traded player's July has to read as the club she played it for,
-        // which her roster row no longer knows.
+        // the schedule: a traded player's July has to read as the club that player played it
+        // for, which the roster row no longer knows.
         teamId: side === 'hitting' ? v.play.team_id : v.fieldingTeamId,
         pitches: 0, taking: 0, swinging: 0, total: 0,
       }

@@ -6,26 +6,23 @@ import type { WpblPlayer } from './types'
 
 // The two cards that say what a play is WORTH, as opposed to how often it happened.
 //
-// THEY USED TO BE A BOARD OF THEIR OWN, CALLED FINDINGS, and that was the mistake. The argument
-// for it was real and is kept below, because it is still the reason these two are cards rather
-// than chips: the rest of the Stats tab is ways to cut the numbers, and these are answers. What
-// it got wrong was the container. A board is a destination, and a destination has to be worth
-// choosing by name.
+// THEY LIVE ON THE RUN VALUE BOARD, NOT ON A BOARD OF THEIR OWN. They are answers where the
+// rest of the Stats tab is ways to cut the numbers, which is why they are cards rather than
+// chips, but a board is a destination and a destination has to be worth choosing by name.
 //
-// The traffic said it was not being chosen. Of 157 sessions that reached Findings, 84 reached
-// every other analysis board too and 10 reached Findings alone: readers were walking the row
-// left to right, not picking a label. Reach fell monotonically with position in that row, which
-// is what sweeping looks like and what choosing does not. And the cost of the split was on the
-// other side: 99 of the 241 sessions that read Run value never saw these cards at all, so 41%
-// of the readers of a board priced entirely in run value missed the table those prices come
+// The traffic said a separate board for them was not being chosen. Of 157 sessions that
+// reached it, 84 reached every other analysis board too and 10 reached it alone: readers were
+// walking the row left to right, not picking a label. Reach fell monotonically with position
+// in that row, which is what sweeping looks like and what choosing does not. And the split cost
+// the other side: 99 of the 241 sessions that read Run value never saw these cards at all, so
+// 41% of the readers of a board priced entirely in run value missed the table those prices come
 // from, on a board whose own explainer argues from it.
 //
-// So they live on Run value now, which is the board they were always about. Same engine
-// (derive/runExpectancy.ts), same season pass, same unit. `PlayValueCard` opens the second
-// column there, one level simpler than the count grid under it; `StealCard` stays behind the
-// experiments switch and follows it.
+// Same engine (derive/runExpectancy.ts), same season pass, same unit. `PlayValueCard` opens the
+// second column on Run value, one level simpler than the count grid under it; `StealCard` stays
+// behind the experiments switch and follows it.
 //
-// THREE RULES SURVIVE THE MOVE, ALL THREE FROM THE TRAFFIC RATHER THAN FROM TASTE.
+// THREE RULES, ALL THREE FROM THE TRAFFIC RATHER THAN FROM TASTE.
 //
 // 1. NAME PLAYERS, AND MAKE THEM TAPPABLE. Return rate by what a browser did on its first day
 //    runs 7.8% for neither a player page nor Game Center, 35.7% for Game Center alone and 76.5%
@@ -99,17 +96,17 @@ export function StealCard({ econ, runners, accent, onOpenPlayer }: {
           }} />
         </Box>
         {/* RESERVED IN REM, NOT PX. Both labels are positioned rather than in flow, because the
-            lower one has to sit on the break-even tick, so this box cannot take its height from
-            its content and has to reserve it. That makes it a box reserving room for type, and
-            the fixed 34px it used to carry fitted at exactly one scale: at the reader's Large
-            text setting the lower label already hung out of the bottom of it, and the fixed 16px
-            offset put the two line boxes 5px into each other, so the gap between the labels
-            SHRANK as the type grew. Desktop is worse, since --app-type multiplies on top.
+        lower one has to sit on the break-even tick, so this box cannot take its height from
+        its content and has to reserve it. That makes it a box reserving room for type, and a
+        fixed 34px fits at exactly one scale: at the reader's Large text setting the lower
+        label hangs out of the bottom of it, and a fixed 16px offset puts the two line boxes
+        5px into each other, so the gap between the labels SHRINKS as the type grows. Desktop
+        is worse, since --app-type multiplies on top.
 
-            Each length is now the line box it is standing in for, in the same unit as the text,
-            so the reservation cannot drift from what it reserves. `lineHeight` is pinned here
-            for that reason and not for looks: it is the multiplier both lengths are computed
-            from, and inheriting it would leave those numbers describing a value set elsewhere. */}
+        Each length is the line box it is standing in for, in the same unit as the text, so
+        the reservation cannot drift from what it reserves. `lineHeight` is pinned here for
+        that reason and not for looks: it is the multiplier both lengths are computed from,
+        and inheriting it would leave those numbers describing a value set elsewhere. */}
         <Box sx={{ position: 'relative', height: `${(0.78 + 0.72) * 1.5}rem`, mt: 0.75 }}>
           <Typography sx={{ position: 'absolute', left: 0, fontSize: '0.78rem', lineHeight: 1.5, fontWeight: 800, color: worthIt ? accent : 'text.primary' }}>
             {rate(successRate)} of the time it works
@@ -158,8 +155,8 @@ export function StealCard({ econ, runners, accent, onOpenPlayer }: {
 }
 
 /**
- * What each kind of play is worth, which is the table every other number on this tab is priced
- * off and which nothing showed until now.
+ * What each kind of play is worth, which is the table every other number on this board is
+ * priced off.
  *
  * THE LEAD SENTENCE IS COMPUTED, NOT WRITTEN. Two of these rows carry the whole point (a
  * strikeout costs more than a groundout, and the sacrifice is worth nothing at all) and both
@@ -167,12 +164,11 @@ export function StealCard({ econ, runners, accent, onOpenPlayer }: {
  * in September without anyone noticing. It is assembled from the same rows the list draws, or
  * omitted if the season has not produced them yet.
  *
- * IT NO LONGER EXPLAINS ITSELF, AND THAT IS THE POINT. It used to carry half the run-value
- * explanation behind a disclosure: the leadoff anchor, one play in a ledger, the formula in
- * words. The other half, the 24 situations those prices are read off and the caveats, was on
- * the Run value board, and neither surface mentioned the other. The whole thing now lives
- * there, in the order the idea is built, and this card carries a link to it. What is left here
- * is what only this card has, which is the sixteen measurements.
+ * IT DOES NOT EXPLAIN ITSELF, AND THAT IS THE POINT. The whole run-value explanation lives
+ * further down the Run value board, in the order the idea is built, and this card carries a
+ * link to it. Half an explanation here and half there, with neither mentioning the other, is
+ * the split to avoid. What is left here is what only this card has, which is the sixteen
+ * measurements.
  */
 export function PlayValueCard({ rows, accent, onSeeMethod }: {
   rows: EventValue[]
@@ -205,13 +201,12 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
               '&:first-of-type': { borderTop: 0 },
             }}>
               {/* THE BAR GETS THE WHOLE ROW, and that is a phone measurement rather than a
-                  taste. Beside a reserved 88px number column the track was 213px of a 309px
-                  card, and a bar drawn from the centre spends half of whatever it is given, so
-                  the entire chart lived in 106px on a 375px screen: sixteen plays separated by
-                  a few pixels each, which is a decoration rather than a reading. Full width is
-                  309px of track and 154px of swing, and the same change is worth 380px on the
-                  desktop card. The number moves up beside the label, where it is still a column
-                  to check the bars against. */}
+              taste. Beside a reserved 88px number column the track is 213px of a 309px card,
+              and a bar drawn from the centre spends half of whatever it is given, so the entire
+              chart lives in 106px on a 375px screen: sixteen plays separated by a few pixels
+              each, which is a decoration rather than a reading. Full width is 309px of track and
+              154px of swing, and the same change is worth 380px on the desktop card. The number
+              moves up beside the label, where it is still a column to check the bars against. */}
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.5 }}>
                 <Typography component="span" sx={{ fontSize: '0.86rem', fontWeight: 700 }}>{r.label}</Typography>
                 <Typography component="span" sx={{ fontSize: '0.75rem', color: 'text.disabled' }}>{r.n}</Typography>
@@ -231,11 +226,11 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
                   width: `${Math.abs(r.per) / widest * 50}%`,
                   bgcolor: good ? accent : 'text.disabled',
                 }} />
-                {/* NO ZERO LINE, and it was tried. Every bar in the list starts at the
-                    centre, so the shared edge running down all fifteen rows already IS the
-                    axis, and a tick drawn on top of it either cuts the fill in half or paints
-                    in the card's own colour and disappears. Which side of zero a row sits on is
-                    said three ways over: the direction it grows, its colour, and its number. */}
+                {/* NO ZERO LINE. Every bar in the list starts at the centre, so the shared edge
+                running down all fifteen rows already IS the axis, and a tick drawn on top of it
+                either cuts the fill in half or paints in the card's own colour and disappears.
+                Which side of zero a row sits on is said three ways over: the direction it grows,
+                its colour, and its number. */}
               </Box>
             </Box>
           )
@@ -248,19 +243,12 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
 
       {/* THE METHOD IS FURTHER DOWN THIS BOARD, AND THIS IS THE WAY TO IT.
 
-          It was a link to another tab until the two were one board: this card carried half the
-          run-value explanation behind a disclosure (the leadoff anchor, one play in a ledger,
-          the formula in words) while the 24 situations those prices are read off sat on Run
-          value with the rest of the fine print. Two halves, two tabs, neither one whole, and
-          nothing on either saying the other existed.
+      A POINTER RATHER THAN A DUPLICATE. The explanation is the thing most likely to be
+      edited, and a copy of it here is a copy that goes stale the first time somebody
+      improves the original. This card keeps what only it has, which is the measurements.
 
-          A POINTER RATHER THAN A DUPLICATE, which is the part that still matters now that the
-          journey is a scroll. The explanation is the thing most likely to be edited, and a copy
-          of it here is a copy that goes stale the first time somebody improves the original.
-          This card keeps what only it has, which is the measurements.
-
-          NO JARGON, still (rule 2 at the top of this file): "run expectancy" and "linear
-          weights" are the names for what this leads to and neither is on the page. */}
+      NO JARGON (rule 2 at the top of this file): "run expectancy" and "linear weights" are
+      the names for what this leads to and neither is on the page. */}
       {onSeeMethod && (
         <Box
           {...pressable(onSeeMethod)}

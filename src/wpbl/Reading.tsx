@@ -15,7 +15,8 @@ import { track, EVENTS } from '../lib/analytics'
 // one way this deliberately differs from the highlights rail next to it. The highlights
 // lightbox exists because an embedded player genuinely beats bouncing to YouTube; there is
 // no equivalent win for prose, and rendering someone's article inside our own chrome is the
-// copyright problem wearing a hat. The whole point of the feature is to send readers to her.
+// copyright problem wearing a hat. The whole point of the feature is to send readers to the
+// writer.
 
 /** Where every card points, and how it points there. `noopener` is not optional on a
  *  target=_blank link: without it the opened page gets a handle on ours through
@@ -27,7 +28,7 @@ const linkProps = { target: '_blank', rel: 'noopener noreferrer' } as const
  *  their keep, or whether the Home rail is doing all the work. */
 export type ReadingSource = 'rail' | 'archive' | 'game' | 'player'
 
-/** One click through to her writing.
+/** One click through to the writer's work.
  *
  *  Safe to fire from an anchor's onClick without preventDefault: these links open in a new
  *  tab, so this page is never unloaded and the fire-and-forget insert has time to land. A
@@ -49,7 +50,7 @@ function dateLabel(iso: string): string {
 }
 
 /** "4 min read", the one piece of metadata worth putting on a card that is asking someone
- *  for five minutes of their attention. Counts the embedded clips as well as the words: her
+ *  for five minutes of their attention. Counts the embedded clips as well as the words: the
  *  posts carry up to five, and a short video-heavy piece takes far longer than its word
  *  count suggests. See readMinutes(). */
 const readLabel = (a: WpblArticle) => `${readMinutes(a.word_count, a.video_count)} min read`
@@ -141,33 +142,30 @@ function RailCard({ article, teamById }: { article: WpblArticle; teamById: Map<s
  * The credit under the Reading rail, and the one block on Home that is about a person who is
  * not us.
  *
- * She is someone writing this for love rather than a syndication partner, so the credit is a
- * face and a sentence in her own words rather than a line of fine print, and the whole row is
- * the link: it is the only door here that leads somewhere other than a single article.
+ * The writer does this for love rather than as a syndication partner, so the credit is a face
+ * and a sentence in the writer's own words rather than a line of fine print, and the whole row
+ * is the link: it is the only door here that leads somewhere other than a single article.
  *
- * IT HAS TO SAY SO, and until Aug 26, 2026 it did not. It showed her photo at 52px, her name,
- * and then her own bio verbatim, "I am a writer and amateur baseball player from Albany.",
- * with no lead-in at all, inside one of our cards. A first-person sentence in a card on
- * somebody's site is read as that site's author speaking, and it was: readers came away
- * thinking the person who runs sportydolphin.fun is mary mustard. That is worse than a
- * cosmetic problem. It misattributes her writing and it misrepresents us, in both directions
- * at once.
+ * IT HAS TO SAY WHOSE WORDS THEY ARE. A first-person bio ("I am a writer and amateur baseball
+ * player from Albany.") shown verbatim with no lead-in, inside one of our cards, is read as this
+ * site's author speaking, and readers have come away thinking the person who runs
+ * sportydolphin.fun is mary mustard. That is worse than a cosmetic problem. It misattributes the
+ * writing and it misrepresents us, in both directions at once.
  *
- * Three changes, and the framing is doing the work rather than the size. "Written by" gives
- * the sentence a subject before her name appears. Her bio is in quotation marks, so the "I"
- * is unambiguously hers and not ours. And the publication line says "her Substack", which is
- * the fact a confused reader is actually missing. The shelf's own subtitle names her too, so
- * the attribution is there before this card is even reached (see MediaShelf).
+ * So the framing does the work rather than the size. "Written by" gives the sentence a subject
+ * before the name appears. The bio is in quotation marks, so the "I" is unambiguously the
+ * writer's and not ours. And the publication line names whose Substack it is, which is the fact
+ * a confused reader is actually missing. The shelf's own subtitle names the writer too, so the
+ * attribution is there before this card is even reached (see MediaShelf).
  *
- * Smaller as well, since the point is a credit rather than an author bio: this is not the
- * masthead of the page, it is a thank-you and a door to her writing.
+ * Small as well, since the point is a credit rather than an author bio: this is not the
+ * masthead of the page, it is a thank-you and a door to the writing.
  *
- * On the photo size, which is down from 52/40 but still larger than a 3-line block wants: her
- * Substack profile photo is a wide shot of her on a ballfield rather than a head-and-shoulders
- * portrait, and the source is already square, so there is no crop available that finds her
- * face: Substack's CDN has Cloudinary's face gravity disabled (`g_face` 404s), leaving only a
- * centred fill of the whole frame. If she ever sends a portrait this can go smaller again and
- * will read better for it.
+ * On the photo size, which is still larger than a 3-line block wants: the Substack profile photo
+ * is a wide shot on a ballfield rather than a head-and-shoulders portrait, and the source is
+ * already square, so there is no crop available that finds a face: Substack's CDN has
+ * Cloudinary's face gravity disabled (`g_face` 404s), leaving only a centred fill of the whole
+ * frame. A portrait would let this go smaller and read better for it.
  */
 export function AuthorByline({ compact, from }: { compact?: boolean; from: ReadingSource }) {
   const size = compact ? 34 : 40
@@ -187,14 +185,14 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
       }}
     >
       {/* Requested at 2x the display size for a retina screen, and no larger: see
-          authorPhoto() for why that number is worth caring about.
+      authorPhoto() for why that number is worth caring about.
 
-          NOT lazy, unlike the cover images on the cards. It is ~3 KB and always visible in
-          its own context, so lazy buys nothing, and it actively broke inside the archive
-          modal: mounted there the intersection check never fired and the avatar sat blank
-          forever, having made no request at all. The covers keep `loading="lazy"` because
-          there are a dozen of them, they are large, and they sit in a horizontal scroller
-          that genuinely starts them off-screen. */}
+      NOT lazy, unlike the cover images on the cards. It is ~3 KB and always visible in
+      its own context, so lazy buys nothing, and inside the archive modal it breaks:
+      mounted there the intersection check never fires and the avatar sits blank forever,
+      having made no request at all. The covers keep `loading="lazy"` because there are a
+      dozen of them, they are large, and they sit in a horizontal scroller that genuinely
+      starts them off-screen. */}
       <Box
         component="img"
         src={authorPhoto(size * 2)}
@@ -220,15 +218,15 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
 }
 
 /**
- * The Reading strip, as one segment of Home's media shelf.
+ * The Reading strip, as one segment of the league page's media shelf.
  *
- * Bare on purpose: no SectionCard, no collapse, no title. Those belong to the shelf now, which
- * is what lets Reading, Highlights and Archive share one card instead of stacking three
- * near-identical strips down the left column (see MediaShelf.tsx).
+ * Bare on purpose: no SectionCard, no collapse, no title. Those belong to the shelf, which is
+ * what lets Reading, Highlights and Archive share one card instead of stacking three
+ * near-identical strips down a column (see MediaShelf.tsx).
  *
  * The byline stays here rather than moving up to the shelf. It is the credit for THIS
- * segment's content, and hoisting it would leave her name sitting over a rail of YouTube
- * thumbnails whenever somebody switched to Highlights.
+ * segment's content, and hoisting it would leave the writer's name sitting over a rail of
+ * YouTube thumbnails whenever somebody switched to Highlights.
  */
 export function ReadingStrip({ articles, teams }: { articles: WpblArticle[]; teams: WpblTeam[] }) {
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -294,11 +292,11 @@ function ArchiveRow({ article, teamById }: { article: WpblArticle; teamById: Map
       onClick={() => trackOpen(article, 'archive')}
       aria-label={`Read: ${article.title}, ${readLabel(article)}, opens in a new tab`}
       sx={{
-        // `stretch`, not `flex-start`. Her headlines are long and good ("I Cannot Overstate
+        // `stretch`, not `flex-start`. The headlines are long and good ("I Cannot Overstate
         // to You How Good Denae Benites is Playing WPBL Baseball Right Now") so they wrap to
         // anywhere between two and four lines, and rows run 81px to 113px tall. A
-        // fixed-height 16:9 thumbnail top-aligned in that left 27 to 59px of dead air
-        // underneath it, different on every row, which is what made the list look ragged.
+        // fixed-height 16:9 thumbnail top-aligned in that leaves 27 to 59px of dead air
+        // underneath it, different on every row, which makes the list look ragged.
         // Clamping the titles instead would even the rows out at the cost of the headline,
         // and the headline is the entire product here.
         display: 'flex', gap: 1.25, alignItems: 'stretch', textDecoration: 'none', color: 'inherit',
@@ -349,10 +347,10 @@ export function ReadingArchive({ articles, teamById, onClose }: {
 }) {
   return (
     // The count belongs in the eyebrow, next to the section name, the same shape the team
-    // page's full-season modal uses ("Boston Hunters · 15 games"). It replaces a sentence
-    // that sat above the list saying the list was a list: the byline already says whose
-    // writing this is, the dates already say it runs newest first, and "everything mary has
-    // written about the league, newest first" wrapped to two lines to say neither.
+    // page's full-season modal uses ("Boston Hunters · 15 games"). A sentence above the list
+    // saying the list is a list adds nothing: the byline already says whose writing this is,
+    // the dates already say it runs newest first, and "everything mary has written about the
+    // league, newest first" wraps to two lines to say neither.
     <ModalShell
       eyebrow={`Reading · ${articles.length} post${articles.length === 1 ? '' : 's'}`}
       onClose={onClose}
@@ -478,9 +476,9 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
           {recap.title}
         </Typography>
         {/* THEIR NAME, NOT OURS, and it is the whole reason this line exists. A headline and a
-            thumbnail inside our chrome reads as our reporting unless something says otherwise;
-            the Reading rail learned that on Aug 26, 2026 when readers came away thinking the
-            Substack writer ran this site. So the publication is named in full on every card. */}
+        thumbnail inside our chrome reads as our reporting unless something says otherwise;
+        readers of the Reading rail have come away thinking its Substack writer ran this site.
+        So the publication is named in full on every card. */}
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.25 }}>
           {RECAP_PUBLICATION} · {dateLabel(recap.published_at)} ↗
         </Typography>

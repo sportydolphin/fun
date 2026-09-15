@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { fmtTwo, kRateLabel, scaleToBasis, ERA_BASIS_CANONICAL, type EraBasis } from './stats'
 
 // Which denominator the reader sees ERA and the strikeout rate on. The reasoning for the
-// default living at 9 is in stats.ts, next to the arithmetic; this file is only the
-// preference and the formatters that spend it.
+// default basis is in stats.ts, next to the arithmetic; this file is only the preference and
+// the formatters that spend it.
 //
 // STORED PER READER, IN localStorage, LIKE UNITS. No account, so it works for the
 // overwhelming majority of visitors who never sign in, and it is a display preference rather
@@ -22,14 +22,12 @@ const STORAGE_KEY = 'wpblEraBasis'
 /**
  * Read the reader's choice, accepting EITHER basis by name.
  *
- * This used to ask `=== '7' ? 7 : CANONICAL`, which worked only while 7 was the non-default:
- * it recognised the one value that was not the default and let everything else fall through.
- * When the league switched to per 7 on Sep 3, 2026 and the canonical basis moved with it, that
- * made the remaining choice unstorable. A reader picking "Per 9" wrote '9', `readStored` did not
- * recognise it, and the setting silently snapped back on the next load. Nothing threw and the
- * pill even looked right until you reloaded.
+ * Recognising only the non-default value (`=== '7' ? 7 : CANONICAL`) works only until the
+ * canonical basis moves. Then the remaining choice becomes unstorable: a reader picking the
+ * other basis writes a value `readStored` does not recognise, and the setting silently snaps
+ * back on the next load. Nothing throws, and the pill even looks right until a reload.
  *
- * Naming both values fixes it in whichever direction the league goes next.
+ * Naming both values keeps it right in whichever direction the league goes next.
  */
 function readStored(): EraBasis {
   try {
@@ -43,8 +41,7 @@ interface EraBasisContextValue {
   setBasis: (b: EraBasis) => void
   /** True when the reader has moved off the league's own basis. Surfaces that sit next to a
    *  league-published number use this to say so rather than silently disagreeing. Compares
-   *  against the constant, so it inverted on its own when the league switched: it means "not 7"
-   *  now and meant "not 9" before Sep 3, 2026. */
+   *  against the constant, so it follows the league's basis if that ever moves again. */
   offLeague: boolean
   /** Stored canonical-basis rate → what to show. */
   scale: (v: number | null) => number | null

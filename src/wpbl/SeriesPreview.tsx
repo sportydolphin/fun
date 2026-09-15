@@ -23,19 +23,18 @@ import type {
 /**
  * One series, opened.
  *
- * WHY THE BOX IS A SINGLE TARGET NOW. Each club row in the bracket used to be its own tap
- * through to that club's page, which made a series box two controls with a third of a control
- * between them, and left the box itself, the thing a reader actually points at, doing nothing.
- * The whole box opens this instead, and the club links live in here where there is room to
- * label them. Nothing is lost by the move: a team page is one tap further away and arrives with
- * the reason to want it already read, and `WPBL_BRACKET_TEAM` still fires from the chips below
- * so the retention number this card is judged on stays comparable.
+ * WHY THE BOX IS A SINGLE TARGET. A tap through to a club's page on each row of the bracket
+ * would make a series box two controls with a third of a control between them, and leave the
+ * box itself, the thing a reader actually points at, doing nothing. The whole box opens this
+ * instead, and the club links live in here where there is room to label them. A team page is
+ * one tap further away and arrives with the reason to want it already read, and
+ * `WPBL_BRACKET_TEAM` fires from the chips below so the retention number this card is judged
+ * on stays comparable.
  *
  * WHAT IT ANSWERS, in the order somebody asks it: who is playing and how likely each of them is,
  * when the games are, what happened when these two met in the season, how the clubs compare, and
- * who to watch on each side. The first four already existed in pieces scattered across the
- * section; the leaders are new, and they are the reason this is a series overview rather than a
- * bigger tooltip.
+ * who to watch on each side. The first four exist in pieces elsewhere in the section; the
+ * leaders are the reason this is a series overview rather than a bigger tooltip.
  *
  * IT FETCHES NOTHING ANYBODY ELSE HAS NOT ALREADY FETCHED. Box-score lines and the league roster
  * are both app-wide caches by the time Home has drawn, so on a warm page this opens with no
@@ -54,12 +53,12 @@ interface Leader {
  *
  * KEYED ON THE LINE'S TEAM AND NEVER ON THE ROSTER ROW, which is the trap this section is built
  * around: `team_id` on a roster row means "now", so a traded player would be listed under the
- * club she finished the season at and be missing from the one she played these games for. A
+ * club they finished the season at and be missing from the one they played these games for. A
  * box-score line carries the club that game was played for, which is the question being asked.
  *
  * Rate stats are gated on the same qualifier the leaderboards use, so the club's batting average
  * is not a pinch-hitter who went 2-for-2 in August. Counting stats are not gated, because a home
- * run leader with nine home runs led whether or not she batted enough to hold a rate title.
+ * run leader with nine home runs led whether or not they batted enough to hold a rate title.
  */
 export function teamLeaders(
   team: WpblTeam,
@@ -154,15 +153,15 @@ function ClubChip({ team, seed, record, winP, onOpenTeam }: {
       <Box sx={{ position: 'relative', flexShrink: 0, display: 'flex' }}><TeamBadge team={team} size={30} /></Box>
       <Box sx={{ position: 'relative', minWidth: 0, flex: 1 }}>
         {/* THE NICKNAME ON TOP AND THE CITY UNDERNEATH, which is not the bracket's answer and
-            should not be. Two of these sit side by side inside a 560px sheet with a percentage
-            on each, so "San Francisco Firebells" on one line ellipsised to "San Franci…" and
-            threw the city away, which is the half the bracket's own boxes are already showing.
-            Split across two lines nothing is lost and nothing is cut. */}
+        should not be. Two of these sit side by side inside a 560px sheet with a percentage
+        on each, so "San Francisco Firebells" on one line ellipsises to "San Franci…" and
+        throws the city away, which is the half the bracket's own boxes are already showing.
+        Split across two lines nothing is lost and nothing is cut. */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, minWidth: 0 }}>
           {/* The seed rides the nickname line rather than the meta line below it. Three items
-              down there ("San Francisco · 1 seed · 10-5") do not fit beside a percentage in half
-              a 560px sheet, and the one that was being cut was the city, which is the whole
-              reason this line exists. */}
+          down there ("San Francisco · 1 seed · 10-5") do not fit beside a percentage in half
+          a 560px sheet, and the one that gets cut is the city, which is the whole reason this
+          line exists. */}
           {seed != null && (
             <Typography sx={{
               flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
@@ -182,9 +181,9 @@ function ClubChip({ team, seed, record, winP, onOpenTeam }: {
           fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1.3,
         }}>{[team.city, record].filter(Boolean).join(' · ')}</Typography>
       </Box>
-      {/* A step BELOW the club name, which it used to be a step above. The chip is about a club
-          and the number is what is said about it; at 21px against the name's 19px the reader's
-          eye landed on the percentage first, in a row whose whole job is to say who is playing. */}
+      {/* A step BELOW the club name. The chip is about a club and the number is what is said
+      about it; a step above (21px against the name's 19px), the reader's eye lands on the
+      percentage first, in a row whose whole job is to say who is playing. */}
       {winP != null && (
         <Typography sx={{
           position: 'relative', flexShrink: 0, fontSize: TYPE_SCALE.title, fontWeight: 900,
@@ -223,9 +222,9 @@ function SeriesSchedule({ series }: { series: BracketSeries }) {
           }}>
             <Typography sx={{
               // "Game 3" and nothing longer, at the smallest size on the row, so it gets the
-              // width that string needs and not a hand-picked column. The pixels it was holding
-              // are what the matchup on the right needed at the Large text setting, where
-              // "BOS @ SF" was coming out as "BOS @ S…".
+              // width that string needs and not a hand-picked column. A wider column takes pixels
+              // the matchup on the right needs at the Large text setting, where "BOS @ SF" comes
+              // out as "BOS @ S…".
               width: '2.75rem', flexShrink: 0,
               fontSize: TYPE_SCALE.caption, fontWeight: 800,
               letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled',
@@ -259,18 +258,18 @@ const LEADER_CATEGORIES = ['AVG', 'OPS', 'HR', 'RBI', 'ERA', 'SO', 'IP'] as cons
 
 /** The width of the category column between the two clubs. In rem because it is reserving room
  *  for a STRING, and narrower on a phone because the longest label here is three characters and
- *  the two names either side need every pixel: at the Large text setting on a 375px screen the
- *  wider column was the difference between "K. Whitmore" and "K. Whitmor…". */
+ *  the two names either side need every pixel: at the Large text setting on a 375px screen a
+ *  wider column is the difference between "K. Whitmore" and "K. Whitmor…". */
 const LEADER_LABEL_W = { xs: '2rem', sm: '2.5rem' }
 
 /**
  * Both clubs' leaders, with the category down the middle.
  *
- * TWO LISTS SIDE BY SIDE IS NOT A COMPARISON. It was that first: one club's seven categories,
- * then the other's, each with its own label column, so reading "who has the better ERA" meant
- * finding ERA twice and holding the first number while you looked for the second. The category
- * sits between the two now and each club's leader reads outward from it, which is exactly the
- * shape of the team comparison directly above and lets the two blocks be read the same way.
+ * TWO LISTS SIDE BY SIDE IS NOT A COMPARISON. With one club's seven categories and then the
+ * other's, each with its own label column, reading "who has the better ERA" means finding ERA
+ * twice and holding the first number while you look for the second. The category sits between
+ * the two and each club's leader reads outward from it, which is exactly the shape of the team
+ * comparison directly above and lets the two blocks be read the same way.
  *
  * AWAY ON THE LEFT, HOME ON THE RIGHT, matching that comparison rather than the bracket: the
  * two blocks are inches apart and a reader who has just learned which side is which should not
@@ -332,14 +331,15 @@ function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
 
   return (
     /* CAPPED AND CENTRED, AND THE CAP IS MEASURED. Each side's leader hugs the category down
-       the middle, so at the sheet's full width the rules ran the whole card while the text sat
-       in the middle third: 725px wide, each side 328px holding 178px of "Kelsie Whitmore
-       1.669", which is 150px of empty card inside every row, twice. 500px puts each side at
-       217px, which clears the widest pair at the default text size and still clears it at the
-       Large setting, where the same string grows to about 200px. What is left goes outside as
-       margin, where it reads as a centred comparison rather than a row with a hole at each
-       end. `chromePx` because a cap on a block is a structural length and not room reserved
-       for a string, so it follows the desktop chrome scale and not the reader's text size. */
+    the middle, so at the sheet's full width the rules run the whole card while the text sits
+    in the middle third: 725px wide, each side 328px holding 178px of "Kelsie Whitmore
+    1.669", which is 150px of empty card inside every row, twice. The cap, 500 real pixels at
+    the desktop chrome scale, puts each side at 217px, which clears the widest pair at the
+    default text size and still clears it at the Large setting, where the same string grows to
+    about 200px. What is left goes outside as margin, where it reads as a centred comparison
+    rather than a row with a hole at each end. `chromePx` because a cap on a block is a
+    structural length and not room reserved for a string, so it follows the desktop chrome
+    scale and not the reader's text size. */
     <Box sx={{ mt: 0.75, maxWidth: chromePx(400), mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
         {head(away, 'right')}
@@ -421,9 +421,9 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
 
   return (
     // WIDER THAN A SHEET ON A DESKTOP, because it is five blocks and they do not want to be a
-    // column 1,348px long. Measured at 1600x1000 before this: the card ran the full height of
-    // the screen with half its content below the fold, in a 560px ribbon with a thousand pixels
-    // of empty page either side of it.
+    // column 1,348px long. At 1600x1000 a sheet-width card runs the full height of the screen
+    // with half its content below the fold, in a 560px ribbon with a thousand pixels of empty
+    // page either side of it.
     <ModalShell sheet eyebrow={`${series.label} · best of ${series.bestOf}`}
       maxWidth={{ xs: 560, md: 900 }} onClose={onClose}>
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
@@ -432,11 +432,11 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
         {/* STACKED ON A PHONE. Side by side at 375px each chip gets ~160px for a badge, a seed, a
             nickname and a percentage, and the nickname is what gives: "Heights" came out as
             "Hei…" on the one surface where this sheet is most likely to be opened. */}
-        {/* AWAY FIRST, THEN HOME, which is the order every other block in this sheet uses and
-            was the one thing that did not. The bracket draws the higher seed on top, so these
-            chips led with it while the schedule read "BOS @ SF", the team comparison read
-            "BOS vs SF" and the leaders put Boston on the left: four blocks, one of them the
-            other way round. Away first everywhere is also how a baseball line reads. */}
+        {/* AWAY FIRST, THEN HOME, which is the order every other block in this sheet uses. The
+        bracket draws the higher seed on top, and following it here would put these chips the
+        other way round from the schedule ("BOS @ SF"), the team comparison ("BOS vs SF") and
+        the leaders (Boston on the left). Away first everywhere is also how a baseball line
+        reads. */}
         <Box sx={{ display: 'flex', gap: 1, minWidth: 0, flexDirection: { xs: 'column', sm: 'row' } }}>
           {away && (
             <ClubChip team={away} seed={series.away.seed} record={recordOf(away.id)}
@@ -481,12 +481,12 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
                 const ht = teams.find(x => x.id === g.home_team_id)
                 const at = teams.find(x => x.id === g.away_team_id)
                 /* EACH GAME AS IT WAS PLAYED, away at home, rather than the winner and a
-                   scoreline. The row used to be a date on the far left and "SF 13-7" on the far
-                   right with 250px of nothing between them, which is a lot of width spent on
-                   less information: it never said where the game was, and in a series where one
-                   club won all five it printed that club's name five times. This says who was
-                   at home, which is the same thing the schedule block above says about the games
-                   still to come, and it fills the row it is given. */
+                scoreline. A date on the far left and "SF 13-7" on the far right leaves 250px of
+                nothing between them, which is a lot of width spent on less information: it never
+                says where the game was, and in a series where one club won all five it prints that
+                club's name five times. This says who was at home, which is the same thing the
+                schedule block above says about the games still to come, and it fills the row it is
+                given. */
                 const sideText = (team: WpblTeam | undefined, score: number | null, won: boolean) => (
                   <Typography sx={{
                     // A step up on a desktop, where this block sits in a 430px column with
@@ -547,19 +547,18 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
         </Box>
 
         {/* ACROSS BOTH COLUMNS, because this block is itself two columns. Nested inside one half
-            of the sheet each club's list got about 200px, and every name over eleven characters
-            came out as "Kelsie Whit…" — which is most of them, and a leaders list whose leaders
-            cannot be read is decoration. Out here each side has the width the names need. */}
+        of the sheet each club's list gets about 200px, and every name over eleven characters
+        comes out as "Kelsie Whit…", which is most of them, and a leaders list whose leaders
+        cannot be read is decoration. Out here each side has the width the names need. */}
         {leaders && (leaders.home.length > 0 || leaders.away.length > 0) && (
           <Box>
-            {/* CENTRED OVER THE TABLE, AND THAT NEEDED BOTH HALVES. Giving the label the
-                table's own 400 cap put it in the right BOX, which was the first half and read
-                as done; the label inside it is still flush left, so the words sat at the left
-                edge of a block whose content pools around the middle (each side's leader hugs
-                the category column, so the outer thirds of every row are empty). The heading
-                ended up 250px left of everything it labels, at an indent that matches nothing
-                else in the sheet: the two headings above it sit on their own columns' edges,
-                and this one sat at a third position that looks like a mistake. */}
+            {/* CENTRED OVER THE TABLE, WHICH TAKES BOTH HALVES. The table's own 400 cap puts the
+            label in the right BOX, and centring puts the words where the content is. Flush left
+            inside that box, the words sit at the left edge of a block whose content pools around
+            the middle (each side's leader hugs the category column, so the outer thirds of every
+            row are empty): about 250px left of everything they label, at an indent that matches
+            nothing else in the sheet, where the two headings above sit on their own columns'
+            edges. */}
             <Box sx={{ maxWidth: chromePx(400), mx: 'auto', textAlign: 'center' }}>
               <SectionLabel>Team leaders</SectionLabel>
             </Box>

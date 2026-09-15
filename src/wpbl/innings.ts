@@ -1,18 +1,19 @@
 // Innings-pitched conversions, plus how many innings a game actually played.
 // Their own module because the recap engine
 // (derive/recap.ts) needs outsToIp, and everything that engine touches has to be loadable
-// OUTSIDE the app bundle — the Discord recap poster in scripts/ builds the same recap the
+// OUTSIDE the app bundle: the Discord recap poster in scripts/ builds the same recap the
 // app shows. constants.ts can't be that home: it imports the team logos as assets, which
-// only Vite can resolve. constants.ts re-exports both, so existing callers are unaffected.
+// only Vite can resolve. constants.ts re-exports both, so callers can import from either.
 
 /**
  * Regulation, and the one place that says so.
  *
- * It was written out three times: the default below, the gate on the run-expectancy walk, and
- * the inning after which a game can end (gameOver.ts). Each of those reads perfectly on its
- * own, which is why a league that changed its game length would be found by none of them: the
- * table would keep measuring seven-inning half-innings, the end-of-game rule would keep
- * calling games one inning early, and both would look right. Same argument as ERA_BASIS_CANONICAL.
+ * It is needed in three places: the default below, the gate on the run-expectancy walk, and
+ * the inning after which a game can end (gameOver.ts). Written out in each, every copy reads
+ * perfectly on its own, which is why a league that changed its game length would be found by
+ * none of them: the table would keep measuring seven-inning half-innings, the end-of-game rule
+ * would keep calling games one inning early, and both would look right. Same argument as
+ * ERA_BASIS_CANONICAL.
  *
  * Here rather than in constants.ts because the Deno ingest loads this module and cannot load
  * that one (it imports the team logos as Vite assets); see the note at the top of this file.
@@ -39,8 +40,8 @@ export function ipToOuts(ip: string): number {
 // ─── How many innings a game actually played ──────────────────────────────────
 // The feed pads a finished game's line score with a trailing entry for a half-inning that
 // was never played, and reports the inflated count in its own status ("Final - 8 innings").
-// It happens when a post-game roster line — a defensive substitution, sometimes nothing but
-// "<player> to cf." — gets stamped with the next inning's number; two of the league's first
+// It happens when a post-game roster line (a defensive substitution, sometimes nothing but
+// "<player> to cf.") gets stamped with the next inning's number; two of the league's first
 // twelve finals arrived that way, each rendering a phantom 0-0 eighth on the line score.
 //
 // Extras are the tell. A game only reaches an inning past regulation from a tie, so a

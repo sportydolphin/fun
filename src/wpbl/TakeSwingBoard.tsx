@@ -7,12 +7,12 @@ import type { WpblPlayer } from './types'
 
 // ─── Taking and swinging ──────────────────────────────────────────────────────
 //
-// THE CARD THIS SECTION HAS BEEN ONE MULTIPLICATION AWAY FROM. Pitch by pitch says how often a
-// hitter offers, misses and takes; the leaderboard beside this says what her season was worth
-// in runs. A hitter with the best eye in the league and nothing behind it therefore looks
-// ordinary on one board and excellent on the other, and no surface put the two in the same
-// unit. Split in runs it is one line: Raine Padgham is +5.7 on the pitches she takes and −9.3
-// on the ones she swings at.
+// THE CARD BETWEEN TWO BOARDS, ONE MULTIPLICATION APART. Pitch by pitch says how often a
+// hitter offers, misses and takes; the leaderboard beside this says what a season was worth in
+// runs. A hitter with the best eye in the league and nothing behind it therefore looks
+// ordinary on one board and excellent on the other, and without this no surface puts the two
+// in the same unit. Split in runs it is one line: Raine Padgham is +5.7 on the pitches taken
+// and −9.3 on the ones swung at.
 //
 // THE TWO NUMBERS ADD UP TO THE ROW ON THE LEADERBOARD, which is the whole reason to trust
 // them, and it survives only because `paDecomposition` reconciles exactly. Do not "improve"
@@ -45,8 +45,8 @@ function Row({ row, accent, onOpen, first }: {
   // rather than as its own rounding. The two columns are exact and the figures beside them are
   // one decimal: Ashton Lansdell is +7.35 and +4.94, which print as +7.4 and +4.9 and come to
   // 12.3 under a leaderboard reading +12.2. Nothing is wrong with any of those three numbers,
-  // and a reader who adds the row has no way to know that, so the card whose whole claim is
-  // that the split reconciles is also the card proving it does not.
+  // but a reader who adds the row has no way to know that, so rounded independently the card
+  // whose whole claim is that the split reconciles would be the card proving it does not.
   //
   // The cost is at most half a tenth of a run on one of the two columns, which changes no
   // ordering: the sort runs on `taking`, and that is the column printed straight. Same trade

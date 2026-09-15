@@ -10,17 +10,14 @@ import {
 } from '@mui/icons-material'
 import { WPBL_ACCENT } from './constants'
 
-// Floating bottom tab bar for the WPBL section — phones only. It replaces the sticky top pill
-// nav on mobile: six destinations at the top of an 812px screen is the least reachable place
-// on the device, and the sixth used to sit off-screen entirely. It shipped to every mobile
-// reader on Sep 14, 2026, having been evaluated behind the Settings experiments flag first.
+// Floating bottom tab bar for the WPBL section, phones only. It replaces the sticky top pill nav
+// on mobile, because the top of a tall phone screen is the least reachable place to put the
+// section's destinations.
 //
-// DELIBERATELY NOT GLASS. A backdrop-filter needs something worth blurring, and this app is
-// dark cards on a near-black page — the blur would cost a compositing layer over a long
-// scrolling stats table (the classic source of scroll jank on mid-range Android) and buy a
-// slightly translucent bar. The floating pill shape is what gives the app-like feel; the
-// blur is what would give the bug reports. Easy to add behind @supports later if a real
-// device says otherwise.
+// DELIBERATELY NOT GLASS. A backdrop-filter over a long scrolling stats table costs a compositing
+// layer (the classic source of scroll jank on mid-range Android) to buy a slightly translucent
+// bar on a page of dark cards with little worth blurring. The floating pill shape carries the
+// app-like feel, and the shadow does the separating.
 
 export interface BottomNavItem {
   key: string
@@ -29,7 +26,7 @@ export interface BottomNavItem {
   badge?: boolean
 }
 
-// Filled icon when active, outlined when not — the standard tab-bar cue, and it means the
+// Filled icon when active, outlined when not: the standard tab-bar cue, and it means the
 // bar still reads correctly for anyone who can't distinguish the accent colour.
 const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
   home:      { on: Home,                off: HomeOutlined },
@@ -58,7 +55,7 @@ const BUBBLE_H = 28        // 3px of air above and below a 22px icon
 const ICON_LABEL_GAP = 5   // ≥ the bubble's overhang, so the pill never touches the label
 const LABEL_REM = 0.62
 // Descenders live below the baseline, and the label clips its own overflow to ellipsise a
-// long name — at line-height 1 that clipping cut the tail off the "g" in "Standings".
+// long name: at line-height 1 that clipping cuts the tail off the "g" in "Standings".
 const LABEL_LINE_HEIGHT = 1.3
 const FLOAT_GAP = 10       // how far the bar hovers above the bottom edge
 
@@ -67,17 +64,17 @@ const PENDING_STALL_MS = 2000
 
 // The inactive tab colour, and it is OPAQUE ON PURPOSE. MUI's dark `text.secondary` is white at
 // 0.7 alpha (the theme does not override it), and animating THAT to the opaque accent on tap raises
-// the alpha toward 1 while the hue is still white — so the icon flashed white before it turned blue.
+// the alpha toward 1 while the hue is still white, so the icon flashes white before it turns blue.
 // An opaque grey of about the same weight interpolates straight to the accent with nothing white in
 // between. Two values because the resting shade differs by mode; both clear AA on every skin's paper.
 const INACTIVE_TAB = { dark: '#a7adb7', light: '#5f6570' } as const
 
-// ONE DURATION AND CURVE FOR EVERY PART OF A SELECTION. A tap changes three things — the indicator
-// bubble slides to the tab, the icon fills in (outline → filled), and the icon + label recolour —
-// and if any of them runs on its own timing it reads as disjoint: the glyph snapping first and the
-// colour catching up as the bubble arrives is exactly that. Sharing the duration and easing makes
-// them start and finish together, so a tap is one motion. The same 300ms / curve the page pager's
-// tap slide uses (SLIDE_EASE / TAP_MS in SwipeableViews), so the whole screen moves as a unit.
+// ONE DURATION AND CURVE FOR EVERY PART OF A SELECTION. A tap changes three things (the indicator
+// bubble slides to the tab, the icon fills in, the icon and label recolour), and if any of them runs
+// on its own timing the tap reads as disjoint: the glyph snapping first and the colour catching up
+// as the bubble arrives. Sharing the duration and easing makes them start and finish together. The
+// same 300ms and curve as the pager's tap slide (SLIDE_EASE / TAP_MS in SwipeableViews), so the
+// whole screen moves as a unit.
 const SELECT_MS = 300
 const SELECT_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 
@@ -85,17 +82,15 @@ const SELECT_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 // and then the label, which is the one part measured in rem.
 const BAR_PX = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + 2
 
-/** Height of the bar plus its float gap — callers reserve this much scroll room beneath the
+/** Height of the bar plus its float gap: callers reserve this much scroll room beneath the
  *  content so the last card isn't parked under the bar. Excludes the safe-area inset, which
  *  callers add on top. Derived, so that changing the bar's proportions can't quietly leave
  *  the last card parked underneath it.
  *
- *  A CSS expression rather than a number, because one term of it is a rem. This used to read
- *  `Math.round(LABEL_REM * 16 * LABEL_LINE_HEIGHT)`, which bakes in the assumption that the
- *  root font size is 16px. That holds until the Large text setting makes it 18, at which point the
- *  label is taller than the arithmetic believes and the reserved strip is short by a few
- *  pixels, parking the last card under the bar. Left as an expression (no `calc()` wrapper)
- *  so callers can compose it with their own terms. */
+ *  A CSS expression rather than a number, because the label term is in rem. A px constant
+ *  would assume a 16px root, and under the Large text setting the reserved strip would come up
+ *  a few pixels short and park the last card under the bar. Left without a `calc()` wrapper so
+ *  callers can compose it with their own terms. */
 export const BOTTOM_NAV_SPACE = `${BAR_PX + FLOAT_GAP + 10}px + ${(LABEL_REM * LABEL_LINE_HEIGHT).toFixed(3)}rem`
 
 export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen = false }: {
@@ -108,11 +103,11 @@ export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen
   /** Whether the More sheet is open, so its slot can read as active while it is. */
   moreOpen?: boolean
 }) {
-  // Optimistic selection. Tapping a tab used to look like it stalled: the tap and the new
-  // panel's render landed in the same paint, so the bar couldn't light up until the tab's
-  // content had finished rendering. The bar now moves on its own state immediately and hands
-  // the real navigation to the next frame, so the indicator is already travelling while the
-  // panel renders. `pending` clears as soon as the parent confirms the new value.
+  // Optimistic selection. The tap and the new panel's render land in the same paint, so a bar
+  // driven only by `value` cannot light up until the tab's content has rendered. The bar moves on
+  // its own state immediately and hands the real navigation to the next frame, so the indicator is
+  // already travelling while the panel renders. `pending` clears as soon as the parent confirms
+  // the new value.
   const [pending, setPending] = useState<string | null>(null)
   const stall = useRef<number | undefined>(undefined)
   const clearStall = () => {
@@ -130,16 +125,15 @@ export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen
     // travelling to is a no-op rather than a second navigation.
     if (key === shown) return
     setPending(key)
-    // Recovery for a navigation that never lands. `pending` used to be cleared only by the
-    // parent confirming a new `value`, so if onChange failed to take effect the bar was left
-    // pointing at a tab it never reached, and since `shown` was then that tab, EVERY later
-    // tap hit the guard above and returned. One stalled navigation and the bar was dead for
-    // the rest of the session.
+    // Recovery for a navigation that never lands. If `pending` were cleared only by the parent
+    // confirming a new `value`, a stalled onChange would leave `shown` pointing at a tab never
+    // reached, and EVERY later tap would hit the guard above and return: one stalled navigation
+    // and the bar is dead for the session.
     //
-    // Reachable for real: the handover below runs in a requestAnimationFrame, and rAF does
-    // not fire while the document is hidden. Rather than enumerate causes, this just bounds
-    // how long the optimistic state is allowed to outlive reality. On expiry the indicator
-    // snaps back to where the reader actually is, which is honest, and taps work again.
+    // Reachable for real: the handover below runs in a requestAnimationFrame, and rAF does not
+    // fire while the document is hidden. Rather than enumerate causes, this bounds how long the
+    // optimistic state may outlive reality. On expiry the indicator snaps back to where the reader
+    // actually is, and taps work again.
     //
     // Generous on purpose: this only ever fires in the broken case, and a real navigation
     // updates `value` in the same commit as the parent's state change, long before this.
@@ -162,17 +156,11 @@ export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen
         px: 1.5,
         // Under modals (Game Center / player pages open above it) but over page content.
         zIndex: 1100,
-        // NO `will-change: transform` HERE, and this is the whole of the bug it was added to
-        // prevent turning into a worse one. It was meant to keep the bar on its own compositor
-        // layer so a long scroll under it does not re-raster the icons (a flicker seen on
-        // Android). But promoting a `position: fixed` element to its own layer on Android Chrome
-        // dropped the bar out of viewport-fixed positioning: it painted correct for one frame,
-        // then anchored to the DOCUMENT and sat at the bottom-right of the (tall) Home page,
-        // reachable only by scrolling to the foot of it, until a tab swipe forced a relayout.
-        // Reported on a real device Sep 14, 2026. A bar that scrolls away is far worse than a
-        // few repaints, and modern Chrome composites a plain fixed bar cleanly anyway, so the
-        // hint comes out. `transform`/`translateZ(0)` are NOT substitutes — they promote the
-        // same way and reintroduce the same drop.
+        // NO `will-change: transform`, and none is needed: a plain fixed bar composites fine without a
+        // layer hint. If this bar is ever seen anchored to the bottom of the DOCUMENT rather than the
+        // viewport, look for something making the document wider than the screen (see the scroller note
+        // in Home.tsx's Scoreboard) before blaming layer promotion: a wider document grows a phone's
+        // layout viewport, and every fixed element is placed against that.
         pointerEvents: 'none', // the strip is a positioning shell; only the pill takes taps
       }}
     >
@@ -184,16 +172,15 @@ export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen
         borderRadius: 999,
         border: '1px solid', borderColor: 'divider',
         bgcolor: 'background.paper',
-        // A real shadow is what separates the bar from the page — it's doing the job the
-        // blur would otherwise be doing, at no runtime cost.
+        // A real shadow is what separates the bar from the page: it does the job a blur would
+        // otherwise do, at no runtime cost.
         boxShadow: '0 6px 24px rgba(0,0,0,0.38), 0 2px 6px rgba(0,0,0,0.28)',
         overflow: 'hidden',
       }}>
         {/* One indicator that slides between slots, rather than each tab animating its own
             background. Items are equal-width flex children, so its position is pure
-            arithmetic — no measuring, nothing to resync on resize or font load. The easing is
-            a decelerate curve: quick to leave, soft to arrive, which is what makes it read as
-            physical rather than linear. */}
+            arithmetic: no measuring, nothing to resync on resize or font load. The easing is
+            a decelerate curve, quick to leave and soft to arrive, which reads as physical. */}
         <Box aria-hidden sx={{
           position: 'absolute', top: 0, bottom: 0, left: 0,
           width: `${100 / count}%`,
@@ -206,11 +193,10 @@ export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen
           transition: `transform ${SELECT_MS}ms ${SELECT_EASE}`,
           pointerEvents: 'none',
         }}>
-          {/* Wraps the ICON, not the whole slot. A full-slot bubble is only as wide as one
-              fifth of the bar, so the longest labels ("Standings", "Schedule") ran within a
-              few pixels of its edge and read as cramped. Sizing it to the icon takes label
-              width out of the equation entirely — the labels now sit below it, free to be as
-              long as they like — and it's the same active-indicator shape Material uses. */}
+          {/* Wraps the ICON, not the whole slot. A full-slot bubble is one fifth of the bar wide,
+              which leaves the longest labels ("Standings", "Schedule") within a few pixels of its
+              edge. Sized to the icon, label width stops mattering, and it is the same
+              active-indicator shape Material uses. */}
           <Box sx={{
             width: BUBBLE_W, height: BUBBLE_H, borderRadius: 999,
             bgcolor: 'action.selected',
@@ -246,14 +232,13 @@ export default function WpblBottomNav({ items, value, onChange, onMore, moreOpen
               }}
             >
               {/* THE OUTLINE IS ALWAYS DRAWN; selection only fades the FILLED glyph in over it.
-                  This is the whole trick to a smooth swap. The two glyphs share a silhouette and a
-                  colour, so with the outline permanently at full opacity the icon can never leave
-                  the tab (the disappear) and two half-lit glyphs can never double into a dark pulse
-                  (the "turns black"): both are what you get when you animate the two glyphs AGAINST
-                  each other. Here only the fill moves, so the icon simply fills in and empties out,
-                  and the parent's colour shift rides along. Filled is second in the DOM, so it sits
-                  ON TOP and covers the outline cleanly when lit. No scale on the swap: a tab bar
-                  changes often enough that a zoom on it is noise. */}
+                  The two glyphs share a silhouette and a colour, so with the outline permanently at
+                  full opacity the icon can never leave the tab, and two half-lit glyphs can never
+                  double into a dark pulse: both happen when the two glyphs are animated AGAINST each
+                  other. Here only the fill moves, so the icon fills in and empties out and the
+                  parent's colour shift rides along. Filled is second in the DOM, so it sits ON TOP
+                  and covers the outline cleanly when lit. No scale on the swap: a tab bar changes
+                  often enough that a zoom on it is noise. */}
               <Box sx={{ position: 'relative', width: ICON_PX, height: ICON_PX, flexShrink: 0 }}>
                 {/* Sits on the icon's top-right corner, outside its box so it never
                     overlaps the glyph. Same static dot as the pill nav. */}

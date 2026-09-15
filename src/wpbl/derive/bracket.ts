@@ -9,19 +9,16 @@ import { BEST_OF, winsNeeded, pairKey, type BracketRound } from './series'
 
 // The postseason bracket: who plays whom, and how far each series has got.
 //
-// The companion to derive/seeding.ts, which answers "what are the last games for". This
-// answers the question after it, "so who goes where", which the seeding table states only as
-// a letter in a column and a name in a cell. Four clubs, two semifinals, one championship: a
+// The companion to derive/seeding.ts, the standings race that decides the seeds: this answers
+// the question after it, "so who goes where". Four clubs, two semifinals, one championship: a
 // shape small enough to draw, and drawing it is the point.
 //
-// WHY THIS DOES NOT WAIT ON THE FEED. The roadmap files series state as blocked until the
-// first postseason game shows how the feed represents a series, on the assumption that we
-// need it to hand us a series id or a game number. We do not. The postseason is the only part
-// of the schedule `countsInStandings` rejects, and within it a pair of team ids identifies a
-// series uniquely: the semifinals are 1v4 and 2v3, the championship is the two winners, and
-// no two of those three pairings can be the same two clubs. So grouping postseason games by
-// their unordered pair of teams reconstructs every series without a single new field, and it
-// keeps working whatever the feed decides to call them.
+// WHY THIS DOES NOT WAIT ON THE FEED. Nothing here needs the feed to hand over a series id or a
+// game number. The postseason is the only part of the schedule `countsInStandings` rejects, and
+// within it a pair of team ids identifies a series uniquely: the semifinals are 1v4 and 2v3, the
+// championship is the two winners, and no two of those three pairings can be the same two clubs.
+// So grouping postseason games by their unordered pair of teams reconstructs every series without
+// a single new field, and it keeps working whatever the feed decides to call them.
 //
 // The one thing it does still depend on is the feed marking postseason games AT ALL, through
 // `game_type` or `counts_in_standings`. If it marks neither, those games read as regular
@@ -34,14 +31,14 @@ export { BEST_OF, winsNeeded }
 export type { BracketRound }
 
 /**
- * The postseason calendar, as the league published it on Aug 24, 2026.
+ * The postseason calendar, as the league published it.
  *
- * WHY THIS IS A CONSTANT AND NOT A TABLE. The feed carries no postseason rows yet, and it
- * cannot: `wpbl_games` needs two clubs per row and nobody knows who plays whom until the last
- * regular-season game on Sep 6 sets the seeds. Dates are known, opponents are not, so the
- * dates live here and the pairings stay derived from the standings, exactly as they already
- * are. When the feed does publish real rows they take over on their own; nothing here has to
- * be removed, because this only ever labels a series with when it is scheduled.
+ * WHY THIS IS A CONSTANT AND NOT A TABLE. The feed carries no postseason row until the seeds are
+ * set: `wpbl_games` needs two clubs per row and nobody knows who plays whom until the last
+ * regular-season game. Dates are known before opponents are, so the dates live here and the
+ * pairings stay derived from the standings. When the feed publishes real rows they take over on
+ * their own; nothing here has to be removed, because this only ever labels a series with when it
+ * is scheduled.
  *
  * TIMES ARE CENTRAL WALL CLOCK, matching the `start_time` text the feed uses for every regular
  * season game, which `formatGameTime` already converts to the reader's zone DST-safe. The
@@ -168,11 +165,11 @@ export interface WpblBracket {
 const isPlayed = (g: WpblGame): boolean =>
   g.status === 'final' && g.home_score != null && g.away_score != null
 
-/** UNDER WAY IS NOT THE SAME QUESTION AS DECIDED, and conflating them left the pick'em open
+/** UNDER WAY IS NOT THE SAME QUESTION AS DECIDED, and conflating them keeps the pick'em open
  *  through the first pitch it exists to close. A game in progress adds nothing to any series
- *  record, so `isPlayed` is right for the wins, and it is the ONLY thing that used to put a
- *  pairing on the board: with Boston at San Francisco in the second inning of game 1, the
- *  semifinal still read `upcoming` and the sheet still offered "who wins this series". */
+ *  record, so `isPlayed` is right for the wins, but a pairing has to register on a game that is
+ *  merely live: otherwise a semifinal in its second inning still reads `upcoming` and the sheet
+ *  still offers "who wins this series". */
 const hasStarted = (g: WpblGame): boolean => g.status === 'live' || isPlayed(g)
 
 /** Wins per club within one postseason pairing, and whether a ball has been thrown in it. */
@@ -260,7 +257,7 @@ function buildSeries(
  * Before the postseason this is a projection: the pairings the table would produce if the
  * season ended now, which is exactly what the seeding race is about. Once postseason games
  * start landing the same structure carries their series records, so the card does not have to
- * become a different card on Sep 9.
+ * become a different card on the first day of the postseason.
  */
 export function buildBracket(rows: WpblStandingRow[], games: WpblGame[]): WpblBracket | null {
   const seeds = seedingRace(rows, games)
@@ -282,13 +279,12 @@ export function buildBracket(rows: WpblStandingRow[], games: WpblGame[]): WpblBr
     entrant(hi), entrant(lo), series,
   ))
 
-  // The championship's entrants are the semifinal winners, and EACH seat fills the moment its
-  // own semifinal is decided rather than waiting on the other. A club that has clinched is IN
-  // the final with its opponent still reading "Semifinal B winner": the Firebells sweeping their
-  // semifinal 2-0 belong in the championship box on the day they do it, not on the day the other
-  // semifinal ends. Blanking both seats until both were known was the bug this replaced, and it
-  // hid a clinched finalist for as long as the other series ran (as much as five days). It was
-  // invisible until Sep 2026 because no semifinal had ever had a winner while the other did not.
+  // The championship's entrants are the semifinal winners, and EACH seat fills the moment its own
+  // semifinal is decided rather than waiting on the other. A club that has clinched is IN the final
+  // with its opponent still reading "Semifinal B winner": a club that sweeps its semifinal 2-0
+  // belongs in the championship box that day, not on the day the other semifinal ends. Blanking
+  // both seats until both are known hides a clinched finalist for as long as the other series runs
+  // (as much as five days).
   const champEntrant = (i: number) => {
     const w = semifinals[i].winner
     return w ? { team: w, seed: seeds.find(x => x.team.id === w.id)?.seed ?? null } : { team: null, seed: null }
@@ -387,9 +383,9 @@ export function postseasonSlots(
  *
  * Null covers every way this can fail to mean anything, and all of them are ordinary: no
  * mirrored row for this game, a row the league has not put clubs on yet (the whole
- * championship until mid-September), a seat with no club named in it, and a pair of clubs that
- * are not the two clubs in front of us. The caller then falls back to the seat rule, which is
- * never wrong about a semifinal and simply silent about everything else.
+ * championship until the semifinals end), a seat with no club named in it, and a pair of clubs
+ * that are not the two clubs in front of us. The caller then falls back to the seat rule, which
+ * is never wrong about a semifinal and simply silent about everything else.
  */
 function siteHomeSlot(
   site: WpblSiteGame | undefined,
@@ -406,31 +402,31 @@ function siteHomeSlot(
 /**
  * The postseason as rows the schedule can print, before the feed has any games for it.
  *
- * WHY THE SCHEDULE NEEDS THESE AT ALL. `wpbl_games` ends on Sep 6 and will until the league
- * publishes the bracket, so the section's own schedule said the season stopped there while the
- * bracket card two tabs away was already counting down to Sep 9. These fill that gap from the
- * calendar the league published, and they retire themselves: a row is dropped as soon as the
- * feed carries a real postseason game on its date, so nothing has to be deleted later and the
- * real row is always the one that wins.
+ * WHY THE SCHEDULE NEEDS THESE AT ALL. `wpbl_games` has no postseason rows until the league
+ * publishes the bracket, so without these the section's own schedule would say the season
+ * stopped while the bracket card was already counting down to the first playoff game. These fill
+ * that gap from the calendar the league published, and they retire themselves: a row is dropped
+ * as soon as the feed carries a real postseason game on its date, so nothing has to be deleted
+ * later and the real row is always the one that wins.
  *
  * SEEDS, NOT PROJECTED CLUBS. A slot names a club only once that exact seed can no longer move
  * (`bestPossible === worstPossible`, the same test `bracketIsSet` applies to the whole
  * bracket), and prints "1 seed" until then. The bracket card is free to project because it
  * reads as a projection; a schedule reads as fact, and a fan who screenshots "Firebells at
- * Heights, Sep 9" on Sep 3 has been told something we do not know. The seed line is true on the
- * day it is written and stays true.
+ * Heights" before the seeds are set has been told something we do not know. The seed line is
+ * true on the day it is written and stays true.
  *
  * AWAY AT HOME WHERE THE LEAGUE HAS SAID SO, SEED ORDER WHERE IT HAS NOT. Every other card in
- * the schedule is "away @ home" because the feed says which is which. The feed still carries no
- * postseason row, but the league's own schedule page does, and it designates a home club for
- * all six semifinal games: the higher seed bats last in games 1 and 3, the lower seed in game
- * 2. That lives on `POSTSEASON_SCHEDULE` as a seat rather than a club, so it was true before the
- * seeds were, and it reaches a surface through `homeSlot` and `postseasonSlots`.
+ * the schedule is "away @ home" because the feed says which is which. Before the feed carries a
+ * postseason row, the league's own schedule page already designates a home club for all six
+ * semifinal games: the higher seed bats last in games 1 and 3, the lower seed in game 2. That
+ * lives on `POSTSEASON_SCHEDULE` as a seat rather than a club, so it is true before the seeds
+ * are, and it reaches a surface through `homeSlot` and `postseasonSlots`.
  *
  * TWO SOURCES FOR THAT, IN ORDER, and the order is the point. `siteGames` is the league's own
  * calendar as mirrored last night (`wpbl_site_games`), which names actual clubs and is the only
- * thing that will ever know the CHAMPIONSHIP's home clubs, since those five games are published
- * with no clubs on them until the semifinals end. `POSTSEASON_SCHEDULE`'s own `home` seat is the
+ * thing that will ever know the CHAMPIONSHIP's home clubs, since those games are published with
+ * no clubs on them until the semifinals end. `POSTSEASON_SCHEDULE`'s own `home` seat is the
  * fallback, and it is not merely a stale copy of the same thing: it is expressed as "the higher
  * seed" rather than as a club, so it still answers when the mirror is empty, when a row cannot
  * be matched, and on any render that happens before the mirror has been read.
@@ -438,9 +434,8 @@ function siteHomeSlot(
  * A row whose two seats are settled as a PAIRING but not as seeds gets a designation from
  * neither: "the higher seed bats last" names nobody until there is a higher seed, and the
  * mirror's clubs cannot be assigned to seats we cannot put in order. It prints seed order with
- * no `@`, which is what every postseason row did until Sep 6, 2026, on the belief that the
- * league had published no home club at all. That was true of the VENUE (one hub stadium, so
- * there is no home park to award) and was never true of who bats last.
+ * no `@`. There is one hub venue, so no club has a home park: "home" here only ever means who
+ * bats last.
  */
 export function postseasonScheduleRows(
   rows: WpblStandingRow[],
@@ -465,12 +460,10 @@ export function postseasonScheduleRows(
   // not per bracket: the top seed routinely locks days before the bottom two stop swapping, and
   // holding every slot vague until the whole bracket settles would say less than we know.
   //
-  // THIS USED TO BE A LOCAL RULE HERE AND IT WAS TOO SHY. It resolved a rival only on wins and
-  // treated any possible tie as open, which is right for a magic number and wrong for a clinch:
-  // on Sep 3, 2026 San Francisco were 9-4 with two to play against a Los Angeles ceiling of 9,
-  // so the only way LA caught them was a 9-6 tie, and SF held that series 3-2 with no games left
-  // in it. SF had the top seed and this list still said "1 seed". The tiebreak lives in
-  // seeding.ts now, next to the standings rule it has to agree with.
+  // THE TIEBREAK LIVES IN seeding.ts, next to the standings rule it has to agree with. A local
+  // rule that resolves a rival only on wins and treats any possible tie as open is right for a
+  // magic number and wrong for a clinch: a club that holds the head-to-head tiebreak has clinched
+  // even while a rival can still tie its record.
   const settled = new Map<number, WpblTeam>()
   for (const [teamId, seed] of clinchedSeeds(seeds, games)) {
     const row = seeds.find(x => x.team.id === teamId)
@@ -490,11 +483,10 @@ export function postseasonScheduleRows(
    * The clubs that can still land in one semifinal's two seats: those whose whole remaining
    * range of seeds lies inside the pair.
    *
-   * A PAIRING CLOSES BEFORE ITS SEEDS DO, and on Sep 5, 2026 it had. San Francisco had clinched
-   * the 1 seed and Boston the 4, which left New York and Los Angeles disputing 2 and 3 with one
-   * game to play. Whoever won it they were playing EACH OTHER, because 2v3 is the whole of the
-   * other semifinal; but neither had clinched a seed, so the per-seed rule above printed "2
-   * seed" against "3 seed" and said less than the standings already knew.
+   * A PAIRING CLOSES BEFORE ITS SEEDS DO. With the 1 and 4 seeds clinched and two clubs still
+   * disputing 2 and 3, those two are certain to play EACH OTHER, because 2v3 is the whole of the
+   * other semifinal; but neither has clinched a seed, so the per-seed rule above would print "2
+   * seed" against "3 seed" and say less than the standings already know.
    *
    * Exactly two clubs is the only answer that means anything. One says nothing (a known club
    * against an open opponent is not a matchup), and more is the ordinary case early on, when

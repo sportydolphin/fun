@@ -24,16 +24,16 @@ import { wpblQualifiers } from './stats'
 // ── Pitch outcomes ───────────────────────────────────────────────────────────────
 //
 // A ranked bar per outcome, under the one split that explains all six: the batter either
-// offered or did not. It replaced a six-colour stacked bar, which asked the reader to hold a
-// colour key in their head and then read six widths off one line, the widest slice of which
-// was 1%. Here the label sits on its own row, the length is the value, and colour carries a
-// single fact (take or swing) rather than six arbitrary ones.
+// offered or did not. A six-colour stacked bar would ask the reader to hold a colour key in
+// their head and then read six widths off one line, one slice of which is 1%. Here the label
+// sits on its own row, the length is the value, and colour carries a single fact (take or
+// swing) rather than six arbitrary ones.
 //
 // ORDERING. Two descending runs, one per group, under a heading that says which group and how
 // big it is. Sorting all six by size instead would put "In play" between "Hit by pitch" and
-// "Foul" and break the colour grouping for nothing; leaving them ungrouped and unsorted, which
-// is what the first version did, made the run of bars look arbitrary (long, medium, tiny,
-// medium) because nothing marked where one group ended.
+// "Foul" and break the colour grouping for nothing; leaving them ungrouped and unsorted makes
+// the run of bars look arbitrary (long, medium, tiny, medium) because nothing marks where one
+// group ends.
 //
 // Names are spelled out. "Called" and "Swinging" alone read as adjectives with the noun
 // missing; both are strikes, and that is the point of listing them apart from Ball.
@@ -120,11 +120,11 @@ function PitchMix({ counts, total }: { counts: PitchCounts; total: number }) {
 
 /** The league's four headline numbers, as one divided block rather than four tinted cards.
  *
- *  The cards were a blue gradient wash with the number set in the same blue on top of it,
- *  which muddied the one thing here that should be legible from across the room and spent the
- *  section's accent on decoration. Accent now means something everywhere it appears on this
- *  board (a rank, a value in a leaderboard, the swung-at half of the chart), and the numbers
- *  are simply the most contrast on the page at the biggest size.
+ *  Tinted cards (a blue gradient wash with the number set in the same blue on top of it) muddy
+ *  the one thing here that should be legible from across the room and spend the section's
+ *  accent on decoration. Accent means something everywhere it appears on this board (a rank, a
+ *  value in a leaderboard, the swung-at half of the chart), and the numbers are simply the most
+ *  contrast on the page at the biggest size.
  *
  *  One bordered box divided by hairlines, rather than four boxes with gaps: these are four
  *  readings off the same instrument, not four separate things, and the season table and
@@ -139,7 +139,7 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
     <Box sx={{
       display: 'grid', gridTemplateColumns: '1fr 1fr',
       // Fill the row rather than sitting at its natural height. Beside the outcome chart this
-      // block is the shorter of the two by about 40px, which read as a gap hanging under a
+      // block is the shorter of the two by about 40px, which reads as a gap hanging under a
       // bordered box rather than as two columns of one header. The rows share whatever height
       // that leaves, so the border still closes level with the last bar.
       height: '100%', gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
@@ -200,8 +200,8 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
  *
  *  `explain` is a plain sentence, not a formula. Most of these are a percentage of something,
  *  and the honest way to say that out loud is "how often X happens", not "X per Y" (which
- *  means a different thing and was the first version) or "X as a share of Y" (which is right
- *  and reads like a statistics textbook). Anyone who wants the formula can read the number. */
+ *  means a different thing) or "X as a share of Y" (which is right and reads like a
+ *  statistics textbook). Anyone who wants the formula can read the number. */
 function RateBoard({ title, explain, rows, valueOf, subOf, league, accent, onOpenPlayer }: {
   title: string
   explain: string
@@ -282,21 +282,18 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
-      {/* One title line and the mix bar, and that is the whole header.
-          It was a tinted coverage callout, three stat tiles and a titled card around the bar:
-          about 300px on a phone, which put the first leaderboard row below the fold on a board
-          whose entire purpose is leaderboards. The coverage claim still has to be made, since
-          "all 16 games" against Tracked's two is the reason this board exists, so it is made in
-          the subtitle instead of a box. The numbers the tiles carried are in the same line, and
-          "what each pitch did, not how fast" moved to the footnote at the bottom. */}
+      {/* THE STAT TILES AND THE OUTCOME CHART ARE THE WHOLE HEADER. A tinted coverage callout
+      and a titled card around the bar come to about 300px on a phone, which puts the first
+      leaderboard row below the fold on a board whose entire purpose is leaderboards. "What
+      each pitch did, not how fast" is in the footnote at the bottom instead. */}
       {/* Two columns from md up, one on a phone. Stacked full-width, the four tiles and the
-          outcome chart each ran the width of the page for a line and a half of content apiece,
-          which on a desktop is a lot of empty measure and a first leaderboard pushed down for
-          no reason. Side by side they read as one header block and cost half the height. */}
+      outcome chart would each run the width of the page for a line and a half of content
+      apiece, which on a desktop is a lot of empty measure and a first leaderboard pushed down
+      for no reason. Side by side they read as one header block and cost half the height. */}
       {/* No heading, same reasoning as the Run value board: the tab above says "Pitch by
-          pitch" and a second title saying it again in other words reads as a second thing.
-          The coverage claim it used to carry is in the tiles' own subtitles ("across all 16
-          games"), which is where a reader checking it would look anyway. */}
+      pitch" and a second title saying it again in other words reads as a second thing.
+      The coverage claim, all games against Tracked's two and the reason this board exists,
+      is in the tiles' own subtitles, which is where a reader checking it would look anyway. */}
       <Box>
         <Box sx={{
           // Stretch, not start: the two columns are one header block, so the shorter of them

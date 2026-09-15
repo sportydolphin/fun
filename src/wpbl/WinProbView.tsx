@@ -26,14 +26,6 @@ import type { WpblGame, WpblGamePlay, WpblRunValuePlay, WpblTeam } from './types
  * caption says out loud.
  */
 
-/**
- * The model, kept between games.
- *
- * Building it is a few hundred thousand multiply-adds, which is milliseconds and would be
- * fine to redo. What would not be fine is doing it inside a modal that opens and closes all
- * evening while the input never changes: the league's play log is one cached array for the
- * whole session, so its identity is the only cache key needed.
- */
 
 /** The inning axis: the row of numbers, and the word saying what they are. */
 const AXIS_H = 15
@@ -44,8 +36,8 @@ const AXIS_LABEL_H = 12
  *
  * This card sits at the top of the recap, so every pixel it gains late pushes the rest of the
  * tab down, and it gains them a second or two late by construction: it needs the league's
- * whole play log, not this game's. Reserving the chart alone got the jump from 310px down to
- * 101px, which is still the recap visibly lurching once the model lands.
+ * whole play log, not this game's. Reserving the chart alone still leaves the recap visibly
+ * lurching once the model lands.
  *
  * So the readout is a fixed box, and it always has something in it: an empty reserved gap
  * reads as something that failed to load.
@@ -55,24 +47,21 @@ const AXIS_LABEL_H = 12
  * why the play is one line and not two: the height has to be the worst case, so every game
  * pays for the longest sentence any game could produce.
  *
- * IN REM, and that is the whole of the bug it used to have. It was 64 raw pixels, "measured at
- * 375px", and it reserves room for three rows of TYPE, which is the one thing CLAUDE.md says
- * must not be sized in px: the section is drawn a quarter larger from `md` up and the reader
- * can add another eighth on top of that, and this box did not move for either. It did not
- * clip, which is why it survived a rebuild. It is a flex column with a fixed height, so what
- * it did instead was CRUSH THE MIDDLE ROW, and the middle row is the play.
- *
- * Measured on the Aug 30 Firebells game, the play's line went from the 25px it needs down to
- * 9px on a desktop, and to 4px with Large text on. Not clipped at the edge, cut in half
- * lengthways: the reader sees the top third of the letters and cannot read the sentence, which
- * is the entire thing the chart is scrubbed for. The label row above it and the note below it
- * both looked perfect throughout, because `mt: auto` on the note pins the two ends and leaves
- * the slack, or the deficit, to whatever is between them.
+ * IN REM, NEVER PX. It reserves room for three rows of TYPE, which is the one thing CLAUDE.md
+ * says must not be sized in px: the section is drawn a quarter larger from `md` up and the
+ * reader can add another eighth on top of that. A px box does not clip when the type grows,
+ * which is what makes the failure easy to miss. It is a flex column with a fixed height, so
+ * what it does instead is CRUSH THE MIDDLE ROW, and the middle row is the play: on a desktop the
+ * play's line drops from the 25px it needs to 9px, and to 4px with Large text on. Not clipped at
+ * the edge, cut in half lengthways: the reader sees the top third of the letters and cannot read
+ * the sentence, which is the entire thing the chart is scrubbed for. The label row above it and
+ * the note below it both look perfect throughout, because `mt: auto` on the note pins the two
+ * ends and leaves the slack, or the deficit, to whatever is between them.
  *
  * 4.25rem, not 4. The natural height is a shade under 4rem at every scale measured (4.00 on a
  * phone, 3.89 at Large text, 4.00 on a desktop, 3.87 at both), which means 4rem would fit by
- * nothing at all, and fitting by nothing at all is how this got here. The extra quarter is 4px
- * on a phone and it is the difference between a rule and a coincidence.
+ * nothing at all. The extra quarter is 4px on a phone and it is the difference between a rule
+ * and a coincidence.
  */
 const CAPTION_H = '4.25rem'
 
@@ -115,8 +104,8 @@ export default function WinProbView({ game, teams, plays, games }: Props) {
   // of the recap, so anything that arrives late pushes the rest of the tab down, and it
   // arrives late by construction: it needs the league's entire play log, not this game's. So
   // the frame is drawn immediately, at exactly the size it will end up, and the chart is
-  // filled in underneath it. The alternative, and what this used to do, was render nothing
-  // for a second and then shove the whole recap down the screen.
+  // filled in underneath it. The alternative renders nothing for a second and then shoves the
+  // whole recap down the screen.
   if (league === null) return <WinProbFrame game={game} teams={teams} />
   if (!wp || wp.points.length < 2) return null
   return <WinProbCard game={game} teams={teams} wp={wp} />
@@ -190,8 +179,8 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
   const away = teams.get(game.away_team_id)
   // The curated foreground colours, not the primaries. Every club in this league is
   // near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), which is fine behind a logo
-  // and useless for two areas that have to be told apart: the first draft of this chart drew
-  // Los Angeles in pure black at 30% over a dark card. See the note on wpblAccent.
+  // and useless for two areas that have to be told apart: the primaries draw Los Angeles in
+  // pure black at 30% over a dark card. See the note on wpblAccent.
   const dark = useWpblDark()
   const homeColor = wpblAccent(game.home_team_id, dark)
   const awayColor = wpblAccent(game.away_team_id, dark)
@@ -210,8 +199,8 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
   const awayFill = `M0,0 L${line.join(' L')} L100,0 Z`
 
   // One span per inning, so the chart can be READ against the game rather than just looked
-  // at. A rule every time the inning changes was already here and told a reader nothing: the
-  // swing sentence says "in the 6th" and there was no way to find the 6th. Both halves of an
+  // at. A rule every time the inning changes tells a reader nothing on its own: the swing
+  // sentence says "in the 6th" and there has to be a way to find the 6th. Both halves of an
   // inning are consecutive in play order, so grouping by the inning number gives one span.
   const innings: { inning: number; from: number; to: number }[] = []
   for (let i = 0; i < pts.length; i++) {
@@ -223,11 +212,10 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
 
   // THE CARD ALWAYS RESTS ON A PLAY. The one that won it where a winner exists, the most
   // volatile one while a game is still being played, and in a rout the biggest of a small
-  // lot. The honesty about which of those it is belongs in the LABEL, which is the whole
-  // change here: a rout used to drop the play entirely and print a sentence about the absence
-  // of one, which answered a question nobody asked while the card had a perfectly good play
-  // to show. `SWING_FLOOR` still decides the wording; it no longer decides whether a reader
-  // gets a play at all.
+  // lot. The honesty about which of those it is belongs in the LABEL, not in whether a play
+  // shows: dropping the play in a rout and printing a sentence about its absence answers a
+  // question nobody asked while the card has a perfectly good play to show. `SWING_FLOOR`
+  // decides the wording, never whether a reader gets a play at all.
   //
   // The marker sits where the swing LANDED, which is the next play's position. Clamped,
   // because in a game decided on the last play, which is the one worth marking, the next
@@ -270,24 +258,24 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
   return (
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
       {/* One row, and the method is not in it. Three lines of "who is pitching is invisible to
-          it" under a 132px chart spent more of a phone screen on a disclaimer than on the
-          thing being disclaimed. It is a tap away on the ⓘ, which is where a caveat belongs
-          for a card whose headline claim a reader can check against the score above it. */}
+      it" under a 132px chart would spend more of a phone screen on a disclaimer than on the
+      thing being disclaimed. It is a tap away on the ⓘ, which is where a caveat belongs
+      for a card whose headline claim a reader can check against the score above it. */}
       <CardHeader now={now} />
 
       {/* The readout, ABOVE the plot, and both halves of that are deliberate.
 
-          It is the caption box rather than a floating tooltip because a tooltip covers the
-          chart it is describing and sits under the hand doing the pointing, and because a
-          fixed box costs no layout shift.
+      It is the caption box rather than a floating tooltip because a tooltip covers the
+      chart it is describing and sits under the hand doing the pointing, and because a
+      fixed box costs no layout shift.
 
-          It is above rather than below because of where this card lands on a phone. Game
-          Center is a sheet, and by the time it has drawn the line score, the highlight reel,
-          the tab row and the recap's opening line, the pane gives this card less height than
-          the card has: with the readout last, the only part that answers the question was
-          below the fold, along with the hint that says the chart can be held at all. Above the
-          plot it arrives ~190px earlier in the scroll, and a finger on the chart no longer
-          covers it. */}
+      It is above rather than below because of where this card lands on a phone. Game
+      Center is a sheet, and by the time it has drawn the line score, the highlight reel,
+      the tab row and the recap's opening line, the pane gives this card less height than
+      the card has: with the readout last, the only part that answers the question is
+      below the fold, along with the hint that says the chart can be held at all. Above the
+      plot it arrives ~190px earlier in the scroll, and a finger on the chart does not
+      cover it. */}
       <Box sx={{
         px: 1.5, pt: 0.25, pb: 1, mb: 1, height: CAPTION_H, overflow: 'hidden',
         borderBottom: '1px solid', borderColor: 'divider',
@@ -417,10 +405,10 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
       </Box>
 
       {/* Innings, under their own stretch of the chart. Numbered wherever two labels will not
-          collide, which is a lower bar than it sounds: a digit at this size is about 5px and a
-          375px card gives 3.5% of its width 12px to put it in. The first cut at 7% looked
-          reasonable and quietly dropped the SEVENTH from a game the home team won without
-          batting in it, which is the one inning a reader most wants to find. */}
+      collide, which is a lower bar than it sounds: a digit at this size is about 5px and a
+      375px card gives 3.5% of its width 12px to put it in. A 7% threshold looks reasonable
+      and quietly drops the SEVENTH from a game the home team won without batting in it,
+      which is the one inning a reader most wants to find. */}
       <Box aria-hidden sx={{ position: 'relative', height: AXIS_H, mt: '2px' }}>
         {innings.filter(iv => iv.to - iv.from >= 3.5).map(iv => (
           <Typography key={iv.inning} sx={{
@@ -540,11 +528,11 @@ export function scrubReadout(
  *
  * THE LABEL CARRIES THE HONESTY. "Swing of the game" is a claim, and in a rout it is a false
  * one: nothing decided the 17-3 on Aug 14, where the biggest play moved the game eight points
- * and was merely the largest of a hundred small ones. That used to mean the card showed no
- * play at all and printed a sentence about the absence of one, which is a non-answer in the
- * most valuable 64px on the card. So the play always shows and the label tells the truth about
- * it: the swing of the game where there was one, the biggest moment where there was not, and
- * "so far" while the game is still being played and nothing has been decided yet.
+ * and was merely the largest of a hundred small ones. Showing no play there and printing a
+ * sentence about the absence of one is a non-answer in the most valuable space on the card. So
+ * the play always shows and the label tells the truth about it: the swing of the game where
+ * there was one, the biggest moment where there was not, and "so far" while the game is still
+ * being played and nothing has been decided yet.
  *
  * The sentence carries the inning, because unlike a scrubbed play this one has no row of its
  * own to say when it happened.

@@ -5,11 +5,11 @@ import type { WpblPitchPlay, WpblPlayer } from '../types'
  * The pitch-code layer: season-wide plate-discipline and pitch-mix boards built from the one
  * character per pitch that the feed puts in `wpbl_game_plays.pitch_sequence`.
  *
- * WHY THIS EXISTS. The section's only pitch-level surface was the TrackMan board, and the
+ * WHY THIS EXISTS. The section's other pitch-level surface is the TrackMan board, and the
  * league has published radar for two games. This reads a string that is present on every
  * plate appearance of every game, so it covers the whole season: roughly 3.8 pitches per PA,
- * about 4,300 pitches so far, against 766 tracked rows. Same kind of question, twenty times
- * the sample, and no new ingest.
+ * thousands of pitches against 766 tracked rows. Same kind of question, many times the sample,
+ * and no new ingest.
  *
  * DECODE THE LETTER, NEVER THE FEED'S LABEL. `pitch_events` carries the feed's own `type`
  * for each pitch and two of the six codes are wrong there: `K` arrives as `"unknown"` and
@@ -124,10 +124,11 @@ export interface PitchBoard {
 }
 
 // ── Qualifiers ───────────────────────────────────────────────────────────────────
-// Derived from the box-score qualifiers in stats.ts (2.0 AB and 0.8 IP per team game) at the
-// league's measured 3.8 pitches per plate appearance, rather than invented: a hitter clearing
-// the AB bar should clear this one too, so the two Stats boards do not disagree about who is
-// a regular. Floors keep an early-season board from being one reliever.
+// Set against the box-score qualifiers in stats.ts at the league's measured 3.8 pitches per
+// plate appearance, rather than invented. The batter figure is 2.0 AB per team game (8
+// pitches), a little under the 2.4 PA rate-title bar, so a hitter who qualifies there clears
+// this one too and the two Stats boards do not disagree about who is a regular. Floors keep an
+// early-season board from being one reliever.
 const PITCHER_PITCHES_PER_GAME = 12   // 0.8 IP ≈ 3.2 batters faced ≈ 12 pitches
 const BATTER_PITCHES_PER_GAME = 8     // 2.0 AB ≈ 8 pitches seen
 const PITCHER_FLOOR = 40
@@ -308,16 +309,16 @@ const DENOMINATOR: Record<keyof PitchRates, (p: PitchProfile) => number> = {
 /**
  * Rank a board on one rate.
  *
- * TWO BARS, NOT ONE, and the second is the one that matters. A pitches-seen minimum alone put
- * a hitter who had swung 15 times on top of the contact board at a flat 100%, because contact
- * is measured per swing and nothing was checking how many swings there were. So the sample bar
- * is also applied to the rate's OWN denominator, scaled off the league: a qualifier needs as
+ * TWO BARS, NOT ONE, and the second is the one that matters. A pitches-seen minimum alone puts
+ * a hitter who has swung 15 times on top of the contact board at a flat 100%, because contact
+ * is measured per swing and nothing would be checking how many swings there were. So the sample
+ * bar is also applied to the rate's OWN denominator, scaled off the league: a qualifier needs as
  * many swings (or two-strike counts, or plate appearances) as a player with `minPitches` would
  * typically have had. That keeps one threshold to reason about while every board polices the
  * number it is actually dividing by.
  *
  * Ties break toward the larger denominator, so when four hitters are all at 0.0% the one who
- * has been tested most often leads. In a 16-game season that is most of the top of a board.
+ * has been tested most often leads. In a short season that is most of the top of a board.
  */
 export function rankBy(
   profiles: PitchProfile[],

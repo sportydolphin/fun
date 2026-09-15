@@ -6,16 +6,16 @@ import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblRecapPl
 import { outsToIp, playedInnings } from '../innings.ts'
 import { classifyPa } from './matchups.ts'
 // TYPE ONLY, and it has to stay that way. The caller works the series out and hands it in,
-// which keeps this module's runtime dependencies exactly as they were: a recap is a reading
+// which keeps the schedule out of this module's runtime dependencies: a recap is a reading
 // of ONE game, and a series record is a fact about the games around it, so a wording engine
 // has no business holding a schedule. (The same argument as gameUrl on buildRecapMessage.)
 import type { SeriesContext } from './series'
 
 // Auto game-recap engine. Pure: a game + its box lines + play-by-play in, a structured recap
 // out (no supabase / React), so GameDetail renders the full version, Home renders a compact
-// one, and a future Discord post can read the same object. Everything is derived from what we
-// already store — final score, per-inning line score, box lines (with W/L/S decisions), and
-// the feed's play narratives — so no new columns or feed calls are needed.
+// one, and the Discord and Bluesky posts read the same object. Everything is derived from what
+// we already store (final score, per-inning line score, box lines with W/L/S decisions, and
+// the feed's play narratives), so no new columns or feed calls are needed.
 
 export interface RecapStar {
   playerId: string
@@ -41,8 +41,7 @@ export interface GameRecap {
   feats: string[]           // auto-detected highlights (multi-HR, no-hitter, cycle, …)
   flags: { shutout: boolean; blowout: boolean; oneRun: boolean; walkOff: boolean; comeback: boolean; extras: boolean }
   /** The postseason series this game belongs to, when it is one. Null for every regular-season
-   *  game, which is every game the section has had until Sep 9, 2026, so every renderer that
-   *  ignores this field goes on behaving exactly as it did. */
+   *  game, so a renderer that ignores this field is still right about all of those. */
   series: SeriesContext | null
 }
 
@@ -83,19 +82,19 @@ export function leagueRecapContext(games: WpblGame[]): RecapLeagueContext {
   const r = Math.round
   return {
     blowoutMargin: Math.max(4, r(mMar + sMar)),   // ~1 SD above the league's typical margin
-    // CLOSE IS A TAIL, NOT THE MIDDLE, and it used to be the middle. Setting this to the mean
-    // margin made roughly half of every season "close" by construction, which is how a 9-4
-    // came to read "the Heights held on for a 9-4 win". A typical game is not a nail-biter.
-    // One SD BELOW the mean, so close and blowout are symmetric ends of the same distribution:
-    // on the 20 finals to Aug 23 that is 2 rather than 5, and only one- and two-run games
-    // qualify. Floor of 1, because a league that somehow had no spread should still reserve
-    // the word for the one-run games rather than handing it to everybody.
+    // CLOSE IS A TAIL, NOT THE MIDDLE. Set to the mean margin, roughly half of every season is
+    // "close" by construction, which is how a 9-4 comes to read "the Heights held on for a 9-4
+    // win". A typical game is not a nail-biter. One SD BELOW the mean, so close and blowout are
+    // symmetric ends of the same distribution: on the 20 finals to Aug 23 that is 2 rather than
+    // 5, and only one- and two-run games qualify. Floor of 1, because a league that somehow had
+    // no spread should still reserve the word for the one-run games rather than handing it to
+    // everybody.
     closeMargin: Math.max(1, r(mMar - sMar)),
-    // Split out of closeMargin, which was doing this job as well. The two pull in opposite
-    // directions: tightening "close" to 2 would otherwise have made every 2-run inning the
-    // decisive swing of its game, and "pulled ahead with a 2-run 4th" says nothing. An inning
-    // worth naming is one about the size of a whole typical winning margin, which is what the
-    // mean gives, and it is already producing the right sentences at 5.
+    // Separate from closeMargin because the two pull in opposite directions: with one shared
+    // cutoff, tightening "close" to 2 would make every 2-run inning the decisive swing of its
+    // game, and "pulled ahead with a 2-run 4th" says nothing. An inning worth naming is one about
+    // the size of a whole typical winning margin, which is what the mean gives, and at 5 it
+    // produces the right sentences.
     bigInningRuns: Math.max(2, r(mMar)),
     slugfestRuns: Math.max(12, r(mTot + sTot)),   // ~1 SD above the league's typical run total
     slugfestSide: Math.max(6, r(mSide + 1)),      // loser still productive, not just outscored
@@ -105,7 +104,7 @@ export function leagueRecapContext(games: WpblGame[]): RecapLeagueContext {
 
 // "a" vs "an" for a number that's read aloud: eight, eleven, eighteen and the eighties all
 // take "an" ("an 8-2 win", "an 11-run 4th"). Everything else in a baseball score takes "a".
-// Only the leading number matters — "an 8-2 win" is governed by the 8, not the 2.
+// Only the leading number matters: "an 8-2 win" is governed by the 8, not the 2.
 const article = (n: number): 'a' | 'an' =>
   (n === 8 || n === 11 || n === 18 || (n >= 80 && n <= 89)) ? 'an' : 'a'
 
@@ -160,8 +159,8 @@ export function battingStatline(b: WpblBattingLine): string {
   if (b.sb) parts.push(`${b.sb} SB`)
   // Last, and only when nothing else made the cut. A batter who is 0-for-2 with two walks
   // reads "0-2", which is a fair headline (nobody is a star of the game for walking) and a
-  // poor line to print under her face on the Live tab, where it is the only thing said about
-  // her. Guarded on `parts.length === 1` so no line that already says something moves.
+  // poor line to print under the player's face on the Live tab, where it is the only thing said
+  // about them. Guarded on `parts.length === 1` so no line that already says something moves.
   if (parts.length === 1 && b.bb) parts.push(`${b.bb} BB`)
   return parts.slice(0, 3).join(', ')
 }
@@ -172,7 +171,7 @@ export function pitchingStatline(p: WpblPitchingLine): string {
   return parts.join(', ')
 }
 
-// A batter's two consecutive plate appearances both homering — reuses the shared PA rule so
+// A batter's two consecutive plate appearances both homering. Reuses the shared PA rule so
 // steals/pickoffs between swings don't count as "in between". Returns the inning, or null.
 function backToBackHR(plays: WpblRecapPlay[]): number | null {
   const lastPaEvent = new Map<string, string>()
@@ -249,9 +248,9 @@ export function buildRecap(
   // ── Headline (present tense, news-style; score shown separately by the UI). ────────────
   const slugfest = !flags.blowout && !flags.shutout && winnerScore + loserScore >= ctx.slugfestRuns && loserScore >= ctx.slugfestSide
   // Pools rather than one verb each, because a four-club league plays the same four matchups
-  // over and over and most finals land in the last branch: an entire season of "Firebells top
-  // Queens" was the result. The pick is seeded on the game id, so a given game's headline never
-  // changes. Present tense, plural, and it has to read as a headline with the club name in
+  // over and over and most finals land in the last branch: one verb each gives an entire season
+  // of "Firebells top Queens". The pick is seeded on the game id, so a given game's headline
+  // never changes. Present tense, plural, and it has to read as a headline with the club name in
   // front of it, which is what rules out most of the obvious synonyms.
   const verbs: readonly string[] =
       flags.walkOff ? ['walk off']
@@ -297,22 +296,21 @@ export function buildRecap(
   // "Firebells walk off Heights. Denae Benites led the way" is a Heights player credited for
   // a Firebells win.
   //
-  // It happened in 5 of the season's first 25 decided finals, a fifth of them, and the
-  // arithmetic is ordinary rather than exotic: the league's best hitter plays for a club that
-  // loses a lot, so her line beats every winner's on a regular basis. Aug 30 is the clearest
-  // case. Andréanne Leblanc hit a two-out walk-off grand slam to win it 11-9, and the card
-  // credited Benites, who went 1-for-4 in the loss with a bigger RBI total.
+  // Ranked purely on the line, that is 5 of the season's first 25 decided finals, a fifth of
+  // them, and the arithmetic is ordinary rather than exotic: the league's best hitter plays for
+  // a club that loses a lot, so that line beats every winner's on a regular basis. Aug 30 is the
+  // clearest case: Andréanne Leblanc hit a two-out walk-off grand slam to win it 11-9, and a
+  // pure ranking credits Benites, who went 1-for-4 in the loss with a bigger RBI total.
   //
-  // The pitching filter above has taken this position since it was written: a losing arm
-  // cannot be a star at all (only a save escapes). This is the same rule applied to the half
-  // of the ranking that never got it.
+  // The pitching filter above takes the same position: a losing arm cannot be a star at all
+  // (only a save escapes). This is that rule applied to the batting half of the ranking.
   //
   // ONLY THE LEAD SLOT IS PROMOTED, and the rest stay in score order on purpose. Sorting the
   // whole list winner-first would fill all three places from the winning side, since a winning
   // team always has three batters who scored or drove one in, and that quietly deletes the
-  // thing worth reporting about the loser: on Aug 22 it would have dropped Ashton Lansdell's
-  // 15-point game off the card entirely. Promote the winner to the medal, leave the rest of
-  // the board honest.
+  // thing worth reporting about the loser: on Aug 22 it would drop Ashton Lansdell's 15-point
+  // game off the card entirely. Promote the winner to the medal, leave the rest of the board
+  // honest.
   //
   // NO TUNING CONSTANT, deliberately. A weighting factor on losing lines would need defending
   // every time somebody looked at it, and would still leave the top slot wrong whenever a big

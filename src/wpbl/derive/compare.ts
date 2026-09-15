@@ -5,12 +5,12 @@
 // read as a verdict on a person rather than as a fact about a season:
 //
 // 1. **A leader is only ever named on a row where both sides have the number.** A null is not
-//    a loss. A pitcher with no innings does not have the worse ERA, she has no ERA, and a tick
-//    against the other name would be the page inventing a result out of an absence.
+//    a loss. A pitcher with no innings does not have the worse ERA, they have no ERA, and a
+//    tick against the other name would be the page inventing a result out of an absence.
 // 2. **Playing time is the FIRST thing in every group, and it is never a win.** G / PA (or
-//    G / GS / IP) are their own rows now, mirroring Stathead, but they carry no tick: more
-//    games is the context every rate below is read against, not one more thing to be ahead on.
-//    The rows are built with `leader` forced null so the surface cannot draw a winner on them.
+//    G / GS / IP) are their own rows, mirroring Stathead, but they carry no tick: more games is
+//    the context every rate below is read against, not one more thing to be ahead on. The rows
+//    are built with `leader` forced null so the surface cannot draw a winner on them.
 // 3. **Nothing adds the ticks up.** There is no overall winner here and there is deliberately
 //    no field a caller could render one from: "7-3" is an aggregate of stats nobody agreed
 //    weighed the same, presented as a ranking of two people.
@@ -18,7 +18,7 @@
 //    draw a league rank, and it is right to: a percentile is a claim about a population. Who
 //    has the higher average is not that claim, so the row stays and `qualified` says which
 //    side the reader should discount. Hiding the numbers would leave the short-sample player
-//    with a page that says nothing about her at all.
+//    with a page that says nothing about them at all.
 
 import {
   sumBatting, sumPitching, plateAppearances, hasPlateAppearance, wpblQualifiers, fmtRate, fmtTwo,
@@ -266,9 +266,10 @@ export function buildWpblComparison(
 
   // Batting lines are filtered to actual plate appearances, the same as the player page does
   // (PlayerDetail's `battingReal`): a pitcher carries an all-zero batting line for every game
-  // she pitched, and summing those straight made her batting card read "8 G, 0 PA" as if she had
-  // come up eight times and done nothing, rather than never having batted. With the filter she
-  // reads 0 G / 0 PA, and if neither side ever batted the group below drops out entirely.
+  // pitched, and summing those straight makes the batting card read "8 G, 0 PA" as if the
+  // pitcher had come up eight times and done nothing, rather than never having batted. With the
+  // filter it reads 0 G / 0 PA, and if neither side ever batted the group below drops out
+  // entirely.
   const aBat = sumBatting(forPlayer(batting, a).filter(hasPlateAppearance), games)
   const bBat = sumBatting(forPlayer(batting, b).filter(hasPlateAppearance), games)
   const aPit = sumPitching(forPlayer(pitching, a), games)
@@ -351,36 +352,35 @@ export interface WpblCompareCandidate {
 /**
  * The order to offer the rest of the league in.
  *
- * ALPHABETICAL IS THE WRONG DEFAULT HERE, which is not obvious until you use it: the list
- * opened on Abigail Moore, Adelaide Frank and Adelaide Ziebart, three players with 24 plate
- * appearances between them, and the comparison somebody actually came to build was eleven
+ * ALPHABETICAL IS THE WRONG DEFAULT HERE, which is not obvious until you use it: an alphabetical
+ * list opens on Abigail Moore, Adelaide Frank and Adelaide Ziebart, three players with 24 plate
+ * appearances between them, and the comparison somebody actually came to build is eleven
  * screens down. A name is what the search box is for. What the LIST is for is the question
- * "who is worth putting next to her", and an alphabet answers a different question.
+ * "who is worth putting next to this player", and an alphabet answers a different question.
  *
  * So, in order:
  *
- * 1. **Her own half of the game first.** A hitter against a pitcher shares almost no rows: the
- *    page draws two cards where one column is dashes all the way down. That comparison stays
- *    reachable, and the head-to-head makes it worth reaching, but it is not what to put at the
- *    top. `leadsWithPitching` is the same call the player card uses to decide which way round
- *    to open, so the picker and the card cannot disagree about who is a pitcher. With no
- *    subject chosen yet there is no role to match, and hitters lead: they are the larger group
- *    and the commoner first pick.
- * 2. **Then by how much she has played**, most first. Playing time is the honest proxy for "is
- *    there a season here to compare", it is what the comparison itself leads with, and it is
- *    not a ranking of quality: sorting the picker by OPS would make it a leaderboard and invite
- *    the reader to compare the top two and stop.
+ * 1. **The subject's own half of the game first.** A hitter against a pitcher shares almost no
+ *    rows: the page draws two cards where one column is dashes all the way down. That
+ *    comparison stays reachable, and the head-to-head makes it worth reaching, but it is not
+ *    what to put at the top. `leadsWithPitching` is the same call the player card uses to
+ *    decide which way round to open, so the picker and the card cannot disagree about who is a
+ *    pitcher. With no subject chosen yet there is no role to match, and hitters lead: they are
+ *    the larger group and the commoner first pick.
+ * 2. **Then by how much each has played**, most first. Playing time is the honest proxy for
+ *    "is there a season here to compare", it is what the comparison itself leads with, and it
+ *    is not a ranking of quality: sorting the picker by OPS would make it a leaderboard and
+ *    invite the reader to compare the top two and stop.
  * 3. **Then by name**, so the order is deterministic and does not shuffle between renders.
  *
  * THE SORT KEY IS ALWAYS THE NUMBER THE ROW PRINTS, and rule 1 is what makes that possible.
- * A first draft ranked everyone by CONFRONTATIONS — batters faced for a pitcher, plate
- * appearances for a hitter, which is genuinely one unit measured twice and is the only way to
- * order a list holding both. It was right and it looked broken: the column shows innings, and
- * a pitcher who walks people faces more batters per inning, so the list ran 21.0 IP, 21.2 IP,
- * 18.2, 15.2, 18.2 and read as a sort that had failed. Because role is the FIRST key, each role
- * is a contiguous block, so each block can be sorted in its own unit and every block is
- * monotonic in what the reader can see. A sorted list that cannot be checked by eye is worth
- * less than one that can.
+ * Ranking everyone by CONFRONTATIONS (batters faced for a pitcher, plate appearances for a
+ * hitter, which is genuinely one unit measured twice and is the only way to order a list holding
+ * both) is right and looks broken: the column shows innings, and a pitcher who walks people
+ * faces more batters per inning, so the list runs 21.0 IP, 21.2 IP, 18.2, 15.2, 18.2 and reads
+ * as a sort that has failed. Because role is the FIRST key, each role is a contiguous block, so
+ * each block can be sorted in its own unit and every block is monotonic in what the reader can
+ * see. A sorted list that cannot be checked by eye is worth less than one that can.
  */
 export function rankCompareCandidates(
   subject: WpblPlayer | null,

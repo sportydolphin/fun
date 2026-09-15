@@ -6,34 +6,34 @@ import { useSwipeNav } from '../AccessibilityContext'
 // Finger-tracking tab pager for touch devices. The active view and, during a drag, the
 // one neighbour in the drag direction translate 1:1 with the finger; releasing past a
 // threshold commits to that neighbour (animating the rest of the way), otherwise it
-// springs back. Desktop is untouched — it renders the active panel as-is.
+// springs back. Desktop is untouched: it renders the active panel as-is.
 //
 // Why the fuss with keys + a stable track: the neighbour view is a heavy tab (it fetches
 // its own data). It's mounted once when the drag starts, and on commit the same keyed cell
-// simply switches from "neighbour" to "active" — React reuses its DOM, so it is never
+// simply switches from "neighbour" to "active", so React reuses its DOM and it is never
 // remounted and never refetches mid-swipe.
 //
 // Scroll model: the app scrolls the window (no inner scroll container). Each tab keeps its
-// own scroll position — entering a tab (tap or swipe) restores where you last left it, and
+// own scroll position: entering a tab (tap or swipe) restores where you last left it, and
 // leaving records the spot. During a drag the incoming pane is pinned (`pinTop`) to the
 // exact position the tab will land at, so committing is jump-free: no reset, no jitter. A
 // first-visit tab lands at its top, tucked just under the pinned nav (see `freshTarget`).
 
 const LOCK_PX = 10          // movement before we decide horizontal-swipe vs vertical-scroll
 const COMMIT_FRACTION = 0.28 // fraction of the width a slow drag must pass to switch tabs
-const FLICK_VELOCITY = 0.3  // px/ms — a release faster than this commits the swipe even when it
+const FLICK_VELOCITY = 0.3  // px/ms: a release faster than this commits the swipe even when it
                             // never crossed COMMIT_FRACTION, so a quick little flick pages the tab
 const FLICK_MIN_PX = 12     // but the flick must have travelled at least this far, so a stationary
                             // finger-jitter on release is never mistaken for a flick
-const SCROLLER_FLICK_VELOCITY = 0.5 // px/ms — a horizontal flick faster than this pages the tab even
+const SCROLLER_FLICK_VELOCITY = 0.5 // px/ms: a horizontal flick faster than this pages the tab even
                             // when it starts inside a sideways scroller (the stats table): a hard
                             // flick reads as tab intent, since nobody flicks fast just to nudge a
                             // table over. Slower drags still scroll the table as before.
 const ANIM_MS = 260          // a swipe's release (commit or spring-back)
 // A nav-tap slide is ALWAYS one screen, whatever the distance: the target slides in from the
-// tapped side and the current slides out, the way a tab bar should feel. An earlier version grew
-// the travel with distance so a far jump slid PAST every tab in between — spatially honest, but the
-// least smooth thing here, whizzing several screens of heavy content past in a third of a second.
+// tapped side and the current slides out, the way a tab bar should feel. Growing the travel with
+// distance, so a far jump slides PAST every tab in between, is spatially honest but the least
+// smooth option, whizzing several screens of heavy content past in a third of a second.
 // One screen means one duration, tuned to move in lockstep with the bottom bar's own indicator
 // (same length, same curve), so the page and the little selector bubble travel together.
 const TAP_MS = 300
@@ -45,8 +45,8 @@ const RESIST = 0.3          // rubber-band factor when dragging past the first/l
 const GAP = 16              // gutter shown between panes while swiping, so they aren't cramped
 
 // Does the touch start inside something that scrolls horizontally on its own (the home
-// scoreboard strip, the wide stats table)? If so, that inner scroller owns the gesture —
-// leave it be instead of stealing it for a tab swipe — but only while it still has room to
+// scoreboard strip, the wide stats table)? If so, that inner scroller owns the gesture, so
+// leave it be instead of stealing it for a tab swipe, but only while it still has room to
 // scroll in the drag's direction (`dir`: 1 = finger moving left toward the next tab, -1 =
 // finger moving right toward the previous tab). Once the scroller is pinned against that
 // edge, the drag falls through to the tab pager, so an extra flick at the end of the table
@@ -55,7 +55,7 @@ const GAP = 16              // gutter shown between panes while swiping, so they
 //
 // Exception: an element flagged `data-swipe-handle` is a frozen part of a scroller that
 // stays put while the rest scrolls under it (the stats table's pinned name/sort columns).
-// A horizontal drag there is meant to page tabs, not scroll the table, so we bow out —
+// A horizontal drag there is meant to page tabs, not scroll the table, so we bow out:
 // the scroller keeps only its actually-scrolling cells, giving the pager a grab handle.
 function ownsHorizontalScroll(from: EventTarget | null, stop: HTMLElement, dir: -1 | 1): boolean {
   let el = from instanceof HTMLElement ? from : null
@@ -82,17 +82,17 @@ interface Props {
   minHeight?: string // floors the container so short tabs stay swipeable in their empty space
   stickyNavRef?: RefObject<HTMLElement | null> // the pinned tab menu, to land the new tab just under it
   padX?: number // horizontal inset (px) applied *inside* each pane, so the container can run
-                // full-bleed to the screen edge while content keeps its gutter — a pane then
+                // full-bleed to the screen edge while content keeps its gutter: a pane then
                 // slides all the way off-screen instead of clipping at a padded barrier.
-  // Which scroll model the pager sits in:
-  //   'window' (default) — the page itself scrolls, one shared viewport, per-tab scroll memory
-  //     against window.scrollY. The home tabs.
-  //   'pane' — the pager fills a fixed-height flex slot and EACH PANE scrolls itself. For the
-  //     Game Center, which is a modal: the body is scroll-locked while it's open, so all the
-  //     window bookkeeping above (scroll memory, nav pinning, toolbar-clamp guard) is not just
-  //     unnecessary but actively wrong. Each pane keeping its own scroller also means a tab
-  //     remembers its own depth for free, instead of the single shared scroller carrying a deep
-  //     play-by-play's position over onto a short recap.
+                // Which scroll model the pager sits in:
+                //   'window' (default): the page itself scrolls, one shared viewport, per-tab scroll memory
+                //     against window.scrollY. The home tabs.
+                //   'pane': the pager fills a fixed-height flex slot and EACH PANE scrolls itself. For the
+                //     Game Center, which is a modal: the body is scroll-locked while it's open, so all the
+                //     window bookkeeping above (scroll memory, nav pinning, toolbar-clamp guard) is not just
+                //     unnecessary but actively wrong. Each pane keeping its own scroller also means a tab
+                //     remembers its own depth for free, instead of the single shared scroller carrying a deep
+                //     play-by-play's position over onto a short recap.
   mode?: 'window' | 'pane'
 }
 
@@ -151,12 +151,12 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     return Math.min(curY, Math.max(0, contentTop - stickyOffset))
   }
   // Split scroll into two parts so the pill nav never jumps vertically when swiping tabs:
-  //   • chrome offset — how far the app toolbar has scrolled away, 0…T (T = the "tucked" line
+  //   • chrome offset: how far the app toolbar has scrolled away, 0…T (T = the "tucked" line
   //     where the nav is fully pinned). This governs the nav's on-screen position.
-  //   • content offset — scroll past T, i.e. how deep into the tab's own content you are.
+  //   • content offset: scroll past T, i.e. how deep into the tab's own content you are.
   // Switching tabs keeps the CURRENT chrome offset (so the nav stays exactly where it is) and
   // applies only the destination tab's remembered content offset beneath it. A tab last left
-  // scrolled deep restores that depth; one left at its top lands at its top — but in both
+  // scrolled deep restores that depth; one left at its top lands at its top, but in both
   // cases the nav bar holds still.
   const targetFor = (i: number, curY: number) => {
     const T = freshTarget(Number.POSITIVE_INFINITY) // tucked line (nav pinned, toolbar off)
@@ -166,13 +166,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     return chrome + content
   }
 
-  // Restore on enter, record on leave — keyed on the pane that actually became active, so a
+  // Restore on enter, record on leave, keyed on the pane that actually became active, so a
   // tap slide restores scroll at the END of its animation (when activeIndex catches up), not
   // the instant the tap fired. The incoming pane was pinned to exactly `targetFor`, so
   // scrolling here produces no visible jump.
   useLayoutEffect(() => {
     if (prevActive.current === activeIndex) return
-    // Pane mode owns no window scroll — each pane has its own scroller, and the modal above it
+    // Pane mode owns no window scroll: each pane has its own scroller, and the modal above it
     // has the body locked, so there is nothing to save or restore here.
     if (!pagerOn || paneMode) { prevActive.current = activeIndex; return }
     // Prefer the depth captured at commit time (see commitScrollY): window.scrollY here is
@@ -203,7 +203,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
 
   // Slide to `to` because the parent changed `index` off the pager (a nav tap). The outgoing pane
   // stays in flow at its current scroll; the target is parked ONE screen over on the tapped side
-  // (never its true distance — see TAP_MS) and the track slides that one screen across. commitTo
+  // (never its true distance; see TAP_MS) and the track slides that one screen across. commitTo
   // then swaps `to` into flow. So a tab four away arrives on the same short, smooth slide as the
   // one next door, instead of the track racing past the tabs in between.
   const startSlide = (to: number) => {
@@ -244,10 +244,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   const [offset, setOffset] = useState(0)        // px the track is translated by
   const [anim, setAnim] = useState(false)        // animate the transform (release) vs track the finger
   const [pinTop, setPinTop] = useState(0)        // neighbour's top, aligned to the current viewport
-  // A nav-tap slide's destination (any index; null during a swipe, which only ever moves ±1).
-  // When set, the track renders every pane between the active one and this, so the jump slides
-  // through them. `slideMs` is the transition length in force — a swipe's ANIM_MS, or the
-  // distance-scaled tap length.
+  // A nav-tap slide's destination (null during a swipe, which only ever moves ±1). When set,
+  // the track renders that one pane, parked a screen over on the tapped side (see startSlide).
+  // `slideMs` is the transition length in force: a swipe's ANIM_MS or a tap's TAP_MS.
   const [slideTarget, setSlideTarget] = useState<number | null>(null)
   const [slideMs, setSlideMs] = useState(ANIM_MS)
   const [, bumpWarm] = useState(0)               // re-render trigger when a neighbour is pre-warmed
@@ -256,12 +255,12 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // active tab settles: each is added to the keep-alive set so it mounts hidden now, paying a
   // heavy tab's one-time data-shaping useMemo off-gesture instead of synchronously in the first
   // frame of a gesture. This is what lets a nav TAP start moving the instant it is pressed even
-  // for a far tab (Home → Stats): the destination pane, and the ones it slides past, are already
-  // mounted, so the engaged render is a reposition rather than a mount. It also removes the old
-  // mid-swipe stutter (worst on Stats/Tracking). One per tick spreads the cost so warming never
-  // itself janks; nearest-first means the likeliest next tab is ready first. Cheap on the
-  // network: Home preloads the shared caches every tab reads, so a warmed tab's fetch-on-mount
-  // finds a fresh cache and no-ops. Only ever grows `visited`.
+  // for a far tab (Home → Stats): the destination pane is already mounted, so the engaged render
+  // is a reposition rather than a mount. It also keeps a swipe from stuttering on its first frame
+  // (worst on Stats). One per tick spreads the cost so warming never itself janks; nearest-first
+  // means the likeliest next tab is ready first. Cheap on the network: Home preloads the shared
+  // caches every tab reads, so a warmed tab's fetch-on-mount finds a fresh cache and no-ops.
+  // Only ever grows `visited`.
   useEffect(() => {
     if (!pagerOn) return
     let cancelled = false
@@ -308,11 +307,11 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       // reason it is written as its own statement rather than folded into the bails below.
       //
       // `g.current` outlives a touch. `onEnd` reads it and only bails when `lock !== 'h'`, so a
-      // completed swipe that left `lock` at 'h' was inherited by every later touch the pager
-      // refused: the next touchend ran the commit path again, on the PREVIOUS gesture's
-      // direction, offset and velocity. Reported on a phone as "swipe the chart, keep your
-      // finger down, and the tab changes when you let go", which is exactly that replay, and
-      // the chart is where it shows because `data-swipe-lock` is the commonest refusal.
+      // completed swipe that left `lock` at 'h' would be inherited by every later touch the pager
+      // refused: the next touchend runs the commit path again, on the PREVIOUS gesture's
+      // direction, offset and velocity. On a phone that reads as "swipe the chart, keep your
+      // finger down, and the tab changes when you let go", and the chart is where it shows
+      // because `data-swipe-lock` is the commonest refusal.
       g.current.tracking = false
       g.current.lock = null
 
@@ -343,7 +342,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         const d: 1 | -1 = dx < 0 ? 1 : -1
         // Estimate the flick speed over the drag so far. A fast horizontal flick is a
         // tab-page intent even inside a sideways scroller, so only defer to the scroller for
-        // an ordinary, slower drag — a hard flick falls through to the pager below.
+        // an ordinary, slower drag; a hard flick falls through to the pager below.
         const dt = e.timeStamp - s.startT
         const flickV = dt > 0 ? Math.abs(dx) / dt : 0
         if (flickV < SCROLLER_FLICK_VELOCITY && ownsHorizontalScroll(s.target, el, d)) {
@@ -353,8 +352,8 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         s.dir = d
         const { activeIndex: idx, count } = latest.current
         s.boundary = (d > 0 && idx >= count - 1) || (d < 0 && idx <= 0)
-        // Pin the incoming pane so its remembered scroll shows at the current viewport —
-        // curY - target — so the layout-effect scroll on commit lands with no jump. In pane
+        // Pin the incoming pane so its remembered scroll shows at the current viewport
+        // (curY - target), so the layout-effect scroll on commit lands with no jump. In pane
         // mode the panes are stacked to the container's own box, so there is nothing to pin.
         if (paneMode) setPinTop(0)
         else {
@@ -369,7 +368,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       }
 
       if (s.lock !== 'h') return
-      e.preventDefault() // we own this gesture now — stop the page from also scrolling
+      e.preventDefault() // we own this gesture now, so stop the page from also scrolling
       // Smooth the finger's px/ms speed so onEnd knows how hard the release was flicked.
       // Weighted toward the newest sample so a late burst of speed (the flick) dominates.
       const dt = e.timeStamp - s.lastT
@@ -389,13 +388,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       s.tracking = false
       const lock = s.lock
       // Ended neutral, so nothing downstream can inherit this gesture. The reset in `onStart`
-      // is the one that fixes the replay above; this is the same invariant stated at the other
+      // is the one that prevents the replay above; this is the same invariant stated at the other
       // end, and it is what keeps a touchend the pager never saw the start of from finding a
       // live 'h' here.
       s.lock = null
       if (lock !== 'h') return
       // Commit on either a long-enough drag OR a fast flick in the drag's direction. The flick
-      // path lets a small, quick swipe page the tab without dragging most of the screen across —
+      // path lets a small, quick swipe page the tab without dragging most of the screen across:
       // vel is signed (left = negative → next tab, right = positive → prev tab), so it must match
       // the drag direction (sign(vel) === -dir) and clear a tiny minimum travel.
       const d = s.dir
@@ -437,8 +436,8 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // A pane owns its own vertical scroll in pane mode (in window mode the page scrolls, so the
   // pane must not become a scroll container).
   //
-  // `scrollbarGutter: stable` is load-bearing, not polish. The panes differ in height — a
-  // recap fits, a box score doesn't — so without it the taller pane grows a scrollbar the
+  // `scrollbarGutter: stable` is load-bearing, not polish. The panes differ in height (a
+  // recap fits, a box score doesn't), so without it the taller pane grows a scrollbar the
   // shorter one lacks, its content box narrows by the scrollbar's width, and the whole pane
   // visibly jerks sideways as the swipe commits. Reserving the gutter on every pane makes
   // them all the same width whether or not they end up scrolling. (No-op where scrollbars
@@ -452,7 +451,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     : {}
 
   // The horizontal inset the caller full-bleeds the track for and hands back per pane. Applied
-  // to whichever pane is on screen in EVERY path — pager or not — so turning swipe off does not
+  // to whichever pane is on screen in EVERY path, pager or not, so turning swipe off does not
   // strip the gutter and slam the content to the screen edge. padX is 0 on desktop, so this is
   // a no-op there.
   const paneInset = { boxSizing: 'border-box' as const, paddingLeft: padX, paddingRight: padX }
@@ -496,7 +495,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         overflow: paneMode || engaged ? 'clip' : 'visible',
         touchAction: 'pan-y',
         minHeight,
-        // Fill the modal's flex slot. This is the one definite height in the chain below —
+        // Fill the modal's flex slot. This is the one definite height in the chain below:
         // the track and the panes both inherit from it so `height: 100%` resolves.
         ...(paneMode ? { flex: 1, minHeight: 0 } : {}),
       }}
@@ -516,9 +515,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
           if (i === activeIndex) {
             return <div key={i} style={{ position: 'relative', width: '100%', ...paneInset, ...paneScroll }}>{panel}</div>
           }
-          // A pane on the track (a swipe neighbour or a step of a multi-tab tap): absolutely
-          // placed (i - activeIndex) screens over and pinned to the viewport, so the track's
-          // translate slides it — and any panes before it — through the viewport.
+          // A pane on the track (a swipe neighbour or a tap's destination): absolutely placed one
+          // screen over and pinned to the viewport, so the track's translate slides it through the
+          // viewport.
           if (engagedExtras.includes(i)) {
             // On-track position is the DIRECTION, not the index delta: a tap target rides in from
             // one screen over on the tapped side whatever its true distance (single-screen slide),

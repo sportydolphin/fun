@@ -4,7 +4,7 @@
  * The feed sends a whole sentence per play, and everything is in it: the batter, what they
  * did, the ball-strike count with the raw pitch letters, and every runner's movement chained
  * on with semicolons and spelled out in full. Rendered verbatim that is four lines of prose
- * for one ground ball, and the thing you actually want — who did what — is buried mid-sentence
+ * for one ground ball, and the thing you actually want, who did what, is buried mid-sentence
  * in the same weight as the fielding detail.
  *
  *   "Kylee Lahners reached on a fielder's choice, RBI (0-0); Denae Benites out at second
@@ -34,16 +34,16 @@ export interface ParsedPlay {
   kind: 'play' | 'substitution' | 'blank'
 }
 
-// "(1-0 BKB)" or "(0-0)" — the pitch letters are rendered as decoded pips beside the play,
+// "(1-0 BKB)" or "(0-0)": the pitch letters are rendered as decoded pips beside the play,
 // so only the count itself is kept.
 const COUNT_RE = /\s*\((\d)-(\d)(?:\s+[BKSFHP]+)?\)/
 
 const POS = '1b|2b|3b|ss|lf|cf|rf|p|c|dh'
 
 // A fielding sequence: "ss to 2b", "p to c", "lf to 3b to c". THE ONLY RECORD OF WHO MADE THE
-// PLAY, in every clause it appears in, so it is never removed and only ever punctuated. It used
-// to be stripped everywhere on the reasoning that a runner clause saying "out at second" has
-// already said what happened. It has said what, and not by whom.
+// PLAY, in every clause it appears in, so it is never removed and only ever punctuated. A runner
+// clause saying "out at second" has already said what happened, but not by whom, so it does not
+// make the sequence redundant.
 const FIELD_SEQ_RE = new RegExp(String.raw`\s+\b(?:${POS})(?:\s+to\s+(?:${POS}))+\b`, 'g')
 
 // The other spellings of the same fact, where one fielder needed no help: "out at second 2b
@@ -54,9 +54,9 @@ const UNASSISTED_RE = new RegExp(String.raw`\b(out at (?:first|second|third|home
 const LONE_FIELDER_RE = new RegExp(String.raw`\b((?:double|triple) play) ((?:${POS})\b)(?!\s+to\b)`, 'g')
 
 // The feed names a fielder two ways in the same game: "grounded out to 2b" and "singled to
-// second base". Two vocabularies in one list, and the second one collided with the base-name
-// shortening below to produce "singled to 3rd base", which is not English and was ours rather
-// than the feed's. Mapped to the abbreviation the list already uses far more often.
+// second base". Two vocabularies in one list, and left alone the second collides with the
+// base-name shortening below to produce "singled to 3rd base", which is not English and would be
+// ours rather than the feed's. Mapped to the abbreviation the list already uses far more often.
 //
 // SAFE BECAUSE A BASE IS NEVER SPELLED THIS WAY HERE: across 2,836 plays the feed writes a
 // runner's destination as "advanced to second", never "advanced to second base", so "second
@@ -73,9 +73,9 @@ const FIELDER_WORDS: [RegExp, string][] = [
 /**
  * A pickoff throw, and the one line in the feed that says the opposite of what it means.
  *
- * "Lexi Hastings Failed pickoff attempt" reads as Hastings having failed at something. She is
- * the RUNNER: the pitcher threw over and did not get her. Checked on all 139 of them, the name
- * is never the batter and never the pitcher, and it is always a teammate of the batter.
+ * "Lexi Hastings Failed pickoff attempt" reads as Hastings having failed at something. The name
+ * is the RUNNER: the pitcher threw over and did not get them. Checked on all 139 of them, the
+ * name is never the batter and never the pitcher, and it is always a teammate of the batter.
  */
 const PICKOFF_RE = /^(.+?) Failed pickoff attempt$/
 
@@ -86,8 +86,8 @@ const PLACED_BASE: Record<string, string> = { first: '1st', second: '2nd', third
 
 /**
  * "Dropped foul ball, E3", the third line in this feed where the batter is not the one who did
- * it. She hit the foul; the first baseman dropped it and was charged with the error, and the
- * at-bat carried on. Printed under her name it says she dropped it.
+ * it. The batter hit the foul; the first baseman dropped it and was charged with the error, and
+ * the at-bat carried on. Printed under the batter's name it says the batter dropped it.
  *
  * The scorer's position NUMBER is spelled out as the abbreviation everything else here uses,
  * since E3 is notation the section never explains anywhere.
@@ -107,15 +107,15 @@ const BASE_NAMES: [RegExp, string][] = [
   [/\bat third\b/g, 'at 3rd'],
 ]
 
-// A substitution, not a play. Three shapes, and only the first was being recognised:
+// A substitution, not a play. Three shapes, and all three have to be recognised:
 //
-//   "Raine Padgham to p for Paloma Benach"  a swap, and the shape this rule was written for
+//   "Raine Padgham to p for Paloma Benach"  a swap
 //   "Jamie Mackay to lf"                    a defensive move with nobody leaving, 109 of them
 //   "/  for Ayami Sato"                     the feed lost the incoming player's name, 29 times
 //
-// The last two printed as PLAYS, in a play's weight, in the middle of an inning: a line reading
-// "Jamie Mackay to lf" between two at-bats looks like something she did at the plate, and
-// "/ for Ayami Sato" looks like a rendering fault, which is roughly what it is.
+// Missed, the last two print as PLAYS, in a play's weight, in the middle of an inning: a line
+// reading "Jamie Mackay to lf" between two at-bats looks like something that player did at the
+// plate, and "/ for Ayami Sato" looks like a rendering fault, which is roughly what it is.
 const SUBSTITUTION_RE = new RegExp(String.raw`^(.+?) to (?:${POS}|ph|pr)(?: for .+)?$`, 'i')
 // The feed's orphan: a swap whose incoming player came through empty.
 const ORPHAN_SUB_RE = /^\/\s*for (.+)$/
@@ -154,24 +154,21 @@ const squash = (s: string) => s.replace(/\s{2,}/g, ' ').replace(/\s+([,.])/g, '$
  * them is what makes a play-by-play read inconsistently: the same error would print as "on an
  * error by 2b" on one line and "on an error" on the next.
  *
- * WHICH IS WHAT IT USED TO DO ITSELF. It rewrote "on an error by 2b" to "on an error", on the
- * grounds that the fielder is in the box score. The box score carries a COUNT, six errors
- * against a club, and never which of them let this run in; the narrative is the only place that
- * says. It also only ever matched the plain spelling, so "on a throwing error by 1b" and "on a
- * fielding error by ss" kept their fielder while a bare "error by 3b" two lines up lost hers.
- * The position stays now, in all three spellings.
+ * THE FIELDER ON AN ERROR STAYS, in all three spellings ("error by 3b", "throwing error by 1b",
+ * "fielding error by ss"). It is tempting to strip it on the grounds that the fielder is in the
+ * box score, but the box score carries a COUNT, six errors against a club, and never which of
+ * them let this run in; the narrative is the only place that says.
  *
  * A POSITION AND NOT A NAME, deliberately. The feed says "3b", and turning that into a person
  * means asking who was at third in this game, which is a question with two answers the moment
  * anybody moves mid-game (`positions.ts` on the "lf/p" spelling). Naming the wrong fielder on
  * an error is worse than naming none.
  *
- * "UNEARNED" STAYS, AND USED TO BE STRIPPED HERE. The reasoning was that it is an accounting
- * distinction rather than something that happened on the field, which is true and is not a
- * reason to throw it away: the league scores it, the play log is the only surface that carries
- * it, and it is what separates a pitcher's ERA from the runs on the board. A reader who wants
- * to know why a five-run inning left an earned run average alone has nowhere else to look.
- * Reported by a reader, Sep 9, 2026.
+ * "UNEARNED" STAYS TOO. It is an accounting distinction rather than something that happened on
+ * the field, which is true and is not a reason to throw it away: the league scores it, the play
+ * log is the only surface that carries it, and it is what separates a pitcher's ERA from the runs
+ * on the board. A reader who wants to know why a five-run inning left an earned run average alone
+ * has nowhere else to look.
  */
 function tidy(s: string): string {
   let out = s.replace(PICKOFF_RE, 'Failed pickoff attempt at $1')
@@ -211,14 +208,11 @@ function condense(clause: string, shorten: (name: string) => string): string {
  * consistent rule and not corruption: measured over 1,352 plays, `runs_scored` equals the
  * number of "X scored" clauses in the narrative on every single row.
  *
- * It is also a trap, and it has caught every reader of this data so far. The play-by-play
- * badge in GameDetail showed nothing on a solo home run; a validation script written against
- * the feed flagged 15 of 28 team-games as having lost runs, and crediting the batter took
- * that to 1; and `firsts.ts` read the raw field for "first RBI", which dated one player's to
- * a sacrifice the next day when the solo home run the day before says "RBI" in the feed's own
- * narrative. That last one is the argument for this function: firsts.ts had the rule written
- * out correctly in a comment on the grand-slam branch, twelve lines above the RBI check that
- * got it wrong. Knowing the rule is not enough; it has to be callable.
+ * It is also a trap that catches every reader of this data: a play-by-play badge that shows
+ * nothing on a solo home run, a validator that reports half the league's team-games as having
+ * lost runs, and a "first RBI" dated to the wrong game. Each of those came from reading the raw
+ * field in code whose own comments stated the rule correctly. Knowing the rule is not enough; it
+ * has to be callable.
  *
  * Nothing else needs adjusting. Wild pitches, errors and fielder's choices all carry their
  * runs correctly, because in those cases the run belongs to a runner and the feed counts it.
@@ -258,7 +252,7 @@ const onBase = (v: string | null) => (v ?? '').trim().length > 0
  * ended in is the state the NEXT row reports", fetchWpblAllRunValuePlays), and this is the same
  * read with the same guarantee: it is the feed's own account of the next moment, not a
  * simulation of what the narrative implies. Nothing here re-runs the play, so a clause the feed
- * lost cannot put a runner somewhere she never was.
+ * lost cannot put a runner on a base nobody stood on.
  *
  * ONE FUNCTION FOR BOTH HALVES OF THE SITUATION, because they are one fact and they fail
  * together. Read separately, the outs could come from somewhere that still has an answer at a
@@ -348,12 +342,11 @@ export interface PitchingChange {
  * the name the rows before it were actually pitched by: a derived line cannot be wrong about who
  * left without the plays themselves being wrong about who was throwing.
  *
- * THE SEP 11, 2026 SEMIFINAL IS ONE OF THE TEN, and is how this was found. The league wrote San
- * Francisco's sixth-inning change as "Liz Gilder to p for Jill Albayati" when Albayati had been
- * relieved three innings earlier; the same row's `pitcher_name` said Niki Eckert, which is who it
- * was, and so did the box score. A reader watching the game reported it. The other nine had been
- * on the site all season and nobody could have caught them, because the sentence was the only
- * place the play-by-play named a pitcher at all.
+ * ONE OF THE TEN, for a concrete case: the league wrote San Francisco's sixth-inning change in the
+ * Sep 11, 2026 semifinal as "Liz Gilder to p for Jill Albayati" when Albayati had been relieved
+ * three innings earlier; the same row's `pitcher_name` said Niki Eckert, which is who it was, and
+ * so did the box score. Nothing that reads only the sentence can catch that, and a play-by-play
+ * that names pitchers only through the sentence repeats every one of the ten.
  *
  * MID-HALF ONLY, on purpose. A change between innings cannot be seen in one half's rows, and the
  * half-inning heading names the pitcher each half opens with, so a between-innings change reads
@@ -418,9 +411,9 @@ export function parsePlay(
   // THE EXTRA-INNINGS RUNNER, and the second line in this feed that names two people and says
   // neither did anything to the other. From the 8th on, the league writes "Kate Blunt Hyeonah
   // Kim placed on second": the batter due up, then the runner the rule puts on second to start
-  // the inning. Two names in a row, so with the batter lifted out and printed in bold the line
-  // read "Kate Blunt · Hyeonah Kim placed on second", which is either gibberish or Blunt doing
-  // the placing. The batter did nothing here and is not this play's subject.
+  // the inning. Two names in a row, so lifting the batter out and printing it in bold would read
+  // "Kate Blunt · Hyeonah Kim placed on second", which is either gibberish or Blunt doing the
+  // placing. The batter did nothing here and is not this play's subject.
   const placed = what.match(PLACED_RE)
   if (placed) {
     who = null
@@ -451,9 +444,9 @@ export function parsePlay(
  *
  * THE SCOREKEEPER'S BACKWARDS K MEANS THIS AND ONLY THIS. It is a strikeout looking, not a
  * called strike: the glyph is a strikeout, and the mirroring is what says the batter did not
- * swing at it. Game Center mirrored EVERY 'K' in a pitch sequence, which is 1,480 pitches
- * across 1,198 plays against the 96 that are actually called third strikes, so a single on
- * 0-2 drew "F ꓘ" and told a reader who knows the notation that she had struck out looking.
+ * swing at it. Mirroring EVERY 'K' in a pitch sequence would mark 1,480 pitches across 1,198
+ * plays against the 96 that are actually called third strikes, so a single on 0-2 would draw
+ * "F ꓘ" and tell a reader who knows the notation that the batter had struck out looking.
  *
  * The feed's own letters cannot say it alone: 'K' is its code for any called strike. The
  * narrative can, and the two have to agree, so this wants both. A strikeout-looking narrative

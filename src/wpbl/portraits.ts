@@ -1,19 +1,18 @@
 // Player portrait assets. The headshots are bundled in ./portraits/<slug>.webp
-// (512×512, smart-cropped) — mirroring how team logos are bundled in ./logos (see
+// (512×512, smart-cropped), mirroring how team logos are bundled in ./logos (see
 // constants.ts). Vite emits each as a hashed asset URL, fetched on demand.
 //
 // Files are named by a normalized slug of the player's DB `name`; we resolve a player to
 // their portrait by slugifying that name the same way, so no per-name mapping is needed.
 // The alias table is a fallback for any future roster name whose DB spelling can't be
-// slugified to its file name (currently empty — every portrait is named by its DB slug).
+// slugified to its file name (currently empty: every portrait is named by its DB slug).
 //
 // EVERY FILE HERE IS A CUT-OUT, and a new one that is not has to be made into one:
 // `python scripts/cut-out-wpbl-portraits.py`. PlayerPortrait fills its circle with the club's
 // primary colour and draws the photo over it, so a headshot that kept its white studio
 // background renders sharp, correct and colourless, the only face on the page not wearing a
-// club. 65 of these sat like that for months, because nothing about it is visible to tsc and
-// the page looks fine unless you know what the other 53 look like. `portraitAlpha.test.ts`
-// is what notices now.
+// club. Nothing about that is visible to tsc, and the page looks fine unless you know what the
+// other faces look like, so `portraitAlpha.test.ts` is what notices.
 
 import { slugifyName } from './slug'
 
@@ -46,7 +45,7 @@ for (const [p, url] of Object.entries(thumbModules)) {
 }
 
 // DB slug → file slug overrides, for any future case where a player's DB spelling can't
-// be slugified to their bundled file name. Empty today — all portraits are named by DB slug.
+// be slugified to their bundled file name. Empty: all portraits are named by DB slug.
 const ALIASES: Record<string, string> = {}
 
 // Portrait URL for a player name, or null if we don't have one bundled. THE 512, which is the
@@ -63,9 +62,9 @@ export function wpblPortrait(name: string | null | undefined): string | null {
  *
  * WHY A SET AND NOT A URL. A browser decodes an image at its natural size, so a 512 square is
  * about a megabyte of bitmap wherever it is painted, and this section draws faces at 32, 46 and
- * 84 by the dozen: the fan-award sheet mounts thirty over a Home page holding thirty more. Every
- * one of those was decoding the print-resolution copy. `srcset` moves the choice to the browser,
- * which is the only party that knows the reader's screen.
+ * 84 by the dozen: the fan-award sheet mounts thirty over a Home page holding thirty more.
+ * Without a set, every one of those decodes the print-resolution copy. `srcset` moves the
+ * choice to the browser, which is the only party that knows the reader's screen.
  *
  * THE 512 STAYS IN THE SET rather than being replaced by the thumb, because the player page's
  * portrait at a desktop scale on a 2x screen genuinely wants it, and because a `w` descriptor

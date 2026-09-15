@@ -133,10 +133,10 @@ describe('seedingRace', () => {
     expect(race(MID)[3].magic).toBeNull()
   })
 
-  // What the bottom seed has instead. The card used to print a sentence here ("Can still reach
-  // 3rd"), which was the one cell in the column not answering the column's question and the
-  // longest string on the card. The climb is the same magic number asked about a different
-  // seed, so it is priced by the same function.
+  // What the bottom seed has instead. A sentence here ("Can still reach 3rd") would be the one
+  // cell in the column not answering the column's question, and the longest string on the card.
+  // The climb is the same magic number asked about a different seed, so it is priced by the
+  // same function.
   it('prices the bottom seed\u2019s climb to the best seed it can still reach', () => {
     const rows = race([
       { id: 'SF', w: 8, l: 4, left: 3 },
@@ -312,9 +312,9 @@ describe('swingGames', () => {
 // Everything above is stated OUTRIGHT: a magic number that reaches zero can never be undone by
 // a tiebreak going the other way, which is the right caution for a number a fan quotes at
 // somebody. A CLINCH is the opposite kind of claim. Reading it pessimistically does not make it
-// safe, it makes it wrong, and on Sep 3, 2026 it was wrong in both directions on the same card:
-// San Francisco had banked the top seed and the site said "1 to lock", while Boston had not
-// banked fourth and the site said "Seed set".
+// safe, it makes it wrong, and on the Sep 3, 2026 table a wins-only reading is wrong in both
+// directions at once: San Francisco has banked the top seed while it says "1 to lock", and
+// Boston has not banked fourth while it says "Seed set".
 describe('clinchedSeeds and the head-to-head tiebreak', () => {
   const won = (w: string, l: string, n: number) =>
     Array.from({ length: n }, () => game(w, l, 6, 1))
@@ -325,8 +325,8 @@ describe('clinchedSeeds and the head-to-head tiebreak', () => {
    * THE REAL TABLE ON Sep 3, 2026, and balanced the way a real season is: every pair meets five
    * times, so every club plays fifteen and has thirteen behind it. That matters more than it
    * looks. `computeStandings` sorts on win PERCENTAGE, so a fixture where clubs have played
-   * different numbers of games can put a 7-3 club above a 9-5 one, and an earlier draft of these
-   * tests did exactly that and quietly asked the wrong question.
+   * different numbers of games can put a 7-3 club above a 9-5 one, and these tests would then
+   * quietly ask the wrong question.
    *
    *   SF 9-4   LA 7-6   NY 6-7   BOS 4-9,   two to play each
    *   head to head: SF-LA 3-2 (done)   NY-BOS 3-2 to BOS (done)

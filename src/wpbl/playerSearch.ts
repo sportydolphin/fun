@@ -129,7 +129,7 @@ function scoreOne(q: string, qTokens: string[], full: string, tokens: string[]):
   const first = tokens[0]
   const last = tokens[tokens.length - 1]
 
-  // "whitmore kelsie" for "kelsie whitmore" — people type surname-first out of habit.
+  // "whitmore kelsie" for "kelsie whitmore": people type surname-first out of habit.
   if (tokens.length > 1 && q === [...tokens].reverse().join(' ')) return 95
 
   if (q === last) return 88

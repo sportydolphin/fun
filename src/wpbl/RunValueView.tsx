@@ -22,68 +22,57 @@ import { pitchQualifiers } from './derive/pitches'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 
-// The run-value board: what each situation in a game is worth, and which plays moved furthest
-// between them.
+// The run-value board: what each situation in a game is worth, and who has added the most runs
+// moving between them.
 //
 // It sits beside Season and Pitch by pitch on the Stats tab's source axis for the same reason
 // they sit beside each other: same season, different question. Season counts what happened,
 // Pitch by pitch counts what each pitch did, and this one prices what each play was worth in
 // runs. The arithmetic is all in derive/runExpectancy.ts; what lives here is the drawing.
 //
-// ONE BOARD. There used to be a second list, the ten biggest single plays of the season, and
-// it was the most interesting thing here to somebody who already knew what run value was and
-// the least useful to everybody else: ten rows of narrative, each needing the situation it
-// happened in to make sense of the number beside it. The season leaderboard answers "who is
-// good", which is the question people bring, and it carries the section on its own.
+// ONE BOARD, AND NO LIST OF THE SEASON'S BIGGEST PLAYS. Ten rows of narrative, each needing the
+// situation it happened in to make sense of the number beside it, is the most interesting thing
+// here to somebody who already knows what run value is and the least useful to everybody else.
+// The season leaderboard answers "who is good", which is the question people bring, and it
+// carries the section on its own.
 //
-// AND ONE EXPLANATION, WHICH IS WHY THIS FILE OWNS IT. It used to be in two places and neither
-// was whole. This board carried the 24-situation table and a paragraph of fine print; a second
-// board called Findings carried the leadoff anchor, one play worked through in a ledger, and
-// the formula in words. So a reader who wanted to know where a number came from met the table
-// without the arithmetic on one tab and the arithmetic without the table on another, and
-// nothing on either said the other half existed. They are one idea and they are now one card,
-// in the order the idea is built: a situation is worth something, a play is worth what it
-// changed, here is one.
+// AND ONE EXPLANATION, WHICH IS WHY THIS FILE OWNS IT. The 24-situation table, the leadoff
+// anchor, one play worked through in a ledger, and the formula in words are one idea. Split
+// across two surfaces, a reader who wants to know where a number came from meets the table
+// without the arithmetic in one place and the arithmetic without the table in another, with
+// nothing on either saying the other half exists. So they are one card, in the order the idea
+// is built: a situation is worth something, a play is worth what it changed, here is one. The
+// measurements these prices rest on live on this board too; see PlayValue.tsx for what the
+// traffic said. If a third surface ever needs to explain run value, it links here.
 //
-// The rest of that board is here too as of Sep 10, 2026: its measurements were the prices this
-// one is built on, and a reader was choosing between the answer and the method by tapping a
-// label that named neither. See PlayValue.tsx for what the traffic said. If a third surface
-// ever needs to explain run value, it links here.
+// WHAT A PHONE SEES FIRST IS THE PLAYERS. With the explanation first, the board a fan actually
+// wants (who is having the best season) sits two full screens below how it was calculated,
+// which is the wrong way round for every reader who is not already convinced. Run value is
+// jargon-prone enough that it cannot open cold, but the fix for that is one sentence, not five.
 //
-// WHAT A PHONE SEES FIRST IS THE PLAYERS, AND EVERYTHING ELSE MOVED TO MAKE THAT TRUE.
-// Measured at 375px, the first version put the heading at y=193, a four-sentence paragraph
-// under it, a worked example at y=404, the plays at y=685 and the leaderboard at y=1,584 of a
-// 3,083px page. So the board a fan actually wants (who is having the best season) was two
-// full screens below an explanation of how it was calculated, which is the wrong way round
-// for every reader who is not already convinced. Run value is jargon-prone enough that it
-// cannot open cold, but the fix for that is one sentence, not five.
+// So the order is: one line of what this is, the leaderboard, and a shut card holding the whole
+// explanation. Nobody has to read any of that to use the board, and it is one tap away for
+// anyone who wants it.
 //
-// The order is now: one line of what this is, the leaderboard, and a shut card holding the
-// whole explanation. Nobody has to read any of that to use the board, and it is one tap away
-// for anyone who wants it.
+// THE TABLE IS NOT THE OPENING ACT. A 24-cell grid of two-decimal numbers is the most
+// expert-looking thing on the section, and a fan who came to see who is having a good season
+// and meets a spreadsheet leaves. The one-line intro carries the idea on its own, quoting the
+// unit inline, which is as much as a casual reader ever needs. The grid stays for the reader who
+// wants it, one tap away and remembered, inside step 1 where it is the evidence for a sentence
+// rather than a spreadsheet on its own with a caption.
 //
-// THE TABLE IS NOT THE OPENING ACT, AND THAT IS THE WHOLE LAYOUT. A 24-cell grid of two-decimal
-// numbers is the most expert-looking thing on the section, and it led the page in the first
-// version: a fan who came to see who is having a good season met a spreadsheet and left. So the
-// order is now the players first, then the explanation last and folded shut. The one-line intro
-// carries the idea on its own, quoting the unit inline, which is as much as a casual reader
-// ever needs. The grid stays for the reader who wants it, one tap away and remembered, and it
-// now sits inside step 1 where it is the evidence for a sentence rather than a spreadsheet on
-// its own with a caption.
-//
-// WRITTEN FOR SOMEONE WHO KNOWS WHAT AN RBI IS AND NOTHING BEYOND IT. This is a two-month-old
-// league whose audience mostly arrived this month, and run expectancy is the most jargon-prone
-// idea on the section. So: no "base-out state", no "RE24", no "-23" down the side of the
-// table, and every board says what it is measuring in a sentence before it shows a number. The
-// first version of this page failed that test in about six places.
+// WRITTEN FOR SOMEONE WHO KNOWS WHAT AN RBI IS AND NOTHING BEYOND IT. This is a young league
+// whose audience is mostly new to it, and run expectancy is the most jargon-prone idea on the
+// section. So: no "base-out state", no "RE24", no "-23" down the side of the table, and every
+// board says what it is measuring in a sentence before it shows a number.
 //
 // EVERYTHING IS MEASURED FROM THIS LEAGUE'S OWN PLAYS, which is worth saying on the page and
 // not just in a comment: this is the WPBL's own run environment, seven innings and about 15
 // runs a game, and a reader who has seen a run-expectancy table before would otherwise assume
-// these were the familiar numbers. Say where they come from, not what they are unlike. An
-// earlier draft priced them against the majors in the same sentence; a fan of this league can
-// do nothing with that, and it invites the section to be read as a comparison to another
-// league rather than as a record of this one. Do not put it back.
+// these were the familiar numbers. Say where they come from, not what they are unlike. Pricing
+// them against the majors in the same sentence gives a fan of this league nothing to do with
+// it, and invites the section to be read as a comparison to another league rather than as a
+// record of this one. Do not add it.
 
 // ── The table ────────────────────────────────────────────────────────────────────
 //
@@ -91,17 +80,17 @@ import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 // ("bases loaded, two out"), and the way that fits eight labels down a phone rather than
 // across one.
 //
-// EACH ROW IS DRAWN, NOT ONLY SPELLED, and that is what this grid was missing. "1st & 3rd" has
-// to be read; a diamond with two corners filled is recognised, because it is the same shape the
-// scoreboard has been showing all game and the same one the live strip draws at the top of a
-// game page. Eight rows of that is the difference between a spreadsheet and a table you can
-// find your way around, on the most expert-looking thing in the section.
+// EACH ROW IS DRAWN, NOT ONLY SPELLED. "1st & 3rd" has to be read; a diamond with two corners
+// filled is recognised, because it is the same shape the scoreboard has been showing all game
+// and the same one the live strip draws at the top of a game page. Eight rows of that is the
+// difference between a spreadsheet and a table you can find your way around, on the most
+// expert-looking thing in the section.
 //
-// AND IT IS WHAT LETS THE WORDS GO ON A PHONE. The written label was the widest thing in the
-// left column, so the grid overflowed its card and scrolled sideways at 375px: a 24-cell table
-// whose first column you had to scroll back to. Below `sm` the diamond stands alone and the
-// grid fits. Nothing is lost to a screen reader, which was never reading the fill anyway and
-// now gets the phrase off the glyph's own accessible name.
+// AND IT IS WHAT LETS THE WORDS GO ON A PHONE. The written label is the widest thing in the
+// left column, and with it the grid overflows its card and scrolls sideways at 375px: a 24-cell
+// table whose first column you have to scroll back to. Below `sm` the diamond stands alone and
+// the grid fits. Nothing is lost to a screen reader, which never reads the fill anyway and
+// gets the phrase off the glyph's own accessible name.
 //
 // Every cell carries its own sample. With one season of a four-team league the common states
 // are known twenty times better than the rare ones, and a grid of tidy two-decimal numbers
@@ -183,11 +172,11 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
 // ── The explanation ──────────────────────────────────────────────────────────────
 //
 // THE THREE TERMS ARE NAMED ONCE, HERE, and both the formula and the worked example read
-// these constants. They used to be two hand-written copies on two different tabs, and they had
-// already drifted: the ledger's first line said "Runs it put on the board" while the sentence
-// explaining it said "the runs a play scored". A reader is being asked to match three labels
-// in a formula against three rows in a ledger, and matching them is the entire lesson, so the
-// two must be the same words or the lesson is a puzzle instead.
+// these constants. Two hand-written copies drift, and it takes only a ledger line reading
+// "Runs it put on the board" beside a sentence explaining "the runs a play scored" to break
+// the lesson. A reader is being asked to match three labels in a formula against three rows in
+// a ledger, and matching them is the entire lesson, so the two must be the same words or the
+// lesson is a puzzle instead.
 const TERMS = {
   runs:   'Runs it scored',
   after:  'What it left behind',
@@ -197,9 +186,8 @@ const TERMS = {
 /** Remembered per browser: a reader who opened this once wants it open next time, and one who
  *  never opens it should not be asked again on every visit. Shut by default.
  *
- *  The stored name is left as it is. It has meant "the explainer", then "the table", and now
- *  the explainer again; renaming it would clear the choice of everyone who has already made
- *  one to buy nothing but a tidier string. */
+ *  The stored name does not track what the card is called. Renaming it would clear the choice
+ *  of everyone who has already made one, to buy nothing but a tidier string. */
 const TABLE_KEY = 'wpbl_runvalue_how_open'
 function readTableOpen(): boolean {
   try { return localStorage.getItem(TABLE_KEY) === '1' } catch { return false }
@@ -308,11 +296,11 @@ function WorkedPlay({ worked, date, accent }: {
   const v = worked.value
 
   // THE COLUMN HAS TO ADD UP, so the total is the sum of the ROUNDED terms rather than the
-  // rounded true value. This card exists for the one reader who checks the arithmetic, and
-  // they were being handed a column that does not: a play worth 0.5551 prints its parts as
-  // +1.00, +1.18 and −1.63, which come to 0.55, under a total reading +0.56. Nothing is wrong
-  // with either number and the reader has no way to know that, so the example teaching them
-  // the formula is also the example proving they cannot trust it.
+  // rounded true value. This card exists for the one reader who checks the arithmetic, and the
+  // rounded true value hands them a column that does not add up: a play worth 0.5551 prints its
+  // parts as +1.00, +1.18 and −1.63, which come to 0.55, under a total reading +0.56. Nothing is
+  // wrong with either number and the reader has no way to know that, so the example teaching them
+  // the formula would also be the example proving they cannot trust it.
   //
   // The cost is at most half a hundredth of a run on one illustrative play, which is invisible
   // and changes no ranking anywhere: `fmtRunValue(v.value, 2)` stays the number every board
@@ -407,13 +395,11 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     })
   }, [])
   const isNarrow = useMediaQuery('(max-width:600px)')
-  // WHAT THE PLAY-VALUE CARD'S "how this is worked out" ROW DOES, now that the thing it asks
-  // for is on the same board rather than a tab away. It used to be a board change carrying a
-  // flag that forced the explainer open on arrival, because a reader who followed a link about
-  // method and landed on a leaderboard with the answer folded away below has been sent
-  // somewhere, not answered. The flag is gone and the promise is the same: open the card, then
-  // put it on screen. Opening without scrolling is the version that fails silently on a phone,
-  // where the card is two screens down and nothing visibly happens.
+  // WHAT THE PLAY-VALUE CARD'S "how this is worked out" ROW DOES: open the explainer, then put it
+  // on screen. A reader who followed a link about method and landed on a leaderboard with the
+  // answer folded away below has been sent somewhere, not answered. Opening without scrolling is
+  // the version that fails silently on a phone, where the card is two screens down and nothing
+  // visibly happens.
   const explainerRef = useRef<HTMLDivElement | null>(null)
   const seeMethod = useCallback(() => {
     setTableOpen(true)
@@ -464,9 +450,10 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   // beside it ranks a total whose average event is good news for the side asked for, so a
   // two-game cameo cannot reach the top of it and no bar is needed. A pitcher's TAKE column is
   // the opposite: most pitches a batter takes are balls, so it runs negative for everybody, and
-  // ranking it put four relievers who had barely pitched above Ayami Sato, purely for having
-  // thrown less. The bar is the discipline board's own, off the same column and the same
-  // qualifier the Stats tab uses, so the two boards cannot disagree about who is a regular.
+  // ranking it unqualified puts relievers who have barely pitched above the staff's regulars,
+  // purely for having thrown less. The bar is the discipline board's own, off the same column and
+  // the same qualifier the Stats tab uses, so the two boards cannot disagree about who is a
+  // regular.
   const mins = useMemo(() => {
     const q = wpblQualifiers(teams, games)
     return pitchQualifiers(q.active ? q.teamGames : 0)
@@ -510,33 +497,29 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
 
   return (
     /* CAPPED AND CENTRED inside the full-bleed box StatsView puts this board in.
-       
-       The board is one list, and a list has nothing to spend width on: stretched to the whole
-       1416px it put a player's name at x=126 and her number at x=1309, which is not a row, it
-       is two columns that happen to share a border. Two of the three blocks in here already
-       knew that, the opening sentence capping itself at 70ch and the explainer at 620; only
-       the leaderboard filled the box.
-       
-       `chromePx(720)` is the section's own list measure, the same one Schedule, Standings and
-       Teams use and the same one the game card's play-by-play took. Centred rather than left,
-       because left is where this landed first and the board then hung off the left edge of the
-       page with a third of the width empty beside it.
-       
-       Centred here lands on exactly the page column's edges, since that column is the same
-       `chromePx(720)`. That is not a reason to drop the bleed and use the column instead: the
-       bleed is `calc(100vw - 24px)` below `sm`, which is WIDER than the column there, and
-       giving those 8px back clipped two leaderboard names at the Large text setting. The cap
-       simply never binds on a phone. */
+
+    A list has nothing to spend width on: stretched to the whole 1416px, a player's name sits
+    at x=126 and their number at x=1309, which is not a row, it is two columns that happen to
+    share a border. So below `lg` the cap is `BOARD_COLUMN`, the section's own list measure
+    (the same one Schedule, Standings, Teams and the game card's play-by-play use), and from
+    `lg` up it is `BOARD_COLUMN_WIDE`, the room the two columns below need. Centred rather
+    than left, because a left-aligned board hangs off the left edge of the page with a third
+    of the width empty beside it.
+
+    Centred at the list measure lands on exactly the page column's edges, since that column
+    is the same measure. That is not a reason to drop the bleed and use the column instead:
+    the bleed is `calc(100vw - 24px)` below `sm`, which is WIDER than the column there, and
+    giving those 8px back clips two leaderboard names at the Large text setting. The cap
+    simply never binds on a phone. */
     <Box sx={{
       display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 },
       maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto',
     }}>
       {/* ONE SENTENCE, AND NO HEADING. The board tab directly above already says "Run value",
-          so a title under it named the same board twice in two sets of words. What has to stay
-          is the unit: every figure below is "runs" in a sense nobody uses at the ballpark, and
-          a reader who takes +19.0 for runs scored has been misled by us rather than confused by
-          the stat. That is also the whole of what the experimental flag was protecting people
-          from, which is why this line, not the flag, is what the board now ships with. */}
+      so a title under it would name the same board twice in two sets of words. What has to
+      stay is the unit: every figure below is "runs" in a sense nobody uses at the ballpark,
+      and a reader who takes +19.0 for runs scored has been misled by us rather than confused
+      by the stat. This line is what makes the board safe to show without a warning flag. */}
       <Box sx={{ maxWidth: '70ch' }}>
         <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.5 }}>
           Run value is how much better or worse off a play left a team, counted in runs,
@@ -546,30 +529,28 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
 
       {/* TWO COLUMNS ON A LARGE DESKTOP, ONE EVERYWHERE ELSE.
 
-          The board used to cap itself at one list measure and centre, which was right about
-          the list and wrong about the page: at 1780px it left roughly 500px of nothing down
-          each side while the three blocks queued up in a column half a screen tall. A wide
-          screen does not want a longer row, it wants a second column.
+      One list measure is right about the list and wrong about the page: at 1780px it leaves
+      roughly 500px of nothing down each side while the blocks queue up in a column half a
+      screen tall. A wide screen does not want a longer row, it wants a second column.
 
-          SPLIT BY WHAT THE CARDS ARE ABOUT, WHICH IS ALSO WHAT BALANCES THEM. The first cut
-          put the leaderboard alone on the left and everything else on the right. That reads
-          like a two-column layout and measures 712px against 2,448: one card, and then a
-          column of nothing running beside three quarters of the page. There are only ever ten
-          or so qualifying players, so that side was never going to fill itself.
+      SPLIT BY WHAT THE CARDS ARE ABOUT, WHICH IS ALSO WHAT BALANCES THEM. The leaderboard
+      alone on the left and everything else on the right reads like a two-column layout and
+      measures one card against a column over three times its height. There are only ever ten
+      or so qualifying players, so that side would never fill itself.
 
-          Taking and swinging sits with it now, and not only for the height. The left column is
-          the two boards that rank PEOPLE and open a player card; the right is the prices, which
-          are measured over the whole league and are about nobody. 1,399 against 1,701, and a
-          reader can say what each side is for.
+      Taking and swinging sits with it, and not only for the height. The left column is the
+      two boards that rank PEOPLE and open a player card; the right is the prices, which are
+      measured over the whole league and are about nobody. The two sides come out close in
+      height, and a reader can say what each side is for.
 
-          `lg` rather than `md`, and that is about the section's desktop scale rather than the
-          viewport: `--app-chrome` is 1.25 from 900px up, so two 560px columns already measure
-          1,400 real pixels and would not fit the 900px viewport `md` describes. The pair only
-          has room once the viewport does.
+      `lg` rather than `md`, and that is about the section's desktop scale rather than the
+      viewport: `--app-chrome` is 1.25 from 900px up, so two 560px columns already measure
+      1,400 real pixels and would not fit the 900px viewport `md` describes. The pair only
+      has room once the viewport does.
 
-          `minmax(0, 1fr)` on both, not `1fr`: a grid track's default minimum is its content,
-          so the leaderboard's longest player name would push its column wider than half and
-          the two would stop being equal. */}
+      `minmax(0, 1fr)` on both, not `1fr`: a grid track's default minimum is its content,
+      so the leaderboard's longest player name would push its column wider than half and
+      the two would stop being equal. */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
@@ -601,14 +582,13 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       </Box>
 
       {/* THE RIGHT COLUMN IS THE PRICES, measurements over the explanation, since a reader who
-          wants the numbers wants them before the derivation.
+      wants the numbers wants them before the derivation.
 
-          WHAT A PLAY IS WORTH OPENS IT, because it is the simplest true thing on the board and
-          what follows it is priced off the same table: a play is worth something, and a count is
-          worth something because of the plays it leads to. It also has the only row here
-          anybody can check against a game they watched.
-          It and the steal card came off a board of their own called Findings; see PlayValue.tsx
-          for what the traffic said about that. */}
+      WHAT A PLAY IS WORTH OPENS IT, because it is the simplest true thing on the board and
+      what follows it is priced off the same table: a play is worth something, and a count is
+      worth something because of the plays it leads to. It also has the only row here
+      anybody can check against a game they watched. See PlayValue.tsx for why it and the
+      steal card live on this board rather than one of their own. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
       <PlayValueCard rows={rows} accent={accent} onSeeMethod={seeMethod} />
 
@@ -621,15 +601,13 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       {counts.length > 0 && <CountBoard counts={counts} fullCount={fullCount} accent={accent} />}
 
       {/* THE WHOLE EXPLANATION, IN ONE SHUT CARD, in the order the idea is actually built:
-          a situation is worth something, a play is worth what it changed to it, and here is one
-          real play doing that. Every step is a sentence and its evidence, so a reader can stop
-          after any of the three and have learned something true.
+      a situation is worth something, a play is worth what it changed to it, and here is one
+      real play doing that. Every step is a sentence and its evidence, so a reader can stop
+      after any of the three and have learned something true.
 
-          Its own width cap is gone: the column it now sits in already holds it to a measure,
-          and two caps for one question meant the card stopped short of its own column's edge
-          on a wide screen while the count grid above it did not. Below `lg` the column is the
-          board's single 720px measure, which is close enough to the 620 this used to set that
-          nothing about the reading experience moved. */}
+      No width cap of its own: the column it sits in already holds it to a measure, and two
+      caps for one question make the card stop short of its own column's edge on a wide
+      screen while the count grid above it does not. */}
       <Box ref={explainerRef} sx={{ minWidth: 0, scrollMarginTop: chromePx(88) }}>
         <SectionCard title="How run value works" collapsed={!tableOpen} onToggleCollapse={toggleTable}>
           <Step n={1} title="Every situation is already worth something">
@@ -648,8 +626,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             <Box sx={{ mt: 1.25 }}>
               <ReGrid table={table} accent={accent} />
             </Box>
-            {/* The caption no longer repeats "on average": the sentence above now carries it,
-                and saying it twice within three lines reads as hedging rather than as care. */}
+            {/* The caption does not repeat "on average": the sentence above carries it, and saying
+            it twice within three lines reads as hedging rather than as care. */}
             <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 0.75, lineHeight: 1.5 }}>
               Runs from here to the end of the inning. The small number is how often the
               situation has come up.
@@ -687,20 +665,19 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           </Step>
 
           {/* The small print, and it is the last thing on purpose. Only one line of it carries a
-              surprise: a steal moves the situation but nobody's total, because the feed names the
-              batter standing at the plate rather than the runner who ran, so the caught stealing
-              that ended an inning is priced to nobody. The rest are house rules a reader can
-              assume (a walk-off inning stops when the winning run scores rather than at three
-              outs, so it cannot say what the inning went on to be worth; an inning short of its
-              own line score is missing rows; the postseason is out of every season number on the
-              section). Spent higher up they buried the one thing worth reading.
+          surprise: a steal moves the situation but nobody's total, because the feed names the
+          batter standing at the plate rather than the runner who ran, so the caught stealing
+          that ended an inning is priced to nobody. The rest are house rules a reader can
+          assume (a walk-off inning stops when the winning run scores rather than at three
+          outs, so it cannot say what the inning went on to be worth; an inning short of its
+          own line score is missing rows; the postseason is out of every season number on the
+          section). Spent higher up they would bury the one thing worth reading.
 
-              NO OTHER LEAGUE IN HERE, and it has been tried. The argument for building our own
-              table is a comparison with the majors, and that is an argument for whoever wrote
-              the code rather than for whoever is reading the card: a fan of this league can do
-              nothing with it, and it invites the section to be read as a comparison to another
-              league rather than as a record of this one. Say where the numbers come from, not
-              what they are unlike. Do not put it back. */}
+          NO OTHER LEAGUE IN HERE. The argument for building our own table is a comparison with
+          the majors, and that is an argument for whoever wrote the code rather than for whoever
+          is reading the card: a fan of this league can do nothing with it, and it invites the
+          section to be read as a comparison to another league rather than as a record of this
+          one. Say where the numbers come from, not what they are unlike. Do not add it. */}
           <Typography sx={{
             fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1.55,
             mt: 2.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider',

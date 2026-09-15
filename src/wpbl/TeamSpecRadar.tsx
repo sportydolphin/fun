@@ -13,10 +13,10 @@ import type { WpblTeam } from './types'
 //
 // TWO CALLERS, ONE COMPONENT, AND `focusId` IS THE WHOLE DIFFERENCE. Set, it draws that club
 // and only that club: the league context comes from the RINGS, whose midpoint is the league
-// average by construction, not from three more polygons. It shipped with the other three as
-// faint dashed outlines and they were noise, because a spec chart is read as a silhouette and
-// four overlapping ones have no silhouette. Unset, every club is drawn solid, which is the
-// Teams grid, where there is no subject and the comparison is the point.
+// average by construction, not from three more polygons. The other three as faint dashed
+// outlines are noise, because a spec chart is read as a silhouette and four overlapping ones
+// have no silhouette. Unset, every club is drawn solid, which is the Teams grid, where there is
+// no subject and the comparison is the point.
 //
 // WHY THE POLYGON IS NOT ALSO THE ACCESSIBLE VERSION. A radar is a picture of six numbers, and a
 // screen reader gets nothing from a `points` attribute, so the numbers are also rendered as a
@@ -93,9 +93,9 @@ export function useMorphedScores(target: number[] | null, enabled: boolean): num
     // backgrounded tab does not throttle `requestAnimationFrame`, it stops calling it
     // altogether, so a switch made while the tab is not on screen would leave the polygon
     // frozen on the previous club forever, with that club's shape sitting under the new club's
-    // name and numbers. Caught exactly that way: the harness runs the page in a hidden pane, so
-    // the first version of this shipped a chart that never moved. Timers are only throttled,
-    // never stopped, so this lands the shape whatever the browser decided to do with the frames.
+    // name and numbers. A page rendered in a hidden pane shows exactly that: without the timer
+    // the chart never moves. Timers are only throttled, never stopped, so this lands the shape
+    // whatever the browser decided to do with the frames.
     const backstop = setTimeout(finish, MORPH_MS + 120)
     return () => { cancelAnimationFrame(raf); clearTimeout(backstop) }
     // `key` rather than `target`: the array is rebuilt on every render and would restart the
@@ -118,10 +118,10 @@ export interface TeamSpecRadarProps {
    * The club's own number for each axis, printed under the trait name.
    *
    * This is the phone layout. With the numbers on the spokes the six-row readout beside the
-   * chart has nothing left to say that the chart is not already saying, and it comes off: on a
-   * 390px screen that table was 121px of the 312px the whole block spent, and the chart it
-   * explained was drawing at 210px inside a 358px column. The league value is the one thing
-   * lost, and it is not really lost, because the middle ring IS the league average.
+   * chart has nothing left to say that the chart is not already saying, so it comes off: on a
+   * 390px screen that table takes 121px of the 312px the whole block spends, and squeezes the
+   * chart it explains to 210px inside a 358px column. The league value is the one thing lost,
+   * and it is not really lost, because the middle ring IS the league average.
    */
   values?: Partial<Record<TeamSpecKey, string>> | null
   /** The axis a reader has tapped, drawn brighter with its spoke picked out. */
@@ -135,22 +135,22 @@ export interface TeamSpecRadarProps {
  * Room for the labels, and the two are NOT the same number.
  *
  * The four side labels hang outward from a spoke at 60 degrees off vertical, so most of a word
- * sits beyond the ring: "Contact" is about 58px at this size, and a uniform 40px margin cut it
- * to "Conta" on the team page. The top and bottom labels are centred on their spoke and need
- * only their own line height. A single padding wide enough for the sides would waste 40px of
- * vertical on a chart that is already fighting for it, so the box is deliberately not square.
+ * sits beyond the ring: "Contact" is about 58px at this size, and a uniform 40px margin cuts it
+ * to "Conta". The top and bottom labels are centred on their spoke and need only their own line
+ * height. A single padding wide enough for the sides would waste 40px of vertical on a chart
+ * that is already fighting for it, so the box is deliberately not square.
  */
 const LABEL_GAP = 14
 /**
  * Horizontal reserve, PER SIDE, because the six words are not the same length.
  *
  * The right-hand labels are "Contact" and "Eye", the left-hand ones "Glove" and "Arms", and at
- * 12px bold the longest of those is 47px against 35. One HPAD for both therefore left 30px of
- * air on the left and 17 on the right: the hexagon sat at the exact centre of its box while the
- * INK did not, which reads as the chart being off-centre. Reserving each side for its own
- * longest word puts the ink back in the middle. Both are measured with the widest value a
- * number can be ("Steal attempts" is the longest stat name but never renders here; the values
- * are at most six characters and always narrower than the word above them).
+ * 12px bold the longest of those is 47px against 35. One HPAD for both leaves 30px of air on
+ * the left and 17 on the right: the hexagon sits at the exact centre of its box while the INK
+ * does not, which reads as the chart being off-centre. Reserving each side for its own longest
+ * word puts the ink back in the middle. Both are measured against the words rather than the
+ * values: the values are at most six characters and always narrower than the word above them,
+ * and the longest stat name never renders here.
  */
 const HPAD_L = 50
 const HPAD_R = 62
@@ -159,25 +159,25 @@ const VPAD = 26
 /** Extra room when a label is two lines (trait over value) rather than one. The side labels
  *  gain nothing horizontally, since the value is always narrower than the word above it.
  *
- *  8, not 16, since the blocks were centred: half a line came back the moment the top label
- *  stopped needing a whole one below its anchor, and 16 left 13px of dead margin at each end of
- *  a chart that is already the tallest thing on the phone layout. Measured after the change,
- *  the outermost text clears the box by 5px top and 6px bottom. */
+ *  8, not 16, because the blocks are centred on their anchors: the top label needs only half a
+ *  line below its anchor, and 16 leaves 13px of dead margin at each end of a chart that is
+ *  already the tallest thing on the phone layout. At 8 the outermost text clears the box by 5px
+ *  top and 6px bottom. */
 const VALUE_VPAD = 8
 
 /**
  * The distance between the two baselines of a label, and the drop from a point to the baseline
  * of a single line centred on it.
  *
- * These exist because a two-line label has to be CENTRED ON ITS ANCHOR, and the first version
- * was not: both baselines were placed downward from the anchor (`y + 4` and `y + 18`), so every
- * block hung below the point it belonged to. That is invisible with one line and obvious with
- * two, because the anchor itself moves radially: it is above the spoke on the upper axes and
- * below it on the lower ones, so a block growing downward lands centred on Contact and Glove
- * and 13.5px too low on Eye and Arms. Measured on a phone, block centre against spoke end:
- * Power 14.5 above, Contact 0.5 above, Eye 13.5 BELOW, Speed 27.5 below, with 13px of air
- * above the top label and 0 below the bottom one. A vertical `shift` on the top and bottom
- * labels was papering over the same thing from the other end and is gone.
+ * These exist because a two-line label has to be CENTRED ON ITS ANCHOR. Placing both baselines
+ * downward from the anchor (`y + 4` and `y + 18`) hangs every block below the point it belongs
+ * to. That is invisible with one line and obvious with two, because the anchor itself moves
+ * radially: it is above the spoke on the upper axes and below it on the lower ones, so a block
+ * growing downward lands centred on Contact and Glove and 13.5px too low on Eye and Arms.
+ * Measured on a phone, block centre against spoke end: Power 14.5 above, Contact 0.5 above,
+ * Eye 13.5 BELOW, Speed 27.5 below, with 13px of air above the top label and 0 below the
+ * bottom one. A vertical `shift` on the top and bottom labels would only paper over the same
+ * thing from the other end.
  */
 const LINE = 14
 const CAP = 4
@@ -269,9 +269,9 @@ export function TeamSpecRadar({
         return (
           <polygon
             // ONE STABLE KEY WHILE FOCUSED, so React reuses the same node from club to club.
-            // Keyed by team it was a different element each time, which unmounts the shape
-            // mid-tween and puts the new one straight at its target: the morph would have been
-            // written and then never seen.
+            // Keyed by team it would be a different element each time, which unmounts the shape
+            // mid-tween and puts the new one straight at its target: the morph would be written
+            // and never seen.
             key={focusId ? 'focus' : r.teamId}
             points={polygon(cx, cy, radius, morphed ?? TEAM_SPEC_AXES.map(a => r.score[a.key]))}
             fill={colour}
@@ -352,8 +352,8 @@ const ORDINAL = ['', '1st', '2nd', '3rd', '4th', '5th', '6th']
  * TWO STATES, AND THE DEFAULT ONE IS THE POINT. Untapped it names the club's strongest and
  * weakest trait, which is the silhouette said out loud: a reader who does not parse charts gets
  * the same answer the shape gives, in 32px instead of the readout's 121. Tapped, it becomes the
- * detail that used to sit in the readout's middle column permanently: the stat behind the axis,
- * the league average, and where the club ranks.
+ * detail the wide readout carries in its middle column: the stat behind the axis, the league
+ * average, and where the club ranks.
  *
  * The rank is here rather than in the chart because it is the figure a fan actually says. "1st
  * of 4" travels; an ISO of .192 means nothing yet in a league playing its first season.
@@ -462,10 +462,10 @@ export function TeamSpecReadout({ specs, teamId, kLabel, scaleK }: {
  *
  * TWO DIFFERENT NOTHINGS, and collapsing them says something false. `teamSpecs` returns null
  * both when the league has not played enough AND when the box-score lines have not arrived yet,
- * and the first draft printed the games copy for both: on a page whose lines were still in
- * flight it read "appears once every club has played 5 games. The league is on 13", which is a
- * sentence arguing with itself. `ready` is what separates them, and it is the caller's `lines`
- * state rather than anything this component can work out.
+ * and printing the games copy for both reads, on a page whose lines are still in flight,
+ * "appears once every club has played 5 games. The league is on 13", which is a sentence
+ * arguing with itself. `ready` is what separates them, and it is the caller's `lines` state
+ * rather than anything this component can work out.
  */
 export function TeamSpecPlaceholder({ minGames, ready = true }: { minGames: number | null; ready?: boolean }) {
   const waiting = !ready

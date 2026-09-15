@@ -1,7 +1,7 @@
 // ─── WPBL UI primitives ─────────────────────────────────────────────────────────
 // WPBL-native mirrors of the MLB app's shared primitives (`src/mlb/components/ui.tsx`)
 // and modal chrome (e.g. `src/mlb/views/GamePreview.tsx`), so the two sections share
-// one design language — same menus, headers, and modal shell. Kept as its own copy
+// one design language: same menus, headers, and modal shell. Kept as its own copy
 // (rather than importing from src/mlb) so WPBL stays a self-contained, decoupled lazy
 // chunk and the MLB side is left untouched. Only the accent differs: these are keyed
 // to WPBL_ACCENT, so the league keeps its own color while the shape stays identical.
@@ -25,8 +25,8 @@ import { useWpblPlayerLink } from './LinkContext'
 // for the viewport-aware default rather than calling this with a fixed length.
 //
 // `maxLen` is a character count, which only approximates what fits: pass 0 to abbreviate
-// unconditionally. A fixed-width column wants that, because characters don't predict pixels
-// — "Jamie Mackay" and "Alexia Jorge" are both 12 long and only one of them overflows.
+// unconditionally. A fixed-width column wants that, because characters don't predict pixels:
+// "Jamie Mackay" and "Alexia Jorge" are both 12 long and only one of them overflows.
 export function wpblShortName(name: string, maxLen = 16): string {
   const full = (name ?? '').trim()
   if (full.length <= maxLen) return full
@@ -36,7 +36,7 @@ export function wpblShortName(name: string, maxLen = 16): string {
 }
 
 // Surname particles that belong to the name that follows them. "Rosi del Castillo" must
-// never shorten to "R. Castillo" — the particle is part of the surname, not a separate word.
+// never shorten to "R. Castillo": the particle is part of the surname, not a separate word.
 // Lowercased for comparison; a capitalised "Del" is matched too.
 const NAME_PARTICLES = new Set([
   'de', 'del', 'de la', 'della', 'di', 'da', 'das', 'dos', 'do',
@@ -50,36 +50,35 @@ function surnameOf(parts: string[]): string {
   return parts.slice(i).join(' ')
 }
 
-// Name formatter for the FEATURED rows — the stat-leader cards and Hall of Firsts — where a
-// name gets a line to itself and should read in full. Degrades in stages rather than being
-// ellipsed mid-word, because a cut-off name is worse than an abbreviated one:
+// Name formatter for the FEATURED rows, where a name gets a line to itself and should read in
+// full. Degrades in stages rather than being ellipsed mid-word, because a cut-off name is worse
+// than an abbreviated one:
 //
-//   1. "Kelsie Whitmore"            — fits, untouched (the case for every current player)
-//   2. "F. Elena Valerio Montoya"   — first initial, rest intact
-//   3. "F. Montoya"                 — first initial + surname only, the last resort
+//   1. "Kelsie Whitmore"            fits, untouched (the case for every current player)
+//   2. "F. Elena Valerio Montoya"   first initial, rest intact
+//   3. "F. Montoya"                 first initial + surname only, the last resort
 //
 // Stage 3 exists for a future signing whose name is longer than anyone's on the roster today,
 // so the layout can't break on a name we haven't seen. Single-token names ("Ichiro") are never
-// abbreviated — there's nothing to abbreviate to — and the caller's CSS ellipsis stays as the
+// abbreviated (there's nothing to abbreviate to), and the caller's CSS ellipsis stays as the
 // final net for that case. `maxLen` is a character budget, a deliberate proxy for width: it's
 // deterministic and costs no layout measurement, and callers size it from a measured box with
-// headroom to spare (see FEATURE_NAME_MAX in Home.tsx).
+// headroom to spare.
 //
 // IT CANNOT SEE A NEIGHBOUR OR THE READER'S TEXT SCALE, and that is the whole risk. A budget
-// counts glyphs against a box whose width is decided by everything ELSE on the row: the MVP
-// race passed 18 here, "Kelsie Whitmore" is 15, so it came through untouched and CSS clipped
-// it to "Kelsie Whit…" on the one row that also carries a TWO-WAY badge, and on any row at
-// all once a reader turns Large text on. Use `FittedName` wherever the row's other contents
-// can change; a budget is only safe in a box that owns its own width.
+// counts glyphs against a box whose width is decided by everything ELSE on the row: "Kelsie
+// Whitmore" passes a budget of 18 and still clips to "Kelsie Whit…" on a row that also carries a
+// TWO-WAY badge, or on any row once a reader turns Large text on. Use `FittedName` wherever the
+// row's other contents can change; a budget is only safe in a box that owns its own width.
 export function wpblFeatureName(name: string, maxLen: number): string {
   const stages = wpblNameStages(name)
   return stages.find(stage => stage.length <= maxLen) ?? stages[stages.length - 1]
 }
 
 // The same three stages as a list, longest first, for callers that pick by MEASURED width
-// rather than a character budget — `FittedName` below renders each one and keeps the
-// longest that isn't truncated. Two-part names collapse
-// stages 2 and 3 into one entry, since "K. Whitmore" is both.
+// rather than a character budget: `FittedName` below renders each one and keeps the
+// longest that isn't truncated. Two-part names collapse stages 2 and 3 into one entry,
+// since "K. Whitmore" is both.
 export function wpblNameStages(name: string): string[] {
   const full = (name ?? '').trim()
   const parts = full.split(/\s+/).filter(Boolean)
@@ -90,29 +89,26 @@ export function wpblNameStages(name: string): string[] {
   return withRest === surnameOnly ? [full, surnameOnly] : [full, withRest, surnameOnly]
 }
 
-// A name that degrades instead of being cut off. It renders the full name, and only if the
-// browser actually truncates it does it fall back to "F. Last", then "F. Surname" — so the
-// name keeps every character the column can show rather than losing its end to an ellipsis.
+// ─── FittedName: a name that degrades instead of being cut off ─────────────────
+// It renders the full name, and only if the browser actually truncates it does it fall back to
+// "F. Last", then "F. Surname", so the name keeps every character the column can show rather
+// than losing its end to an ellipsis.
 //
-// Measured, not budgeted by character count, because the width a name gets is decided by
-// what sits NEXT to it: the recap's three stars share one row and each takes only what its
-// own name and statline need, and the MVP race's leader shares hers with a TWO-WAY badge.
-// No fixed budget can know either, nor that the reader has turned Large text on. `fitKey` is the width
-// of the row that holds them all — a width no name can influence. Re-fitting keyed on that
-// (rather than on this element's own width, which shortening changes) is what keeps the
-// steps monotonic: within one row width a name only ever gets shorter, so it settles in at
-// most two passes instead of oscillating between two stages that each make the other fit.
-// Unclaimed width in the row that holds all three stars: what is left after every column
-// has taken what it needs. Read straight from the DOM at measure time rather than held in
-// state, so it is never a frame stale — a name is only allowed to grow back into space
-// that is genuinely free right now.
+// Measured, not budgeted by character count, because the width a name gets is decided by what
+// sits NEXT to it: the recap's three stars share one row and each takes only what its own name
+// and statline need. No fixed budget can know that, nor that the reader has turned Large text
+// on. `fitKey` is the width of the row that holds them all, a width no name can influence.
+// Re-fitting keyed on that (rather than on this element's own width, which shortening changes)
+// is what keeps the steps monotonic: within one row width a name only ever gets shorter, so it
+// settles in at most two passes instead of oscillating between two stages.
 //
-// Usually ~0 since the columns gained flex-grow and now share the surplus out among
-// themselves. That didn't make the grow-back below redundant, it moved where the room shows
-// up: the space this used to report as unclaimed is now inside the column's own clientWidth,
-// which is the other half of that comparison.
-// Returns 0 outside the recap's star row, which is the right answer everywhere else: no
-// slack found means shrink-only, and a name that shrank a step simply stays shrunk.
+// `rowSlack`: unclaimed width in the row that holds all three stars, what is left after every
+// column has taken what it needs. Read straight from the DOM at measure time rather than held in
+// state, so it is never a frame stale: a name may only grow back into space that is genuinely
+// free right now. Usually ~0, since the columns flex-grow and share the surplus; the grow-back
+// below still matters, because that room shows up inside the column's own clientWidth instead.
+// Returns 0 outside the recap's star row: no slack means shrink-only, and a name that shrank a
+// step stays shrunk.
 function rowSlack(el: HTMLElement): number {
   const col = el.closest('[data-star-col]')
   const row = col?.parentElement
@@ -146,11 +142,11 @@ export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
       if (stage < stages.length - 1) setStage(stage + 1)
       return
     }
-    // It fits — but all three names shrink together on the first pass, and shrinking two
-    // of them can leave enough room for the third to have kept its full form. Take it back
-    // when the measured full name fits in this column plus the row's unclaimed width. One
-    // attempt per name per row width: if two names claim the same slack at once, both
-    // overflow, both fall back on the next pass, and neither tries again.
+    // It fits, but all three names shrink together on the first pass, and shrinking two of them
+    // can leave enough room for the third to have kept its full form. Take it back when the
+    // measured full name fits in this column plus the row's unclaimed width. One attempt per name
+    // per row width: if two names claim the same slack at once, both overflow, both fall back on
+    // the next pass, and neither tries again.
     const full = fullRef.current
     if (stage > 0 && !grew.current && full && full.offsetWidth <= el.clientWidth + rowSlack(el)) {
       grew.current = true
@@ -162,13 +158,12 @@ export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
   // A flex item defaults to `min-width: auto`, "never shrink below your content", so the
   // wrapper grows to fit the full name, `clientWidth` keeps pace with `scrollWidth`, the
   // truncation test above is never true, no stage is taken, and the ROW overflows instead of
-  // the name stepping down. That is what the MVP race hit: the name drove the TWO-WAY badge
-  // 10px into the total beside it.
+  // the name stepping down, pushing whatever sits beside it (a TWO-WAY badge, a total) aside.
   //
   // Opt-in rather than the default because it only means anything where a flex parent has to
   // squeeze this. The recap's star columns take their width from the flex row that holds all
   // three, and measure the same either way, so switching them is a change with no effect and
-  // no test to notice if that stopped being true. Left to the one caller that needs it.
+  // no test to notice if that stopped being true. Left to the callers that need it.
   return (
     <Box sx={{ position: 'relative', ...wrapperSx }}>
       <Typography ref={ref} className={className} noWrap title={stage > 0 ? name : undefined} sx={sx}>
@@ -197,7 +192,7 @@ export function useWpblName(mobileMaxLen = 12): (name: string) => string {
   return useCallback((name: string) => wpblShortName(name, maxLen), [maxLen])
 }
 
-// Card outline color — noticeably stronger than MUI's faint `divider` so the WPBL
+// Card outline color: noticeably stronger than MUI's faint `divider` so the WPBL
 // cards (and the sub-cards nested inside them) read as crisply outlined in both light
 // and dark mode. Use for card container borders; keep `divider` for thin inner row rules.
 export const CARD_BORDER = (t: Theme) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.34)'
@@ -207,11 +202,6 @@ export function useWpblDark(): boolean {
   return useTheme().palette.mode === 'dark'
 }
 
-// Team badge — the one logo/color chip used across the section (schedule, standings,
-// team grid, box scores). A team-color circle ringed in the team's secondary hue (so
-// near-black or page-matching primaries stay defined), with the bundled logo on top:
-// full-bleed for finished lockups (Boston), centered for transparent knockouts, or
-// the abbreviation when no logo exists.
 // ─── Form dots ──────────────────────────────────────────────────────────────────
 
 // Green/red for a result, from the section's themed positive/negative tokens (styles.css).
@@ -233,17 +223,15 @@ const RING = 2
  * all say it in text as well), and this strip must not be the exception. Filled-versus-hollow
  * survives greyscale, deuteranopia and a glance from arm's length.
  *
- * No opacity ramp for recency, either. It was competing with the fill/ring distinction for
- * the same few pixels and left the older rings too faint to read as rings at all.
+ * No opacity ramp for recency, either: it competes with the fill/ring distinction for the same
+ * few pixels and leaves the older rings too faint to read as rings at all.
  *
  * Only as many dots as there are games: five grey placeholders on opening week would suggest
  * a team had lost five, which is the one thing the strip must never imply.
  *
- * ONE STRIP FOR THE SECTION. It was TeamsGrid's until Home's next-game card wanted the same
- * thing, and two form strips is how a section ends up with a green tick on one page and a
- * team-coloured pip on another meaning the same result. `gap` is the only thing a caller
- * tunes, because a longer run needs a tighter rhythm and nothing else about a result changes
- * with where it is drawn.
+ * ONE STRIP FOR THE SECTION, so a result is never a green tick on one page and a team-coloured
+ * pip on another. `gap` is the only thing a caller tunes, because a longer run needs a tighter
+ * rhythm and nothing else about a result changes with where it is drawn.
  */
 export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: number }) {
   if (recent.length === 0) return null
@@ -265,26 +253,13 @@ export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: num
   )
 }
 
-/** A structural pixel length, scaled by the desktop chrome scale.
- *
- *  STRUCTURE SCALES, ORNAMENT DOES NOT, and that line is where the `zoom` removal actually
- *  costs something. `zoom: 1.4` scaled every length in the section for free; ordinary CSS has
- *  no equivalent, so each px length either says it scales or stays at its written size. The
- *  ones that MUST scale are the ones that decide how much fits: column widths, rail widths, a
- *  dialog's cap. Left at their written size those boxes silently shrink 40% relative to the
- *  type inside them, which is how the player dialog went from one line for a name to two.
- *
- *  Ornament is deliberately left alone: hairline borders, the 6px live dot, a 4px scrollbar.
- *  At this scale they are a pixel or two either way, and a 1px border that stays 1px is
- *  sharper than one the zoom used to render at 1.4.
- */
 /**
  * What a tappable box should feel like, on both kinds of pointer.
  *
  * A BARE `&:hover` IS A BUG ON A TOUCHSCREEN. A phone has no hover, so it applies the state on
  * TAP and leaves it there: expand a card and its header stays tinted until you happen to touch
  * something else, which reads as "still selected" or as a stuck control rather than as the
- * momentary feedback it was written to be. That is what this app did on every card header.
+ * momentary feedback it was written to be.
  *
  * So hover is gated to devices that actually hover, and touch gets `:active` instead: the same
  * tint, but only while the finger is down, which is the honest version of the same idea. The
@@ -308,6 +283,18 @@ export const TAPPABLE = hoverOnly({ bgcolor: 'action.hover' })
 /** For rows that are only tappable sometimes ("open her page, if we resolved a player"). */
 export const tappableIf = (on: unknown) => (on ? TAPPABLE : {})
 
+/** A structural pixel length, scaled by the desktop chrome scale.
+ *
+ *  STRUCTURE SCALES, ORNAMENT DOES NOT. Ordinary CSS has no equivalent of `zoom`, so each px
+ *  length either says it scales or stays at its written size. The ones that MUST scale are the
+ *  ones that decide how much fits: column widths, rail widths, a dialog's cap. Left at their
+ *  written size those boxes silently shrink relative to the type inside them, and a name that
+ *  fit on one line wraps onto two.
+ *
+ *  Ornament is deliberately left alone: hairline borders, the 6px live dot, a 4px scrollbar.
+ *  At this scale they are a pixel or two either way, and a 1px border that stays 1px is
+ *  sharper for it.
+ */
 export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
 
 /**
@@ -328,36 +315,28 @@ export const BOARD_COLUMN_WIDE = chromePx(1150)
 /**
  * The floor for the smallest labels: eyebrows, chart axes, footnotes.
  *
- * A PHONE NOW READS THE SMALLEST TYPE IN THE APP, which is the opposite of what anyone wants
- * and nobody chose it. `--app-type` is 1.25 at 900px and up and 1 below, so every rem is 20%
- * smaller on a phone than on a desktop, and the sizes underneath were picked back when the two
- * were the same. Measured on Home at 375px: "SEASON SO FAR" and the MVP chart's axis labels
- * came out at 9.6px, the date line at 10.1px. Nothing regressed; the desktop got bigger and the
- * phone stayed where it was, which reads as the same bug from the reader's side.
+ * A PHONE READS THE SMALLEST TYPE IN THE APP unless something stops it. `--app-type` is 1.25 at
+ * 900px and up and 1 below, so every rem is 20% smaller on a phone than on a desktop, and sizes
+ * chosen by eye on a desktop come out around 9.6px there.
  *
  * 0.68rem is 10.9px on a phone and 13.6px on a desktop. It is a FLOOR and not a size: anything
  * already larger keeps what it has, and the two ornament-scale marks that are not really read as
  * text (the 0.55rem TWO-WAY chip, the 6px live dot) are deliberately left alone.
  *
- * Raising the root on mobile instead was the other option and was rejected: every rem-sized BOX
- * would move with it, including the string budgets that were just measured against the current
- * scale (the reminder row's 183px, the MVP name's fit), and one of those failing by a pixel is
- * exactly the class of bug this section keeps paying for.
+ * Raising the root on mobile instead is the wrong fix: every rem-sized BOX would move with it,
+ * including string budgets measured against the current scale (the reminder row's 183px), and
+ * one of those failing by a pixel is exactly the class of bug this section keeps paying for.
  */
 export const MICRO_TEXT = '0.68rem'
 
 /**
  * THE TYPE SCALE. Every font size on a surface that has adopted this comes from here.
  *
- * WHY IT EXISTS. A font audit of Home on Sep 3, 2026 counted NINETEEN distinct text sizes across
- * its three files, with seventeen pairs less than 1px apart on screen: 0.9 beside 0.88 beside
- * 0.85 beside 0.82 beside 0.8, 0.75 beside 0.72 beside 0.7 beside 0.68 beside 0.66. Differences
- * that small are not hierarchy, they are noise. Nobody chose them either: each one was a
- * reasonable local decision, and 0.82 got picked over 0.8 a dozen times because there was
- * nothing to snap to.
- *
- * The eight steps below cover every one of those nineteen, and no snap moved a size by more
- * than nine per cent, which is the point: obeying a rule should tidy a page, not redesign it.
+ * WHY IT EXISTS. Without a scale to snap to, sizes accumulate one reasonable local decision at a
+ * time: nineteen distinct sizes on Home alone, with pairs less than 1px apart on screen (0.9
+ * beside 0.88 beside 0.85). Differences that small are not hierarchy, they are noise. The eight
+ * steps below cover all of them within nine per cent, so obeying the rule tidies a page rather
+ * than redesigning it.
  *
  * `micro` is MICRO_TEXT and is only 0.04rem from `meta` on purpose. It is the ALL-CAPS step,
  * and caps set at 0.68 read larger than lowercase at 0.72 because they have no descenders and
@@ -400,14 +379,12 @@ export const TYPE_SCALE = {
  * So, on a phone at the default text scale, where 1rem is 16px:
  *
  *   · **Under 9px: 700 at the most.** That is `nano`, and the 0.55/0.56rem sizes set by hand.
- *     Audited Sep 8, 2026 and it held 900 in one place and 800 in four.
- *   · **9px to 10.5px: 800 at the most.** That is `caption`, and 0.58 to 0.62rem. It held 900
- *     in seven places, all of them uppercase and letter-spaced.
+ *   · **9px to 10.5px: 800 at the most.** That is `caption`, and 0.58 to 0.62rem.
  *   · Anything larger: no ceiling, 900 is fine and several things want it.
  *
- * IN PIXELS AND NOT IN TOKEN NAMES, deliberately: a third of the small type in this section is
- * set as a raw rem value rather than through TYPE_SCALE, so a rule phrased as "nano and caption"
- * would have missed 0.55rem entirely, which is where two of the five worst cases were.
+ * IN PIXELS AND NOT IN TOKEN NAMES, deliberately: a lot of the small type in this section is set
+ * as a raw rem value rather than through TYPE_SCALE, so a rule phrased as "nano and caption"
+ * would miss 0.55rem entirely, which is where the worst cases sit.
  *
  * A SINGLE GLYPH IS EXEMPT, and there are three: the `›` affordance on a series box, and the two
  * `*` flags on the pitching-usage grid. A symbol has no counters to close and no word shape to
@@ -416,11 +393,11 @@ export const TYPE_SCALE = {
  * THE READER'S TEXT SETTING DOES NOT RESCUE THIS. Large multiplies by 1.125, so 8px becomes 9
  * and 9.6 becomes 10.8, still inside the range above; and someone who has asked for bigger text
  * is the last reader who should be handed a filled-in 8px word. The desktop scale does lift
- * these (`--app-type` puts nano at 10px), which is exactly why it went unnoticed: the section is
- * built on a desktop and the failure is on the phone, where the traffic is.
+ * these (`--app-type` puts nano at 10px), which is exactly why this goes unnoticed: the section
+ * is built on a desktop and the failure is on the phone, where the traffic is.
  *
- * Nothing enforces this. `tsc` cannot see a font weight, and a rule that only lives in a
- * reviewer's head is the reason there were sixty of these to sort through.
+ * Nothing enforces this. `tsc` cannot see a font weight, so a new small label has to be checked
+ * against these bands by whoever writes it.
  */
 
 /**
@@ -440,14 +417,11 @@ export const ICON_SIZE = {
 
 /**
  * THE TWO SHAPES HOME'S FIXTURE CARDS SHARE. Next game and Last game sit one above the other in
- * the same column, and until Sep 4, 2026 they drew the same two things three ways between them:
- * club rows as a full-bleed colour band on one card and as inset rounded pills on the other, and
- * a last row as a recessed footer on one and a hairline plus a link on the other. Neither
- * difference was carrying meaning, which is what made the pair read as two design systems on one
- * page. The differences that DO carry meaning are kept and are all in the content: Next game
- * tints both clubs because a fixture has two equals in it and Last game tints only the winner
- * because a result does not, and Next game puts a record beside the name where Last game puts a
- * score down the edge.
+ * the same column, so their club rows and their last row are drawn the same way on both, or the
+ * pair reads as two design systems on one page. The differences that DO carry meaning are in
+ * the content: Next game tints both clubs because a fixture has two equals in it and Last game
+ * tints only the winner because a result does not, and Next game puts a record beside the name
+ * where Last game puts a score down the edge.
  *
  * Both cancel SectionCard's own body padding (`mx: -2`, and `mb: -1.5` at the foot) and put it
  * back inside, so the numbers here are tied to that component's px/pb.
@@ -467,6 +441,11 @@ export const cardFooterBand = (isDark: boolean) => ({
   display: 'flex', alignItems: 'center', gap: 1,
 } as const)
 
+// Team badge: the one logo/color chip used across the section (schedule, standings,
+// team grid, box scores). A team-color circle ringed in the team's secondary hue (so
+// near-black or page-matching primaries stay defined), with the bundled logo on top:
+// full-bleed for finished lockups (Boston), centered for transparent knockouts, or
+// the abbreviation when no logo exists.
 export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number }) {
   const logo = wpblLogo(team.id)
   const fill = wpblLogoFill(team.id)
@@ -515,11 +494,10 @@ export function basesPhrase(first: boolean, second: boolean, third: boolean): st
 /**
  * Who is on base, as the shape a scoreboard draws.
  *
- * ONE GLYPH FOR THE WHOLE SECTION. It was the live strip's private drawing until the run-value
- * table wanted the same thing down its left edge, and two diamonds that disagree about which
- * corner is second base is the kind of difference a reader notices without being able to say
- * what is wrong. Second at the top, third at the left, first at the right: the view from behind
- * the plate, which is every scoreboard and every broadcast graphic.
+ * ONE GLYPH FOR THE WHOLE SECTION: two diamonds that disagree about which corner is second base
+ * is the kind of difference a reader notices without being able to say what is wrong. Second at
+ * the top, third at the left, first at the right: the view from behind the plate, which is every
+ * scoreboard and every broadcast graphic.
  *
  * NO HOME PLATE, deliberately. Nobody stands on it, so drawing it adds a fourth mark that is
  * never filled and makes the three that matter harder to count at 20px.
@@ -574,7 +552,7 @@ export function BaseDiamond({ first, second, third, size = 34, scale, color = '#
   )
 }
 
-// Player portrait — circular headshot ringed in the team's secondary hue (matching the
+// Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
 export function PlayerPortrait({ name, teamId, size = 40, square, src: given }: {
@@ -619,8 +597,6 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given }: 
   )
 }
 
-// Pill segmented control — the section nav "menu". Mirrors MLB's SegControl, wrapped
-// in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
 /** A "there is something new here" dot.
  *
  *  Deliberately a static 6px circle: no pulse, no "NEW" wordmark. The brief was
@@ -646,6 +622,8 @@ export function NewDot({ sx }: { sx?: SxProps<Theme> }) {
 // thing someone just tapped.
 const SEG_DOT_SX = { position: 'absolute' as const, top: 5, right: 6 }
 
+// Pill segmented control: the section nav "menu". Mirrors MLB's SegControl, wrapped
+// in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
 export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 } }: {
   /** `badge` draws a NewDot on that option. Opt-in per item because this control is shared
    *  with the MLB section, which has nothing to announce.
@@ -661,8 +639,8 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
   mb?: number | { xs?: number; sm?: number }
 }) {
   // When the strip is wider than the screen (many tabs on mobile), keep the selected
-  // pill in view: on every selection change — a tap or a swipe between tabs — scroll it
-  // to the container's centre (clamped at the ends). We nudge only the strip's own
+  // pill in view: on every selection change (a tap or a swipe between tabs) scroll it
+  // to the container's centre, clamped at the ends. We nudge only the strip's own
   // scrollLeft, never the page, so a swipe can't jog the vertical scroll.
   // The active pill is a SURFACE-coloured chip with accent TEXT on it (see below), so the
   // accent here has to be the foreground-safe variant, since the raw #60a5fa reads at 2.2:1 on a
@@ -685,11 +663,10 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
     <Box ref={scrollRef} sx={{
       display: 'flex',
       // `safe center` rather than plain centring, because this strip scrolls when it has more
-      // tabs than fit. Centring overflowing content in a scroll container pushes the first
-      // item off the left edge and makes it unreachable, which is why this used to give up and
-      // left-align on a phone even when there was room to spare. `safe` centres when it fits
-      // and falls back to flex-start when it does not. A browser that does not know the
-      // keyword drops the declaration and lands on flex-start, which is where this started.
+      // tabs than fit. Centring overflowing content in a scroll container pushes the first item
+      // off the left edge and makes it unreachable. `safe` centres when it fits and falls back to
+      // flex-start when it does not. A browser that does not know the keyword drops the
+      // declaration and lands on flex-start.
       justifyContent: { xs: 'safe center', sm: 'center' },
       // Desktop keeps its gap before content; on mobile the breathing gap lives on the
       // sticky wrapper (as transparent margin) so this strip hugs the bar's hairline.
@@ -787,11 +764,11 @@ export function PillGroup({ options, value, onChange, mb }: {
             sx={{
               ...FOCUS_RING,
               px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
-              // A FLOOR UNDER THE TAP TARGET. These were 23px tall, one pixel under WCAG 2.2's
-              // 24px minimum, and they sit shoulder to shoulder inside one pill, so the spacing
-              // exception that forgives a small target does not apply. `minHeight` rather than
-              // more padding: the pill's proportions stay as drawn, and the box still grows on
-              // its own if the reader's text needs more room than the floor.
+              // A FLOOR UNDER THE TAP TARGET. At their natural height these are one pixel under WCAG 2.2's
+              // 24px minimum, and they sit shoulder to shoulder inside one pill, so the spacing exception
+              // that forgives a small target does not apply. `minHeight` rather than more padding: the
+              // pill's proportions stay as drawn, and the box still grows on its own if the reader's text
+              // needs more room than the floor.
               //
               // `chromePx` and not a bare number, and not rem. It is structure, so it takes the
               // desktop chrome scale; and it deliberately does NOT take the reader's text scale,
@@ -822,7 +799,7 @@ export function PillGroup({ options, value, onChange, mb }: {
  * like a button for anyone not using a mouse: focusable in tab order, activated by Enter or
  * Space, and announced as a control rather than as text.
  *
- * Most of this section's rows are clickable `Box`es rather than real `<button>`s — a button
+ * Most of this section's rows are clickable `Box`es rather than real `<button>`s: a button
  * would fight the layout (default padding, font inheritance, no nested interactive content).
  * This is the compensation for that choice, and it belongs in one place so a new clickable
  * row can't quietly ship without it.
@@ -871,7 +848,7 @@ export function linkPress(href: string, onClick: (() => void) | undefined) {
   }
 }
 
-/** Focus ring for `pressable` targets — merge into the element's own sx. `:focus-visible`
+/** Focus ring for `pressable` targets: merge into the element's own sx. `:focus-visible`
  *  rather than `:focus` so a mouse click doesn't leave a ring behind. */
 export const FOCUS_RING = {
   '&:focus-visible': {
@@ -882,10 +859,8 @@ export const FOCUS_RING = {
 } as const
 
 // ─── Horizontal rail paging ─────────────────────────────────────────────────────
-// The scroll-edge bookkeeping and the paging chevron, shared by every horizontal strip on
-// Home. This lived as three byte-identical copies in Reading, Highlights and Photos; folding
-// those rails into one card put all three copies inside a single component, which is where a
-// duplicate stops being tolerable.
+// The scroll-edge bookkeeping and the paging chevron, shared by every horizontal rail
+// (Reading, Highlights, Photos) so the three cannot drift apart.
 
 /**
  * State for a horizontally scrolling strip: which way it can still move, and how to move it.
@@ -1011,13 +986,11 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
   onOpen?: (p: WpblPlayer) => void
 }) {
   const clickable = !!player && !!onOpen
-  // 18, not the 12 the hook defaults to. That default is sized for the stats table's 84px
-  // name column; a leader row gives the name 135px after the badge, and measured at 375px the
-  // longest name on the roster ("Samantha Gutierrez") draws in 130. At 12 a leaderboard came
-  // out as "D. Benites, K. Whitmore, A. Lansdell, Jamie Mackay, Alexia Jorge": three initials
-  // and two whole names, in five consecutive rows, for no reason a reader could see. The
-  // mechanism stays for a name genuinely too long to fit, since a cut-off name reads worse
-  // than an abbreviated one.
+  // 18, not the 12 the hook defaults to, which is sized for a narrow stats-table name column. A
+  // leader row gives the name about 135px after the badge, where the longest name on the roster
+  // ("Samantha Gutierrez") draws in 130; at 12 a board would show three initials and two whole
+  // names in five consecutive rows for no reason a reader could see. The mechanism stays for a
+  // name genuinely too long to fit, since a cut-off name reads worse than an abbreviated one.
   const shortName = useWpblName(18)
   const playerLink = useWpblPlayerLink()
   return (
@@ -1058,20 +1031,19 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
  * A definition tooltip that behaves like the device it is on: hover on a mouse, TAP on a
  * touchscreen.
  *
- * WHY IT EXISTS. Every one of these used to be a plain MUI Tooltip with `enterTouchDelay={0}`,
- * which fires the moment a finger lands on the element. On a player page that is a column of
- * stat abbreviations you scroll straight through, so scrolling popped definitions open under
- * your thumb, one after another, for something nobody asked to read. Raising the delay is not
- * the fix either: MUI's touch timer is not cancelled by the finger moving, so a slow scroll
- * still opens it, just later.
+ * WHY IT EXISTS. A plain MUI Tooltip with `enterTouchDelay={0}` fires the moment a finger lands
+ * on the element, and on a player page that is a column of stat abbreviations you scroll
+ * straight through, so scrolling pops definitions open under your thumb, one after another, for
+ * something nobody asked to read. Raising the delay is not the fix either: MUI's touch timer is
+ * not cancelled by the finger moving, so a slow scroll still opens it, just later.
  *
  * SO TOUCH GETS AN EXPLICIT GESTURE. On a device with no hover, the tooltip is controlled and
  * opens on tap alone. It closes on a second tap, on a tap anywhere else, on the next scroll,
  * and on a timer, because a tooltip nobody can dismiss is worse than one that never opened.
- * Closing on scroll matters most: it is the gesture that used to CAUSE this.
+ * Closing on scroll matters most: scrolling is the gesture that would otherwise open these.
  *
- * Hover devices keep the old behaviour untouched, with the touch listener off so a hybrid
- * laptop cannot get both.
+ * Hover devices keep ordinary hover behaviour, with the touch listener off so a hybrid laptop
+ * cannot get both.
  *
  * Renders its own element rather than wrapping a child, because the touch path needs a ref to
  * know what "outside" means, and because every call site was passing a styled Box anyway.
@@ -1130,12 +1102,11 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
   return (
     <Tooltip
       title={title} arrow slotProps={slotProps}
-      // ALWAYS CONTROLLED, both input types, and this is the part that bit. `useMediaQuery`
-      // returns false on its first render and only then measures, so branching on it into a
-      // controlled tooltip and an uncontrolled one meant every instance mounted controlled and
-      // switched a tick later. MUI's useControlled decides which a component is on the FIRST
-      // render and keeps it, so those tooltips stayed "controlled" with `open` now undefined:
-      // hover silently stopped working on every desktop, with only a console warning to say so.
+      // ALWAYS CONTROLLED, both input types. `useMediaQuery` returns false on its first render and
+      // only then measures, so branching on it into a controlled tooltip and an uncontrolled one
+      // would mount every instance one way and switch it a tick later. MUI's useControlled decides
+      // which a component is on the FIRST render and keeps it, so hover would silently stop working
+      // on every desktop, with only a console warning to say so.
       open={open}
       onOpen={() => setOpen(true)}
       onClose={() => setOpen(false)}
@@ -1164,9 +1135,9 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
   icon?: React.ReactNode
   title: string
   /** A quiet second line under the title. Keep it to one line; this slot is 0.72rem and the
-   *  header does not grow. A live figure does NOT belong here: Next game put its countdown in
-   *  the subtitle and it read as a footnote to the heading, at the smallest size on the card.
-   *  It is in `action` now, on the title's own baseline. */
+   *  header does not grow. A live figure does NOT belong here: in the subtitle it reads as a
+   *  footnote to the heading, at the smallest size on the card. Put it in `action`, on the
+   *  title's own baseline. */
   subtitle?: React.ReactNode
   /** The header's right-hand end: a "View all" link, or a fact the card is measured by. */
   action?: React.ReactNode
@@ -1176,7 +1147,7 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
    *  is `flex: 1` from a zero basis, so a wide action never overflows the row, it just leaves
    *  the title a narrow column and the TITLE wraps. Fine for a two-word link, wrong for Next
    *  game, whose action is a date and a countdown: at Large text on a narrow phone that card
-   *  was titled "Next / game". Set this and the title takes its own width while the action
+   *  would be titled "Next / game". Set this and the title takes its own width while the action
    *  takes the remainder, so only an action that can wrap should ask for it. */
   actionWraps?: boolean
   /** Pass with `onToggleCollapse` to make the card collapsible. Owned by the caller, so it
@@ -1192,7 +1163,7 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
   /** Drop the raised paper fill and let the card sit straight on the page, keeping only the
    *  border and the radius. For a card that IS a table: Standings and the season stats table
    *  are both drawn that way already, and in dark mode `background.paper` is a lifted grey, so
-   *  a leaderboard using it read as a different surface from the tables beside it on the very
+   *  a leaderboard using it reads as a different surface from the tables beside it on the very
    *  same tab. Off by default, because a card that holds prose or mixed content wants the
    *  raised fill that separates it from the page. */
   bare?: boolean
@@ -1207,10 +1178,10 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
       // No `height: 100%` here. A grid item already stretches to its row, so this would only
       // ever be redundant there, and below md, where the container falls back to a flex
       // column, a percentage height resolves against the column's own height and makes every
-      // card in it the same size. That squashed Last Game by 32px on a phone.
+      // card in it the same size, squashing the shorter ones on a phone.
       ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
     }}>
-      {/* The whole header toggles — a thumb-sized target rather than a small chevron hitbox.
+      {/* The whole header toggles: a thumb-sized target rather than a small chevron hitbox.
           `action` keeps its own click (e.g. "View all"), so it stops the event bubbling. */}
       <Box
         onClick={collapsible ? onToggleCollapse : undefined}
@@ -1227,14 +1198,13 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
       >
         {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
         <Box sx={actionWraps ? { flexShrink: 0 } : { flex: 1, minWidth: 0 }}>
-          {/* A REAL `h2`, because until Sep 1, 2026 this page had exactly one heading on it.
-              Every card title on every WPBL page comes through here, and all of them were
-              plain text: a screen reader landed on the `h1` and then had no way to skim the
-              page at all, since heading navigation is what skimming IS without sight. MUI's
-              Typography sets `margin: 0` on its root, and the size and weight are set here
-              rather than inherited from a variant, so the tag change moves nothing on screen.
-              The level is fixed at 2 on purpose: every consumer is a top-level section of a
-              page that owns the `h1`, and a prop for it would only invite a card to lie. */}
+          {/* A REAL `h2`. Every card title on every WPBL page comes through here, and as plain text
+              a screen reader would land on the `h1` and then have no way to skim the page, since
+              heading navigation is what skimming IS without sight. MUI's Typography sets
+              `margin: 0` on its root, and the size and weight are set here rather than inherited
+              from a variant, so the tag moves nothing on screen. The level is fixed at 2 on
+              purpose: every consumer is a top-level section of a page that owns the `h1`, and a
+              prop for it would only invite a card to lie. */}
           <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
           {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
@@ -1303,7 +1273,7 @@ export function ExpandRow({ expanded, moreLabel, onToggle, flush }: {
 }
 
 // Disclosure chevron, drawn from a rotated border corner rather than pulled from an icon
-// font — the same approach as the highlights play triangle, and it animates for free.
+// font: the same approach as the highlights play triangle, and it animates for free.
 export function Chevron({ open }: { open: boolean }) {
   return (
     <Box sx={{
@@ -1314,8 +1284,8 @@ export function Chevron({ open }: { open: boolean }) {
         width: 7, height: 7,
         borderRight: '2px solid currentColor', borderBottom: '2px solid currentColor',
         // Down-chevron when open (press to close), right-chevron when collapsed. The nudge is
-        // listed BEFORE the rotation so it shifts along the box's own axes — putting it after
-        // moves along the rotated frame and skews the glyph (the closed one read as a tick).
+        // listed BEFORE the rotation so it shifts along the box's own axes; putting it after
+        // moves along the rotated frame and skews the glyph (the closed one reads as a tick).
         transform: open ? 'translateY(-2px) rotate(45deg)' : 'translateX(-2px) rotate(-45deg)',
         transition: 'transform 0.18s ease',
       }} />
@@ -1355,15 +1325,14 @@ function lockBodyScroll() {
     // whichever element actually scrolls. Compensate the removed scrollbar width
     // on <body> so the page doesn't jump sideways when the bar disappears.
     //
-    // CLAMPED, BECAUSE `innerWidth - clientWidth` IS NOT ALWAYS THE SCROLLBAR. It is only the
-    // scrollbar when both are the same layout viewport in CSS px. In a scaled context, the
-    // desktop preview pane, a mobile webview/installed PWA, browser zoom, `window.innerWidth`
-    // reports a larger number (measured 705 against a 375 layout on a phone) while
-    // `clientWidth` stays the real width, so the difference is hundreds of px of nothing. Left
-    // unclamped it became `padding-right: 330px` on a 375px body and squeezed the whole app
-    // into a 45px column behind every open sheet: the reader pulled the player card down and
-    // found the home page gone. A real scrollbar is at most a couple dozen CSS px, so anything
-    // past that is the formula being fooled and there is no bar to compensate for anyway.
+    // CLAMPED, BECAUSE `innerWidth - clientWidth` IS NOT ALWAYS THE SCROLLBAR. It is the scrollbar
+    // only when both describe the same layout viewport in CSS px. In a scaled context (the desktop
+    // preview pane, a mobile webview or installed PWA, browser zoom, or a page wider than the
+    // screen) `window.innerWidth` reports a larger number while `clientWidth` stays the real width,
+    // so the difference is hundreds of px of nothing, and unclamped it pads the body until the whole
+    // app is squeezed into a sliver behind every open sheet. A real scrollbar is at most a couple
+    // dozen CSS px, so anything past that is the formula being fooled and there is no bar to
+    // compensate for anyway.
     const rawGap = window.innerWidth - document.documentElement.clientWidth
     const gap = rawGap > 0 && rawGap <= 40 ? rawGap : 0
     savedScroll.htmlOverflow = document.documentElement.style.overflow
@@ -1385,7 +1354,7 @@ function unlockBodyScroll() {
 }
 
 // A share affordance for the modal header's `actions` slot: copies a link to whatever the
-// modal is showing, and says so. Deliberately reports failure rather than swallowing it —
+// modal is showing, and says so. Deliberately reports failure rather than swallowing it:
 // the whole point of the control is that the reader walks away holding a URL, so a silent
 // no-op is the one outcome that must never look like success.
 //
@@ -1478,18 +1447,15 @@ async function writeClipboard(text: string): Promise<boolean> {
 /**
  * The viewport the sheet styling itself is keyed to.
  *
- * This is checked LIVE, at touchstart, rather than held in a `useMediaQuery` beside the
- * component. Whether the card LOOKS like a sheet (bottom-anchored, rounded top corners, grab
- * handle) is decided by MUI's `xs`/`sm` breakpoint in `sx`, which is a real CSS media query.
- * Whether it can be DRAGGED was decided by a separate `useMediaQuery` hook holding a copy of
- * the same threshold. Two sources of truth for one question, and when they disagree the
- * failure is silent and confusing in exactly one direction: the sheet still looks like a
- * sheet, still shows a grab handle, and cannot be grabbed.
- *
- * They can disagree. `useMediaQuery` is JS state that has to be told to update, and it was
- * measured not re-evaluating on a live viewport change in at least one browser during this
- * work. Reading `matchMedia` at the moment the finger lands cannot go stale, costs nothing on
- * a gesture that happens a few times a session, and deletes the second source of truth.
+ * Checked LIVE, at touchstart, rather than held in a `useMediaQuery` beside the component.
+ * Whether the card LOOKS like a sheet (bottom-anchored, rounded top corners, grab handle) is
+ * decided by MUI's `xs`/`sm` breakpoint in `sx`, which is a real CSS media query. A separate
+ * `useMediaQuery` deciding whether it can be DRAGGED would be a second source of truth for one
+ * question, and when the two disagree the failure is silent in exactly one direction: the sheet
+ * still looks like a sheet, still shows a grab handle, and cannot be grabbed. They can disagree,
+ * because `useMediaQuery` is JS state that has to be told to update and does not always re-run
+ * on a live viewport change. Reading `matchMedia` at the moment the finger lands cannot go stale
+ * and costs nothing on a gesture that happens a few times a session.
  */
 const SHEET_MQ = '(max-width:600px)'
 
@@ -1500,18 +1466,18 @@ const SHEET_MQ = '(max-width:600px)'
  * A touch that lands inside a scrollable pane belongs to the browser until something takes
  * it: once the finger passes the platform's slop (about 8px on Android, similar on iOS) the
  * gesture goes to the compositor as a scroll, every later `touchmove` arrives
- * `cancelable: false`, and a `touchcancel` ends the sequence. Deciding at 10px is deciding
- * one pixel too late, every time, which is why this worked perfectly against synthetic touch
- * events and did nothing on a device.
+ * `cancelable: false`, and a `touchcancel` ends the sequence. Deciding at 10px is deciding one
+ * pixel too late, every time, which works against synthetic touch events and does nothing on a
+ * device.
  *
- * So the claim is split from the commit. At DRAG_CLAIM_PX the handler only asks "could this
- * be a dismissal" — downward, vertical-dominant, and over a scroller that is already at its
- * top — and if so starts calling `preventDefault`, which takes the touch off the browser while
- * it is still cancelable. Nothing is lost by claiming early in exactly that case: a downward
- * drag at scrollTop 0 has nowhere to scroll to. At DRAG_LOCK_PX it re-runs the same axis test
- * on real movement and either commits or releases, and a released gesture is only ever one the
- * browser could not have scrolled anyway. Horizontal paging is unharmed because
- * `SwipeableViews` moves in JS, which `preventDefault` does not touch.
+ * So the claim is split from the commit. At DRAG_CLAIM_PX the handler only asks "could this be
+ * a dismissal" (downward, vertical-dominant, and over a scroller that is already at its top)
+ * and if so starts calling `preventDefault`, which takes the touch off the browser while it is
+ * still cancelable. Nothing is lost by claiming early in exactly that case: a downward drag at
+ * scrollTop 0 has nowhere to scroll to. At DRAG_LOCK_PX it re-runs the same axis test on real
+ * movement and either commits or releases, and a released gesture is only ever one the browser
+ * could not have scrolled anyway. Horizontal paging is unharmed because `SwipeableViews` moves
+ * in JS, which `preventDefault` does not touch.
  *
  * This is what the sheet's `touch-action: none` chrome buys structurally: the same race, but
  * removed rather than won. Content cannot use that, because the pane it sits in has to scroll.
@@ -1623,19 +1589,19 @@ function useSheetDrag(
       // THE HANDLE AND THE EYEBROW ARE ALWAYS A DISMISSAL. They are small, they are unmistakably
       // chrome, and a finger there has no other possible intent.
       const onHandle = !!chromeRef.current && chromeRef.current.contains(e.target as Node)
-      // A `data-sheet-drag` BAND IS NOT THE SAME THING, and treating it as though it were is
-      // what made this card close when a reader was only trying to scroll back up. The player
-      // card's band is ~90px of portrait and name pinned above the content at every scroll
-      // depth, directly under the thumb, so "a finger here means dismiss" fires constantly by
-      // accident. It earns the dismissal only once the pane beneath it is already at its top,
-      // exactly like a finger on the content does; below that it scrolls that pane instead.
+      // A `data-sheet-drag` BAND IS NOT THE SAME THING, and treating it as though it were closes the
+      // card when a reader is only trying to scroll back up. The player card's band is ~90px of
+      // portrait and name pinned above the content at every scroll depth, directly under the thumb,
+      // so "a finger here means dismiss" would fire constantly by accident. It earns the dismissal
+      // only once the pane beneath it is already at its top, exactly like a finger on the content
+      // does; below that it scrolls that pane instead.
       const onBand = !onHandle && !!el?.closest('[data-sheet-drag]')
       // TWO SCROLLERS ARE CONSULTED, AND EITHER ONE CAN VETO. `local` is whatever the finger is
       // actually inside, which is what governs a touch on the content; `main` is the card's own
       // pane, which is what governs a touch on a band pinned outside it. Requiring BOTH to be
       // at their top is what stops a drag dismissing the sheet while anything on screen still
       // has somewhere to scroll, without this having to correctly guess which one the reader
-      // meant. Before, only one was consulted, and picking the wrong one dismissed the card.
+      // meant.
       const local = scrollerUnder(e.target, card)
       const main = onHandle ? null : visibleScroller(card)
       const atTop = (s: HTMLElement | null) => !s || s.scrollTop <= 0
@@ -1746,7 +1712,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   /** Responsive object as well as a plain number, because a modal that is the right size for
    *  a phone sheet is not the right size for a desktop dialog. Handed straight to `sx`. */
   /** px number, or a breakpoint map. Strings allowed so a caller can hand over a
-   *  `chromePx()` calc, which is how any width that used to ride the zoom is spelled now. */
+   *  `chromePx()` calc, which is how a structural width is spelled. */
   maxWidth?: number | string | Record<string, number | string>
   zIndex?: number
   actions?: React.ReactNode   // rendered just left of the close button
@@ -1765,10 +1731,10 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
    * `sheet` is in effect.
    *
    * A bottom sheet is anchored by its BOTTOM edge, so every pixel its content gains moves its
-   * top edge up the screen. Game Center mounted 296px tall, showing a line score and a
-   * spinner, and became 715px when the box score arrived: the sheet finished sliding up and
-   * then leapt another 419px, which is most of a phone. A centred dialog hid this, because
-   * growth there is split between two edges and reads as settling rather than as jumping.
+   * top edge up the screen: a sheet that opens on a line score and a spinner and then receives a
+   * box score finishes sliding up and then leaps most of a phone's height. A centred dialog hides
+   * this, because growth there is split between two edges and reads as settling rather than as
+   * jumping.
    *
    * It also stops the sheet resizing when you page between tabs, since a recap and a
    * play-by-play are nothing like the same height.
@@ -1790,11 +1756,10 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
 
   // ANNOUNCE THE MODAL ON <html>, for one consumer: the shared AppBar's desktop blur. That bar
   // is a second full-viewport backdrop filter and it sits UNDER a modal that has already dimmed
-  // it to nothing, so while one is open the blur is invisible work, and it is the desktop-only
-  // half of the lag the overlay's own blur used to cause. An attribute rather than a context
-  // because App.tsx renders the bar and the modals are portalled out of the section: a context
-  // would have to wrap both, and the only thing being communicated is one boolean that CSS can
-  // read directly.
+  // it to nothing, so while one is open the blur is invisible work, and on a desktop it is real
+  // lag. An attribute rather than a context because App.tsx renders the bar and the modals are
+  // portalled out of the section: a context would have to wrap both, and the only thing being
+  // communicated is one boolean that CSS can read directly.
   //
   // COUNTED, because these nest: the section opens a player card over a game card, and the
   // inner one unmounting must not tell the bar the coast is clear.
@@ -1812,26 +1777,24 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   const overlayRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const chromeRef = useRef<HTMLDivElement>(null)
-  // No `isPhone` here any more. The width test lives inside the gesture, where it is read
-  // live off `matchMedia` and cannot drift from the CSS breakpoint that decides whether this
-  // is a sheet at all. See SHEET_MQ.
+  // The phone test lives inside the gesture, where it is read live off `matchMedia` and cannot
+  // drift from the CSS breakpoint that decides whether this is a sheet at all. See SHEET_MQ.
   const swipeNav = useSwipeNav()
   useSheetDrag(!!sheet && swipeNav, cardRef, overlayRef, chromeRef, onClose)
 
   /**
    * PORTALLED TO THE BODY, AND IT HAS TO BE.
    *
-   * `position: fixed` is only fixed to the VIEWPORT while no ancestor has a transform, a
-   * filter, or a will-change on one: any of those makes that ancestor the containing block for
-   * every fixed descendant instead. `SwipeableViews` translates its track on the X axis to show
-   * the current pane, which is exactly that, so a modal opened from anything inside a WPBL tab
-   * was being laid out inside its own pane rather than over the page.
+   * `position: fixed` is only fixed to the VIEWPORT while no ancestor has a transform, a filter,
+   * or a will-change on one: any of those makes that ancestor the containing block for every
+   * fixed descendant instead. `SwipeableViews` translates its track on the X axis to show the
+   * current pane, which is exactly that, so a modal opened from inside a WPBL tab would be laid
+   * out inside its own pane rather than over the page.
    *
-   * The damage is invisible on a short dialog and total on a tall one: measured on Home at
-   * 1600x1000, the series overview's overlay came out 1260x1608 at y=149, so `maxHeight: 100%`
-   * resolved against 1608 instead of 1000, the scroll region never became a scroll region, and
-   * everything past the halfway point of the sheet was simply unreachable. Nothing errored and
-   * nothing logged.
+   * The damage is invisible on a short dialog and total on a tall one: the overlay takes the
+   * pane's height, `maxHeight: 100%` resolves against that instead of the screen, the scroll
+   * region never becomes a scroll region, and everything past the fold of the sheet is
+   * unreachable, with nothing errored or logged.
    *
    * A portal takes the overlay out of the pane and puts it under `body`, where nothing is
    * transformed. React keeps the tree intact through it, so context, events and the refs below
@@ -1843,17 +1806,13 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       sx={{
         position: 'fixed', inset: 0, zIndex,
-        // NO `backdrop-filter` HERE, AND THIS IS A PERFORMANCE RULE RATHER THAN A TASTE ONE.
-        // It was `blur(2px)`, under a 60% black dim, where it was worth almost nothing to look
-        // at and a great deal to draw: a full-viewport backdrop filter makes the browser
-        // rasterise and blur EVERYTHING painted beneath it, which is the whole page, every time
-        // anything invalidates the backdrop. Every tappable row in this section changes its
-        // background on hover (TAPPABLE), so moving the mouse across the fan-award ballot, which
-        // is thirty tiles over a page carrying thirty more 512px portraits, asked for that work
-        // on a 340x70px change. On desktop it was visible lag on hover and a sign-in dialog that
-        // took a beat to appear over it; on a phone the viewport is small enough to hide it.
-        // The dim alone reads the same at a glance. See the AppBar's blur in App.tsx, which is
-        // the other half of this and is suppressed while a modal is up.
+        // NO `backdrop-filter` HERE, AND THIS IS A PERFORMANCE RULE RATHER THAN A TASTE ONE. A
+        // full-viewport backdrop filter makes the browser rasterise and blur EVERYTHING painted beneath
+        // it, which is the whole page, every time anything invalidates the backdrop. Every tappable row
+        // in this section changes its background on hover (TAPPABLE), so moving the mouse across a
+        // sheet of tiles over a page of large portraits asks for that work on every small change,
+        // which is visible lag on a desktop. The dim alone reads the same at a glance. See the AppBar's
+        // blur in App.tsx, which is the other half of this and is suppressed while a modal is up.
         bgcolor: 'rgba(0,0,0,0.6)',
         display: 'flex', justifyContent: 'center',
         alignItems: sheet ? { xs: 'flex-end', sm: 'center' } : 'center',
@@ -1909,14 +1868,14 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
             is settled would kill scrolling on every touch that starts near the top. But a real
             browser decides what a gesture is during those same first pixels, and once it has
             handed the touch to the compositor as a scroll or an overscroll, every later
-            touchmove arrives with `cancelable: false` and `preventDefault` is a no-op. So the
-            drag silently did nothing on a phone while working perfectly against synthetic
-            touch events, which are always cancelable. That is the whole bug.
+            touchmove arrives with `cancelable: false` and `preventDefault` is a no-op. Without
+            this the drag would do nothing on a phone while working perfectly against synthetic
+            touch events, which are always cancelable.
 
             `touch-action: none` removes the race instead of trying to win it: the browser
             never claims a touch that starts here, so the handler still owns it at 10px. It is
             safe on this element for the reason useSheetDrag already gives for treating the
-            chrome as always-draggable — a finger on the grab handle or the title bar has no
+            chrome as always-draggable: a finger on the grab handle or the title bar has no
             other possible intent. Taps are unaffected: touch-action governs panning and
             zooming, not clicks, so Close and Copy link still work.
 
@@ -1962,22 +1921,21 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
             A flex COLUMN, not a plain block, and that is load-bearing rather than tidy. A
             child of a block box cannot be a flex item, so it can only be sized by content and
             clamped with max-height, and a clamp does not make a height definite: every
-            `height: 100%` below it silently falls back to auto. That is what stopped the Game
-            Center panes scrolling. With this, a child that says `flex: 1` gets a definite
-            height and the chain under it resolves.
+            `height: 100%` below it silently falls back to auto, and the tab panes stop
+            scrolling. With this, a child that says `flex: 1` gets a definite height and the
+            chain under it resolves.
 
             Phones only, because that is where the sheet has a definite height for the chain to
             resolve FROM. Above sm the modal is content-height on purpose and the block layout
-            it has always had is right: switching it there traded one working arrangement for a
-            worse one, a 174px scrolling window inside a 538px dialog on an 800px screen. */}
+            is right: a flex column there shrinks the scroll region to a small window inside a
+            much taller dialog. */}
         <Box sx={{
           flex: 1, overflowY: 'auto',
           // Stop a downward drag at the top of this pane from chaining out to the browser.
           // Without it Android Chrome answers that gesture with pull-to-refresh and iOS with
-          // rubber-banding, both of which take ownership of the touch — which is the other
-          // half of why dismissing by dragging the CONTENT (rather than the chrome) did
-          // nothing on a real phone. `contain` keeps the overscroll inside this box, so the
-          // touch stays cancelable and useSheetDrag can still claim it at DRAG_LOCK_PX.
+          // rubber-banding, both of which take ownership of the touch away from useSheetDrag on a
+          // real phone. `contain` keeps the overscroll inside this box, so the touch stays
+          // cancelable and useSheetDrag can still claim it at DRAG_LOCK_PX.
           overscrollBehavior: 'contain',
           display: { xs: 'flex', sm: 'block' }, flexDirection: 'column',
           '&::-webkit-scrollbar': { width: 4 },
@@ -2000,21 +1958,18 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
  * The player card's secondary block: a rule of the club's colour, a label, a line of summary,
  * and optionally something that opens.
  *
- * WHY IT IS ONE COMPONENT NOW. Three of these grew independently on the same card and picked
- * three different answers to the same questions. `CameoBlock` was a static line, `FieldingLine`
- * opened with a `+` that turned into a `−`, and `PitchLocationCard` opened with a rotating
- * chevron; their labels were set at 0.72rem, 0.72rem and 0.76rem, their summaries at 0.8, 0.8
- * and 0.68, and the pitch card right-aligned its summary while the other two set theirs
- * directly after the label. Two of them were on screen at once, one in each column, so the
- * differences read as meaning something. They did not.
+ * ONE COMPONENT for every such block on the card (`CameoBlock`, `FieldingLine`,
+ * `PitchLocationCard`), so they cannot answer the same questions three ways: one disclosure
+ * glyph, one label size, one summary placement. Blocks on screen together that differ read as
+ * meaning something, and these differences never would.
  *
- * A `+` is the wrong glyph for this anyway: it says "add" where the control reveals, and it is
- * the one of the two that cannot show its own state without being read. A chevron points at
- * where the content will appear and rotates to say it is already there.
+ * A chevron, not a `+`: a `+` says "add" where the control reveals, and it cannot show its own
+ * state without being read. A chevron points at where the content will appear and rotates to
+ * say it is already there.
  *
  * `meta` is the right-hand slot, for something true of the whole block rather than a value in
  * it. Fielding spends it on the positions those numbers came from, which is the difference
- * between a fielding line and a claim about her glove at the position the tab implies.
+ * between a fielding line and a claim about the player's glove at the position the tab implies.
  */
 export function AccentPanel({ label, summary, meta, accent, defaultOpen = false, ariaLabel, children, sx }: {
   label: string
@@ -2049,11 +2004,11 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
         } : {})}
         sx={{
           display: 'flex', alignItems: 'baseline', gap: 1, px: 1.5, py: 1,
-          // ORDER MATTERS AND IT IS NOT OBVIOUS. A shorthand `borderColor` would repaint the
-          // left edge too, so the club's rule came out the divider's grey and the panel lost
-          // the only thing tying it to the team. The long-hand bottom colour leaves the left
-          // edge alone. Caught by reading the computed style, not by looking: at a glance a
-          // 3px grey rule still reads as a deliberate border.
+          // ORDER MATTERS AND IT IS NOT OBVIOUS. A shorthand `borderColor` would repaint the left edge
+          // too, turning the club's rule the divider's grey and losing the only thing tying the panel to
+          // the team. The long-hand bottom colour leaves the left edge alone. Check the computed style
+          // after touching this rather than the look: at a glance a 3px grey rule still reads as a
+          // deliberate border.
           borderBottom: open ? '1px solid' : 'none',
           borderBottomColor: 'divider',
           borderLeft: `3px solid ${accent}`,
@@ -2070,18 +2025,17 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
           </Typography>
         )}
         {meta != null && (
-          /* THE META GIVES WAY FIRST, and that is the whole of why it carries a shrink factor
-             rather than the `flexShrink: 0` it used to. On a 375px phone this row is about
-             twelve pixels wider than the space it has once the fielding line is in it, so it
-             wrapped, and what wrapped was the SUMMARY: the value split across two lines while
-             the scope note beside it kept every pixel of "CF, P". The summary is the row's
-             content and the meta is a caption on it, so the caption is the one that should be
-             squeezed. An absurd shrink factor rather than a bigger one because flex shares a
-             deficit in proportion to base size times factor, and the intent here is not "shrink
-             it more", it is "take all of it from this one".
-             It ellipsizes rather than wrapping for the same reason: a caption clipped to
-             "CF…" still says which positions these numbers cover, and it is already an
-             abbreviation of a longer list (see FieldingLine). The summary never truncates. */
+          /* THE META GIVES WAY FIRST, which is why it carries a shrink factor rather than
+              `flexShrink: 0`. On a 375px phone this row is about twelve pixels wider than the space
+              it has once the fielding line is in it, and without this the SUMMARY is what wraps,
+              splitting the value across two lines while the scope note beside it keeps every pixel
+              of "CF, P". The summary is the row's content and the meta is a caption on it, so the
+              caption is the one that should be squeezed. An absurd shrink factor rather than a
+              bigger one because flex shares a deficit in proportion to base size times factor, and
+              the intent here is not "shrink it more", it is "take all of it from this one".
+              It ellipsizes rather than wrapping for the same reason: a caption clipped to "CF…"
+              still says which positions these numbers cover, and it is already an abbreviation of a
+              longer list (see FieldingLine). The summary never truncates. */
           <Typography component="div" sx={{
             ml: 'auto', pl: 1, fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.3,
             color: 'text.disabled', flexShrink: 1000000, minWidth: 0,

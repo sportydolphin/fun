@@ -6,27 +6,26 @@ import {
 import { outsToIp } from './innings'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
 
-// Where a player sits against the rest of the league, for the percentile strip on her page.
+// Where a player sits against the rest of the league, for the percentile strip on a player page.
 //
 // WHY THIS IS RANKED AGAINST QUALIFIED PLAYERS ONLY. A percentile is a statement about a
 // population, so the population has to be one a reader would accept as "the league". Ranked
 // against everyone who has logged a single line, a pinch-hitter who is 1-for-1 owns a 1.000
-// average and the bar says she is the best hitter in the WPBL. The qualifying bar in
+// average and the bar calls them the best hitter in the WPBL. The qualifying bar in
 // `stats.ts` already exists to answer exactly this question for the leaderboards, and it
 // scales with games played, so this reuses it rather than inventing a second definition that
 // could disagree with the Stats tab about who leads the league.
 //
 // A player BELOW the bar gets no strip at all, and the page says why. That is deliberate:
 // there is no honest percentile for someone with nine at-bats, and drawing a short bar would
-// claim she is bad rather than that we do not know yet.
+// claim the player is bad rather than that we do not know yet.
 //
 // HOW HONEST IS A PERCENTILE HERE. Less than it looks, and the UI should not oversell it.
-// This is a four-club league playing a first season of about 40 games, so a qualified
-// population is dozens of players, not hundreds: one good week moves a bar a long way, and
-// the difference between the 60th and 70th percentile is a couple of hits. `of` is returned
-// with every rank so the caller can print the population size next to the strip, which is the
-// one thing that keeps "82nd percentile" from reading like a Statcast page built on
-// thousands of batted balls.
+// This is a four-club league playing a short first season, so a qualified population is
+// dozens of players, not hundreds: one good week moves a bar a long way, and the difference
+// between the 60th and 70th percentile is a couple of hits. `of` is returned with every rank
+// so the caller can print the population size next to the strip, which is the one thing that
+// keeps "82nd percentile" from reading like a Statcast page built on thousands of batted balls.
 
 export type WpblRankGroup = 'batting' | 'pitching'
 
@@ -86,12 +85,12 @@ export const WPBL_PIT_RANK_DEFS: WpblStatRankDef[] = [
  *
  * WHY THIS EXISTS. Everything above is ranked against the qualified field, for the good reason
  * at the top of this file: there is no honest batting average for someone with nine at-bats.
- * But that reasoning is about RATES, and it was quietly being applied to the whole card. A
- * counting stat cannot be inflated by a short sample, only deflated: five stolen bases is five
- * stolen bases whether they came in nine games or forty. So the player who gets no strip at
- * all, the one a reader can least place on her own, was being denied the one comparison that
- * would have been perfectly sound for her. Maïka Dumais is 3rd in the WPBL in steals off
- * 28 plate appearances, and until this her page had no way to say it.
+ * But that reasoning is about RATES, and it does not extend to the whole card. A counting stat
+ * cannot be inflated by a short sample, only deflated: five stolen bases is five stolen bases
+ * whether they came in nine games or forty. So the player who gets no strip at all, the one a
+ * reader can least place unaided, still gets the one comparison that is perfectly sound for
+ * them. Maïka Dumais is 3rd in the WPBL in steals off 28 plate appearances, and this is how the
+ * page says so.
  *
  * WHICH IS ALSO WHY THE FIELD IS EVERYONE WHO HAS PLAYED, not the qualified. Ranking a
  * counting stat inside the qualified field would answer "best among the regulars", which is a
@@ -106,12 +105,11 @@ export const WPBL_PIT_RANK_DEFS: WpblStatRankDef[] = [
  */
 /** THE ORDER IS THE TIEBREAK, so it is the order a reader would ask for these in rather than
  *  the order the box score prints them. Denae Benites is 1st in the league in six of these at
- *  once and the strip shows two, so which two is decided here and nowhere else. It was briefly
- *  decided by raw value instead, which sounds neutral and is not: 54 total bases outranks 9
- *  home runs because total bases is a bigger kind of number, so the naturally-large stats
- *  would have won every tie forever and "led the WPBL in home runs" would never once have been
- *  printed. TB is last for the related reason that it is mostly a restatement of the hits and
- *  homers above it. */
+ *  once and the strip shows two, so which two is decided here and nowhere else. Deciding by
+ *  raw value instead sounds neutral and is not: 54 total bases outranks 9 home runs because
+ *  total bases is a bigger kind of number, so the naturally-large stats would win every tie
+ *  forever and "led the WPBL in home runs" would never once be printed. TB is last for the
+ *  related reason that it is mostly a restatement of the hits and homers above it. */
 export const WPBL_BAT_COUNT_RANK_DEFS: WpblStatRankDef[] = [
   { key: 'c_hr',  label: 'HR',  group: 'batting', better: 'high' },
   { key: 'c_rbi', label: 'RBI', group: 'batting', better: 'high' },
@@ -128,13 +126,12 @@ export const WPBL_BAT_COUNT_RANK_DEFS: WpblStatRankDef[] = [
  * The pitching equivalents. Losses are absent for the same reason strikeouts are absent above:
  * a rank whose bottom is "has not played" is not a rank.
  *
- * AND SO ARE APPEARANCES, which is the one this list learned the hard way. `G` was here for a
- * day and put "G 6 · 4th of 38" at the top of a reliever's card, which is a fact about a
- * manager's bullpen usage wearing the clothes of an achievement. The test a stat has to pass
- * here is not "does it reward playing time", which all of these do and is what a counting stat
- * is for. It is "did SHE do it". Innings are the edge of that and stay, because a workload is
- * something a pitcher is trusted with and every league prints an innings leaderboard. Games
- * are just how often the phone rang.
+ * AND SO ARE APPEARANCES. `G` would put "G 6 · 4th of 38" at the top of a reliever's card,
+ * which is a fact about a manager's bullpen usage wearing the clothes of an achievement. The
+ * test a stat has to pass here is not "does it reward playing time", which all of these do and
+ * is what a counting stat is for. It is "did the player do it". Innings are the edge of that
+ * and stay, because a workload is something a pitcher is trusted with and every league prints
+ * an innings leaderboard. Games are just how often the phone rang.
  */
 export const WPBL_PIT_COUNT_RANK_DEFS: WpblStatRankDef[] = [
   { key: 'c_so',   label: 'SO', group: 'pitching', better: 'high' },
@@ -146,17 +143,17 @@ export const WPBL_PIT_COUNT_RANK_DEFS: WpblStatRankDef[] = [
 /**
  * How high a counting rank has to be before the card says it out loud, and how many it says.
  *
- * BOTH NUMBERS WERE MEASURED, and the naive version of this feature died on the measurement.
- * Lighting every top-3 counting stat, over the 63 batters who had played as of Sep 2, 2026,
- * lit SIX of the ten tiles on the two league leaders' cards and none at all on 53 of the 63.
- * Emphasis that fires hardest on the two players a reader can already place, and not at all
- * on everyone else, is not emphasis. Hence a cap as well as a bar: the cap is what keeps the
- * leaders to a headline instead of a second stat grid, and the bar is what keeps this off the
- * cards where it would mean nothing.
+ * BOTH NUMBERS WERE MEASURED, over the 63 batters who had played as of Sep 2, 2026, and the
+ * naive version fails the measurement: lighting every top-3 counting stat lights SIX of the ten
+ * tiles on the two league leaders' cards and none at all on 53 of the 63. Emphasis that fires
+ * hardest on the two players a reader can already place, and not at all on everyone else, is
+ * not emphasis. Hence a cap as well as a bar: the cap is what keeps the leaders to a headline
+ * instead of a second stat grid, and the bar is what keeps this off the cards where it would
+ * mean nothing.
  *
  * Top 5 reaches 19 of the 63. Top 3 reaches 10, which leaves the feature barely present; top
  * 8 reaches 27 but starts naming mid-pack players as though they led something. Re-measure
- * before moving either: both are properties of a 63-player league playing a 40-game season.
+ * before moving either: both are properties of a 63-player league playing a short season.
  */
 export const COUNT_RANK_BAR = 5
 export const COUNT_RANK_ROWS = 2
@@ -168,8 +165,8 @@ export const COUNT_RANK_ROWS = 2
 export const COUNT_RANK_MIN_FIELD = 10
 
 /**
- * Her best counting ranks worth printing, best first, capped. Empty is the common answer and
- * the caller must draw nothing at all for it, rather than an empty block.
+ * A player's best counting ranks worth printing, best first, capped. Empty is the common answer
+ * and the caller must draw nothing at all for it, rather than an empty block.
  *
  * `alreadyShown` is the rate strip's own ranks, and passing them is NOT optional hygiene.
  * HR is a counting stat that lives in the rate defs (see the note there: a home-run total is
@@ -178,7 +175,7 @@ export const COUNT_RANK_MIN_FIELD = 10
  * on LABEL rather than on key is deliberate: the keys differ by construction ('hr' against
  * 'c_hr') and a collision here is a collision in what the reader sees, not in what the code
  * calls it. A below-bar player passes an empty list and loses nothing, which is correct: there
- * is no strip above her for this to collide with.
+ * is no strip above them for this to collide with.
  *
  * The sort is on rank alone and relies on being stable, so ties fall out in def order. That
  * order is a decision, not an accident. See WPBL_BAT_COUNT_RANK_DEFS.
@@ -264,8 +261,8 @@ export function computeWpblPlayerRanks(
       case 'slg': return t.slg
       case 'ops': return t.ops
       case 'hr':  return t.hr
-      // K% over plate appearances, sac bunts included: the denominator used to drop them and
-      // a bunter's rate read a shade high.
+      // K% over plate appearances, sac bunts included: leaving them out of the denominator reads a
+      // bunter's rate a shade high.
       case 'k%': {
         const pa = plateAppearances(t)
         return pa > 0 ? t.so / pa : null
@@ -305,29 +302,28 @@ export function computeWpblPlayerRanks(
 
   const batting = rankOne(playerId, batField, WPBL_BAT_RANK_DEFS, batValue)
   // The counting field is EVERYONE WITH A LINE, and the filter is on the appearance rather
-  // than on production: a hitter who is 0-for-12 belongs in the population she is being
-  // ranked against, or every rank on the card is against a field quietly cleaned of the
-  // players below the subject. `aggregateBatting` already returns only players who have a
-  // line, so this is the whole of it.
+  // than on production: a hitter who is 0-for-12 belongs in the population being ranked
+  // against, or every rank on the card is against a field quietly cleaned of the players
+  // below the subject. `aggregateBatting` already returns only players who have a line, so
+  // this is the whole of it.
   const inBatField = batField.some(s => s.player.id === playerId)
   const inPitField = pitField.some(s => s.player.id === playerId)
 
-  // AGAINST THE FIELD SHE IS ALREADY BEING COMPARED TO, whichever that is, and this is the
-  // whole reason there is one comparison block on the card instead of two.
+  // AGAINST THE FIELD THE PLAYER IS ALREADY BEING COMPARED TO, whichever that is, and this is
+  // the whole reason there is one comparison block on the card instead of two.
   //
-  // The first version of this always ranked counts against everyone who had played, on the
-  // reasoning that a count needs no qualifying bar. True, but it produced a card with "Against
-  // the league" over four rate rows and 31 qualified batters, and a second block three rows
-  // below headed "Where she ranks" over two counting rows and 68 batters. Two headings that
-  // mean the same sentence in English, over the same geometry, differing only by a population
-  // the reader has no reason to be holding. The distinction is real in the code and is not a
-  // thing to make a reader carry.
+  // Ranking counts against everyone who has played, on the reasoning that a count needs no
+  // qualifying bar, is true to the stat and produces a card with "Against the league" over four
+  // rate rows and 31 qualified batters, and a second block three rows below headed "Where they
+  // rank" over two counting rows and 68 batters. Two headings that mean the same sentence in
+  // English, over the same geometry, differing only by a population the reader has no reason to
+  // be holding. The distinction is real in the code and is not a thing to make a reader carry.
   //
   // So the population follows the player. A qualified batter is ranked on everything against
-  // the qualified field, and her counting rows merge into the strip she already had under its
-  // existing footnote. A batter BELOW the bar has no rate rows to merge into, and her counts
-  // are ranked against everyone who has played, because the qualified field is precisely the
-  // one she is not in. Each card states its own population once and no card shows two.
+  // the qualified field, and their counting rows merge into the strip they already have under
+  // its existing footnote. A batter BELOW the bar has no rate rows to merge into, and their
+  // counts are ranked against everyone who has played, because the qualified field is precisely
+  // the one they are not in. Each card states its own population once and no card shows two.
   const batCountField = inBatField ? batField : batSeasons
   const pitCountField = inPitField ? pitField : pitSeasons
   const battingCounts = rankOne(playerId, batCountField, WPBL_BAT_COUNT_RANK_DEFS, batValue)
@@ -389,13 +385,13 @@ function rankOne<T extends { player: WpblPlayer; totals: unknown }>(
       ? values.filter(v => v < mine).length
       : values.filter(v => v > mine).length
 
-    // Share of the field this player beats. Everyone tied with her sits at the MIDPOINT of
-    // their own block rather than at its bottom, which is what `worse / (n - 1)` alone gave.
-    // The difference is visible the moment a stat has a big tie at one end: a hitter with 0 HR
-    // in a league where twenty others also have 0 drew a completely empty bar next to the text
-    // "13th of 33", so the bar said last and the number said mid-pack, about the same player,
-    // on the same row. A field of one is 1: there is nobody to be worse than, and 0 would read
-    // as "worst in the league" for the only qualified player at that position.
+    // Share of the field this player beats. Everyone tied with the player sits at the MIDPOINT
+    // of their own block rather than at its bottom, which is where `worse / (n - 1)` alone puts
+    // them. The difference is visible the moment a stat has a big tie at one end: a hitter with
+    // 0 HR in a league where twenty others also have 0 would draw a completely empty bar next to
+    // the text "13th of 33", so the bar says last and the number says mid-pack, about the same
+    // player, on the same row. A field of one is 1: there is nobody to be worse than, and 0
+    // would read as "worst in the league" for the only qualified player at that position.
     const tied = Math.max(0, values.length - better - worse - 1)
     const pct = values.length <= 1 ? 1 : (worse + 0.5 * tied) / (values.length - 1)
 

@@ -31,28 +31,26 @@ import { useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
-// its own layout, not reachable without a deliberate tap. The draft-value model used to be here
-// too; it moved to /wpbl/league on Sep 13, 2026 (it was one analysis of the draft class, not a
-// season stat, and Stats had eight boards in one row).
+// its own layout, not reachable without a deliberate tap. The draft-value model lives on
+// /wpbl/league: it is one analysis of the draft class, not a season stat.
 const WpblTrackingView = lazy(() => import('./TrackingView'))
 const WpblPitchView = lazy(() => import('./PitchView'))
 const WpblRunValueView = lazy(() => import('./RunValueView'))
 const WpblBestsView = lazy(() => import('./BestsView'))
 const WpblFindView = lazy(() => import('./FindView'))
 
-// Complete season stat table for the WPBL — a sortable board of every hitting and
+// Complete season stat table for the WPBL: a sortable board of every hitting and
 // pitching stat aggregated from box-score lines, mirroring the MLB Stats view. Fetches
 // its own data so only this tab pays for it. Self-contained (no MLB coupling).
 
-// Rate-stat qualifiers come from stats.ts (`wpblQualifiers`) and scale with the season —
-// single-sourced with the Home leader boards so the two can't drift apart.
+// Rate-stat qualifiers come from stats.ts (`wpblQualifiers`) and scale with the season, so
+// every board that gates on them agrees about who qualifies.
 
-// This tab has two independent axes, not one list of four tabs.
+// This tab has two independent axes, not one list of boards.
 //
 // `side` is which half of the game you're looking at. It's the reader's main choice and it
-// outlives everything else: the season table splits on it, and so do the tracked boards.
-// TrackingView used to carry its own Hitting/Pitching switch, which meant the same question
-// was being asked twice one level apart — the clearest sign these were never four peers.
+// outlives everything else: the season table splits on it, and so do the tracked boards, which
+// is why no board asks the Hitting/Pitching question again one level down.
 //
 // `source` is where the numbers come from: the box scores we aggregate all season, the
 // play-by-play read one pitch at a time, or the feed's TrackMan radar. Switching it keeps your
@@ -60,13 +58,10 @@ const WpblFindView = lazy(() => import('./FindView'))
 // jump somewhere else.
 //
 // Ordered by how much of the season each one can speak for: Season (every game), Pitch by
-// pitch (every game, one row deeper), Tracked (two games, and hidden until that changes; see
-// trackingWorthShowing). The pitch board used to sit in the middle chip labelled "Pitches",
-// which collided with the SIDE named Pitching one row above it: with Hitting selected, a chip
-// called Pitches read as "you are about to leave the hitters", which is the opposite of what
-// it does. The internal value stays 'pitches' so the board-usage analytics keep one name
-// across the rename.
-//
+// pitch (every game, one row deeper), Tracked (a handful of games, and hidden until that
+// changes; see trackingWorthShowing). The pitch board is labelled "Pitch by pitch", not
+// "Pitches", which beside the side named Pitching reads as "you are about to leave the
+// hitters". The internal value stays 'pitches' so the board-usage analytics keep one name.
 type Side = 'hitting' | 'pitching'
 type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs'
 
@@ -74,19 +69,19 @@ type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs'
  *  page column. Everything else is one column and stays at the list measure. */
 // Boards whose CONTENT is a wide multi-column grid and so earns the wider page column. Find is
 // deliberately NOT one: it is a form and a pair of result cards, and at the wide column its
-// controls stretched to absurd widths (a stat dropdown ran the whole row) and the cards read as
+// controls stretch to absurd widths (a stat dropdown running the whole row) and the cards read as
 // sparse. It caps at the ordinary board column instead; its results still split into two under it.
 const WIDE_BOARDS = new Set<Source>(['runs', 'bests'])
 type Mode = 'players' | 'teams'
 
-// The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
-// column, and a legacy ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
+// The deep-link contract: a link asks for 'hitting'/'pitching' with a column, and a legacy
+// ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
 type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'runs' | 'findings'
 
 // Whether this page-load has already logged an arrival at Stats. Module scope rather than a
-// ref inside the component, because the pager unmounts the pane on the way out of the tab:
-// a component-scoped flag is born false on every visit, which would call all of them 'open'
-// and leave the two names measuring nothing.
+// ref inside the component, because the tab's pane can unmount on the way out (on desktop only
+// the active tab is rendered): a component-scoped flag would be born false on every visit, call
+// every arrival 'open' and leave the two names measuring nothing.
 let statsOpened = false
 
 // A tracking link names no side, so it lands on whichever one the reader already had open.
@@ -94,9 +89,9 @@ function axesOf(g: Group): { side?: Side; source: Source } {
   if (g === 'tracking') return { source: 'tracked' }
   if (g === 'pitches') return { source: 'pitches' }
   if (g === 'runs') return { source: 'runs' }
-  // Findings was folded into Run value on Sep 10, 2026 (see PlayValue.tsx). The group stays in
-  // the union rather than being deleted: nothing in the app constructs it any more, but a
-  // bookmark or a stale link still can, and the honest answer is the board its cards moved to.
+  // Findings is folded into Run value (see PlayValue.tsx). The group stays in the union rather
+  // than being deleted: nothing in the app constructs it, but a bookmark or a stale link still
+  // can, and the honest answer is the board its cards moved to.
   if (g === 'findings') return { source: 'runs' }
   return { side: g, source: 'season' }
 }
@@ -161,9 +156,9 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
   { key: 'hbp',  label: 'HBP',  value: t => t.hbp },
   { key: 'wp',   label: 'WP',   value: t => t.wp },
   { key: 'bk',   label: 'BK',   value: t => t.bk },
-  // How much work the outing WAS, as opposed to what it gave up. Every one of these is on
-  // the feed's line and none of them was summed anywhere before Aug 27: the board could say
-  // a pitcher allowed two runs and not that she faced nine batters or threw ninety pitches.
+  // How much work the outing WAS, as opposed to what it gave up. Every one of these is on the
+  // feed's line, and without them the board could say a pitcher allowed two runs but not that they
+  // faced nine batters or threw ninety pitches.
   { key: 'kbb',  label: 'K/BB', value: t => t.kbb, display: t => fmtTwo(t.kbb), rate: true },
   { key: 'strikePct', label: 'STR%', value: t => t.strikePct,
     display: t => (t.strikePct == null ? '—' : `${Math.round(t.strikePct * 100)}%`), rate: true },
@@ -173,10 +168,6 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
   { key: 'g',    label: 'G',    value: t => t.g },
 ]
 
-// Resolve a requested column into the sort state the table should adopt. Direction comes from
-// the column itself (`lowerBetter` → ascending, so ERA/WHIP lead with the best), which is why
-// a leader card only has to name a column and never a direction. An unknown or absent key
-// falls back to the group's headline column — the first in each list.
 // ─── the view in the address bar ──────────────────────────────────────────────
 
 /**
@@ -206,27 +197,24 @@ const STATS_PATH = '/wpbl/stats'
  *
  * WHY WpblApp HAS TO KNOW. `urlFor` builds a URL out of the navigation snapshot and nothing
  * else, and the effect that stamps the section's first history entry calls it on mount. So on a
- * COLD LOAD every param on the address it was opened at is discarded in the first tick, before
- * this component has rendered once: `/wpbl/stats?board=runs` opened on Players, with the query
- * gone from the address bar and nothing anywhere saying it had been asked for. Every board has
- * behaved that way since the params shipped, which is the expensive half: switching boards
- * writes the param correctly, so a link a reader copies is right and the same link pasted back
- * quietly lands them somewhere else.
+ * COLD LOAD every param on the address it was opened at would be discarded in the first tick,
+ * before this component has rendered once: `/wpbl/stats?board=runs` would open on Players with
+ * the query gone. That is the expensive kind of failure, because switching boards writes the
+ * param correctly, so a link a reader copies is right and the same link pasted back quietly lands
+ * them somewhere else.
  *
- * The same failure is written out twice already in WpblApp, for `awards` (the ballot link lost
- * its sheet) and for a club slug, and both were fixed by teaching the snapshot about them.
- * These four are not snapshot state: they are a board's own view of itself, owned and written
- * here, so the list is exported instead and `urlFor` carries whatever it finds under these
- * names when the target is this tab. See `playFragmentFor` in entryUrl.ts for the third member
- * of this family, the fragment, which needed capturing rather than carrying.
+ * These are not snapshot state: they are a board's own view of itself, owned and written here,
+ * so the list is exported instead and `urlFor` carries whatever it finds under these names when
+ * the target is this tab. See `playFragmentFor` in entryUrl.ts for the related case of the URL
+ * fragment, which needs capturing rather than carrying.
  */
 export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue'] as const
 
 /** Copy this board's params from one query onto another, leaving everything else alone.
  *
- *  ONE DEFINITION, used by the writer effect below and by `urlFor` in WpblApp, so a fifth param
- *  added here cannot be carried by one and dropped by the other. That asymmetry is the shape the
- *  original bug had: the writer knew about all four and the carrier knew about none. */
+ *  ONE DEFINITION, used by the writer effect below and by `urlFor` in WpblApp, so a param added
+ *  here cannot be carried by one and dropped by the other, which is the asymmetry that loses a
+ *  board's state on a pasted link. */
 export function carryStatsParams(from: URLSearchParams, to: URLSearchParams): void {
   for (const k of STATS_URL_PARAMS) {
     const v = from.get(k)
@@ -283,6 +271,10 @@ function axesFromQuery(): {
   }
 }
 
+// Resolve a requested column into the sort state the table should adopt. Direction comes from
+// the column itself (`lowerBetter` → ascending, so ERA/WHIP lead with the best), which is why a
+// link only has to name a column and never a direction. An unknown or absent key falls back to
+// the group's headline column, the first in each list.
 function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
   const cols: Col<never>[] = (side === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
@@ -290,7 +282,7 @@ function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
 }
 
 // What each abbreviation stands for, for the stat picker. A sheet that offers "SLG, OPS, OPS+"
-// and nothing else is a vocabulary test, and this section's audience is two months old: the
+// and nothing else is a vocabulary test, and this section's audience is new to the league: the
 // point of the picker is that a reader who knows what an RBI is can find their way around it.
 //
 // Per side, because the same three letters are two different stats depending on who is being
@@ -328,7 +320,7 @@ function cellText<T>(c: Col<T>, t: T): string {
 // TWO LISTS, PICKED BY WHAT THE BOARD IS RANKED ON, because the question the line has to answer
 // changes with it. Ranked by a RATE, the first thing missing is how much of a season it was
 // measured over: .500 off nine trips to the plate and .500 off ninety are not the same claim,
-// so the line leads with PA (or innings, for a pitcher) and follows with what she did with
+// so the line leads with PA (or innings, for a pitcher) and follows with what they did with
 // them. Ranked by a COUNTING stat, volume is already the big number on the right and repeating
 // it teaches nobody anything, so the line spends itself on the rates instead: eight home runs
 // beside a .658 average and a 1.998 OPS is a season in one row.
@@ -348,10 +340,10 @@ const CONTEXT_KEYS: Record<Side, { rate: string[]; counting: string[] }> = {
 }
 
 // How much of the list a phone gets before it asks. Ten is a leaderboard; thirty-four is a
-// directory, and the difference matters more than the rows do: everything UNDER the list (the
-// switch to the full grid, the count, the draft-value card) was two thousand pixels down, so
-// in practice nobody found it. A capped list puts the whole board and everything it offers on
-// one screen and a bit, and the reader who wants the other twenty-four asks for them.
+// directory, and the difference matters more than the rows do: everything UNDER an uncapped list
+// (the switch to the full grid, the count) is two thousand pixels down, so in practice nobody
+// finds it. A capped list puts the whole board and everything it offers on one screen and a bit,
+// and the reader who wants the rest asks for them.
 const LIST_CAP = 10
 
 // Phones get the ranked list; this is the escape hatch for the reader who wants the grid
@@ -362,7 +354,7 @@ function readFullTable(): boolean {
   try { return localStorage.getItem(FULL_TABLE_KEY) === '1' } catch { return false }
 }
 
-// One table row — normalized so the same table renders a player or a whole team.
+// One table row, normalized so the same table renders a player or a whole team.
 interface Row {
   key: string
   team: WpblTeam | undefined       // for the badge (a player's club, or the team itself)
@@ -382,7 +374,6 @@ interface Row {
 
 // Break the table out of the 720px page column so every stat column is visible. The page
 // is horizontally centered, so centering a viewport-wide box on it reads as full-bleed.
-// Zoom-aware: inside the desktop `zoom` wrapper vw units aren't shrunk, so divide by
 // Capped so it doesn't sprawl on huge monitors.
 const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 
@@ -391,10 +382,6 @@ const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 // Exactly one of the two terms is non-zero at a time: the toolbar is sticky only on desktop,
 // the section nav only on mobile, so the sum lands just below the chrome on both without
 // either breakpoint being special-cased at the call sites.
-//
-// It divided by `--app-zoom` for one commit, while the toolbar had left the zoom and this
-// section had not. Both are out now, so a published rect and a sticky `top` are the same
-// pixel and the sum is spent as it arrives.
 const PINNED_CHROME = 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))'
 const fullBleedSx = {
   width: FULL_BLEED_W,
@@ -408,11 +395,11 @@ const fullBleedSx = {
 // to stick, and those two can't share a box, since sticky spends `left` on its own threshold
 // and a transformed ancestor becomes the containing block for anything positioned inside it.
 //
-// EDGE TO EDGE ON A PHONE, WITH THE GUTTER AS PADDING. At the cards' width the bar stopped
-// 12px short of each side of the screen, so its background and the hairline under it ended in
-// mid-air while the nav bar directly above ran the whole way across: the tabs read as a strip
-// someone had cut the ends off. Content still lines up with the cards below, because the 12px
-// the bar gives back as padding is exactly the gutter the cards keep as margin.
+// EDGE TO EDGE ON A PHONE, WITH THE GUTTER AS PADDING. At the cards' width the bar would stop
+// 12px short of each side of the screen, so its background and the hairline under it would end
+// in mid-air while the nav bar directly above runs the whole way across. Content still lines up
+// with the cards below, because the 12px the bar gives back as padding is exactly the gutter the
+// cards keep as margin.
 //
 // PHONE ONLY, and `100vw` is the reason. It measures the viewport INCLUDING a classic
 // scrollbar, so on a desktop with one it is a dozen pixels wider than the page can hold and
@@ -436,9 +423,9 @@ const BOARD_TOP = `calc(${PINNED_CHROME} + var(--wpbl-stats-bar-h, 0px))`
  *
  *  A CONSTANT, BECAUSE IT IS FURNITURE. None of it moves with the data, the board or the
  *  viewport, which is what separates it from the footer above: that one wraps to more rows as
- *  the window narrows and has to be measured. Deriving this one instead meant reading the
+ *  the window narrows and has to be measured. Deriving this one instead would mean reading the
  *  document's height, which on a phone includes the swipe pager's floor and any blank the board
- *  is itself leaving, so the board's height fed back into its own cap and iterated away to
+ *  is itself leaving, so the board's height would feed back into its own cap and iterate away to
  *  nothing. */
 const BOARD_TAIL_PX = 104
 
@@ -462,22 +449,18 @@ const fullBleedStickySx = {
 // The two frozen columns are separate table cells, so the join between them is a seam, and a
 // fractional device pixel can open it into a 1px window onto the stats scrolling underneath.
 //
-// IT USED TO BE CLOSED BY OVERLAPPING, AND THAT COST MORE THAN THE SEAM DID. The pinned column
-// was stuck at `left: nameW - 2`, two pixels left of where the table actually puts it. Sticky
-// does not clamp until you have scrolled past its threshold, so the column sat flush at rest
-// and then CREPT two pixels left over the first two pixels of every horizontal scroll, in the
-// one place the whole design promises nothing moves. Visible on every phone, every scroll.
-//
-// So the offset is exact now (`left: nameW`, which is precisely the cell's own offsetLeft: the
-// collapsed border adds nothing, measured), and the seam is covered by something that cannot
-// move anything, drawn by the pinned column over the last of the name column beside it.
+// NOT CLOSED BY OVERLAPPING. Sticking the pinned column a couple of pixels left of where the
+// table puts it covers the seam at rest, but sticky does not clamp until you have scrolled past
+// its threshold, so the column would creep those pixels left over the start of every horizontal
+// scroll, in the one place the design promises nothing moves. So the offset is exact
+// (`left: nameW`, precisely the cell's own offsetLeft, since the collapsed border adds nothing),
+// and the seam is covered by something that cannot move anything, drawn by the pinned column
+// over the last of the name column beside it.
 //
 // NOT A BOX-SHADOW, WHICH IS THE TRAP HERE. `box-shadow` does not apply to internal table
 // elements when `border-collapse` is `collapse`, and this table collapses its borders. A
 // shadow set on one of these cells computes, inspects and reads back exactly as if it worked,
-// and paints nothing at all. That is also why FROZEN_EDGE below is a pseudo-element: the
-// frozen columns' drop shadow was written as a box-shadow the day the pinned column shipped
-// and has never once rendered.
+// and paints nothing at all. That is also why FROZEN_EDGE below is a pseudo-element.
 //
 // The cover redraws the divider at its right edge, because it lands on top of the name cell's
 // own border. 3px wide so rounding at any device pixel ratio has somewhere to land: the name
@@ -502,17 +485,14 @@ const FROZEN_EDGE = {
   pointerEvents: 'none' as const,
 }
 
-// Fixed width of the frozen Player column on mobile, so the pinned sort-value column can
-// sit flush against it with a constant `left` — no measurement to drift and let the two
-// frozen columns overlap the name when scrolled. Names ellipsize within it.
+// Fixed width of the frozen Player column on mobile, so the pinned sort-value column can sit
+// flush against it with a constant `left`: no measurement to drift and let the two frozen
+// columns overlap the name when scrolled. Names ellipsize within it.
 //
-// IN REM, because the column is reserving room for a name. These were raw pixels, which is the
-// unit CLAUDE.md reserves for ornament: a box sized in px around type sized in rem holds what
-// it used to hold while the text inside it grows. Two of these bit in one day, the game card's
-// own name column and the win probability caption, so these are converted on the way past
-// rather than left to be found later. They are NOT currently broken: the stats table shortens
-// names in JS before the CSS cap is reached, and measured at both text scales nothing here
-// ellipsizes. What was wrong was the unit, and with it the reason nothing ellipsizes.
+// IN REM, because the column is reserving room for a name: a box sized in px around type sized
+// in rem holds what it held while the text inside it grows (see CLAUDE.md on px in /wpbl). The
+// stats table shortens names in JS before the CSS cap is reached, so nothing here ellipsizes at
+// either text scale; the unit is what keeps it that way.
 //
 // The same rem on `left` as on the width, and that is load-bearing rather than tidy. These two
 // numbers are the same number by construction (see the note above on the frozen columns' seam:
@@ -530,14 +510,14 @@ const NAME_W = '9.375rem'
 // offset with it.
 const NAME_INNER_MAX = '5.25rem'
 // Teams mode gets a narrower frozen column. There are only four rows, each with a distinct
-// badge, and the nickname alone identifies them — so the width a player's full name needs is
+// badge, and the nickname alone identifies them, so the width a player's full name needs is
 // dead space here, and every pixel of it is a stat column pushed off a phone screen.
 // No rank number in this mode (see the row), so the budget is padding + badge + gap + label.
 const TEAM_NAME_W = '6.5rem'
 const TEAM_NAME_INNER_MAX = '3.875rem'
 
-/** What the table should be showing, when it's opened from somewhere else (a Home leader
- *  card's "View all"). `token` increments on every such jump — see the effect below. */
+/** What the table should be showing, when it's opened from somewhere else (a "Full stats"
+ *  link). `token` increments on every such jump: see the effect below. */
 export interface WpblStatsFocus {
   group: Group
   sortKey?: string  // a HIT_COLS / PIT_COLS key; falls back to the group's default column
@@ -546,19 +526,19 @@ export interface WpblStatsFocus {
   /** Pre-select the team filter chip (players mode only). null clears it. */
   teamId?: string | null
   /** Force the Qualified filter on or off (players mode only). Left alone when omitted, so
-   *  an ordinary leader-card jump still lands on whatever the season default is.
+   *  an ordinary jump still lands on whatever the season default is.
    *
    *  FALSE IS THE INTERESTING ONE, and the team page's roster link is why it exists. That
-   *  card lists the whole roster, so "Full stats" landing on the qualified board dropped
+   *  card lists the whole roster, so "Full stats" landing on the qualified board would drop
    *  most of the names the reader had just been looking at: the door out of a 30-player list
-   *  opened onto a 9-player one, with nothing on screen saying a filter had been applied. */
+   *  opening onto a 9-player one, with nothing on screen saying a filter had been applied. */
   qualified?: boolean
   token: number     // 0 = nothing requested yet
 }
 
 // Placeholder while a sub-tab's chunk arrives. These views render in place under the group
 // bar, so a centred spinner in the content area is what the reader already sees while their
-// data loads — the switch reads as slow rather than broken.
+// data loads, and the switch reads as slow rather than broken.
 function SubViewFallback() {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -598,8 +578,8 @@ export default function WpblStatsView({
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const [loading, setLoading] = useState(() => getCachedWpblAllPlayers() == null || getCachedWpblAllLines() == null)
-  // The name column is a fixed 84px, so the default character threshold is the wrong test —
-  // it let a 12-character "Jamie Mackay" through whole to be cut to "Jamie Mac…" while a
+  // The name column is a fixed width, so the default character threshold is the wrong test: it
+  // would let a 12-character "Jamie Mackay" through whole to be cut to "Jamie Mac…" while a
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
   const shortName = useWpblName(0)
   const playerLink = useWpblPlayerLink()
@@ -614,19 +594,19 @@ export default function WpblStatsView({
   const [eraNoteOpen, setEraNoteOpen] = useState(() => shouldShowBadge('era-per-9'))
   const dismissEraNote = () => { markBadgeSeen('era-per-9'); setEraNoteOpen(false) }
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Horizontal-scroll edges — drive the frozen-column shadow (not at start) and the
+  // Horizontal-scroll edges: they drive the frozen-column shadow (not at start) and the
   // right-edge fade (not at end), so it's obvious the table scrolls sideways.
   const [scrollX, setScrollX] = useState({ atStart: true, atEnd: true })
 
   // A deep link picks the starting axes; everything else defaults to the season hitting table.
   const seedAxes = axesOf(focus?.group ?? 'hitting')
   // A tracking link names no side, so in-session it keeps whichever one the reader had. On a
-  // cold load there's nothing to keep, and an old ?view=tracking bookmark used to open on the
-  // velocity boards — so seed those rather than dropping it somewhere it has never been.
+  // cold load there's nothing to keep, and an old ?view=tracking bookmark means the velocity
+  // boards, so seed those rather than dropping it somewhere it has never been.
   // THE ADDRESS BAR WINS ON A COLD LOAD, and `focus` wins after that. They answer two different
-  // questions: `focus` is an in-app jump ("View all" on a leader card, "Full stats" on a club),
-  // which arrives with a bumped token and should always be obeyed; this is what the reader
-  // asked for by opening the link, and it only exists at mount. Read once, for that reason.
+  // questions: `focus` is an in-app jump ("Full stats" on a club), which arrives with a bumped
+  // token and should always be obeyed; this is what the reader asked for by opening the link,
+  // and it only exists at mount. Read once, for that reason.
   const fromUrl = useRef(axesFromQuery()).current
   const [side, setSide] = useState<Side>(
     fromUrl.side ?? seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
@@ -664,18 +644,14 @@ export default function WpblStatsView({
     fetchWpblTrackedGameCount().then(n => { if (!cancelled) setTrackedGames(n) }).catch(() => {})
     return () => { cancelled = true }
   }, [])
-  // The PA / IP qualifier only defaults on once every team has played 2+ games;
-  // before that it would hide nearly everyone, so the complete table shows by default.
   // Is the control bar holding content under itself? Sticky gives no way to ask, so compare
   // the bar with a zero-height marker sitting immediately above it: the two tops agree until
   // the bar is pinned and the page has scrolled on without it. Cheaper than reading the
   // resolved `top` off the CSS variables on every scroll event, and it needs no threshold.
   //
-  // The marker exists because this used to compare against the bar's PARENT, on the reasoning
-  // that the bar was the first thing in it. The page-level <h1> above it broke that silently
-  // in v1.49.0: the parent's top then sits a heading's height higher, so the comparison was
-  // true at rest and the bar wore its pinned edge permanently, on a page nobody had scrolled.
-  // Anchoring to a sibling means anything added above the bar cannot do that again.
+  // A SIBLING MARKER, NOT THE BAR'S PARENT. Anything added above the bar inside the parent (the
+  // page's <h1> is one) shifts the parent's top, so a parent comparison would be true at rest and
+  // the bar would wear its pinned edge on a page nobody had scrolled.
   useEffect(() => {
     const onScroll = () => {
       const el = barRef.current
@@ -738,11 +714,10 @@ export default function WpblStatsView({
     () => fromUrl.sortAsc ?? defaultSort(fromUrl.side ?? seedAxes.side ?? 'hitting', fromUrl.sortKey ?? focus?.sortKey).asc)
 
   // ── What board is being read ─────────────────────────────────────────────────
-  // Stats is the most-opened tab in the section and, until this, the only one whose contents
-  // were invisible: the axes are component state and never reach the URL, so neither
-  // `wpbl_tab_viewed` nor Cloudflare's path counts can tell Hitting from the Draft board.
-  // Logged imperatively at each place the board changes rather than from an effect on the
-  // axes, because the useful part is *why* it changed and only the caller knows that.
+  // Stats is the most-opened tab in the section, and a path count cannot tell its boards apart,
+  // so each board change is logged. Imperatively, at each place the board changes, rather than
+  // from an effect on the axes, because the useful part is *why* it changed and only the caller
+  // knows that.
   type BoardVia = 'open' | 'return' | 'link' | 'side' | 'source' | 'mode'
   const logBoard = (via: BoardVia, next?: { side?: Side; source?: Source; mode?: Mode }) =>
     track(EVENTS.WPBL_STATS_BOARD, {
@@ -756,11 +731,11 @@ export default function WpblStatsView({
   // handoff the one visit would be logged twice, once per reason.
   const linkLogged = useRef(false)
 
-  // Re-focus the table whenever a leader card sends us here. Keyed on `token`, NOT on the
+  // Re-focus the table whenever another surface sends us here. Keyed on `token`, NOT on the
   // group/column values: this panel stays mounted once visited, so seeding state at mount is
-  // not enough (a second "View all" used to be a no-op), while reacting to the values alone
-  // would fight the reader's own sorting on every unrelated re-render. A token bump means
-  // "the reader just asked for this view" and nothing else does.
+  // not enough (a second jump would be a no-op), while reacting to the values alone would
+  // fight the reader's own sorting on every unrelated re-render. A token bump means "the
+  // reader just asked for this view" and nothing else does.
   const requested = focus?.token ?? 0
   useEffect(() => {
     if (!focus || requested === 0) return
@@ -768,9 +743,8 @@ export default function WpblStatsView({
     if (axes.side) setSide(axes.side)
     setSource(axes.source)
     // A link can also ask for the teams board, for the player board already narrowed to one
-    // club, or for the qualified filter off — the states the team page links into. All three
-    // are left alone when the link doesn't mention them, so an ordinary leader-card jump
-    // behaves exactly as before.
+    // club, or for the qualified filter off: the states the team page links into. All three
+    // are left alone when the link doesn't mention them, so an ordinary jump is unaffected.
     if (focus.mode) setMode(focus.mode)
     if (focus.teamId !== undefined) setTeamId(focus.teamId)
     if (focus.qualified !== undefined) setQualified(focus.qualified)
@@ -795,7 +769,7 @@ export default function WpblStatsView({
   }, [active])
 
   // Revalidate on mount, but skip the DB round trip entirely when the shared cache is
-  // still fresh — so a quick swipe out and back is instant and silent. Box scores move
+  // still fresh, so a quick swipe out and back is instant and silent. Box scores move
   // as games are played, so a stale cache (or a live game) still refreshes in the
   // background without gating the already-painted table behind the spinner.
   useEffect(() => {
@@ -817,7 +791,7 @@ export default function WpblStatsView({
   // reliable adjustment, so we omit it (implicitly 1.0). Sits right after OPS.
   const hitCols = useMemo<Col<WpblBattingTotals>[]>(() => {
     // The baseline is the same slice as the rows it ranks, or a playoff hitter's OPS+ is
-    // measured against a 30-game league she is not being compared with.
+    // measured against a regular-season league they are not being compared with.
     const lg = sumBatting(lines.batting, games, scope)
     const lgObp = lg.obp, lgSlg = lg.slg
     const opsPlus = (t: WpblBattingTotals): number | null =>
@@ -831,7 +805,7 @@ export default function WpblStatsView({
       cols.splice(cols.findIndex(c => c.key === 'g'), 0, {
         key: 'lob', label: 'LOB',
         value: t => t.lob,
-        // Never the default `String(v ?? 0)` — an unreported LOB must read as "unknown",
+        // Never the default `String(v ?? 0)`: an unreported LOB must read as "unknown",
         // not as "nobody was left on".
         display: t => (t.lob == null ? '—' : String(t.lob)),
       })
@@ -847,7 +821,7 @@ export default function WpblStatsView({
   }, [lines.batting, mode, games, scope])
 
   // ERA+ mirrors OPS+ for pitchers: league ERA over the pitcher's ERA, ×100 (100 = league
-  // average, higher is better — note it inverts ERA, so unlike ERA it sorts descending). No
+  // average, higher is better; it inverts ERA, so unlike ERA it sorts descending). No
   // park factor, same reasoning as OPS+. A 0.00 ERA has no finite ratio, so it reads "∞" and
   // sorts to the top rather than dashing to the bottom. Sits right after ERA.
   const pitCols = useMemo<Col<WpblPitchingTotals>[]>(() => {
@@ -858,17 +832,17 @@ export default function WpblStatsView({
     }
     const cols = [...PIT_COLS]
     const eraIdx = cols.findIndex(c => c.key === 'era')
-    // ERA is stored on the league's own basis (`ERA_BASIS_CANONICAL` in stats.ts, 7 since the
-    // league switched in Sep 2026) and shown on whatever the reader chose. Swapped in here
-    // rather than in PIT_COLS because that list is a module constant with no reader to ask.
-    // `value` is left on the stored number on purpose: the sort is identical either way, and
-    // leaving it alone keeps ERA+ below reading the same figure the league does.
+    // ERA is stored on the league's own basis (`ERA_BASIS_CANONICAL` in stats.ts) and shown on
+    // whatever the reader chose. Swapped in here rather than in PIT_COLS because that list is a
+    // module constant with no reader to ask. `value` is left on the stored number on purpose: the
+    // sort is identical either way, and leaving it alone keeps ERA+ below reading the same figure
+    // the league does.
     cols[eraIdx] = { ...cols[eraIdx], display: t => fmtEra(t.era) }
     // The strikeout rate belongs beside ERA for the same reason ERA is swapped in here: it is
     // stored on the canonical basis and shown on whatever the reader chose, so even its LABEL
     // is not knowable in a module constant, which is why `kRateLabel` builds it. Do not write
-    // 'K/9' anywhere: the heading has been K/7 since Sep 2026 and moves again if the league
-    // moves. `value` stays on the stored number, which sorts identically.
+    // 'K/9' or 'K/7' anywhere: the heading follows the league's basis. `value` stays on the stored
+    // number, which sorts identically.
     const soIdx = cols.findIndex(c => c.key === 'so')
     cols.splice(soIdx + 1, 0, {
       key: 'k9', label: kRateLabel(eraBasis),
@@ -1030,8 +1004,8 @@ export default function WpblStatsView({
   const rows = useMemo<Row[]>(() => {
     let built: Row[]
     if (mode === 'teams') {
-      // One row per team (only four). Team G is the team's games played — the count of
-      // distinct game_ids — not the number of player lines that sumBatting/sumPitching add up.
+      // One row per team (only four). Team G is the team's games played (the count of distinct
+      // game_ids), not the number of player lines that sumBatting/sumPitching add up.
       built = teams.map(team => {
         const src = side === 'hitting'
           ? lines.batting.filter(l => l.team_id === team.id)
@@ -1039,12 +1013,10 @@ export default function WpblStatsView({
         // SCOPED ONCE, HERE, AND EVERYTHING ON THE ROW READS OFF IT.
         //
         // `sumBatting` and `sumPitching` take the schedule and the scope as required arguments
-        // precisely so a season total cannot silently include the postseason, and they held up
-        // their end. The two figures this branch computes ITSELF did not: the set of game ids
-        // was built from the unfiltered lines, so a club's G counted its playoff games and its
-        // LOB added their runners on, on every scope including Regular season. Nothing about
-        // that reads as wrong on screen, because the other twenty columns in the same row are
-        // filtered and only these two are not.
+        // precisely so a season total cannot silently include the postseason. The two figures this
+        // branch computes ITSELF, G and LOB, get no such protection: built from unfiltered lines they
+        // would count a club's playoff games and runners on every scope, and nothing on screen would
+        // look wrong, because the other columns in the same row are filtered.
         //
         // Filtering here and still passing `games` and `scope` below is deliberate belt and
         // braces: `scopedLines` is idempotent, and keeping the required arguments means nobody
@@ -1079,9 +1051,9 @@ export default function WpblStatsView({
         : aggregatePitching(players, lines.pitching, games, scope).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
-      // The qualifier applies to every sort, counting stats included — a 1-for-1 HR leader
-      // shouldn't top the board over a full-season slugger. (Was rate-columns only, which
-      // made the lit "✓ Qualified" chip silently do nothing on counting stats.)
+      // The qualifier applies to every sort, counting stats included: a 1-for-1 HR leader shouldn't
+      // top the board over a full-season slugger, and a lit "✓ Qualified" chip must not silently do
+      // nothing on a counting stat.
       if (qualified) list = list.filter(s => s.qualified)
       built = list.map(s => ({
         key: s.player.id, team: teamById.get(s.player.team_id),
@@ -1126,10 +1098,9 @@ export default function WpblStatsView({
     // answer.
     { key: 'find', label: 'Find', badge: newBoards?.has('find') },
     { key: 'pitches', label: 'Pitch by pitch' },
-    // Live for everyone. It spent its first weeks behind the experimental-features switch,
-    // which meant the board most likely to be misread was shown only to the readers least
-    // likely to misread it; what it needed was the sentence above the table saying what a
-    // "run" means here, not a flag almost nobody flips.
+    // Not behind the experiments switch: the board most likely to be misread should not be shown
+    // only to the readers least likely to misread it. What it needs is the sentence above the
+    // table saying what a "run" means here.
     { key: 'runs', label: 'Run value' },
     // Hidden while the league has published radar for barely any games, and kept for the
     // session once a link has opened it anyway. See trackedOffered.
@@ -1156,11 +1127,11 @@ export default function WpblStatsView({
 
   // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
   // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
-  // league by a stat) meant scrolling sideways to hunt for the column and tapping its header.
+  // league by a stat) would mean scrolling sideways to hunt for the column and tapping its header.
   // The list ranks by one stat, chosen from a control that says which, and carries three more
-  // under each name for context; everything else about a player is one tap away on her card,
-  // where it was always better presented. Desktop keeps the table: there the grid fits, and
-  // comparing across columns is the thing a grid is for.
+  // under each name for context; everything else about a player is one tap away on their card,
+  // where it is better presented. Desktop keeps the table: there the grid fits, and comparing
+  // across columns is the thing a grid is for.
   const listView = isNarrow && source === 'season' && !fullTable
 
   // The three context stats: the preference list minus whatever is already the big number.
@@ -1212,12 +1183,10 @@ export default function WpblStatsView({
         {[
           capped ? `${LIST_CAP} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
           ...filterWords,
-          // WHICH GAMES, IN WORDS. It used to be able to say "season" and mean it, because the
-          // three scope chips sat in the bar where a reader could see which one was lit. They
-          // are in the Filters sheet on a phone now, and a sheet is shut: a board counting the
-          // playoffs looked exactly like one counting the season, for the reader most likely
-          // to have set it by accident. The pill's dot says only that SOMETHING is not the
-          // default; this is the line that says what.
+          // WHICH GAMES, IN WORDS. On a phone the scope chips live in the Filters sheet, and a sheet is
+          // shut: a board counting the playoffs looks exactly like one counting the season, for the
+          // reader most likely to have set it by accident. The pill's dot says only that SOMETHING is
+          // not the default; this is the line that says what.
           scope === 'postseason' ? '2026 playoffs'
             : scope === 'all' ? '2026 season + playoffs'
             : '2026 season',
@@ -1230,14 +1199,12 @@ export default function WpblStatsView({
         {!listView && ' · tap a column to sort'}
       </Typography>
       {/* The way into the grid and back out. At the foot rather than in the control bar: it is
-          a preference someone sets once, not a control they work with, and the bar is the
-          thing this redesign is trying to make smaller. It only reads as a foot now that the
-          list is capped, which is the point of capping it.
+          a preference someone sets once, not a control they work with, and every pixel of the
+          bar is taken from the board. It reads as a foot because the list is capped.
 
-          The row above it adds PLAYERS and this one adds COLUMNS. "Every stat" named the
-          second by what it gets you, which read well next to the first and badly on its own:
-          the thing it switches to is a table, and calling it anything else means a reader has
-          to find out what it does by pressing it. */}
+          The row above it adds PLAYERS and this one adds COLUMNS. The label names what it
+          switches to, a table, rather than what it gets you, so a reader does not have to
+          press it to find out what it does. */}
       {isNarrow && source === 'season' && (
         <Box {...pressable(toggleFullTable)} sx={{
           ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -1252,7 +1219,7 @@ export default function WpblStatsView({
 
   // The sorted column (OPS / ERA by default) is at the far right, off-screen on a phone
   // where the table scrolls horizontally. Bring the highlighted column into view on load and
-  // when switching sides — but only if it isn't already visible, so a wide desktop
+  // when switching sides, but only if it isn't already visible, so a wide desktop
   // table (all columns shown) or a user who's scrolled elsewhere is left alone.
   useLayoutEffect(() => {
     if (loading || pinActive) return // pinned: the sorted column is always in view (frozen)
@@ -1296,23 +1263,20 @@ export default function WpblStatsView({
     // how tall the board is allowed to be. A pinned board stays pinned only while its
     // containing block has somewhere left to travel, and the arithmetic comes out at exactly
     // one condition: the board must fit in the screen under the bar with room for whatever
-    // follows it. Make it taller than that and it stops being pinned before the reader stops
-    // scrolling, which is the version of this that was reported.
+    // follows it. Taller than that and it stops being pinned before the reader stops scrolling.
     //
     // MEASURED OFF THE `<footer>` ELEMENT, not off the document's height, and the difference is
     // the whole reason this is safe. The document's height includes the swipe pager's floor
     // (`minHeight` in SwipeableViews, which keeps a short tab a full-screen swipe target) and
     // any blank the board itself is leaving; feeding that back into the board's height is a
-    // loop, and it ran the table down to nothing before rendering it as though the data had
-    // failed to load. The footer's height cannot depend on the board's.
+    // loop that runs the table down to nothing. The footer's height cannot depend on the board's.
     const publish = () => {
-      // THE ONE THAT IS LAID OUT, and looked up every time rather than held from the first
-      // pass. Both halves of that were bugs. `/wpbl` keeps all five tabs of its swipe pager
-      // mounted, so the page has FIVE `<footer>` elements and `querySelector` returns a hidden
-      // tab's, which measures zero; and the shell's footer is not guaranteed to be in the
-      // document at all when this board first mounts. Either way a zero gets published, the
-      // board sizes itself as though there were nothing beneath it, and the reader gets back
-      // the headers sliding behind the bar that this whole arrangement exists to stop.
+      // THE ONE THAT IS LAID OUT, and looked up every time rather than held from the first pass.
+      // `/wpbl` keeps its swipe pager's visited tabs mounted, so the page can hold several
+      // `<footer>` elements and `querySelector` may return a hidden tab's, which measures zero; and
+      // the shell's footer is not guaranteed to be in the document when this board first mounts.
+      // Either way a zero would be published, the board would size itself as though nothing were
+      // beneath it, and the headers would slide behind the bar this arrangement exists to stop.
       const foot = Array.from(document.querySelectorAll('footer'))
         .find(f => f.getBoundingClientRect().height > 0)
       root.style.setProperty('--wpbl-stats-bar-h', `${el.getBoundingClientRect().height}px`)
@@ -1345,21 +1309,18 @@ export default function WpblStatsView({
     color: 'text.disabled', py: 0.75, px: 0.5, whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   }
 
-  /* ROW ONE: WHICH BOARD. Five pages, one row, underline tabs, because that is what they
-       are: tapping one replaces the screen. They used to be chips on the second row, in the
-       same pill shape as the team filter and the qualified toggle, so "Run value" (a
-       different page) and "LA" (a filter on this one) were drawn identically, and the side
-       of the ball, which applies to all five, sat ABOVE them and looked more important.
-       The hierarchy is the right way up now: board, then side, then filters.
+  /* ROW ONE: WHICH BOARD. One row of underline tabs, because that is what they are:
+      tapping one replaces the screen. Drawn differently from the team filter and the
+      qualified toggle on purpose, so a different page and a filter on this one never
+      look alike, and placed above the side of the ball, which applies to all of them.
+      The hierarchy is board, then side, then filters.
 
-       Players and Teams are boards here rather than a Season/Players+Teams pair, which is
-       what lets the row exist at all. "Season" was never a useful label anyway (every
-       number on this section is this season); its real meaning was "the normal table", and
-       splitting it into the two things it actually ranks says that outright and takes the
-       conditional Players/Teams row away with it.
+      Players and Teams are boards here rather than a Season/Players+Teams pair: "Season"
+      means nothing on a section where every number is this season, and splitting it
+      into the two things it actually ranks says that outright.
 
-       Scrolls sideways rather than wrapping when Tracked is showing. SwipeableViews hands
-       the gesture back at the edges, so an extra flick still pages to the next tab. */
+      Scrolls sideways rather than wrapping when Tracked is showing. SwipeableViews hands
+      the gesture back at the edges, so an extra flick still pages to the next tab. */
    //
    // NOT PINNED ON A PHONE, which is where it is rendered from rather than what it looks
    // like. See where this is placed below.
@@ -1412,16 +1373,14 @@ export default function WpblStatsView({
     // Inert wherever the parent is not a flex container, which is every other caller.
     <Box sx={{ flexGrow: 1 }}>
       {/* The page's one <h1>: /wpbl/stats, the section's most-searched term. It sits above the
-          sticky control bar and scrolls away with the content, leaving the bar to pin as
-          before; the bar's top offset is unaffected because this is not sticky itself.
+          sticky control bar and scrolls away with the content, leaving the bar to pin; the
+          bar's top offset is unaffected because this is not sticky itself.
 
-          FULL BLEED, like everything under it. This tab is the one place in the section whose
-          content is wider than the page column, and the heading was still in that column: on a
-          desktop it started 119px right of the board tabs directly beneath it and of the table
-          under those, so it read as floating at no particular margin rather than as the title
-          of the thing below. It lines up with the left edge of the board now. Same measure as
-          the table (`fullBleedSx`), not the bar's, which is deliberately wider still and gives
-          the difference back as padding, so the two agree on where content starts. */}
+          FULL BLEED, like everything under it. This tab's content is wider than the page
+          column, so a heading left in that column would start well right of the board tabs
+          and the table beneath it and read as floating. Same measure as the table
+          (`fullBleedSx`), not the bar's, which is deliberately wider still and gives the
+          difference back as padding, so the two agree on where content starts. */}
       <Typography component={headingTag} sx={{
         ...fullBleedSx,
         fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1,
@@ -1432,21 +1391,18 @@ export default function WpblStatsView({
       }}>
         WPBL Stats
       </Typography>
-      {/* The control bar, pinned. A 36-row table used to scroll every control off the top,
-          leaving no way to change side, source or filter without scrolling back up. It offsets
-          by PINNED_CHROME, whose note explains both terms and the division. Above the table's
-          own sticky header, which pins inside the scroll box below it. */}
+      {/* The control bar, pinned, so a long table never scrolls every control off the top. It
+          offsets by PINNED_CHROME, whose note explains both terms. Above the table's own
+          sticky header, which pins inside the scroll box below it. */}
       {/* Where the bar sits when nothing is pinning it. Zero height, no paint; see the
           barStuck effect for what reads it. */}
-      {/* ON A PHONE THE BOARD PICKER SCROLLS AWAY, and that is what pays for the table
-          below it.
+      {/* ON A PHONE THE BOARD PICKER SCROLLS AWAY, and that is what pays for the table below it.
           WHICH BOARD is a decision you make once and then read; SORT and FILTERS are what you
           reach for while reading, so those are what the bar keeps. Everything the bar pins is
           height the board underneath has to clear, because the board is pinned to the bar's
-          bottom edge and has to fit between there and the footer: these five tabs were 48px of
-          a 94px bar, and holding them cost a row of stats on every phone, at every scroll
-          position, to keep a control nobody uses twice.
-          Desktop keeps them in the bar, where the whole thing is one row and costs nothing. */}
+          bottom edge and has to fit between there and the footer: the tabs are about half the
+          bar, and pinning them would cost a row of stats on every phone at every scroll
+          position. Desktop keeps them in the bar, where the whole thing is one row. */}
       {isNarrow && <Box sx={{ ...fullBleedStickySx, pt: 1 }}>{boardTabs}</Box>}
       <Box ref={stuckMarkRef} aria-hidden sx={{ height: 0 }} />
       <Box ref={barRef} sx={{
@@ -1459,15 +1415,13 @@ export default function WpblStatsView({
         // An EDGE once it is holding something under it, and NOTHING before that. Without any
         // edge, rows slide up and vanish into an unexplained band of page colour below the
         // pills, which reads as the table being eaten rather than as a bar it is passing
-        // behind. The shadow alone carries that now: this also drew a hairline, which put a
-        // hard rule directly under the Hitting/Pitching pills and, on the boards that lead
-        // with prose rather than a table, sat across the page above the first sentence with
-        // nothing above it to separate. Two rules within 70px of each other (the board tabs
-        // draw the other) is one more than the hierarchy needs.
+        // behind. A shadow, not a hairline: a rule would sit directly under the Hitting/Pitching
+        // pills and, on boards that lead with prose, across the page above the first sentence,
+        // with the board tabs already drawing one rule nearby.
         //
         // BOTTOM EDGE ONLY, which is what the negative spread buys. A plain `0 4px 12px` blurs
         // 12px in every direction with no offset to pull it down, so on a full-bleed bar those
-        // 12px hung off the LEFT and RIGHT of the header as two vertical shadow strips down the
+        // 12px hang off the LEFT and RIGHT of the header as two vertical shadow strips down the
         // sides of the page. Spread equal to the negative of the blur cancels the horizontal
         // reach exactly (side extent = blur + spread = 0) while the y offset still drops a soft
         // edge below, which is the only side content actually passes under.
@@ -1494,56 +1448,47 @@ export default function WpblStatsView({
       {/* ROW TWO: HOW TO CUT IT. Side of the ball on the left in a segmented pill, which is a
           third visual language on purpose: underline tabs are pages, this is a two-way switch
           that applies to whichever page you are on, and chips are filters. The row keeps its
-          shape on every board (the right-hand controls just empty out), so the bar no longer
-          grows and shrinks under a sticky header as you move between boards. Emptying them out
+          height on every board (the right-hand controls just empty out), so the bar does not
+          grow and shrink under a sticky header as you move between boards. Emptying them out
           is not enough on its own to hold that height on a phone: see the switch below. */}
       <Box sx={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5,
-        // THE SWITCH SITS OVER THE BOARD IT SWITCHES, which is not the same place on every
-        // board. This bar is full-bleed because the season table under it is, and on Players
-        // and Teams that is exactly right: the pills start level with the table's first
-        // column. On the boards whose content is the ordinary page column it was 255px to the
-        // left of everything it applies to, hanging off the edge of the page with the board
-        // beginning a quarter of the way across. Pitch by pitch has read that way since it
-        // shipped; Run value joined it when its own content stopped filling the bleed.
+        // THE SWITCH SITS OVER THE BOARD IT SWITCHES, which is not the same place on every board.
+        // This bar is full-bleed because the season table under it is, and on Players and Teams that
+        // is right: the pills start level with the table's first column. On boards whose content is
+        // the ordinary page column, a full-bleed switch would hang off the edge of the page, well
+        // left of everything it applies to.
         //
-        // Same `chromePx(720)` and the same centring as those boards use, so this is not a
-        // number to keep in step with them: it is the page column, and the row lands on the
-        // column's edges because that is what the column is. On a season board the cap is not
-        // applied at all and the row spans the bleed as before, which also keeps Sort and
-        // Filters hard against the table's right edge.
+        // The same page-column cap and centring those boards use, so this is not a number to keep in
+        // step with them: it is the page column. On a season board the cap is not applied at all and
+        // the row spans the bleed, which also keeps Sort and Filters hard against the table's right edge.
         //
-        // It does mean the switch MOVES between boards, and the note above about the row
-        // keeping its shape was written about height rather than position. The trade is worth
-        // it: the row one nav above stays put, because that is the control you press to change
-        // boards and it cannot move out from under the press, while this one belongs to the
-        // board and follows it.
-        // The cap follows the BOARD, because Run value lays itself out in two columns on a
-        // large desktop and the rest do not. Pinned to one width for all of them, the switch
-        // would sit level with a 720px board on some tabs and 400px inside a 1150px one on
-        // another, which reads as the control drifting rather than as the board changing.
+        // So the switch MOVES between boards (the note above is about height, not position). The
+        // trade is worth it: the row of board tabs stays put, because that is the control pressed to
+        // change boards and it cannot move out from under the press, while this one belongs to the
+        // board and follows it. The cap follows the BOARD, because Run value lays itself out in two
+        // columns on a large desktop and the rest do not: one width for all of them would sit level
+        // with a 720px board on some tabs and well inside a 1150px one on another, which reads as the
+        // control drifting rather than as the board changing.
         ...(source === 'season' ? {} : {
           maxWidth: WIDE_BOARDS.has(source) ? { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE } : BOARD_COLUMN,
           mx: 'auto', width: '100%',
         }),
       }}>
-        {/* Two things, both about the switch staying put as the reader moves between boards.
-            The note above claims the row keeps its shape on every board; on a desktop that was
-            already true, because the switch is the tallest thing in it and nothing else is.
-            On a phone it was not.
+        {/* Two things, both about the switch staying put as the reader moves between boards on
+            a phone.
 
-            HEIGHT. The Sort/Filters pair on the right is 34 high against this switch's 28.7,
-            so the row stood 34 on Players and Teams and 28.7 on every board without that pair,
-            and moving between them nudged the switch and the whole board under it by five
-            pixels, under a bar that is otherwise pinned still. Reserving the taller height
-            HERE rather than on the row is deliberate: the row carries its own bottom padding,
-            so a min-height on it has to know that padding to mean anything, and would go quietly
-            wrong the day the padding changed.
+            HEIGHT. The Sort/Filters pair on the right is 34px high against this switch's 28.7,
+            so without a reserve the row stands 34 on Players and Teams and 28.7 elsewhere, and
+            moving between them nudges the switch and the board under it by five pixels, under a
+            bar that is otherwise pinned still. The reserve is HERE rather than on the row: the
+            row carries its own bottom padding, so a min-height on it would have to know that
+            padding, and would go quietly wrong the day the padding changed.
 
             WIDTH. It sits next to a pair that refuses to shrink, so on a narrow phone the flex
-            algorithm took the overflow out of the only item that could give: this one. A long
-            sort label ("Sort ERA+") is enough to do it, and the switch came out a few pixels
-            narrower on the season boards than on the others. Wrapping is the better failure. */}
+            algorithm would take any overflow out of this one (a long sort label like "Sort ERA+"
+            is enough), and the switch would come out narrower on some boards than others.
+            Wrapping is the better failure. */}
         <Box sx={{
           flexShrink: 0, display: 'flex', alignItems: 'center',
           minHeight: isNarrow ? 34 : undefined,
@@ -1616,11 +1561,9 @@ export default function WpblStatsView({
             books rather than one number counted over more games: a postseason record is its
             own record, and folding it into the regular season's would quietly overwrite a
             league record with a playoff one. */}
-        {/* DESKTOP ONLY. On a phone these three wrapped onto a row of their own, and that row
-            cost the table 44px of the little height it has: the board is capped so its column
-            headers cannot be carried up behind the bar, so every pixel the bar takes is a pixel
-            of table. They are in the Filters sheet there, which is what they are, and which
-            also spares the one board that had no Filters pill at all. */}
+        {/* DESKTOP ONLY. On a phone these three would wrap onto a row of their own and take that
+            height from the table, which is capped so its column headers cannot be carried up
+            behind the bar. They are in the Filters sheet there, which is what they are. */}
         {(source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {/* "Both" rather than "All", which is what this option is: the team filter sitting
@@ -1695,21 +1638,16 @@ export default function WpblStatsView({
           <WpblPitchView side={side} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
         </Suspense>
       ) : source === 'runs' ? (
-        // STILL FULL-BLEED, and the content inside it is capped and centred. The comment here
-        // used to justify the bleed by saying the board's two columns were a table and a
-        // leaderboard side by side, which wanted the width; that stopped being true when the
-        // how-it-works card came off the leaderboard's row. What is left is one sentence, one
-        // list and one collapsed explainer, and a list has nothing to spend width on.
+        // STILL FULL-BLEED, with the content inside capped and centred, even though the board is one
+        // sentence, one list and one collapsed explainer with nothing to spend width on.
         //
-        // Dropping the bleed and letting the board sit in the page column looks identical on a
-        // desktop and is wrong on a PHONE, which is the part worth writing down. `FULL_BLEED_W`
-        // is `calc(100vw - 24px)` there, which is 351px on a 375px screen against the page
-        // column's 343: the bleed is the WIDER of the two below `sm`, not the narrower. Those
-        // 8px are real. Measured at the reader's Large text setting, losing them clipped two
-        // names off the leaderboard that fit before.
+        // Dropping the bleed looks identical on a desktop and is wrong on a PHONE: `FULL_BLEED_W` is
+        // `calc(100vw - 24px)` there, which is 351px on a 375px screen against the page column's 343,
+        // so below `sm` the bleed is the WIDER of the two. Those 8px are real: at the Large text
+        // setting, losing them clips names off the leaderboard.
         //
-        // So the box keeps the width at every size and `RunValueView` decides what to do with
-        // it: nothing on a phone, where the cap never binds, and a centred column on a desktop.
+        // So the box keeps the width at every size and `RunValueView` decides what to do with it:
+        // nothing on a phone, where the cap never binds, and a centred column on a desktop.
         <Box sx={fullBleedSx}>
           <Suspense fallback={<SubViewFallback />}>
             <WpblRunValueView side={side} teams={teams} games={games} battingLines={lines.batting}
@@ -1736,12 +1674,11 @@ export default function WpblStatsView({
           scrollMarginTop: `calc(${PINNED_CHROME} + 104px)`,
           ...fullBleedSx,
         }}>
-          {/* A one-line header, the way the grid has one. The big number on the right was the
-              only unlabelled figure on the row: every stat in the line under a name carries
-              its abbreviation, and the one the whole board is ranked by carried none. Labelled
-              here rather than on each row, because ten greyed "AVG"s down a column is the same
-              word ten times, and it also gives the list the direction arrow the grid gets: on
-              the ERA board, ranked best first, the numbers ascend and nothing said so. */}
+          {/* A one-line header, the way the grid has one. Without it the big number on the right
+              would be the only unlabelled figure on the row. Labelled here rather than on each row,
+              because ten greyed "AVG"s down a column is the same word ten times, and it gives the
+              list the direction arrow the grid gets: on the ERA board, ranked best first, the
+              numbers ascend and nothing else says so. */}
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.7,
             borderBottom: '1px solid', borderColor: 'divider',
@@ -1774,8 +1711,8 @@ export default function WpblStatsView({
         <Box sx={{
           // PINNED UNDER THE BAR, so the page cannot carry the board's column headers up
           // behind it. The headers stick to the top of the scroll box inside, and that box is
-          // an ordinary element in page flow: without this, scrolling the PAGE took the whole
-          // board up and the labels went with it, which reads as a table that has lost its
+          // an ordinary element in page flow: without this, scrolling the PAGE takes the whole
+          // board up and the labels go with it, which reads as a table that has lost its
           // headings. The board has no reason to travel anyway. Everything a reader came here
           // to move is inside it, and the little the page has left to scroll is the footer.
           //
@@ -1798,33 +1735,23 @@ export default function WpblStatsView({
               nav, board picker, sort row. Subtracting all of it means "tall enough that nothing
               has to scroll", which is the right answer whenever the screen can afford it.
 
-              A landscape phone cannot. 375dvh less 260 left a 115px window on a 1149px table:
-              the header and TWO of thirty-three rows, which reads as broken rather than as
-              tight. There the page has to scroll, and the cap becomes what fits in the gap the
-              PINNED chrome leaves. Everything else scrolls away.
+              A landscape phone cannot: 375dvh less 260 is a 115px window, the header and two
+              rows, which reads as broken rather than tight. There the page has to scroll, and
+              the cap becomes what fits in the gap the PINNED chrome leaves.
 
               That gap is asked for rather than assumed. The shell publishes whichever of its
               bars is actually holding a position (--app-header-h on desktop, --wpbl-nav-h on
               mobile, both 0 when the bar is static), so subtracting the sum is right at every
-              width without naming a breakpoint here — and it followed by itself the day the
-              toolbar started scrolling away on a short screen. 100px is this page's OWN
-              control bar, which pins under them and is the one height the shell cannot report
-              (91px measured, the rest slack).
+              width without naming a breakpoint here. 100px is this page's OWN control bar,
+              which pins under them and is the one height the shell cannot report (about 91px,
+              the rest slack).
 
-              Going taller than that is not merely wasteful, it breaks the thing this box exists
-              for: a table taller than the free gap can never be scrolled fully into it, so its
-              sticky header ends up parked behind the nav and the reader loses the column labels
-              for the rest of the board. Tried at `100dvh - 60px` and measured: 315px of table
-              in a 240px gap, header at y=-94.
+              Going taller than that breaks the thing this box exists for: a table taller than
+              the free gap can never be scrolled fully into it, so its sticky header parks
+              behind the nav and the reader loses the column labels for the rest of the board.
 
-              560px is where the two meet, and is picked rather than guessed: it is the height
-              at which the first subtraction still leaves about eight rows, which is the point
-              below which a scroll-box stops being a table. The query and the calc now read the
-              same viewport: they used to diverge on desktop, where the calc was inside the
-              1.4 `zoom` and the query was not, which made the query late and the box merely
-              shorter than it could be. That was the safe direction and it no longer happens at
-              all. The unsafe direction, a box taller than the gap, was never reachable from
-              here. */}
+              560px is where the two meet: the height at which the first subtraction still
+              leaves about eight rows, the point below which a scroll-box stops being a table. */}
           <Box ref={scrollRef} sx={{
             overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
             // HOW TALL THE BOARD IS ALLOWED TO BE, and the two answers are different
@@ -1844,18 +1771,17 @@ export default function WpblStatsView({
             // less the board's own furniture.
             //
             // ON A DESKTOP IT IS NOT. The page barely moves under a board this size, so the
-            // guarantee was buying a case that does not arise and charging 138px of table for
-            // it. Wide screens keep the measure they have always had, where 260px is
+            // guarantee would buy a case that does not arise and charge well over a hundred
+            // pixels of table for it. Wide screens keep the plain measure, where 260px is
             // everything standing above the table at the top of the page.
             //
             // THE FOOTER IS MEASURED, THE REST IS NOT, and that split is the whole safety of
             // it. `--wpbl-foot-h` comes off the `<footer>` element, whose height cannot depend
-            // on the board's. Deriving the cap from the DOCUMENT's height instead is what
-            // broke: on a phone that includes the swipe pager's full-screen floor, so the
-            // board's height fed back into its own cap and iterated down to the floor below;
-            // read from a tab the pager had not yet shown, it measured a zero rect against
-            // another tab's document and rendered a board that was not there at all until the
-            // reader reloaded. The floor is what stops any of that reaching the screen again.
+            // on the board's. Deriving the cap from the DOCUMENT's height instead would loop:
+            // on a phone that includes the swipe pager's full-screen floor, so the board's
+            // height feeds back into its own cap, and read from a tab the pager has not yet
+            // shown it measures a zero rect and renders no board at all. The floor is what
+            // stops any of that reaching the screen.
             maxHeight: 'calc(100dvh - 260px)',
             '@media (max-width:600px)': {
               maxHeight: `max(${MIN_BOARD_PX}px, calc(100dvh - ${BOARD_TOP} - var(--wpbl-foot-h, 0px) - ${BOARD_TAIL_PX}px))`,
@@ -1895,10 +1821,10 @@ export default function WpblStatsView({
                           ...thBase, textAlign: 'center', cursor: 'pointer', minWidth: '2.375rem',
                           color: active ? 'var(--wpbl-accent-fg)' : 'text.disabled',
                           // The sorted column's tint rides on backgroundImage over the opaque
-                          // paper thBase already sets. As a bgcolor it *replaced* that paper
-                          // with a 14%-alpha accent, so this one header cell went see-through
-                          // and the rows scrolling under the sticky header showed through it.
-                          // Same layering the frozen column beside it already uses.
+                          // paper thBase already sets. As a bgcolor it would REPLACE that paper
+                          // with a 14%-alpha accent, so this one header cell would go see-through
+                          // and the rows scrolling under the sticky header would show through it.
+                          // Same layering the frozen column beside it uses.
                           backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)` : undefined,
                           '&:hover': { color: 'var(--wpbl-accent-fg)' },
                         }}>
@@ -1919,10 +1845,10 @@ export default function WpblStatsView({
                         cursor: r.onClick ? 'pointer' : 'default', userSelect: 'none',
                         WebkitTapHighlightColor: 'transparent',
                         // Hover tints via backgroundImage for the same reason as the header:
-                        // the row's frozen name cell — and, on a phone, its pinned sort cell —
-                        // are sticky and rely on an opaque backgroundColor. Overwriting that
-                        // made the hovered row's name cell transparent, so the stat columns
-                        // scrolling beneath it showed through.
+                        // the row's frozen name cell (and, on a phone, its pinned sort cell)
+                        // is sticky and relies on an opaque backgroundColor. Overwriting that
+                        // would make the hovered row's name cell transparent, so the stat
+                        // columns scrolling beneath it would show through.
                         '@media (hover: hover)': {
                           '&:hover > td, &:hover > th': r.onClick
                             ? { backgroundImage: `linear-gradient(${WPBL_ACCENT}0e, ${WPBL_ACCENT}0e)` }
@@ -1938,7 +1864,7 @@ export default function WpblStatsView({
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           {/* Four rows, already in sorted order, with the sorted column
-                              arrowed in the header — the rank digit restates all of that and
+                              arrowed in the header: the rank digit restates all of that and
                               costs 24px that a nickname needs to render whole. */}
                           {!teamsNarrow && (
                             <Typography sx={{ width: '1.125rem', textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
@@ -1994,7 +1920,7 @@ export default function WpblStatsView({
               </Box>
             </Box>
           </Box>
-          {/* Right-edge fade — "more stats this way" — hidden once you've scrolled to the end. */}
+          {/* Right-edge fade ("more stats this way"), hidden once you've scrolled to the end. */}
           <Box aria-hidden sx={theme => ({
             position: 'absolute', top: 0, right: 0, bottom: 0, width: 28, pointerEvents: 'none', zIndex: 6,
             background: `linear-gradient(to right, ${alpha(theme.palette.background.paper, 0)}, ${theme.palette.background.paper})`,
@@ -2030,7 +1956,7 @@ export default function WpblStatsView({
 // on it, and half the rows here can be clubs, which want their badge and have no face.
 //
 // The name is the league's spelling, not the table's. `row.label` is pre-abbreviated to
-// "D. Benites" to survive an 84px column; a list row has 200px and no reason to shorten
+// "D. Benites" to survive a narrow column; a list row has 200px and no reason to shorten
 // anybody.
 //
 // The player's position, which the table shows under the name, gives its line to the three
@@ -2048,11 +1974,11 @@ function StatListRow({ row, rank, value, context, isTeam, first, total }: {
   total: number
 }) {
   // A top-three mark is a claim that three rows stand out from the rest, so it needs a rest to
-  // stand out FROM. The teams board is four clubs, where it lit 1, 2 and 3 and left 4 grey,
-  // which does not read as "these three lead" — it reads as the Hunters' number having failed
-  // to render. Nothing is marked when the marked group would not be a clear minority, so the
-  // four clubs get one colour and the ranking is carried by the order and the number on the
-  // right, which is all it was ever carried by on a board this short.
+  // stand out FROM. On the teams board (four clubs), lighting 1, 2 and 3 and leaving 4 grey does
+  // not read as "these three lead": it reads as the fourth club's number having failed to render.
+  // Nothing is marked when the marked group would not be a clear minority, so the four clubs get
+  // one colour and the ranking is carried by the order and the number on the right, which is all
+  // it was ever carried by on a board this short.
   const marked = rank <= 3 && total > 6
   return (
     // A player row is an <a href> to her page; a team row has no URL, so it stays a
@@ -2068,11 +1994,10 @@ function StatListRow({ row, rank, value, context, isTeam, first, total }: {
       ...tappableIf(row.onClick),
     }}>
       <Box sx={{
-        // 1.125rem is the 18px this has always been at the default root size, in rem because it
-        // reserves room for a NUMBER the reader can enlarge. At a 1.375 text scale a two-digit
-        // rank wants 20px, and this column was the FIRST thing in the section to overflow its
-        // box: nothing else clips until well past it. See AccessibilityContext's note on how
-        // far that setting is allowed to go.
+        // 1.125rem (18px at the default root size), in rem because it reserves room for a NUMBER the
+        // reader can enlarge: at a 1.375 text scale a two-digit rank wants 20px, and this column is the
+        // first thing in the section to overflow at large text scales. See AccessibilityContext's note
+        // on how far that setting is allowed to go.
         width: '1.125rem', flexShrink: 0, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800,
         fontVariantNumeric: 'tabular-nums',
         color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled',
@@ -2106,14 +2031,13 @@ function StatListRow({ row, rank, value, context, isTeam, first, total }: {
 
 // ── The sheets, and the one rule they are built to ───────────────────────────────
 //
-// EVERY TARGET IN HERE IS AT LEAST 52px TALL. The first version of both sheets used the same
-// `Chip` as the control bar, which is 24px: fine as a label you glance at, half the minimum
-// anything a finger has to hit should be, and there were fifteen of them wrapped into three
-// dense lines. A chip row is a good way to SHOW a small set of options and a bad way to let
-// someone pick from a long one.
+// EVERY TARGET IN HERE IS AT LEAST 52px TALL. The control bar's `Chip` is 24px: fine as a
+// label you glance at, half the minimum for anything a finger has to hit, and fifteen of them
+// wrap into dense lines. A chip row is a good way to SHOW a small set of options and a bad way
+// to let someone pick from a long one.
 //
-// So the options are tiles and rows now, sized for a thumb, and the room that costs buys
-// something back: there is space to say what each abbreviation means.
+// So the options are tiles and rows, sized for a thumb, and the room that costs buys something
+// back: there is space to say what each abbreviation means.
 
 /** One option in a picker. Fills its grid cell, two lines, 52px minimum. */
 function OptionTile({ label, hint, on, onClick }: {
@@ -2212,10 +2136,6 @@ function SheetGroup({ title, children }: { title: string; children: React.ReactN
   )
 }
 
-// Choosing what the board ranks by. Two columns of tiles: sixteen options as full-width rows
-// is three screenfuls of scrolling, and two columns is one and a bit, with every tile still
-// 165px wide on the narrowest phone.
-//
 // ─── "The ERA changed" notice ─────────────────────────────────────────────────
 //
 // A one-line note above the pitching board, not a dialog. The change is worth telling a
@@ -2233,12 +2153,12 @@ function SheetGroup({ title, children }: { title: string; children: React.ReactN
 // THE PER-7 SIDE ALSO NAMES SETTINGS, because that is the branch a reader only reaches by
 // having changed something, and this note is the only thing on the section that says the
 // choice is theirs. It is dismissible and it retires on the badge store's expiry, so a reader
-// who switched to per 7 and then lost the line would be left on numbers that disagree with the
+// who switched bases and then lost the line would be left on numbers that disagree with the
 // league's own site with nothing on screen saying where that came from or how to undo it. Two
 // clauses is cheap; a reader who thinks the site is simply wrong is not.
 //
-// Retires on the badge store's expiry (see lib/seen.ts): by the end of the feed nobody
-// arriving has seen a per-7 number here, so the note and its key can be deleted together.
+// Once the badge store's expiry has passed (see lib/seen.ts), the note and its key can be
+// deleted together.
 function EraBasisNote({ basis, onSetBasis, onDismiss }: {
   basis: EraBasis
   onSetBasis: (b: EraBasis) => void
@@ -2270,6 +2190,10 @@ function EraBasisNote({ basis, onSetBasis, onDismiss }: {
   )
 }
 
+// Choosing what the board ranks by. Two columns of tiles: sixteen options as full-width rows
+// is three screenfuls of scrolling, and two columns is one and a bit, with every tile still
+// 165px wide on the narrowest phone.
+//
 // Direction is named rather than described. "Ascending" is a fact about the sort and "best
 // first" is what the reader wants, and the two are opposites for ERA and WHIP, which is
 // exactly where getting it wrong is least forgivable.
@@ -2290,11 +2214,9 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
     ? {
       ...PIT_NAMES,
       era: `Earned run average, per ${eraBasis}`,
-      // The strikeout RATE, which is the one pitching stat that reached this sheet with no
-      // name under it. Its key is `k9` and its label is built at render time, so a static
-      // entry in PIT_NAMES could not carry the denominator and a lookup on the key found
-      // nothing: every other stat here explained itself and "K/7" sat there as three
-      // characters, in the one place a reader is already asking what a column means.
+      // The strikeout RATE. Its key is `k9` and its label is built at render time, so a static
+      // entry in PIT_NAMES could not carry the denominator and a lookup on the key would find
+      // nothing, leaving "K/7" unexplained in the one place a reader is asking what a column means.
       k9: `Strikeouts per ${eraBasis} innings`,
     }
     : HIT_NAMES
@@ -2331,10 +2253,9 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
 // The two filters, on a phone, in one sheet.
 //
 // Rows rather than tiles: there are only seven, a club wants its badge and its whole name
-// rather than the three letters the chips showed, and "Qualified" needs a sentence under it.
-// It says what qualified MEANS, which the chip never did: a word a reader either knows or is
-// excluded by, set against a bar that moves with the season (see wpblQualifiers), so nobody
-// could have known it from memory either.
+// rather than three letters, and "Qualified" needs a sentence under it saying what qualified
+// MEANS: a word a reader either knows or is excluded by, set against a bar that moves with
+// the season (see wpblQualifiers), so nobody could know it from memory either.
 function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minPa, minIp, scope, onScope, showWho, onClose }: {
   teams: WpblTeam[]
   teamId: string | null
@@ -2390,9 +2311,9 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minP
             <OptionRow label="Qualified" on={qualified}
               hint={side === 'pitching' ? `${minIp} innings pitched or more` : `${minPa} plate appearances or more`}
               onClick={() => { if (!qualified) onQualified() }} />
-            {/* No hint. "Qualified" needs one because it names a threshold a reader cannot
-                see; "Everyone" is self-evident, and the warning that used to sit here was the
-                board arguing with the option it was offering. */}
+            {/* No hint. "Qualified" needs one because it names a threshold a reader cannot see;
+                "Everyone" is self-evident, and a warning here would be the board arguing with the
+                option it is offering. */}
             <OptionRow label="Everyone" on={!qualified}
               onClick={() => { if (qualified) onQualified() }} />
           </Box>

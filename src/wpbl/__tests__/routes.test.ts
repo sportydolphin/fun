@@ -114,7 +114,7 @@ describe('every tab path is actually routable in production', () => {
   // it does not allow: "Valid status codes are 200, 301, 302, 303, 307, or 308". That fails
   // the build, and a failed build leaves the previous deploy serving, so the site does not
   // break in any visible way. It just quietly stops updating, which is the worst shape a
-  // failure can have. `/*  /404.html  404` did exactly this on Aug 21, 2026.
+  // failure can have. A `/*  /404.html  404` rule does exactly this.
   //
   // Note that `npx wrangler pages dev dist` accepts a file the real deploy refuses, so
   // local testing does not catch it and this is the only thing standing in the way.
@@ -127,7 +127,7 @@ describe('every tab path is actually routable in production', () => {
     expect(rules.length).toBeGreaterThan(0)
     for (const rule of rules) {
       const parts = rule.split(/\s+/)
-      // `from to [status]` — the status is optional and defaults to 302.
+      // `from to [status]`: the status is optional and defaults to 302.
       if (parts.length < 3) continue
       expect(allowed, `"${rule}" has an undeployable status`).toContain(parts[2])
     }
@@ -308,8 +308,8 @@ describe('comparison pages', () => {
     const forwards = wpblComparePath(roster[0], roster[1], roster)
     const backwards = wpblComparePath(roster[1], roster[0], roster)
     expect(forwards).toBe('/wpbl/compare/denae-benites-vs-molly-paddison')
-    // ORDER IS THE READER'S NOW. The player they started from stays on the left, so the two
-    // spellings are deliberately different URLs. The near-duplicate they used to be is handled
+    // ORDER IS THE READER'S. The player they started from stays on the left, so the two
+    // spellings are deliberately different URLs, and the near-duplicate that makes is handled
     // by the canonical below, not by refusing to serve one of them.
     expect(backwards).toBe('/wpbl/compare/molly-paddison-vs-denae-benites')
     expect(backwards).not.toBe(forwards)
@@ -433,11 +433,6 @@ describe('every tab page is discoverable and distinct', () => {
   })
 })
 
-// /delete-account is the URL given to Google Play's Data safety form as the data deletion
-// request link, which makes it the one route on this site whose 404 would be a compliance
-// problem rather than a broken page. It is also invisible in `npm run dev`, which serves the
-// SPA shell for any path: the omission only shows in production, on a URL an app store is
-// checking. Pinned in all three places a static route has to be spelled.
 // A real page that is deliberately NOT a tab, which is the shape most likely to be spelled in
 // three of the four places and forgotten in the fourth. It is absent from WPBL_NAV on purpose,
 // so every loop above that keeps the tabs honest skips it entirely.
@@ -559,13 +554,11 @@ describe('/wpbl/awards, the fan ballot', () => {
     expect(seoSource).toMatch(/'\/wpbl\/awards':\s*\{[^}]*description:/)
   })
 
-  // ── Launched, Sep 10, 2026 ────────────────────────────────────────────────────
+  // ── Launched ──────────────────────────────────────────────────────────────────
   //
-  // These four inverted together the day the gate in Home.tsx came off, and they are still here
-  // in the inverted form for the same reason they were here before it: the failure they guard
-  // against is a HALF-launch, where the page opens to fans but stays out of the index, or is
-  // indexed while still rendering for nobody. Whichever way the ballot goes next, these move
-  // together or not at all.
+  // These four move together, because the failure they guard against is a HALF-launch, where
+  // the page opens to fans but stays out of the index, or is indexed while still rendering for
+  // nobody. Whichever way the ballot goes next, these move together or not at all.
   it('is in the sitemap', () => {
     expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/awards</loc>')
   })
@@ -599,27 +592,25 @@ describe('/wpbl/awards, the fan ballot', () => {
   })
 
   // An anchor rather than a click handler, which is the rule in CLAUDE.md and is what /mlb sat
-  // undiscovered for months for. Crawling is not the reason here, since the route is currently
-  // hidden from crawlers on purpose: it is that the address has to survive a middle click, a
-  // copy-link and a reload, which is the entire reason the ballot was given one.
+  // undiscovered for months for. Crawling is only part of the reason here: the address also has
+  // to survive a middle click, a copy-link and a reload, which is the entire reason the ballot
+  // was given one.
   it('is reachable by a real href from the card that opens it', () => {
     expect(fanVoteSource).toContain('linkPress(WPBL_AWARDS_PATH')
   })
 
-  // The one condition left, now that the gate is gone. `drawable` decided TWO things for its
-  // first day, whether there was a ballot worth drawing and whether this reader was allowed to
-  // see it, and only the first of those was ever the card's business. Pinned because the whole
-  // launch is one word: a `&&` added back here hides the ballot from every fan again while the
-  // sitemap keeps sending them to it.
+  // `drawable` answers ONE question, whether there is a ballot worth drawing; whether this reader
+  // may see it was never the card's business. Pinned because the whole launch is one word: a
+  // `&&` added here hides the ballot from every fan while the sitemap keeps sending them to it.
   it('draws for anyone the ballot has questions for, and asks nothing else', () => {
     expect(fanVoteSource).toMatch(/const drawable = fanVoteIsWorthDrawing\(entries\)\s*$/m)
     expect(homeSource).toMatch(/<FanVoteCard key="mvp"/)
   })
 
-  // THE GATE IS GONE, AND NOTHING MAY QUIETLY PUT ONE BACK. A `useIsAdmin` or a role check in
-  // either file would hide the ballot again from everyone but one account, and it would do it
-  // silently: the page still answers 200, the sitemap still lists it, and Google would keep
-  // sending readers to a Home page with no ballot on it.
+  // NO GATE, AND NOTHING MAY QUIETLY ADD ONE. A `useIsAdmin` or a role check in either file
+  // would hide the ballot from everyone but one account, and it would do it silently: the page
+  // still answers 200, the sitemap still lists it, and Google would keep sending readers to a
+  // Home page with no ballot on it.
   it('is gated by nothing', () => {
     expect(homeSource).not.toContain('useIsAdmin')
     expect(fanVoteSource).not.toContain('useIsAdmin')
@@ -698,9 +689,8 @@ describe('/wpbl/sources, the provenance page', () => {
     expect(footerSource).toContain('WPBL_SOURCES_PAGE')
   })
 
-  // The Terms page used to be the only place naming any of this, in one sentence, as a legal
-  // disclaimer. It still carries the accuracy statement it has to, and now points here for the
-  // detail; if that pointer goes, the provenance is orphaned from the page that promises it.
+  // The Terms page carries the accuracy statement it has to, and points here for the detail;
+  // if that pointer goes, the provenance is orphaned from the page that promises it.
   it('is what the Terms page points at for provenance', () => {
     expect(legalSource).toContain('/wpbl/sources')
   })
@@ -794,7 +784,7 @@ describe('the More menu surfaces every non-tab WPBL page', () => {
 
   // On a phone the bottom bar REPLACES the top pill nav, so NavMore (the desktop dropdown) is not
   // on screen; the same six pages are reached from the bar's More slot as a sheet instead. If that
-  // wiring is dropped, the pages are footer-only on a phone again — the exact regression the More
+  // wiring is dropped, the pages are footer-only on a phone again, the exact regression the More
   // menu exists to prevent, and invisible on desktop. Pin that the bar carries the slot and the
   // sheet is rendered.
   it('reaches the same pages from the bottom bar (MoreSheet + MORE_KEY)', () => {
@@ -804,6 +794,11 @@ describe('the More menu surfaces every non-tab WPBL page', () => {
   })
 })
 
+// /delete-account is the URL given to Google Play's Data safety form as the data deletion
+// request link, which makes it the one route on this site whose 404 would be a compliance
+// problem rather than a broken page. It is also invisible in `npm run dev`, which serves the
+// SPA shell for any path: the omission only shows in production, on a URL an app store is
+// checking. Pinned in all three places a static route has to be spelled.
 describe('/delete-account, the store-facing route', () => {
   it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
     expect(redirects).toMatch(/^\/delete-account\s+\/\s+200\s*$/m)
@@ -824,12 +819,12 @@ describe('/delete-account, the store-facing route', () => {
 
 describe('the shell claims no canonical of its own', () => {
   // index.html is served verbatim for every route (see the _redirects rewrites), so any
-  // canonical written into it is claimed by every URL on the site. One did: it pointed at
-  // /wpbl, and Search Console duly reported "Alternate page with proper canonical tag" on
-  // Aug 23, 2026, which is Google dropping /mlb, /privacy, every WPBL tab and all 118 player
-  // pages in favour of the section root. seo.ts sets the right one per route after mount, and
-  // a page with no canonical at all canonicalises to itself, which is what every URL here
-  // wants. This is the guard against someone helpfully putting it back.
+  // canonical written into it is claimed by every URL on the site. One pointing at /wpbl gets
+  // reported by Search Console as "Alternate page with proper canonical tag", which is Google
+  // dropping /mlb, /privacy, every WPBL tab and every player page in favour of the section
+  // root. seo.ts sets the right one per route after mount, and a page with no canonical at all
+  // canonicalises to itself, which is what every URL here wants. This is the guard against
+  // someone helpfully adding one.
   it('has no static rel=canonical', () => {
     // Comments stripped first: the note in index.html explaining why there is no canonical
     // has to quote the tag to be worth reading, and a commented tag is not a tag.
@@ -851,10 +846,10 @@ describe('wpblAppOwnsPath', () => {
     for (const path of WPBL_VIEW_PATHS) expect(wpblAppOwnsPath(path)).toBe(true)
   })
 
-  // The one this exists for. A player page is a modal over a tab, so a pop that LANDS on her
-  // URL is the section's to apply; testing the tabs alone dropped it and left whatever modal
-  // was open sitting over her address. Reachable by Forward onto any player, and by Back out
-  // of a game opened from a player's game log.
+  // The one this exists for. A player page is a modal over a tab, so a pop that LANDS on the
+  // player's URL is the section's to apply; testing the tabs alone drops it and leaves whatever
+  // modal was open sitting over that address. Reachable by Forward onto any player, and by Back
+  // out of a game opened from a player's game log.
   it('claims a player page, which is not a tab', () => {
     expect(wpblViewFromPath('/wpbl/players/denae-benites')).toBeNull()
     expect(wpblAppOwnsPath('/wpbl/players/denae-benites')).toBe(true)

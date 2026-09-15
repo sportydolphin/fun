@@ -8,7 +8,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '..
  * WHAT IT IS FOR. The Stats boards answer questions somebody thought to put on a board. This
  * answers the ones nobody did: how many times did anyone strike out five in a game, who has
  * gone four for four more than once, has a pitcher ever walked nobody through five. Those are
- * the questions a fan asks out loud, and until now the only way to answer one was to read
+ * the questions a fan asks out loud, and without this the only way to answer one is to read
  * thirty box scores.
  *
  * WHY IT IS TRACTABLE HERE AND NEEDS A DATA WAREHOUSE ELSEWHERE. Baseball Reference built
@@ -16,7 +16,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '..
  * whole season is about 750: every batting and pitching line the WPBL has ever produced is
  * already in memory when the Stats tab opens, cached app-wide by `fetchWpblAllLines`, each one
  * carrying its own `game_id`. So the query engine is a `filter` and a `sort`, with no index, no
- * RPC, no new table and no new request. The hard part of this feature was never the searching.
+ * RPC, no new table and no new request. The hard part of this feature is not the searching.
  *
  * THE RESULT IS TWO ANSWERS, NOT ONE, and that is the design. A list of matching games answers
  * "when did this happen"; the tally beside it answers "who does this most", which is the more
@@ -346,7 +346,7 @@ export function runWpblFinder(
 // READABLE ON PURPOSE, rather than base64 or JSON. `q=so.gte.5~bb.lte.0&team=NY` is a thing a
 // person can read in a status bar, edit by hand, and paste into a chat message without it
 // looking like a tracking parameter. Every character in it is URL-safe unencoded, which is the
-// other half: `>=` would have come out as %3E%3D and made the link look broken.
+// other half: `>=` would come out as %3E%3D and make the link look broken.
 
 const COND_SEP = '~'
 const PART_SEP = '.'

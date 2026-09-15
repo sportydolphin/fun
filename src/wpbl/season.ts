@@ -29,9 +29,9 @@ interface GameKeyed { game_id: string }
  *  renames its game types: every game drops out and the standings render four clubs at 0-0
  *  rather than showing an obviously wrong number. Wrong-by-a-few is recoverable; blank is not.
  *
- *  Two independent signals, because the feed has not shown us a postseason row yet and we
- *  cannot know which one it will use. All 30 regular-season rows carry
- *  `counts_in_standings: true` and `game_type: 'regular'` today. */
+ *  Two independent signals, because either one can be the one the feed gets wrong. It already
+ *  has: the 2026 postseason rows carry `counts_in_standings: true`, so that flag says nothing
+ *  there and `game_type` alone is what holds the postseason out. */
 export function countsInStandings(g: WpblSeasonGame): boolean {
   // The column exists for exactly this, so an explicit false is definitive. `null`/`undefined`
   // means "not stated" (older, hand-entered rows), which must keep counting.
@@ -75,10 +75,9 @@ export function regularSeasonLines<T extends GameKeyed>(lines: T[], games: WpblS
 /**
  * Which slice of the season a surface is showing.
  *
- * ADDED FOR THE STATS PAGE, and everything else in the app keeps the old behaviour by
- * default. `regular` is what every existing caller has always meant, so it stays the default
- * on every function that takes this: the OG share cards, the Discord `/player` card and the
- * player pages must not change what they publish because a toggle appeared on a board.
+ * BUILT FOR THE STATS PAGE's toggle. `regular` is what every other caller means, so it is the
+ * default on every function that takes this: the OG share cards, the Discord `/player` card and
+ * the player pages must not change what they publish because a toggle appeared on a board.
  */
 export type SeasonScope = 'regular' | 'postseason' | 'all'
 

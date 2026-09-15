@@ -50,7 +50,7 @@ const flatLines = (ids: string[]) => ({
 })
 
 /**
- * Pitch sequences, which Contact is now computed from (whiff rate, not K%).
+ * Pitch sequences, which Contact is computed from (whiff rate, not K%).
  *
  * `team_id` on a play is the BATTING side, which is the whole reason this axis can be built
  * without resolving a single player. `seq` is one plate appearance's codes: S swung through,
@@ -92,8 +92,8 @@ const richLeague = (ids: string[]) => ({
 /** How to make Boston BETTER at one axis, leaving the other five alone. */
 const improve: Record<TeamSpecKey, (l: ReturnType<typeof richLeague>) => ReturnType<typeof richLeague>> = {
   // An extra double. NOT the line's own `tb` column, which `teamSpecs` deliberately ignores in
-  // favour of recomputing total bases from the hit types: setting `tb` alone moves nothing, and
-  // an earlier version of this test passed for that reason and proved nothing.
+  // favour of recomputing total bases from the hit types: setting `tb` alone moves nothing, so a
+  // test that only sets it passes for that reason and proves nothing.
   power:   l => ({ ...l, batting: l.batting.map(x => x.team_id === 'BOS' ? { ...x, h: 3, doubles: 2, tb: 5 } : x) }),
   // The same three swings, none of them missed.
   contact: l => ({ ...l, plays: l.plays.map(x => x.team_id === 'BOS' ? { ...x, pitch_sequence: 'BFFP' } : x) }),
@@ -170,11 +170,11 @@ describe('teamSpecs', () => {
     expect(specs.byTeam.get('BOS')!.score.arms).toBeLessThan(50)     // K/7 down, Arms down
   })
 
-  // THE GUARD ON THE Sep 4, 2026 CHANGE. Contact was a club's strikeout rate off the box score
-  // until it was shown that 38% of this league's strikeouts are called, with no swing taken: an
-  // axis named Contact was two times in five counting an at-bat where nobody tried to make any.
-  // It reads the play log now. This fails the moment anyone points it back at `b.so`, which is
-  // otherwise a completely reasonable-looking line of code.
+  // THE GUARD ON CONTACT BEING WHIFF RATE. 38% of this league's strikeouts are called, with no
+  // swing taken, so an axis named Contact built on strikeout rate counts, two times in five, an
+  // at-bat where nobody tried to make any. It reads the play log instead. This fails the moment
+  // anyone points it back at `b.so`, which is otherwise a completely reasonable-looking line of
+  // code.
   it('does not move Contact when a club strikes out more but swings the same', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)
@@ -194,8 +194,7 @@ describe('teamSpecs', () => {
     // A caller who filtered the PLAYS to one club as well gets nothing at all, which is the
     // point of the swings gate: three clubs with no swings would each score a whiff rate of
     // zero, and zero on an axis where lower is better is the OUTERMOST spoke on the chart. The
-    // failure would not have looked like missing data, it would have looked like three
-    // untouchable offences.
+    // failure would not look like missing data, it would look like three untouchable offences.
     expect(teamSpecs(TEAMS,
       batting.filter(l => l.team_id === 'SF'), pitching.filter(l => l.team_id === 'SF'),
       games, flatPlays(ids).filter(p => p.team_id === 'SF'))).toBeNull()
@@ -272,10 +271,10 @@ describe('teamSpecs', () => {
     expect(specs.byTeam.get('SF')!.score.speed).toBeGreaterThan(0)
   })
 
-  // Seen on a live page: the batting read came back empty while the pitching read did not, and
-  // the chart drew four confident 50s across Power, Contact, Eye and Speed beside entirely
-  // correct Arms and Glove. Half a chart is worse than none, because the half that is wrong
-  // looks exactly like the half that is right.
+  // It happens on a live page: the batting read comes back empty while the pitching read does
+  // not, and the chart draws four confident 50s across Power, Contact, Eye and Speed beside
+  // entirely correct Arms and Glove. Half a chart is worse than none, because the half that is
+  // wrong looks exactly like the half that is right.
   it('refuses to draw when half of the league lines are missing', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)
@@ -284,10 +283,10 @@ describe('teamSpecs', () => {
     expect(teamSpecs(TEAMS, batting, pitching, games, flatPlays(ids))).not.toBeNull()
   })
 
-  // Speed is STEALS per time on first, not attempts. It shipped as attempts and that credited a
-  // club for being thrown out: every other axis on this chart is an outcome, and a caught
-  // stealing is a lost runner and an out, so an attempts denominator drew a longer spoke for
-  // doing a bad thing more often.
+  // Speed is STEALS per time on first, not attempts. Attempts would credit a club for being
+  // thrown out: every other axis on this chart is an outcome, and a caught stealing is a lost
+  // runner and an out, so an attempts denominator draws a longer spoke for doing a bad thing
+  // more often.
   it('does not reward a club for being caught stealing', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)
@@ -312,9 +311,9 @@ describe('teamSpecs', () => {
 
 describe('specRank and specHighlights', () => {
   // Ranked on the SCORE, not the raw stat, which is the whole reason one function covers all six
-  // axes: direction is already applied, so 1st is the FEWEST unearned runs on Glove and the MOST
-  // steal attempts on Speed. Ranking the raw numbers would silently invert the two low-is-good
-  // axes and hand the worst defence in the league a "1st of 4".
+  // axes: direction is already applied, so 1st is the FEWEST unearned runs on Glove and the
+  // highest steal rate on Speed. Ranking the raw numbers would silently invert the two
+  // low-is-good axes and hand the worst defence in the league a "1st of 4".
   it('ranks a low-is-good axis the right way up', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)

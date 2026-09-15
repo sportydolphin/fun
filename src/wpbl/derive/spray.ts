@@ -18,10 +18,10 @@ import type { WpblSprayPlay } from '../types'
 //
 // A NARRATIVE DESCRIBES MORE THAN THE BATTED BALL. "grounded out p to ss to 1b, RBI (0-0);
 // Ayuri Shimano advanced to second" contains three fielders and a runner going to second, and
-// naive matching on "to <something>" reads that runner as a direction: `to second` was the
-// 4th most common fragment in the whole play log when this was written, and every one of
-// those is a baserunner rather than a batted ball. Everything after the first semicolon is
-// somebody else's movement and is cut before anything else happens.
+// naive matching on "to <something>" reads that runner as a direction: `to second` is among
+// the most common fragments in the whole play log, and every one of those is a baserunner
+// rather than a batted ball. Everything after the first semicolon is somebody else's movement
+// and is cut before anything else happens.
 //
 // A FIELDING SEQUENCE IS NOT A DIRECTION EITHER, it is a chain, and only its FIRST link says
 // where the ball was hit. "p to ss to 1b" went to the pitcher. So the scan returns the
@@ -30,9 +30,9 @@ import type { WpblSprayPlay } from '../types'
 /** The eleven places this feed can put a batted ball. */
 export type SprayZone = 'LF' | 'LCF' | 'CF' | 'RCF' | 'RF' | 'P' | 'C' | '1B' | '2B' | '3B' | 'SS'
 
-/** Left to right, as the chart draws them. The infield has no such list any more: the chart
- *  derives its own from the geometry, since the zones there tile a band rather than sit at
- *  points, and a second ordering would have been a second thing to keep in step. */
+/** Left to right, as the chart draws them. The infield has no such list: the chart derives its
+ *  own from the geometry, since the zones there tile a band rather than sit at points, and a
+ *  second ordering would be a second thing to keep in step. */
 export const OUTFIELD_ZONES: readonly SprayZone[] = ['LF', 'LCF', 'CF', 'RCF', 'RF']
 
 /**
@@ -85,8 +85,8 @@ const LINE_DRIVE: ReadonlyArray<readonly [RegExp, SprayZone]> = [
  *
  * "singled up the middle", "singled through the left side", "doubled through the right side".
  * 125 of the season's 454 singles are described this way, and not one of them contains a
- * fielder or a field to match on, so before this every one was a ball nobody could place and
- * singles were the worst-covered hit type in the log at 72%.
+ * fielder or a field to match on, so without these rules every one is a ball nobody can place
+ * and singles are the worst-covered hit type in the log, at 72%.
  *
  * They name the gap the ball went THROUGH, and a ground ball through the left side of the
  * infield finishes in left field, which is where a chart of direction belongs to put it.
@@ -151,7 +151,7 @@ export function sprayZone(narrative: string | null | undefined): SprayZone | nul
   // choice the interesting event IS the runner being retired. But the fielder who started
   // that throw is the fielder who picked the ball up, so "cf to 2b" places the ball in centre
   // field as surely as "flied out to cf" would. 31 of the season's 76 fielder's choices are
-  // written this way and were the last real gap in the coverage.
+  // written this way, and without this rule they are the last real gap in the coverage.
   //
   // Narrow on purpose: only the "out at <base> <fielder> to ..." shape, only when the
   // batter's own clause named nothing, and only the FIRST fielder in the chain. Widening it
@@ -231,11 +231,11 @@ const MIRROR: Record<SpraySide, SpraySide> = { pull: 'oppo', center: 'center', o
 /**
  * Pull, centre or opposite field for this batter, or null when it cannot be said.
  *
- * NULL FOR A SWITCH HITTER, AND THAT IS NOT LAZINESS. "Pull" is defined by which box she
+ * NULL FOR A SWITCH HITTER, AND THAT IS NOT LAZINESS. "Pull" is defined by which box the batter
  * stood in, and the feed records a switch hitter's handedness as `S` on the roster while
  * saying nothing per plate appearance. Guessing from the opposing pitcher would be a model,
- * not a fact, so a switch hitter has a spray chart and no pull rate. Callers must leave her
- * out of the denominator instead of counting her as a righty.
+ * not a fact, so a switch hitter has a spray chart and no pull rate. Callers must leave switch
+ * hitters out of the denominator instead of counting them as righties.
  */
 export function spraySide(zone: SprayZone, bats: string | null | undefined): SpraySide | null {
   const b = (bats ?? '').trim().toUpperCase()[0]

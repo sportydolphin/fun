@@ -8,13 +8,13 @@ import type { WpblGame, WpblPlayer } from '../types'
  * league's own run-expectancy table, and the Run value board already publishes the two sides
  * of it as "most runs created" and "most runs saved". An MVP card needs one number that a
  * hitter and a pitcher can both be measured on, and the sum of those two IS that number:
- * both are run-expectancy swings, in runs, on the same scale, off the same table. Inventing a
- * box-score run estimator instead would have been cheaper to fetch (Home already holds the
- * lines) and was rejected on purpose: a calibrated Base Runs fit values a WPBL home run at
- * +1.33 runs where the league's own plays say +1.55, so the site would carry two "runs added"
- * figures for the same player, differing by ten to twenty percent, with neither of them wrong.
- * That is the exact failure `stats.ts` spells out for the ERA basis, one board disagreeing
- * with the page it opens, and it is worth a deferred fetch to avoid.
+ * both are run-expectancy swings, in runs, on the same scale, off the same table. A box-score
+ * run estimator would be cheaper to fetch (Home already holds the lines) and is avoided on
+ * purpose: a calibrated Base Runs fit values a WPBL home run at +1.33 runs where the league's
+ * own plays say +1.55, so the site would carry two "runs added" figures for the same player,
+ * differing by ten to twenty percent, with neither of them wrong. That is the exact failure
+ * `stats.ts` spells out for the ERA basis, one board disagreeing with the page it opens, and it
+ * is worth a deferred fetch to avoid.
  *
  * WHAT IT IS NOT. There is no replacement level, no positional adjustment and no fielding in
  * here, so this is not WAR and must never be labelled as such. It is runs added at the plate
@@ -39,11 +39,11 @@ export interface MvpCandidate {
   player: WpblPlayer | null
   name: string
   /**
-   * The club to show beside her, which is "now" rather than "then" on purpose. A traded
-   * player's game log has to read as the club she played each game for, and this is not a
+   * The club to show beside the player, which is "now" rather than "then" on purpose. A traded
+   * player's game log has to read as the club they played each game for, and this is not a
    * game log: it is a live claim about who is having the best season, so the badge should be
-   * the shirt she is wearing while the race is on. The roster row answers that; the play only
-   * knows the club she was with that day, and is the fallback for someone off the roster.
+   * the shirt the player is wearing while the race is on. The roster row answers that; the play
+   * only knows the club they were with that day, and is the fallback for someone off the roster.
    */
   teamId: string | null
   /** Runs created at the plate. */
@@ -58,7 +58,8 @@ export interface MvpCandidate {
   twoWay: boolean
   /**
    * Cumulative total after each date on `MvpRace.dates`, same length and same order. Flat
-   * across a date she did not play, which is the honest shape: a rest day is not a decline.
+   * across a date the player did not play, which is the honest shape: a rest day is not a
+   * decline.
    */
   curve: number[]
 }

@@ -17,31 +17,24 @@ import type { WpblGame, WpblPlayer, WpblStandingRow, WpblTeam } from './types'
 /**
  * Who goes where: the postseason bracket, drawn.
  *
- * The seeding card under the Standings table says what the last games decide, one row per
- * club, and says the pairing as a letter in a column and a name in a cell. That is the right
+ * A table can state a pairing as a letter in a column and a name in a cell. That is the right
  * shape for a table and the wrong shape for the question a fan actually asks, which is who
  * plays whom. Four clubs and three series is a picture, and this is the picture.
  *
- * IT IS THE ONLY POSTSEASON SURFACE NOW. It shipped alongside a seeding card under the Standings
- * table, and most of the reasoning here used to be about not duplicating it: an early version of
- * that card drew a bracket AND a ladder together, the four clubs appeared twice over, and the
- * bracket was cut for it. The objection was to a bracket beside a list rather than to a bracket,
- * so this one went to Home where the list was not. The seeding card was removed on Sep 8, 2026,
- * the day after the last regular-season game, because it existed to say what the remaining games
- * were FOR and there are none: with the order settled it was answering a question nobody has.
- * The constraint that shaped this card is therefore gone, and anything that wants to move it,
- * split it or put a ladder back beside it is now free to.
+ * IT IS THE ONLY POSTSEASON SURFACE. A bracket drawn beside a seeding list puts the four clubs
+ * on screen twice over, and that duplication is the thing to avoid: the objection is to a
+ * bracket beside a list, not to a bracket. With no list beside it, anything that wants to move
+ * this card, split it or add a ladder is free to, as long as it does not recreate that.
  *
- * LIVE FOR EVERYONE. It began behind the experimental-features switch, since it draws a matchup
- * that does not exist yet, and came out once the win-probability blend (run differential plus
- * head-to-head, see derive/seriesOdds.ts) turned it from a bare projected bracket into the
- * section's one forward-looking surface. The odds carry their own hedge in the card's footnote,
- * which is what a bracket-shaped guess needs rather than a flag almost nobody flips.
+ * LIVE FOR EVERYONE. The win-probability blend (run differential plus head-to-head, see
+ * derive/seriesOdds.ts) makes it the section's one forward-looking surface rather than a bare
+ * projected bracket. The odds carry their own hedge in the card's footnote, which is what a
+ * bracket-shaped guess needs rather than a flag almost nobody flips.
  *
- * ONE CARD FOR BOTH HALVES OF SEPTEMBER. Before the postseason the pairings are a projection
- * from the standings order, which is exactly what the seeding race is about; from Sep 9 the
- * same boxes carry real series records. It deliberately does not become a different card on
- * the day, because the interesting thing about a bracket is watching a provisional one harden.
+ * ONE CARD FOR THE WHOLE POSTSEASON. Before the first postseason game the pairings are a
+ * projection from the standings order; once games start the same boxes carry real series
+ * records. It deliberately does not become a different card on the day, because the interesting
+ * thing about a bracket is watching a provisional one harden.
  */
 
 /** Every club here is a tap through to a team page. That is not decoration: opening a player
@@ -56,18 +49,17 @@ const BRACKET_OPEN_KEY = 'wpbl:bracketOpen'
 /**
  * One club's row inside a series box, and the row IS the bar.
  *
- * WHAT THIS REPLACED, AND WHY. The row used to be a 16px name in plain white with the seed
- * beside it, and the series odds lived under both rows as a 6px two-tone bar with a percentage
- * at each end. Three things were wrong with that. Nothing on the card was bigger or bolder than
- * anything else, so a bracket sat next to Next game's 24px club names looking like a footnote.
- * The only colour in it was that hairline, so four clubs with four strong identities rendered as
- * white text. And a bar running red at one end and green at the other reads as good-against-bad
- * rather than as San Francisco against Boston, which is what it actually is.
+ * The probability is drawn as a fill BEHIND the club's own name, in that club's own tint, and
+ * the number sits at the end of its own row. The alternatives each fail a different way: plain
+ * names no bigger or bolder than anything else make the bracket look like a footnote beside Next
+ * game's 24px club names; a thin separate odds bar is the only colour on the card, so four clubs
+ * with four strong identities render as white text; and a bar running red at one end and green
+ * at the other reads as good-against-bad rather than as San Francisco against Boston, which is
+ * what it actually is.
  *
- * So the probability is drawn as a fill BEHIND the club's own name, in that club's own tint, and
- * the number sits at the end of its own row. Same information, no legend, no extra height, and
- * the colour finally says whose it is. `wpblSurface` and not `wpblAccent`: this is a field with
- * text on it, which is the whole reason that third role exists (see constants.ts).
+ * Same information, no legend, no extra height, and the colour says whose it is. `wpblSurface`
+ * and not `wpblAccent`: this is a field with text on it, which is the whole reason that third
+ * role exists (see constants.ts).
  */
 function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
   entrant: BracketEntrant
@@ -109,10 +101,10 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
   const beaten = !!series.winner && series.winner.id !== team.id
 
   return (
-    // NOT ITS OWN TARGET ANY MORE. Each row used to be a tap through to that club's page, which
-    // made a series box two controls with a strip of nothing between them and left the box
-    // itself, the thing a reader points at, inert. The box opens the series now and the club
-    // links live in there, where there is room to label them.
+    // NOT ITS OWN TARGET. A tap through to the club's page on each row would make a series box two
+    // controls with a strip of nothing between them and leave the box itself, the thing a reader
+    // points at, inert. The box opens the series and the club links live in there, where there is
+    // room to label them.
     <Box
       sx={{
         position: 'relative', overflow: 'hidden',
@@ -143,9 +135,9 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
         color: leading ? wpblAccent(team.id, dark) : 'text.primary',
       }}>{wide ? wpblFullName(team) : team.name}</Typography>
       {/* Series wins once there are any, and the odds until then. Never both: two numbers at the
-          end of one row, one of them a count and one a percentage, is the kind of column a
-          reader has to be told how to read. A column of zeroes on Aug 20 would read as a series
-          played and finished nil-nil, which is why the count waits for a game. */}
+      end of one row, one of them a count and one a percentage, is the kind of column a
+      reader has to be told how to read. A column of zeroes before game 1 would read as a series
+      played and finished nil-nil, which is why the count waits for a game. */}
       {series.played > 0 ? (
         <Typography sx={{
           position: 'relative', fontSize: TYPE_SCALE.display, fontWeight: 900, flexShrink: 0,
@@ -158,8 +150,8 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
           minWidth: '2.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums',
           // ALWAYS THE CLUB'S OWN COLOUR, not "the favourite's". It is that club's number, on
           // that club's row, over that club's tint, so anything else would be the card picking a
-          // side before a ball is thrown. `leading` is about a series lead and there is not one
-          // yet, which is why keying the colour on it left both numbers grey.
+          // side before a ball is thrown. `leading` is about a series lead and there is none before a
+          // game is played, which is why keying the colour on it would leave both numbers grey.
           color: wpblAccent(team.id, dark),
         }}>{fmtOdds(winP)}</Typography>
       )}
@@ -182,11 +174,10 @@ function seasonSeriesLine(series: BracketSeries, odds?: SeriesOdds): string | nu
 /**
  * One series.
  *
- * THE FOOT OF THE BOX IS ONE LINE NOW, not three. It carried the published dates, then a
- * two-tone odds bar with a percentage at each end, then the season series centred underneath:
- * three rows of 12px type saying three unrelated things, under two rows of 16px type saying the
- * thing the box is about. The odds moved into the club rows (see SeriesTeamRow), which leaves
- * the dates and the season series, and those fit on one line as a left and a right.
+ * THE FOOT OF THE BOX IS ONE LINE: the published dates on the left, the season series on the
+ * right. The odds live in the club rows (see SeriesTeamRow). Dates, an odds bar and the season
+ * series stacked as three rows of 12px type would say three unrelated things under two rows of
+ * 16px type saying the thing the box is about.
  */
 function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children }: {
   series: BracketSeries; odds?: SeriesOdds
@@ -239,11 +230,10 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
           color: isFinal ? 'var(--wpbl-medal-1)' : 'text.disabled', whiteSpace: 'nowrap',
         }}>{series.label}</Typography>
         {/* UP A SIZE AND DOWN A WEIGHT, which is the trade the weight ceiling in ui.tsx exists
-            to make. This was the worst string in the section: 8px, 900, uppercase, letter-spaced,
-            in a saturated red inside a red border a hair away from it, so every emphasis
-            available was applied at once to a word that came out a smear. It is also the most
-            dramatic label the bracket has and it goes live tomorrow. The badge still shouts,
-            through the colour and the border it already had. */}
+        to make. At 8px, 900, uppercase and letter-spaced, in a saturated red inside a red
+        border a hair away from it, every emphasis available is applied at once to a word
+        that comes out a smear, on the most dramatic label the bracket has. The badge still
+        shouts, through the colour and the border. */}
         {elim && (
           <Typography sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
@@ -256,14 +246,14 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
           fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap',
           overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{series.summary}</Typography>
-        {/* NAME THE PERCENTAGE, because until this the club rows carried a bare number and the
-            card had two of those meaning different things: this one is the chance of winning
-            THIS SERIES, and the strip in the championship box is the chance of winning the whole
-            thing. A reader comparing a club's 78% here against its 66% there had nothing on
-            screen telling them those were different questions. Sits at the right of the header
-            band, over the column it names, and only while there is a number under it: once a
-            series starts the rows show wins instead and a label for odds would be pointing at
-            nothing. Same word as the strip's column, on purpose. */}
+        {/* NAME THE PERCENTAGE, because the card has two bare numbers meaning different things
+        otherwise: this one is the chance of winning THIS SERIES, and the strip in the
+        championship box is the chance of winning the whole thing. A reader comparing a club's
+        78% here against its 66% there needs something on screen telling them those are
+        different questions. Sits at the right of the header band, over the column it names,
+        and only while there is a number under it: once a series starts the rows show wins
+        instead and a label for odds would be pointing at nothing. Same word as the strip's
+        column, on purpose. */}
         {showOdds && (
           <Typography sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5,
@@ -324,13 +314,12 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
  *  stacked on a phone the boxes are already in reading order and a connector would be
  *  decoration.
  *
- *  THREE PIECES, ONE PER BRACKET ROW, BECAUSE ONLY THE GRID KNOWS WHERE THE BOXES ARE. The
- *  elbow used to be a single stretched box putting its stubs at 25% and 75% of its own height,
- *  which was right only because the semifinal boxes were stretched to a quarter of the column
- *  each: a quarter WAS their centre. That stretch is what left a band of empty card under both
- *  semifinals, which is the thing this is undoing. With the boxes back at their natural height
- *  the quarters point at nothing, so each stub now lives in the same grid row as the box it
- *  comes out of and sits at 50% of THAT row, which is that box's centre whatever it measures.
+ *  THREE PIECES, ONE PER BRACKET ROW, BECAUSE ONLY THE GRID KNOWS WHERE THE BOXES ARE. A single
+ *  stretched elbow with stubs at 25% and 75% of its own height is right only while the semifinal
+ *  boxes are stretched to a quarter of the column each, and that stretch leaves a band of empty
+ *  card under both semifinals. At their natural height fixed quarters point at nothing, so each
+ *  stub lives in the same grid row as the box it comes out of and sits at 50% of THAT row, which
+ *  is that box's centre whatever it measures.
  *
  *  The championship's stub is at 50% of the middle row, and lands on the box because the
  *  right-hand column centres it over the same three rows. That also makes the middle row the
@@ -377,7 +366,7 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
    * THE QUERY IS ABOUT THE COLUMN, NOT THE SCREEN. A series box is half the card minus the
    * connector, so between 600 and 899 it is nearer 250px with the type scale still at 1, and
    * "San Francisco Firebells" would ellipsise to "San Francisco Fireb…", which is a worse answer
-   * than the nickname it replaced.
+   * than the nickname.
    *
    * 1000 AND NOT 900, WHICH IS THE MEASUREMENT AND NOT A ROUND NUMBER. At 920px the longest name
    * fits at the default text size with nothing to spare, and clips by 8px at the Large setting
@@ -388,19 +377,19 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
    */
   const wide = useMediaQuery('(min-width:1000px)')
   return (
-    /* ONE GRID AT sm+, NOT A ROW OF COLUMNS, AND THE MIDDLE ROW IS WHAT CHANGED.
-       The two halves of this diagram are different heights: the semifinals stack to their own
-       content while the right-hand column is a centred championship with the title odds under
-       it, which is always the taller of the two. As a flex row that difference was paid by the
-       semifinal boxes, which stretched to fill the column and ended up with 40-odd px of blank
-       card below their last line each. Rows of `auto 1fr auto` pay it out of the GAP between
-       the two boxes instead, which is where a bracket wants its slack anyway: the boxes keep
-       their natural height and the championship sits in the space that opens between them.
+    /* ONE GRID AT sm+, NOT A ROW OF COLUMNS, AND THE MIDDLE ROW TAKES THE SLACK.
+    The two halves of this diagram are different heights: the semifinals stack to their own
+    content while the right-hand column is a centred championship with the title odds under
+    it, which is always the taller of the two. As a flex row that difference is paid by the
+    semifinal boxes, which stretch to fill the column and end up with 40-odd px of blank
+    card below their last line each. Rows of `auto 1fr auto` pay it out of the GAP between
+    the two boxes instead, which is where a bracket wants its slack anyway: the boxes keep
+    their natural height and the championship sits in the space that opens between them.
 
-       Grid also gives the elbow something to measure against; see ConnectorPiece. DOM order is
-       still the phone's reading order (semifinal A, semifinal B, the connector pieces which are
-       display:none there, the label, then the championship), so the `xs` flex column needs no
-       ordering of its own. */
+    Grid also gives the elbow something to measure against; see ConnectorPiece. DOM order is
+    still the phone's reading order (semifinal A, semifinal B, the connector pieces which are
+    display:none there, the label, then the championship), so the `xs` flex column needs no
+    ordering of its own. */
     <Box sx={{
       display: { xs: 'flex', sm: 'grid' },
       flexDirection: 'column', alignItems: 'stretch', gap: { xs: 1, sm: 0 },
@@ -427,20 +416,19 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
       }}>The winners meet in the</Typography>
       {/* THE CHAMPIONSHIP TAKES THE WHOLE COLUMN, AND THE TITLE ODDS ARE INSIDE IT.
-          Measured before touching it: this column ran `1fr auto 1fr` with a 137px box floating
-          in the middle and the odds strip pinned to the bottom, which left a 598 by 165 hole in
-          the top right doing nothing at all, and the left column carried 114px of matching slack
-          between its two boxes. Roughly a quarter of a 506px card was blank.
+      A `1fr auto 1fr` column with a small box floating in the middle and the odds strip
+      pinned to the bottom leaves a hole in the top right doing nothing at all, with matching
+      slack between the two boxes on the left: roughly a quarter of the card blank.
 
-          The fix is not to move something into the hole, it is to stop making one. Two boxes on
-          the left against one on the right will always leave the right column short unless the
-          one box is allowed to be tall, so it is: the championship stretches to the column and
-          takes the title odds inside it, which is where they belonged anyway. "Chance to win it
-          all" IS the championship's question, and it was being asked in a separate strip
-          underneath the box that asks it.
+      The answer is not to move something into the hole, it is to stop making one. Two boxes
+      on the left against one on the right will always leave the right column short unless
+      the one box is allowed to be tall, so it is: the championship stretches to the column
+      and takes the title odds inside it, which is where they belong anyway. "Chance to win
+      it all" IS the championship's question, and asking it in a separate strip underneath
+      the box that asks it splits one question in two.
 
-          The elbow still lands, and needs no arithmetic to: a box that fills the column has its
-          centre at the column's centre, which is what the connector points at. */}
+      The elbow still lands, and needs no arithmetic to: a box that fills the column has its
+      centre at the column's centre, which is what the connector points at. */}
       <Box sx={{ minWidth: 0, gridColumn: 3, gridRow: '1 / 4', display: 'flex', minHeight: 0 }}>
         <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined}
           onOpen={onOpenSeries ? () => onOpenSeries(bracket.championship, odds?.championship ?? undefined) : undefined}
@@ -509,17 +497,15 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
     // INSIDE THE CHAMPIONSHIP BOX, under its meta line, which is why it carries the box's own
     // padding and a top rule rather than a margin. `mt: auto` is what claims the slack: the box
     // stretches to the column, the entrants stay at the top where the connector points at them,
-    // and the difference collects here instead of above the box. Before this the strip was a
-    // separate band and the slack was a hole.
+    // and the difference collects here instead of above the box.
     <Box sx={{
       width: '100%', minWidth: 0, mt: 'auto',
       px: 1.25, pt: 1, pb: 1.1, borderTop: '1px solid', borderColor: 'divider',
     }}>
       {/* THE HEADING AND THE COLUMN LABELS ARE THE POINT, not decoration on it. Two bare
-          percentages against one club read as the card contradicting itself; the same two
-          under the words ODDS and FANS read as two different questions, which is what they
-          are. The series boxes above show a percentage of their own with no label at all,
-          which is the other half of the same problem and is fixed there. */}
+      percentages against one club read as the card contradicting itself; the same two
+      under the words ODDS and FANS read as two different questions, which is what they
+      are. The series boxes above label their own percentage for the same reason. */}
       {/* `px` MATCHES THE CLUB ROWS BELOW, which carry their own 0.5 so the tap target is wider
           than the text in it. Without the same padding here the two column headings sit five
           pixels right of the numbers they name, which is exactly far enough to look like a
@@ -637,17 +623,17 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
 
   // COLLAPSED BY DEFAULT ON A PHONE, EXPANDED EVERYWHERE ELSE.
   //
-  // This is 709px on a 375px screen and it arrives at 57% scroll depth: 30% of a Home page that
-  // is already 2.9 screens, on a section where 670 of 2,037 browsers fire exactly one event and
-  // leave. It is also the one card here nobody needs on every visit, because a bracket in
-  // August moves on the days a series is decided and not otherwise.
+  // This is about 700px on a 375px screen and it arrives more than halfway down a Home page that
+  // is already nearly three screens, on a section where a third of browsers fire exactly one event
+  // and leave. It is also the one card here nobody needs on every visit, because a bracket moves
+  // on the days a series is decided and not otherwise.
   //
   // WHAT COLLAPSES IS THE DRAWING, NOT THE ANSWER. The subtitle carries the leader and its
   // number while the card is shut, so a reader who never opens it still gets the headline the
   // bracket exists to deliver, in one line instead of eleven. A collapse that hides the point
   // along with the picture is just a card nobody opens.
   //
-  // `noSsr` because the alternative is a first paint at 709px that snaps shut a frame later,
+  // `noSsr` because the alternative is a first paint at full height that snaps shut a frame later,
   // which is worse than either state. The choice persists, so opening it once is not a decision
   // the reader re-makes on every visit; a phone that cannot write localStorage simply gets the
   // default back each time.
@@ -745,14 +731,13 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
       )}
       {(showAsterisk || (odds && !bracket.champion)) && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
-          {/* THE ASTERISK NEEDED SAYING. Every series in this card prints its published dates
-              with a star on the games that are only played if the series goes that far, and
-              nothing anywhere told a reader what the star meant: the one surface that spells it
-              out ("if needed") is the series overview, two taps away and behind a box a reader
-              has no reason to open just to decode a footnote. It leads, because it explains
-              something already on screen, where the sentence after it explains a number. The
-              glyph is the literal '*' seriesDateLine writes and not a lookalike: a key set in a
-              different character from the mark it explains is a key for something else. */}
+          {/* THE ASTERISK HAS TO BE EXPLAINED HERE. Every series in this card prints its published
+          dates with a star on the games that are only played if the series goes that far, and
+          the one surface that spells it out ("if needed") is the series overview, two taps away
+          and behind a box a reader has no reason to open just to decode a footnote. It leads,
+          because it explains something already on screen, where the sentence after it explains a
+          number. The glyph is the literal '*' seriesDateLine writes and not a lookalike: a key set
+          in a different character from the mark it explains is a key for something else. */}
           {showAsterisk && '* Played only if the series needs it. '}
           {odds && !bracket.champion && (
             <>Odds blend each club’s run differential with its head-to-head results, then

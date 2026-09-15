@@ -8,10 +8,11 @@ import type { WpblTeam } from '../types'
  * The bracket pick'em: predict each postseason series, by club AND by series score.
  *
  * WHY IT RIDES ON THE AWARDS BALLOT rather than a table of its own. `wpbl_award_votes` is
- * already "one browser, one answer, per named question", write-open and read-closed, with two
+ * already "one voter, one answer, per named question", write-open and read-closed, with two
  * aggregate-only RPCs behind it; its own migration says the questions live in code and that a
  * new one is added by inventing an id. A pick is that: a question id and an answer string. A
- * second table would have duplicated two policies and two functions to store the same pair.
+ * second table would duplicate two policies and two functions to store the same pair. (The
+ * pick'em keys its voter on the signed-in user rather than the browser; see SeriesPicks.tsx.)
  *
  * WHICH MAKES THESE IDS PERMANENT, on exactly the terms that migration sets out: an id is what
  * lands in `wpbl_award_votes.category`, so renaming one orphans every pick already made under
@@ -119,16 +120,16 @@ export function seriesResultChoice(series: BracketSeries): string | null {
  *     is also what an undecided championship reads as, correctly: that series has not started
  *     either. This is the accurate signal, and it is entirely downstream of the ingest.
  *  2. THE PUBLISHED FIRST PITCH, because signal 1 is only as good as our mirror of the
- *     schedule and on Sep 9, 2026 the mirror was empty. The league mints a new team id per
- *     club for the postseason, wpbl-ingest could map none of them, and all four bracket games
- *     were dropped every pass for two days. With no game rows, the semifinal read 'upcoming'
- *     through the whole of game 1 and the sheet went on asking who would win a series that
- *     was being played. `POSTSEASON_SCHEDULE` is a constant in this repo and needs nothing
- *     from the feed, so it closes the question on time even when the mirror knows nothing.
+ *     schedule, and the mirror can be empty. The league mints a new team id per club for the
+ *     postseason, and until wpbl-ingest maps them no bracket game has a row: the semifinal
+ *     reads 'upcoming' through the whole of game 1 and the sheet goes on asking who will win a
+ *     series that is being played (two days of it, from Sep 9, 2026). `POSTSEASON_SCHEDULE` is
+ *     a constant in this repo and needs nothing from the feed, so it closes the question on
+ *     time even when the mirror knows nothing.
  *
- * A defaulted `now` would have made this the same trap the first signal already was: a call
- * site that forgets it gets an answer that looks right all season and is wrong for the two
- * weeks that matter. The clock belongs to the caller, which is also what keeps this testable.
+ * A defaulted `now` would make this the same trap the first signal already is: a call site that
+ * forgets it gets an answer that looks right all season and is wrong for the two weeks that
+ * matter. The clock belongs to the caller, which is also what keeps this testable.
  *
  * A round with no published schedule falls back to signal 1 alone. That fails OPEN, on
  * purpose: a hypothetical extra round would otherwise be unpickable forever, and an ingest
@@ -151,20 +152,20 @@ export function seriesPickOpen(series: BracketSeries, now: number): boolean {
  * `seriesPickOpen` asks whether a series has started, which for the championship is Sep 16 and
  * is not the whole question. The final is picked out of clubs that are still playing semifinals,
  * so once ANY postseason baseball has been played, a championship pick is being made with
- * evidence the question was written before. On Sep 10, 2026 that was live: semifinal A was 1-0
- * to San Francisco and the sheet was still asking, unchanged, who would win it all.
+ * evidence the question was written before: with semifinal A at 1-0, a sheet that only checks
+ * the final's own start is still asking, unchanged, who will win it all.
  *
- * THE WHOLE FINAL, NOT JUST THE READERS HOLDING A CLUB THAT HAS PLAYED. A narrower rule was
- * tried first, locking only a reader whose own pick was already on the field, on the reasoning
- * that San Francisco batting tells someone holding New York nothing. It is true and it is not
- * the point: the bracket is one question in three parts, everyone answers it against the same
- * board, and a sheet where the final is shut for some readers and open for others is not a
- * pick'em. First pitch of the postseason is the deadline for all of it.
+ * THE WHOLE FINAL, NOT JUST THE READERS HOLDING A CLUB THAT HAS PLAYED. A narrower rule would
+ * lock only a reader whose own pick is already on the field, on the reasoning that San
+ * Francisco batting tells someone holding New York nothing. It is true and it is not the point:
+ * the bracket is one question in three parts, everyone answers it against the same board, and a
+ * sheet where the final is shut for some readers and open for others is not a pick'em. First
+ * pitch of the postseason is the deadline for all of it.
  *
  * IT USES `seriesPickOpen` FOR THE SEMIFINALS RATHER THAN THEIR BRACKET STATUS, so it inherits
- * the published-first-pitch backstop with them: the whole reason that backstop exists is that
- * the mirror was empty for two days of live postseason baseball, and a lock built on `status`
- * alone would go on being wrong here in exactly the same way.
+ * the published-first-pitch backstop with them: that backstop exists because the mirror can be
+ * empty during live postseason baseball, and a lock built on `status` alone would be wrong here
+ * in exactly the same way.
  *
  * STILL THE ONLY GATE, and still only in the UI: `wpbl_cast_award_vote` knows nothing about any
  * of this. Same non-guarantee as seriesPickOpen's.
@@ -237,16 +238,16 @@ export function championshipField(bracket: WpblBracket): SeriesPickOption[] {
  * question, so what it offers and what could have been answered are the same set and the shares
  * add to 100. THE CHAMPIONSHIP DOES NOT: every reader answers `pickem:2026:championship`, but
  * before the semifinals end each of them is offered only the two clubs they sent through, so the
- * options on screen are a slice of the field. Dividing by that slice made the reader's own two
- * finalists add to 100% no matter how few people had either of them winning it all, which is a
+ * options on screen are a slice of the field. Dividing by that slice makes the reader's own two
+ * finalists add to 100% no matter how few people have either of them winning it all, which is a
  * number with no stated meaning: not "share of fans", not "share of this matchup", something in
- * between that only made sense if you already knew how the sheet worked. It also made two
- * percentages that look alike incomparable, since a semifinal's 60% was out of everybody and the
- * final's 60% was out of whoever happened to agree with your bracket.
+ * between that only makes sense if you already know how the sheet works. It also makes two
+ * percentages that look alike incomparable, since a semifinal's 60% is out of everybody and the
+ * final's 60% is out of whoever happened to agree with your bracket.
  *
  * So the denominator is every answer to the QUESTION, and the visible shares are allowed not to
- * add up. The sheet does not try to explain the gap in words any more, and should not: it says
- * how many people have voted, once, and lets three percentages that add to 55 stand.
+ * add up. The sheet does not try to explain the gap in words, and should not: it says how many
+ * people have voted, once, and lets three percentages that add to 55 stand.
  *
  * `universe` must still be a real option list and not the raw tally: a stale key from a retired
  * format must not inflate it, or every bar comes out short and nothing says why.

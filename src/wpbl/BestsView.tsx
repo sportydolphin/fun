@@ -12,7 +12,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from './
 // It sits beside Players and Teams on the Stats tab because it answers a question those two
 // cannot. The season table ranks people by what they accumulated; this ranks INDIVIDUAL
 // NIGHTS, which is what a record book is and what a fan actually asks out loud ("what is the
-// most strikeouts anyone has thrown in a game"). Nothing in the section answered that before.
+// most strikeouts anyone has thrown in a game").
 //
 // THE ARITHMETIC IS ALL IN derive/bests.ts, which is also where the reasoning about what is
 // ranked and what is deliberately missing lives. The ROW is in GameLineRow.tsx, shared with the

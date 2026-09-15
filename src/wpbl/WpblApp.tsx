@@ -49,20 +49,20 @@ import { setDynamicSeo } from '../seo'
 
 // The two detail modals, split out of the section's chunk.
 //
-// Neither is on screen when /wpbl loads — both open on a tap — but together they were about
-// a third of what the landing view had to download and parse. GameDetail is the biggest
-// single file in the section (line score, box score, play-by-play, pitch data, recap tab) and
-// it drags Highlights, GamePreview and the live poller along with it.
+// Neither is on screen when /wpbl loads (both open on a tap), and together they are a large share
+// of what the landing view would otherwise download and parse. GameDetail is the biggest single
+// file in the section (line score, box score, play-by-play, pitch data, recap tab) and it drags
+// Highlights, GamePreview and the live poller along with it.
 const GameDetailModal = lazy(() => import('./GameDetail'))
 /**
  * The same import, run while the section is idle.
  *
- * Opening a game is the primary act in this section: every row on Home and Schedule leads
- * there. Waiting until the tap to fetch a 32kB chunk buys nothing, and it costs the one thing
- * an opening animation cannot survive, which is a gap before it starts. The tap used to put a
- * spinner in the middle of the screen and then, a beat later, slide a sheet up from the
- * bottom edge: two unrelated movements for one gesture. Warmed here, the sheet is simply
- * there on the first frame and the fallback below is a formality.
+ * Opening a game is the primary act in this section: every row on Home and Schedule leads there.
+ * Waiting until the tap to fetch the chunk buys nothing and costs the one thing an opening
+ * animation cannot survive, a gap before it starts: a spinner in the middle of the screen and
+ * then, a beat later, a sheet sliding up from the bottom edge, two unrelated movements for one
+ * gesture. Warmed here, the sheet is simply there on the first frame and the fallback below is a
+ * formality.
  */
 function usePreloadGameDetail() {
   useEffect(() => {
@@ -75,15 +75,14 @@ function usePreloadGameDetail() {
 const PlayerDetailModal = lazy(() => import('./PlayerDetail'))
 
 // Shown while a modal's chunk loads. A tap should visibly do something immediately, so this
-// paints the scrim the modal itself is about to paint — the panel then fills in over it,
+// paints the scrim the modal itself is about to paint, and the panel then fills in over it
 // rather than the tap appearing to have missed.
 /**
  * Nothing at all for the first moment, then a spinner if the chunk really is slow.
  *
- * React.lazy suspends for at least a tick even when the module is already in memory, so this
- * rendered on EVERY open: a dimmed screen and a spinner in the middle, for 326ms measured,
- * and then a sheet sliding up from the bottom edge. Two unrelated movements for one tap, and
- * the reason opening felt unstable while closing felt fine.
+ * React.lazy suspends for at least a tick even when the module is already in memory, so an
+ * immediate fallback renders on EVERY open: a dimmed screen and a spinner for a few hundred
+ * milliseconds, then a sheet sliding up, two unrelated movements for one tap.
  *
  * A delay is the right shape for this rather than deleting the fallback outright. The common
  * case is warm and instant and should show nothing; the rare cold one on a bad connection
@@ -119,13 +118,10 @@ const NAV = WPBL_NAV
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
-// Shown while the first teams/schedule read is in flight, for every tab EXCEPT Home, which
-// has its own (WpblHomeSkeleton, beside the layout it copies).
-//
-// This one used to serve Home as well and could not: it is drawn inside the section's 720px
-// page column, and Home is the single view that breaks out of that column, so the placeholder
-// and the page it stood in for were never the same width or anywhere near the same height.
-// Everything else here IS a 720px view, which is what is left.
+// Shown while the first teams/schedule read is in flight, for every tab EXCEPT Home, which has
+// its own (WpblHomeSkeleton, beside the layout it copies). This one is drawn inside the section's
+// 720px page column, and Home is the single view that breaks out of that column, so it could
+// never match Home's width or height.
 function ViewSkeleton() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
@@ -159,10 +155,10 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 /**
  * How recent a revision has to be to be worth marking on the schedule.
  *
- * A week. The league revises box scores for weeks after the fact and 23 of the season's 30
- * games carry a revision of some kind, so a mark on every one of those is a mark on nothing.
- * A week is "changed since you last looked", which is the question a reader scanning for
- * scoring changes is asking, and it kept 8 of the 30 marked on the day it shipped.
+ * A week. The league revises box scores for weeks after the fact and most of a season's games
+ * carry a revision of some kind, so a mark on every one of those is a mark on nothing. A week is
+ * "changed since you last looked", which is the question a reader scanning for scoring changes is
+ * asking.
  */
 const REVISION_RECENT_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -196,9 +192,9 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
     for (const r of standings) m.set(r.team.id, `${r.wins}-${r.losses}`)
     return m
   }, [standings])
-  // The postseason, from the calendar the league published, for as long as the feed has no
-  // rows of its own. Without this the schedule ended on Sep 6 while the bracket card two tabs
-  // away was already counting down to Sep 9. Each row retires itself the day a real game
+  // The postseason, from the calendar the league published, for as long as the feed has no rows
+  // of its own. Without this the schedule would end with the regular season while the bracket card
+  // is already counting down to the first playoff game. Each row retires itself the day a real game
   // lands on its date; see postseasonScheduleRows.
   const postRows = useMemo(
     () => postseasonScheduleRows(standings, games, siteGames), [standings, games, siteGames])
@@ -230,16 +226,16 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
   // stays put when switching tabs (it isn't sticky on desktop).
   //
   // Fill the calendar gaps between the first and last game so off-days show up as a slim
-  // "no games" marker — it reads as a continuous run of days, making the rhythm of when
+  // "no games" marker: it reads as a continuous run of days, making the rhythm of when
   // games land easy to see. Nothing is added after the final game.
   const gameDates = [...byDate.keys()] // date-ascending
   const dates: string[] = []
   {
     const cursor = new Date(`${gameDates[0]}T00:00:00`)
-    // Runs to the last date anything is scheduled on, which past Sep 6 is the published
-    // postseason rather than the feed. Taking the later of the two keeps the calendar
-    // continuous in both directions: before the league draws the bracket the tail is the
-    // constant, and once it does the feed's own rows are the later date and take over.
+    // Runs to the last date anything is scheduled on, which after the regular season is the
+    // published postseason rather than the feed. Taking the later of the two keeps the calendar
+    // continuous in both directions: before the league draws the bracket the tail is the published
+    // calendar, and once it does the feed's own rows are the later date and take over.
     const lastFeed = gameDates[gameDates.length - 1]
     const lastPost = postRows.length ? postRows[postRows.length - 1].date : lastFeed
     const end = new Date(`${(lastPost > lastFeed ? lastPost : lastFeed)}T00:00:00`)
@@ -361,8 +357,8 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
     }
     return (
     <Box key={date}>
-      {/* One divider where the regular season stops, so a reader scrolling past Sep 6 is told
-          what the dashed cards below it are before meeting one. */}
+      {/* One divider where the regular season stops, so a reader scrolling past the last
+          regular-season date is told what the dashed cards below it are before meeting one. */}
       {date === firstPostDate && <SectionLabel>Postseason</SectionLabel>}
       <SectionLabel>{dateLabel(date)}</SectionLabel>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -394,7 +390,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
                   const won = final && score > other
                   return t && (
                   <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                    {/* Winner caret on finals — fixed-width slot keeps both rows' badges aligned. */}
+                    {/* Winner caret on finals: a fixed-width slot keeps both rows' badges aligned. */}
                     {final && (
                       <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
                     )}
@@ -423,8 +419,8 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
                 </Typography>
               </Box>
              </Box>
-              {/* "Semifinal · Game 2" and the record, which is the unit a fan tracks in
-                  October and the one thing three rows between the same two clubs cannot say
+              {/* "Semifinal · Game 2" and the record, which is the unit a fan tracks in the
+                  postseason and the one thing three rows between the same two clubs cannot say
                   for themselves. The record only, not what a win would clinch: that is
                   broadcast copy and it belongs on the game's own page, where there is room
                   for it. Wraps rather than truncates, because the club names in it are as
@@ -445,11 +441,11 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
                 </Box>
               )}
               {/* The league changed this box score in the last week. THE WINDOW IS WHAT MAKES
-                  IT A SIGNAL: 23 of the season's 30 games have been revised at some point, so
-                  marking all of them says nothing, where "changed since you last looked" is the
-                  question a reader scanning the schedule for scoring changes is actually
-                  asking. The game's own page carries the date whenever there is one, however
-                  old. See boxScoreRevision. */}
+                  IT A SIGNAL: most of a season's games get revised at some point, so marking all
+                  of them says nothing, where "changed since you last looked" is the question a
+                  reader scanning the schedule for scoring changes is actually asking. The game's
+                  own page carries the date whenever there is one, however old. See
+                  boxScoreRevision. */}
               {recentRevision(g) && (
                 <Box sx={{
                   display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.6,
@@ -551,16 +547,16 @@ function StandingsView({ teams, games, onOpenTeam }: {
   const fmtPct = (pct: number, gp: number) => gp === 0 ? '—' : pct.toFixed(3).replace(/^0\./, '.')
   const th = { py: 0.85, px: 0.4, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4, color: 'text.secondary', textAlign: 'right' as const, whiteSpace: 'nowrap' as const }
   const td = { py: 1, px: 0.4, fontSize: '0.85rem', textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const, whiteSpace: 'nowrap' as const }
-  // The numeric columns, in rem rather than px because `tableLayout: 'fixed'` means these
-  // widths are the whole story: a cell wider than its column does not push it out, it spills.
-  // At a 1.5 text scale the px versions had PCT and STRK overflowing by 2px, which on a
-  // tabular-nums figure reads as a rendering fault rather than as text being large. 2.125rem
-  // and 2.875rem are the 34px and 46px they have always been at the default root size.
+  // The numeric columns, in rem rather than px because `tableLayout: 'fixed'` means these widths
+  // are the whole story: a cell wider than its column does not push it out, it spills. In px, PCT
+  // and STRK overflow at a 1.5 text scale, which on a tabular-nums figure reads as a rendering
+  // fault rather than as text being large. 2.125rem and 2.875rem are 34px and 46px at the default
+  // root size.
   const NUM = 2.125, WIDE = 2.875
   const col = (rem: number) => `${rem}rem`
   // Below this the eight columns do not fit, and `tableLayout: 'fixed'` spends the shortfall
-  // entirely on the one column without a width: at 320 the club name was left 4.8px, so the
-  // table rendered as a badge and a single letter and three of the four clubs read alike.
+  // entirely on the one column without a width: at 320px the club name is left under 5px, so the
+  // table renders as a badge and a single letter and three of the four clubs read alike.
   // GB and DIFF go rather than a few pixels off each of the others, because they are the two
   // a reader can rebuild from what is beside them (GB from the W-L columns, the run
   // differential from the team page), and because shaving all seven only moves the clipping
@@ -648,7 +644,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                     <TeamBadge team={r.team} size={24} />
                     {/* Full name would truncate on mobile once the numeric columns claim their
-                        fixed widths — fall back to the nickname there (the badge carries the city). */}
+                        fixed widths, so fall back to the nickname there (the badge carries the city). */}
                     <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'none', sm: 'block' } }}>{wpblFullName(r.team)}</Typography>
                     <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'block', sm: 'none' } }}>{r.team.name}</Typography>
                   </Box>
@@ -679,9 +675,9 @@ function StandingsView({ teams, games, onOpenTeam }: {
         </Box>
       )}
       {/* THE DIVIDERS, over the rows rather than on them. One line at the top of each slot, so
-          the top one doubles as the rule under the header, exactly where the row's own border
-          used to be. `zIndex` has to clear the 2 a row moving UP takes, or the lines go back
-          under the thing they exist to survive. */}
+          the top one doubles as the rule under the header, where a row's own border would be.
+          `zIndex` has to clear the 2 a row moving UP takes, or the lines go back under the
+          thing they exist to survive. */}
       {dividers.tops.map((top, i) => (
         <Box key={i} aria-hidden sx={{
           position: 'absolute', left: 0, right: 0, top: `${top}px`,
@@ -697,13 +693,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
           been played, so it cannot be an empty box on opening day. */}
       <SeasonShapeCard shape={shape} onPreview={onPreview} />
 
-      {/* THE SEEDING CARD IS GONE, removed Sep 8, 2026, the day after the last regular-season
-          game. It existed to say what the remaining games were FOR, since all four clubs
-          qualify and the order was the whole stake: with the order settled it was a card
-          answering a question nobody has any more, and it would have gone on answering it all
-          winter. The bracket on Home is the surface that carries the postseason now, and it
-          says the same things with the pairings drawn rather than listed. `seedingRace` itself
-          stays and is load-bearing: derive/bracket.ts builds the whole bracket out of it. */}
+      {/* NO SEEDING CARD once the regular season is over. It existed to say what the
+          remaining games were FOR, since all four clubs qualify and the order was the whole
+          stake; with the order settled it answers a question nobody has, and the bracket on
+          Home carries the postseason with the pairings drawn. `seedingRace` itself stays and
+          is load-bearing: derive/bracket.ts builds the whole bracket out of it. */}
     </Box>
   )
 }
@@ -791,11 +785,10 @@ function viewFromLocation(): string | null {
 }
 
 // The WPBL pages that are not tabs: the league, the season recap, the scorigami grid, the players
-// index, the rules and the data sources. Every one is a real route that until now was linked only
-// from the footer, which is a fine crawl path and a poor way for a reader to find anything. This
-// menu is one discovery surface for all of them, WITHOUT a sixth nav pill: WPBL_NAV, the pager and
-// the mobile bottom bar all stay at five, which is the constraint the section has held to since the
-// sixth pill used to sit off-screen on a phone (see BottomNav.tsx and the note on WPBL_LEAGUE_PAGE).
+// index, the rules and the data sources. The footer links them, which is a fine crawl path and a
+// poor way for a reader to find anything, so this menu is one discovery surface for all of them,
+// WITHOUT a sixth nav pill: WPBL_NAV, the pager and the mobile bottom bar all stay at five, because
+// a sixth pill does not fit a phone (see BottomNav.tsx and the note on WPBL_LEAGUE_PAGE).
 //
 // Not a tab and switches nothing in the pager: it opens a menu. Each item is a real <a href> via
 // linkTo, so it is crawlable and cmd/middle-click opens it in a new tab, the same rule the footer
@@ -930,8 +923,8 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
-  // Section is public/read-only (feed-driven). Ingest-health freshness moved to the site
-  // Admin panel, so the section no longer needs an admin flag.
+  // Section is public and read-only (feed-driven), so it needs no admin flag; ingest-health
+  // freshness lives in the site Admin panel.
 
   // Seed from the snapshot already on this history entry (Back/refresh into a deep state),
   // then the URL's path, else home. Read once per state (history.state is stable at mount).
@@ -953,7 +946,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     return HOME_SNAP
   }
   // A legacy ?view=tracking (or a restored snapshot) should open Stats already on the
-  // tracking group — token 1 so the panel treats it as a real request on first mount.
+  // tracking group, with token 1 so the panel treats it as a real request on first mount.
   const seedTracking = () =>
     normalizeView(window.history.state?.wpbl?.view ?? viewFromLocation()).wasTracking
   const [view, setView] = useState<WpblView>(() => seed().view)
@@ -976,12 +969,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // and must not re-fire this when a reader swipes tabs with a game still open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailGame?.id])
-  // Which stat group the Stats view opens on (set when jumping there from Home leaders).
-  // What the Stats tab should be showing when it's opened from a Home leader card. `token`
-  // is the part that matters: the Stats panel stays MOUNTED once visited (SwipeableViews keeps
-  // visited tabs alive), so a plain prop can't re-seed its state on a second visit — before
-  // this, a second "View all" from the other card silently left the table on its first target.
-  // Bumping the token on every jump gives the panel an unambiguous "re-focus now" signal, and
+  // What the Stats tab should be showing when it's opened from another surface ("View all",
+  // "Full stats"). `token` is the part that matters: the Stats panel stays MOUNTED once visited
+  // (SwipeableViews keeps visited tabs alive), so a plain prop can't re-seed its state on a second
+  // visit. Bumping the token on every jump gives the panel an unambiguous "re-focus now" signal, and
   // leaves it alone when the reader reaches Stats by tapping the tab or swiping.
   const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>(
     () => (seedTracking() ? { group: 'tracking', token: 1 } : { group: 'hitting', token: 0 }))
@@ -995,11 +986,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // pill is always retired at or before either chip anyway. Read once at mount: shouldShowBadge()
   // consults localStorage and an expiry date, and neither changes under us mid-session.
   //
-  // History, and the seam the next badge is added at: Teams carried a dot for the v1.45.0
-  // rebuild, Pitch by pitch for v1.47.0, Run value ('runs-v152'), each pulled by hand once its
-  // board had been on the tab long enough that the dot meant "there is a dot" rather than
-  // "new". Each registration goes with its call site, which is what lib/seen.ts means by
-  // deleting a badge in one go.
+  // A badge is pulled by hand once its board has been on the tab long enough that the dot means
+  // "there is a dot" rather than "new"; each registration goes with its call site (see lib/seen.ts).
   const [statsPillNew, setStatsPillNew] = useState(() => shouldShowBadge('stats-tab-v184'))
   const [newBoards, setNewBoards] = useState<Set<string>>(() => {
     const s = new Set<string>()
@@ -1029,11 +1017,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   // The league's own website calendar, mirrored nightly. It answers two questions the stats
   // feed answers worse: for a postseason game the feed has not published yet, which club bats
-  // last, and for one it HAS published, when the game actually starts (see applyLeagueStartTimes,
-  // and the semifinal this section had an hour early). Held here rather than fetched twice,
-  // because the Schedule tab and Home's Next game card build their postseason rows from the same
-  // function and must not disagree about who is at home. An empty list is a working state, not a
-  // broken one: see postseasonScheduleRows.
+  // last, and for one it HAS published, when the game actually starts (see
+  // applyLeagueStartTimes). Held here rather than fetched twice, because the Schedule tab and
+  // Home's Next game card build their postseason rows from the same function and must not
+  // disagree about who is at home. An empty list is a working state, not a broken one: see
+  // postseasonScheduleRows.
   const [siteGames, setSiteGames] = useState<WpblSiteGame[]>([])
   /**
    * THE SCHEDULE THE WHOLE SECTION RENDERS, which is the feed's with the league's own published
@@ -1048,20 +1036,15 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
    */
   const games = useMemo(() => applyLeagueStartTimes(feedGames, siteGames), [feedGames, siteGames])
   const [loading, setLoading] = useState(true)
-  // `noSsr` so this is right on the FIRST render, not one tick late. Without it MUI returns
-  // `false` on the initial client render and corrects in an effect, which flips `bottomNav`
-  // from false to true a frame later. That flip meant the floating bottom bar was absent from
-  // the first paint and then INSERTED into an already-laid-out, tall, scrolled Home — and iOS
-  // Safari paints a late-inserted `position: fixed` element at its document position (the
-  // bottom-right of the content, only visible scrolled to the foot of the page) until the next
-  // reflow, which a tab swipe supplied. Reading matchMedia synchronously here keeps the bar in
-  // the initial layout, so it is fixed to the viewport from the start.
+  // `noSsr` so this is right on the FIRST render, not one tick late. Without it MUI returns `false`
+  // on the initial client render and corrects in an effect, so the bottom bar would be absent from
+  // the first paint and inserted a frame later into an already laid-out page, with the pill nav
+  // flashing in its place. Reading matchMedia synchronously keeps the bar in the initial layout.
   const isMobileView = useMediaQuery('(max-width:600px)', { noSsr: true })
   const navRef = useRef<HTMLDivElement>(null)
-  // Bottom tab bar — phones only. It REPLACES the sticky top pills rather than sitting
-  // alongside them: two navs for the same five destinations would be worse than either alone.
-  // Desktop keeps the pills regardless — a bottom bar is wrong at 1280px. Shipped for every
-  // mobile reader on Sep 14, 2026; it was behind the experiments flag while being evaluated.
+  // Bottom tab bar, phones only. It REPLACES the sticky top pills rather than sitting alongside
+  // them: two navs for the same five destinations would be worse than either alone. Desktop keeps
+  // the pills regardless, because a bottom bar is wrong at 1280px.
   const bottomNav = isMobileView
   // The bottom bar's More sheet (the mobile way into the non-tab pages). Owned here, not in the
   // bar, because the sheet renders above the bar and outlives a tab swipe.
@@ -1073,8 +1056,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [navStuck, setNavStuck] = useState(false)
 
   // Publish this bar's pinned height as --wpbl-nav-h, the mobile counterpart to the
-  // toolbar's --app-header-h. Exactly one of the two is sticky at a time — the toolbar on
-  // desktop, this bar on mobile — so a view that wants to pin something of its own below
+  // toolbar's --app-header-h. Exactly one of the two is sticky at a time (the toolbar on
+  // desktop, this bar on mobile), so a view that wants to pin something of its own below
   // the chrome can offset by the sum and be right on both. Keyed off the computed position
   // (and re-measured on resize) so the static desktop case reports 0 rather than a height
   // nothing is actually holding: on desktop the bottom bar is absent and the top pills are
@@ -1083,16 +1066,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const el = navRef.current
     const publish = () => {
       const pinned = el && getComputedStyle(el).position === 'sticky'
-      // The RECT height, not offsetHeight, which rounds to a whole pixel. A bar 43.67px tall
-      // published itself as 44, so anything sticking at that offset sat a third of a pixel
-      // below this one's bottom edge and the page scrolled through the crack: one device
-      // pixel of a stats row, running along under the nav the whole way down. Fractional CSS
-      // pixels are what the browser is laying out in, so hand it those.
-      //
-      // No division any more: this section renders at the desktop scale in CSS rather than
-      // under a `zoom`, so a rect and a sticky `top` are the same pixel here. The division
-      // that used to sit here was a no-op even then (this bar only pins on mobile, where the
-      // zoom was 1), kept against the day the conditions moved. They moved by being removed.
+      // The RECT height, not offsetHeight, which rounds to a whole pixel. A bar 43.67px tall would
+      // publish itself as 44, so anything sticking at that offset sits a third of a pixel below this
+      // one's bottom edge and the page scrolls through the crack: one device pixel of a stats row,
+      // running along under the nav the whole way down. Fractional CSS pixels are what the browser is
+      // laying out in, so hand it those. No division: this section scales in CSS rather than under a
+      // `zoom`, so a rect and a sticky `top` are the same pixel here.
       document.documentElement.style.setProperty(
         '--wpbl-nav-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
     }
@@ -1110,7 +1089,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Toolbar search bridge — WpblApp owns the shared header search while /wpbl is mounted.
+  // Toolbar search bridge: WpblApp owns the shared header search while /wpbl is mounted.
   const bridge = useSearchBridge()
 
   // ── History-driven navigation ────────────────────────────────────────────────
@@ -1137,12 +1116,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // A game with nothing open on top of it owns the path, for the same reasons a player
     // does: `?game=<uuid>` is one URL as far as seo.ts is concerned (it canonicalises a
     // query back to the tab underneath, so a hundred shared game links do not read as a
-    // hundred near-duplicates of Schedule), which meant every recap the section has ever
-    // rendered was unindexable by design. It also gives the schedule cards an href, which
-    // is what makes them links a crawler can follow rather than onClick divs.
+    // hundred near-duplicates of Schedule), which would make every recap unindexable by
+    // design. It also gives the schedule cards an href, which is what makes them links a
+    // crawler can follow rather than onClick divs.
     //
-    // A PLAYER opened from a game keeps the player's path and leaves the game on the query,
-    // unchanged from before: the deeper modal is the page, the one under it is state.
+    // A PLAYER opened from a game keeps the player's path and leaves the game on the query:
+    // the deeper modal is the page, the one under it is state.
     //
     // Falls back to the query form while the schedule or the clubs are still in flight,
     // since a slug cannot be proven unique without the whole schedule (see wpblGameSlug).
@@ -1172,14 +1151,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
     // THE STATS BOARD'S OWN PARAMS RIDE THROUGH, and this is the only query this function does
     // not mint itself. `urlFor` builds a URL out of the snapshot, so anything on the address the
-    // reader arrived at and that the snapshot has never heard of is discarded the moment the
-    // mount effect below stamps the first entry. That is a beat before the Stats pane renders,
-    // so `/wpbl/stats?board=runs` opened on Players with the query already gone, for every board,
-    // since the params shipped. See STATS_URL_PARAMS for why the list lives over there.
+    // reader arrived at that the snapshot has never heard of is discarded the moment the mount
+    // effect below stamps the first entry, a beat before the Stats pane renders: without this,
+    // `/wpbl/stats?board=runs` opens on Players with the query gone. See STATS_URL_PARAMS for why
+    // the list lives over there.
     //
     // ONLY ONTO THIS TAB, and only with nothing laid over it. Carried blindly, a reader leaving a
     // sorted board for Schedule would take `?sort=ops` with them onto a page that has no columns,
-    // and a player opened from the board would get a URL claiming a board underneath her. Reading
+    // and a player opened from the board would get a URL claiming a board underneath them. Reading
     // the CURRENT search is what makes it work at all: at mount that is still the address the
     // reader opened, and on every later navigation it is wherever they actually are, so there is
     // nothing to carry unless they are already on this tab.
@@ -1187,19 +1166,18 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       carryStatsParams(new URLSearchParams(window.location.search), q)
     }
 
-    // A CLUB SELECTED ON ITS OWN TAB OWNS THE PATH. Selecting one opens roughly 2,800px of
-    // content (results, team stats, lineup history, pitching usage, both leader boards, the
-    // roster) that had no URL at all until Sep 2, 2026: unindexable, unlinkable, and with no
-    // href to give the cards, which is why they were role="button" divs.
+    // THE BALLOT, THEN A CLUB, CAN OWN THE PATH, both BELOW the game and player branches above for
+    // the reason those are ordered that way: the deeper modal is the page and what is under it is
+    // state.
     //
-    // Only on the Teams tab, because `selectedTeam` deliberately rides along through a tab
-    // switch: a reader who picks a club and swipes to Stats is on Stats, and the path has to
-    // say so. Below the game and player branches above for the same reason those are ordered
-    // that way, the deeper modal being the page and what is under it being state.
-    // THE BALLOT OWNS THE PATH, and it sits BELOW the game and player branches above for the
-    // reason those are ordered that way: the deeper modal is the page and what is under it is
-    // state. A player opened from the ballot keeps the player's URL, and closing her returns to
+    // The ballot: a player opened from it keeps the player's URL, and closing that player returns to
     // /wpbl/awards, because the entry underneath still carries `awards: true`.
+    //
+    // A club selected on its own tab opens a whole page of content (results, team stats, lineup
+    // history, pitching usage, leaders, the roster) that would otherwise have no URL: unindexable,
+    // unlinkable, and with no href to give the cards. Only on the Teams tab, because `selectedTeam`
+    // deliberately rides along through a tab switch: a reader who picks a club and swipes to Stats is
+    // on Stats, and the path has to say so.
     const str = q.toString()
     if (s.awards && !s.game && !s.player) {
       return str ? `${WPBL_AWARDS_PATH}?${str}` : WPBL_AWARDS_PATH
@@ -1255,12 +1233,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   /**
    * Open a modal that a shared link asked for, on a cold load.
    *
-   * THIS IS NOT `push`, AND IT IS NOT `replaceState` EITHER, WHICH IS THE BUG THIS FIXES.
-   * A deep link used to open its modal with replaceState, so the whole session history was a
-   * single entry that already had the modal open. `closeTop` is `history.back()`, so the X,
-   * the backdrop and Escape all had nothing to walk back to: from the only entry in the
-   * session, back() either does nothing or leaves the site. Anyone arriving on a player from
-   * a pasted link was trapped in the modal.
+   * THIS IS NOT `push`, AND IT IS NOT `replaceState` EITHER. Opening the modal with replaceState
+   * would make the whole session history a single entry that already has the modal open, and
+   * `closeTop` is `history.back()`, so the X, the backdrop and Escape would have nothing to walk
+   * back to: from the only entry in the session, back() either does nothing or leaves the site,
+   * trapping anyone who arrived on a player from a pasted link.
    *
    * So seat a modal-less entry underneath first, then push the modal on top. Back and the X
    * then behave exactly as they would had the reader opened the player themselves, which is
@@ -1282,9 +1259,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   //
   // It matters because seating a base is only correct when there is nothing behind us. The
   // players index at /wpbl/players is a separate route, so following a link from it remounts
-  // this component and lands here: seating a base there REPLACED the index entry with a bare
-  // /wpbl, and Back from a player returned to the section root instead of the list the reader
-  // was just reading.
+  // this component and lands here: seating a base there would REPLACE the index entry with a
+  // bare /wpbl, and Back from a player would return to the section root instead of the list the
+  // reader was just reading.
   const arrivedByInAppLink = useRef(window.history.state != null)
   const openFromLink = useCallback((s: WpblSnap) => {
     // Came from a link inside the site: the shell already pushed an entry for this exact
@@ -1308,30 +1285,29 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   // Navigation intents. Tab/team switches clear any open modal; opening a player keeps the
   // game beneath it (so Back closes the player first, then the game).
-  // Tab switches carry HOW the reader got there. Cloudflare already counts the ?view= paths,
-  // so this deliberately isn't a page-view log (see analytics.ts) — the part Cloudflare can't
-  // answer is the `via`: a pill tap is a deliberate choice, a swipe often just passes through
-  // on the way somewhere else, and a card link is the Home feed doing its job. That's what
-  // tells us whether the six-tab nav is actually working on a phone, where the last tab sits
-  // off-screen. Back/forward navigations go through popstate, not here, and aren't counted.
+  // Tab switches carry HOW the reader got there. Cloudflare already counts the tab paths, so
+  // this deliberately isn't a page-view log (see analytics.ts): the part Cloudflare can't answer
+  // is the `via`. A pill tap is a deliberate choice, a swipe often just passes through on the
+  // way somewhere else, and a card link is the Home feed doing its job, which is what says
+  // whether the nav is actually working on a phone. Back/forward navigations go through
+  // popstate, not here, and aren't counted.
   const selectTab = useCallback((v: WpblView, via: 'pill' | 'swipe' | 'link' = 'pill') => {
     if (v !== view) track(EVENTS.WPBL_TAB_VIEWED, { view: v, via, from: view })
     // Tapping the tab you are already on returns it to its root. This matters for Teams and
     // nowhere else: `selectedTeam` rides along through every tab switch (so swiping out to
-    // Stats and back keeps the team page you were reading), but nothing ever cleared it — so
-    // once any team page had been opened, the four-team grid became unreachable. A team
-    // opened from the Stats table was especially stuck: Back went to Stats, and the Teams
-    // pill just re-opened the same team.
+    // Stats and back keeps the team page you were reading), and without this nothing would clear
+    // it, so once any team page had been opened the four-team grid would be unreachable. A team
+    // opened from the Stats table is the stuck case: Back goes to Stats, and the Teams pill would
+    // just re-open the same team.
     const backToRoot = v === view && via === 'pill'
     push({ view: v, team: backToRoot ? null : selectedTeam, game: null, player: null })
   }, [push, selectedTeam, view])
   // Every team-page open in the section funnels through here, so it is the only place that can
-  // count them all. Until this existed the only team opens on record were the seeding card's and
-  // the bracket's, which measured two widgets rather than the surface: the Teams grid, the
-  // standings table, the Stats table and the header search all reached a team page unseen.
+  // count them all: the Teams grid, the standings table, the Stats table, the bracket and the
+  // header search all reach a team page through it.
   //
-  // `from` names the SURFACE, not the widget, and the two card events stay where they are
-  // because they carry the seed, so a bracket click lands in both. That is deliberate:
+  // `from` names the SURFACE, not the widget, and card-level events stay where they are because
+  // they carry extra detail (the seed), so a bracket click lands in both. That is deliberate:
   // `wpbl_team_opened` is the total, `wpbl_bracket_team` is that card's own funnel. Adding the
   // two together double-counts.
   const selectTeam = useCallback(
@@ -1413,10 +1389,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // read above rather than after it.
   //
   // Home owns these reads, but Home cannot mount until `loading` clears, and `loading`
-  // clears only when teams+schedule resolve — so they used to queue behind that round trip.
-  // On production the first three requests went out at 444 ms and the remaining ones did not
-  // start until 1454 ms: a full second of serialized latency that bought nothing, since none
-  // of these reads depend on teams or games. Firing them here overlaps the two waves.
+  // clears only when teams+schedule resolve, so without this they queue behind that round trip:
+  // a serialized second of latency that buys nothing, since none of these reads depend on teams
+  // or games. Firing them here overlaps the two waves.
   //
   // This is a warm-up, not a load: the results land in the api layer's session cache and the
   // rest is unchanged. Home still owns the fetching, still renders from the same cache
@@ -1425,11 +1400,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // already settled, Home seeds straight from cache and skips the round trip entirely.
   //
   // Deliberately scoped to a Home landing. Deep links (a shared ?game=, or ?view=stats) open
-  // a view that wants a different, smaller slice, so this should not be speculative.
-  //
-  // The whole-season play-by-play used to be prefetched here as well, and it was by far the
-  // most expensive read on the section. It fed the Hall of Firsts card and nothing else, so
-  // retiring that card retired the read with it.
+  // a view that wants a different, smaller slice, so this should not be speculative. The
+  // whole-season play log is not warmed here: it is the most expensive read on the section and
+  // Home fetches it last on purpose (see the play-log effect in Home.tsx).
   const landsOnHome = useRef(view === 'home')
   useEffect(() => {
     if (!landsOnHome.current) return
@@ -1571,9 +1544,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   }, [games.length])
 
   // Recent searches: the players and teams opened from the header search, newest first, so
-  // the empty-query dropdown has something to show (traffic says opening a player page is the
-  // retention event, and the search box was a dead end with nothing typed). localStorage only
-  // — see recentSearches.ts for why this is not the MLB recents store.
+  // the empty-query dropdown has something to show (opening a player page is the retention
+  // event, and a search box with nothing typed would otherwise be a dead end). localStorage
+  // only; see recentSearches.ts for why this is not the MLB recents store.
   const [recentSearches, setRecentSearches] = useState<WpblRecentItem[]>(getWpblRecents)
   const recordRecent = useCallback((item: WpblRecentItem) => {
     setRecentSearches(prev => {
@@ -1587,7 +1560,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // One place that turns a player/team into a self-describing toolbar row. Shared by the typed
   // results and the recents list so both look identical and both record the selection (a
   // recent re-selected bumps back to the front). The avatar is rebuilt from the live roster on
-  // every render, so a traded player carries her current tint and team rather than a stale one.
+  // every render, so a traded player carries their current tint and team rather than a stale one.
   const buildPlayerRow = useCallback((p: WpblPlayer, source: 'result' | 'recent'): SearchResultRow => {
     const team = p.team_id ? teamById.get(p.team_id) : undefined
     const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
@@ -1710,13 +1683,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
   // so the first Back leaves the section and a refresh restores the view. On a Back/remount
-  // the entry already carries a snapshot — leave it untouched.
+  // the entry already carries a snapshot: leave it untouched.
   useEffect(() => {
     if (!window.history.state?.wpbl) {
-      // `awards` IS LOAD-BEARING HERE. This runs on a cold load, before anything else, and
-      // `urlFor` of a snapshot without it returns /wpbl: landing on /wpbl/awards would have
-      // rewritten the address bar to the section root in the first tick, so a copied link lost
-      // the ballot before the page had drawn. Same failure the Teams branch of `seed` describes.
+      // `awards` IS LOAD-BEARING HERE. This runs on a cold load, before anything else, and `urlFor`
+      // of a snapshot without it returns /wpbl: landing on /wpbl/awards would rewrite the address bar
+      // to the section root in the first tick, so a copied link would lose the ballot before the page
+      // had drawn. Same failure the Teams branch of `seed` describes.
       const s: WpblSnap = {
         view, team: selectedTeam, game: detailGame, player: detailPlayer, awards: awardsOpen,
       }
@@ -1724,11 +1697,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       // what `openFromLink` exists to do for a player link, spelled out here because the ballot
       // needs none of the rest of it: there is nothing to resolve out of the URL, so it never
       // reaches that function. Stamped as one entry that already has the sheet open, the session
-      // had a single history entry and `closeTop` is `history.back()`, so the X, the backdrop and
-      // Escape all walked the reader out of the site instead of onto Home. Measured: back() from a
-      // fresh tab on /wpbl/awards left the page entirely. So seat a sheet-less entry underneath
-      // and push the ballot on top, and closing behaves exactly as it would had they opened it
-      // themselves. Both halves run in this one synchronous block, so nothing paints on /wpbl.
+      // would have a single history entry, and `closeTop` is `history.back()`, so the X, the
+      // backdrop and Escape would walk the reader out of the site instead of onto Home. So seat a
+      // sheet-less entry underneath and push the ballot on top, and closing behaves exactly as it
+      // would had they opened it themselves. Both halves run in this one synchronous block, so
+      // nothing paints on /wpbl.
       if (s.awards) {
         const base: WpblSnap = { ...s, awards: false }
         window.history.replaceState({ ...window.history.state, wpbl: base }, '', urlFor(base))
@@ -1741,7 +1714,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   }, [])
 
   // Apply snapshots as the user moves through history. Pops that land outside /wpbl are the
-  // App router swapping sections (MLB|WPBL) — ignore them here.
+  // App router swapping sections (MLB|WPBL): ignore them here.
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
       // Any path the section renders, which is every tab AND a player page. Comparing
@@ -1784,7 +1757,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // and status changes. Teams are static, so only the schedule is re-fetched. Faster while a
   // game is in progress; `useForegroundInterval` owns the rest of the policy (front-of-screen
   // only, and a pull the moment the page comes back, bfcache restores included) for this and
-  // the three live polls that used to each answer the question differently.
+  // the section's other live polls.
   //
   // THIS IS ALSO THE POLL THAT DISCOVERS A GAME HAS STARTED. The live surfaces below only ever
   // refresh a row they already believe is live, so a page opened before first pitch learns
@@ -1808,23 +1781,20 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     {/* Cap + center on wide screens (site convention); full width on mobile.
         On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav: the
         toolbar already sits right above it, so the extra gap just reads as dead space at rest. */}
-    {/* THE COLUMN TRACKS THE SCALE, it is not a fixed screen width.
-        It was pinned at 1008 for one commit, on the reasoning that 720 layout px under the old
-        1.4 zoom rendered at 1008 and the column should keep the width it had. That is the wrong
-        invariant. What a text column is designed against is its own type, and the scale moved
-        to 1.25 while 1008 stayed put, so every row in here got 12% wider than the words in it:
-        club names on the left of a Teams card with their record marooned at the far right, a
-        schedule row with a gulf between the matchup and the time. Home and the stats table
-        break out of this column on purpose and DO spend extra width, on another chip and more
-        columns; a list has nothing to spend it on. `chromePx` keeps the ratio the design was
-        drawn at whatever the scale becomes. */}
+    {/* THE COLUMN TRACKS THE SCALE, it is not a fixed screen width. What a text column is
+        designed against is its own type, so pinning it at a screen width while the desktop
+        scale moves makes every row wider than the words in it: club names on the left of a
+        Teams card with their record marooned at the far right, a schedule row with a gulf
+        between the matchup and the time. Home and the stats table break out of this column on
+        purpose and DO spend extra width, on another chip and more columns; a list has nothing
+        to spend it on. `chromePx` keeps the ratio the design was drawn at whatever the scale
+        becomes. */}
     {/* The -1.5 on a phone pulls the sticky PILL BAR up close under the toolbar, where a sticky
         bar wants to sit. With the bottom bar on, that bar is gone and the first block (the
-        scoreboard) would otherwise inherit the tuck and sit ~4px under the toolbar; give it real
-        breathing room instead. Keyed on bottomNav so it is correct in the target state and a
-        no-op until the gate flips. */}
+        scoreboard) would otherwise inherit the tuck and sit ~4px under the toolbar, so it gets
+        real breathing room instead. */}
     <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: bottomNav ? 0.5 : -1.5, sm: 0 } }}>
-      {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
+      {/* Section nav: shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
           when swiping to a tab or when the schedule snaps to the next game. */}
       <Box ref={navRef} sx={{
@@ -1885,13 +1855,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       {loading
         ? (view === 'home' ? <WpblHomeSkeleton /> : <ViewSkeleton />)
         : (
-          // One panel per nav tab, in NAV order, so mobile can swipe between them (the
-          // active one — and, mid-swipe, its neighbour — are the only ones mounted). The
-          // `active` flag lets a view react to becoming current after a swipe reuses its
-          // already-mounted node (e.g. Schedule re-snapping to the next game).
-          // Full-bleed the swipe track to the screen edge on mobile (cancel the app's p:2
-          // gutter), then hand that 16px back to each pane via `padX` — so a swiped pane
-          // slides fully off-screen instead of disappearing under a padded barrier.
+          // One panel per nav tab, in NAV order, so mobile can swipe between them. The `active` flag lets a
+          // view react to becoming current after a swipe reuses its already-mounted node (e.g. Schedule
+          // re-snapping to the next game); SwipeableViews keeps visited tabs mounted but hidden.
+          // Full-bleed the swipe track to the screen edge on mobile (cancel the app's p:2 gutter), then hand
+          // that 16px back to each pane via `padX`, so a swiped pane slides fully off-screen instead of
+          // disappearing under a padded barrier.
           <Box sx={{ mx: { xs: -2, sm: 0 } }}>
           <SwipeableViews
             index={NAV.findIndex(n => n.key === view)}
@@ -1909,11 +1878,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
               })()
-              // On mobile the footer lives at the bottom of each tab pane rather than as one
-              // shared element below the swipe area — so it slides with its page. Swiping lands
-              // on the new tab's top (its footer off-screen) and a partial swipe that springs
-              // back moves nothing; no shared footer reflows/pops mid-swipe. `mt: auto` pins it
-              // to the bottom of the floored pane on short tabs, right after content on tall ones.
+              // On mobile the footer lives at the bottom of each tab pane rather than as one shared element
+              // below the swipe area, so it slides with its page. Swiping lands on the new tab's top (its
+              // footer off-screen) and a partial swipe that springs back moves nothing; no shared footer
+              // reflows or pops mid-swipe. `mt: auto` pins it to the bottom of the floored pane on short tabs,
+              // right after content on tall ones.
               if (!isMobileView || !renderFooter) return content
               return (
                 // Short tabs (Standings) don't scroll, so the footer pinned to the bottom of this

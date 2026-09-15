@@ -49,24 +49,22 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
   return (
     <SectionCard title={title} subtitle="Each row's record against the columns">
       {/* Capped on a wide screen, and LEFT-aligned rather than centred. The grid is sized by
-          what a phone can hold, and the matrix reads as a block so it should stay block-shaped.
-          Centring the capped block was worse than either: it split the leftover space either
-          side and read as a mistake. Aligned left, it shares a margin with the card's own title
-          and every pixel of slack lands in one place, which is whitespace rather than an
-          accident.
+      what a phone can hold, and the matrix reads as a block so it should stay block-shaped.
+      Centring the capped block is worse than either: it splits the leftover space either
+      side and reads as a mistake. Aligned left, it shares a margin with the card's own title
+      and every pixel of slack lands in one place, which is whitespace rather than an
+      accident.
 
-          THE CAP WAS TOO TIGHT AND THE SLACK STOPPED READING AS A MARGIN. At 560 inside an
-          898px card the grid held the left 62% and left 338px of nothing beside it, under a
-          2x2 of team cards that fills the row above: not a margin, a void, and the eye reads
-          the card as broken rather than as roomy. The old note worried that letting four cells
-          share the width stretches each into empty wash, which is true at the full 858 and
-          overstated before it. 780 puts a cell at 141px against 105, and 118px is left over,
-          which is a margin again. The corner column widens with it so the labels keep their
-          gutter and the four matchup columns stay even.
+      THE CAP HAS TO LEAVE A MARGIN, NOT A VOID. At 560 inside an 898px card the grid holds
+      the left 62% and leaves 338px of nothing beside it, under a 2x2 of team cards that fills
+      the row above: the eye reads the card as broken rather than as roomy. Letting four cells
+      share the full 858 does stretch each into empty wash, but 780 puts a cell at 141px
+      against 105 and the 118px left over is a margin again. The corner column widens with it
+      so the labels keep their gutter and the four matchup columns stay even.
 
-          Rows get their height back at the same breakpoint. Four cells 141px wide and 40 tall
-          is a letterbox; the extra padding makes each nearer a square, which is the shape a
-          matrix wants and the reason this is a grid rather than a list. */}
+      Rows get their height back at the same breakpoint. Four cells 141px wide and 40 tall
+      is a letterbox; the extra padding makes each nearer a square, which is the shape a
+      matrix wants and the reason this is a grid rather than a list. */}
       <Box component="table" sx={{
         width: '100%', maxWidth: { xs: 'none', sm: 560, md: 780 },
         borderCollapse: 'separate', borderSpacing: '3px', tableLayout: 'fixed',

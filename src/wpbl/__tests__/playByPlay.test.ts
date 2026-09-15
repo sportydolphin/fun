@@ -29,14 +29,14 @@ describe('parsePlay', () => {
       'Kylee Lahners', shorten)
     expect(p.who).toBe('Kylee Lahners')
     expect(p.what).toBe("reached on a fielder's choice, RBI")
-    // "unearned" was stripped here until Sep 9, 2026: it is the league's own scoring, the only
-    // place a reader can see it, and the reason a run on the board is not on the pitcher.
+    // "unearned" stays: it is the league's own scoring, the only place a reader can see it, and
+    // the reason a run on the board is not on the pitcher.
     expect(p.detail).toBe('Benites out at 2nd, ss to 2b · Ciamarro scored on an error by 2b, unearned')
     expect(p.kind).toBe('play')
   })
 
-  // It used to strip these, on the reasoning that "out at home" has already said what happened.
-  // It has said what, and not by whom, and the sequence is the only place the by-whom is.
+  // "Out at home" has already said what happened, but not by whom, and the sequence is the
+  // only place the by-whom is.
   it('keeps a fielding sequence in a runner clause, punctuated as the aside it is', () => {
     const p = parsePlay('X Y singled (0-0); Madison Willan out at home p to c.', 'X Y', shorten)
     expect(p.detail).toBe('Madison Willan out at home, p to c')
@@ -223,8 +223,8 @@ describe('parsePlay', () => {
 
 // ─── runsOnPlay ───────────────────────────────────────────────────────────────
 //
-// The feed's runs_scored counts runners and omits the batter. Three separate readers of this
-// data got that wrong before it was written down in one place, so it is pinned here.
+// The feed's runs_scored counts runners and omits the batter. Reading the raw field gets that
+// wrong in a way that looks right, so the rule is pinned here in one place.
 describe('runsOnPlay', () => {
   const play = (event_type: string | null, runs_scored: number | null) => ({ event_type, runs_scored })
 
@@ -250,10 +250,10 @@ describe('runsOnPlay', () => {
 
 // ─── The backwards K ─────────────────────────────────────────────────────────
 //
-// The scorekeeper's mirrored K is a STRIKEOUT LOOKING, not a called strike. Game Center
-// mirrored every K in a pitch sequence, which is 1,480 pitches across 1,198 plays wearing the
-// notation earned by the 96 that are actually called third strikes: a single on 0-2 drew "F ꓘ"
-// and told anyone who knows the notation that she had struck out.
+// The scorekeeper's mirrored K is a STRIKEOUT LOOKING, not a called strike. Mirroring every K
+// in a pitch sequence would put 1,480 pitches across 1,198 plays in the notation earned by the
+// 96 that are actually called third strikes: a single on 0-2 would draw "F ꓘ" and tell anyone
+// who knows the notation that the batter had struck out.
 describe('endsInCalledThirdStrike', () => {
   it('is the last pitch of a strikeout looking, and nothing else', () => {
     expect(endsInCalledThirdStrike('J. Leguizamon struck out looking (1-2 BFFK).', 'BFFK')).toBe(true)
@@ -334,8 +334,8 @@ describe('stateAfter', () => {
 
 // ─── Pitching changes, off the field rather than the prose ───────────────────
 //
-// The Sep 11, 2026 semifinal is why this reads `pitcher_name`: the league's own sentence named
-// the wrong departing pitcher, and the same row's field named the right one.
+// This reads `pitcher_name` because the league's own sentence can name the wrong departing
+// pitcher while the same row's field names the right one, as in the Sep 11, 2026 semifinal.
 describe('pitchingChanges', () => {
   it('finds the change and the announcement it stands in for', () => {
     const rows = [
@@ -402,7 +402,7 @@ describe('pitchingChanges', () => {
   })
 
   // A blank pitcher is a gap in the account, not two changes: the Aug 20 rows carry no pitcher
-  // at all, and reading one as a change would invent a reliever and then un-invent her.
+  // at all, and reading one as a change would invent a reliever and then un-invent them.
   it('does not invent a change out of a missing pitcher', () => {
     const rows = [
       { pitcher_name: 'Liz Gilder', narrative: 'Lexi Hastings singled to right field (0-1 F).' },

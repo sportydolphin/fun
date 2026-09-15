@@ -23,13 +23,13 @@ import { prefersReducedMotion } from '../lib/motion'
 //
 // 1. MEASURED AGAINST THE ROWS' OWN CONTAINER, never against the page.
 //
-//    The first cut used `offsetTop`, which is transform-blind and looked like exactly the right
-//    tool. It resolves against the nearest POSITIONED ancestor, and on this page there is none,
-//    so it was measuring each row's distance from the top of the BODY. The whole page moves for
-//    reasons that have nothing to do with the standings: a tab pane mounting beside this one, a
-//    card above it finishing its fetch. Every one of those was read as a reorder. Measured live,
-//    one hop computed a 330px move in a table whose four rows span 153px, and the next hop
-//    inverted the sign, which is the "row sinks and re-enters from above" this was reported as.
+//    `offsetTop` is transform-blind and looks like exactly the right tool, but it resolves
+//    against the nearest POSITIONED ancestor, and on this page there is none, so it measures
+//    each row's distance from the top of the BODY. The whole page moves for reasons that have
+//    nothing to do with the standings: a tab pane mounting beside this one, a card above it
+//    finishing its fetch. Every one of those reads as a reorder: one hop can compute a 330px
+//    move in a table whose four rows span 153px, and the next inverts the sign, so a row sinks
+//    and re-enters from above.
 //
 //    A rect minus the container's rect is the same subtraction the page cannot get into: both
 //    are read in the same frame, so scroll position and everything above the table cancel
@@ -56,10 +56,10 @@ import { prefersReducedMotion } from '../lib/motion'
  *  row lands exactly as the next day arrives. See `useRowFlip`. */
 const MOVE_MS = 340
 /** SYMMETRICAL, WHICH IS NOT THE REFLEX AND IS RIGHT HERE. An ease-out is the usual pick for a
- *  thing ARRIVING: it puts the element where it is going and spends the tail settling. Two were
- *  tried and both failed the same way. `cubic-bezier(0.2, 0.8, 0.3, 1)` had carried the row 93%
- *  of the way at the halfway point, and the material standard curve 76%, so a swap read as a
- *  snap followed by a long settle and the crossing was over before the eye found it.
+ *  thing ARRIVING: it puts the element where it is going and spends the tail settling. The
+ *  common ones fail the same way here: `cubic-bezier(0.2, 0.8, 0.3, 1)` carries the row 93% of
+ *  the way at the halfway point, and the material standard curve 76%, so a swap reads as a snap
+ *  followed by a long settle and the crossing is over before the eye finds it.
  *
  *  What is being animated is not an arrival. It is two clubs PASSING each other, and a pass
  *  only reads if the travel is spread evenly across the duration. This is easeInOutCubic: 50%
@@ -144,13 +144,12 @@ export function useRowFlip(order: string[], durationMs?: number) {
 
       // A ROW WHOSE SLOT DID NOT MOVE IS ALREADY GOING WHERE IT SHOULD. Leave it alone.
       //
-      // This is the bug that made playback look broken, and it is the opposite of what it
-      // looked like. Play advanced a day every 167ms against a 340ms move, so most of the time
-      // a row was still travelling when the next day landed. On a day that did not reorder
-      // anything the layout delta is zero, but the code below still read the in-flight offset,
-      // cancelled the animation, and started a fresh FULL-LENGTH one from wherever the row had
-      // got to. Every tick did that again. The row halved its remaining distance forever and
-      // never arrived, so the table permanently trailed the cursor and nothing ever settled.
+      // Without this, playback looks broken, in the opposite way from how it looks. During playback
+      // a new day can land while a row is still travelling. On a day that did not reorder anything
+      // the layout delta is zero, but reading the in-flight offset, cancelling the animation and
+      // starting a fresh FULL-LENGTH one from wherever the row has got to, on every tick, halves the
+      // remaining distance forever: the row never arrives, the table permanently trails the cursor
+      // and nothing ever settles.
       //
       // The running animation is already aimed at this exact slot, because the slot has not
       // changed. Touching it can only make it worse.
@@ -208,14 +207,14 @@ export function useRowFlip(order: string[], durationMs?: number) {
  * covered by the very backing that makes the crossing legible.
  *
  * So the rows keep their border for its GEOMETRY and paint it transparent, and the lines are
- * drawn once, above everything, at the slots. A club now passes under the divider instead of
+ * drawn once, above everything, at the slots. A club passes under the divider instead of
  * taking it along.
  *
  * `offsetTop` IS THE RIGHT TOOL HERE AND THE WRONG ONE FORTY LINES UP, for the same property:
  * it is transform-blind. The FLIP needs to know where a row currently LOOKS, which is why it
  * reads rects; a static line needs the slot the row belongs in no matter where it has slid to,
  * which is exactly what `offsetTop` reports. It resolves against the nearest POSITIONED
- * ancestor, so the element this ref goes on must be `position: relative` — which is what the
+ * ancestor, so the element this ref goes on must be `position: relative`, which is what the
  * overlay needs anyway.
  *
  * Re-measured on resize, which is the only thing that can move a slot: a wider viewport, a

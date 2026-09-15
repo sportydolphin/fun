@@ -10,11 +10,11 @@ import { useRowFlip, useRowDividers } from '../rowFlip'
 // test cheating: a rect and `animate` are exactly the two platform facts this hook is built on,
 // and stubbing them is what lets the arithmetic between them be checked at all.
 //
-// The rect is stubbed rather than `offsetTop` because the hook stopped using `offsetTop`: it
+// The rect is stubbed rather than `offsetTop` because the hook does not use `offsetTop`: it
 // resolves against the nearest positioned ancestor, which on the standings page is the BODY, so
-// it was measuring each row's distance down the whole document and reading every unrelated
-// layout change above the table as a reorder. Rows are measured against their own container
-// now, which is why the container's rect is stubbed too.
+// it measures each row's distance down the whole document and reads every unrelated layout
+// change above the table as a reorder. Rows are measured against their own container, which is
+// why the container's rect is stubbed too.
 
 const TOPS = new Map<string, number>()
 /** Where the rows' container sits. The whole point of measuring against it is that this can be
@@ -131,12 +131,12 @@ describe('rows changing places', () => {
     }
   })
 
-  // THE MEASUREMENT BUG, pinned by its symptom. `offsetTop` resolved against the BODY, so a tab
-  // pane mounting beside the table or a card above it finishing a fetch moved every row's
-  // measured position by hundreds of pixels and the next reorder animated the difference. Live,
-  // one hop computed a 330px move in a table spanning 153px and the next inverted the sign,
-  // which is a row sinking and re-entering from above. Measured against the container, a move
-  // can never exceed the height of the rows between.
+  // THE MEASUREMENT TRAP, pinned by its symptom. Measured with `offsetTop`, which resolves
+  // against the BODY, a tab pane mounting beside the table or a card above it finishing a fetch
+  // moves every row's measured position by hundreds of pixels and the next reorder animates the
+  // difference: one hop can compute a 330px move in a table spanning 153px and the next inverts
+  // the sign, which is a row sinking and re-entering from above. Measured against the container,
+  // a move can never exceed the height of the rows between.
   it('does not move when the page moves under it', () => {
     layout(['SF', 'NY', 'LA', 'BOS'])
     const { rerender } = render(<List order={['SF', 'NY', 'LA', 'BOS']} />)
@@ -152,9 +152,9 @@ describe('rows changing places', () => {
   it('never travels further than the rows it is passing', () => {
     layout(['SF', 'NY', 'LA', 'BOS'])
     const { rerender } = render(<List order={['SF', 'NY', 'LA', 'BOS']} />)
-    // A page shift AND a real reorder at once, which is the shape that produced the bug: the
-    // shift used to be added to the move, giving a 330px travel in a table 153px tall and, on
-    // the hop after, an inverted sign, which is a row sinking and re-entering from above.
+    // A page shift AND a real reorder at once, which is the shape that exposes the trap: measured
+    // against the page, the shift is added to the move, giving a 330px travel in a table 153px tall
+    // and, on the hop after, an inverted sign, which is a row sinking and re-entering from above.
     BASE = 400
     layout(['BOS', 'LA', 'NY', 'SF'])
     animate.mockClear()
@@ -171,9 +171,9 @@ describe('rows changing places', () => {
 
   // ── Keeping up with playback ────────────────────────────────────────────────
   //
-  // Play walks the season a day every ~165ms while a move takes 340ms, so the two have to be
+  // Playback can land a new day before a 340ms move has finished, so the two have to be
   // reconciled or the table can never land. Both halves of that are pinned here, and the first
-  // is the one that made playback look broken.
+  // is the one that would make playback look broken.
 
   it('leaves a row alone when its slot did not move and it is already travelling', () => {
     // The bug: a day that reorders nothing still saw an in-flight transform, cancelled the
@@ -238,10 +238,10 @@ describe('rows changing places', () => {
 //
 // A divider drawn by the row it belongs to goes travelling the moment the clubs change places,
 // and because the table is `border-collapse: collapse` it is painted UNDER the opaque backing a
-// moving row needs, so it does not merely move, it disappears. Reported from the page as "the
-// teams go over the divider lines and they disappear while that's happening". The lines are
-// their own layer now, and the only thing that keeps them still is reading a measurement that
-// cannot see a transform.
+// moving row needs, so it does not merely move, it disappears: on the page the clubs appear to
+// pass over the divider lines and the lines vanish while they do. The lines are their own
+// layer, and the only thing that keeps them still is reading a measurement that cannot see a
+// transform.
 
 /** Where each row sits in its container, ignoring any transform: what `offsetTop` reports. */
 const SLOTS = new Map<string, number>()

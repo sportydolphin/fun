@@ -21,9 +21,9 @@ import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow, WpblPitchPlay } from './types'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
-// pitchers, and a roster with inline stats. Replaces the plain roster list the Teams tab
-// used to show. Self-contained — fetches its own roster + box-score lines (league-wide,
-// then filtered to this team; cheap for a four-team league) and derives everything.
+// pitchers, and a roster with inline stats. Self-contained: fetches its own roster + box-score
+// lines (league-wide, then filtered to this team; cheap for a four-team league) and derives
+// everything.
 
 // Pitcher position codes: P, SP, RP, and the handed variants RHP / LHP. No fielding
 // position ends in "P", so a trailing P is a reliable pitcher marker.
@@ -31,17 +31,16 @@ const isPitcherPos = (pos: string | null | undefined) => /P$/i.test((pos ?? '').
 
 // Width of the result/kickoff column in the Results card. One number so the W/L letter, the
 // score and the scheduled time all land on the same axis.
-// 4.5rem is the 72px it has always been. A text column, so it follows the type: see the
+// 4.5rem (72px at the default root size): a text column, so it follows the type. See the
 // three kinds of fixed size in ROADMAP-WPBL item 0, phase 2.
 const SCORE_COL_W = '4.5rem'
 
 // A block of centered stat tiles (value over a small caps label), laid out on a fixed
 // four-column grid.
 //
-// It used to be a wrapping flex row of `flex: 1 1 0` tiles. That looks fine while everything
-// fits on one line, but the moment it wraps the trailing tiles each take an equal share of
-// the LAST row's width instead of sitting under the columns above — so eight stats rendered
-// as five across the top and three floating at different offsets beneath. A grid pins the
+// Not a wrapping flex row of `flex: 1 1 0` tiles: once that wraps, the trailing tiles each take
+// an equal share of the LAST row's width instead of sitting under the columns above, so eight
+// stats render as five across the top and three at different offsets beneath. A grid pins the
 // columns, so every tile lines up with the one above it however many there are.
 //
 // Four columns is also the honest grouping for these stats: the four slash-line rates read
@@ -73,13 +72,12 @@ const NEXT_UP = 2
 /**
  * The Results card's window: the last few results and the next couple of games, in order.
  *
- * A PREFERENCE, NOT A PAIR OF CAPS, and that is the whole point of it being a function. Four
- * plus two was written as two independent slices, which is six rows only while both ends of the
- * season have games in them. It has neither end for most of the year: nothing is played on the
- * opening day and nothing is scheduled from the last one, so the card drew four rows and then
- * two rows of nothing. Not a small gap either, because Results shares a stretched grid row with
- * Team stats, whose height is fixed by its sixteen tiles: measured on the Firebells' page it was
- * 250px of content in a 336px card, and it would have sat that way all winter.
+ * A PREFERENCE, NOT A PAIR OF CAPS, and that is the whole point of it being a function. Two
+ * independent slices (four results, two fixtures) give six rows only while both ends of the
+ * season have games in them, and for most of the year one end does not: nothing is played before
+ * the opener and nothing is scheduled after the last game, so the card would draw four rows and
+ * two of nothing, in a card that shares a stretched grid row with Team stats, whose height is
+ * fixed by its tiles.
  *
  * So the window is topped up from whichever side can pay, results first, since a game that
  * happened outranks one that has not. Both lists are expected in chronological order and come
@@ -110,7 +108,7 @@ function CardLink({ label, accent, onClick }: { label: string; accent: string; o
   )
 }
 
-// One game in the Results card — and in the full-schedule modal, which is why it lives out
+// One game in the Results card and in the full-schedule modal, which is why it lives out
 // here rather than inline: the two must not drift apart.
 function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
   game: WpblGame
@@ -143,9 +141,9 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
       </Typography>
       {/* Fixed widths, not intrinsic ones. The score column varies between three and five
           characters ("1–6" vs "6–11"), and with the group simply right-aligned that difference
-          pushed the W/L letter left on every wider score — so the column of W's and L's
-          wobbled down the card. Pinning the box keeps that letter on one axis, and the same
-          total width on scheduled rows lines the kickoff times up with the scores above. */}
+          would push the W/L letter left on every wider score, so the column of W's and L's would
+          wobble down the card. Pinning the box keeps that letter on one axis, and the same total
+          width on scheduled rows lines the kickoff times up with the scores above. */}
       {final ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0, width: SCORE_COL_W }}>
           <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, width: '0.875rem', textAlign: 'center', flexShrink: 0, color: win ? 'success.main' : loss ? 'error.main' : 'text.secondary' }}>
@@ -308,7 +306,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
    *  standalone; without it the rail is a read-only "you are here" strip. */
   onSelectTeam?: (t: WpblTeam) => void
   /** Up to the four-team grid. Distinct from `onBack`, which returns to wherever this page
-   *  was opened from — often the Stats table, which is not "up". */
+   *  was opened from, often the Stats table, which is not "up". */
   onAllTeams?: () => void
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
@@ -328,12 +326,12 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   // Everyone in the league, which is a different list from the roster and needed beside it.
-  // A player who was traded away in August still batted for this club in July: her lines are
-  // in `lines` (they carry the team she played that game FOR), but she is on somebody else's
-  // roster now, and every helper below that resolves a line back to a person does it through
-  // a player list. Hand those the roster and her July disappears from this page's leaders and
-  // her name disappears from its lineup grid, which reads as a hole in the data rather than as
-  // a trade. The roster list itself still uses `roster`: she does not play here any more.
+  // A player traded away still batted for this club before the trade: those lines are in
+  // `lines` (they carry the team the player played that game FOR), but the player is on somebody
+  // else's roster now, and every helper below that resolves a line back to a person does it
+  // through a player list. Hand those the roster and those games disappear from this page's
+  // leaders and the name from its lineup grid, which reads as a hole in the data rather than as
+  // a trade. The roster list itself still uses `roster`: they do not play here any more.
   const [league, setLeague] = useState<WpblPlayer[]>([])
   // The same fetch, UNFILTERED. The spec chart is a comparison against the league average, so a
   // club's own lines cannot answer it: handed those, every axis reads 50 and the chart looks
@@ -342,11 +340,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // League-wide too, and NOT cleared between clubs for the same reason `allLines` is not: see
   // the note in the effect below.
   const [pitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
-  // DERIVED, NOT FETCHED. This is `allLines` with one club picked out of it, and it used to be
-  // state written from inside the same `.then` as everything else, which meant a club whose
-  // box scores were already in memory still waited on the slowest read in that batch before
-  // anything below could render. Nothing about it needs the network once the league's lines
-  // are in hand.
+  // DERIVED, NOT FETCHED. This is `allLines` with one club picked out of it. As state written
+  // inside the same `.then` as everything else, a club whose box scores were already in memory
+  // would still wait on the slowest read in that batch before anything below could render.
+  // Nothing about it needs the network once the league's lines are in hand.
   const lines = useMemo(() => allLines ? {
     batting: allLines.batting.filter(x => x.team_id === team.id),
     pitching: allLines.pitching.filter(x => x.team_id === team.id),
@@ -367,10 +364,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
   // ─── Switching clubs, without the spinner ──────────────────────────────────
   //
-  // The team rail is four buttons whose whole purpose is to be tapped back and forth, and
-  // every tap used to clear this club's state to null and wait on the network again, so the
-  // second visit to a club spun exactly as long as the first. The three per-club reads are
-  // cached now (see perTeamCache in api.ts) and this repaints from that cache.
+  // The team rail is four buttons whose whole purpose is to be tapped back and forth, so the
+  // three per-club reads are cached (see perTeamCache in api.ts) and this repaints from that
+  // cache, rather than clearing to null and waiting on the network, which would make the second
+  // visit to a club spin exactly as long as the first.
   //
   // DURING RENDER, NOT IN AN EFFECT. An effect runs after the browser has painted, so seeding
   // there still shows one frame of something wrong: either the empty state (a flash of spinner)
@@ -389,7 +386,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   useEffect(() => {
     let cancelled = false
     // NOTHING IS CLEARED HERE. `allLines`, `league` and `pitchPlays` are league-wide, so they
-    // are the same objects for every club: clearing them made the spec chart blank to
+    // are the same objects for every club: clearing them would blank the spec chart to
     // "Loading." and back on every tap of the rail, and that switch is the one moment the chart
     // is most worth watching, since the shape is supposed to morph from one club to the next.
     // This club's own three were already re-seeded from the cache during render above; the
@@ -444,8 +441,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // `specs` came back null.
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
   // The phone layout puts the club's numbers on the spokes and drops the readout beside the
-  // chart; see the `values` prop. Everything the readout used to say permanently is one tap
-  // away instead.
+  // chart; see the `values` prop. What a readout would say permanently is one tap away instead.
   const narrow = useMediaQuery('(max-width:600px)')
   const [specAxis, setSpecAxis] = useState<TeamSpecKey | null>(null)
   // A tapped axis is about the club you tapped it on. Carrying it to the next club would show
@@ -467,7 +463,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const pitByPid = useMemo(() => new Map(pitSeasons.map(s => [s.player.id, s.totals])), [pitSeasons])
 
   // Roster seed carries the whole draft board (118 players), but ~half were drafted and
-  // never signed to an active roster. Show only signed players — plus anyone who has
+  // never signed to an active roster. Show only signed players, plus anyone who has
   // actually recorded a stat line (a drafted player who got into a game, or a feed-only
   // call-up), so the override self-corrects the moment someone debuts. Hides the stale
   // draft-board entries (status 'Drafted'/none with no stats) that clutter the roster.
@@ -534,10 +530,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   /**
    * The same qualifying bar the league boards use, applied to the two RATE lists here.
    *
-   * OPS was gated on `ab > 0` and ERA on `outs > 0`, which is not a bar at all: one at-bat and
-   * one hit is a 2.000 OPS and the top of the team's board, and a reliever who recorded a single
-   * out without conceding leads it in ERA. Both are the leaderboard reading as a fact about the
-   * club when it is really a fact about a cameo.
+   * `ab > 0` or `outs > 0` is not a bar at all: one at-bat and one hit is a 2.000 OPS and the top
+   * of the team's board, and a reliever who recorded a single out without conceding leads it in
+   * ERA. Both are the leaderboard reading as a fact about the club when it is really a fact about
+   * a cameo.
    *
    * PLATE APPEARANCES, NOT AT-BATS, which is CLAUDE.md's standing trap and is why this goes
    * through `plateAppearances()`: half of OPS is OBP, and a denominator of at-bats throws away
@@ -557,9 +553,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     { label: 'Home runs', rows: top(batSeasons, t => t.hr > 0 ? t.hr : null, t => String(t.hr), t => t.ab) },
     { label: 'RBI', rows: top(batSeasons, t => t.rbi > 0 ? t.rbi : null, t => String(t.rbi), t => t.ab) },
   ], [batSeasons, qual, paNote])
-  // Three lists, matching the hitting card. Two against three left the pitching card short
-  // and the row ragged — and innings is a leaderboard worth having on its own merits: it's
-  // the workload number, and nothing else on the page says who is carrying the staff.
+  // Three lists, matching the hitting card. Two against three leaves the pitching card short and
+  // the row ragged, and innings is a leaderboard worth having on its own merits: it's the
+  // workload number, and nothing else on the page says who is carrying the staff.
   const pitLeaders = useMemo(() => [
     { label: 'ERA', note: ipNote, rows: top(pitSeasons, t => t.era != null && t.outs >= qual.minOuts && t.outs > 0 ? -t.era : null, t => fmtEra(t.era), t => t.outs) },
     { label: 'Strikeouts', rows: top(pitSeasons, t => t.so > 0 ? t.so : null, t => String(t.so), t => t.outs) },
@@ -569,7 +565,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // Head-to-head. In a four-team league every club plays every other constantly, so a bare
   // "4–3 · 2nd" hides the shape of the record: a team can be unbeaten against two opponents
   // and swept by the third, and that is the thing worth knowing before the next meeting.
-  // Derived from the `games` already passed in — no extra read.
+  // Derived from the `games` already passed in: no extra read.
   const headToHead = useMemo(() => {
     const rec = new Map<string, { w: number; l: number; t: number }>()
     for (const g of games) {
@@ -590,23 +586,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
       .sort((a, b) => (a.w - a.l) - (b.w - b.l))
   }, [games, team.id, teamById])
 
-  // The full schedule is 15 rows and grows all season — as the top card on a phone that is
-  // most of a screenful before you reach anything else. Default to a window around now: the
-  // last few results and the next couple of games, which is what anyone opening a team page
-  // actually wants. The rest is one tap away.
-  //
-  // THE WINDOW IS SIX ROWS, AND IT HAS TO BE TOPPED UP FROM WHICHEVER SIDE HAS THEM. Four plus
-  // two was written as two independent slices, which is the same thing as six rows only while
-  // both ends of the season have games in them. It has neither end for most of the year: on the
-  // opening day nothing has been played, and from Sep 6 nothing is scheduled, so the card
-  // rendered four rows and then two rows of nothing. That is not a small gap, because Results
-  // shares a stretched grid row with Team stats, whose height is fixed by its sixteen tiles:
-  // measured on the Firebells' page it was 250px of content inside a 336px card, so the hole was
-  // most of a third of it and sat there for the whole off season.
-  //
-  // So the split below is a PREFERENCE, not a pair of caps. Six rows if six exist, taken 4/2
-  // when both sides can pay, and otherwise from the side that can. Results are topped up first
-  // because a game that happened outranks one that has not.
+  // The full schedule grows all season, and as the top card on a phone it is most of a
+  // screenful before you reach anything else. Default to a window around now (see
+  // scheduleWindow): the last few results and the next couple of games, which is what anyone
+  // opening a team page actually wants. The rest is one tap away.
   const { played: playedGames, upcoming: upcomingGames } = useMemo(() => ({
     played: schedule.filter(g => g.status !== 'scheduled'),
     upcoming: schedule.filter(g => g.status === 'scheduled'),
@@ -624,14 +607,12 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
   return (
     <Box>
-      {/* Header row. Replaces the plain "← Back / All teams" row this page used to open with,
-          and does three jobs that row could not: it says whose page this is, it carries the
-          record, and it switches clubs in one tap. It scrolls away with the page rather than
-          pinning to the top.
+      {/* Header row. It says whose page this is, carries the record, and switches clubs in one
+          tap. It scrolls away with the page rather than pinning to the top.
 
-          Back and "All teams" are still different journeys, so both are still here as icons:
-          Back retraces how you got here (arriving from the Stats table, that is the stats
-          board), while the grid icon always goes up to all four. */}
+          Back and "All teams" are different journeys, so both are here as icons: Back retraces
+          how you got here (arriving from the Stats table, that is the stats board), while the
+          grid icon always goes up to all four. */}
       <Box
         sx={{
           bgcolor: 'background.default',
@@ -659,12 +640,11 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
         />
       </Box>
 
-      {/* Identity on the left, spec chart on the right.
-          The right of this block was 562 x 137px of nothing at a 1280px viewport, on every team
-          page, which is the widest empty run on the section. 137px is too short for six labelled
-          spokes, so the row is allowed to grow into it rather than the chart being squeezed into
-          the exact gap: the cards below move down about a hundred pixels and the space stops
-          being a hole. On a phone there is no gap to fill and it stacks under the chips. */}
+      {/* Identity on the left, spec chart on the right. On a wide screen the right of this block
+          is otherwise the widest empty run on the section, and too short for six labelled
+          spokes, so the row grows into it rather than squeezing the chart into the exact gap:
+          the cards below move down a little and the space stops being a hole. On a phone there
+          is no gap to fill and it stacks under the chips. */}
       <Box sx={{
         display: 'grid', gap: 2, mb: 2, alignItems: 'center',
         gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
@@ -722,11 +702,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
          flexWrap: 'wrap',
        }}>
          {specs ? narrow ? (
-           // PHONE. The chart takes the whole column and carries its own numbers, and the one
-           // line under it replaces the readout. Measured before the change on a 390px screen:
-           // the chart drew at 210px inside a 358px column, wasting 41% of the width, with a
-           // 121px table under it explaining what the spokes already showed. The chart is now
-           // 47% bigger for slightly LESS height than the pair used to take.
+           // PHONE. The chart takes the whole column and carries its own numbers, and the one line under
+           // it replaces the readout: a small chart beside a table explaining what the spokes already show
+           // wastes much of a phone's width to take more height.
            <Box sx={{ width: '100%' }}>
              <TeamSpecRadar
                specs={specs} teams={teams} focusId={team.id} radius={104}
@@ -811,8 +789,8 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
           <SectionCard
             title="Team stats"
             action={onOpenStats ? (
-              // Lands on the Teams board, which is where these totals become meaningful —
-              // a .355 team average says nothing until you can see the other three.
+              // Lands on the Teams board, which is where these totals become meaningful: a .355 team
+              // average says nothing until you can see the other three.
               <CardLink label="Compare teams" accent={accent}
                 onClick={() => onOpenStats('hitting', undefined, { mode: 'teams' })} />
             ) : undefined}
@@ -833,11 +811,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                 {teamPit && teamPit.g > 0 && (
                   <Box sx={{ mt: 1.75 }}>
                     <SectionLabel>Pitching</SectionLabel>
-                    {/* Mirrors the batting block: four rates on top, four counting stats
-                        below. No W–L here — that is the record, and the record is already
-                        the first thing on the page, under the team name. The K rate and K/BB earn
-                        those slots instead: this league walks a great many batters, so
-                        command is the thing the raw totals hide. */}
+                    {/* Mirrors the batting block: four rates on top, four counting stats below. No W–L here:
+                        that is the record, and the record is already the first thing on the page, under the
+                        team name. The K rate and K/BB earn those slots instead: this league walks a great many
+                        batters, so command is the thing the raw totals hide. */}
                     <StatTiles items={[
                       { label: 'ERA', value: fmtEra(teamPit.era) },
                       { label: 'WHIP', value: fmtTwo(teamPit.whip) },
@@ -858,9 +835,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
           </Box>
 
-          {/* Full-width next, because they scroll sideways. These two are also the most
-              distinctive thing on the page — season leaders are the most replaceable — so
-              they come before the leader cards rather than three scrolls below them. */}
+          {/* Full-width next, because they scroll sideways. These two are also the most distinctive
+              thing on the page (season leaders are the most replaceable), so they come before the
+              leader cards rather than three scrolls below them. */}
 
           {/* How the manager has actually been filling out the card */}
           {roster && lineups.length > 0 && (
@@ -882,10 +859,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
             gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
             mb: 0,
           }}>
-          {/* Leaders, split by side of the ball. One combined card stacked five lists into a
-              single very tall column — awkward on a phone, and on a wide screen it sat alone
-              in one grid column with the other left empty. Two cards fill the row and read
-              better besides: nobody scans hitting and pitching leaders in one pass. */}
+          {/* Leaders, split by side of the ball. One combined card would stack five lists into a
+              single very tall column, awkward on a phone and alone in one grid column on a wide
+              screen. Two cards fill the row and read better besides: nobody scans hitting and
+              pitching leaders in one pass. */}
           {hitLeaders.some(b => b.rows.length) && (
             <SectionCard title="Hitting leaders" subtitle="Season">
               {hitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
@@ -909,10 +886,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
               // The roster row shows three stats; this is the door to all of them, with the
               // team filter chip already set so you don't land in the whole league.
               //
-              // AND QUALIFIED OFF, because this card is the whole roster and the board it
-              // opens should be too. Landing on the qualified board answered a question
-              // nobody asked here: most of the names the reader had just scrolled past were
-              // simply gone, and the only clue was a lit chip above the table.
+              // AND QUALIFIED OFF, because this card is the whole roster and the board it opens should be
+              // too. Landing on the qualified board would answer a question nobody asked here: most of the
+              // names the reader had just scrolled past would be gone, with only a lit chip above the table
+              // as a clue.
               <CardLink label="Full stats" accent={accent}
                 onClick={() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id, qualified: false })} />
             ) : undefined}
@@ -920,11 +897,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
             {visibleRoster.length === 0 ? (
               <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>Roster coming soon.</Typography>
             ) : (
-              // Two columns on a wide screen. A roster row is a position, a face, a name and
-              // three numbers — across a full-width card that leaves most of the row empty
-              // while the card runs well over a thousand pixels tall. The nth-of-type rule
-              // clears the top border on the first row of the SECOND column too; without it
-              // that row gets a stray rule above it.
+              // Two columns on a wide screen. A roster row is a position, a face, a name and three numbers,
+              // so across a full-width card most of the row is empty while the card runs well over a
+              // thousand pixels tall. The nth-of-type rule clears the top border on the first row of the
+              // SECOND column too; without it that row gets a stray rule above it.
               <Box sx={{
                 display: 'grid',
                 // Without an explicit width the grid sizes to its content and leaves the
@@ -932,9 +908,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                 width: '100%',
                 gridTemplateColumns: '1fr',
                 columnGap: 2.5,
-                // Grid items default to min-width:auto, so a row refuses to shrink below its
-                // content and overflows its track — the name's own minWidth:0 doesn't help,
-                // because the constraint is on the row, not on the text inside it.
+                // Grid items default to min-width:auto, so a row refuses to shrink below its content and
+                // overflows its track; the name's own minWidth:0 doesn't help, because the constraint is on
+                // the row, not on the text inside it.
                 '& > *': { minWidth: 0 },
                 '& > :first-of-type': { borderTop: 'none' },
                 // Both the column count and the second column's border reset live in ONE
@@ -1005,8 +981,8 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
       )}
 
       {/* Full season, in a modal rather than an in-place expansion. Split into what has been
-          played and what is still to come — a flat run of fifteen rows makes you hunt for the
-          boundary, and it is the one thing a schedule is actually asked. */}
+          played and what is still to come: a flat run of rows makes you hunt for the boundary,
+          and it is the one thing a schedule is actually asked. */}
       {scheduleOpen && (
         <ModalShell
           eyebrow={`${wpblFullName(team)} · ${schedule.length} games`}

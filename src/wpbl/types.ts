@@ -1,4 +1,4 @@
-// Row shapes for the WPBL section — mirror scripts/create_wpbl.sql. Unlike the MLB
+// Row shapes for the WPBL section: mirror scripts/create_wpbl.sql. Unlike the MLB
 // side (StatsAPI-shaped), these are our own Supabase tables, so the types are ours.
 
 export type WpblGameStatus = 'scheduled' | 'live' | 'final'
@@ -177,9 +177,9 @@ export interface WpblGameRecap {
  * publication from the stats feed the rest of this file describes.
  *
  * It exists for the games the stats feed does not have yet: that feed needs two clubs before
- * it will carry a row, so it held nothing at all for the postseason while the website had all
- * eleven games, their first-pitch times, their tickets, and for the semifinals which club bats
- * last. Mirrored by `scripts/sync-wpbl-site-calendar.mjs`.
+ * it will carry a row, so it holds nothing for a postseason fixture whose clubs are not
+ * settled, while the website lists every game, its first-pitch time, its tickets, and for the
+ * semifinals which club bats last. Mirrored by `scripts/sync-wpbl-site-calendar.mjs`.
  *
  * NOT A SECOND OPINION on anything the stats feed carries. Scores and box scores are the
  * feed's; a row here is only consulted for a fixture the feed has never published, and stops
@@ -215,7 +215,7 @@ export interface WpblSiteGame {
 /** One post from the WPBL reading feed: a mirror of an independent writer's Substack
  *  (scripts/sync-wpbl-substack.ts). Deliberately carries no body text. The feed publishes
  *  the full article, and we store a headline, a dek and a link so every surface sends the
- *  reader to her post rather than standing in for it. */
+ *  reader to the writer's post rather than standing in for it. */
 export interface WpblArticle {
   post_id: number            // Substack's stable numeric post id
   slug: string
@@ -375,25 +375,20 @@ export interface WpblGamePlay {
   /** Where this play's account came from, when it is not the league's own feed. Set by
    *  `applyPlayCorrections` and never stored: the mirror row itself is always the feed's.
    *
-   *  It exists because the page was contradicting itself in silence. The league published the
-   *  whole of New York's 6th and 7th on Aug 20, 2026 as rows with a pitcher, a pitch sequence
-   *  and nothing else, so `fill-wpbl-play-gaps` filled them from RetroWPBL's transcription; a
-   *  reader then counted two Katherine Murphy singles in the play-by-play against a box score
-   *  crediting her one, and had no way to know the second one came from somewhere else. A
-   *  filled play now says so on its own row. */
+   *  Without it the page contradicts itself in silence. The league published the whole of New
+   *  York's 6th and 7th on Aug 20, 2026 as rows with a pitcher, a pitch sequence and nothing
+   *  else, so `fill-wpbl-play-gaps` filled them from RetroWPBL's transcription; a reader counting
+   *  two Katherine Murphy singles in the play-by-play against a box score crediting one has no
+   *  way to know the second came from somewhere else unless the filled play says so on its own
+   *  row. */
   corrected_source?: WpblCorrectionSource | null
 }
 
-// The slim projection of a play the Hall of Firsts (computeFirsts) actually reads. The
-// league-wide play fetch on Home uses this instead of select('*') so it never ships the
-// heavy per-play columns — notably `pitch_events` (a JSON array of every pitch) plus the
-// base/count fields — none of which the firsts computation touches. The full-fat
-// WpblGamePlay is still used for a single game's play-by-play (fetchWpblGamePlays).
 // The slim projection the game recap reads. buildRecap touches the play log for exactly one
-// question — were there back-to-back home runs — which needs the batting side, the event, the
-// narrative (for classifyPa's reached-on-error case) and the inning to report. Fetching a
-// finished game's full play rows for that shipped every pitch of every at-bat: about 80 KB
-// for a question answered by four columns.
+// question, whether there were back-to-back home runs, which needs the batting side, the
+// event, the narrative (for classifyPa's reached-on-error case) and the inning to report.
+// A finished game's full play rows would ship every pitch of every at-bat for that: about
+// 80 KB for a question answered by four columns.
 export type WpblRecapPlay = Pick<WpblGamePlay,
   // `game_id` is not read by buildRecap. It is here so the correction overlay can match on
   // (game_id, sequence), which is the feed's identifier for a play; one uuid per row is
@@ -426,8 +421,9 @@ export type WpblPitchPlay = Pick<WpblGamePlay,
  *  plate appearance", which is what separates a row that may be credited to a batter from a
  *  steal, where the column names whoever was standing at the plate instead.
  *
- *  `narrative` is the expensive one and is here on purpose: a board of the season's biggest
- *  plays that could not say what happened would be a list of numbers. */
+ *  `narrative` is the expensive one and is here on purpose: the worked example on the run-value
+ *  board takes one real play through the arithmetic, and a play that could not say what
+ *  happened would be a row of numbers. */
 export type WpblRunValuePlay = Pick<WpblGamePlay,
   | 'game_id' | 'sequence' | 'inning' | 'half' | 'team_id'
   | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
@@ -448,6 +444,11 @@ export type WpblSprayPlay = Pick<WpblGamePlay,
   | 'narrative' | 'event_type' | 'is_hit'
 >
 
+// The slim projection of a play the Hall of Firsts (computeFirsts) actually reads. The
+// league-wide play fetch on Home uses this instead of select('*') so it never ships the
+// heavy per-play columns, notably `pitch_events` (a JSON array of every pitch) plus the
+// base/count fields, none of which the firsts computation touches. The full WpblGamePlay
+// is still used for a single game's play-by-play (fetchWpblGamePlays).
 export type WpblFirstsPlay = Pick<WpblGamePlay,
   | 'game_id' | 'sequence' | 'team_id'
   | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
@@ -554,7 +555,7 @@ export interface WpblIngestRun {
   created_at: string
 }
 
-// Derived standings row (computed client-side from final games — not stored).
+// Derived standings row (computed client-side from final games, not stored).
 export interface WpblStandingRow {
   team: WpblTeam
   wins: number
@@ -584,7 +585,7 @@ export type WpblPitchingInput =
   & Partial<Pick<WpblPitchingLine, WpblPitchingFeedOnly>>
 
 /** One player's slot + position in one game, from the wpbl_lineup_history view.
- *  `started` is resolved by play sequence when several players share a lineup slot —
+ *  `started` is resolved by play sequence when several players share a lineup slot;
  *  see the view's migration for why the box score alone can't answer it. */
 export interface WpblLineupHistoryRow {
   game_id: string
@@ -593,7 +594,7 @@ export interface WpblLineupHistoryRow {
   game_date: string
   game_status: string
   opponent_team_id: string | null
-  /** The opposing starter — named, not just handed, because "vs L" alone reads as if it
+  /** The opposing starter, named rather than just handed, because "vs L" alone reads as if it
    *  might describe a whole staff rather than the one pitcher the card was written for. */
   opp_starter_name: string | null
   opp_starter_throws: string | null
@@ -604,7 +605,7 @@ export interface WpblLineupHistoryRow {
 }
 
 /** One pitcher's appearance in one game, from the wpbl_pitching_usage view.
- *  `days_rest` is the gap since that pitcher's PREVIOUS outing — null on their first. */
+ *  `days_rest` is the gap since that pitcher's PREVIOUS outing; null on their first. */
 export interface WpblPitchingUsageRow {
   game_id: string
   team_id: string | null

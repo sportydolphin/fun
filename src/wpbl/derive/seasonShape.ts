@@ -29,12 +29,12 @@ import type { WpblGame, WpblStandingRow, WpblTeam } from '../types'
 // What it buys is that the chart CANNOT disagree with the table above it, by construction
 // rather than by care.
 //
-// The first cut did accumulate its own wins and losses, which is four lines of obvious code,
-// and it was wrong within an hour of being drawn: it broke a 8-7 tie on games played and put
-// Los Angeles second where the table one row above said New York, because the table breaks that
-// tie on head-to-head and then run differential. Re-implementing an ordering is how `headToHead`
-// drew San Francisco 6-0 over Boston above a standings table reading 10-5 (see CLAUDE.md). The
-// rule is not "be careful", it is "call the thing".
+// Accumulating its own wins and losses is four lines of obvious code, and wrong: it breaks an
+// 8-7 tie on games played and puts Los Angeles second where the table one row above says New
+// York, because the table breaks that tie on head-to-head and then run differential.
+// Re-implementing an ordering is how `headToHead` drew San Francisco 6-0 over Boston above a
+// standings table reading 10-5 (see CLAUDE.md). The rule is not "be careful", it is "call the
+// thing".
 
 /** Where a club stood after everything played up to and including one date. */
 export interface SeasonPoint {
@@ -206,7 +206,7 @@ export interface LeadStory {
  * nothing else on the site says it: the standings table is one frame, so it cannot report that
  * the lead changed hands six times any more than a photograph can report a journey.
  *
- * It is also the payoff the play button was starting a motion for without ever naming.
+ * It is also the payoff the play button starts a motion for.
  *
  * FIRST PLACE IS THE TOP ROW OF THE TABLE, NOT THE HIGHEST LINE ON THE CHART, and the two are
  * not always the same club: the y-axis is games above .500 while `computeStandings` sorts by win

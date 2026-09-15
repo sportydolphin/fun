@@ -6,8 +6,8 @@ import type { PlayRunValue } from './runExpectancy'
 // THE COUNT IS THE ONE THING THIS FEED RECORDS ABOUT EVERY PITCH. There is no velocity, no
 // location and no pitch type outside the 766 TrackMan rows from two games in August, but
 // `pitch_sequence` is on 2,222 of the season's plate appearances and it says, in order, what
-// each pitch did. That is enough to answer the question the section has never asked: what is
-// a 1-0 worth in this league, and what does 0-2 cost.
+// each pitch did. That is enough to answer a question nothing else in the section answers:
+// what is a 1-0 worth in this league, and what does 0-2 cost.
 //
 // PRICED IN THIS LEAGUE'S OWN RUNS, off the run-expectancy table built from these same plays.
 // A WPBL half-inning is worth roughly double a major-league one, so a borrowed count table
@@ -21,11 +21,11 @@ import type { PlayRunValue } from './runExpectancy'
  * The six pitch codes, coarsened to the four things a COUNT can do.
  *
  * DERIVED FROM `PITCH_CODES` RATHER THAN RESTATED. This module and the discipline board read
- * the same six letters off the same column, and for a while they each carried their own table
- * of them: two definitions of what `K` means, either of which could be corrected without the
- * other. The letters live in one place now, and this one only says which of them move a count
- * and how. What that table knows and this one throws away is HOW a strike was earned, which
- * the count does not care about: 0-1 is 0-1 whether she watched it or missed it.
+ * the same six letters off the same column, and a table of them in each would be two
+ * definitions of what `K` means, either of which could be corrected without the other. The
+ * letters live in one place, and this one only says which of them move a count and how. What
+ * that table knows and this one throws away is HOW a strike was earned, which the count does
+ * not care about: 0-1 is 0-1 whether the batter watched it or missed it.
  */
 const EFFECT_OF: Readonly<Record<PitchKind, PitchEffect>> = {
   ball: 'ball',

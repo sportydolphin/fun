@@ -57,13 +57,10 @@ export interface WpblAward {
 /**
  * The ballot closes at FIRST PITCH OF THE FINAL.
  *
- * It used to run to the day after the last postseason game, on the reasoning that the audience
- * is here for the playoffs and a ballot shut on Sep 6 would be closed for the fortnight the
- * section is busiest. That is still true of the opening date, which is why the ballot opens the
- * day after the regular season ends. What was wrong was the other end: a poll with no visible
- * deadline is a poll people mean to come back to, and "closes eventually" gave nobody a reason
- * to answer today. The final is the one moment in the postseason every reader already knows the
- * date of, so it is a deadline that explains itself.
+ * It opens the day after the regular season ends, because the audience is here for the
+ * playoffs, and it closes at a moment every reader already knows the date of: a poll with no
+ * visible deadline is a poll people mean to come back to, and "closes eventually" gives nobody a
+ * reason to answer today. The final is the one date in the postseason that explains itself.
  *
  * SIX PM EASTERN ON THE DAY, WHICH IS AT OR BEFORE FIRST PITCH WHEREVER THE GAME IS PLAYED. The
  * published time is 6:00 PM with no zone, and the final's host is not known until the semifinals
@@ -115,12 +112,12 @@ export const AWARDS_OPEN_FALLBACK = '2026-09-07'
  *
  * THOSE TWO POSTS ARE ALSO WHERE THE FACES COME FROM. The league publishes a cut-out headshot of
  * every player and none of any manager, so the four in `src/wpbl/managers/` are crops of the
- * announcement art itself: three off the "Introducing the Managers" graphic and Weeks off his own.
- * Which is why Foulke has no portrait and needs none, and why a fifth manager will arrive the same
- * way, by hand, out of whatever the league puts on the post.
+ * announcement art itself: three off the "Introducing the Managers" graphic and Weeks off the
+ * Boston announcement. Which is why Foulke has no portrait and needs none, and why a fifth
+ * manager will arrive the same way, by hand, out of whatever the league puts on the post.
  *
  * BOSTON HAS HAD TWO IN A FIFTEEN-GAME SEASON, and that is the case this shape exists for. Keith
- * Foulke opened the season and was dismissed three games into it; Jemile Weeks has had the other
+ * Foulke opened the season and was dismissed three games into it; Jemile Weeks managed the other
  * twelve. The ballot offers Weeks, because a Manager of the Year award over a season is about the
  * person who managed it, and three games is not a season. Foulke is recorded here rather than
  * deleted: the day somebody asks why Boston's entry does not match the launch announcement, this
@@ -161,16 +158,16 @@ export const managerOf = (teamId: string): WpblManager | undefined =>
  * NOTHING ELSE: no position, no innings, no zone (see positions.ts, which has to reconstruct a
  * player's position from the box score's batting rows because the fielding rows do not carry
  * one). So any ranking has to be built out of assists and double plays, and that is an
- * infielder's stat line. Ordered on it, the shortlist came out as four infielders, every time,
- * and it always will: Denae Benites has taken 106 chances, more than anyone in the league, and
- * ranks 16th on it because 90 of them are putouts behind the plate. Natsuki Yonetani ranks 36th
- * for having 3 assists in right field, where an assist means a runner was foolish enough to test
- * her. A shortlist that structurally cannot contain a catcher or an outfielder is not a shortlist
- * of defenders, and no weighting fixes that without a position to weight by.
+ * infielder's stat line. Ordered on it, the shortlist comes out as four infielders, every time:
+ * Denae Benites has taken 106 chances, more than anyone in the league, and ranks 16th on it
+ * because 90 of them are putouts behind the plate, and Natsuki Yonetani ranks 36th for having 3
+ * assists in right field, where an assist means a runner was foolish enough to test that arm. A
+ * shortlist that structurally cannot contain a catcher or an outfielder is not a shortlist of
+ * defenders, and no weighting fixes that without a position to weight by.
  *
  * SO THE FOUR ARE NAMED HERE and the card still carries their real figures, which is the honest
- * version of what the sort was pretending to do. Ordered as written, not by any column, because
- * the whole point is that no single column ranks them.
+ * version of what a sort would be pretending to do. Ordered as written, not by any column,
+ * because the whole point is that no single column ranks them.
  *
  * NAME AND CLUB, RESOLVED AGAINST THE ROSTER, for the same reason WPBL_MANAGERS holds a key
  * rather than a club: a uuid in this file could not be read or checked by anybody, and a name on
@@ -236,13 +233,14 @@ export const WPBL_MVP_SWAPS: readonly WpblNomineeSwap[] = [
  * IT MOVES A NAME, IT NEVER ADDS ONE. The six are still the six arms the run-expectancy table
  * picked, on the section's own qualifier bar; this reorders whoever is already among them. So a
  * name here that the sort did not select is not promoted onto the ballot by being written down,
- * and the day she drops off the list this constant quietly does nothing rather than resurrecting
- * her. That is the property worth having: the shortlist keeps answering to the numbers.
+ * and the day that player drops off the list this constant quietly does nothing rather than
+ * resurrecting them. That is the property worth having: the shortlist keeps answering to the
+ * numbers.
  *
  * WHY A LIST AND NOT A THUMB ON THE SORT. Every order on this ballot is a figure the section
  * already publishes, and the point of that is that nobody has to trust the person who built it.
  * Weighting the sort to land one name in one place gives that up invisibly, for every later
- * reader of armSlate, and it would also move her card's figures relative to the others. Two
+ * reader of armSlate, and it would also move that player's figures relative to the others. Two
  * separate facts, "who the six are" and "the order they are drawn in", with only the second one
  * a hand call, is the version that stays honest.
  */
@@ -257,10 +255,9 @@ export const WPBL_AWARDS: readonly WpblAward[] = [
     title: 'Most Valuable Player',
     emoji: '⚾',
     blurb: 'The best season anyone had, however you want to define best.',
-    // NO PROSE UNDER THE TILES. Every category used to carry a sentence naming the sort it was
-    // seeded on, and read end to end the ballot was more explaining than asking. The blurb poses
-    // the question and the tiles carry the figures; a reader who wants the ranking has the whole
-    // section for it. Removed Sep 9, 2026.
+    // NO PROSE UNDER THE TILES. The blurb poses the question and the tiles carry the figures; a
+    // sentence naming the sort each category was seeded on would make the ballot, read end to end,
+    // more explaining than asking, and a reader who wants the ranking has the whole section for it.
     pick: 'player', slate: 'mvp', serious: true, closesAt: AWARDS_CLOSE_AT,
   },
   {
@@ -464,11 +461,10 @@ export function anyAwardOpen(games: readonly ScheduleDate[], now: Date = new Dat
  * Most Aura is chosen too, and it is the one award where that needs no defending.
  *
  * These five are the questions the numbers cannot settle, and this is the one where that is not
- * a figure of speech. It was seeded off the top two home-run hitters and
- * the top two strikeout pitchers, which is a fine way to find four good players and no way at all
- * to find the one people look for on the lineup card. Worse, it made the tiles argue: four faces
- * carded on HR and AVG is a second MVP ballot, and a reader comparing .552 against .219 is
- * answering a question nobody asked.
+ * a figure of speech. Seeding it off the top home-run hitters and strikeout pitchers finds four
+ * good players and no way at all to find the one people look for on the lineup card, and it
+ * makes the tiles argue: four faces carded on HR and AVG is a second MVP ballot, and a reader
+ * comparing .552 against .219 is answering a question nobody asked.
  *
  * SO THESE CARRY NO FIGURES, not on the seeded four and not on a write-in. See auraSlate.
  */
@@ -483,7 +479,7 @@ export const WPBL_AURA_SHORTLIST: readonly WpblNominee[] = [
  * Who this ballot came from, and the only off-site link in the section.
  *
  * The fan awards exist because Ghost Baseboo suggested them, and the categories were picked with
- * him. That is a fact about where the feature came from rather than a promotion, and it stays
+ * them. That is a fact about where the feature came from rather than a promotion, and it stays
  * true however the traffic runs between a site and a channel that cover the same four clubs.
  *
  * HERE RATHER THAN INLINE IN THE SHEET, beside the managers and the two shortlists, because it

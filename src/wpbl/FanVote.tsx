@@ -31,31 +31,25 @@ import type {
 /**
  * The fan awards: five questions, one card on Home, one sheet to answer them in.
  *
- * WHAT THIS IS REPLACING, AND WHAT IT IS NOT. The MVP race card held this slot and answered a
- * question the site had already answered everywhere else: the race is a number, the number is on
- * the Stats tab, and the card was a third rendering of it. This asks something the section
- * genuinely cannot answer, which is what the people reading it think. It is also the first
- * surface on `/wpbl` that a reader can put something INTO rather than take something out of,
- * and the one thing here that keeps working after Sep 22, when the feed goes quiet and every
- * other card on this page freezes.
+ * WHY IT IS HERE. An MVP race card would answer a question the site already answers on the Stats
+ * tab and on the player pages. This asks something the section cannot answer on its own, which is
+ * what the people reading it think, and it is the one surface on `/wpbl` a reader can put
+ * something INTO, which keeps it worth opening after the feed stops and every other card on Home
+ * freezes.
  *
- * THE ENGINE ALREADY EXISTED AND HAD NEVER BEEN DRAWN. `awards.ts` is the catalog, and
- * `derive/awards.ts` builds every shortlist from figures the section already publishes: the MVP
- * race for value, the run-expectancy table for runs saved, the qualifier bar for who counts as a
- * regular. Both are tested. All this file does is render them and take the answer, which is why
- * it contains no arithmetic about baseball at all.
+ * NO BASEBALL ARITHMETIC IN THIS FILE. `awards.ts` is the catalog, and `derive/awards.ts` builds
+ * every shortlist from figures the section already publishes: the MVP race for value, the
+ * run-expectancy table for runs saved, the qualifier bar for who counts as a regular. Both are
+ * tested; this file renders them and takes the answer.
  *
  * A SHORTLIST IS A STARTING POINT, NOT A BALLOT PAPER. Every category takes a vote for anybody
  * in the league through the search below the names, and every seeded category prints where its
  * names came from. That distinction is the whole reason the search is not hidden behind a "more"
  * link: an award whose winner can only be one of six names the site chose is the site's award.
  *
- * NO ACCOUNT, DELIBERATELY, AND IT IS THE OPPOSITE CALL FROM THE PICK'EM NEXT DOOR. Votes key on
- * the browser id (`awardVoterKey`), which is what CLAUDE.md records for this table and the reason
- * is that the two features want opposite trades: the pick'em publishes its tally back as the
- * feature itself and so needs a key that is more work to mint than a private window, while a poll
- * with nothing at stake loses more real answers to a sign-in wall than it saves fake ones. A cleared cache is a lost vote here and that is
- * accepted.
+ * SIGNED IN TO VOTE. Answering needs an account (`cast` sends a signed-out reader to sign in; see
+ * the wall in the sheet), while a signed-out reader still sees the whole ballot and the tally on
+ * anything already decided.
  *
  * THE TALLY IS HIDDEN UNTIL YOU ANSWER, per category, same rule the pick'em uses: a poll that
  * shows its results first stops measuring what people think and starts measuring what the first
@@ -204,24 +198,20 @@ export function useFanVote(enabled: boolean): FanVoteState {
 /**
  * The crowd's number, on the corner of the face it belongs to.
  *
- * IT USED TO BE A LINE OF ITS OWN UNDER THE FIGURES, and that is the whole reason this
- * component exists. A tile's last row is a grid of value-over-label pairs, so a bare "50%"
- * printed beneath it landed directly under an AVG of .451 in the same column, with no label
- * of its own: the eye read it as a fourth line of that stat rather than as the poll. The
- * figures are about the player and this number is about the people voting, so it is now
- * somewhere the figures are not.
+ * NOT A LINE UNDER THE FIGURES. A tile's last row is a grid of value-over-label pairs, so a bare
+ * "50%" beneath it lands under a stat in the same column with no label of its own, and the eye
+ * reads it as another line of that stat rather than as the poll. The figures are about the player
+ * and this number is about the people voting, so it goes somewhere the figures are not.
  *
  * ON THE PORTRAIT RATHER THAN IN A CORNER OF THE TILE, because the tile's corners are taken.
- * Top right is the link out to her page, and the bottom edge is the stats row on a phone,
- * where the tile is a centred column and there is no free margin either side of it. The
+ * Top right is the link out to the player's page, and the bottom edge is the stats row on a
+ * phone, where the tile is a centred column and there is no free margin either side of it. The
  * portrait is in the same place at both breakpoints and is the one element every tile has.
  *
- * AND IT COSTS NO LAYOUT, which the old row went to some trouble to arrange. `showShare` is
- * `!!picked || closed`, so it flips for a whole question at once: the first vote in a category
- * used to grow all four tiles by a line together, which grew the grid, which pushed every
- * question below it down the sheet under the reader's thumb. The old row was therefore
- * reserved from first paint and left empty until there was something to put in it. An overlay
- * cannot move anything, so nothing has to be reserved and the tile is a line shorter.
+ * AND IT COSTS NO LAYOUT. `showShare` is `!!picked || closed`, so it flips for a whole question
+ * at once: a row that appeared on the first vote would grow all four tiles together and push
+ * every question below down the sheet under the reader's thumb. An overlay cannot move anything,
+ * so nothing has to be reserved.
  *
  * The tick stays, and stays inside the pill: `aria-checked` has already said this is your
  * answer to a screen reader, and the ring and the tint say it in colour. The tick is the one
@@ -265,8 +255,8 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
   award: WpblAward
   /** The club behind a club vote, for its badge. Null for a player pick, which draws a portrait. */
   team?: WpblTeam | null
-  /** Her roster row, for the link out to her page. Absent for a club, a game or a play, and for
-   *  a write-in naming somebody the roster no longer carries. */
+  /** The player's roster row, for the link out to their page. Absent for a club, a game or a
+   *  play, and for a write-in naming somebody the roster no longer carries. */
   player?: WpblPlayer | null
   on: boolean
   share: number
@@ -294,8 +284,8 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
   // rather than on a name: see wpblManagerPortrait.
   const headshot = wpblManagerPortraitSet(candidate.key)
   const stats = candidate.stats ?? []
-  // WHERE THIS CARD LETS YOU OUT, or null where it cannot. A player goes to her page; a manager,
-  // who has none, goes to her club's. Resolved once here rather than twice in the markup so the
+  // WHERE THIS CARD LETS YOU OUT, or null where it cannot. A player goes to their page; a manager,
+  // who has none, goes to their club's. Resolved once here rather than twice in the markup so the
   // chip below stays one control with one shape, and so a category that is neither (a game, a
   // play, a write-in the roster no longer carries) simply has no chip instead of a dead one.
   const exit = player && onOpenPlayer
@@ -313,15 +303,13 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
         position: 'relative', overflow: 'hidden',
         // STACKED ON A PHONE, ACROSS THE CARD FROM `sm`, and the width is the whole reason.
         // Two columns of a 720px sheet is 340px a card. A centred column inside 340px is a 46px
-        // portrait with 140px of nothing either side of it, which is the same empty space the
-        // four-column grid was creating, moved inside the card. Laid across, the portrait sits
-        // left and the name and figures use the rest, which is what a player card looks like.
+        // portrait with 140px of nothing either side of it. Laid across, the portrait sits left and
+        // the name and figures use the rest, which is what a player card looks like.
         //
         // A phone keeps the column: two columns of 375px is 165px a card, and 165px minus a
         // portrait and a gap leaves about 100px for a name, which is not a row.
         // The xs gap holds the lower half of the share pill, which straddles the portrait's
-        // bottom edge: at 0.6 it was 5px of room for an 8px overhang and the pill sat on the
-        // name. See ShareBadge.
+        // bottom edge; any tighter and the pill sits on the name. See ShareBadge.
         display: 'flex', gap: { xs: 1.1, sm: 1 },
         flexDirection: { xs: 'column', sm: 'row' },
         alignItems: 'center',
@@ -346,11 +334,9 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
         }} />
       )}
       {/* A WAY OUT OF THE CARD, ON EVERY CARD, BEFORE THE VOTE RATHER THAN AFTER IT.
-          The sheet used to offer one "Open <name>" link under the grid and only once you had
-          answered, which is the wrong way round twice: the moment a reader wants to look a
-          player up is while they are deciding between four of them, and by the time they have
-          decided the link they are given is to the one name they no longer have a question
-          about. Every tile now carries its own, and the footer link is gone.
+          The moment a reader wants to look a player up is while they are deciding between four
+          of them, not after, so every tile carries its own link rather than one link under the
+          grid once you have answered.
 
           A CHEVRON RATHER THAN A WORD, because the tile is already carrying a portrait, a name,
           a position, five figures and a tally, and "View page" on each of four cards is four
@@ -358,7 +344,7 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
           is lost to a screen reader.
 
           IT IS DRAWN AS A CHIP, AND THAT IS THE WHOLE ANSWER TO "WHICH ONE AM I TAPPING". A
-          thumb needs about 32px and a bare glyph gave it 26, but simply growing an invisible
+          thumb needs about 32px and a bare glyph gives it 26, but simply growing an invisible
           target inside a card whose every other pixel casts a vote makes the ambiguity worse
           rather than better: the reader cannot see where one control stops and the other starts,
           so a near miss either votes for somebody they were only curious about or opens a page
@@ -371,10 +357,10 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
           works. See CLAUDE.md on onClick-only controls. */}
       {/* AND MANAGER OF THE YEAR GETS ONE TOO, to the club rather than to a player page, because
           it is the only category whose four names have no page of their own: the feed carries no
-          managers at all (see WPBL_MANAGERS), so hers does not exist and the club's is the page
-          the question is actually about. Without it this was the one card on the sheet a reader
-          could not leave, which is exactly backwards for the category where the case is a record
-          and a run differential that live somewhere else.
+          managers at all (see WPBL_MANAGERS), so the club's is the page the question is actually
+          about. Without it this would be the one card on the sheet a reader could not leave,
+          which is exactly backwards for the category where the case is a record and a run
+          differential that live somewhere else.
 
           The same chip, the same corner, the same size. A different destination is not a reason
           for a different control: a reader who has learned the arrow on four MVP cards should not
@@ -410,15 +396,15 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
         >
           {/* AN ARROW OUT, NOT A CHEVRON. A '›' is the section's own "next" mark: it pages the
               rails on Home and it opens the row it sits at the end of. On a card that is itself
-              a control it therefore read as "more of this card", which is the one thing it does
+              a control it would read as "more of this card", which is the one thing it does
               not do. The diagonal is the mark for leaving, and this leaves: it puts a whole
               other page over the ballot.
 
-              DRAWN, NOT TYPESET, which is what fixed the centring. A glyph ('›', '↗') is not
-              centred in its own box in any font and carries a text node's line-height besides,
-              so it landed high and right in the circle and no nudge held at every text scale.
-              This path is symmetric about (12, 12) in its own viewBox, so it is centred by
-              construction, at any size and in any font the reader has. */}
+              DRAWN, NOT TYPESET, which is what centres it. A glyph ('›', '↗') is not centred in
+              its own box in any font and carries a text node's line-height besides, so it lands
+              high and right in the circle and no nudge holds at every text scale. This path is
+              symmetric about (12, 12) in its own viewBox, so it is centred by construction, at
+              any size and in any font the reader has. */}
           <Box component="svg" aria-hidden viewBox="0 0 24 24" sx={{
             width: chromePx(13), height: chromePx(13), display: 'block',
           }}>
@@ -479,8 +465,7 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
             // 38px (the widest real value is an OPS of "1.752" at 41px, the widest label a
             // letter-spaced "WHIP" at ~34px). Three plus two 7px gaps is ~128px and fits; four
             // needs ~174px and does not, which is why this stops at three no matter how much
-            // the slates would like to say. It was TWO until Sep 9, 2026 and that was simply
-            // too conservative: a whole column of the tile sat empty.
+            // the slates would like to say.
             //
             // FIVE FROM `sm`, where the sheet is 560px wide and a tile has ~248px inside it:
             // five columns plus four 11px gaps is ~235px. `md` widens the sheet to 880 and
@@ -510,16 +495,16 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
       )}
 
       {/* A TILE WITH NO FIGURES STANDS AS TALL AS THE ONES BESIDE IT, and this hidden pair is
-          what makes it. A write-in and a search hit carry a name and nothing else, so they came
-          out one text pair shorter than every seeded tile; alone on the last row of the grid
-          there is nothing to stretch against, so the card visibly shrank and the share pill on
-          its portrait sat at a different height from the four above it.
+          what makes it. A write-in and a search hit carry a name and nothing else, so they
+          would come out one text pair shorter than every seeded tile; alone on the last row of
+          the grid there is nothing to stretch against, so the card would visibly shrink and the
+          share pill on its portrait sit at a different height from the four above it.
 
           `visibility: hidden` rather than a measured `minHeight`: the row it is holding room for
           is two lines of type at two different sizes, and any number written down here would be
-          right at one text scale and wrong at the rest. An em dash is the section's own glyph for
-          "no value", so if this ever becomes visible by accident it reads as a blank figure
-          rather than as a mistake.
+          right at one text scale and wrong at the rest. The placeholder is the section's own
+          glyph for "no value", so if this ever becomes visible by accident it reads as a blank
+          figure rather than as a mistake.
 
           ONLY WHERE THE QUESTION HAS FIGURES AT ALL. Aura, Play and Game card nobody on numbers,
           so reserving the row there would put an empty band under every tile on those three
@@ -611,18 +596,16 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
 
   return (
     <Box>
-      {/* THE AWARD'S NAME IS THE QUESTION, so it is set like one.
-          It was a `SectionLabel`: 0.63rem, uppercase, `text.disabled`. That is the section's
-          furniture label, the same treatment as "SEMIFINAL A · BEST OF 3", and it put the one
-          thing the reader is being asked about below every candidate name on the ballot in both
-          size and contrast. Five questions read as five captions over five grids.
+      {/* THE AWARD'S NAME IS THE QUESTION, so it is set like one, not as the section's furniture
+          label (small, uppercase, `text.disabled`), which would put the one thing the reader is
+          being asked about below every candidate name in both size and contrast.
 
-          The subtitle under it is gone with it. "The defender you were glad was out there" is a
-          nicer sentence than "Defensive Wizard" is a title, but it restates a title that already
-          says the thing, and a paragraph between the question and the names is what pushed the
-          candidates far enough down that the second award was never on screen with its own
-          heading. `award.blurb` is still in the catalog: nothing renders it today, and a results
-          page is the surface that would want it. */}
+          NO SUBTITLE. "The defender you were glad was out there" is a nicer sentence than
+          "Defensive Wizard" is a title, but it restates a title that already says the thing, and
+          a paragraph between the question and the names pushes the candidates far enough down
+          that the next award is never on screen with its own heading. `award.blurb` is still in
+          the catalog: nothing renders it today, and a results page is the surface that would
+          want it. */}
       {/* NO EMOJI IN FRONT OF THE QUESTION. An icon per heading, five headings deep, is the
           house style of a generated page rather than of this section, which labels nothing
           else this way. The catalog still carries one, because the Discord post is written in
@@ -630,8 +613,8 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
           five questions in a wall of chat. */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, minWidth: 0 }}>
         {/* 800, NOT 900, AND IT OUTRANKS THE NAMES BY SIZE INSTEAD. A candidate's name is
-            `body` at 800, so at 900 the heading was winning on both size AND weight at once and
-            came out as a black bar over a grid of six cards, which is more emphasis than a
+            `body` at 800, so at 900 the heading would win on both size AND weight at once and
+            come out as a black bar over a grid of six cards, which is more emphasis than a
             five-question sheet can spend five times. Same trade the weight ceiling in ui.tsx
             makes for small type, arrived at from the other end: this size is above that ceiling
             and 900 is allowed here, it just is not wanted. Matching the names' weight and
@@ -642,13 +625,13 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
         }}>{award.title}</Typography>
       </Box>
 
-      {/* TWO COLUMNS, BECAUSE SIX DIVIDES BY TWO. Four across left the second row two thirds
-          empty on every player category, which is what a shortlist of six does against a grid of
-          four, and the hole was the first thing the eye landed on. Two gives three full rows and
-          no gap at any width. It also doubles what a card is allowed to be: half a 720px sheet is
-          340px, which is a player card rather than a tile, and that is what the layout below
-          spends the extra on. `minmax(0, 1fr)` so the columns divide whatever the sheet has at
-          any text scale rather than overflowing it. */}
+      {/* TWO COLUMNS, BECAUSE SIX DIVIDES BY TWO. Four across leaves the second row two thirds
+          empty on every player category, which is what a shortlist of six does against a grid
+          of four, and the hole is the first thing the eye lands on. Two gives three full rows
+          and no gap at any width. It also doubles what a card is allowed to be: half a 720px
+          sheet is 340px, which is a player card rather than a tile, and that is what the layout
+          below spends the extra on. `minmax(0, 1fr)` so the columns divide whatever the sheet
+          has at any text scale rather than overflowing it. */}
       <Box role="radiogroup" aria-label={award.title}
         sx={{ display: 'grid', gap: 0.75, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         {shown.map(carded).map(c => (
@@ -695,13 +678,12 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
         </Box>
       )}
 
-      {/* NOTHING AT ALL BEFORE A VOTE, where this used to say "Results show once you have voted."
-          The bars are hidden until you answer for the reason `showShare` gives, and that rule
-          does not need announcing: a reader who has not voted yet is being told the terms of a
-          transaction they have not been offered, one line under the tiles that ARE the offer. It
-          also read as an instruction on the one surface that is trying hardest not to give any.
-          The whole row goes rather than just the sentence, so an empty caption is not left
-          holding a margin open. */}
+      {/* NOTHING AT ALL BEFORE A VOTE. The bars are hidden until you answer for the reason
+          `showShare` gives, and that rule does not need announcing: a reader who has not voted
+          yet would be told the terms of a transaction they have not been offered, one line under
+          the tiles that ARE the offer, and it would read as an instruction on the one surface
+          trying hardest not to give any. The whole row goes rather than just the sentence, so
+          an empty caption is not left holding a margin open. */}
       {(closed || picked) && (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75, flexWrap: 'wrap' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
@@ -758,11 +740,11 @@ function FanVoteSheet({ entries, players, teams, state, closed, onClose, onOpenP
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2.75 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
           {closed
-            // ONE LINE AT 375px, WHICH IS WHAT DECIDES THE WORDING. This sits between the
-            // sheet's title and the first question, and at two lines it pushed the first grid
-            // of faces far enough down that the sheet opened on a paragraph. The long version
-            // said the deadline was first pitch of the final; the date says the same thing to
-            // anyone holding the bracket, and the ballot's own header carries the rest.
+            // ONE LINE AT 375px, WHICH IS WHAT DECIDES THE WORDING. This sits between the sheet's
+            // title and the first question, and at two lines it pushes the first grid of faces far
+            // enough down that the sheet opens on a paragraph. The date says what a sentence about
+            // first pitch of the final would, to anyone holding the bracket, and the ballot's own
+            // header carries the rest.
             ? 'Voting is closed. Here is how it finished.'
             : `Change your votes until ${AWARDS_CLOSE_LABEL}.`}
         </Typography>
@@ -770,7 +752,7 @@ function FanVoteSheet({ entries, players, teams, state, closed, onClose, onOpenP
             who is not signed in still gets the whole ballot: every category, every nominee,
             every figure, and the tally on anything already decided. What they cannot do is
             answer, and this is the one line that says so. Same shape and the same reasoning as
-            the pick'em's, which reached this a fortnight earlier.
+            the pick'em's.
 
             SIZED TO ITS OWN WORDS, not stretched across the sheet: a four-word ask spanning
             720px is a banner, and a banner does not read as a thing you press. Tapping a
@@ -815,11 +797,10 @@ function FanVoteSheet({ entries, players, teams, state, closed, onClose, onOpenP
           rel="noopener noreferrer"
           title={awardsCreditLine()}
           sx={{
-            // `body`, the same size as the deadline line at the top of the sheet, so this is in
-            // the sheet's own voice rather than in fine print. It was `caption` in
-            // `text.disabled`, which is the treatment used for a stat label, and at the foot of a
-            // long sheet it read as legal boilerplate: too quiet to be a credit and too flat to
-            // look like anywhere you could go.
+            // `body`, the same size as the deadline line at the top of the sheet, so this is in the
+            // sheet's own voice rather than in fine print. Not `caption` in `text.disabled`, which is the
+            // treatment for a stat label: at the foot of a long sheet that reads as legal boilerplate,
+            // too quiet to be a credit and too flat to look like anywhere you could go.
             fontSize: TYPE_SCALE.body, color: 'text.secondary', textDecoration: 'none',
             alignSelf: 'center', textAlign: 'center', ...FOCUS_RING, ...TAPPABLE,
             borderRadius: 1, px: 1, py: 0.5,
@@ -993,10 +974,8 @@ export default function FanVoteCard({
       .sort((a, b) => awards.findIndex(x => x.id === a.award.id) - awards.findIndex(x => x.id === b.award.id))
   }, [players, teams, games, batting, pitching, fielding, race, plays])
 
-  // OPEN TO EVERYBODY SINCE SEP 10, 2026. This was an owner-and-collaborator gate for its first
-  // day, and both call sites are gone with it: Home no longer picks between this card and the
-  // MVP race, and `drawable` is back to the one question it should ever have asked, which is
-  // whether there is a ballot worth drawing.
+  // `drawable` asks only whether there is a ballot worth drawing. The ballot is open to
+  // everybody, so there is no audience gate here.
   const drawable = fanVoteIsWorthDrawing(entries)
   const state = useFanVote(drawable)
   const closed = useMemo(
@@ -1072,12 +1051,9 @@ export default function FanVoteCard({
           who never opens the sheet still learns what is being asked and a reader who has voted
           can see all five of their calls without a tap.
 
-          IT SHOWS FACES NOW, AND THAT IS THE WHOLE CHANGE. Five questions about players, and
-          the card drew no players: a column of titles hard against the left edge, the word
-          "Vote" hard against the right, and 300px of nothing in between on a desktop. The empty
-          middle was most of the card. A nominee's face is the thing that makes an award read as
-          a contest rather than as a form, and it is the one picture this card already had the
-          data for, since every candidate carries a portrait and a club.
+          FACES, because a nominee's face is what makes an award read as a contest rather than
+          as a form; without them the card is a column of titles, the word "Vote" and a wide
+          empty middle on a desktop. Every candidate already carries a portrait and a club.
 
           THE PILE IS THE SEEDED SHORTLIST, IN SEEDED ORDER, which is what keeps it clear of the
           hidden-until-you-answer rule. It is the same list the sheet opens with and leaks
@@ -1087,8 +1063,8 @@ export default function FanVoteCard({
           beside it (Next game, with its season stats). Rather than let 70-odd pixels pool as a
           gap under the last row, the rows GROW EQUALLY into it (`flex: 1 0 auto` each), so every
           row gains the same few pixels with its faces centred and the dividers stay snug between
-          them. Spreading with a gap instead would open the "canyons" LeadersCard warns about.
-          Below md there is no stretch, so the rows sit at their content height as before. */}
+          them. Spreading with a gap instead opens canyons between rows, which reads as a list
+          coming apart. Below md there is no stretch, so the rows sit at their content height. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
         {entries.map((e, i) => {
           const picked = state.ballot[e.award.id]
@@ -1119,25 +1095,23 @@ export default function FanVoteCard({
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>{e.award.title}</Typography>
               <Box sx={{ flex: 1, minWidth: chromePx(8) }} />
-              {/* Overlapped, with a ring in the card's own colour so the edges stay separate
-                  against a portrait behind them. `chromePx` on the overlap because it is
-                  structure: left raw it would not shrink with the art it is overlapping.
+              {/* Overlapped, with a ring in the card's own colour so the edges stay separate against a
+                  portrait behind them. `chromePx` on the overlap because it is structure: left raw it
+                  would not shrink with the art it is overlapping.
 
-                  `isolation` IS LOAD-BEARING AND THE PILE WAS DRAWING OVER THE TOOLBAR WITHOUT
-                  IT. The faces below order themselves with `zIndex`, and a FLEX ITEM honours
-                  z-index with no `position` at all, which is the part that surprises: each face
-                  became a stacking context in the page's own order rather than in this pile's.
-                  Their nearest such ancestor was then the swipe pager, three components up,
-                  whose `transform` makes one. So as Home scrolled, these three portraits carried
-                  their own compositing past the sticky toolbar and drew ON TOP of it, crisply,
-                  while the award's name beside them slid under it correctly. It reads as a
-                  rendering glitch rather than a z-index bug precisely because the rest of the
-                  row behaves.
+                  `isolation` IS LOAD-BEARING: WITHOUT IT THE PILE DRAWS OVER THE TOOLBAR. The faces
+                  below order themselves with `zIndex`, and a FLEX ITEM honours z-index with no
+                  `position` at all, which is the part that surprises: each face becomes a stacking
+                  context in the page's own order rather than in this pile's. Their nearest such
+                  ancestor is then the swipe pager, three components up, whose `transform` makes one.
+                  So as Home scrolls, these portraits carry their own compositing past the sticky
+                  toolbar and draw ON TOP of it, while the award's name beside them slides under it
+                  correctly. It reads as a rendering glitch rather than a z-index bug precisely because
+                  the rest of the row behaves.
 
-                  One line confines them: the three indexes now compete only with each other,
-                  which is all they were ever meant to do. Ordering siblings inside a pile is
-                  what this property is for, and any pile of overlapping art that reaches for
-                  z-index wants it. */}
+                  One line confines them: the three indexes compete only with each other, which is all
+                  they were ever meant to do. Ordering siblings inside a pile is what this property is
+                  for, and any pile of overlapping art that reaches for z-index wants it. */}
               <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, isolation: 'isolate' }}>
                 {faces.map((c, j) => (
                   <Box key={c.key} sx={{

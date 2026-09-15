@@ -54,11 +54,11 @@ export interface AwardStat {
   value: string
   /**
    * Set when `value` is an ERA-BASIS FIGURE, which this module is not allowed to have the last
-   * word on. `era` and `k9` are stored on whatever basis the league publishes (per seven since
-   * Sep 3, 2026) and a reader can flip that in settings, so the app rescales at DISPLAY time.
-   * This file is pure: no React, no context, no reader. It therefore emits the stored number
-   * here and a canonical-basis string in `value` as the fallback, and the view formats it with
-   * `useEraBasis().fmtEra`. See ERA_BASIS_CANONICAL in stats.ts and the note in armSlate.
+   * word on. `era` and `k9` are stored on whatever basis the league publishes (see
+   * ERA_BASIS_CANONICAL in stats.ts) and a reader can flip that in settings, so the app rescales
+   * at DISPLAY time. This file is pure: no React, no context, no reader. It therefore emits the
+   * stored number here and a canonical-basis string in `value` as the fallback, and the view
+   * formats it with `useEraBasis().fmtEra`. See the note in armStats.
    */
   eraBasisValue?: number | null
 }
@@ -67,9 +67,9 @@ export interface AwardStat {
 export interface AwardCandidate {
   key: string
   name: string
-  /** The club to show beside her, which is "now" for a player and "then" for a play or a
-   *  game. A player's roster row is the right answer for a season award: the badge should be
-   *  the shirt she is wearing while the vote is open. A play belongs to the night it happened
+  /** The club to show beside the candidate, which is "now" for a player and "then" for a play or
+   *  a game. A player's roster row is the right answer for a season award: the badge should be
+   *  the shirt they are wearing while the vote is open. A play belongs to the night it happened
    *  and takes its club from the game. See the trade note in CLAUDE.md. */
   teamId: string | null
   /** Set for a player pick, so a surface can draw a portrait and link to her page. */
@@ -130,15 +130,15 @@ export interface CatcherArm {
  * Caught stealing per catcher, read off the play log.
  *
  * NOT IN THE BOX SCORE AT ALL. The feed's fielding row is `po, a, e, dp, pb, sba, ci`: `sba`
- * counts the attempts against her and nothing counts the ones she ended. A catcher's throw shows
- * up in her assist total, mixed in with every other throw she made, so the two cannot be
- * separated there. The play log can: it spells the throw path out, and a caught stealing that
- * starts at the plate reads "out at second c to 2b, caught stealing". Twelve of the fifteen
- * caught stealings in the 2026 regular season were hers to claim; the other three start at `p`
- * and are pickoffs, which belong to the pitcher.
+ * counts the attempts against a catcher and nothing counts the ones they ended. A catcher's throw
+ * shows up in the assist total, mixed in with every other throw, so the two cannot be separated
+ * there. The play log can: it spells the throw path out, and a caught stealing that starts at the
+ * plate reads "out at second c to 2b, caught stealing". In the 2026 regular season twelve of the
+ * fifteen caught stealings started at the plate; the other three start at `p` and are pickoffs,
+ * which belong to the pitcher.
  *
  * THE NARRATIVE NAMES THE RUNNER, NEVER THE THROWER, so the catcher comes from the lineup: the
- * one player on the fielding club with `c` on her batting line that game, or nobody. An
+ * one player on the fielding club with `c` on their batting line that game, or nobody. An
  * unambiguous single hit or nothing, the same rule the slate itself uses for names, because a
  * game with two catchers in it cannot say which of them made the throw.
  */
@@ -175,19 +175,19 @@ export function catcherArms(
 
 /**
  * Four names, or eight where the thing being picked is a moment rather than a person: a play
- * shortlist is drawn from 30 games and one per club per week is the least it can be.
+ * shortlist is drawn from a whole season of games and one per club per week is the least it can
+ * be.
  *
  * FOUR BECAUSE MANAGER OF THE YEAR IS FOUR AND CANNOT BE ANYTHING ELSE. That category is the
- * league's four clubs, a slate rather than a shortlist, so it sets the shape of the sheet
- * whether or not the others agree with it. At six the ballot alternated three rows of tiles
- * with two rows and back, and the odd one out was the only category a reader could not scroll
- * past without noticing. Four also fills the two-column grid exactly, which six does and eight
- * does, but four does in half the height: five questions at six names each is a sheet nobody
- * reaches the bottom of.
+ * league's four clubs, a slate rather than a shortlist, so it sets the shape of the sheet whether
+ * or not the others agree with it: a different count elsewhere makes the ballot alternate row
+ * counts, and the odd one out is the only category a reader cannot scroll past without noticing.
+ * Four also fills the two-column grid exactly in the least height: five questions at six names
+ * each is a sheet nobody reaches the bottom of.
  *
- * It costs the tail of each list, which is the half nobody was voting for anyway. The search
- * under every player category takes a vote for anyone in the league, so a name off the four is
- * one field away rather than unavailable.
+ * It costs the tail of each list, which is the half nobody votes for anyway. The search under
+ * every player category takes a vote for anyone in the league, so a name off the four is one
+ * field away rather than unavailable.
  */
 const SHORTLIST = 4
 const MOMENT_SHORTLIST = 8
@@ -237,31 +237,29 @@ export function buildAwardBallot(input: AwardBallotInput): AwardBallotEntry[] {
 /**
  * The position under the name, which is the one fact about a player a stat line cannot carry.
  *
- * WHY IT IS HERE AND NOT IN EVERY BUILDER. A card says who she is and what she did, and eight
- * of these slates were saying only the second half: four batting averages side by side do not
- * tell a reader that one of them is a catcher and another is the club's shortstop. It is one
- * pass over the finished ballot rather than a line in each builder, because it is the same
- * answer everywhere and a builder that forgot it would be invisible.
+ * WHY IT IS HERE AND NOT IN EVERY BUILDER. A card says who a player is and what they did, and a
+ * stat line alone says only the second half: four batting averages side by side do not tell a
+ * reader that one is a catcher and another the club's shortstop. It is one pass over the finished
+ * ballot rather than a line in each builder, because it is the same answer everywhere and a
+ * builder that forgot it would be invisible.
  *
  * FROM THE BOX SCORES, NOT THE ROSTER LISTING, via the same `positions.ts` the player page, the
- * unfurl card and the Discord card all use. Two clubs' worth of players are filed somewhere they
- * have not played all season, and a ballot that disagreed with the player page it links to would
- * be the section arguing with itself.
+ * unfurl card and the Discord card all use. Players can be filed somewhere they have not played
+ * all season, and a ballot that disagreed with the player page it links to would be the section
+ * arguing with itself.
  *
  * "P / CF" IS THE TWO-WAY HALF, AND MVP IS THE REASON IT EXISTS. The MVP race prices runs added
  * at the plate plus runs saved on the mound, so a two-way player is on that shortlist partly for
- * her pitching, and the card then shows her a hitter's line and nothing else: Kelsie Whitmore
- * reads as an outfielder who hits, which is half of her case. The tile has no room for a sixth
- * figure and mixing a K into a row of batting figures is worse than not showing it, since K at
- * the plate and K on the mound are opposite facts spelled the same. So the position says it in
- * four characters and the reader can open her page for the rest.
+ * their pitching, and the card shows a hitter's line and nothing else, which is half the case.
+ * The tile has no room for a sixth figure, and mixing a K into a row of batting figures is worse
+ * than not showing it, since K at the plate and K on the mound are opposite facts spelled the
+ * same. So the position says it in four characters and the reader can open the player's page.
  *
  * THE MOUND LEADS, ON EVERY AWARD, because it is the half no stat line on this sheet can carry.
- * A row of batting figures cannot show it and a row of fielding figures shows her at the position
- * she plays when she is not pitching, so on both the "P" is the new information and the other
- * code is the one the numbers beside it have already implied. One order everywhere, too: the same
- * player is carded on more than one question here, and a label that reordered itself per award
- * would read as two different facts about her. This is a narrower question than
+ * A row of batting figures cannot show it and a row of fielding figures shows the player at the
+ * position they play when not pitching, so on both the "P" is the new information. One order
+ * everywhere, too: the same player can be carded on more than one question, and a label that
+ * reordered itself per award would read as two different facts. This is a narrower question than
  * `leadsWithPitching` in positions.ts answers, which decides which half of a whole player page to
  * open on and gets to weigh a season. Four characters on a ballot tile only point at what is
  * missing.
@@ -314,40 +312,36 @@ function slateFor(
 // ── Value, from the race that already prices it ─────────────────────────────────
 
 /**
- * The figures a player is carded on, chosen by what she actually does. A hitter gets the
+ * The figures a player is carded on, chosen by what they actually do. A hitter gets the
  * slash-line facts a fan argues with, a pitcher gets the mound ones, and a two-way player gets
  * one of each.
  *
  * NO RUNS-VALUE FIGURE ANYWHERE ON THIS BALLOT, which is the same call the pitcher slate makes
  * and for the same two reasons. "RUNS ADDED" is twice the width of AVG or HR, so as the first
- * column of the row it set the spacing for every figure beside it. And it is priced off our own
- * run-expectancy table: this is the friendliest surface in the section, the one place a reader
- * who does not follow the league is asked to have an opinion, and leading every card with a
- * number almost nobody outside the site can read is the wrong first impression. The shortlist is
- * still ORDERED by it, which is worth more here than printing it. This is not the earlier mistake of carding everyone on the sort figure alone; it
- * is the opposite, and it leaves the cards saying more rather than less.
+ * column of the row it would set the spacing for every figure beside it. And it is priced off our
+ * own run-expectancy table: this is the friendliest surface in the section, the one place a
+ * reader who does not follow the league is asked to have an opinion, and leading every card with
+ * a number almost nobody outside the site can read is the wrong first impression. The shortlist
+ * is still ORDERED by it, which is worth more here than printing it.
  *
- * A TWO-WAY PLAYER IS THE ONE REAL LOSS, and it is paid rather than ignored. Total/Bat/Arm split
- * her season in half, which is the whole argument for her, and short labels meant she never had
- * the width problem. But they are still three run-value numbers. A bat figure beside an arm
- * figure makes the same case in stats a beginner already owns, so HR AND K LEAD, in that order:
- * the display drops to two figures on a phone, so those two are the ones that survive, and one
- * of each is exactly the thing being claimed. AVG and IP fill the desktop row behind them.
+ * A TWO-WAY PLAYER IS THE ONE REAL LOSS, and it is paid rather than ignored. An HR figure beside
+ * a K figure makes the two-way case in stats a beginner already owns, so HR AND K LEAD, in that
+ * order: a phone shows only the first few figures, so those two survive, and one of each is
+ * exactly the thing being claimed. AVG and IP fill the desktop row behind them.
  */
 function valueStats(
   bat: { avg: number | null; hr: number; ops: number | null; sb: number; rbi: number } | undefined,
 ): AwardStat[] {
   // ONE LINE FOR EVERY NAME ON THIS AWARD, IN THE ORDER A FAN READS THEM. MVP is a hitters-only
-  // slate now (see mvpSlate), so there is no second shape to switch on and no reason for two
+  // slate (see mvpSlate), so there is no second shape to switch on and no reason for two
   // candidates on one grid to be carded on different things: comparing them is the entire task,
-  // and a reader cannot compare .451 against 26.2 IP. AVG then HR is the pair that survives to
-  // a phone, which is why they lead.
+  // and a reader cannot compare .451 against 26.2 IP. AVG then HR lead, so they survive to a phone.
   //
   // RBI IS LAST, AND THAT IS THE WHOLE ORDERING DECISION. The tile shows three figures on a
   // phone and five above it, so position IS priority: whatever sits in the first three is what
   // most readers will ever see. RBI is the least informative of the five, since it prices the
-  // lineup batting in front of her as much as the hitter herself, so it takes the slot that
-  // only appears where there is room to spare.
+  // lineup batting in front of the hitter as much as the hitter, so it takes the slot that only
+  // appears where there is room to spare.
   return bat ? [
     { label: 'AVG', value: fmtAvg(bat.avg) },
     { label: 'HR', value: String(bat.hr) },
@@ -362,25 +356,26 @@ function valueStats(
  *
  * HITTERS ONLY, BECAUSE THE PITCHERS HAVE THEIR OWN AWARD ON THE SAME BALLOT. The race ranks
  * everybody by runs added plus runs saved, so a reliever having a good season outranks most of
- * the league's hitters and the MVP shortlist filled up with the same arms carded two questions
- * further down. Five questions that keep returning the same four names read as one question
- * asked five ways.
+ * the league's hitters and the MVP shortlist would fill up with the same arms carded two
+ * questions further down. Five questions that keep returning the same four names read as one
+ * question asked five ways.
  *
- * `bat >= arm` rather than "has at-bats": the test is which half of the game she is being VALUED
- * for, so a two-way player whose bat carries her stays (Kelsie Whitmore is exactly this, and
- * belongs on an MVP ballot), while a pitcher who has taken a few swings does not sneak back in.
+ * `bat >= arm` rather than "has at-bats": the test is which half of the game a player is being
+ * VALUED for, so a two-way player whose bat carries them stays (Kelsie Whitmore is exactly this,
+ * and belongs on an MVP ballot), while a pitcher who has taken a few swings does not sneak back
+ * in.
  *
- * It costs the one genuinely two-way case her arm on this card, since the stat line is now a
- * hitter's line. That is the trade: her pitching is on Pitcher of the Year, where it can be
+ * It costs the one genuinely two-way case their arm on this card, since the stat line is a
+ * hitter's line. That is the trade: the pitching is on Pitcher of the Year, where it can be
  * compared against other pitching instead of sitting next to four batting averages.
  *
  * ONE HITTER PER CLUB, WHICH ON A FOUR-CLUB LEAGUE MEANS ALL FOUR CLUBS ARE ON THE BALLOT. Taken
- * straight off the top the list ran two deep into the same club and left one with nobody, and the
- * question this award asks a reader is which season was the best rather than which club had the
+ * straight off the top, the list can run two deep into one club and leave another with nobody,
+ * and the question this award asks is which season was the best rather than which club had the
  * best pair. A fan who follows one team and finds nobody of theirs on the first question of the
- * ballot reads the whole thing as not being about them. It costs the fifth-best hitter in the
- * league a tile she was only holding because a team-mate already had one, and the search under
- * every player category still takes a vote for her.
+ * ballot reads the whole thing as not being about them. It can cost a good hitter a tile they
+ * would only hold because a team-mate already has one, and the search under every player
+ * category still takes a vote for them.
  *
  * IT DEGRADES BY FILLING RATHER THAN BY SHRINKING. Once every club has a name the remaining slots
  * go to the best hitters left, so a league with fewer clubs than SHORTLIST, or a club with no
@@ -400,15 +395,13 @@ function mvpSlate({ mvp, players, batting, pitching, games }: AwardBallotInput):
     name: c.name,
     teamId: c.player?.team_id ?? c.teamId,
     playerId: c.player?.id ?? null,
-    // NO RUN-VALUE SENTENCE HERE EITHER. `line` only draws when a candidate has no stats at
-    // all, so this used to be the one path that could still put "runs added" on screen after
-    // the figure itself came off the tiles. Empty rather than reworded: a candidate with no
-    // batting totals has nothing true to say beyond her name.
+    // NO RUN-VALUE SENTENCE HERE EITHER. `line` only draws when a candidate has no stats at all,
+    // so a sentence here would be the one path still putting "runs added" on screen. Empty rather
+    // than reworded: a candidate with no batting totals has nothing true to say beyond their name.
     line: '',
-    // NO `sub` FOR A TWO-WAY PLAYER ANY MORE. It read "Both sides of the ball", which is exactly
-    // what a Bat figure beside an Arm figure says, and the card now carries both: the sentence
-    // and the numbers under it were the same claim twice, and the sentence was the half that
-    // wrapped onto a second line.
+    // NO `sub` FOR A TWO-WAY PLAYER. "Both sides of the ball" is exactly what an HR figure beside a K
+    // figure says, and the card carries both: the sentence would be the same claim twice, and the
+    // half that wraps onto a second line.
     stats: valueStats(c.player ? bats.get(c.player.id) : undefined),
   })))
 }
@@ -484,23 +477,21 @@ function armSlate(
       .filter(p => p.totals.outs >= (qual.active ? qual.minOuts : 0))
       .map(p => p.player.id),
   )
-  // NO RUNS-SAVED FIGURE ON THE CARD, THOUGH IT IS STILL THE SORT. Two things were wrong with
-  // it and neither was the number. "RUNS SAVED" is twice the width of every label beside it, so
-  // the first column of a four-figure row set the spacing for the whole grid and the three
-  // familiar stats got squeezed against it. And it is a run-expectancy figure: this ballot is
-  // the friendliest surface in the section, the one place a reader who does not follow the
-  // league is asked to have an opinion, and the first number on the first pitcher was one
-  // almost nobody outside the site can price. The list is still ordered by it.
+  // NO RUNS-SAVED FIGURE ON THE CARD, THOUGH IT IS STILL THE SORT. "RUNS SAVED" is twice the width
+  // of every label beside it, so as the first column of a four-figure row it would set the spacing
+  // for the whole grid and squeeze the familiar stats against it. And it is a run-expectancy
+  // figure: on the friendliest surface in the section, the one place a reader who does not follow
+  // the league is asked to have an opinion, the first number on the first pitcher should not be
+  // one almost nobody outside the site can price.
   //
-  // NOT ERA either: it is stored on whichever basis the league publishes and the reader can
-  // flip that basis in settings, so a pure builder printing it would be handing out a number
-  // half the audience has asked not to see (see stats.ts).
+  // ERA is carded (see armStats), scaled at display time through `eraBasisValue`, because a pure
+  // builder cannot know the basis the reader has chosen.
   const totals = new Map(aggregatePitching(players, pitching, games).map(p => [p.player.id, p.totals]))
-  // NOBODY IS CARDED ON TWO AWARDS ON ONE BALLOT. MVP is hitters-only now, so the overlap is
-  // exactly the two-way player: she led this list on runs saved AND the MVP list on runs added,
-  // and a reader answering five questions met the same face twice in the first two. Dropping her
+  // NOBODY IS CARDED ON TWO AWARDS ON ONE BALLOT. MVP is hitters-only, so the overlap is exactly
+  // the two-way player: they can lead this list on runs saved AND the MVP list on runs added, and a
+  // reader answering five questions would meet the same face twice in the first two. Dropping them
   // here rather than there is deliberate, and it is the half that costs least: the next arm down
-  // is a real candidate with a real case, while MVP has no equivalent replacement for her bat.
+  // is a real candidate with a real case, while MVP has no equivalent replacement for the bat.
   //
   // It is a rule and not a list, so it follows the race: if the MVP shortlist changes, this one
   // re-derives against it on the next build.
@@ -522,17 +513,7 @@ function armSlate(
         // at all, which the filter above makes unreachable anyway, and a run-value sentence is
         // the one thing this ballot has deliberately stopped saying.
         line: '',
-        // ERA FIRST, WHICH IS THE ORDER A FAN READS A PITCHER IN, and it is the one figure on
-        // this ballot whose spelling depends on a reader setting: `eraBasisValue` carries the
-        // stored number for the view to scale, and `value` is the canonical-basis fallback for
-        // anything that cannot (see AwardStat).
-        //
-        // SAVES SECOND, FOR A PITCHER WHO HAS NOT STARTED A GAME, and nowhere else. A closer
-        // carded on innings and strikeouts is being judged on the two things her job does not
-        // ask of her, and the three figures a phone shows would not include the one stat that
-        // is her whole case. `gs === 0` rather than a save threshold: it is her ROLE that makes
-        // the number worth leading with, so a middle reliever reads an honest 0 and a starter
-        // who happened to pick up a save is not recarded as a closer.
+        // Carded through `armStats`, the same line a write-in gets: see its note on ERA and saves.
         stats: armStats(t),
       }
     }))
@@ -599,9 +580,9 @@ function gloveSlate({ players, fielding, batting, games, plays }: AwardBallotInp
     arr.push(l); byPlayer.set(l.player_id, arr)
   }
   const positions = buildPositionIndex(batting, games)
-  // Null, not an empty map, when the play log has not been fetched: a catcher then reads "—"
-  // rather than a confident zero, which is the difference between "we do not know" and "nobody
-  // ran on her". See AwardStat.
+  // Null, not an empty map, when the play log has not been fetched: a catcher then reads as the
+  // no-value dash rather than a confident zero, which is the difference between "we do not know"
+  // and "nobody ran on them". See AwardStat.
   const arms = plays?.length ? catcherArms(plays, batting, fielding, games) : null
   const out: AwardCandidate[] = []
   for (const { player } of resolveNominees(WPBL_GLOVE_SHORTLIST, players)) {
@@ -863,14 +844,14 @@ function managerSlate({ teams, games }: AwardBallotInput): AwardCandidate[] {
  * that is what a row of figures is for, and the answer they arrive at is "who is better", which
  * is the MVP two questions up.
  *
- * THE TEAM TAKES THE SLOT INSTEAD, because empty was the other thing this got wrong. A tile with
- * a face, a name and a position and then nothing had a visible hole where every other question on
- * the sheet puts something, and a hole reads as a card that failed to load rather than as a
- * question with no arithmetic in it. The team is the one fact left that is worth stating and
- * cannot be argued with, and it is genuinely absent otherwise: a player tile draws her portrait
- * where a club tile would draw the badge, so until now the only thing naming her side on this
- * question was the accent colour behind her. Labelled TEAM rather than CLUB, which is the word
- * this file's prose uses but not the one on any surface a reader sees.
+ * THE TEAM TAKES THE SLOT INSTEAD, because an empty row is its own problem: a tile with a face, a
+ * name and a position and then nothing has a visible hole where every other question on the sheet
+ * puts something, and a hole reads as a card that failed to load rather than as a question with no
+ * arithmetic in it. The team is the one fact left that is worth stating and cannot be argued
+ * with, and it is otherwise absent: a player tile draws a portrait where a club tile would draw
+ * the badge, so only the accent colour would name the player's side on this question. Labelled
+ * TEAM rather than CLUB, which is the word this file's prose uses but not the one on any surface
+ * a reader sees.
  *
  * `awardStatsLookup` gives a write-in the same single line, or the one name a reader added
  * themselves would be the only bare card in a grid of four.
@@ -889,10 +870,10 @@ function auraSlate({ players, teams }: AwardBallotInput): AwardCandidate[] {
 /**
  * A pitcher's line, a fielder's line, and aura's two.
  *
- * Lifted out of the slates that used to spell them inline, for one reason: a write-in has to be
- * carded on exactly what the seeded names are carded on. Four tiles showing ERA, K, IP and WHIP
- * beside a fifth showing something else is not a ballot anybody can compare, and two copies of a
- * stat line drift the first time one of them is edited.
+ * Shared rather than spelled inline in each slate, for one reason: a write-in has to be carded on
+ * exactly what the seeded names are carded on. Four tiles showing ERA, K, IP and WHIP beside a
+ * fifth showing something else is not a ballot anybody can compare, and two copies of a stat line
+ * drift the first time one of them is edited.
  */
 function armStats(t: WpblPitchingTotals | undefined): AwardStat[] {
   // ERA FIRST, WHICH IS THE ORDER A FAN READS A PITCHER IN, and it is the one figure on this
@@ -901,9 +882,9 @@ function armStats(t: WpblPitchingTotals | undefined): AwardStat[] {
   // (see AwardStat).
   //
   // SAVES SECOND, FOR A PITCHER WHO HAS NOT STARTED A GAME, and nowhere else. A closer carded on
-  // innings and strikeouts is being judged on the two things her job does not ask of her, and the
-  // three figures a phone shows would not include the one stat that is her whole case. `gs === 0`
-  // rather than a save threshold: it is her ROLE that makes the number worth leading with, so a
+  // innings and strikeouts is being judged on two things the job does not ask for, and the three
+  // figures a phone shows would not include the one stat that is the whole case. `gs === 0`
+  // rather than a save threshold: it is the ROLE that makes the number worth leading with, so a
   // middle reliever reads an honest 0 and a starter who happened to pick up a save is not
   // recarded as a closer.
   return t ? [
@@ -919,32 +900,31 @@ function armStats(t: WpblPitchingTotals | undefined): AwardStat[] {
  *  made and says so; leaving out the one column that counts chances MISSED would make it read as
  *  a ranking that had already weighed both. */
 // PUTOUTS, ASSISTS, ERRORS: the plain fielding line, and the only three that are legible across
-// the positions this slate now spans. DP came off with the sort that used it, and it was 0 for
-// three of the four names: a column of zeros beside one number reads as a ranking nobody made.
+// the positions this slate spans. No DP: it is 0 for most of a mixed-position shortlist, and a
+// column of zeros beside one number reads as a ranking nobody made.
 //
-// PUTOUTS ARE SAFE TO PRINT AND WERE NEVER SAFE TO RANK ON, which is the distinction the old
-// `GLOVE_MIN_CHANCES` comment was really making. A catcher is credited a putout on every
-// strikeout and a first baseman on every groundout, so a shortlist ordered on them is a list of
-// positions rather than of players, in this league or any other. Nothing is ordered here any
-// more, so the number goes back to being what it is: how much came at her.
+// PUTOUTS ARE SAFE TO PRINT AND WERE NEVER SAFE TO RANK ON. A catcher is credited a putout on
+// every strikeout and a first baseman on every groundout, so a shortlist ordered on them is a list
+// of positions rather than of players, in this league or any other. Nothing is ordered here, so
+// the number is just what it is: how much came at the player.
 function gloveStats(t: WpblFieldingTotals, catcher: boolean, arm: CatcherArm | null): AwardStat[] {
-  // ONE CARD, WITH ONE SUBSTITUTION. Assists and errors mean the same thing wherever she stands,
-  // so only the lead figure changes: putouts for everybody, caught stealing for a catcher.
+  // ONE CARD, WITH ONE SUBSTITUTION. Assists and errors mean the same thing wherever a fielder
+  // stands, so only the lead figure changes: putouts for everybody, caught stealing for a catcher.
   //
-  // PUTOUTS ARE THE DECOY AND THAT IS WHY THEY GO. Denae Benites has 90 of them and 86 are her
-  // club's strikeouts: she is credited one every time an NY pitcher rings somebody up, so the
-  // number measures innings caught and the pitching staff rather than anything she did. Under it
-  // is a real season nobody could see, because it is not in the box score at all: she threw out
-  // 5 of the 12 who ran on her, 42%, where the league's other regulars sit between 5 and 8 per
-  // cent. Those five are also five of her fourteen assists, which is not double counting so much
-  // as the same throws named twice: the assist column is where a catcher's arm has always hidden.
+  // PUTOUTS ARE THE DECOY AND THAT IS WHY THEY GO. A catcher is credited one every time their
+  // pitcher rings somebody up (Denae Benites: 90 putouts, 86 of them strikeouts), so the number
+  // measures innings caught and the pitching staff rather than the catcher. Under it is a real
+  // season nobody could see, because it is not in the box score at all: Benites threw out 5 of the
+  // 12 who ran, 42%, where the league's other regulars sit between 5 and 8 per cent. Those five are
+  // also five of the fourteen assists, which is not double counting so much as the same throws
+  // named twice: the assist column is where a catcher's arm has always hidden.
   //
   // CS MEANS THE OPPOSITE OF THE CS ON A HITTER'S CARD, which is worth knowing before anyone puts
-  // the two on one screen: there it is the runner being thrown out and it counts against her,
-  // here it is the catcher doing the throwing and it counts for her. The same trap as K at the
-  // plate against K on the mound (see valueStats). The count alone rather than "5 of 12", because
-  // these tiles are a third of a card wide and sit beside two plain integers; the attempts are
-  // in the line under her name, which is where the 42% that makes 5 remarkable actually lives.
+  // the two on one screen: there it is the runner being thrown out and it counts against them, here
+  // it is the catcher doing the throwing and it counts for them. The same trap as K at the plate
+  // against K on the mound (see valueStats). The count alone rather than "5 of 12", because these
+  // tiles are a third of a card wide and sit beside two plain integers; the attempts are in the
+  // line under the name, which is where the percentage that makes 5 remarkable actually lives.
   const lead: AwardStat = catcher
     ? { label: 'CS', value: arm ? String(arm.caught) : '—' }
     : { label: 'PO', value: String(t.po) }
@@ -960,9 +940,9 @@ function gloveStats(t: WpblFieldingTotals, catcher: boolean, arm: CatcherArm | n
  *
  * WHY A BALLOT NEEDS THIS AT ALL. A shortlist builder walks a pool and cards whoever survives its
  * filter, so the numbers only exist for the names it chose. A reader who searched the league and
- * voted for somebody else got a tile with a name and a blank where five figures sit on every tile
- * beside it. The vote a reader had to go looking for is the one they are least sure of, and it
- * was the only one the ballot said nothing about.
+ * voted for somebody else would get a tile with a name and a blank where five figures sit on
+ * every tile beside it. The vote a reader had to go looking for is the one they are least sure of,
+ * and it would be the only one the ballot said nothing about.
  *
  * COMPUTED ON DEMAND, ONCE. Three season aggregates over every line in the league is not work to
  * repeat per question on a sheet where most readers never write anybody in, so each is built the
@@ -1009,17 +989,17 @@ export function awardStatsLookup(
   }
 
   /**
-   * Which half of a season to card her on.
+   * Which half of a season to card a player on.
    *
    * THE MOUND ONLY WHERE THE BAT HAS NOTHING TO SAY, because both questions that ask this are
    * questions a hitter is normally the answer to. A pitcher written into MVP is the case that
-   * forced it: carded on her batting she read `.000  0  .000  0  0`, five columns of nothing,
-   * which is not what the reader who voted for her meant and is not a season anybody had. It is
-   * a shortlist she was deliberately left off (MVP seeds hitters only, see mvpSlate), so a
+   * forces it: carded on batting they would read `.000  0  .000  0  0`, five columns of nothing,
+   * which is not what the reader who voted for them meant and is not a season anybody had. It is a
+   * shortlist pitchers are deliberately left off (MVP seeds hitters only, see mvpSlate), so a
    * different shape of line is the honest answer rather than an inconsistency.
    *
-   * A HOME RUN IS ENOUGH TO KEEP HER ON THE BAT, which is what holds a two-way player on the
-   * card the seeded slates already give her. And REAL work on the mound, by the same test
+   * A HOME RUN IS ENOUGH TO KEEP A PLAYER ON THE BAT, which is what holds a two-way player on the
+   * card the seeded slates already give them. And REAL work on the mound, by the same test
    * positionLabeller uses: a position player who finished a blowout is not a pitcher.
    */
   const mound = (
@@ -1076,9 +1056,8 @@ function teamNames(teams: readonly WpblTeam[]): (id: string | null) => string {
  *
  * THE SHORTLIST IS SEEDED, NOT ELECTED, AND THAT ONLY HOLDS WHILE THE TALLY IS HIDDEN. A
  * category takes votes for anyone in the league through the search, so a name with real support
- * can sit off the list indefinitely: at close, a write-in who WON was not drawn at all, because
- * the results view renders the seeded four plus your own pick and nothing else. That is the hole
- * this closes.
+ * can sit off the list indefinitely: without this, at close a write-in who WON would not be drawn
+ * at all, because the results view renders the seeded four plus your own pick and nothing else.
  *
  * WHY IT IS GATED ON `reveal` AND NOT ALWAYS ON. Promoting a write-in is itself a fact about how
  * other people voted, so doing it before the reader answers would break the same rule the

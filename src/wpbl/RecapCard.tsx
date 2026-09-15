@@ -25,11 +25,11 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
    *  <a href="/wpbl/players/…> rather than a Box with a click handler. Googlebot does not
    *  fire click handlers, and these are the only player names on the section's landing page:
    *  see the linkTo() note in CLAUDE.md, and `/mlb` sitting undiscovered for months. Empty
-   *  when there is no player to point at, which leaves the row inert exactly as before. */
+   *  when there is no player to point at, which leaves the row inert. */
   link?: WpblPlayerLinkProps
 }) {
   const tappable = !!(link?.href || link?.onClick)
-  // `name` is always the full name — the portrait headshot is keyed on it, and it stays the
+  // `name` is always the full name: the portrait headshot is keyed on it, and it stays the
   // hover title whenever the visible label has been shortened.
   return (
     <Box {...link}
@@ -45,12 +45,12 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
             measures max-content, so this contributes 0 there and still fills the column
             once the width is settled. */}
         <Box sx={{ width: 0, minWidth: '100%' }}>
-          {/* Never truncated. The stat line is the thing a reader opened the card for — a
-              name cut short is still recognisable, "3-for-4, 2B, 2 R" is just wrong. It
-              wraps to a second line instead, which costs a few pixels of height in a card
-              that has them to spare. Widening the column instead wouldn't work: the modal
-              is capped at 520px and the row doesn't wrap, so three columns competing for
-              statline width would only shrink each other back to truncating. */}
+          {/* Never truncated. The stat line is the thing a reader opened the card for: a
+          name cut short is still recognisable, "3-for-4, 2B, 2 R" is just wrong. It
+          wraps to a second line instead, which costs a few pixels of height in a card
+          that has them to spare. Widening the column instead wouldn't work: the modal
+          is capped at 520px and the row doesn't wrap, so three columns competing for
+          statline width would only shrink each other back to truncating. */}
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.35 }}>
             {star.statline}
           </Typography>
@@ -67,7 +67,7 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
 //
 // A callback ref rather than a mount effect: the recap renders nothing until its box score
 // arrives, so on the first pass there is no row to observe. An effect with an empty
-// dependency list runs exactly then, finds no element, and never looks again — leaving the
+// dependency list runs exactly then, finds no element, and never looks again, leaving the
 // names stuck at whatever they were first measured at, through every later resize.
 function useFitKey(): [(node: HTMLDivElement | null) => void, number] {
   const [width, setWidth] = useState(0)
@@ -107,13 +107,12 @@ export const preloadWinProb = () => { void import('./WinProbView') }
 /**
  * The win-probability chart's lazy boundary, shared by the two places that draw it.
  *
- * A live game has no Recap tab, and the Recap tab is where this card lived, so the one thing
- * about a game in progress that neither the scoreboard nor the situation panel can say, the
- * shape it took to get here, had nowhere to be drawn. Nothing in the model had to change for
- * it: `gameWinProb` already leaves `decisive` null until there is a winner, already refuses to
- * snap its last point to a result it does not have (a live game's line ends where the evidence
- * ends, exactly as an abandoned play log does), and the resting readout already says "Biggest
- * moment so far". All of that was written for this and had no surface.
+ * A live game has no Recap tab, so without a second home the one thing about a game in
+ * progress that neither the scoreboard nor the situation panel can say, the shape it took to
+ * get here, would have nowhere to be drawn. The model needs nothing extra for it: `gameWinProb`
+ * leaves `decisive` null until there is a winner, refuses to snap its last point to a result
+ * it does not have (a live game's line ends where the evidence ends, exactly as an abandoned
+ * play log does), and the resting readout says "Biggest moment so far".
  *
  * No layout of its own, deliberately: the recap stacks it in a padded column and the Live tab
  * lets it run full width under a panel that takes a measure, and a wrapper here would have to
@@ -178,12 +177,12 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         <Box>
           <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
           {/* Mobile: stack the three stars, each on its own full-width row so the name and
-              statline show in full instead of all three cramming one line and truncating.
-              Desktop lays them in one row, each star starting from the width its own name
-              needs — so a short name still leaves room to the other two — and then every
-              column grows to share out whatever the row has left over. Without that grow the
-              columns stopped at their content width and any surplus stayed blank, which is
-              how a statline could end up truncated with empty space sitting beside it. */}
+          statline show in full instead of all three cramming one line and truncating.
+          Desktop lays them in one row, each star starting from the width its own name
+          needs, so a short name still leaves room for the other two, and then every
+          column grows to share out whatever the row has left over. Without that grow the
+          columns stop at their content width and any surplus stays blank, so a statline
+          can end up truncated with empty space sitting beside it. */}
           <Box ref={starsRef} sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'nowrap', gap: { xs: 0, sm: 2.5 } }}>
             {recap.stars.map((s, i) => {
               const p = names.get(s.playerId)
@@ -211,19 +210,19 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
       )}
 
       {/* The league's highlight reel, at the foot of the recap.
-          It used to sit in the modal's fixed header, above the tab row, where it cost every
-          tab about 90px it never got back: the header (line score, conditions, reel, tabs)
-          took more than half a 690px phone screen, and the Recap pane was left with 306px to
-          draw a 299px card in. A reel is a nice thing to find at the end of a recap and a poor
-          thing to spend a header on, so it moved down here. GameDetail keeps a copy for the
-          game that has video but no box score, since that game has no Recap tab to put it in. */}
+      Not in the modal's fixed header, above the tab row, where it would cost every tab
+      about 90px it never gets back: the header (line score, conditions, reel, tabs) would
+      take more than half a 690px phone screen and leave the Recap pane too short for its
+      own card. A reel is a nice thing to find at the end of a recap and a poor thing to
+      spend a header on. GameDetail keeps a copy for the game that has video but no box
+      score, since that game has no Recap tab to put it in. */}
       {video && <GameHighlightCard video={video} />}
 
     </Box>
   )
 }
 
-// ── Compact last-game card (Home) — self-fetches the latest final's box + plays ────
+// ── Compact last-game card (Home): self-fetches the latest final's box + plays ────
 
 function latestFinal(games: WpblGame[]): WpblGame | null {
   const finals = games.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null && g.home_score !== g.away_score)
@@ -292,27 +291,27 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
   const dateLabel = relativeDayLabel(game.game_date)
 
-  // THE WINNER'S ROW WEARS HER CLUB'S COLOUR AND THE LOSER'S DOES NOT.
+  // THE WINNER'S ROW WEARS ITS CLUB'S COLOUR AND THE LOSER'S DOES NOT.
   //
   // Home's Next game card tints both of its rows, because a fixture has two equals in it.
   // This card is a result, so the same device is spent on saying which way it went: the band
   // is the loudest thing on the row and it is under the club that won. The weight and the ink
-  // were already carrying that on their own, which is exactly why this is safe to add — a
-  // reader who cannot see colour loses nothing that was not already said twice.
+  // already carry that on their own, which is exactly why this is safe to add: a reader who
+  // cannot see colour loses nothing that is not already said twice.
   //
   // THE SHAPE AND THE SCALE ARE NEXT GAME'S, and only the tinting rule differs. `CLUB_BAND` and
   // the sizes here are the same ones that card uses (see the note on the shared shapes in
   // ui.tsx): the two cards sit one above the other in Home's column, and a club row drawn as an
-  // inset 26px pill on one and a full-bleed 30px band on the other was two answers to a
-  // question neither card was asking. What stays different is the half that means something.
+  // inset 26px pill on one and a full-bleed 30px band on the other would be two answers to a
+  // question neither card is asking. What stays different is the half that means something.
   const scoreRow = (team: WpblTeam | undefined, score: number | null, won: boolean) => team && (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1,
-      // The loser gets a neutral field rather than nothing. `transparent` left the band as one
-      // tinted row with a plain row under it, which reads as a highlight that stopped halfway
-      // rather than as a two-row block, and it is the one thing that still made this card's
-      // band a different object from Next game's. Colour is still the winner's alone, which is
-      // the whole of the rule; this only says the loser's row is part of the same band.
+      // The loser gets a neutral field rather than nothing. `transparent` would leave the band as
+      // one tinted row with a plain row under it, which reads as a highlight that stopped halfway
+      // rather than as a two-row block, and would make this card's band a different object from
+      // Next game's. Colour is still the winner's alone, which is the whole of the rule; this only
+      // says the loser's row is part of the same band.
       bgcolor: won ? wpblSurface(team.id, isDark) : (isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.022)'),
     }}>
       <TeamBadge team={team} size={30} />
@@ -370,21 +369,20 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
       fill
       collapsed={isPhone ? collapsed : undefined}
       onToggleCollapse={isPhone ? toggle : undefined}
-      // NO LINK IN THE HEADER ON A PHONE, AND HIDING IT WHILE SHUT WAS WORSE THAN LEAVING IT.
+      // NO LINK IN THE HEADER ON A PHONE, OPEN OR SHUT.
       //
-      // The first version dropped "Full recap" only while collapsed, on the grounds that a
-      // chevron and a link in one phone-width header are two controls competing for one tap.
-      // That made it appear ON EXPAND, in the space the finger had just tapped: measured at
-      // 375px, the link lands at y 397-414 while the header that was tapped spans 379-432, and
-      // its right edge sits 10px from the chevron. Tap to open, tap again to close, and the
-      // second tap opens Game Center instead, because a new control grew under the thumb
-      // between them. A control that appears where a finger already is has to be treated as
-      // pressed, and this one navigates away from the page.
+      // Dropping "Full recap" only while collapsed, on the grounds that a chevron and a link in one
+      // phone-width header are two controls competing for one tap, makes it appear ON EXPAND, in the
+      // space the finger has just tapped: at 375px the link lands at y 397-414 while the header that
+      // was tapped spans 379-432, and its right edge sits 10px from the chevron. Tap to open, tap
+      // again to close, and the second tap opens Game Center instead, because a new control grew
+      // under the thumb between them. A control that appears where a finger already is has to be
+      // treated as pressed, and this one navigates away from the page.
       //
       // So on a phone the header does one thing, for the whole of its width, always: it
       // toggles. The recap link moves to the foot of the body, which is both far from the
       // header and where a reader who has just read the blurb actually is. The desktop card
-      // has no collapse and no thumb, and keeps the header action it always had.
+      // has no collapse and no thumb, and keeps its header action.
       //
       // Shut, the slot carries the final instead. It is not a control, so it does not
       // reintroduce the two-taps-in-one-header problem above: the whole header still toggles,
@@ -418,14 +416,13 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
               still gets the same fit key, so a name shortened on a narrow phone comes back when
               the phone turns. */}
           <Box ref={starRef} sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-            {/* THE STAR OPENS THE PLAYER, NOT THE GAME. It used to open the game, which is the
-                one thing on this card already reachable three other ways: the score rows, the
-                card's own "Full recap" and the scoreboard strip above it. Meanwhile this is the
-                ONLY player name on /wpbl, and opening a player page is the retention event on
-                the whole section (a browser that opens one returns at 76.5%, against 7.8% for
-                one that opens neither that nor Game Center; see the traffic notes in
-                ROADMAP-WPBL.md). It is also now a real anchor, so it is a crawl path from the
-                landing page to a player page rather than a click handler Googlebot cannot see. */}
+            {/* THE STAR OPENS THE PLAYER, NOT THE GAME. The game is already reachable three other
+            ways from this card: the score rows, the card's own "Full recap" and the scoreboard
+            strip above it. Meanwhile this is the ONLY player name on /wpbl, and opening a player
+            page is the retention event on the whole section (a browser that opens one returns at
+            76.5%, against 7.8% for one that opens neither that nor Game Center; see the traffic
+            notes in ROADMAP-WPBL.md). It is also a real anchor, so it is a crawl path from the
+            landing page to a player page rather than a click handler Googlebot cannot see. */}
             <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} fitKey={starWidth}
               link={playerLink(byPlayerId.get(recap.stars[0].playerId), onOpenPlayer)} />
           </Box>

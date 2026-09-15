@@ -291,7 +291,7 @@ export function gameWinProb(
   // THAT DISTINCTION HAS TO BE MADE HERE, because the line is snapped to the result at the
   // end, and snapping a game that is missing its last inning does not tidy the chart, it
   // invents a play. San Francisco's last recorded out was a routine fly ball, and pinning the
-  // result to it credited that fly ball with a 28-point swing and made it, by a distance, the
+  // result to it credits that fly ball with a 28-point swing and makes it, by a distance, the
   // biggest play of the game. A chart that stops where the evidence stops is the honest
   // ending; a fabricated cliff is not.
   const lastPlay = points[points.length - 1]
@@ -330,7 +330,7 @@ export function gameWinProb(
   }
 }
 
-/** "34%" — the only rounding anyone should see. A win model that prints a decimal place is
+/** "34%": the only rounding anyone should see. A win model that prints a decimal place is
  *  claiming a precision 263 half-innings cannot support. */
 export function fmtWinPct(p: number): string {
   return `${Math.round(p * 100)}%`
@@ -349,9 +349,9 @@ export const SWING_FLOOR = 0.12
  * while the input never changes: the league's play log is one cached array for the session, so
  * its identity is the only cache key needed.
  *
- * IT LIVES HERE RATHER THAN IN THE CHART, which is where it used to, because it now has two
- * callers: the chart, and the play-by-play's badge for the play the game turned on. Two caches
- * would build the same model twice on every game anybody opens.
+ * IT LIVES HERE RATHER THAN IN THE CHART because it has two callers: the chart, and the
+ * play-by-play's badge for the play the game turned on. Two caches would build the same model
+ * twice on every game anybody opens.
  */
 let cached: { plays: unknown; games: unknown; model: WinProbModel } | null = null
 export function winProbModel(plays: WpblRunValuePlay[], games: WpblGame[]): WinProbModel {

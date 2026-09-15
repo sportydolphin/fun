@@ -47,10 +47,10 @@ type Tab = 'recap' | 'live' | 'box' | 'plays' | 'pitch'
 // ─── which board a shared link opens on ───────────────────────────────────────
 //
 // A game URL is the most-shared thing the section produces: the Discord recaps, the Bluesky
-// posts and the final-score cards all point at /wpbl/games/<slug>. Until this, every one of
-// them landed the reader on whichever board this modal picks by default, so "look at the
-// seventh" was not a thing anyone could send. The board is a state laid over the game's page
-// rather than a page of its own, which is the section's rule for what belongs in a query
+// posts and the final-score cards all point at /wpbl/games/<slug>. Without a board in the link,
+// every one of them lands the reader on whichever board this modal picks by default, so "look
+// at the seventh" is not a thing anyone could send. The board is a state laid over the game's
+// page rather than a page of its own, which is the section's rule for what belongs in a query
 // param (see `urlFor` in WpblApp); seo.ts canonicalises the query away, so none of the five
 // spellings can reach the index as a near-duplicate of the game.
 const TABS: readonly Tab[] = ['recap', 'live', 'box', 'plays', 'pitch']
@@ -67,11 +67,10 @@ function asTab(raw: string | null | undefined): Tab | null {
 // Column order is importance-first: the classic box line (AB R H RBI BB SO) leads,
 // then HR, then the situational extras (2B SB).
 //
-// Every column shows on every screen. A phone used to drop 2B and SB and let the pitching
-// line scroll sideways, which meant the two things a reader most often reaches a box score
-// for on a phone — did they double, did they steal — were the two the phone hid, and the
-// pitching line could only be read by swiping. The width is solved by density instead (see
-// denseTableSx), so nothing has to be dropped.
+// Every column shows on every screen. Dropping 2B and SB on a phone would hide the two things a
+// reader most often reaches a box score for there (did they double, did they steal), and a
+// sideways-scrolling pitching line can only be read by swiping. The width is solved by density
+// instead (see denseTableSx), so nothing has to be dropped.
 const BAT_COLS: { key: keyof WpblBattingLine; label: string }[] = [
   { key: 'ab', label: 'AB' }, { key: 'r', label: 'R' }, { key: 'h', label: 'H' },
   { key: 'rbi', label: 'RBI' }, { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' },
@@ -86,14 +85,14 @@ const PIT_COLS: { key: keyof WpblPitchingLine; label: string }[] = [
 
 // ─── Batting-line helpers (filter non-hitting pitchers, flag substitutes) ───────
 // Positions arrive lowercase from the feed. A pure pitcher never bats in this league's
-// DH games, so an all-zero "p" row is just clutter — drop it. Two-way players carry a
+// DH games, so an all-zero "p" row is just clutter: drop it. Two-way players carry a
 // combo position ("lf/p", "p/cf") and DID bat, so they are not pure pitchers and stay.
 const PURE_PITCHER = new Set(['p', 'sp', 'rp', 'lhp', 'rhp'])
 const isPurePitcher = (pos: string | null): boolean => !!pos && PURE_PITCHER.has(pos.toLowerCase())
 const isPinchRole = (pos: string | null): boolean => { const p = pos?.toLowerCase(); return p === 'ph' || p === 'pr' }
 const plateApps = (b: WpblBattingLine): number => b.ab + b.bb + b.hbp + b.sf + b.sh
 // Did this batter come to the plate or reach the bases at all? A pinch runner who scored
-// has no plate appearance but does have a run, so check baserunning too — otherwise we'd
+// has no plate appearance but does have a run, so check baserunning too, or we'd
 // wrongly drop them.
 const cameToBat = (b: WpblBattingLine): boolean => plateApps(b) > 0 || b.r > 0 || b.rbi > 0 || b.sb > 0 || b.cs > 0
 
@@ -168,15 +167,12 @@ function StatCell({ children, bold = false, dense = false }: { children: React.R
 /**
  * The reference block: the facts about a game that are not the game.
  *
- * WHY IT IS AT THE FOOT OF THE RECAP AND NOT IN THE HEADER, which is where all of this used
- * to be. A reader opening a final on a phone got, above the fold and before anything else: a
- * ten-column grid, how long the game took, the weather, the umpires' names, a transcription
- * credit and a revision stamp. That is 268px of a 390x844 screen, about 43% of the sheet, and
- * nine different type treatments, none of which is why anybody opens a game. None of it is
- * junk; all of it is reference, wanted on the fifth visit and never on the first.
+ * AT THE FOOT OF THE RECAP, NOT IN THE HEADER. On a phone the header is above the fold, and a
+ * grid of length, weather, umpires, a transcription credit and a revision stamp there takes close
+ * to half the sheet before anything a reader opened the game for. None of it is junk; all of it
+ * is reference, wanted on the fifth visit and never on the first.
  *
- * ONE LABEL STYLE AND ONE VALUE STYLE, which is the other half of the same complaint. The four
- * things here used to be drawn four ways.
+ * ONE LABEL STYLE AND ONE VALUE STYLE, so four kinds of fact do not arrive drawn four ways.
  *
  * THE CREDIT IS TIED TO ITS OWN DATA. Length, weather and the crew are RetroWPBL's, given with
  * permission, and the credit is the consideration: it renders whenever any of those do, in the
@@ -184,9 +180,8 @@ function StatCell({ children, bold = false, dense = false }: { children: React.R
  * transcription yet shows those and no credit. Crediting them for our numbers would be worse
  * than not crediting them at all.
  *
- * IT DOES NOT REPEAT THE LINE SCORE. Errors lived here for one draft, while the line score was
- * dropping H and E on a phone; the line score kept them, so this does not carry them. One number
- * in two places is how the two come to disagree.
+ * IT DOES NOT REPEAT THE LINE SCORE. The line score carries H and E, so this does not: one
+ * number in two places is how the two come to disagree.
  */
 function GameInfo({ game, details }: { game: WpblGame; details: WpblGameDetails | null }) {
   const facts: { label: string; value: string }[] = []
@@ -246,10 +241,10 @@ function GameInfo({ game, details }: { game: WpblGame; details: WpblGameDetails 
 /**
  * What the league changed about this game after it was final.
  *
- * The date alone has been on the page since v1.73.0, off `wpbl_games.source_updated_at`, and
- * the thing it could not say was WHAT changed. This is that, and it can only exist because the
- * nightly drift check writes the old scoring down before it repairs the mirror: nothing here is
- * recomputed, because after the repair there is nothing left to recompute it from.
+ * The date alone comes off `wpbl_games.source_updated_at`, and what it cannot say is WHAT
+ * changed. This is that, and it can only exist because the nightly drift check writes the old
+ * scoring down before it repairs the mirror: nothing here is recomputed, because after the
+ * repair there is nothing left to recompute it from.
  *
  * COLLAPSED, and that is not a default reached for out of habit. Nearly every game in this
  * season has been revised at some point, most revisions are a hit moving from one line to
@@ -374,7 +369,7 @@ function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
   const cols = Array.from({ length: innings }, (_, i) => i + 1)
   const runsByInning = (line: WpblGame['away_line'], n: number) =>
     line?.find(c => c.inning === n)?.runs
-  // A home team that's already ahead never bats in the bottom of the final inning — the game
+  // A home team that's already ahead never bats in the bottom of the final inning: the game
   // just ends. The feed still emits a {runs: 0} entry for that half, which would print as a
   // real "0" and imply a scoreless frame that was never played (the away staff's 6.0 IP in a
   // 7-inning game is the giveaway). Print the X a scorebook would. A walk-off takes the other
@@ -518,8 +513,8 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
     return t
   }, {} as Record<string, number>)
 
-  // The same row the batting table has always had, which is what a reader asked for: the
-  // pitching half stopped at the last reliever and left the team's line to be added up by eye.
+  // A totals row, the same one the batting table has: without it a reader adds up the team's
+  // pitching line by eye.
   //
   // IP IS SUMMED AS OUTS AND CONVERTED ONCE. Adding the printed values is the oldest arithmetic
   // trap in a box score: 6.2 + 0.1 is seven innings, not 6.3, and nothing in the string says
@@ -612,7 +607,7 @@ const writePbpExpandAll = (on: boolean) => {
   try { localStorage.setItem(PBP_EXPAND_KEY, on ? '1' : '0') } catch { /* private mode / quota */ }
 }
 
-// The feed logs each plate appearance as a terse pitch string like "BBFBP" — one letter
+// The feed logs each plate appearance as a terse pitch string like "BBFBP", one letter
 // per pitch. The letters are cryptic on their own (and the feed's own `type`/`description`
 // are unreliable: it tags 'K' as "Unknown pitch code" and 'P' as "Pitchout"), so we decode
 // them ourselves: color each pip and spell the full sequence out in a hover tooltip.
@@ -654,9 +649,9 @@ function PitchSequence({ seq, calledThirdStrike }: {
       fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: 700, lineHeight: 1.6,
     }}>
         {pitches.map(p => (
-          // THE BACKWARDS K IS A STRIKEOUT LOOKING, not a called strike, so only the last
-          // pitch of one is mirrored. Every K used to be, which is 1,480 pitches wearing the
-          // notation for the 96 that earn it: a single on 0-2 read as a strikeout.
+          // THE BACKWARDS K IS A STRIKEOUT LOOKING, not a called strike, so only the last pitch of one is
+          // mirrored. Mirroring every K would put the notation on far more pitches than the few that earn
+          // it, and a single on 0-2 would read as a strikeout.
           <Box key={p.i} component="span" sx={{
             color: p.color,
             ...(calledThirdStrike && p.i === pitches.length - 1 && p.code === 'K'
@@ -704,17 +699,10 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   }, [canon, shortName])
   // Group consecutive plays into half-innings, in order.
   //
-  // The half-inning's run count comes from the line score rather than from summing the plays.
-  //
-  // The reason given here used to be that the feed leaves runs_scored at 0 on plays that
-  // pushed a runner home, naming wild pitches, errors and fielder's choices. That is not what
-  // happens: no play with runs_scored = 0 mentions anyone scoring, on any of the 1,352 rows in
-  // hand, and wild pitches and fielder's choices carry their runs correctly. The whole gap was
-  // home runs, where the field counts the runners and omits the batter. runsOnPlay() now
-  // accounts for that, so the badges below are right.
-  //
-  // The line score stays the source for the half-inning total anyway, because it is the
-  // number printed in the box score directly above and the two must not disagree.
+  // The half-inning's run count comes from the line score rather than from summing the plays,
+  // because the line score is the number printed in the box score directly above and the two
+  // must not disagree. (Summing the plays would also be right: runsOnPlay() accounts for the
+  // feed's runs_scored omitting the batter on a home run.)
   const groups = useMemo(() => {
     const scored = (inning: number, half: string) =>
       (half === 'top' ? game.away_line : game.home_line)?.find(c => c.inning === inning)?.runs ?? 0
@@ -748,16 +736,14 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
       } else { last.plays.push(p) }
     }
     // Who this half was pitched by, and who came in during it. BOTH FROM `pitcher_name` AND
-    // NEITHER FROM THE PROSE: the field is on all 3,079 plays of the season with no gaps, and the
-    // sentence is missing or wrong about the departing pitcher in 49 of the season's 125 mid-half
-    // changes. See `pitchingChanges` for that split.
+    // NEITHER FROM THE PROSE: the field is on every play with no gaps, and the sentence is missing
+    // or wrong about the departing pitcher in a large share of mid-half changes. See
+    // `pitchingChanges` for that split.
     //
-    // NOT SIMPLY THE FIRST ROW'S PITCHER, which is the version that shipped for ten minutes and
-    // named the wrong woman in the bottom of the 6th on Sep 11. An announcement row carries the
-    // pitcher being RELIEVED — "Liz Gilder to p for Niki Eckert" is filed under Eckert, who is
-    // the one leaving — so a half that opens with a change would be headed by a pitcher who
-    // never threw a pitch in it. Those rows are skipped; the first row that is an account of
-    // something is the one that says who was throwing.
+    // NOT SIMPLY THE FIRST ROW'S PITCHER. An announcement row carries the pitcher being RELIEVED
+    // ("Liz Gilder to p for Niki Eckert" is filed under Eckert, who is the one leaving), so a half
+    // that opens with a change would be headed by a pitcher who never threw a pitch in it. Those
+    // rows are skipped; the first row that is an account of something says who was throwing.
     return gs.map(g => ({
       ...g,
       pitcher: g.plays.find(p =>
@@ -778,8 +764,8 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   // from a view whose entire job is not to miss a run.
   //
   // IT HIDES ROWS RATHER THAN REMOVING THEM, and that is the whole of the implementation note.
-  // Every derived thing in this list reads a play's NEIGHBOURS — the base-out state comes off
-  // the next row, a pitching change off the previous one — so a filtered array would quietly
+  // Every derived thing in this list reads a play's NEIGHBOURS (the base-out state comes off
+  // the next row, a pitching change off the previous one), so a filtered array would quietly
   // re-point all of it at the wrong play and draw a diamond for a moment three batters later.
   // The half-inning keeps all of its plays and carries a set of the ones not to draw.
   const [scoringOnly, setScoringOnly] = useState(false)
@@ -796,15 +782,14 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   }, [groups, scoringOnly])
 
   // Innings start collapsed so the tab opens compact (and the modal can size down to it); the
-  // reader expands the half-innings they care about. Tracking what's OPEN — not what's closed —
+  // reader expands the half-innings they care about. Tracking what's OPEN (not what's closed)
   // means innings that arrive later on a live game default closed too, without extra bookkeeping.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   /**
-   * The lens OPENS WHAT IT KEEPS, which is the whole point of it and was missing from the first
-   * version. Turned on over a collapsed log it left eight headings and no plays: a control whose
-   * entire job is "show me the runs" showing none of them, and eight more clicks than the state
-   * it was supposed to save.
+   * The lens OPENS WHAT IT KEEPS, which is the whole point of it. Turned on over a collapsed log
+   * without this it would leave headings and no plays: a control whose entire job is "show me the
+   * runs" showing none of them.
    *
    * AND GIVES BACK WHAT IT TOOK. The reader's own expansion is put aside on the way in and
    * restored on the way out, so using the lens for a moment does not cost them the three
@@ -824,8 +809,8 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   }
 
   // What the reader can actually see, which is what the footnote has to count. Handed the whole
-  // game it would say "1 play corrected" under a filtered list whose corrected play is hidden,
-  // which is the same footnote-without-a-dagger hole the substitution line opened on Sep 11.
+  // game it would say "1 play corrected" under a filtered list whose corrected play is hidden: a
+  // footnote pointing at a dagger the page never drew.
   const visiblePlays = useMemo(
     () => (scoringOnly ? shown.flatMap(g => g.plays.filter((_, i) => !g.hidden?.has(i))) : plays),
     [scoringOnly, shown, plays])
@@ -853,12 +838,11 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   // those have to arrive open. Only the ones never seen before: reapplying it to every key
   // would reopen a half-inning the reader had just closed by hand, every two minutes.
   //
-  // AND A LIVE GAME OPENS ON THE HALF-INNING BEING PLAYED, which is the one moment this list is
-  // worth the most and the one it used to serve worst: it landed fully collapsed, so the reader
-  // who came to see what just happened got fourteen shut headings and had to work out that the
-  // bottom one was the live one. Only the LAST fresh half, not all of them, since on first paint
-  // every half is fresh; and only while it is fresh, so a reader who closes it is not overruled
-  // two minutes later.
+  // AND A LIVE GAME OPENS ON THE HALF-INNING BEING PLAYED, which is the moment this list is worth
+  // the most: fully collapsed, a reader who came to see what just happened gets a stack of shut
+  // headings and has to work out that the bottom one is live. Only the LAST fresh half, not all
+  // of them, since on first paint every half is fresh; and only while it is fresh, so a reader who
+  // closes it is not overruled two minutes later.
   const seenGroups = useRef<Set<string>>(new Set())
   useEffect(() => {
     const fresh = groups.map(g => g.key).filter(k => !seenGroups.current.has(k))
@@ -918,7 +902,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
     // does not exist until the half-inning `setExpanded` just queued has painted, so a single
     // frame scrolls nothing at all; and the whole pane is then REMOUNTED by the first refresh
     // (the tab content is swapped for a spinner for about 200ms), which resets the scroller to
-    // the top and threw the reader back to the 1st inning on every attempt before this one.
+    // the top and would throw the reader back to the 1st inning.
     //
     // So it re-scrolls whenever the row has moved and stops once it has held still for three
     // frames, with a ceiling of about a second and a half. `behavior: 'auto'`, deliberately:
@@ -950,16 +934,14 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   }
   return (
     /* A MEASURE, because this is a list and a list has nothing to spend extra width on.
-       The same rule and the same number as the section's own list pages in WpblApp: when the
-       card was 520px wide this pane took whatever it was given, and once the card grew to
-       1050 for the box score's sake, a collapsed half-inning became "TOP 1ST · NY BATTING" at
-       one end of a thousand pixels and "1 run" at the other. Schedule, Standings and Teams hit
-       exactly this in v1.58.0 and the answer was to size the column against its own type
-       again. Recap and Box Score deliberately do NOT take a measure: a win-probability chart
-       and two nine-column tables are the things that can actually use the room.
+        The same rule and the same number as the section's own list pages in WpblApp: with
+        the card wide enough for two box scores, a collapsed half-inning would put the inning
+        at one end of a thousand pixels and "1 run" at the other. Recap and Box Score
+        deliberately do NOT take a measure: a win-probability chart and two nine-column tables
+        are the things that can actually use the room.
 
-       It leaves the expanded prose better off too, at roughly 50 characters a line rather than
-       66, which is nearer the middle of a comfortable measure than the top of it. */
+        It leaves the expanded prose better off too, at roughly 50 characters a line rather
+        than 66, which is nearer the middle of a comfortable measure than the top of it. */
     <Box sx={{ p: 2, maxWidth: chromePx(720), mx: 'auto' }}>
       {/* Two controls, right-aligned above the log, in the weight of the half-inning headings
           they operate rather than as buttons competing with them. The expander says what it
@@ -980,11 +962,10 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
           aria-label="Show only the plays that scored"
           sx={{
             ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4,
-            // A REAL TAP TARGET. Both of these were 109x20 on a phone, ten pixels apart, which
-            // is two fiddly controls where one used to be: the height comes from the padding
-            // and the type, and the type is deliberately small. `chromePx` because this is a
-            // finger and not a letter — it must not shrink when the reader's text is small, and
-            // it must not grow when it is large.
+            // A REAL TAP TARGET. The height would otherwise come from the padding and the deliberately
+            // small type, leaving two fiddly controls side by side on a phone. `chromePx` because this is
+            // a finger and not a letter: it must not shrink when the reader's text is small, and it must
+            // not grow when it is large.
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
             fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.6,
             textTransform: 'uppercase', userSelect: 'none',
@@ -1056,32 +1037,28 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                   must survive that is the number the row exists to show. */}
               <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}>
                 {g.label}{team ? ` · ${team.abbr}` : ''}
-                {/* WHO THEY BATTED AGAINST, which the log could not say at all before: the
-                    pitcher was named only inside the league's own substitution sentences, so a
-                    reader who opened the 5th was told everything about the at-bat except who
-                    was throwing. Last in the line and inside the same noWrap, so on a phone it
-                    is the part that gives way rather than the inning: a truncated name is
-                    recoverable, since every change is spelled out in full in the rows below,
-                    and a truncated inning is the one thing this heading exists to say.
+                {/* WHO THEY BATTED AGAINST, which the league's substitution sentences are otherwise the
+                    only place to find. Last in the line and inside the same noWrap, so on a phone it is
+                    the part that gives way rather than the inning: a truncated name is recoverable, since
+                    every change is spelled out in full in the rows below, and a truncated inning is the
+                    one thing this heading exists to say.
 
-                    "NY" AND NOT "NY BATTING", which is the eight characters that stopped the
-                    name truncating on a phone at all. The club badge is already in this row and
-                    "vs" already says which way round the two clubs are, so the word was the one
-                    thing here that two other things were saying.
+                    "NY" AND NOT "NY BATTING", which keeps the name from truncating on a phone at all.
+                    The club badge is already in this row and "vs" already says which way round the two
+                    clubs are, so the word would be the one thing here two other things are saying.
 
-                    The pitcher this half OPENED with, which is not always the only one: 115
-                    half-innings in the season used two or more, and those changes are their own
-                    lines in the list rather than a second name crowding this one. */}
+                    The pitcher this half OPENED with, which is not always the only one: plenty of
+                    half-innings use two or more, and those changes are their own lines in the list
+                    rather than a second name crowding this one. */}
                 {g.pitcher ? ` · vs ${shortenNames(g.pitcher)}` : ''}
               </Typography>
-              {/* THE SCORE AFTER THIS HALF, and the runs that made it. The list used to carry
-                  only the runs, which is the delta and never the state: a reader scrolling to
-                  the 6th could see that two scored there and not what the score was.
-                  "+2" rather than "2 runs" because both now share the right edge of a row that
-                  is already a chevron, a badge and "BOTTOM 1ST · LA BATTING" wide on a phone.
-                  AWAY FIRST, matching the line score directly above, and the club that just
-                  batted is named in the same row, so the first scoring half says which number
-                  is whose. The aria-label spells it out for anyone the layout cannot. */}
+              {/* THE SCORE AFTER THIS HALF, and the runs that made it: the runs alone are the delta and
+                  never the state, so a reader scrolling to the 6th would see that two scored there and
+                  not what the score was. "+2" rather than "2 runs" because both share the right edge of
+                  a row that is already a chevron, a badge and the inning wide on a phone. AWAY FIRST,
+                  matching the line score directly above, and the club that just batted is named in the
+                  same row, so the first scoring half says which number is whose. The aria-label spells
+                  it out for anyone the layout cannot. */}
               <Box component="span" sx={{
                 ml: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 0.6, flexShrink: 0,
               }}>
@@ -1107,14 +1084,12 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                   // reads below still land on the right row. See the note on that memo.
                   if (g.hidden?.has(i)) return null
                   const parsed = parsePlay(p.narrative, p.batter_name, shortenNames)
-                  // THE PITCHING CHANGE WE WORKED OUT OURSELVES, drawn where the league
-                  // wrote one and REPLACING its sentence rather than sitting beside it. Two
-                  // lines disagreeing about one change is worse than either alone, and they
-                  // would disagree: 39 of the season's 125 are announced as a bare "X to p"
-                  // that never says who was relieved, and 10 more name the wrong pitcher
-                  // leaving. `pitcher_name` is right about both ends of all 125. The fallback
-                  // wording is for a change the feed never announces, which has not happened
-                  // yet: it says who is throwing now and does not claim a roster move. See
+                  // THE PITCHING CHANGE WE WORKED OUT OURSELVES, drawn where the league wrote one and REPLACING
+                  // its sentence rather than sitting beside it. Two lines disagreeing about one change is worse
+                  // than either alone, and they would disagree: the league often announces a change as a bare
+                  // "X to p" that never says who was relieved, and sometimes names the wrong pitcher leaving.
+                  // `pitcher_name` is right about both ends. The fallback wording is for a change the feed never
+                  // announces: it says who is throwing now and does not claim a roster move. See
                   // `pitchingChanges`.
                   const change = changeAt.get(i)
                   const replaced = change?.announcedAt === i
@@ -1129,11 +1104,10 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                         {change.announcedAt != null
                           ? `${shortenNames(canon.get(change.to) ?? change.to)} to p for ${shortenNames(canon.get(change.from) ?? change.from)}`
                           : `Now pitching: ${shortenNames(canon.get(change.to) ?? change.to)}`}
-                        {/* THE DAGGER RIDES THE ROW, NOT THE SENTENCE. This line is drawn from
-                            `pitcher_name` and needs no correction to be right, but the row
-                            underneath it is the one the overlay corrected and the one the
-                            footnote counts, and a footnote claiming a dagger the page never
-                            drew is the hole this closed on Sep 11. */}
+                        {/* THE DAGGER RIDES THE ROW, NOT THE SENTENCE. This line is drawn from `pitcher_name` and
+                            needs no correction to be right, but the row underneath it is the one the overlay
+                            corrected and the one the footnote counts, and a footnote must never count a dagger
+                            the page did not draw. */}
                         {replaced && p.corrected_source && <SourceMark source={p.corrected_source} />}
                       </Typography>
                     </Box>
@@ -1160,23 +1134,17 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                           fontSize: '0.72rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
                         }}>
                           {parsed.what}
-                          {/* A SUBSTITUTION CAN BE THE CORRECTED ROW, and this line is the
-                              reason the footnote below could count a dagger the page never
-                              drew. The league wrote Sep 11's sixth-inning change as "Liz
-                              Gilder to p for Jill Albayati" when Albayati had been relieved
-                              three innings earlier, which is the first correction this project
-                              has written against a line that is not a play. */}
+                          {/* A SUBSTITUTION CAN BE THE CORRECTED ROW (a change naming a pitcher who had already
+                              been relieved innings earlier), so it carries the dagger too, or the footnote below
+                              would count a mark the page never drew. */}
                           {p.corrected_source && <SourceMark source={p.corrected_source} />}
                         </Typography>
                       </Box>
                   ) : (
-                    // `runsOnPlay`, NOT `is_scoring_play`. The feed's flag is exactly
-                    // `runs_scored > 0` and `runs_scored` never counts the batter, so a SOLO
-                    // HOME RUN is flagged false and drew as an ordinary play: the green rail
-                    // and tint stopped at the one hit that is always worth marking, while the
-                    // "+1" beside it, which reads `runsOnPlay`, said a run had scored. One row
-                    // disagreeing with itself. Reported by a reader, Sep 9, 2026, and it is the
-                    // fourth surface this same field has caught (see CLAUDE.md).
+                    // `runsOnPlay`, NOT `is_scoring_play`. The feed's flag is exactly `runs_scored > 0` and
+                    // `runs_scored` never counts the batter, so a SOLO HOME RUN is flagged false: it would draw as
+                    // an ordinary play, without the green rail and tint, while the "+1" beside it (which reads
+                    // `runsOnPlay`) said a run had scored, one row disagreeing with itself. See CLAUDE.md.
                     <Box id={`play-${p.sequence}`} sx={{
                       display: 'flex', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid',
                       borderColor: runsOnPlay(p) > 0 ? '#22c55e' : 'divider',
@@ -1226,16 +1194,13 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                               +{runsOnPlay(p)}
                             </Box>
                           )}
-                          {/* THE ONE PLAY THE GAME TURNED ON. The chart on the Recap tab has
-                              named it since v1.48.1 and that sentence was a dead end: it told
-                              you Beth Greenwood grounded into a double play in the 7th and gave
-                              you no way to read the inning around it. The same play is marked
-                              here, in the same words, off the same `swingOfGame`.
+                          {/* THE ONE PLAY THE GAME TURNED ON. The chart on the Recap tab names it, and without this
+                              that sentence is a dead end: it names a play and gives no way to read the inning
+                              around it. The same play is marked here, in the same words, off the same `swingOfGame`.
 
-                              INLINE AND ALLOWED TO WRAP, because it is exactly one row in a
-                              game and a chip that never wraps would have to be an abbreviation
-                              of a phrase whose whole value is that it is honest about itself:
-                              "Biggest moment" is not "Swing of the game", and neither is
+                              INLINE AND ALLOWED TO WRAP, because it is exactly one row in a game and a chip that
+                              never wraps would have to be an abbreviation of a phrase whose whole value is that it
+                              is honest about itself: "Biggest moment" is not "Swing of the game", and neither is
                               "SWING". */}
                           {swing?.sequence === p.sequence && (
                             <Box component="span" sx={{
@@ -1246,20 +1211,18 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                             }}>{swing.label}</Box>
                           )}
                         </Typography>
-                        {/* Runners, quieter and condensed. Same information, roughly half the
-                            words, and no longer competing with the batter for attention. */}
+                        {/* Runners, quieter and condensed: the same information in roughly half the words, not
+                            competing with the batter for attention. */}
                         {parsed.detail && (
                           <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.35, color: 'text.secondary', mt: 0.15 }}>
                             {parsed.detail}
                           </Typography>
                         )}
                       </Box>
-                      {/* The count used to sit mid-sentence, so it landed in a different place
-                          on every row. Pulled out to the pitch column, where it lines up.
-                          ONE BASELINE, not two nudges: the count and the pips used to be held
-                          level by a 2px top margin on one and a fitted line-height on the
-                          other, which is a fixed offset between two things whose sizes both
-                          move with the reader's text scale. */}
+                      {/* The count sits in the pitch column rather than mid-sentence, so it lines up down the
+                          rows. ONE BASELINE, not two nudges: holding the count and the pips level with a margin
+                          on one and a fitted line-height on the other is a fixed offset between two things
+                          whose sizes both move with the reader's text scale. */}
                       <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                         {parsed.count && (
                           <Typography sx={{
@@ -1299,17 +1262,15 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                           <OutDots outs={after.outs} />
                         </Box>
                       )}
-                      {/* A LINK TO THIS AT-BAT, which the section had no way to give before: a
-                          game has one URL and a reader wanting to point at one play could only
-                          send the whole game and describe it. A real `href`, so copy-link,
-                          middle-click and open-in-new-tab all work the way they should; the
-                          click is left to the browser, since a row you can see is a row the
-                          fragment can reach, and the effect above handles the other direction,
-                          where the link arrives from outside and its half-inning is shut.
+                      {/* A LINK TO THIS AT-BAT, so a reader wanting to point at one play does not have to send
+                          the whole game and describe it. A real `href`, so copy-link, middle-click and
+                          open-in-new-tab all work the way they should; the click is left to the browser, since
+                          a row you can see is a row the fragment can reach, and the effect above handles the
+                          other direction, where the link arrives from outside and its half-inning is shut.
 
-                          IT RESERVES ITS SPACE ON EVERY DEVICE rather than appearing on hover,
-                          because a column that widens under the pointer pushes the diamond and
-                          the pips left by ten pixels on the row you are trying to read. */}
+                          IT RESERVES ITS SPACE ON EVERY DEVICE rather than appearing on hover, because a column
+                          that widens under the pointer pushes the diamond and the pips left by ten pixels on the
+                          row you are trying to read. */}
                       <Box
                         component="a"
                         href={`#play-${p.sequence}`}
@@ -1427,16 +1388,14 @@ const VISUALLY_HIDDEN = {
 /**
  * What the daggers mean, once, at the foot of the play-by-play.
  *
- * WHY THIS EXISTS AT ALL. The Aug 20, 2026 game showed two Katherine Murphy singles against a
- * box score crediting her one, and a reader asked. Both numbers were right about their own
- * source: the league published the whole of New York's sixth and seventh as rows carrying a
- * pitcher and a pitch sequence and nothing else, and `fill-wpbl-play-gaps` filled them from
- * RetroWPBL's independent transcription. Two accounts of one game disagree about that at-bat,
- * which is a real and unresolved thing, and the page was presenting it as one account that
- * did not add up.
+ * WHY THIS EXISTS. Where the league published an inning as rows carrying a pitcher and a pitch
+ * sequence and nothing else, `fill-wpbl-play-gaps` fills them from RetroWPBL's independent
+ * transcription, and that account can disagree with the league's box score about an at-bat (a
+ * single the box score does not credit). Both numbers are right about their own source; without
+ * this note the page presents two accounts as one that does not add up.
  *
  * It counts the plays rather than naming them, and it renders nothing at all when the league
- * accounted for the whole game, which is every game but two.
+ * accounted for the whole game, which is almost every game.
  */
 function SourceNote({ plays }: { plays: WpblGamePlay[] }) {
   const counts = new Map<WpblCorrectionSource, number>()
@@ -1482,7 +1441,7 @@ const within1 = (a: string, b: string): boolean => {
   }
   return edits + (a.length - i) + (b.length - j) <= 1
 }
-// Tolerant same-pitcher check that bridges the box-score vs TrackMan spelling gap — the
+// Tolerant same-pitcher check that bridges the box-score vs TrackMan spelling gap: the
 // box says "Maggie Fox" while TrackMan says "Foxx, Maggie". Exact normalized match, or a
 // surname within one edit plus given names that are equal / prefix / within one edit.
 // Without this the two spellings look like two pitchers, which both hides one pitcher's
@@ -1499,10 +1458,10 @@ const samePitcher = (a: string, b: string): boolean => {
 
 type FirstHit = { batter: string | null; inning: number; half: string }
 function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[]; firstHit?: FirstHit | null; live?: boolean; names: Map<string, WpblPlayer> }) {
-  // The TrackMan payload spells names its own way ("Saki, Emi"), and this tab named players
-  // straight from it with no roster resolution, so a misspelled one reached the standout strip
-  // and the pitch log raw. Every formatted name goes through here first: the roster's spelling
-  // when it resolves uniquely, the feed's otherwise (see canonicalFeedName / feedNames.ts).
+  // The TrackMan payload spells names its own way ("Saki, Emi"). Every formatted name goes
+  // through here first, so a misspelling cannot reach the standout strip or the pitch log raw:
+  // the roster's spelling when it resolves uniquely, the feed's otherwise (see
+  // canonicalFeedName / feedNames.ts).
   const canonName = (formatted: string | null): string | null =>
     formatted ? canonicalFeedName(formatted, names.values()) : formatted
   // Real game pitches only. The feed's "rest_reconciliation" warmup/bullpen rows carry a
@@ -1536,7 +1495,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
   // can't join to wpbl_game_plays. The pitcher name lives in each event's raw payload
   // ("Last, First"); reconciliation events omit it, so fill from a sibling of the same
   // play_id. The remaining nameless pitches are almost always the starters the feed never
-  // named (their whole outing is unnamed) — see the single-candidate rescue below.
+  // named (their whole outing is unnamed); see the single-candidate rescue below.
   const pitcherFor = useMemo(() => {
     const fmt = (n: string) => {
       const [last, first] = n.split(',').map(s => s.trim())
@@ -1594,7 +1553,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
   // Aggregate TrackMan velo/spin by attributed name, plus an "unattributed" bucket.
   // Then merge onto the box-score pitcher list (the authoritative who-pitched, with real
   // names + IP/P). If EXACTLY ONE box pitcher has no tracking, the whole unattributed
-  // bucket must be theirs — attribute it (reliable). Otherwise leave it as a footnote.
+  // bucket must be theirs: attribute it (reliable). Otherwise leave it as a footnote.
   const { rows, resolvedName, unattributed, fastest } = useMemo(() => {
     type Agg = { count: number; speeds: number[]; spins: number[] }
     const blank = (): Agg => ({ count: 0, speeds: [], spins: [] })
@@ -1666,7 +1625,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* Standout game highlights — the marquee of this game's TrackMan moments. */}
+      {/* Standout game highlights: the marquee of this game's TrackMan moments. */}
       {highlights.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'stretch', mb: 2, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
           {highlights.map((h, i) => hl(h.e, h.l, h.v, h.s, i === 0))}
@@ -1679,7 +1638,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
         {tile('Avg spin', avg(spins) != null ? `${Math.round(avg(spins)!)}` : '—')}
       </Box>
 
-      {/* Per-pitch log — newest first; live during the game, browsable after. */}
+      {/* Per-pitch log, newest first; live during the game, browsable after. */}
       {pitchLog.length > 0 && (
         <Box sx={{ mb: 2.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
@@ -1827,7 +1786,7 @@ function TeamHeading({ team }: { team: WpblTeam }) {
   )
 }
 
-// ─── Team switch (underline tabs — deliberately distinct from the pill SegNav) ──
+// ─── Team switch (underline tabs, deliberately distinct from the pill SegNav) ──
 function TeamSwitch({ away, home, value, onChange }: {
   away: WpblTeam; home: WpblTeam
   value: 'away' | 'home'; onChange: (v: 'away' | 'home') => void
@@ -1965,16 +1924,14 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     if (withSpinner) setLoading(true)
     let cancelled = false
     Promise.all([
-      // THE WHOLE LEAGUE, not the two clubs, and that is the fix for a name that renders as a
-      // dash. Every line and play on this sheet carries a `player_id` and nothing else; the
-      // name comes from this map, and built from the two clubs' CURRENT rosters it asks a
-      // question about NOW to answer one about THEN. A player whose roster row has since moved
-      // is simply absent, and `nameOf` falls through to '—': on Sep 4, 2026 the New York
-      // pitcher who threw six innings and took the win was the winning pitcher line, a Star of
-      // the Game and a blank portrait, all reading "—", because her roster row had been moved
-      // to Los Angeles. This is the trap CLAUDE.md states as "team_id on a roster row means
-      // now, never then", one step further on: it is not only the CLUB that has to come off the
-      // line, it is the fact that the line's player is on the sheet at all.
+      // THE WHOLE LEAGUE, not the two clubs. Every line and play on this sheet carries a
+      // `player_id` and nothing else; the name comes from this map, and built from the two clubs'
+      // CURRENT rosters it would ask a question about NOW to answer one about THEN. A player whose
+      // roster row has since moved would simply be absent, and `nameOf` would fall through to the
+      // no-value dash for a winning pitcher, a Star of the Game and a portrait. This is the trap
+      // CLAUDE.md states as "team_id on a roster row means now, never then", one step further on:
+      // it is not only the CLUB that has to come off the line, it is the fact that the line's player
+      // is on the sheet at all.
       //
       // Cheap: the section fetches this list anyway for search and for the slug rules, and it
       // is cached app-wide, so in practice this is a map lookup rather than a request.
@@ -2012,10 +1969,10 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   }, [seed.id, away?.id, home?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The spinner is for a modal that has nothing to show, which is not the case when the
-  // session cache seeded it. Asking for one anyway threw the cached content away for 200ms
-  // and put a spinner in its place, so a REOPENED game flashed where a first open did not.
-  // Captured once, because `cached` is recomputed every render and this is a question about
-  // how this modal opened.
+  // session cache seeded it. Asking for one anyway would throw the cached content away for
+  // 200ms and put a spinner in its place, so a REOPENED game would flash where a first open
+  // does not. Captured once, because `cached` is recomputed every render and this is a
+  // question about how this modal opened.
   const openedCold = useRef(!cached).current
   useEffect(() => reload(openedCold), [reload, openedCold])
 
@@ -2023,11 +1980,11 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   // than when the card first renders.
   //
   // It needs the league's ENTIRE play log, not this game's, which is the single slowest thing
-  // Game Center asks for and the reason the recap used to settle a second late and shove
-  // itself down the screen. Started here it overlaps the game's own load and the sheet's
-  // 260ms slide, and by the time the recap has anything to draw the model usually has too.
-  // Both calls are idempotent and cached by the layer beneath, so this is a head start and
-  // never a second fetch.
+  // Game Center asks for; waiting for the card to render before starting it makes the recap
+  // settle a second late and shove itself down the screen. Started here it overlaps the game's
+  // own load and the sheet's 260ms slide, and by the time the recap has anything to draw the
+  // model usually has too. Both calls are idempotent and cached by the layer beneath, so this
+  // is a head start and never a second fetch.
   useEffect(() => {
     preloadWinProb()
     fetchWpblAllRunValuePlays().catch(() => { /* the card retries on its own */ })
@@ -2065,9 +2022,8 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
 
   // While the game is live, keep the box score + play-by-play fresh (poll + realtime). The
   // poll runs only while the page is in front and pulls once on the way back, which matters
-  // more here than anywhere else in the section: `reload` is five queries, and this used to
-  // fire them every fifteen seconds against a hidden tab for the length of a game. See
-  // refresh.ts.
+  // more here than anywhere else in the section: `reload` is five queries, and polling them
+  // against a hidden tab for the length of a game is exactly the load to avoid. See refresh.ts.
   useForegroundInterval(() => reload(false), game.status === 'live' ? LIVE_POLL_MS : null)
   useEffect(() => {
     if (game.status !== 'live') return
@@ -2089,7 +2045,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   const homeWon = final && (game.home_score ?? 0) > (game.away_score ?? 0)
   // The same label the scoreboard chips carry, so a game called "Yesterday" on Home is still
   // "Yesterday" once it is opened. It falls back to a written date beyond the two days a
-  // reader orients around, which is what the old hand-rolled version always produced.
+  // reader orients around.
   const dateLabel = relativeDayLabel(game.game_date)
   const showScore = final || live
 
@@ -2125,10 +2081,8 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     // reader came for.
     //
     // It is a TAB and not more of the header, which is where a live extra wants to go. The
-    // header block is paid for by every tab, and on a phone it had already grown past half the
-    // screen once (see the note where the highlight reel used to live); a live game pays the
-    // most for that, being the one that also carries the situation banner. A tab costs a reader
-    // one swipe and gives this the whole pane.
+    // header block is paid for by every tab, and on a phone it grows past half the screen
+    // easily; a tab costs a reader one swipe and gives this the whole pane.
     //
     // Gated on having plays, exactly as Pitch Data is gated on having tracking: the win
     // probability card renders nothing under two points, and a tab that opens on half a pane is
@@ -2142,17 +2096,15 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     ...(live && (loading || plays.length >= 2) ? [{ value: 'live' as Tab, label: 'Live' }] : []),
     { value: 'box' as Tab, label: 'Box Score' },
     { value: 'plays' as Tab, label: 'Play-by-Play' },
-    // Only when the feed has actually posted TrackMan for this game. It used to appear for
-    // every played game and explain itself with an empty state, on the reasoning that tracking
-    // often lands late and a missing tab hides the gap. Two of nineteen final games have any,
-    // so in practice that was a fourth tab leading nowhere on seventeen games out of nineteen,
-    // and the gap it was surfacing is the league's, not ours. The Tracked board on the Stats
-    // tab hides itself for the same reason.
+    // Only when the feed has actually posted TrackMan for this game. Offered for every played
+    // game it would be a tab leading to an empty state on nearly all of them (the league
+    // publishes tracking for very few games), surfacing a gap that is the league's, not ours.
+    // The Tracked board on the Stats tab hides itself for the same reason.
     ...(tracking.length > 0 ? [{ value: 'pitch' as Tab, label: 'Pitch Data' }] : []),
   ]
 
-  // The tab list is dynamic — 'recap' only once the game is final, 'pitch' only once it has
-  // been played — so the pager's index is derived from the active tab each render rather than
+  // The tab list is dynamic ('recap' only once the game is final, 'pitch' only once it has
+  // been played), so the pager's index is derived from the active tab each render rather than
   // stored. That keeps it correct when a live game finishes with the modal open and 'recap'
   // appears at the front, shifting every other tab along. Clamped, since a tab can also stop
   // being offered underneath us.
@@ -2212,7 +2164,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   }, [tab, hasLines, game.status, game.id])
 
   // The authoritative pitcher list (real names + IP/P) that the Pitch Data tab merges
-  // TrackMan velo/spin onto — see PitchData.
+  // TrackMan velo/spin onto: see PitchData.
   const boxPitchers = useMemo(() => lines.pitching.map(p => ({
     name: names.get(p.player_id)?.name ?? '—',
     teamAbbr: byId.get(p.team_id)?.abbr ?? '',
@@ -2220,7 +2172,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     pitches: p.pitches,
   })), [lines.pitching, names, byId])
 
-  // First hit of the game (plays are ordered by sequence) — feeds the Pitch Data highlights.
+  // First hit of the game (plays are ordered by sequence): feeds the Pitch Data highlights.
   const firstHit = useMemo(() => {
     const p = plays.find(pl => pl.is_hit)
     return p ? { batter: p.batter_name, inning: p.inning, half: p.half } : null
@@ -2253,23 +2205,20 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
         : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`
       }
       onClose={onClose}
-      // THE SAME RAW-PIXEL BUG one level up, and then the width the card was actually asking
-      // for. 520 was a phone column that never learned the section is drawn a quarter larger on
-      // a desktop, so this dialog sat at 514px inside a 1440px window: 36% of the width, while
-      // running 860 to 1009px tall inside a 900px one. It overflowed vertically and had space
-      // to spare horizontally, which is the one combination a layout can always fix.
+      // Width in `chromePx`, so the dialog scales with the section's desktop ramp like everything
+      // in it; a raw 520 would leave it a phone column inside a wide window, overflowing
+      // vertically with room to spare horizontally.
       //
       // `lg` rather than `md` for the wide step, because the wide step is what lets the box
       // score put both clubs side by side, and two of those tables want about 474px each. At
       // `md` the viewport itself is 900px and they would be squeezed back into a scroll. So
-      // the middle band gets the scale correction alone, which is already a quarter more room
-      // than it had, and `lg` gets the layout.
+      // the middle band gets the scale correction alone, and `lg` gets the layout.
       maxWidth={{ xs: chromePx(520), lg: chromePx(840) }}
       // A sheet on a phone: this is the most-opened surface in the section, every game row on
-      // Home and Schedule leads here, and its only way out was a close button in the top right
-      // corner, which is the furthest point on a phone from the thumb holding it. Now it comes
-      // up from the bottom edge with a handle and goes back down the same way. Unchanged above
-      // sm, where a centred dialog is right and there is no thumb to accommodate.
+      // Home and Schedule leads here, and a close button in the top right corner is the furthest
+      // point on a phone from the thumb holding it. So it comes up from the bottom edge with a
+      // handle and goes back down the same way. Above sm a centred dialog is right and there is
+      // no thumb to accommodate.
       sheet
       // And a constant height while it is one, so the sheet does not grow 419px under the
       // reader's thumb when the box score lands, or resize every time they page a tab.
@@ -2329,15 +2278,14 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           )}
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
 
-          {/* The written recaps: two independent people who each wrote about this game, and
-              two cards rather than one "coverage" block. Merging them would put our heading
-              above somebody else's work and force a house style on both, when the one thing
-              each card has to say loudest is whose writing it is.
+          {/* The written recaps: two independent people who each wrote about this game, and two
+              cards rather than one "coverage" block. Merging them would put our heading above
+              somebody else's work and force a house style on both, when the one thing each card
+              has to say loudest is whose writing it is.
 
-              The highlight reel used to sit directly above them here and now renders at the
-              foot of the Recap tab instead: everything in this header block is paid for by
-              every tab, and on a phone the header had grown past half the screen (see the note
-              in RecapCard). These two are a paragraph each and stay. */}
+              The highlight reel renders at the foot of the Recap tab rather than here: everything
+              in this header block is paid for by every tab (see the note in RecapCard). These two
+              are a paragraph each and stay. */}
           {final && (story || recap) && (
             <Box sx={{ px: 2, mt: 1.5, display: 'grid', gap: 1 }}>
               {story && <GameStoryCard article={story} />}
@@ -2346,10 +2294,9 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           )}
         </Box>
 
-        {/* Why the game is not moving, when it is not. Directly under the matchup and above the
-            live banner, because it explains the thing the reader is staring at: a scoreboard
-            that has not changed. Renders null in the ordinary case and ticks itself, so it can
-            appear during a session that started before first pitch. */}
+        {/* Why the game is not moving, when it is not. Explains the thing the reader is staring
+            at: a scoreboard that has not changed. Renders null in the ordinary case and ticks
+            itself, so it can appear during a session that started before first pitch. */}
         <Box sx={{ flexShrink: 0, px: 2, pt: 1.25 }}>
           <FeedDelayNote game={game} />
         </Box>
@@ -2391,11 +2338,9 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
                 t.value === 'recap' && away && home ? (
                   <>
                     <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
-                    {/* Last, and only here. It used to sit in the header, where it was the
-                        first thing on a phone and none of it is why anybody opens a game. */}
+                    {/* Last, and only here: none of it is why anybody opens a game (see GameInfo). */}
                     <GameInfo game={game} details={details} />
-                    {/* Under the info list, because "revised on Sep 2" is the line this
-                        expands on. */}
+                    {/* Under the info list, because the revision date there is the line this expands on. */}
                     <RevisionLog revisions={revisions} gameId={game.id} away={away} home={home} names={names} onOpenPlayer={onOpenPlayer} />
                   </>
                 ) : t.value === 'live' && away && home ? (
@@ -2511,9 +2456,9 @@ const gameCache = new Map<string, {
 // ─── styles ────────────────────────────────────────────────────────────────────
 // Box tables (batting / pitching / by-pitcher): table-layout:auto with a shrink-to-fit name
 // column (width:'1%' + nowrap makes it take only its content width), so the name column is
-// as narrow as the names allow and the stat columns claim the freed space — more columns fit
-// before the wrapper scrolls. maxWidth caps a very long name (inner text ellipsizes); minWidth
-// floors the table so it still scrolls on a narrow phone.
+// as narrow as the names allow and the stat columns claim the freed space, which lets more
+// columns fit before the wrapper scrolls. maxWidth caps a very long name (inner text
+// ellipsizes); minWidth floors the table so it still scrolls on a narrow phone.
 const tableSx = { tableLayout: 'auto', borderCollapse: 'collapse', width: '100%', minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
 // The phone box score. Nine batting columns and eight pitching columns will not fit a phone
 // at auto layout, and the honest fix is density rather than hiding stats or scrolling.
@@ -2526,48 +2471,45 @@ const tableSx = { tableLayout: 'auto', borderCollapse: 'collapse', width: '100%'
 const denseTableSx = { ...tableSx, tableLayout: 'fixed' } as const
 // Sized against the longest name on the roster once abbreviated ("T. Geldenhuis"), plus the
 // position badge; the rest goes to the stats. BOX_NAME_MAX below is the matching character
-// budget, so the two are set together — widen one and the other has to move with it.
+// budget, so the two are set together: widen one and the other has to move with it.
 const denseNameSx = { width: '35%', maxWidth: 'none', px: 0.3 } as const
 // What fits that column at the dense font. wpblFeatureName degrades in stages to hit it
-// ("Ticara Geldenhuis" → "T. Geldenhuis"), which beats the CSS ellipsis: the shared 12-char
-// cap left names truncated mid-word as "M. Paddis…" and "Hyeonah K…", losing the surname,
-// which is the one part of a box-score name a reader actually needs.
+// ("Ticara Geldenhuis" → "T. Geldenhuis"), which beats the CSS ellipsis: a flat 12-char cap
+// truncates names mid-word as "M. Paddis…" and "Hyeonah K…", losing the surname, which is the
+// one part of a box-score name a reader actually needs.
 //
 // Set to 11 by measurement, not arithmetic. A character count is a proxy for width and the
 // proxy is loose: at 13 the column held "T. Geldenhuis" but clipped "Denver Bryant", which
 // is the same length in characters and wider in pixels.
 //
-// Checked against the whole roster, not just one game. 113 of 118 names reach a form the
-// column holds. The five that don't are the ones whose SHORTEST possible form is still too
-// long — "R. del Castillo", "N. Rivera-Moats", "B. Espinoza-Molina" — because a particle or
-// a hyphenated surname can't be abbreviated further without destroying the name. Those
+// Checked against the whole roster, not just one game: nearly every name reaches a form the
+// column holds. The exceptions are the names whose SHORTEST possible form is still too long
+// ("R. del Castillo", "N. Rivera-Moats", "B. Espinoza-Molina"), because a particle or a
+// hyphenated surname can't be abbreviated further without destroying the name. Those
 // ellipsize, which is what wpblFeatureName documents as the final net, and they keep the
 // start of the surname, which is the part that identifies the player.
 const BOX_NAME_MAX = 11
 /**
  * Cap for the shrink-to-fit name column, IN REM, because it is reserving room for a name.
  *
- * It was 150 raw pixels, and that is the trap CLAUDE.md spells out: a box sized in px around
- * type sized in rem looks perfectly right until the type changes size, and on `/wpbl` the type
- * IS a different size, a quarter larger from `md` up. So the column went on holding what 150px
- * held at 16px type while the names inside it grew, and three of them in a single Aug 30 box
- * score came out clipped: "Natsuki Yon…", "Elodie Ciam…", "Claire O'Sulliv…". A box score whose
- * first column is the player is the last place to lose the end of a surname.
+ * A px cap is the trap CLAUDE.md spells out: a box sized in px around type sized in rem looks
+ * right until the type changes size, and on `/wpbl` the type IS a different size, a quarter
+ * larger from `md` up. The column would go on holding what 150px holds at 16px type while the
+ * names inside it grow, clipping surnames in the one column a box score is about.
  *
  * A rem, so it grows with the desktop ramp and with the reader's Large text setting, both of
  * which make the names wider. The table does not get any wider to pay for it: the name column
  * simply stops being starved by stat columns that had no use for the space.
  *
- * TEN, set against the whole roster rather than against the game that exposed the bug. All 119
- * names were measured in this cell's own font at the desktop ramp, including the cell's 29px of
- * padding and position badge: the median name needs 149px, the 90th percentile 183, and the
- * longest 248. At 10rem, which is 200px there, 116 of the 119 fit. The three that do not are
- * Flor Elena Valerio Montoya, Maria José Valenzuela and Bella Espinoza-Molina, and they
- * ellipsize, which is what a cap is for and what this one already documented itself as doing.
+ * TEN, set against the whole roster rather than one game. Every name was measured in this
+ * cell's own font at the desktop ramp, including the cell's 29px of padding and position badge:
+ * the median name needs 149px, the 90th percentile 183, and the longest 248. At 10rem, 200px
+ * there, all but three fit (Flor Elena Valerio Montoya, Maria José Valenzuela and Bella
+ * Espinoza-Molina), and those ellipsize, which is what a cap is for.
  *
- * Going further has a price and buys little: 11rem would seat 118 of 119 and take another 20px
- * off nine stat columns that are showing one and two digit numbers. Restoring the old 150px
- * behaviour (9.375rem) would seat 110, which is where the clipping came from.
+ * Going further has a price and buys little: 11rem would seat one more name and take another
+ * 20px off nine stat columns showing one and two digit numbers, and 9.375rem (150px) would
+ * seat noticeably fewer.
  */
 const NAME_W = '10rem'
 // The name column is pinned (sticky-left) so scrolling right moves only the stat columns.

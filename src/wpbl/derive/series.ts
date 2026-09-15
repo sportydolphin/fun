@@ -16,21 +16,20 @@ import { countsInStandings } from '../season.ts'
 // that and none of them has a standings table in hand. bracket.ts builds on the round
 // definitions below rather than the other way about, so there is one statement of the format.
 //
-// THE POSTSEASON IS SERIES-SHAPED AND ALMOST NOTHING ELSE IN THE SECTION WAS. "SF leads 2-1"
-// is the unit a fan tracks, and until this module a best-of-five clincher was recapped as
-// "the Firebells beat the Queens 4-2" with no notion that a championship had just been won.
+// THE POSTSEASON IS SERIES-SHAPED AND ALMOST NOTHING ELSE IN THE SECTION IS. "SF leads 2-1"
+// is the unit a fan tracks, and without this module a best-of-five clincher is recapped as
+// "the Firebells beat the Queens 4-2" with no notion that a championship has just been won.
 //
-// NO SERIES ID IS NEEDED, and waiting for one is what kept this filed as blocked. The
-// postseason is the only part of the schedule `countsInStandings` rejects, and within it an
-// unordered pair of team ids identifies a series uniquely: the semifinals are 1v4 and 2v3, the
-// championship is the two winners, and no two of those three pairings can be the same two
-// clubs. So grouping by team pair reconstructs every series with no new field, whatever the
-// feed decides to call them.
+// NO SERIES ID IS NEEDED. The postseason is the only part of the schedule `countsInStandings`
+// rejects, and within it an unordered pair of team ids identifies a series uniquely: the
+// semifinals are 1v4 and 2v3, the championship is the two winners, and no two of those three
+// pairings can be the same two clubs. So grouping by team pair reconstructs every series with
+// no new field, whatever the feed decides to call them.
 //
-// IT FAILS TOWARD THE REGULAR SEASON, which is what the roadmap asks of anything written
-// before Sep 9. Every function here returns null or an empty map when the feed marks no game
-// as postseason, so every surface renders exactly as it does today rather than inventing a
-// series. The disagreement itself is watched by scripts/check-wpbl-postseason.ts.
+// IT FAILS TOWARD THE REGULAR SEASON. Every function here returns null or an empty map when the
+// feed marks no game as postseason, so every surface renders as it would for a regular-season
+// game rather than inventing a series. The disagreement itself is watched by
+// scripts/check-wpbl-postseason.ts.
 //
 // Pure: games and teams in, plain shapes out. No supabase, no React.
 

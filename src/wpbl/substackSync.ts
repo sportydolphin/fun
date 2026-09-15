@@ -8,12 +8,12 @@
  * drift the first time one was fixed and the other was not.
  *
  * WHY IT RUNS ON SUPABASE. Substack serves Cloudflare's JavaScript interstitial to
- * datacenter address space, and it covers every host it owns: her publication's archive API,
- * her publication's RSS feed, and substack.com itself all return 403 from a GitHub Actions
- * runner. Supabase's egress is not challenged; all three answer 200, feed included. See
+ * datacenter address space, and it covers every host it owns: the publication's archive API,
+ * its RSS feed, and substack.com itself all return 403 from a GitHub Actions runner.
+ * Supabase's egress is not challenged; all three answer 200, feed included. See
  * docs/READING.md for the full table.
  *
- * The only thing this module will not do is store her writing. Bodies are fetched to find
+ * The only thing this module will not do is store the writing. Bodies are fetched to find
  * names and embedded clips in them, and are then dropped. See the migration for why the
  * table has no column to put them in.
  */
@@ -77,11 +77,11 @@ interface StoredArticle {
   video_count: number | null
 }
 
-// A browser User-Agent. The self-identifying string this started with is the politer thing
-// to send to one person's personal Substack, and it is what she would see in her logs, but
+// A browser User-Agent. A self-identifying string is the politer thing to send to one
+// person's personal Substack, and it is what the writer would see in their logs, but
 // Cloudflare scores the whole header set and drops requests that do not look like a browser.
-// Supabase's egress is not challenged, so this may well be unnecessary now; it stays because
-// the cost is nil and the failure it prevents cost seven silent runs to diagnose.
+// Supabase's egress is not challenged, so this may well be unnecessary; it stays because the
+// cost is nil and the failure it prevents took seven silent runs to diagnose.
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 
@@ -125,10 +125,10 @@ async function fetchPublicationArchive(log: (s: string) => void): Promise<Archiv
 }
 
 /**
- * Every post, from her author profile on substack.com.
+ * Every post, from the author profile on substack.com.
  *
- * The paging guard is deliberately not "stop when the cursor is empty". She is under one page
- * today, so the cursor parameter's name is unverified against a real second page; if it is
+ * The paging guard is deliberately not "stop when the cursor is empty". The author is under one
+ * page today, so the cursor parameter's name is unverified against a real second page; if it is
  * wrong the API would hand back page one forever. Stopping as soon as a page contributes no
  * NEW post id makes that failure terminate with the right data instead of looping.
  */
@@ -213,7 +213,7 @@ export async function runSubstackSync(db: SyncDb, opts: SyncOptions = {}): Promi
     let teamIds: string[], playerIds: string[], gameId: string | null, videoCount: number | null
 
     if (post) {
-      // The headline is included in the matched text because several of her titles name the
+      // The headline is included in the matched text because several of the titles name the
       // player the piece is about ("...How Good Denae Benites is Playing...").
       //
       // Players match on any mention: naming someone once is enough to have written about

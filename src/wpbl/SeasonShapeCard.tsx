@@ -29,8 +29,8 @@ import { prefersReducedMotion } from '../lib/motion'
 //
 // TWO PIXEL RULES, both from CLAUDE.md and both invisible when broken. The SVG is a unit box
 // stretched by CSS, so nothing inside it is a pixel and stroke widths carry
-// `vectorEffect="non-scaling-stroke"` (which is what WinProbView learned first). The box AROUND
-// it is structure and takes `chromePx`, while anything reserving room for a label is in rem.
+// `vectorEffect="non-scaling-stroke"`, as in WinProbView. The box AROUND it is structure and
+// takes `chromePx`, while anything reserving room for a label is in rem.
 
 /** The chart's own viewBox. Stretched to whatever the card gives it, so these are proportions
  *  rather than pixels: 100 wide by 60 tall is the aspect the four lines read best at, flat
@@ -43,16 +43,15 @@ const PAD_Y = 4
 /** How long ONE DAY of the season takes, which is the number that decides whether this is
  *  watchable.
  *
- *  IT IS A CADENCE, NOT A TOTAL, and that is a change from the first version. That one spent a
- *  fixed 4.5 seconds on the whole season and divided it by however many playing dates there
- *  were, which gets the relationship backwards: a LONGER season, with more to follow, got less
- *  time per day. It also made the one number anybody can perceive a derived quantity.
+ *  IT IS A CADENCE, NOT A TOTAL. A fixed duration for the whole season divided by however many
+ *  playing dates there are gets the relationship backwards: a LONGER season, with more to
+ *  follow, gets less time per day. It also makes the one number anybody can perceive a derived
+ *  quantity.
  *
- *  260ms is where "a day passed" reads as an event rather than a flicker. At 165ms, which is
- *  what 4.5 seconds over this season's 27 dates worked out to, the days went by faster than a
- *  lead change could be followed, and the row animation is cut to this cadence so the swaps
- *  were being squeezed into the same 165ms. This season now runs about seven seconds, which is
- *  a thing you watch rather than a thing you wait for.
+ *  260ms is where "a day passed" reads as an event rather than a flicker. Around 165ms the days
+ *  go by faster than a lead change can be followed, and the row animation is cut to this
+ *  cadence, so the swaps get squeezed into the same window. At 260ms this season runs about
+ *  seven seconds, which is a thing you watch rather than a thing you wait for.
  *
  *  The cap is a guard and not a target: a season with far more playing dates than this one
  *  would otherwise run for half a minute, so past that point the days compress again, down to
@@ -64,10 +63,10 @@ const MIN_STEP_MS = 150
 /**
  * How long the pointer has to hold still before the TABLE follows it.
  *
- * A reader sweeping across five weeks of a season crosses a dozen different orders, and the
- * table was animating every one of them: four rows changing places twelve times in half a
- * second, which is not information, it is a strobe. It also punishes the ordinary way people
- * find a date, which is to move roughly there and then adjust.
+ * A reader sweeping across five weeks of a season crosses a dozen different orders, and a
+ * table that animated every one of them would show four rows changing places twelve times in
+ * half a second, which is not information, it is a strobe. It would also punish the ordinary
+ * way people find a date, which is to move roughly there and then adjust.
  *
  * So the chart stays live under the finger (the cursor, the dots and the date all track it
  * exactly) and the standings wait for the reader to mean it. 220ms is long enough to swallow a
@@ -198,12 +197,12 @@ export default function SeasonShapeCard({ shape, onPreview }: {
   // The cursor lands ON a column and never between two: the x-axis is dates, so an interpolated
   // position would put the readout and the standings table on a day that does not exist.
   //
-  // But the STEPS are taken from a rAF clock rather than from `setInterval`. A 165ms interval
-  // against a 16.7ms frame lands each day on whichever frame is nearest, so days came at 167ms
-  // and then 183ms and then 167ms, and a row animation cut to that cadence inherited the
-  // wobble. Reading the elapsed time on the frame itself makes every day land on a frame
-  // boundary. It also stops dead when the tab is hidden, where `setInterval` keeps firing and
-  // the season arrives all at once on the way back.
+  // But the STEPS are taken from a rAF clock rather than from `setInterval`. An interval against
+  // a 16.7ms frame lands each day on whichever frame is nearest, so days arrive unevenly (167ms,
+  // then 183ms, then 167ms) and a row animation cut to that cadence inherits the wobble. Reading
+  // the elapsed time on the frame itself makes every day land on a frame boundary. It also stops
+  // dead when the tab is hidden, where `setInterval` keeps firing and the season arrives all at
+  // once on the way back.
   useEffect(() => {
     if (!playing) return
     let raf = 0
@@ -222,14 +221,14 @@ export default function SeasonShapeCard({ shape, onPreview }: {
 
   // TWO PLAIN SETS, NOT ONE NESTED IN THE OTHER'S UPDATER.
   //
-  // This read `setPlaying(p => { if (p) return false; setPlayCol(...); return true })`, which
-  // queues a state update from inside an updater. Updaters run in the RENDER phase, so the
-  // inner set was being made during a render rather than from an event, and React is entitled
-  // to drop it or apply it to the wrong queue. Dropped, `playCol` stayed at the last column, the
-  // loop's first tick found itself already at the end, and playback stopped before it started:
-  // pressing Play on a fresh load did nothing, and the state it left behind took the page down
-  // with it. It appeared to work after touching the chart only because the scrub had moved
-  // `playCol` off the end by then, so losing the reset no longer mattered.
+  // Calling `setPlayCol` inside `setPlaying(p => ...)` queues a state update from inside an
+  // updater. Updaters run in the RENDER phase, so the inner set is made during a render rather
+  // than from an event, and React is entitled to drop it or apply it to the wrong queue. Dropped,
+  // `playCol` stays at the last column, the loop's first tick finds itself already at the end,
+  // and playback stops before it starts: pressing Play on a fresh load does nothing, and the
+  // state it leaves behind takes the page down with it. It only appears to work after touching
+  // the chart, because the scrub has moved `playCol` off the end by then, so losing the reset no
+  // longer matters.
   const play = useCallback(() => {
     if (playingRef.current) { setPlaying(false); return }
     // Pressing play at the end means "again", which is the only thing it can mean there.
@@ -263,8 +262,8 @@ export default function SeasonShapeCard({ shape, onPreview }: {
       subtitle="Games above .500 after every day of the season. Drag the chart, or press play."
       // SAME SURFACE AS THE TABLE IT SITS UNDER. `background.paper` is a LIFTED GREY in dark
       // mode, and the standings table directly above is a bordered box with no fill at all, so
-      // the raised card read as a second surface arriving under the first: two panels on a tab
-      // that holds one subject. This is the case `bare` was added for, in its own words.
+      // a raised card reads as a second surface arriving under the first: two panels on a tab
+      // that holds one subject. This is the case `bare` exists for.
       bare
       action={
         <Box {...pressable(play)} aria-label={playing ? 'Pause' : 'Play the season from the start'} sx={{
@@ -291,12 +290,11 @@ export default function SeasonShapeCard({ shape, onPreview }: {
         colX={colX} overY={overY} dark={dark} drawn={drawn} reduce={reduce}
       />
 
-      {/* NO SECOND READOUT HERE. This card carried four chips with each club's record at the
-          cursor, which was right while it was the only thing the scrub could move; now that the
-          standings table directly above updates, they were the same four records printed twice
-          a hundred pixels apart. What is left is the DATE, which the table cannot say for
-          itself, and which is the one thing a reader needs when the table has scrolled off the
-          top of a phone. */}
+      {/* NO SECOND READOUT HERE. The scrub already updates the standings table directly above,
+      so chips with each club's record at the cursor would be the same four records printed
+      twice a hundred pixels apart. What is left is the DATE, which the table cannot say for
+      itself, and which is the one thing a reader needs when the table has scrolled off the
+      top of a phone. */}
       {/* "Through" and not the bare date: the column is everything played up to and including
           that day, and a date on its own reads as the day's results rather than the season's.
           The last column says so outright, because a reader who has let go has no other way to
@@ -314,15 +312,14 @@ export default function SeasonShapeCard({ shape, onPreview }: {
         {col === last && shown.date ? ' · current standings' : ''}
       </Typography>
 
-      {/* THE FINDINGS, RACE FIRST. This card carried only the climb, which is one club measured
-          against its own past: a fact that club's own page could tell you, under a chart whose
-          whole subject is four lines crossing each other. The race is the part nothing else on
-          the site can say, because the standings table is a single frame and a frame cannot
-          report that the lead changed hands six times. It is also what the play button was
-          starting a motion for and never naming. */}
-      {/* STATED, NOT INTRODUCED. The first version opened "The season's longest climb belongs
-          to", which spends eight words arriving at a fact that takes four. A label and the
-          number is how every other figure on this page is written. */}
+      {/* THE FINDINGS, RACE FIRST. The climb alone is one club measured against its own past:
+      a fact that club's own page could tell you, under a chart whose whole subject is four
+      lines crossing each other. The race is the part nothing else on the site can say,
+      because the standings table is a single frame and a frame cannot report that the lead
+      changed hands six times. It is also what the play button starts a motion for. */}
+      {/* STATED, NOT INTRODUCED. An opener like "The season's longest climb belongs to" spends
+      eight words arriving at a fact that takes four. A label and the number is how every
+      other figure on this page is written. */}
       {lead && (
         <Typography sx={{ mt: 1.25, fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.5 }}>
           <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>Days in first</Box>

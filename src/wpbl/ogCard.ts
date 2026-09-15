@@ -1,9 +1,9 @@
-// The words on a shared player link's preview card — the title, the season line, and the
-// headshot path an unfurler (iMessage, Slack, Discord, X) shows when someone pastes
-// /wpbl?player=<id>.
+// The words on a shared player link's preview card: the title, the season line, and the
+// headshot path an unfurler (iMessage, Slack, Discord, X) shows when someone pastes a
+// player's link.
 //
-// This lives under src/ rather than beside its only caller — the Cloudflare Pages function
-// in functions/wpbl/ — for two reasons: it is pure, so it can be unit-tested with the rest
+// This lives under src/ rather than beside its only caller (the Cloudflare Pages function
+// in functions/wpbl/) for two reasons: it is pure, so it can be unit-tested with the rest
 // of the app instead of only by deploying, and it keeps the card's phrasing next to the
 // aggregation it describes, so a change to how the player page reads (see PlayerDetail)
 // has an obvious second place to follow.
@@ -30,7 +30,7 @@ export type WpblCardPitching = Pick<WpblPitchingLine, 'game_id' | 'outs' | 'h' |
 export interface WpblCardPlayer { id: string; name: string; position: string | null }
 
 export interface WpblPlayerCard {
-  title: string          // <title> — the browser tab and the search result
+  title: string          // <title>: the browser tab and the search result
   ogTitle: string        // the unfurl's bold first line
   description: string
   cardPath: string       // /cards/<slug>.webp, published by the build; may not exist
@@ -66,7 +66,7 @@ function describeSeason(
   games: WpblSeasonGame[],
 ): string {
   // Zero-PA rows (a pinch-runner who scored, a defensive sub) would otherwise read as an
-  // 0-for-0 game — the same reason the player page drops them.
+  // 0-for-0 game, the same reason the player page drops them.
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
   // Both sides summed up front, because the role rule needs a number from each of them.
   const bt = sumBatting(batted as WpblBattingLine[], games)
@@ -105,9 +105,9 @@ function describeSeason(
 }
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
-// Innings pitched read as outs: 16 outs = "5.1". Duplicated from constants.ts, which the
-// Pages function can't import — that module pulls in the team logos through
-// import.meta.glob, which only Vite understands.
+// Innings pitched read as outs: 16 outs = "5.1". The same arithmetic as `outsToIp` in
+// innings.ts, kept local. constants.ts is the module the Pages function must never import:
+// it pulls in the team logos through import.meta.glob, which only Vite understands.
 const outsToIp = (outs: number): string => `${Math.floor(outs / 3)}.${outs % 3}`
 
 // ─── Game cards ────────────────────────────────────────────────────────────────

@@ -4,16 +4,16 @@ import type { WpblGame, WpblLiveState } from './types'
 /**
  * When the league has stopped updating a game it never marked final, decide for ourselves.
  *
- * WHAT THIS IS FOR. On Sep 4, 2026 the feed left SF at NY sitting at `In Progress - Top of
- * 7th` with the row still being written every two minutes: three outs recorded, the home side
- * up 14-2, the last out of the game already in the play log. That game was over by every rule
- * baseball has, and the section showed it as live indefinitely, with a pulsing dot, a poll
+ * WHAT THIS IS FOR. The feed can leave a finished game sitting at `In Progress - Top of 7th`
+ * with the row still being written every two minutes: three outs recorded, the home side up
+ * 14-2, the last out of the game already in the play log (SF at NY, Sep 4, 2026). Left alone,
+ * a game over by every rule baseball has shows as live indefinitely, with a pulsing dot, a poll
  * running against it, and its box score kept out of the standings and out of every season
- * total. Nothing was broken and nothing was going to fix itself, because the league's `status`
- * is a field somebody has to set and nobody set it.
+ * total. Nothing is broken and nothing fixes itself, because the league's `status` is a field
+ * somebody has to set and nobody has set it.
  *
  * `feedHealth` cannot catch this and should not try. It answers "why is nothing arriving",
- * and here everything was arriving: our clock was fresh, THEIR clock was fresh, the row was
+ * and here everything is arriving: our clock is fresh, THEIR clock is fresh, the row is
  * simply wrong. Those are different faults and they need different sentences.
  *
  * ONLY EVER LIVE → FINAL, NEVER THE REVERSE. A game the league calls final is final,

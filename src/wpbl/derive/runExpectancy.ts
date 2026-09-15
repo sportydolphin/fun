@@ -19,13 +19,12 @@ export type RunValueGame = WpblSeasonGame &
  * end of each half-inning turns them into a run-expectancy table, and the difference across a
  * play is what that play was worth. No feed field, no table and no model is involved.
  *
- * WHY THE LEAGUE'S OWN TABLE AND NOT A BORROWED ONE. This is a seven-inning league that has
- * scored 15.2 runs a game across its first 18: run expectancy with nobody on and nobody out
- * comes out around 1.1, against roughly 0.5 in the majors. Valuing a WPBL play against a
- * major-league table would be measuring it in somebody else's run environment and would
- * misprice every state. The cost of doing it honestly is sample: see `ReTable.n`, which is
- * carried per cell precisely so a surface can say how thin a cell is instead of implying all
- * 24 are equally well measured.
+ * WHY THE LEAGUE'S OWN TABLE AND NOT A BORROWED ONE. This is a seven-inning league that scores
+ * about fifteen runs a game: run expectancy with nobody on and nobody out comes out around 1.1,
+ * against roughly 0.5 in the majors. Valuing a WPBL play against a major-league table would be
+ * measuring it in somebody else's run environment and would misprice every state. The cost of
+ * doing it honestly is sample: see `ReTable.n`, which is carried per cell precisely so a
+ * surface can say how thin a cell is instead of implying all 24 are equally well measured.
  *
  * PURE. Arrays in, plain shapes out, no supabase and no React, like stats.ts and pitches.ts.
  */
@@ -38,11 +37,10 @@ export type BaseCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
 /**
  * Every base state in words, because the scoreboard spelling is a code.
  *
- * The first version of the table used "1-3" and "-23" down its left edge, which is how a run
- * expectancy table has always been printed and is unreadable to anyone who has not seen one
- * before. That is most of this league's audience: the WPBL is two months old, and the whole
- * point of the board is to explain what a situation is worth to somebody who knows what an RBI
- * is and has never met run expectancy. Nothing is lost by writing it out.
+ * "1-3" and "-23" down a table's left edge is how run expectancy has always been printed and is
+ * unreadable to anyone who has not seen one before, which is most of this league's audience:
+ * the board exists to explain what a situation is worth to somebody who knows what an RBI is and
+ * has never met run expectancy. Nothing is lost by writing it out.
  */
 export const BASE_SHORT: Readonly<Record<BaseCode, string>> = {
   0: 'Nobody on', 1: '1st', 2: '2nd', 3: '1st & 2nd',
@@ -59,7 +57,7 @@ export const BASE_PHRASE: Readonly<Record<BaseCode, string>> = {
  *  The bitmask order puts "1st & 2nd" above "3rd", which is arithmetic showing through. */
 export const BASE_ROW_ORDER: readonly BaseCode[] = [0, 1, 2, 4, 3, 5, 6, 7]
 
-/** "bases loaded, 2 out" — the situation a play started from, in the words a broadcast uses. */
+/** "bases loaded, 2 out": the situation a play started from, in the words a broadcast uses. */
 export function describeState(bases: BaseCode, outs: number): string {
   return `${BASE_PHRASE[bases]}, ${outs} out`
 }
@@ -69,7 +67,7 @@ export function describeState(bases: BaseCode, outs: number): string {
  *
  * Two things about the columns. The state on a row is the state the play started from, not
  * what it left behind (verified against a full half-inning: the leadoff row is always empty
- * bases, and the runner appears on the row after the single that put him there). And the
+ * bases, and the runner appears on the row after the single that put them there). And the
  * ingest writes `s(p.first_base)`, so an empty base is an EMPTY STRING rather than null, which
  * a `!= null` test would read as occupied.
  */
@@ -174,13 +172,11 @@ const halfKey = (half: string | null, inning: number) =>
  * its own cell is missing rows, and it is the only half-inning we know that about. Whatever
  * gap is left between the log and the FINAL score after those shortfalls are accounted for is
  * missing from somewhere nobody can name, and that is the only case that costs a whole side of
- * a game. One half-inning in the season is in the first class (Aug 20, top of the 7th, the
- * hit-by-pitch with the bases loaded that RetroWPBL has and the feed does not) and none is in
- * the second.
+ * a game.
  *
- * Being able to place a gap is what lets the rest of a damaged game stay. The Aug 20 log goes
- * blank from the middle of the 5th, fourteen rows with no batter, no event and outs frozen at
- * 0, and every one of its other half-innings still reconciles cell by cell.
+ * Being able to place a gap is what lets the rest of a damaged game stay: a log can go blank for
+ * part of a game (rows with no batter, no event and outs frozen) while every other half-inning
+ * still reconciles cell by cell.
  *
  * SHORT, not merely different. A half-inning whose log has MORE runs than its line-score cell
  * is not censored: the runs that followed each state in it are all present, which is the only
@@ -259,19 +255,16 @@ function halfInningEndings(
  * censored by the end of the GAME rather than by the inning, and averaging it in drags every
  * state it contains downward.
  *
- * This used to answer that by dropping EVERY game's last half-inning, and that was not merely
- * cautious, it was BIASED, in the direction nobody was watching. Whether a half-inning ends a
- * game is not independent of the runs in it: a top of the 7th ends the game only if the side
- * batting failed to catch up, and a bottom of the 7th is followed by another inning only if
- * the game was still level after it. So the old rule kept the top 7ths that scored (0.75 runs
- * against 0.38 for the ones it dropped) and, for bottom 7ths, kept two half-innings in the
- * whole season, both of them scoreless by definition, to stand for every bottom of the 7th
- * played. The table came out about 4% high overall: 1.13 runs a half-inning against 1.08
- * measured on all of them, and 3.20 against 3.00 with the bases loaded and nobody out.
+ * DO NOT ANSWER THAT BY DROPPING EVERY GAME'S LAST HALF-INNING. That is not cautious, it is
+ * BIASED: whether a half-inning ends a game is not independent of the runs in it. A top of the
+ * 7th ends the game only if the side batting failed to catch up, and a bottom of the 7th is
+ * followed by another inning only if the game was still level after it, so the dropped innings
+ * are systematically the scoreless top 7ths and nearly every bottom 7th, and the table comes out
+ * several per cent high (about 1.13 runs a half-inning against 1.08 measured on all of them).
  *
  * The fix for a conditioned sample is not a better condition, it is to stop conditioning:
  * measure every half-inning whose runs are all in the log, last or not. So a last half-inning
- * is now measured when three things together rule censoring out:
+ * is measured when three things together rule censoring out:
  *
  *   1. the game is FINAL and its score is published, so nothing about it is still to come and
  *      there is something to check it against;
@@ -282,11 +275,8 @@ function halfInningEndings(
  *      "the last play scored" so that a game called early with the home side up falls out
  *      too: same censoring, different cause.
  *
- * The season's first 21 games contain no walk-off at all, so in practice every last
- * half-inning is now measured, and the table went from 265 half-innings to 283 and from 1,407
- * plate appearances to 1,467. What is NOT measured, across the whole season, is one
- * half-inning: the top of the 7th on Aug 20, where the line score has a run the play log does
- * not. If the postseason produces a walk-off it comes out on evidence rather than on suspicion.
+ * Walk-offs are rare, so in practice nearly every last half-inning is measured, and the ones
+ * left out are left out on evidence rather than on suspicion.
  *
  * Order is not assumed. The rows are sorted by (game, sequence) on the way in, because every
  * number below is a walk forward through an inning and a caller handing them over in some
@@ -358,16 +348,16 @@ function runsToEnd(plays: WpblRunValuePlay[]): number[] {
  * A half-inning a game stopped in the middle of is left out entirely: its runs are censored by
  * the end of the game rather than by the inning, so counting it would drag every state it
  * contains downward. Which last half-innings those actually are is `groupHalfInnings`, and it
- * is a narrower set than "all of them", which is what this used to assume.
+ * is a narrower set than "all of them".
  *
  * EXTRA INNINGS ARE LEFT OUT TOO, and that one is not obvious. This league starts them with a
  * runner already on second, and the feed records the placement as its own row whose base state
- * is still EMPTY, because a row's bases are the ones it began with. So an extra inning handed
- * the table a "nobody on, nobody out" observation that was followed by the runs of an inning
- * which did, in fact, have somebody on second. Six of those against 248 honest ones in the
- * cell the whole board leans on. They are 2% of the season's half-innings and they are not the
- * same game, so the walk skips them, and anything that needs to know what a free runner on
- * second is worth reads the cell for a runner on second, measured on regulation baseball.
+ * is still EMPTY, because a row's bases are the ones it began with. So an extra inning would
+ * hand the table a "nobody on, nobody out" observation followed by the runs of an inning that
+ * did, in fact, have somebody on second, in the cell the whole board leans on. Extra innings
+ * are a small share of the season and they are not the same game, so the walk skips them, and
+ * anything that needs to know what a free runner on second is worth reads the cell for a
+ * runner on second, measured on regulation baseball.
  */
 export function buildRunExpectancy(
   plays: WpblRunValuePlay[],
@@ -395,11 +385,10 @@ export function buildRunExpectancy(
       const p = h.plays[i]
       // A PITCH SEQUENCE ALONE IS NOT A PLATE APPEARANCE. The feed serves rows with a pitch
       // sequence and nothing else on it: no batter, no event, no narrative, outs frozen where
-      // the last real row left them. Aug 20 has thirteen of them across the 6th and 7th, and
-      // read as PAs they were thirteen observations of "nobody on, nobody out, no runs
-      // followed" in the cell the whole board leans on. A row that names no batter is not a
-      // trip to the plate, and the runner-advance rows that legitimately name none are not
-      // either.
+      // the last real row left them. Read as PAs, a run of them is a run of observations of
+      // "nobody on, nobody out, no runs followed" in the cell the whole board leans on. A row that
+      // names no batter is not a trip to the plate, and the runner-advance rows that legitimately
+      // name none are not either.
       if (!p.pitch_sequence || !p.batter_name) continue
       const outs = p.outs
       if (outs == null || outs < 0 || outs > 2) continue
@@ -521,9 +510,9 @@ export function playRunValues(
  *
  * Plate appearances only. On a steal or a wild pitch the feed still fills `batter_name` with
  * whoever is standing at the plate, not the runner who did the thing, so a board built from
- * every row would caption "Sarah Edwards" over "Maggie Foxx stole second" and make her name
- * the tappable one. The runs those plays produce are still in every total; they just cannot
- * be credited to a player from these columns.
+ * every row would caption "Sarah Edwards" over "Maggie Foxx stole second" and make the wrong
+ * name the tappable one. The runs those plays produce are still in every total; they just
+ * cannot be credited to a player from these columns.
  */
 export function biggestSwings(values: PlayRunValue[], limit = 10): PlayRunValue[] {
   return values
@@ -575,8 +564,8 @@ export function runValueLeaders(
       row = {
         player: id ? byId.get(id) ?? null : null,
         name,
-        // The club that was batting is on the play. A traded player's July has to read as the
-        // club she played it for, which her roster row no longer knows.
+        // The club that was batting is on the play. A traded player's July has to read as the club
+        // they played it for, which their roster row no longer knows.
         teamId: side === 'hitting' ? v.play.team_id : v.fieldingTeamId,
         pa: 0, value: 0, best: null,
       }
@@ -648,12 +637,11 @@ export function stealEconomy(values: PlayRunValue[]): StealEconomy {
  *
  * The same numbers everyone quotes from the majors (a walk is worth about .3 of a run, a home
  * run about 1.4) computed on a seven-inning league that scores fifteen a game, where they are
- * not the same numbers. It is one `reduce` over values that are already computed, and until
- * now nothing showed it.
+ * not the same numbers. It is one `reduce` over values that are already computed.
  *
  * A CURATED LIST, NOT EVERY `event_type`. The feed's vocabulary includes `unknown`, which is
- * 383 substitutions and runner advances, and several labels that mean the same thing to a
- * reader. A card that ranks "what a play is worth" cannot have a row called "unknown" on it,
+ * hundreds of substitutions and runner advances, and several labels that mean the same thing to
+ * a reader. A card that ranks "what a play is worth" cannot have a row called "unknown" on it,
  * and an allow-list also means a label the feed invents next week is left off rather than
  * shown raw. Anything named here that has not happened yet is simply absent from the result.
  */
@@ -691,11 +679,10 @@ export function eventValues(values: PlayRunValue[], minPlays = 10): EventValue[]
  * One real play, worked through, for the card that explains where these numbers come from.
  *
  * A FORMULA IS NOT AN EXPLANATION. "Runs scored, plus what it left behind, minus what it
- * started with" is three abstractions to a reader who has never met any of them, and the
- * version of this card that shipped first was exactly that: correct, and readable only by
- * somebody who already knew. A named player, in a real inning, with the two situations spelled
- * out in words and the arithmetic landing on a number that is visibly on the row above, is the
- * same sentence with everything concrete.
+ * started with" is three abstractions to a reader who has never met any of them: correct, and
+ * readable only by somebody who already knows. A named player, in a real inning, with the two
+ * situations spelled out in words and the arithmetic landing on a number that is visibly on the
+ * row above, is the same sentence with everything concrete.
  *
  * CHOSEN, NOT FROZEN. The alternative is picking a good play by hand and pasting its numbers
  * into the copy, which is a lie waiting to happen: the run-expectancy table moves under it
@@ -734,14 +721,12 @@ const TEACHABLE: readonly string[] = ['home_run', 'double', 'triple', 'single', 
 /**
  * A narrative simple enough to teach from: one thing happening, said once.
  *
- * THIS EXISTS BECAUSE OF A REAL PICK. Ranked on the arithmetic alone, the card chose "Edith De
- * Leija singled to right center, advanced to second on the throw, RBI (1-2 FBK); Kate Blunt
- * advanced to second, out at third rf to ss; Hyeonah Kim scored." That is a perfectly typical
- * single and a hopeless example: three separate things happen, one of them is a runner being
- * thrown out at third, and the reader is being asked to hold all of it in their head while
- * checking three numbers they have just been introduced to. The arithmetic was right and the
- * example still failed, because being typical and being legible are different properties and
- * only one of them was being selected for.
+ * THIS EXISTS BECAUSE TYPICAL IS NOT LEGIBLE. Ranked on the arithmetic alone, the pick can be a
+ * perfectly typical single whose narrative has three things happen in it (the batter taking a
+ * base on the throw, another runner thrown out at third, a run scoring), and the reader is asked
+ * to hold all of it in their head while checking three numbers they have just been introduced
+ * to. Being typical and being legible are different properties, and the arithmetic selects for
+ * only one of them.
  *
  * "Unearned" is rejected for the same reason at smaller scale: it is a scoring distinction that
  * has nothing to do with what the play was worth, and a reader meeting it here will stop to

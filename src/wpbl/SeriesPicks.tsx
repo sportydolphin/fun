@@ -22,12 +22,12 @@ import type { WpblTeam } from './types'
 /**
  * Call the postseason: one pick per series, club and series score.
  *
- * WHY IT IS A MODE BEHIND A BUTTON AND NOT CONTROLS ON THE CARD. The first pass put four chips
- * under every series box: twelve permanent controls inside a card whose job is to draw a
- * bracket, and it asked the whole question at once. "SF in 2" and "BOS in 3" were the same size
- * and weight in one grid of four, with nothing saying which half you were answering. A reader who
- * never wants to predict anything paid for all of it on every visit. So the card carries ONE
- * control, and the picking happens somewhere with room for it.
+ * WHY IT IS A MODE BEHIND A BUTTON AND NOT CONTROLS ON THE CARD. Chips under every series box
+ * would be twelve permanent controls inside a card whose job is to draw a bracket, asking the
+ * whole question at once: "SF in 2" and "BOS in 3" the same size and weight in one grid of four,
+ * with nothing saying which half you are answering. A reader who never wants to predict anything
+ * would pay for all of it on every visit. So the card carries ONE control, and the picking
+ * happens somewhere with room for it.
  *
  * WHY NOT A WIN COUNTER. Tapping a club to add a win is the shape of the data rather than the
  * shape of the thought: a series prediction is one sentence, "Firebells in three", and a counter
@@ -35,18 +35,17 @@ import type { WpblTeam } from './types'
  * length, says it in the order people say it, and the second question only ever has two or three
  * answers because the first one has already been settled.
  *
- * A PICK NEEDS AN ACCOUNT, AND THAT IS A REVERSAL. This shipped keyed to the browser, the same
- * rule the fan-award ballot sets and for the reason it gives: an account requirement on a poll
- * with nothing at stake costs more real answers than it saves fake ones, and signing in bought
- * the reader nothing. What changed is that this poll PUBLISHES ITS NUMBERS BACK, in the tiles
- * and in the "% agree" on the card, so the tally is the feature rather than a by-product, and a
- * browser id is a thing anyone can mint in a private window as fast as they can open one. An
- * account is the cheapest bar that makes gaming the percentages more work than it is worth. It
- * also means a reader's own picks survive a cleared cache and follow them to a second device,
+ * A PICK NEEDS AN ACCOUNT, UNLIKE AN AWARD VOTE. The fan-award ballot keys on the browser for the
+ * reason it gives: an account requirement on a poll with nothing at stake costs more real answers
+ * than it saves fake ones. This poll is different because it PUBLISHES ITS NUMBERS BACK, in the
+ * tiles and in the "% agree" on the card, so the tally is the feature rather than a by-product,
+ * and a browser id is a thing anyone can mint in a private window as fast as they can open one.
+ * An account is the cheapest bar that makes gaming the percentages more work than it is worth.
+ * It also means a reader's own picks survive a cleared cache and follow them to a second device,
  * which is what makes the requirement worth something to the person paying it.
  *
  * SO THE PICK'EM KEYS ON THE USER ID WHILE THE AWARDS BALLOT STAYS ON THE BROWSER, and
- * `wpbl_award_votes.voter_key` now holds two kinds of value. That is deliberate and worth
+ * `wpbl_award_votes.voter_key` holds two kinds of value. That is deliberate and worth
  * knowing: the two features want opposite trades, one wants every answer it can get and the
  * other wants answers it can attribute. Nothing in the table distinguishes them, and nothing
  * needs to, because a category belongs to exactly one of the two.
@@ -54,9 +53,8 @@ import type { WpblTeam } from './types'
  * A SIGNED-OUT READER STILL SEES THE QUESTIONS. The gate is on answering, not on looking: the
  * sheet opens, the clubs and formats are all there, and the controls are replaced by the ask.
  * Hiding the feature behind the wall would cost the sign-ups the wall is for. The ask is four
- * words and no justification, which is the second thing this got wrong: the paragraph under it
- * argued for the account requirement, and a reader who has to be argued into a sign-in is one
- * who has already decided.
+ * words and no justification: a reader who has to be argued into a sign-in is one who has
+ * already decided, so a paragraph arguing for the account requirement buys nothing.
  *
  * THE TALLY IS HIDDEN UNTIL YOU ANSWER. A poll that shows its results first stops measuring what
  * people think and starts measuring what the first fifty people thought. Once a series is under
@@ -88,11 +86,11 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
   // cleared cache and follow them to a second device. A browser id does none of the three.
   const { user, openAuthDialog } = useAuth()
   const voterKey = user?.id ?? null
-  // ONE PIECE OF STATE HOLDING BOTH HALVES, because a pick moves both at once. Two useStates
-  // meant the tally update had to happen inside the ballot's updater, which is a side effect
+  // ONE PIECE OF STATE HOLDING BOTH HALVES, because a pick moves both at once. With two useStates
+  // the tally update would have to happen inside the ballot's updater, which is a side effect
   // inside a function React is entitled to call more than once for the same change: under
-  // StrictMode that is exactly what it does, and the reader's own vote would have been counted
-  // twice on their screen and nowhere else.
+  // StrictMode that is exactly what it does, and the reader's own vote would be counted twice on
+  // their screen and nowhere else.
   const [state, setState] = useState<{ ballot: AwardBallot; results: AwardResults; loaded: boolean }>(
     { ballot: {}, results: {}, loaded: false })
 
@@ -249,20 +247,19 @@ export function SeriesPickLine({ series, bracket, state }: {
 
   return (
     // `px: 1.25` and not 1, because this is the fourth row of a series box and the three above
-    // it (the header band, the club rows, the dates) all sit at 1.25. At 1 the receipt hung 2px
+    // it (the header band, the club rows, the dates) all sit at 1.25. At 1 the receipt hangs 2px
     // out past a stack of otherwise flush edges, on both sides at once, which reads as the row
     // being pasted on rather than as part of the box.
     //
-    // THE READER'S OWN CALL WAS THE QUIETEST THING IN THE BOX, which is backwards. It shipped
-    // entirely at `caption`, the smallest size on the card, under two club names set at
-    // `heading`: every fact the league supplied outranked the one fact the reader supplied. This
-    // is the only line in the bracket that belongs to the person looking at it, and the whole
-    // reason the button above is worth pressing, so it gets three things it did not have. A tint
-    // in the club's own colour, which is also what the selected tile in the sheet looks like, so
-    // a pick is recognisable in both places. A rail down the left edge, which is what actually
-    // separates it from the meta line above without spending any height. And the sentence itself
-    // at `body`, one step up, which makes it the second-loudest thing in the box after the two
-    // clubs rather than the quietest.
+    // THE READER'S OWN CALL MUST NOT BE THE QUIETEST THING IN THE BOX. Set entirely at `caption`,
+    // the smallest size on the card, under two club names set at `heading`, every fact the league
+    // supplied would outrank the one fact the reader supplied. This is the only line in the bracket
+    // that belongs to the person looking at it, and the whole reason the button above is worth
+    // pressing, so it gets three things. A tint in the club's own colour, which is also what the
+    // selected tile in the sheet looks like, so a pick is recognisable in both places. A rail down
+    // the left edge, which is what actually separates it from the meta line above without spending
+    // any height. And the sentence itself at `body`, one step up, which makes it the second-loudest
+    // thing in the box after the two clubs rather than the quietest.
     <Box sx={{
       px: 1.25, py: 0.6, borderTop: '1px solid', borderColor: 'divider',
       display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0,
@@ -313,13 +310,13 @@ export function PickemButton({ bracket, state, from, compact }: {
    * The header version: a pill beside the card title rather than a band across the body.
    *
    * TWO SURFACES ASK FOR IT, FOR TWO REASONS. A PHONE OPENS THIS CARD SHUT, on a measured
-   * decision (it is 709px on a 375px screen and arrives at 57% scroll depth), and a collapsed
-   * SectionCard renders none of its children, so a button at the top of the body is behind a tap
-   * on exactly the surface where the traffic is. This one rides in the header instead, where it
-   * survives the collapse, and it opens the sheet directly rather than expanding the card first:
-   * from a shut card, picking is one tap rather than three. On DESKTOP the card is 1,214px wide
-   * and the reason is shape: a control above the diagram spans the whole of it and reads as a
-   * header band, which is what the body version's own `maxWidth` was already fighting.
+   * decision (see the collapse note in PlayoffBracket), and a collapsed SectionCard renders none
+   * of its children, so a button at the top of the body is behind a tap on exactly the surface
+   * where the traffic is. This one rides in the header instead, where it survives the collapse,
+   * and it opens the sheet directly rather than expanding the card first: from a shut card,
+   * picking is one tap rather than three. On DESKTOP the card is 1,214px wide and the reason is
+   * shape: a control above the diagram spans the whole of it and reads as a header band, which
+   * is what the body version's own `maxWidth` is fighting.
    *
    * So this flag means "in the header", not "on a phone", and the `compact` it reports to
    * analytics should be read that way.
@@ -366,11 +363,11 @@ export function PickemButton({ bracket, state, from, compact }: {
           }}
         >
           {/* Bigger from `sm` up, where this is the card's ONE action rather than a pill squeezed
-              into a collapsed phone header. At the caption size it came out as a 12px label in a
-              28px pill beside a 19px title, which is smaller than anything else on the card and
-              reads as a footnote to the heading. On a phone the header is title, subtitle, pill
-              and chevron across 375px, so the small size there is the constraint it was picked
-              for and stays. */}
+          into a collapsed phone header. At the caption size it comes out as a 12px label in a
+          28px pill beside a 19px title, which is smaller than anything else on the card and
+          reads as a footnote to the heading. On a phone the header is title, subtitle, pill
+          and chevron across 375px, so the small size there is the constraint it was picked
+          for and stays. */}
           <Typography sx={{ fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.body }, fontWeight: 900 }}>
             {answered === 0 ? 'Make your picks' : done ? 'Your picks' : `Picks · ${answered}/${askable.length}`}
           </Typography>
@@ -440,12 +437,12 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
   /**
    * This tile is the SECOND question, answered about a club chosen on the row above.
    *
-   * TWO CLUBS OVER TWO LENGTHS IS A GRID, AND THE COLUMNS LIED. A best-of-3 offers exactly two
-   * lengths, so a stretched length row lined up cell for cell under the two clubs: pick the club
-   * on the left and "in 3" lit up in the RIGHT-hand column, directly under the club that had just
-   * been rejected. Read as a grid, which is how a 2x2 of identical tiles reads, that says
-   * "Hunters in 3". Nothing in the group was wrong; the layout said something the answer did not,
-   * and it happened to read correctly only for the best-of-5 final, where three tiles cannot line
+   * TWO CLUBS OVER TWO LENGTHS IS A GRID, AND THE COLUMNS WOULD LIE. A best-of-3 offers exactly
+   * two lengths, so a stretched length row lines up cell for cell under the two clubs: pick the
+   * club on the left and "in 3" lights up in the RIGHT-hand column, directly under the club that
+   * was just rejected. Read as a grid, which is how a 2x2 of identical tiles reads, that says
+   * "Hunters in 3". Nothing in the group is wrong; the layout says something the answer does not,
+   * and it happens to read correctly only for the best-of-5 final, where three tiles cannot line
    * up under two.
    *
    * So a length sizes to its own label instead of claiming a column, and it carries the chosen
@@ -453,10 +450,9 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
    * under two stretched tiles, and the hue says whose they are without the label repeating the
    * club four tiles running.
    *
-   * SIDE STILL MEANS SOMETHING, though, and it is the opposite of what it used to: the row hangs
-   * off the chosen club's edge (see `activeSide`), so the lengths are under the answer to the
-   * question above rather than under the club that was passed over. Pinning them left whatever
-   * was picked was the first fix for this and only half of one.
+   * SIDE STILL MEANS SOMETHING: the row hangs off the chosen club's edge (see `activeSide`), so
+   * the lengths are under the answer to the question above rather than under the club that was
+   * passed over. Pinning them left whatever was picked is only half a fix.
    */
   follows?: boolean
 }) {
@@ -484,14 +480,13 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
         // tile still wins the row.
         borderColor: on ? accent : follows ? `${accent}59` : 'divider',
         bgcolor: on ? `${accent}38` : 'transparent',
-        // THE SELECTION HAD TO DIFFER IN KIND, NOT IN INTENSITY, and that is the whole problem
-        // this ring and the tick below are solving. Every signal the selected tile had was the
-        // club's accent turned up a bit: a 1px accent border and a 12%-alpha wash of it. But the
-        // crowd's share is ALSO drawn in that accent, behind the label, at 14%. So an unpicked
-        // club that two thirds of voters chose was a bigger block of its own colour than the
-        // picked club beside it, and the one thing on screen that was supposed to say "this is
-        // your answer" was the quieter of the two. Turning the wash up further only makes a
-        // louder version of the same collision.
+        // THE SELECTION HAS TO DIFFER IN KIND, NOT IN INTENSITY, and that is the whole problem
+        // this ring and the tick below are solving. A 1px accent border and a 12%-alpha wash are the
+        // club's accent turned up a bit, and the crowd's share is ALSO drawn in that accent, behind
+        // the label, at 14%. So an unpicked club that two thirds of voters chose would be a bigger
+        // block of its own colour than the picked club beside it, and the one thing on screen that
+        // is supposed to say "this is your answer" would be the quieter of the two. Turning the wash
+        // up further only makes a louder version of the same collision.
         //
         // A ring is a different thing from a fill, and an inset shadow rather than a fatter
         // border because a 2px border reflows the row: these are flex items with padding, so the
@@ -519,12 +514,12 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
         color: follows ? accent : 'text.primary',
       }}>{label}</Typography>
       {/* THE ONE SIGNAL THAT IS NOT A COLOUR, which is why it is here rather than a third shade
-          of the club's accent. Everything else marking a selection on this tile is that accent
-          at some strength, and the accent is already spoken for by the share bar behind it; a
-          reader who cannot separate two strengths of the same hue, for whatever reason, had
-          nothing at all to go on. A tick is categorical. `aria-hidden` because `aria-checked` on
-          the radio has already said this to a screen reader, and reading "tick" after it would
-          be the same fact twice. */}
+      of the club's accent. Everything else marking a selection on this tile is that accent
+      at some strength, and the accent is already spoken for by the share bar behind it; a
+      reader who cannot separate two strengths of the same hue, for whatever reason, would
+      have nothing at all to go on. A tick is categorical. `aria-hidden` because `aria-checked`
+      on the radio has already said this to a screen reader, and reading "tick" after it would
+      be the same fact twice. */}
       {on && (
         <Typography aria-hidden sx={{
           position: 'relative', flexShrink: 0, lineHeight: 1,
@@ -627,9 +622,8 @@ function SeriesQuestion({ series, bracket, state }: {
       {activeTeam && lengths.length > 0 && (
         // THE LENGTHS SIT ON THE CHOSEN CLUB'S SIDE. Pick the club on the right and they move
         // right, so the second question is always under the answer to the first one and the row
-        // points at its own subject. Left-aligned whatever was picked, which is what this was
-        // first, the reader had to take the association on trust every time they chose the club
-        // on the right.
+        // points at its own subject. Left-aligned whatever was picked, the reader would have to take
+        // the association on trust every time they chose the club on the right.
         //
         // `flexWrap` because these do not stretch: three best-of-5 lengths at a 6rem floor want
         // 18rem plus gaps, which is more than a 320px phone has at the Large text setting.
@@ -657,16 +651,16 @@ function SeriesQuestion({ series, bracket, state }: {
       )}
 
       {/* WHAT TO DO NEXT, AND ONLY WHEN THERE IS SOMETHING TO SAY.
-          A finished answer says nothing at all. It used to print "Called.", which is the one
-          state the tiles already draw: the chosen club and the chosen length are both ringed,
-          filled in the club's colour and ticked. A caption repeating that is a line of text
-          under every answered question saying what the reader can see, and three of them is a
-          third of the sheet.
+      A finished answer says nothing at all. A "Called." here would repeat the one state the
+      tiles already draw: the chosen club and the chosen length are both ringed, filled in
+      the club's colour and ticked. A caption repeating that is a line of text under every
+      answered question saying what the reader can see, and three of them is a third of the
+      sheet.
 
-          NOTHING ABOUT THE CROWD EITHER. A per-series headcount sat here too, and on the final
-          it needed a second sentence explaining that most of the people in its denominator had
-          picked a club that is not in this matchup, which is a paragraph of arithmetic under a
-          control whose whole job is two taps. The sheet counts the votes once, at the top. */}
+      NOTHING ABOUT THE CROWD EITHER. A per-series headcount here would need, on the final, a
+      second sentence explaining that most of the people in its denominator had picked a club
+      that is not in this matchup, which is a paragraph of arithmetic under a control whose
+      whole job is two taps. The sheet counts the votes once, at the top. */}
       {status && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.6 }}>
           {status}
@@ -751,9 +745,9 @@ function PickemSheet({ bracket, state, onClose }: {
       sheet
       eyebrow="Call the postseason"
       // A PHONE SHEET'S WIDTH IS NOT A DESKTOP DIALOG'S. Above `sm` this stops being a sheet and
-      // becomes a centred card, and 460 raw px there was 460 px of card holding type scaled to
-      // 1.4: three questions in a column narrower than the bracket card's own middle third, with
-      // club names ellipsing inside tiles that had room to spare on either side of the dialog.
+      // becomes a centred card, and a raw 460px cap there holds type scaled up for the desktop:
+      // three questions in a column narrower than the bracket card's own middle third, with club
+      // names ellipsing inside tiles that have room to spare on either side of the dialog.
       // `chromePx` because a dialog's cap is structure, so it rides the desktop chrome scale and
       // not the reader's text size, which the type inside it is already riding.
       maxWidth={{ xs: 460, sm: chromePx(660) }}
@@ -815,10 +809,10 @@ function PickemSheet({ bracket, state, onClose }: {
               gridColumn: '1 / -1', justifySelf: 'start',
             }}
           >
-            {/* The ask, and nothing under it. Every line tried here was the site explaining its
-                own plumbing to somebody who had not agreed to care yet: what the account is for,
-                what it protects, where the picks follow them. None of it is what they are
-                deciding, which is only whether they want to call the postseason. */}
+            {/* The ask, and nothing under it. Any line here would be the site explaining its own
+            plumbing to somebody who has not agreed to care yet: what the account is for, what
+            it protects, where the picks follow them. None of it is what they are deciding,
+            which is only whether they want to call the postseason. */}
             <Typography sx={{
               fontSize: TYPE_SCALE.body, fontWeight: 900, lineHeight: 1.25, minWidth: 0,
             }}>
@@ -836,10 +830,9 @@ function PickemSheet({ bracket, state, onClose }: {
         {/* Guarded here as well as inside, because an empty wrapper is still a grid item and
             would leave a row of gap under the final with nothing in it. */}
         {clearable.length > 0 && (
-          // `display: flex` is load-bearing. ClearPicks is a plain div, so it fills whatever
-          // block it is dropped in; it only ever sized to its own label because the sheet used
-          // to be a flex column. Wrapping it to span the grid made it a block again and it
-          // silently became a full-width bar. A flex row gives it content width back.
+          // `display: flex` is load-bearing. ClearPicks is a plain div, so it fills whatever block it
+          // is dropped in: spanning the grid inside a plain block, it silently becomes a full-width
+          // bar. A flex row gives it content width back.
           <Box sx={{ gridColumn: '1 / -1', display: 'flex' }}>
             <ClearPicks categories={clearable} onClear={() => state.clear(clearable)} />
           </Box>

@@ -5,8 +5,8 @@ import type { WpblPitchingUsageRow } from '../types'
  * the top in chronological order (oldest left, newest right), pitchers down the side, pitch
  * count in each cell.
  *
- * Pure and separate from the component so the ordering rule — the part with judgement in
- * it — can be tested.
+ * Pure and separate from the component so the ordering rule, the part with judgement in
+ * it, can be tested.
  */
 
 export type UsageCell = {
@@ -33,10 +33,9 @@ export interface UsageGrid {
  * chart answers is who has been leaned on.
  *
  * `gameOrder` is the grid's DISPLAY order, oldest to newest, so the most recent start is the
- * HIGHEST index and the sort key is negated to keep "most recent" sorting first. This used
- * to be a plain `Math.min` back when the columns ran newest-first; flipping the columns
- * without flipping this would have quietly reversed the rotation, ranking each starter by
- * their OLDEST outing in the window.
+ * HIGHEST index and the sort key is negated to keep "most recent" sorting first. A plain
+ * `Math.min` here would quietly reverse the rotation, ranking each starter by their OLDEST
+ * outing in the window.
  */
 export function rankPitcher(cells: UsageCell[], gameOrder: string[], gameOf: Map<UsageCell, string>) {
   const startedAt = cells.filter(c => c.started).map(c => gameOrder.indexOf(gameOf.get(c)!))
@@ -51,8 +50,7 @@ export function rankPitcher(cells: UsageCell[], gameOrder: string[], gameOf: Map
 // The WINDOW is the N most recent games, so choosing them means sorting newest first and
 // taking the head. The DISPLAY is left-to-right chronological, matching every other
 // time-ordered surface in the app: the scoreboard strip runs oldest to newest across, and a
-// player's game log reads top-down the same way. These two grids used to be the only places
-// that ran backwards.
+// player's game log reads top-down the same way.
 //
 // Two games can share a date (a doubleheader) and the view carries no start time or game
 // number to separate them, so the id breaks the tie: an arbitrary order, but a STABLE one,

@@ -138,7 +138,7 @@ describe('postseasonScheduleRows', () => {
   //
   // BALANCED, every pair meeting five times so every club plays fifteen. `computeStandings`
   // sorts on win PERCENTAGE, so a fixture with uneven games played can rank a 7-3 club above a
-  // 9-5 one, and a draft of this test did exactly that and asked the wrong question.
+  // 9-5 one, and this test would then be asking the wrong question.
   //
   //   SF 9-4  LA 7-6  NY 6-7  BOS 4-9, two to play each
   //   SF-LA 3-2 finished · NY-BOS 3-2 to BOS finished · the other four have one left
@@ -254,8 +254,8 @@ describe('postseasonScheduleRows', () => {
 
   // WHO BATS LAST. The league's schedule page designates a home club for every semifinal game
   // and for none of the championship's: the higher seed bats last in games 1 and 3, the lower
-  // seed in game 2. Held as a seat rather than a club so it was already true before the seeds
-  // were, which is the same reason the pairings are seeds.
+  // seed in game 2. Held as a seat rather than a club so it is true before the seeds are, which
+  // is the same reason the pairings are seeds.
   it('carries the home designation the league published for the semifinals', () => {
     for (const label of ['Semifinal A', 'Semifinal B']) {
       const rows = bySeries(finished(), label)

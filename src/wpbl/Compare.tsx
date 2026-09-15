@@ -55,9 +55,9 @@ const isModified = (e: React.MouseEvent) =>
 /**
  * One player's identity column.
  *
- * THE NAME IS A REAL LINK to her own page, not an onClick. Googlebot does not fire click
- * handlers (CLAUDE.md, and /mlb sat undiscovered for months over exactly this), and these two
- * anchors are the whole reason a comparison page passes any value back to the pages it is
+ * THE NAME IS A REAL LINK to the player's own page, not an onClick. Googlebot does not fire
+ * click handlers (CLAUDE.md, and /mlb sat undiscovered for months over exactly this), and these
+ * two anchors are the whole reason a comparison page passes any value back to the pages it is
  * built out of.
  */
 function CompareHead({ player, team, roster, position, onNavigate, onClear }: {
@@ -92,9 +92,9 @@ function CompareHead({ player, team, roster, position, onNavigate, onClear }: {
         </Typography>
       </Box>
       {/* THE NICKNAME, NOT THE FULL CLUB NAME, and the badge is why it can be. "San Francisco
-          Firebells · C" wraps onto two lines in a half-width column on any phone, which left
-          the two heads different heights and the line itself reading as two facts instead of
-          one. The city is the part the badge beside it already says. */}
+      Firebells · C" wraps onto two lines in a half-width column on any phone, which leaves
+      the two heads different heights and the line itself reading as two facts instead of
+      one. The city is the part the badge beside it already says. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: '100%' }}>
         {team && <TeamBadge team={team} size={18} />}
         <Typography noWrap sx={{ fontSize: MICRO_TEXT, color: 'text.secondary', minWidth: 0 }}>
@@ -128,36 +128,12 @@ function CompareHead({ player, team, roster, position, onNavigate, onClear }: {
 // ─── The rows ─────────────────────────────────────────────────────────────────
 
 /**
- * One stat, both columns, with a tick on whoever leads.
- *
- * THE GEOMETRY IS THE HONESTY. The two value columns are identical in width, weight and
- * position, and the only thing that separates the leader is a colour and a dot. An earlier
- * draft drew the leading number larger, which turns a .312 against a .308 into a picture of
- * one player towering over another over four thousandths of a batting average.
- *
- * The columns reserve their room in `rem`, not px: they hold numbers, they sit next to type
- * sized in rem, and at a reader's Large text setting a px-sized column clips its own contents.
- * See CLAUDE.md on the three kinds of fixed size in this section.
- */
-/**
- * The geometry every row in a group shares: the sample band and the stat rows alike.
- *
- * CAPPED AND CENTRED RATHER THAN FULL-WIDTH, which is a fix for the desktop and costs the
- * phone nothing (it is already narrower than the cap). Left to fill the card, the two numbers
- * sat in a 15rem huddle in the middle of a 45rem rule, so every hairline ran a long way past
- * anything it was separating and the figures read as lost rather than as a table.
- *
- * `chromePx`, because this is STRUCTURE: raw px here shrinks 40% against the type inside it
- * (CLAUDE.md on the three kinds of fixed size). The value columns are `rem` for the opposite
- * reason: they reserve room for a number and must grow with the text.
- */
-/**
  * A comparison table, with its heading centred over it.
  *
- * NOT `SectionCard`, which is what the rest of the section uses and what this used first. Its
- * title sits at the left, which is right for a card whose body is prose or a list running left
- * to right, and wrong for this one: the body is a symmetrical three-column table centred on the
- * page, so a left-aligned heading was the only thing on the card off its own axis.
+ * NOT `SectionCard`, which is what the rest of the section uses. Its title sits at the left,
+ * which is right for a card whose body is prose or a list running left to right, and wrong for
+ * this one: the body is a symmetrical three-column table centred on the page, so a left-aligned
+ * heading would be the only thing on the card off its own axis.
  *
  * The band is the shape a stats table has had since long before the web (Stathead draws the
  * same thing across the top of its comparison, and Baseball-Reference before it): a caption
@@ -234,18 +210,42 @@ function CompareStamp() {
   )
 }
 
+/**
+ * The geometry every row in a group shares: the sample band and the stat rows alike.
+ *
+ * CAPPED AND CENTRED RATHER THAN FULL-WIDTH, which is a fix for the desktop and costs the
+ * phone nothing (it is already narrower than the cap). Left to fill the card, the two numbers
+ * sit in a 15rem huddle in the middle of a 45rem rule, so every hairline runs a long way past
+ * anything it is separating and the figures read as lost rather than as a table.
+ *
+ * `chromePx`, because this is STRUCTURE: raw px here shrinks against the type inside it
+ * (CLAUDE.md on the three kinds of fixed size). The value columns are `rem` for the opposite
+ * reason: they reserve room for a number and must grow with the text.
+ */
 const STAT_ROW = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
   maxWidth: chromePx(400), mx: 'auto',
 } as const
 
+/**
+ * One stat, both columns, with the leader marked.
+ *
+ * THE GEOMETRY IS THE HONESTY. The two value columns are identical in width and position, and
+ * the only thing that separates the leader is a wash and a weight. Drawing the leading number
+ * larger turns a .312 against a .308 into a picture of one player towering over another over
+ * four thousandths of a batting average.
+ *
+ * The columns reserve their room in `rem`, not px: they hold numbers, they sit next to type
+ * sized in rem, and at a reader's Large text setting a px-sized column clips its own contents.
+ * See CLAUDE.md on the three kinds of fixed size in this section.
+ */
 function CompareStatRow({ row }: { row: WpblCompareRow }) {
   const cell = (side: WpblCompareSide, text: string) => {
     const leads = row.leader === side
     return (
       // THE WHOLE CELL IS THE HIGHLIGHT, the way Stathead shades a winner's column rather than
       // ringing the glyph. A pill around a single digit is a dot nobody sees; on the counting
-      // rows, where most figures are one or two characters, it was doing nothing. The cell is
+      // rows, where most figures are one or two characters, it does nothing. The cell is
       // fixed-width and the figure centred in it, so the wash is the same block whichever side
       // leads and the number never shifts as the lead changes hands.
       <Box sx={{
@@ -295,8 +295,8 @@ function CompareStatRow({ row }: { row: WpblCompareRow }) {
  * changed. `qualified` and `barText` are still built and still tested, for a surface that wants
  * to mark the qualifying bar without writing a paragraph about it.
  *
- * NO "SHE HAS NOT REACHED 36 PA" FOOTNOTE, which this carried until it was read on a real pair:
- * three lines of small type saying in prose what the playing-time rows already say in figures.
+ * NO "HAS NOT REACHED 36 PA" FOOTNOTE: three lines of small type saying in prose what the
+ * playing-time rows already say in figures.
  */
 function CompareGroupCard({ group }: { group: WpblCompareGroup }) {
   // Each block wrapped so `:last-of-type` inside CompareStatRow means "the last row of THIS
@@ -327,7 +327,7 @@ function CompareGroupCard({ group }: { group: WpblCompareGroup }) {
  * pairings means a hitter sees the same pitcher ten to fifteen times in a season, a sample a
  * thirty-club league never produces; in the majors the equivalent line is four at-bats and
  * means nothing. It is still a small number, so the card prints the raw line and no rate
- * commentary: 3-for-11 is a fact, "owns her" is not.
+ * commentary: 3-for-11 is a fact, "has their number" is not.
  */
 function MatchupCard({ comparison, a, b }: {
   comparison: ReturnType<typeof buildWpblComparison>
@@ -575,8 +575,8 @@ export default function WpblComparePage({ path, onNavigate }: {
           `${a.name} and ${b.name} side by side in the 2026 Women's Pro Baseball League: `
           + 'batting, pitching, playing time, and what happened when they faced each other.',
         // The columns follow the URL's order (the reader's), but both orders declare the same
-        // alphabetical canonical, so the two spellings are one page to a search engine. This is
-        // what replaced the edge 301 that used to force the order and lose it.
+        // alphabetical canonical, so the two spellings are one page to a search engine. That is
+        // why the edge does not 301 one order onto the other.
         canonical: wpblCompareCanonicalPath(a, b, players),
       },
     })
@@ -647,11 +647,10 @@ export default function WpblComparePage({ path, onNavigate }: {
             onNavigate={onNavigate}
             onClear={pair ? () => onNavigate(wpblCompareStartPath(pair[1], players)) : undefined}
           />
-          {/* A WORD, NOT THE SWAP ICON THAT WAS HERE. Two arrows between two names read as a
-              control that swaps them, and there is nothing for it to do: the URL is the pair
-              in alphabetical order (routes.ts), so which name is on the left is not the
-              reader's to choose and a button offering it would either lie or mint a
-              non-canonical URL. "vs" says the same thing and promises nothing. */}
+          {/* A WORD, NOT A SWAP ICON. Two arrows between two names read as a control that swaps
+          them, and there is nothing useful for it to do: the order is the one the reader built
+          (routes.ts), and a button flipping it would mint a second spelling of a page that
+          already has one canonical. "vs" says the same thing and promises nothing. */}
           <Typography aria-hidden sx={{
             alignSelf: 'center', flexShrink: 0, px: 0.5,
             fontSize: MICRO_TEXT, fontWeight: 800, letterSpacing: 0.8,
