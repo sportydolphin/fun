@@ -168,7 +168,7 @@ function SituationPanel({ s, away, home, last, teams, batting, pitching, names, 
           line={lineFor(s.batterName, s.battingTeam, names, batting, battingStatline)}
           onOpenPlayer={onOpenPlayer}
         />
-        <Bases s={s} accent={accent} />
+        <Bases s={s} accent={accent} names={names} />
         <PersonCard
           label="Pitching" name={s.pitcherName} team={fielding}
           line={lineFor(s.pitcherName, fielding, names, pitching, pitchingStatline)}
@@ -300,7 +300,7 @@ function Pips({ label, filled, of, unit, tint }: {
  * 114px sides and the card looked bottom-heavy in the middle; beside each other they fit the
  * column's width at both text scales and bring the three columns within about 40px.
  */
-function Bases({ s, accent }: { s: Situation; accent: string }) {
+function Bases({ s, accent, names }: { s: Situation; accent: string; names: Map<string, WpblPlayer> }) {
   return (
     <Box sx={{
       // First on a phone, middle on a desktop. Behind the count, which is what somebody glances
@@ -310,7 +310,7 @@ function Bases({ s, accent }: { s: Situation; accent: string }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.75,
     }}>
       <Diamond first={s.first} second={s.second} third={s.third} />
-      <Runners s={s} accent={accent} />
+      <Runners s={s} accent={accent} names={names} />
     </Box>
   )
 }
@@ -368,11 +368,16 @@ function Diamond({ first, second, third }: { first: boolean; second: boolean; th
  * and down the screen through the innings. Three rows is the worst case, and the worst case is
  * what it reserves. In REM, because what it reserves is room for three rows of type.
  */
-function Runners({ s, accent }: { s: Situation; accent: string }) {
+function Runners({ s, accent, names }: { s: Situation; accent: string; names: Map<string, WpblPlayer> }) {
+  // The roster's spelling of each runner, not the feed's: `s.firstName` is the feed's prose
+  // ("Val Perez"), the same field the batter and pitcher come from, and it is wrong for the same
+  // seven players (see feedNames.ts). Corrected here so a runner on base reads the same as she
+  // does at the plate an inch away.
+  const canon = (name: string | null): string | null => name ? canonicalFeedName(name, names.values()) : name
   const on = [
-    s.third ? { base: '3B', name: s.thirdName } : null,
-    s.second ? { base: '2B', name: s.secondName } : null,
-    s.first ? { base: '1B', name: s.firstName } : null,
+    s.third ? { base: '3B', name: canon(s.thirdName) } : null,
+    s.second ? { base: '2B', name: canon(s.secondName) } : null,
+    s.first ? { base: '1B', name: canon(s.firstName) } : null,
   ].filter((r): r is { base: string; name: string | null } => r !== null)
 
   return (

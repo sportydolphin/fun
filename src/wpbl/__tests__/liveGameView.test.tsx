@@ -93,6 +93,21 @@ describe('the bases, named', () => {
     expect(screen.queryByText('On base')).toBeNull()
   })
 
+  // A runner's name is the same feed prose as the batter's and the pitcher's, and wrong for the
+  // same seven players (feedNames.ts). It has to be corrected to the roster spelling here too,
+  // or a player reads one way at the plate and another an inch away on first.
+  it("names a runner the roster's way, not the feed's", () => {
+    const names = new Map<string, WpblPlayer>([['s', player('s', 'Valerie Perez', HOME.id)]])
+    render(
+      <LiveGameView
+        game={game({ ...LIVE, first_base: 'Val Perez' })} teams={TEAMS} away={AWAY} home={HOME}
+        plays={[play()]} batting={[]} pitching={[]} names={names} games={[]}
+      />,
+    )
+    expect(screen.getByText('V. Perez')).toBeTruthy()
+    expect(screen.queryByText('Val Perez')).toBeNull()
+  })
+
   // The flag and the name come out of the same field, so they cannot disagree today. They are
   // read separately all the same, and a base occupied by nobody named still has to draw.
   it('draws a base the feed marks occupied without naming the runner', () => {

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays } from './api'
+import { fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, getCachedWpblAllPlayers } from './api'
 import {
   gameWinProb, fmtWinPct, winProbModel, swingLabel,
   type GameWinProb, type WinProbPoint,
 } from './derive/winProbability'
 import { parsePlay } from './derive/playByPlay'
+import { canonicalFeedName } from './feedNames'
 import { useChartScrub } from './chartScrub'
 import { wpblAccent } from './constants'
 import { CARD_BORDER, TapTip, useWpblDark, useWpblName } from './ui'
@@ -245,7 +246,17 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
   // One line means the row has a budget, and the name is the part of a play that can be given
   // up without losing what happened. The section's own shortener, so a name degrades here the
   // way it does in every other WPBL list.
-  const short = useWpblName(14)
+  // The readout names the batter of each play from the feed's prose (`batter_name`), which is
+  // wrong for the seven players in feedNames.ts. Correct it to the roster spelling before
+  // shortening, the same fix the play-by-play and the live panel make. The roster is the
+  // app-wide cache, already warm by the time Game Center opens this chart; absent, the name is
+  // left as the feed sent it rather than blocking on a fetch this card does not otherwise need.
+  const roster = getCachedWpblAllPlayers()
+  const shorten = useWpblName(14)
+  const short = useCallback(
+    (name: string) => shorten(roster ? canonicalFeedName(name, roster) : name),
+    [shorten, roster],
+  )
   const scrub = useChartScrub(pts.length,
     'Win probability through the game. Press and hold the chart, or use the arrow keys, to read any moment of it.')
   const at = scrub.index == null ? null : pts[scrub.index]

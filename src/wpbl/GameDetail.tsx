@@ -1123,9 +1123,12 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                       <Typography sx={{
                         fontSize: '0.72rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
                       }}>
+                        {/* Corrected to the roster spelling through the same `canon` map the
+                            play-by-play name uses: `change.to`/`from` come from `pitcher_name`,
+                            which is the feed's prose and wrong for the same seven players. */}
                         {change.announcedAt != null
-                          ? `${shortenNames(change.to)} to p for ${shortenNames(change.from)}`
-                          : `Now pitching: ${shortenNames(change.to)}`}
+                          ? `${shortenNames(canon.get(change.to) ?? change.to)} to p for ${shortenNames(canon.get(change.from) ?? change.from)}`
+                          : `Now pitching: ${shortenNames(canon.get(change.to) ?? change.to)}`}
                         {/* THE DAGGER RIDES THE ROW, NOT THE SENTENCE. This line is drawn from
                             `pitcher_name` and needs no correction to be right, but the row
                             underneath it is the one the overlay corrected and the one the
@@ -1495,7 +1498,13 @@ const samePitcher = (a: string, b: string): boolean => {
 }
 
 type FirstHit = { batter: string | null; inning: number; half: string }
-function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[]; firstHit?: FirstHit | null; live?: boolean }) {
+function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[]; firstHit?: FirstHit | null; live?: boolean; names: Map<string, WpblPlayer> }) {
+  // The TrackMan payload spells names its own way ("Saki, Emi"), and this tab named players
+  // straight from it with no roster resolution, so a misspelled one reached the standout strip
+  // and the pitch log raw. Every formatted name goes through here first: the roster's spelling
+  // when it resolves uniquely, the feed's otherwise (see canonicalFeedName / feedNames.ts).
+  const canonName = (formatted: string | null): string | null =>
+    formatted ? canonicalFeedName(formatted, names.values()) : formatted
   // Real game pitches only. The feed's "rest_reconciliation" warmup/bullpen rows carry a
   // velocity but no batter (nor pitcher / inning); they are not game pitches and must not
   // count toward the velo stats or be rescued onto a real pitcher. A pitch thrown to a
@@ -1519,10 +1528,10 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
     for (const t of tracking) {
       const raw = t.raw as { exit_speed?: number | string | null; batter_name?: string | null } | null
       const ev = raw?.exit_speed == null ? NaN : Number(raw.exit_speed)
-      if (Number.isFinite(ev) && ev > exit) { exit = ev; batter = raw?.batter_name ? fmtFeedName(raw.batter_name) : null }
+      if (Number.isFinite(ev) && ev > exit) { exit = ev; batter = raw?.batter_name ? canonName(fmtFeedName(raw.batter_name)) : null }
     }
     return exit > 0 ? { exit, batter } : null
-  }, [tracking])
+  }, [tracking, names])
   // Attribution: the tracking `play_id` is the FEED's play id (not our plays row), so we
   // can't join to wpbl_game_plays. The pitcher name lives in each event's raw payload
   // ("Last, First"); reconciliation events omit it, so fill from a sibling of the same
@@ -1542,8 +1551,8 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
       const nm = rawName(t)
       if (t.play_id && nm && !byPlay.has(t.play_id)) byPlay.set(t.play_id, nm)
     }
-    return (t: WpblPitchTracking) => rawName(t) ?? (t.play_id ? byPlay.get(t.play_id) : null) ?? null
-  }, [tracking])
+    return (t: WpblPitchTracking) => canonName(rawName(t) ?? (t.play_id ? byPlay.get(t.play_id) : null) ?? null)
+  }, [tracking, names])
 
   const avg = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null)
   const { units } = useUnits()
@@ -1574,13 +1583,13 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
         velo:    t.release_speed!,
         spin:    t.spin_rate_rpm,
         type:    prettyType(raw?.pitch_type ?? null),
-        batter:  fmtName(raw?.batter_name),
+        batter:  canonName(fmtName(raw?.batter_name)),
         pitcher: pitcherFor(t),
         inPlay:  t.kind === 'hit',
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tracking, pitcherFor])
+  }, [tracking, pitcherFor, names])
 
   // Aggregate TrackMan velo/spin by attributed name, plus an "unattributed" bucket.
   // Then merge onto the box-score pitcher list (the authoritative who-pitched, with real
@@ -2448,7 +2457,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
                 })() : t.value === 'plays' ? (
                   <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
                 ) : t.value === 'pitch' ? (
-                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />
+                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} names={names} />
                 ) : null
               ))}
             />
