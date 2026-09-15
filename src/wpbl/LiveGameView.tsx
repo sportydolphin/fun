@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useMediaQuery } from '@mui/material'
 import { deriveSituation, shortName, FeedAge, type Situation } from './Live'
 import { LazyWinProbCard } from './RecapCard'
 import { canonicalFeedName, matchFeedName } from './feedNames'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { battingStatline, pitchingStatline } from './derive/recap'
-import { wpblAccent } from './constants'
-import { CARD_BORDER, FOCUS_RING, PlayerPortrait, chromePx, pressable, useWpblDark, useWpblName } from './ui'
+import { wpblAccent, wpblFullName } from './constants'
+import { CARD_BORDER, FOCUS_RING, PlayerPortrait, TeamBadge, chromePx, pressable, useWpblDark, useWpblName } from './ui'
 import { useWpblPlayerLink, linkColor } from './LinkContext'
 import type {
   WpblBattingLine, WpblGame, WpblGamePlay, WpblPitchingLine, WpblPlayer, WpblTeam,
@@ -47,7 +47,7 @@ import type {
  * Drawn as pips it is four balls and three strikes, so the pips CLAMP.
  */
 export default function LiveGameView({
-  game, teams, away, home, plays, batting, pitching, names, games, onOpenPlayer,
+  game, teams, away, home, plays, batting, pitching, names, games, onOpenPlayer, lineScore,
 }: {
   game: WpblGame
   teams: Map<string, WpblTeam>
@@ -59,6 +59,11 @@ export default function LiveGameView({
   names: Map<string, WpblPlayer>
   games: WpblGame[]
   onOpenPlayer?: (p: WpblPlayer) => void
+  /** The line score, dropped in between the situation and the win-probability graph — the
+   *  order Game Center's Live tab reads. Full-bleed (mx:-2) so its own px:2 lands flush with
+   *  the column edge rather than doubling this column's padding. Omitted when this view is used
+   *  on its own (Home's LiveHero has no room for it). */
+  lineScore?: React.ReactNode
 }) {
   const s = game.live_state
     ? deriveSituation(game.live_state, away, home, { away: game.away_line, home: game.home_line })
@@ -75,16 +80,18 @@ export default function LiveGameView({
 
   return (
     <Box sx={{ px: 2, pb: 2, pt: 0.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* A MEASURE on the matchup, and none on the chart. The same split the play-by-play pane
-          argues for: two portraits and a diamond have a natural size, and a line drawn across a
-          whole game does not. */}
+      {/* THE SCORE, THE COUNT AND THE MATCHUP AS ONE CARD, score on top. On a phone the panel
+          fills the screen, so a floating scorebug above it left the score with uneven margins and
+          edges that did not line up with the count band below. As the card's own header row it
+          keeps the card's spacing and alignment, and the score still reads first without
+          scrolling. The by-inning line score with H and E rides below. A MEASURE on the matchup,
+          and none on the chart further down: two portraits and a diamond have a natural size, a
+          line across a whole game does not. */}
       <Box sx={{ width: '100%', maxWidth: chromePx(800), mx: 'auto' }}>
-        {s && (
-          <SituationPanel
-            s={s} away={away} home={home} last={last} teams={teams}
-            batting={batting} pitching={pitching} names={names} onOpenPlayer={onOpenPlayer}
-          />
-        )}
+        <SituationPanel
+          game={game} s={s} away={away} home={home} last={last} teams={teams}
+          batting={batting} pitching={pitching} names={names} onOpenPlayer={onOpenPlayer}
+        />
       </Box>
       {/* HOW OLD ALL OF THAT IS, under it rather than in it. Everything above is the league's
           last word and none of it says when that word was spoken, which is the gap a reader
@@ -95,7 +102,47 @@ export default function LiveGameView({
       <Box sx={{ width: '100%', maxWidth: chromePx(800), mx: 'auto', mt: -1.25, textAlign: 'right' }}>
         <FeedAge at={game.source_updated_at} />
       </Box>
+      {lineScore && <Box sx={{ mx: -2 }}>{lineScore}</Box>}
       <LazyWinProbCard game={game} teams={teams} plays={plays} games={games} />
+    </Box>
+  )
+}
+
+// ─── The scorebug, the top row of the situation card ─────────────────────────────
+//
+// Two rows, badge · name · runs, the leader in full ink and the trailer stepped back, the same
+// pair of devices the recap Scoreboard spends on the same job. Runs alone: this is the glance
+// answer, and the by-inning line score with H and E rides below the card for the reader who wants
+// the detail. `px`/`py` match the count band directly under it so the two share one left edge and
+// one rhythm; the divider is drawn only when a section follows, so the score-only card (no live
+// count yet) has no line dangling off its foot.
+function ScoreHeader({ away, home, game, divider }: {
+  away: WpblTeam; home: WpblTeam; game: WpblGame; divider?: boolean
+}) {
+  const isMobile = useMediaQuery('(max-width:600px)')
+  const a = game.away_score ?? 0
+  const h = game.home_score ?? 0
+  const row = (team: WpblTeam, score: number, lead: boolean) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <TeamBadge team={team} size={24} />
+      <Typography sx={{
+        flex: 1, minWidth: 0, fontSize: '1rem', fontWeight: lead ? 800 : 600,
+        color: lead ? 'text.primary' : 'text.secondary',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{isMobile ? team.name : wpblFullName(team)}</Typography>
+      <Typography sx={{
+        fontSize: '1.4rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+        color: lead ? 'text.primary' : 'text.secondary',
+      }}>{score}</Typography>
+    </Box>
+  )
+  return (
+    <Box sx={{
+      px: 1.5, py: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5,
+      ...(divider ? { borderBottom: '1px solid', borderColor: 'divider' } : {}),
+    }}>
+      {row(away, a, a > h)}
+      {row(home, h, h > a)}
     </Box>
   )
 }
@@ -120,8 +167,11 @@ export default function LiveGameView({
  * card: the middle was 180px tall against 114px sides, and taking the label and the count out
  * of it brings the three within about 40px of each other.
  */
-function SituationPanel({ s, away, home, last, teams, batting, pitching, names, onOpenPlayer }: {
-  s: Situation
+function SituationPanel({ game, s, away, home, last, teams, batting, pitching, names, onOpenPlayer }: {
+  game: WpblGame
+  /** Null before the feed has published a live count for this game. The card still draws the
+   *  score header (and the last play, if any); the count, bases and matchup wait on `s`. */
+  s: Situation | null
   away: WpblTeam
   home: WpblTeam
   last: WpblGamePlay | null
@@ -132,6 +182,18 @@ function SituationPanel({ s, away, home, last, teams, batting, pitching, names, 
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const dark = useWpblDark()
+  const score = <ScoreHeader away={away} home={home} game={game} divider={!!s || !!last} />
+
+  // No live count yet: the score, and the last play if the feed has logged one.
+  if (!s) {
+    return (
+      <Panel>
+        {score}
+        {last && <LastPlay play={last} teams={teams} names={names} onOpenPlayer={onOpenPlayer} />}
+      </Panel>
+    )
+  }
+
   const accent = wpblAccent(s.battingTeam.id, dark)
   // The club in the field is the other one, and therefore the pitcher's. Read off the half
   // rather than off the feed, whose situation names only the batting side.
@@ -144,6 +206,7 @@ function SituationPanel({ s, away, home, last, teams, batting, pitching, names, 
   if (s.between) {
     return (
       <Panel>
+        {score}
         <Box sx={{ px: 1.5, py: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
           <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: 'text.secondary' }}>{s.breakLabel}</Typography>
@@ -155,6 +218,7 @@ function SituationPanel({ s, away, home, last, teams, batting, pitching, names, 
 
   return (
     <Panel>
+      {score}
       <CountBand s={s} accent={accent} dark={dark} />
       <Box sx={{
         display: 'grid',
@@ -182,8 +246,19 @@ function SituationPanel({ s, away, home, last, teams, batting, pitching, names, 
 }
 
 function Panel({ children }: { children: React.ReactNode }) {
+  // On a phone the whole tab is already a bottom sheet, so a bordered rounded card inset inside
+  // it is a box within a box; the line score directly below is full-bleed and borderless for the
+  // same reason. So drop the outline here too and let it span the sheet, its own tinted count and
+  // last-play bands carrying the structure the border used to. Desktop is a centred dialog, not a
+  // sheet, so the card still earns its edges there.
+  const isMobile = useMediaQuery('(max-width:600px)')
   return (
-    <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
+    <Box sx={{
+      overflow: 'hidden',
+      ...(isMobile
+        ? { mx: -2 }
+        : { border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2 }),
+    }}>
       {children}
     </Box>
   )
@@ -306,7 +381,7 @@ function Bases({ s, accent, names }: { s: Situation; accent: string; names: Map<
       // First on a phone, middle on a desktop. Behind the count, which is what somebody glances
       // at, and ahead of the two portraits, which answer the question after that one.
       order: { xs: -1, sm: 0 },
-      px: 1.5, py: { xs: 2, sm: 1.5 }, minWidth: 0,
+      px: 1.5, py: { xs: 1, sm: 1.5 }, minWidth: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.75,
     }}>
       <Diamond first={s.first} second={s.second} third={s.third} />
@@ -338,7 +413,10 @@ function Diamond({ first, second, third }: { first: boolean; second: boolean; th
     }} />
   )
   return (
-    <Box aria-hidden sx={{ position: 'relative', width: chromePx(104), height: chromePx(104), flexShrink: 0 }}>
+    // Sized close to the batter and pitcher portraits below it (72px), so the bases row is not
+    // half again taller than the player rows: the extra height was empty box under home plate and
+    // read as an uneven gap between the count band, the bases and the matchup.
+    <Box aria-hidden sx={{ position: 'relative', width: chromePx(80), height: chromePx(80), flexShrink: 0 }}>
       {base(second, { left: '50%', top: '18%' })}
       {base(third, { left: '18%', top: '50%' })}
       {base(first, { left: '82%', top: '50%' })}
@@ -438,9 +516,9 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
   const props = line.player ? playerLink(line.player, onOpenPlayer) : {}
   return (
     <Box sx={{
-      // Taller on a phone, where the two players stack with nothing between them any more and
-      // the space is what keeps them apart.
-      px: 1.5, py: { xs: 1.75, sm: 1.5 }, minWidth: 0,
+      // A little breathing room on a phone, where the two players stack with nothing between
+      // them any more, but not so much that the bases, batter and pitcher drift apart.
+      px: 1.5, py: { xs: 1, sm: 1.5 }, minWidth: 0,
       display: 'flex', alignItems: 'center', gap: 1.5,
       flexDirection: { xs: 'row', sm: mirror ? 'row-reverse' : 'row' },
       // `flex-start` in BOTH, and that is not a slip. The mirrored column is `row-reverse`, so

@@ -6,7 +6,7 @@ import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGame
 import { WPBL_ACCENT, wpblAccent, wpblSurface, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
 import { canonicalFeedName } from './feedNames'
-import { LiveBanner, useLiveGame, LIVE_RED } from './Live'
+import { useLiveGame, LIVE_RED } from './Live'
 import { boxScoreRevision, formatRevisionDay, leagueDay } from './derive/feedHealth'
 import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from './refresh'
@@ -1872,10 +1872,6 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   const [details, setDetails] = useState<WpblGameDetails | null>(() => cached?.details ?? null)
   const [revisions, setRevisions] = useState<WpblGameRevision[]>(() => cached?.revisions ?? [])
   const [names, setNames] = useState<Map<string, WpblPlayer>>(() => cached?.names ?? new Map())
-  // The same roster as a list, for the handful of places that match a feed NAME rather than
-  // look an id up. Empty until the fetch lands, which is correct rather than merely tolerable:
-  // an unmatched name prints as the feed spelled it, which is what it did before any of this.
-  const roster = useMemo(() => [...names.values()], [names])
   // The recap video for this game, if the league has published one. Read from the shared
   // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
   const [video, setVideo] = useState<WpblVideo | null>(() =>
@@ -2178,6 +2174,32 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     return p ? { batter: p.batter_name, inning: p.inning, half: p.half } : null
   }, [plays])
 
+  // The line score on its own. On a live game there is no fixed score header (the pill menu is
+  // the top of the modal), so this rides atop the Box Score tab, where the numbers are the point
+  // and the series stakes and the venue are not: those are context a reader wants once, not on
+  // the tab they opened to watch the game move. Carries its own px:2.
+  const scoreboard = (showScore && away && home)
+    ? <Scoreboard away={away} home={home} game={game} awayWon={awayWon} homeWon={homeWon} onOpenTeam={onOpenTeam} />
+    : null
+
+  // The line score plus the series/venue context, as one block, for the Live tab, where it rides
+  // below the situation. `showScore` gates the scoreboard exactly as the header did.
+  const lineScoreBlock = (away && home) ? (
+    <>
+      {scoreboard}
+      {series && (
+        <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+            {series.label} · Game {series.gameNumber} of {series.bestOf}
+          </Typography>
+          {series.line && <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{series.line}</Typography>}
+          {series.stakes && <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>{series.stakes}</Typography>}
+        </Box>
+      )}
+      {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
+    </>
+  ) : null
+
   return (
     <ModalShell
       // A final game says WHEN it was: the modal is opened from Home, from Schedule and from a
@@ -2242,6 +2264,19 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
             own URL carrying no heading at all for a screen reader or a crawler. */}
         <WpblVisuallyHiddenH1>{wpblGameCard(game, teams).ogTitle}</WpblVisuallyHiddenH1>
 
+        {live && away && home ? (
+          /* Live game: the pill menu (Live / Box Score / Play-by-Play) is the very top of the
+             modal. There is no fixed score header here — the line score rides inside the Live
+             tab (below the situation) and atop the Box Score tab, so the situation is the first
+             thing under the tabs. The old FeedDelayNote and live banner are gone from the chrome
+             with it: the Live tab carries the whole situation. */
+          (loading || hasLines) ? (
+            <Box sx={{ flexShrink: 0, pt: 0.75, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <SegNav options={tabs} value={tab} onChange={v => selectTab(v as Tab, 'pill')} mb={0} />
+            </Box>
+          ) : null
+        ) : (
+          <>
         {/* Score header — one combined scoreboard for a played game (teams + line + R/H/E),
             or a plain name matchup for an unplayed one. */}
         <Box sx={{ flexShrink: 0, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -2284,14 +2319,11 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
               has to say loudest is whose writing it is.
 
               The highlight reel renders at the foot of the Recap tab rather than here: everything
-              in this header block is paid for by every tab (see the note in RecapCard). These two
-              are a paragraph each and stay. */}
-          {final && (story || recap) && (
-            <Box sx={{ px: 2, mt: 1.5, display: 'grid', gap: 1 }}>
-              {story && <GameStoryCard article={story} />}
-              {recap && <GameRecapLinkCard recap={recap} />}
-            </Box>
-          )}
+              in this header block is paid for by every tab (see the note in RecapCard). The written
+              recaps used to sit here too, but they belong to the Recap board: in this shared header
+              they pushed the tab bar down, so a reader opening a game for the box score had to scroll
+              past two write-ups to reach the tabs. They now render at the top of the Recap pane, where
+              they go away when a reader pages to another board. */}
         </Box>
 
         {/* Why the game is not moving, when it is not. Explains the thing the reader is staring
@@ -2300,16 +2332,6 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
         <Box sx={{ flexShrink: 0, px: 2, pt: 1.25 }}>
           <FeedDelayNote game={game} />
         </Box>
-
-        {/* Live situation banner (inning / count / bases / matchup).
-            Not while the Live tab is the one showing: that pane opens with the same inning,
-            count, bases and matchup drawn large and with the runners named, so the banner is a
-            strict subset of the thing directly beneath it. The header is paid for by every tab,
-            and this is the tab that can least afford to pay for it twice. It stays for Box
-            Score, Play-by-Play and Pitch Data, where it is the only situation on screen. */}
-        {live && tab !== 'live' && game.live_state && away && home && (
-          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} players={roster} sourceUpdatedAt={game.source_updated_at} /></Box>
-        )}
 
         {/* The tab bar is structural, not data, so it does not wait for a fetch. Which tabs a
             played game has is knowable from the game row alone, and drawing them immediately
@@ -2320,6 +2342,8 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           <Box sx={{ flexShrink: 0, pt: 0.75, pb: 1 }}>
             <SegNav options={tabs} value={tab} onChange={v => selectTab(v as Tab, 'pill')} mb={0} />
           </Box>
+        )}
+          </>
         )}
 
         {loading ? (
@@ -2337,6 +2361,16 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
               panels={tabs.map(t => (
                 t.value === 'recap' && away && home ? (
                   <>
+                    {/* The written recaps, at the top of their own tab rather than in the shared
+                        header above the tabs (see the note there). Borderless now, so it can ride
+                        up close under the tab switcher; `pb: 1.5` plus GameRecapView's own `pt: 0.5`
+                        keeps a 16px gap below so it stays clear of the win-probability chart. */}
+                    {(story || recap) && (
+                      <Box sx={{ px: 2, pt: 0.25, pb: 1.5, display: 'grid', gap: 1 }}>
+                        {story && <GameStoryCard article={story} />}
+                        {recap && <GameRecapLinkCard recap={recap} />}
+                      </Box>
+                    )}
                     <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
                     {/* Last, and only here: none of it is why anybody opens a game (see GameInfo). */}
                     <GameInfo game={game} details={details} />
@@ -2348,6 +2382,10 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
                     game={game} teams={byId} away={away} home={home} plays={plays}
                     batting={lines.batting} pitching={lines.pitching} names={names}
                     games={games} onOpenPlayer={onOpenPlayer}
+                    // The Live tab reads: situation, then the line score, then the win-probability
+                    // graph. FeedDelayNote rides just above the line score, where it explains the
+                    // scoreboard that has not moved.
+                    lineScore={<><Box sx={{ px: 2 }}><FeedDelayNote game={game} /></Box>{lineScoreBlock}</>}
                   />
                 ) : t.value === 'box' && away && home ? (() => {
                   const box = (team: WpblTeam) => (
@@ -2360,7 +2398,14 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
                     />
                   )
                   return (
-                    <Box sx={{ px: 2, pb: 2, pt: 0 }}>
+                    <Box sx={{ pb: 2, pt: 0 }}>
+                      {/* Line score on top of the box score, but only while the game is live: a
+                          final game still shows it in the fixed score header above the tabs, and
+                          drawing it here too would be twice on one screen. The line score alone,
+                          not the series/venue block: on the tab a reader opened for the numbers,
+                          the stakes and the stadium are clutter. */}
+                      {live && scoreboard && <Box sx={{ pb: 1.5 }}>{scoreboard}</Box>}
+                      <Box sx={{ px: 2 }}>
                       {/* BOTH CLUBS AT ONCE once there is room, and the switch goes away with
                           them. A box score is two teams, and the reason this ever showed one is
                           width: at 520px the second could only live behind a control. Reading
@@ -2396,6 +2441,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
                             {box(team)}
                           </Box>
                         ))}
+                      </Box>
                       </Box>
                     </Box>
                   )

@@ -345,6 +345,15 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
           <line x1={0} x2={100} y1={50} y2={50}
             stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 3"
             vectorEffect="non-scaling-stroke" />
+          {/* The swing moment, marked on the plot itself so the "Swing of the game" sentence
+              points somewhere a reader can see before they ever touch the chart. An accent rule
+              the full height of the column, only at rest: once a finger lands, the scrub crosshair
+              below is the line that matters and two would compete. */}
+          {restIdx >= 0 && scrub.index == null && (
+            <line x1={bigX} x2={bigX} y1={0} y2={100}
+              stroke="var(--wpbl-accent-solid)" strokeOpacity={0.5} strokeWidth={1.5}
+              vectorEffect="non-scaling-stroke" />
+          )}
           <polyline points={line.join(' ')} fill="none"
             stroke="currentColor" strokeOpacity={0.85} strokeWidth={2}
             strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
@@ -366,9 +375,12 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
             left: `${Math.min(Math.max(bigX, 2), 98)}%`,
             top: `${Math.min(Math.max(y(pts[restIdx].after), 6), 94)}%`,
             transform: 'translate(-50%, -50%)',
-            width: 9, height: 9, borderRadius: '50%',
+            width: 10, height: 10, borderRadius: '50%',
             bgcolor: 'var(--wpbl-accent-solid)',
             border: '2px solid', borderColor: 'background.paper',
+            // A soft accent halo so the dot reads as the point of the chart, not just another
+            // marker: it is the same colour as the swing rule it sits on.
+            boxShadow: '0 0 0 5px color-mix(in srgb, var(--wpbl-accent-solid) 22%, transparent)',
             pointerEvents: 'none',
             // It goes as soon as the chart is being read. This dot means "the play in the
             // readout", and the moment a finger lands the readout is somewhere else: leaving

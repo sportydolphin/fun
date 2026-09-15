@@ -384,9 +384,13 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
       aria-label={`Read the story: ${article.title}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
-        p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
-        transition: 'border-color 0.15s, background 0.15s',
-        ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
+        // Borderless in Game Center: this sits directly above the win-probability card, and two
+        // bordered boxes stacked read as clutter (see the note in GameDetail's recap panel). The
+        // hover tint alone carries the affordance; the row still indents 8px so the highlight has
+        // air around it.
+        p: 1, borderRadius: 2,
+        transition: 'background 0.15s',
+        ...hoverOnly({ bgcolor: 'action.hover' }),
         '&:active': { transform: 'scale(0.99)' },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
@@ -444,9 +448,13 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
       aria-label={`Read the recap by ${RECAP_PUBLICATION}: ${recap.title}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
-        p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
-        transition: 'border-color 0.15s, background 0.15s',
-        ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
+        // Borderless in Game Center: this sits directly above the win-probability card, and two
+        // bordered boxes stacked read as clutter (see the note in GameDetail's recap panel). The
+        // hover tint alone carries the affordance; the row still indents 8px so the highlight has
+        // air around it.
+        p: 1, borderRadius: 2,
+        transition: 'background 0.15s',
+        ...hoverOnly({ bgcolor: 'action.hover' }),
         '&:active': { transform: 'scale(0.99)' },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
