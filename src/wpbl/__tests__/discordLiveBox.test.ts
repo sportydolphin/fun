@@ -38,6 +38,10 @@ const desc = (g: WpblGame) => buildLiveBoxReply(g, away, home).embeds?.[0].descr
 const fields = (g: WpblGame) => buildLiveBoxReply(g, away, home).embeds?.[0].fields ?? []
 const field = (g: WpblGame, name: string) => fields(g).find(f => f.name === name)?.value ?? ''
 
+// The output is deliberately spare: score, inning, batter, pitcher. No emoji, no line score,
+// no base diamond. This guards against any of those creeping back in.
+const EMOJI = /\p{Extended_Pictographic}|[▲▼◆◇]/u
+
 describe('the /score box score', () => {
   it('is a public reply (no ephemeral flag) so it can be shared', () => {
     expect(buildLiveBoxReply(game(), away, home).flags).toBeUndefined()
@@ -49,44 +53,42 @@ describe('the /score box score', () => {
     expect(embed?.url).toContain('/wpbl?game=g1')
   })
 
-  it('renders a line score covering every inning through the one on the board', () => {
-    // Feed is in the bottom of the 4th; away scored in the 1st and 3rd, home in the 2nd.
-    const lines = desc(game()).split('\n')
-    const header = lines.find(l => l.trim().startsWith('1'))
-    expect(header).toMatch(/1\s+2\s+3\s+4/)
-    // Away line: 2 in the 1st, 0, 1 in the 3rd, 0 so far in the 4th, then R H E.
-    const bos = lines.find(l => l.startsWith('BOS'))
-    expect(bos).toContain('│  3  6  0')
-    const sf = lines.find(l => l.startsWith('SF'))
-    expect(sf).toContain('│  2  4  1')
+  it('carries the score and inning, and no line score', () => {
+    const d = desc(game())
+    expect(d).toContain('BOS 3 — 2 SF')
+    expect(d).toContain('Bottom 4th')
+    expect(d).not.toContain('```') // no monospace line-score fence
+  })
+
+  it('uses no emoji anywhere in the message', () => {
+    const embed = buildLiveBoxReply(game(), away, home).embeds?.[0]
+    const text = [embed?.title, embed?.description, ...(embed?.fields ?? []).flatMap(f => [f.name, f.value])].join(' ')
+    expect(text).not.toMatch(EMOJI)
   })
 
   it('clamps a count the feed left over from the last at-bat', () => {
     // Between batters the feed republishes the previous strikeout's full count.
-    expect(field(game({ live_state: liveState({ balls: 3, strikes: 3 }) }), 'Situation'))
-      .toContain('3-2')
+    expect(desc(game({ live_state: liveState({ balls: 3, strikes: 3 }) }))).toContain('3-2')
   })
 
-  it('names who is at bat and who is on base while a half-inning is being played', () => {
-    expect(field(game(), 'At bat')).toContain('Val Perez')
-    expect(field(game(), 'At bat')).toContain('Ada Cruz')
-    expect(field(game(), 'On base')).toContain('1B Lin Tanaka')
+  it('names who is at bat and who is pitching while a half-inning is being played', () => {
+    expect(field(game(), 'At bat')).toBe('Val Perez')
+    expect(field(game(), 'Pitching')).toBe('Ada Cruz')
   })
 
-  it('drops the at-bat and bases between innings and says which break it is', () => {
+  it('drops the at-bat between innings and says which break it is', () => {
     // Nobody out, no count, bases empty, batting side scoreless this inning: a break.
     const g = game({
       live_state: liveState({ outs: 0, balls: 0, strikes: 0, first_base: '' }),
       home_line: [{ inning: 2, runs: 2 }],
     })
-    expect(field(g, 'Situation')).toContain('Middle of the 4th')
-    expect(fields(g).some(f => f.name === 'At bat')).toBe(false)
-    expect(fields(g).some(f => f.name === 'On base')).toBe(false)
+    expect(desc(g)).toContain('Middle of the 4th')
+    expect(fields(g)).toHaveLength(0)
   })
 
   it('renders without a situation when live_state is absent', () => {
     const g = game({ live_state: null })
     expect(fields(g)).toHaveLength(0)
-    expect(desc(g)).toContain('```') // still a line score
+    expect(desc(g)).toContain('In progress')
   })
 })
