@@ -6,7 +6,7 @@ import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGame
 import { WPBL_ACCENT, wpblAccent, wpblSurface, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
 import { canonicalFeedName } from './feedNames'
-import { LiveBanner, useLiveGame, LIVE_RED } from './Live'
+import { useLiveGame, LIVE_RED } from './Live'
 import { boxScoreRevision, formatRevisionDay, leagueDay } from './derive/feedHealth'
 import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from './refresh'
@@ -53,7 +53,10 @@ type Tab = 'recap' | 'live' | 'box' | 'plays' | 'pitch'
 // rather than a page of its own, which is the section's rule for what belongs in a query
 // param (see `urlFor` in WpblApp); seo.ts canonicalises the query away, so none of the five
 // spellings can reach the index as a near-duplicate of the game.
-const TABS: readonly Tab[] = ['recap', 'live', 'box', 'plays', 'pitch']
+// No 'live' here on purpose: the live viewer is hoisted to the top of the modal rather than
+// being a board, so `?tab=live` from an older shared link resolves to null and lands on the
+// default board instead of a tab that no longer exists.
+const TABS: readonly Tab[] = ['recap', 'box', 'plays', 'pitch']
 
 /** One of the five board names, or null for anything else. The string is captured by WpblApp
  *  at mount (see `pendingGameTab`) because `urlFor` rewrites a game's URL from its slug alone
@@ -1903,8 +1906,10 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     // modal on the Recap and waited for the reader to find the right tab, which is the whole of
     // what the link was for. Under an explicit ?tab=, because that is the reader naming a tab
     // and this is only ever inferring one.
+    // A live game has no 'live' tab any more: the live viewer is hoisted above everything (see
+    // the render), so the tabs behind it land on the box score.
     urlTab ?? (PLAY_HASH_RE.test(ENTRY_HASH) ? 'plays'
-      : seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box'))
+      : seed.status === 'final' ? 'recap' : 'box'))
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
@@ -1913,10 +1918,6 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   const [details, setDetails] = useState<WpblGameDetails | null>(() => cached?.details ?? null)
   const [revisions, setRevisions] = useState<WpblGameRevision[]>(() => cached?.revisions ?? [])
   const [names, setNames] = useState<Map<string, WpblPlayer>>(() => cached?.names ?? new Map())
-  // The same roster as a list, for the handful of places that match a feed NAME rather than
-  // look an id up. Empty until the fetch lands, which is correct rather than merely tolerable:
-  // an unmatched name prints as the feed spelled it, which is what it did before any of this.
-  const roster = useMemo(() => [...names.values()], [names])
   // The recap video for this game, if the league has published one. Read from the shared
   // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
   const [video, setVideo] = useState<WpblVideo | null>(() =>
@@ -2119,27 +2120,9 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
 
   const tabs = [
     ...(final ? [{ value: 'recap' as Tab, label: 'Recap' }] : []),
-    // The live view, in the slot the Recap takes once the game is final, so the two swap in
-    // place when a game ends under a reader who has the modal open. It is the landing tab for a
-    // live game for the same reason Recap is for a final one: a table is not what either
-    // reader came for.
-    //
-    // It is a TAB and not more of the header, which is where a live extra wants to go. The
-    // header block is paid for by every tab, and on a phone it had already grown past half the
-    // screen once (see the note where the highlight reel used to live); a live game pays the
-    // most for that, being the one that also carries the situation banner. A tab costs a reader
-    // one swipe and gives this the whole pane.
-    //
-    // Gated on having plays, exactly as Pitch Data is gated on having tracking: the win
-    // probability card renders nothing under two points, and a tab that opens on half a pane is
-    // worse than a tab that is not there yet.
-    //
-    // `loading ||` keeps it offered through the first fetch. Without it the landing tab does
-    // not exist on first paint, the bar draws with Box Score selected, and the pill jumps a
-    // beat later when the plays land. A live game with fewer than two plays does exist (the
-    // ingest can call one live off a ball or a strike alone), and there the tab appears and
-    // then goes, which is the rarer and the more honest of the two.
-    ...(live && (loading || plays.length >= 2) ? [{ value: 'live' as Tab, label: 'Live' }] : []),
+    // No 'live' tab: while a game is live the live viewer is hoisted to the very top of the
+    // modal, above the score and the tabs, so it is the first thing a reader sees and nothing
+    // sits over it. The tabs beneath it carry the box score, play-by-play and pitch data.
     { value: 'box' as Tab, label: 'Box Score' },
     { value: 'plays' as Tab, label: 'Play-by-Play' },
     // Only when the feed has actually posted TrackMan for this game. It used to appear for
@@ -2181,7 +2164,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
    * a link to the landing board says nothing, so the URL stays clean and the param appears
    * exactly when it is carrying information.
    */
-  const landingTab: Tab = game.status === 'final' ? 'recap' : game.status === 'live' ? 'live' : 'box'
+  const landingTab: Tab = game.status === 'final' ? 'recap' : 'box'
   useEffect(() => {
     if (!wpblGameSlugFromPath(window.location.pathname)) return
     const q = new URLSearchParams(window.location.search)
@@ -2225,6 +2208,76 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     const p = plays.find(pl => pl.is_hit)
     return p ? { batter: p.batter_name, inning: p.inning, half: p.half } : null
   }, [plays])
+
+  // One tab's content. Extracted so both layouts can render it: the paged SwipeableViews a
+  // final or scheduled game uses, and the single scroll a live game uses (where the live viewer
+  // is hoisted to the top and the tables sit beneath it). There is no 'live' case any more.
+  const renderPanel = (value: Tab): React.ReactNode => {
+    if (value === 'recap' && away && home) return (
+      <>
+        <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
+        {/* Last, and only here. It used to sit in the header, where it was the
+            first thing on a phone and none of it is why anybody opens a game. */}
+        <GameInfo game={game} details={details} />
+        {/* Under the info list, because "revised on Sep 2" is the line this expands on. */}
+        <RevisionLog revisions={revisions} gameId={game.id} away={away} home={home} names={names} onOpenPlayer={onOpenPlayer} />
+      </>
+    )
+    if (value === 'box' && away && home) {
+      const box = (team: WpblTeam) => (
+        <TeamBox
+          team={team}
+          batting={lines.batting.filter(b => b.team_id === team.id)}
+          pitching={lines.pitching.filter(p => p.team_id === team.id)}
+          names={names}
+          onOpenPlayer={onOpenPlayer}
+        />
+      )
+      return (
+        <Box sx={{ px: 2, pb: 2, pt: 0 }}>
+          {/* BOTH CLUBS AT ONCE once there is room, and the switch goes away with
+              them. A box score is two teams, and the reason this ever showed one is
+              width: at 520px the second could only live behind a control. Reading
+              one club's half of a game and then tapping to see who they did it to
+              is a worse way to read a box score than having both in front of you,
+              and comparing the two starting pitchers took two taps and a memory.
+
+              CSS rather than a media-query hook, so both are always in the DOM.
+              That costs a second table of about thirteen rows and buys two things:
+              no flash of the wrong club while a JS query settles on first paint,
+              and the browser's own find-in-page reaching a player on the club you
+              are not currently looking at, which on a phone it could not. */}
+          <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+            <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
+          </Box>
+          <Box sx={{
+            display: 'grid', alignItems: 'start',
+            gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: 2.5,
+          }}>
+          {/* Measured at the reader's Large text setting: two of these tables at
+              490px each is tight, and one of the four ends up about 8px over and
+              scrolls inside its own wrapper. That is the escape hatch this table
+              was built with and the failure it is supposed to have, and it is not
+              the name column doing it: capping the name harder does not move it,
+              because it is nine columns of numbers at 12.5% larger type. Not worth
+              narrowing the default layout for everyone to avoid. */}
+            {([['away', away], ['home', home]] as const).map(([side, team]) => (
+              <Box key={side} sx={{ minWidth: 0, display: { xs: boxTeam === side ? 'block' : 'none', lg: 'block' } }}>
+                {/* The heading only exists where the switch does not. Below `lg`
+                    the switch IS the heading, and drawing both would name the club
+                    twice inside forty pixels. */}
+                <Box sx={{ display: { xs: 'none', lg: 'block' } }}><TeamHeading team={team} /></Box>
+                {box(team)}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )
+    }
+    if (value === 'plays') return <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
+    if (value === 'pitch') return <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} names={names} />
+    return null
+  }
 
   return (
     <ModalShell
@@ -2293,6 +2346,53 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
             own URL carrying no heading at all for a screen reader or a crawler. */}
         <WpblVisuallyHiddenH1>{wpblGameCard(game, teams).ogTitle}</WpblVisuallyHiddenH1>
 
+        {live && away && home ? (
+          /* THE LIVE VIEWER IS THE TOP OF THE MODAL, unobstructed on open, and this overrides
+             the earlier "live view as a tab" arrangement. A live game is opened to be watched,
+             so the situation is the first and largest thing; the score and the tables scroll in
+             beneath it. One scroll rather than a pinned header over paged panes, because the
+             viewer plus its win-probability chart is too tall to pin without crushing the panes
+             on a phone. `flex: 1, minHeight: 0` mirrors SwipeableViews' own pane container, which
+             is the shape that scrolls correctly in this modal on both a phone and a desktop. */
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {game.live_state && (
+              <LiveGameView
+                game={game} teams={byId} away={away} home={home} plays={plays}
+                batting={lines.batting} pitching={lines.pitching} names={names}
+                games={games} onOpenPlayer={onOpenPlayer}
+              />
+            )}
+            {/* Score, series and venue, under the live viewer. */}
+            <Box sx={{ pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Scoreboard away={away} home={home} game={game} awayWon={awayWon} homeWon={homeWon} onOpenTeam={onOpenTeam} />
+              {series && (
+                <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
+                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+                    {series.label} · Game {series.gameNumber} of {series.bestOf}
+                  </Typography>
+                  {series.line && <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{series.line}</Typography>}
+                  {series.stakes && <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>{series.stakes}</Typography>}
+                </Box>
+              )}
+              {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
+            </Box>
+            <Box sx={{ px: 2, pt: 1.25 }}><FeedDelayNote game={game} /></Box>
+            {/* The tables' tabs, sticky so they stay in reach once the reader scrolls down past
+                the live viewer into the box score. */}
+            {(loading || hasLines) && (
+              <Box sx={{
+                position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper',
+                pt: 0.75, pb: 1, borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'divider',
+              }}>
+                <SegNav options={tabs} value={tab} onChange={v => selectTab(v as Tab, 'pill')} mb={0} />
+              </Box>
+            )}
+            {loading
+              ? <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>
+              : hasLines ? renderPanel(tab) : null}
+          </Box>
+        ) : (
+          <>
         {/* Score header — one combined scoreboard for a played game (teams + line + R/H/E),
             or a plain name matchup for an unplayed one. */}
         <Box sx={{ flexShrink: 0, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -2346,23 +2446,13 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           )}
         </Box>
 
-        {/* Why the game is not moving, when it is not. Directly under the matchup and above the
-            live banner, because it explains the thing the reader is staring at: a scoreboard
-            that has not changed. Renders null in the ordinary case and ticks itself, so it can
-            appear during a session that started before first pitch. */}
+        {/* Why the game is not moving, when it is not. Directly under the matchup, because it
+            explains the thing the reader is staring at: a scoreboard that has not changed.
+            Renders null in the ordinary case and ticks itself, so it can appear during a
+            session that started before first pitch. */}
         <Box sx={{ flexShrink: 0, px: 2, pt: 1.25 }}>
           <FeedDelayNote game={game} />
         </Box>
-
-        {/* Live situation banner (inning / count / bases / matchup).
-            Not while the Live tab is the one showing: that pane opens with the same inning,
-            count, bases and matchup drawn large and with the runners named, so the banner is a
-            strict subset of the thing directly beneath it. The header is paid for by every tab,
-            and this is the tab that can least afford to pay for it twice. It stays for Box
-            Score, Play-by-Play and Pitch Data, where it is the only situation on screen. */}
-        {live && tab !== 'live' && game.live_state && away && home && (
-          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} players={roster} sourceUpdatedAt={game.source_updated_at} /></Box>
-        )}
 
         {/* The tab bar is structural, not data, so it does not wait for a fetch. Which tabs a
             played game has is knowable from the game row alone, and drawing them immediately
@@ -2387,79 +2477,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
               mode="pane"
               index={tabIndex}
               onIndexChange={i => selectTab(tabs[i].value, 'swipe')}
-              panels={tabs.map(t => (
-                t.value === 'recap' && away && home ? (
-                  <>
-                    <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
-                    {/* Last, and only here. It used to sit in the header, where it was the
-                        first thing on a phone and none of it is why anybody opens a game. */}
-                    <GameInfo game={game} details={details} />
-                    {/* Under the info list, because "revised on Sep 2" is the line this
-                        expands on. */}
-                    <RevisionLog revisions={revisions} gameId={game.id} away={away} home={home} names={names} onOpenPlayer={onOpenPlayer} />
-                  </>
-                ) : t.value === 'live' && away && home ? (
-                  <LiveGameView
-                    game={game} teams={byId} away={away} home={home} plays={plays}
-                    batting={lines.batting} pitching={lines.pitching} names={names}
-                    games={games} onOpenPlayer={onOpenPlayer}
-                  />
-                ) : t.value === 'box' && away && home ? (() => {
-                  const box = (team: WpblTeam) => (
-                    <TeamBox
-                      team={team}
-                      batting={lines.batting.filter(b => b.team_id === team.id)}
-                      pitching={lines.pitching.filter(p => p.team_id === team.id)}
-                      names={names}
-                      onOpenPlayer={onOpenPlayer}
-                    />
-                  )
-                  return (
-                    <Box sx={{ px: 2, pb: 2, pt: 0 }}>
-                      {/* BOTH CLUBS AT ONCE once there is room, and the switch goes away with
-                          them. A box score is two teams, and the reason this ever showed one is
-                          width: at 520px the second could only live behind a control. Reading
-                          one club's half of a game and then tapping to see who they did it to
-                          is a worse way to read a box score than having both in front of you,
-                          and comparing the two starting pitchers took two taps and a memory.
-
-                          CSS rather than a media-query hook, so both are always in the DOM.
-                          That costs a second table of about thirteen rows and buys two things:
-                          no flash of the wrong club while a JS query settles on first paint,
-                          and the browser's own find-in-page reaching a player on the club you
-                          are not currently looking at, which on a phone it could not. */}
-                      <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
-                        <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
-                      </Box>
-                      <Box sx={{
-                        display: 'grid', alignItems: 'start',
-                        gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: 2.5,
-                      }}>
-                      {/* Measured at the reader's Large text setting: two of these tables at
-                          490px each is tight, and one of the four ends up about 8px over and
-                          scrolls inside its own wrapper. That is the escape hatch this table
-                          was built with and the failure it is supposed to have, and it is not
-                          the name column doing it: capping the name harder does not move it,
-                          because it is nine columns of numbers at 12.5% larger type. Not worth
-                          narrowing the default layout for everyone to avoid. */}
-                        {([['away', away], ['home', home]] as const).map(([side, team]) => (
-                          <Box key={side} sx={{ minWidth: 0, display: { xs: boxTeam === side ? 'block' : 'none', lg: 'block' } }}>
-                            {/* The heading only exists where the switch does not. Below `lg`
-                                the switch IS the heading, and drawing both would name the club
-                                twice inside forty pixels. */}
-                            <Box sx={{ display: { xs: 'none', lg: 'block' } }}><TeamHeading team={team} /></Box>
-                            {box(team)}
-                          </Box>
-                        ))}
-                      </Box>
-                    </Box>
-                  )
-                })() : t.value === 'plays' ? (
-                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
-                ) : t.value === 'pitch' ? (
-                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} names={names} />
-                ) : null
-              ))}
+              panels={tabs.map(t => renderPanel(t.value))}
             />
           </>
         ) : final ? (
@@ -2482,6 +2500,8 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           <Box sx={{ flex: 1, p: 2 }}>
             <EmptyBody title="This game has not been played yet" hint="Check back after first pitch." />
           </Box>
+        )}
+          </>
         )}
       </Box>
     </ModalShell>
