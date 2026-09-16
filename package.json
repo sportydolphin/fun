@@ -44,7 +44,8 @@
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
     "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
     "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",
-    "bluesky-recaps": "esbuild scripts/post-wpbl-bluesky-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-recaps.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-recaps.mjs"
+    "bluesky-recaps": "esbuild scripts/post-wpbl-bluesky-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-recaps.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-recaps.mjs",
+    "bluesky-game-start": "esbuild scripts/post-wpbl-bluesky-game-start.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-game-start.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-game-start.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

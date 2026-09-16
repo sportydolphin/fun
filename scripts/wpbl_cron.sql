@@ -79,8 +79,9 @@ select cron.schedule(
 -- is where somebody looks to find out what the database is running:
 --
 --   wpbl-shop-watch-nudge       */10  public.wpbl_nudge_shop_watch()
---   wpbl-game-start-nudge       */5   public.wpbl_nudge_game_start()
+--   wpbl-game-start-nudge       */5   public.wpbl_nudge_game_start()          -- the push reminder
 --   wpbl-tracking-listen-nudge  */5   public.wpbl_nudge_tracking_listen()
+--   wpbl-bluesky-start-nudge    */5   public.wpbl_nudge_bluesky_game_start()  -- migration 20260915143000
 --   admin-health-nudge          */15  public.wpbl_nudge_admin_health()  (migration 20260912233000)
 --
 -- Measured Sep 7, 2026, over the shop watcher's last sixty scheduled runs: it asks for 144 runs

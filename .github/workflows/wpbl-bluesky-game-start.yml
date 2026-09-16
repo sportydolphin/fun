@@ -1,0 +1,69 @@
+name: WPBL Bluesky Game Start
+
+# Posts a "starting soon" reminder for a WPBL game to Bluesky, once, before first pitch.
+#
+# THE PRE-GAME TWIN OF wpbl-bluesky-recaps. It posts to our own timeline and nowhere else, and
+# like the recap job it never replies, quotes or mentions anybody. What differs is the window: a
+# reminder is only worth anything BEFORE the game, so this publishes while a game is still
+# scheduled and its first pitch is inside a short window ahead, and never once it has started. A
+# permanent "first pitch soon" over a game already underway is the failure this is shaped to
+# avoid, and Bluesky has no edit to take it back with.
+#
+# WHAT ACTUALLY STARTS THIS IS THE DATABASE, not the cron line below. GitHub runs this repo's
+# `schedule` events 130 to 452 minutes late (measured over the thirty runs before Sep 3, 2026),
+# which a ~25-minute pre-game window cannot survive: on the schedule alone this would miss almost
+# every game or post one after it had started. So wpbl_bluesky_start_nudge() on pg_cron (every 5
+# minutes, punctual, ours) watches for a game entering the window and fires a repository_dispatch,
+# which is on-demand and not subject to that delay. The schedule stays as the backstop only; a run
+# with nothing in window is a couple of queries and exits.
+#
+# NO SEED, NO BACKFILL. The window itself is the guard: only games about to start are ever
+# eligible, so switching this on cannot dump anything onto the timeline.
+
+on:
+  # Sent by wpbl_nudge_bluesky_game_start() in the database. THE PRIMARY TRIGGER. A distinct event
+  # type from the push reminder's `wpbl-game-start`, so the two fire independently on their own
+  # windows.
+  repository_dispatch:
+    types: [wpbl-bluesky-game-start]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Render the post(s) to the log, publish nothing'
+        type: boolean
+        default: false
+
+concurrency:
+  # Never two at once. Both would read the same in-window game and both would publish it, and a
+  # duplicate cannot be edited away afterwards.
+  group: wpbl-bluesky-game-start
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Bundles TypeScript out of src/ with esbuild, so it needs the real tree rather than a
+      # hand-picked subset.
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Post game-start reminders
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # wpbl_bluesky_start_posts is RLS'd with no policies. Any other key reads it as empty,
+          # which this job would take to mean nothing has been posted.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # The same account as the recap poster and the mention watcher: sportydolphin is the
+          # brand, not a person. An App Password, never the account password.
+          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: npm run bluesky-game-start -- ${{ inputs.dry_run && '--dry-run' || '' }}

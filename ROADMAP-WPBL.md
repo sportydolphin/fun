@@ -1135,6 +1135,31 @@ is retired.
 
 ## Shipped log
 
+### Sep 15, 2026: a "starting soon" reminder on Bluesky
+
+The pre-game twin of the Bluesky recap poster. A text-only post to our own timeline while a game
+is still `scheduled` and its first pitch is inside a short window ahead, once per game, and never
+after it has started: a permanent "first pitch soon" over a game already underway cannot be edited
+away, and that is the whole shape of the design. Post text in
+[`derive/blueskyGameStart.ts`](src/wpbl/derive/blueskyGameStart.ts) (pinned by
+`__tests__/blueskyGameStart.test.ts`), sender in
+[`scripts/post-wpbl-bluesky-game-start.ts`](scripts/post-wpbl-bluesky-game-start.ts), workflow
+`wpbl-bluesky-game-start`, table `wpbl_bluesky_start_posts`.
+
+**It carries the league's own wall clock, not a countdown**, because the post is read long after
+it is written and "in 20 min" would be a lie to everyone scrolling past later. In the postseason
+it names the round and where the series stands (`seriesContext`), so a semifinal reads "Semifinal
+Game 2 · Firebells lead 1-0". The start time is corrected the same way every other surface
+corrects it (`applyLeagueStartTimes`: the site calendar and the rain-delay map over the feed).
+
+**What triggers it is the database, not GitHub's schedule.** A ~25-minute window cannot survive
+this repo's `schedule` events running 5 to 7 times a day, so `wpbl_nudge_bluesky_game_start()` on
+pg_cron dispatches through the shared `wpbl_dispatch_workflow` when a game enters the window. The
+nudge is coarse and the poster is the only decider. **A late reminder is a wrong one**, so the
+window errs wide: a missed nudge falls to the schedule backstop, a wrongly-timed permanent post
+cannot be taken back. No seed and no backfill, because only games about to start are ever
+eligible. Needs the migration applied (`npm run migrate`) and the pg_cron job scheduled.
+
 ### Sep 14, 2026: when in a game the runs come (v1.86.0)
 
 A Runs by inning section on `/wpbl/season`: a heatmap with a row per club plus the league, a
