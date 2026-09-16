@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { fetchWpblAllLines, getCachedWpblAllLines } from './api'
-import { TeamBadge, useWpblDark, pressable, FOCUS_RING, TAPPABLE, TYPE_SCALE } from './ui'
-import { wpblAccent, wpblFullName } from './constants'
+import { fetchWpblAllLines, getCachedWpblAllLines, fetchWpblAllPlayers, getCachedWpblAllPlayers } from './api'
+import { ModalShell, SegNav, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, pressable, hoverOnly, FOCUS_RING, TAPPABLE, TYPE_SCALE } from './ui'
+import { wpblAccent, wpblFullName, positionRank } from './constants'
 import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
   type WpblTeamStatValue,
 } from './stats'
 import { useEraBasis } from './EraBasisContext'
-import type { WpblTeam, WpblGame } from './types'
+import { useWpblPlayerLink } from './LinkContext'
+import { teamLeaders, LeaderTable } from './TeamLeaders'
+import type { WpblTeam, WpblGame, WpblPlayer } from './types'
 
 // The WPBL game-preview matchup card — the analogue of the MLB app's GamePreview
 // TeamComparison, shown inside GameDetail for a game that hasn't been played yet. Each
@@ -35,7 +37,7 @@ function ordinal(n: number): string {
 // Bar colors come from the shared team accent palette (constants.ts `wpblAccent`), which
 // exists for exactly this reason: the raw primaries are all near-black and unusable as
 // foreground. Keeping one source means a palette tweak lands everywhere at once.
-export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact, bare }: {
+export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPlayer, compact, bare, rosters }: {
   away: WpblTeam
   home: WpblTeam
   teams: WpblTeam[]
@@ -43,6 +45,13 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
   /** Open a club's page from its chip. Optional so the preview still renders anywhere that
    *  has nowhere to send the tap. */
   onOpenTeam?: (team: WpblTeam) => void
+  /** Open a player's page from a roster row. Optional for the same reason as onOpenTeam. */
+  onOpenPlayer?: (player: WpblPlayer) => void
+  /** Show each club's active roster under the season comparison. For the pre-game screen and the
+   *  postseason matchup preview, where "who is on this team" is a question the reader has and the
+   *  season bars do not answer. Off for the compact Home cut and the Home hero, which have no room
+   *  for two rosters. */
+  rosters?: boolean
   /** Three rows instead of nine, one line per value instead of two, and no chrome of its own:
    *  no card padding, no legend, no footnote, no group rules. For Home's Next game card, which
    *  is a card already and supplies all of that, and which has room for a tale of the tape but
@@ -62,9 +71,19 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
   bare?: boolean
 }) {
   const isDark = useWpblDark()
+  const shortName = useWpblName()
+  const playerLink = useWpblPlayerLink()
   const { basis: eraBasis, kLabel } = useEraBasis()
   const [lines, setLines] = useState(() => getCachedWpblAllLines())
   const [failed, setFailed] = useState(false)
+  // The league roster, only when this cut shows it. App-wide cache, so on a warm page it costs
+  // no request; the club rosters are read off it by `team_id`, which means "now" and is exactly
+  // the active roster an upcoming game wants.
+  const [players, setPlayers] = useState<WpblPlayer[] | null>(() => getCachedWpblAllPlayers())
+  // Which board the toggle shows, when this cut has rosters to offer. Defaults to the matchup: it
+  // is the answer to "who is favoured", which is the first thing a reader asks; the leaders answer
+  // "who is worth watching", and the rosters "who is on this team", in that order.
+  const [board, setBoard] = useState<'comparison' | 'leaders' | 'rosters'>('comparison')
 
   useEffect(() => {
     if (lines) return              // warm cache — no fetch, no flash
@@ -75,9 +94,28 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    if (!rosters || players) return
+    let cancelled = false
+    fetchWpblAllPlayers().then(p => { if (!cancelled) setPlayers(p) }).catch(() => { /* rosters omit themselves */ })
+    return () => { cancelled = true }
+  }, [rosters, players])
+
   const stats = useMemo(
     () => (lines ? computeWpblTeamStats(teams, games, lines.batting, lines.pitching, eraBasis) : null),
     [lines, teams, games, eraBasis],
+  )
+
+  // Each club's stat leaders, for the "players to watch" board. Only when this cut offers rosters
+  // (which is what fetches the players); null until both the lines and the roster are in hand.
+  const leaders = useMemo(
+    () => (rosters && lines && players
+      ? {
+        away: teamLeaders(away, players, lines.batting, lines.pitching, games, teams, eraBasis),
+        home: teamLeaders(home, players, lines.batting, lines.pitching, games, teams, eraBasis),
+      }
+      : null),
+    [rosters, lines, players, away, home, games, teams, eraBasis],
   )
 
   const awayStats = stats?.get(away.id)
@@ -152,9 +190,10 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
   // position in the league range for that stat.
   const bar = (v: WpblTeamStatValue | undefined, better: boolean, color: string, side: 'away' | 'home') => (
     <Box sx={{
-      // 4px in the footer cut, 8 at full size. A 8px bar beside 0.72rem type is a chart with a
-      // caption; at 4 it reads as the rule it sits under.
-      flex: 1, minWidth: 0, height: compact ? 4 : 8, borderRadius: 999, bgcolor: trackBg,
+      // 4px in the footer cut, 8 at full size, a touch taller on a desktop where the bar is
+      // longer and a thin rule would read as faint against it. A 8px bar beside 0.72rem type is a
+      // chart with a caption; at 4 it reads as the rule it sits under.
+      flex: 1, minWidth: 0, height: compact ? 4 : { xs: 8, md: 10 }, borderRadius: 999, bgcolor: trackBg,
       position: 'relative', overflow: 'hidden',
     }}>
       {!loading && v && (
@@ -264,17 +303,75 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
     )
   }
 
-  return (
-    <Box sx={bare ? { px: 0, py: 0 } : { px: 2, py: 1.5 }}>
-      {!bare && (
-        <Typography sx={{
-          fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
-          textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1,
-        }}>
-          Season Comparison
-        </Typography>
-      )}
+  // One club's active roster: the signed players whose club is this one now, sorted by position
+  // the way a lineup card reads. `team_id` is "now", which is the right question for a game that
+  // has not happened yet. Named plainly (no box-score override), because this is the roster the
+  // league lists, not where a player has been used.
+  const rosterCol = (team: WpblTeam, color: string) => {
+    const list = (players ?? [])
+      .filter(p => p.team_id === team.id && p.status === 'Signed')
+      .sort((a, b) => positionRank(a.position) - positionRank(b.position) || a.name.localeCompare(b.name))
+    return (
+      <Box sx={{ minWidth: 0 }}>
+        {/* The full club name where the column is wide enough for it (desktop), the abbreviation
+            on a phone where two columns leave no room. A club header carries more of the reader's
+            attention than a stat-bar legend, so it takes the space when there is space. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
+          <TeamBadge team={team} size={24} />
+          <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 800, color, lineHeight: 1.15 }}>
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{wpblFullName(team)}</Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{team.abbr}</Box>
+          </Typography>
+        </Box>
+        {list.length === 0 ? (
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled' }}>Roster not available</Typography>
+        ) : list.map(p => {
+          const link = onOpenPlayer ? playerLink(p, onOpenPlayer) : {}
+          return (
+            <Box key={p.id} {...link} sx={{
+              display: 'flex', alignItems: 'center', gap: 0.75, py: 0.35, px: 0.5, mx: -0.5,
+              minWidth: 0, textDecoration: 'none', color: 'inherit', borderRadius: 1,
+              // A hover tint marks the row as clickable, and it is DESKTOP-ONLY: `hoverOnly` gates
+              // it behind `@media (hover: hover)`, so a touch scroll on a phone never flashes or
+              // leaves a row looking selected (no `:active` press tint here for the same reason).
+              // The row still opens the player on a real tap; FOCUS_RING keeps it keyboard-reachable.
+              ...(onOpenPlayer ? { cursor: 'pointer', ...FOCUS_RING, transition: 'background 0.12s', ...hoverOnly({ bgcolor: 'action.hover' }) } : {}),
+            }}>
+              <PlayerPortrait name={p.name} teamId={team.id} size={22} />
+              <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600 }}>
+                {shortName(p.name)}
+              </Typography>
+              {p.position && (
+                <Typography sx={{
+                  flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
+                  textTransform: 'uppercase', letterSpacing: 0.3,
+                }}>{p.position}</Typography>
+              )}
+            </Box>
+          )
+        })}
+      </Box>
+    )
+  }
 
+  // The two roster columns. Capped and centred on a desktop: at full page width each column ran
+  // the length of the sheet and threw its position label to the far edge, an inch of empty rule
+  // between a name and its "RHP". A readable measure keeps the position beside the name.
+  const rostersView = (
+    <Box sx={{
+      display: 'grid', columnGap: { xs: 2, md: 6 }, alignItems: 'start',
+      gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(2, minmax(0, 24rem))' },
+      justifyContent: { md: 'center' },
+    }}>
+      {rosterCol(away, awayColor)}
+      {rosterCol(home, homeColor)}
+    </Box>
+  )
+
+  // The season comparison: the legend, the two stat groups and the footnote. Extracted so the
+  // toggle can swap it for the rosters without duplicating the bars.
+  const comparisonView = (
+    <>
       {/* Legend: which color is which club */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
         {teamChip(away, awayColor, 'right')}
@@ -288,6 +385,97 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
       <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 1, textAlign: 'center', lineHeight: 1.5 }}>
         {CURRENT_SEASON} season · bar length = rank in the league, longer is better
       </Typography>
+    </>
+  )
+
+  // With rosters offered, a toggle chooses the board and names it, so the "Season Comparison"
+  // heading is redundant and goes. Without them, the comparison is the whole card and keeps its
+  // heading (except in the bare cut, whose host already titled it).
+  // Each club's stat leaders, side by side. The one board that answers "who is worth watching",
+  // which the team bars and the full rosters do not.
+  const leadersView = leaders && (leaders.away.length > 0 || leaders.home.length > 0) ? (
+    <LeaderTable away={away} home={home} awayLeaders={leaders.away} homeLeaders={leaders.home} onOpenPlayer={onOpenPlayer} rich />
+  ) : (
+    <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', textAlign: 'center', py: 2 }}>
+      Leaders appear once both clubs have played.
+    </Typography>
+  )
+
+  if (rosters) {
+    return (
+      <Box sx={bare ? { px: 0, py: 0 } : { px: 2, py: 1.5 }}>
+        <Box sx={{ mb: 1.5 }}>
+          <SegNav
+            options={[
+              { value: 'comparison', label: 'Matchup' },
+              { value: 'leaders', label: 'Leaders' },
+              { value: 'rosters', label: 'Rosters' },
+            ]}
+            value={board} onChange={v => setBoard(v as 'comparison' | 'leaders' | 'rosters')} mb={0}
+          />
+        </Box>
+        {board === 'comparison' ? comparisonView : board === 'leaders' ? leadersView : rostersView}
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={bare ? { px: 0, py: 0 } : { px: 2, py: 1.5 }}>
+      {!bare && (
+        <Typography sx={{
+          fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
+          textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1,
+        }}>
+          Season Comparison
+        </Typography>
+      )}
+      {comparisonView}
     </Box>
+  )
+}
+
+/**
+ * A postseason matchup the league has dated but the feed has no game row for yet, opened.
+ *
+ * The Schedule tab and the Home scoreboard carry these as placeholder cards; once both clubs are
+ * seeded there is a real matchup to preview even though there is no game to open, so the card
+ * opens this instead of nothing. It is deliberately NOT the full Game Center (there is no box
+ * score, play-by-play or line score to show) and NOT `SeriesPreview` (which needs the bracket's
+ * odds and standings): it is the season comparison and the two rosters, which is what a reader
+ * asks of a fixture that has not happened.
+ */
+export function WpblMatchupPreview({ away, home, teams, games, eyebrow, onClose, onOpenTeam, onOpenPlayer }: {
+  away: WpblTeam
+  home: WpblTeam
+  teams: WpblTeam[]
+  games: WpblGame[]
+  /** "Semifinal A · Game 1 · Tue, Sep 9". Named by the caller, which is the only thing that knows
+   *  the round and the date. */
+  eyebrow: string
+  onClose: () => void
+  onOpenTeam?: (team: WpblTeam) => void
+  onOpenPlayer?: (player: WpblPlayer) => void
+}) {
+  return (
+    // Wider as the screen allows: a 640px dialog is a quarter of a desktop monitor, and the
+    // matchup (long stat bars, two rosters) is exactly the content that reads better with room.
+    // Still full width on a phone and a comfortable dialog in between.
+    <ModalShell eyebrow={eyebrow} onClose={onClose} maxWidth={{ xs: '100%', sm: 720, md: 860, lg: 1000 }} zIndex={1600}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, px: 2, pt: 2 }}>
+        <TeamBadge team={away} size={40} />
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>
+          {away.abbr} <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600 }}>at</Box> {home.abbr}
+        </Typography>
+        <TeamBadge team={home} size={40} />
+      </Box>
+      <WpblGamePreview
+        away={away} home={home} teams={teams} games={games}
+        onOpenTeam={onOpenTeam ? t => { onClose(); onOpenTeam(t) } : undefined}
+        // Close this local modal before opening the player's page, so the two never stack: the
+        // matchup preview is not on the history stack and the player page is.
+        onOpenPlayer={onOpenPlayer ? p => { onClose(); onOpenPlayer(p) } : undefined}
+        rosters
+      />
+    </ModalShell>
   )
 }

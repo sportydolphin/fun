@@ -14,7 +14,7 @@ import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
@@ -30,7 +30,7 @@ import { track, EVENTS } from '../lib/analytics'
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
 import { LastGameCard } from './RecapCard'
 import FeedDelayNote from './FeedDelayNote'
-import { WpblGamePreview } from './GamePreview'
+import { WpblGamePreview, WpblMatchupPreview } from './GamePreview'
 import { mvpRaceIsWorthDrawing } from './MvpRace'
 import FanVoteCard, { FanAwardsCta } from './FanVote'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
@@ -165,7 +165,13 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
  * does keep is the outer box: same width, same one-line eyebrow, same two rows, because the
  * strip's whole rhythm is that every chip's badges sit level with its neighbours'.
  */
-function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
+/** What a seeded postseason chip hands up to open its matchup preview. */
+type MatchupPreviewArg = { away: WpblTeam; home: WpblTeam; eyebrow: string }
+
+function PostseasonChip({ row, onOpenMatchup }: {
+  row: PostseasonScheduleRow
+  onOpenMatchup?: (m: MatchupPreviewArg) => void
+}) {
   const isDark = useWpblDark()
   // "Semi G1 · Sep 9". The round is abbreviated because the eyebrow may not wrap and the chip is
   // 8.5rem: the longest string this builds is "Champ G1 · Sep 16", one character shorter than
@@ -183,6 +189,12 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
   // no "@" marker, the same call the neighbouring GameChip makes, where the home club is simply the
   // bottom row.
   const { slots } = postseasonSlots(row)
+  // Both clubs seeded: there is a matchup to preview even without a feed game, so the chip goes
+  // solid and clickable. A seat still holding a seed number keeps the dashed, inert chip.
+  const preview: MatchupPreviewArg | null = row.first.team && row.second.team && onOpenMatchup
+    ? { away: slots[0].team!, home: slots[1].team!,
+        eyebrow: `${row.label} · Game ${row.gameNumber} · ${relativeDayShort(row.date)}` }
+    : null
 
   const slot = (p: PostseasonSlot, i: number) => (
     <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
@@ -209,10 +221,15 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
   return (
     <Box
       title={row.ifNecessary ? 'Played only if the series is still alive' : undefined}
+      {...(preview ? pressable(() => onOpenMatchup!(preview)) : {})}
+      aria-label={preview ? `Preview ${preview.away.abbr} at ${preview.home.abbr}` : undefined}
       sx={{
         flexShrink: 0, width: '8.5rem',
-        borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+        // Solid and clickable once both clubs are seeded; dashed and inert while a seat is a seed.
+        borderRadius: 2, border: preview ? '1px solid' : '1px dashed', borderColor: CARD_BORDER,
+        bgcolor: 'background.paper',
         p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
+        ...(preview ? { cursor: 'pointer', ...TAPPABLE, ...FOCUS_RING, transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }) } : {}),
       }}
     >
       <Typography sx={{
@@ -248,12 +265,15 @@ type StripItem =
 /** Exported for `scoreboardStrip.test.tsx`, which pins which fixtures reach the strip. Same
  *  reason `NextPostseasonCard` is: what these two choose to show is a judgement about what is
  *  true, and neither failure is visible from a render that happens to look fine. */
-export function Scoreboard({ games, teams, postseason, onOpenGame }: {
+export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
   /** The published postseason, for the days past the end of the feed's schedule. Date-sorted,
    *  and already retiring itself a row at a time as the feed publishes the real games. */
   postseason: PostseasonScheduleRow[]
   onOpenGame: (g: WpblGame) => void
+  /** Preview a seeded-but-unplayed postseason chip. Optional so the strip still renders where
+   *  there is nowhere to open one. */
+  onOpenMatchup?: (m: MatchupPreviewArg) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   /**
@@ -469,7 +489,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame }: {
         }} data-swipe-ignore="true">
           {strip.map(item => item.kind === 'game'
             ? <GameChip key={item.id} game={item.game} teams={teams} onOpen={() => onOpenGame(item.game)} />
-            : <PostseasonChip key={item.id} row={item.row} />)}
+            : <PostseasonChip key={item.id} row={item.row} onOpenMatchup={onOpenMatchup} />)}
         </Box>
         {/* NO EDGE FADES. A leading fade paints over the anchor chip's date, since the chip sits
             flush with the page's column; a trailing fade alone leaves one edge fading and the
@@ -2276,6 +2296,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   onCloseAwards?: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  // A seeded-but-unplayed postseason chip opened as a matchup preview. Local, not a route: there
+  // is no feed game to address, so this is a plain modal that closes on X/Escape.
+  const [matchup, setMatchup] = useState<MatchupPreviewArg | null>(null)
   const headingTag = useWpblHeadingTag()
   // Both read the same fact (the nav is at the foot of the screen): the h1's sx reveals it on a
   // phone, and `navAtBottom` opens the gap under it. See useTabHeadingPhoneSx.
@@ -2521,7 +2544,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
       {/* Scoreboard. The postseason rows come from the calendar the league published, and each
           one retires itself the day the feed carries a real game on its date. */}
-      <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} />
+      <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} onOpenMatchup={setMatchup} />
 
       {/* Discord invite, mobile only. Sits between the scoreboard and the feed. Hidden at md+
           because the desktop feed is a two-column subgrid with shared row boundaries that a
@@ -2667,6 +2690,13 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         <LeagueCard />
       </Box>
 
+      {matchup && (
+        <WpblMatchupPreview
+          away={matchup.away} home={matchup.home} teams={teams} games={games}
+          eyebrow={matchup.eyebrow} onClose={() => setMatchup(null)}
+          onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer}
+        />
+      )}
     </Box>
   )
 }

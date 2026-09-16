@@ -8,7 +8,7 @@ import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFi
 import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, FOCUS_RING } from './ui'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
@@ -27,6 +27,7 @@ import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonSha
 import { useRowFlip, useRowDividers } from './rowFlip'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
+import { WpblMatchupPreview } from './GamePreview'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './BottomNav'
 import {
@@ -172,8 +173,12 @@ const revisedLabel = (g: WpblGame): string => {
   return r ? formatRevisionDay(r.on) : ''
 }
 
-function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
+function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, onOpenPlayer }: {
   teams: WpblTeam[]; games: WpblGame[]; siteGames?: WpblSiteGame[]; onOpenGame: (g: WpblGame) => void
+  /** For the postseason matchup preview's roster and club links; optional so the view still
+   *  renders without them. */
+  onOpenTeam?: (t: WpblTeam) => void
+  onOpenPlayer?: (p: WpblPlayer) => void
   active?: boolean // accepted (call site passes it) but unused now that ordering replaced auto-scroll
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -181,6 +186,10 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
   const gameLink = useWpblGameLink()
   const headingTag = useWpblHeadingTag()
   const hidePhone = useTabHeadingPhoneSx()
+  // A postseason placeholder opened as a matchup preview. These have no feed game row to open,
+  // so this is a local modal rather than a history-managed page: season comparison and the two
+  // rosters, which is what a seeded-but-unplayed fixture can answer.
+  const [matchup, setMatchup] = useState<{ away: WpblTeam; home: WpblTeam; eyebrow: string } | null>(null)
   // The postseason is series-shaped and this list was not: a best-of-three read as three
   // unrelated games between the same two clubs. Empty all regular season, and empty for as
   // long as the feed marks no game as postseason, so nothing here changes shape on its own.
@@ -274,6 +283,13 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
     // Away over home when the league has designated one, seed order when it has not, and no venue
     // marker either way, matching the real game card: one ballpark means "home" is only batting last.
     const { slots } = postseasonSlots(r)
+    // Both clubs seeded: there is a matchup to preview even though there is no game to open, so the
+    // card goes solid and clickable. A slot still holding a seed number (team null) has no matchup
+    // yet, so that card stays dashed and inert, the way it always was.
+    const preview = r.first.team && r.second.team
+      ? { away: slots[0].team!, home: slots[1].team!,
+          eyebrow: `${r.label} · Game ${r.gameNumber} · ${dateLabel(r.date)}` }
+      : null
     const slot = (p: PostseasonSlot, i: number) => (
       <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
         {p.team ? <TeamBadge team={p.team} size={26} /> : (
@@ -300,10 +316,17 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
       </Box>
     )
     return (
-      <Box key={r.id} sx={{
-        display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25,
-        borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, bgcolor: 'background.paper',
-      }}>
+      <Box key={r.id}
+        {...(preview ? pressable(() => setMatchup(preview)) : {})}
+        aria-label={preview ? `Preview ${preview.away.abbr} at ${preview.home.abbr}` : undefined}
+        sx={{
+          display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25,
+          // Solid and clickable once both clubs are seeded (there is a matchup to preview); dashed
+          // and inert while a seat is still a seed number.
+          borderRadius: 2, border: preview ? '1px solid' : '1px dashed', borderColor: CARD_BORDER,
+          bgcolor: 'background.paper',
+          ...(preview ? { cursor: 'pointer', ...TAPPABLE, ...FOCUS_RING, transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }) } : {}),
+        }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {slots.map(slot)}
@@ -478,6 +501,13 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
       {lead.map(renderDate)}
       {earlier.length > 0 && <SectionLabel>Earlier</SectionLabel>}
       {earlier.map(renderDate)}
+      {matchup && (
+        <WpblMatchupPreview
+          away={matchup.away} home={matchup.home} teams={teams} games={games}
+          eyebrow={matchup.eyebrow} onClose={() => setMatchup(null)}
+          onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer}
+        />
+      )}
     </Box>
   )
 }
@@ -1324,6 +1354,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const selectTeamFromStandings = useCallback((t: WpblTeam | null) => selectTeam(t, 'standings'), [selectTeam])
   const selectTeamFromStats     = useCallback((t: WpblTeam | null) => selectTeam(t, 'stats'), [selectTeam])
   const selectTeamFromTeams     = useCallback((t: WpblTeam | null) => selectTeam(t, 'teams'), [selectTeam])
+  const selectTeamFromSchedule  = useCallback((t: WpblTeam | null) => selectTeam(t, 'schedule'), [selectTeam])
   // From a game: the score lines at the top of Game Center, the box score's own team rows,
   // and the preview card's legend chips. Like `openGame` from a player, this closes the game
   // as it goes, so Back walks off the team page and lands back on the game.
@@ -1872,7 +1903,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
               const content = (() => {
                 switch (n.key) {
                   case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeTop} />
-                  case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} active={view === 'schedule'} />
+                  case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} onOpenTeam={selectTeamFromSchedule} onOpenPlayer={openPlayer} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoards={newBoards} onBoardSeen={markBoardSeen} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} onOpenGame={openGame} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />

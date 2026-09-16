@@ -2467,7 +2467,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           // Unplayed game: a pre-game matchup card comparing the two clubs' season stats,
           // in place of a bare "not played yet" message (mirrors the MLB game preview).
           <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            <WpblGamePreview away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} />
+            <WpblGamePreview away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer} rosters />
           </Box>
         ) : (
           <Box sx={{ flex: 1, p: 2 }}>

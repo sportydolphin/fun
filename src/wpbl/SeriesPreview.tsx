@@ -1,23 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
-  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, useWpblName,
+  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark,
   TYPE_SCALE, chromePx,
 } from './ui'
 import { wpblAccent, wpblSurface, formatGameTime } from './constants'
 import { fetchWpblAllLines, getCachedWpblAllLines, fetchWpblAllPlayers, countsInStandings } from './api'
-import {
-  aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, scaleToBasis,
-} from './stats'
-import { outsToIp } from './innings'
 import { useEraBasis } from './EraBasisContext'
 import { postseasonGames } from './derive/bracket'
 import { WpblGamePreview } from './GamePreview'
+import { teamLeaders, LeaderTable } from './TeamLeaders'
 import { fmtOdds } from './derive/seriesOdds'
 import type { SeriesOdds } from './derive/seriesOdds'
 import type { BracketSeries } from './derive/bracket'
 import type {
-  WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblStandingRow,
+  WpblTeam, WpblGame, WpblPlayer, WpblStandingRow,
 } from './types'
 
 /**
@@ -40,81 +37,6 @@ import type {
  * are both app-wide caches by the time Home has drawn, so on a warm page this opens with no
  * request at all; on a cold one it asks for the same two reads the rest of the page wants.
  */
-
-/** One club's best in one category, as a line to print. */
-interface Leader {
-  label: string
-  player: WpblPlayer
-  value: string
-}
-
-/**
- * The clubs' leaders, from the lines played FOR that club.
- *
- * KEYED ON THE LINE'S TEAM AND NEVER ON THE ROSTER ROW, which is the trap this section is built
- * around: `team_id` on a roster row means "now", so a traded player would be listed under the
- * club they finished the season at and be missing from the one they played these games for. A
- * box-score line carries the club that game was played for, which is the question being asked.
- *
- * Rate stats are gated on the same qualifier the leaderboards use, so the club's batting average
- * is not a pinch-hitter who went 2-for-2 in August. Counting stats are not gated, because a home
- * run leader with nine home runs led whether or not they batted enough to hold a rate title.
- */
-export function teamLeaders(
-  team: WpblTeam,
-  players: WpblPlayer[],
-  batting: WpblBattingLine[],
-  pitching: WpblPitchingLine[],
-  games: WpblGame[],
-  teams: WpblTeam[],
-  eraBasis: 7 | 9,
-): Leader[] {
-  const qual = wpblQualifiers(teams, games)
-  const bats = aggregateBatting(players, batting.filter(l => l.team_id === team.id), games)
-  const pits = aggregatePitching(players, pitching.filter(l => l.team_id === team.id), games)
-
-  const best = <T,>(rows: T[], value: (r: T) => number | null, ok: (r: T) => boolean): T | null => {
-    let top: T | null = null, topV = -Infinity
-    for (const r of rows) {
-      if (!ok(r)) continue
-      const v = value(r)
-      if (v == null || !Number.isFinite(v) || v <= topV) continue
-      top = r; topV = v
-    }
-    return top
-  }
-
-  const out: Leader[] = []
-  const qualified = (b: typeof bats[number]) => !qual.active || plateAppearances(b.totals) >= qual.minPa
-
-  const avg = best(bats, b => b.totals.avg, qualified)
-  if (avg?.totals.avg != null) out.push({ label: 'AVG', player: avg.player, value: avg.totals.avg.toFixed(3).replace(/^0/, '') })
-
-  const ops = best(bats, b => b.totals.ops, qualified)
-  if (ops?.totals.ops != null) out.push({ label: 'OPS', player: ops.player, value: ops.totals.ops.toFixed(3) })
-
-  const hr = best(bats, b => b.totals.hr, () => true)
-  if (hr && hr.totals.hr > 0) out.push({ label: 'HR', player: hr.player, value: String(hr.totals.hr) })
-
-  const rbi = best(bats, b => b.totals.rbi, () => true)
-  if (rbi && rbi.totals.rbi > 0) out.push({ label: 'RBI', player: rbi.player, value: String(rbi.totals.rbi) })
-
-  // Lowest ERA, so the comparison is negated rather than a second `best` that sorts the other
-  // way: one ordering rule, inverted at the call site, cannot disagree with itself.
-  const era = best(pits, p => (p.totals.era == null ? null : -p.totals.era),
-    p => !qual.active || p.totals.outs >= qual.minOuts)
-  if (era?.totals.era != null) {
-    out.push({ label: 'ERA', player: era.player, value: (scaleToBasis(era.totals.era, eraBasis) ?? 0).toFixed(2) })
-  }
-
-  const so = best(pits, p => p.totals.so, () => true)
-  if (so && so.totals.so > 0) out.push({ label: 'SO', player: so.player, value: String(so.totals.so) })
-
-  const ip = best(pits, p => p.totals.outs, () => true)
-  if (ip && ip.totals.outs > 0) out.push({ label: 'IP', player: ip.player, value: outsToIp(ip.totals.outs) })
-
-  return out
-}
 
 /** The regular-season meetings between two clubs, newest first. The season series line in the
  *  bracket is a record; this is the games behind it. */
@@ -247,123 +169,6 @@ function SeriesSchedule({ series }: { series: BracketSeries }) {
           </Box>
         )
       })}
-    </Box>
-  )
-}
-
-/** The categories, in the order they are read, so both clubs' rows line up even when one of
- *  them has nobody in a category. A club with no home runs all season leaves a dash rather
- *  than shifting every row under it up by one. */
-const LEADER_CATEGORIES = ['AVG', 'OPS', 'HR', 'RBI', 'ERA', 'SO', 'IP'] as const
-
-/** The width of the category column between the two clubs. In rem because it is reserving room
- *  for a STRING, and narrower on a phone because the longest label here is three characters and
- *  the two names either side need every pixel: at the Large text setting on a 375px screen a
- *  wider column is the difference between "K. Whitmore" and "K. Whitmor…". */
-const LEADER_LABEL_W = { xs: '2rem', sm: '2.5rem' }
-
-/**
- * Both clubs' leaders, with the category down the middle.
- *
- * TWO LISTS SIDE BY SIDE IS NOT A COMPARISON. With one club's seven categories and then the
- * other's, each with its own label column, reading "who has the better ERA" means finding ERA
- * twice and holding the first number while you look for the second. The category sits between
- * the two and each club's leader reads outward from it, which is exactly the shape of the team
- * comparison directly above and lets the two blocks be read the same way.
- *
- * AWAY ON THE LEFT, HOME ON THE RIGHT, matching that comparison rather than the bracket: the
- * two blocks are inches apart and a reader who has just learned which side is which should not
- * have to learn it again.
- */
-function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
-  away: WpblTeam; home: WpblTeam
-  awayLeaders: Leader[]; homeLeaders: Leader[]
-  onOpenPlayer?: (p: WpblPlayer) => void
-}) {
-  const dark = useWpblDark()
-  // The section's own answer to a long name in a narrow column: "Kelsie Whitmore" on a desktop,
-  // "K. Whitmore" on a phone, where two names and a label share 375px.
-  const shortName = useWpblName()
-  const byLabel = (rows: Leader[]) => new Map(rows.map(r => [r.label, r]))
-  const A = byLabel(awayLeaders), H = byLabel(homeLeaders)
-  const rows = LEADER_CATEGORIES.filter(c => A.has(c) || H.has(c))
-  if (rows.length === 0) return null
-
-  const side = (l: Leader | undefined, team: WpblTeam, align: 'left' | 'right') => (
-    <Box
-      {...pressable(l && onOpenPlayer ? () => onOpenPlayer(l.player) : undefined)}
-      sx={{
-        flex: 1, minWidth: 0, borderRadius: 1, px: 0.5, py: 0.2,
-        display: 'flex', alignItems: 'baseline', gap: 0.75,
-        flexDirection: align === 'right' ? 'row' : 'row-reverse',
-        cursor: l && onOpenPlayer ? 'pointer' : 'default',
-        ...(l && onOpenPlayer ? TAPPABLE : null), ...FOCUS_RING,
-      }}
-    >
-      <Typography sx={{
-        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600,
-        textAlign: align, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        color: l ? 'text.primary' : 'text.disabled',
-      }}>{l ? shortName(l.player.name) : '—'}</Typography>
-      {/* 800, matching the team comparison directly above, and for the reason given there: a
-          tabular figure at 900 in a colour picked to be read closes its own counters up, and
-          these are the same numbers in the same accent inches below that block. */}
-      <Typography sx={{
-        flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800,
-        fontVariantNumeric: 'tabular-nums', color: l ? wpblAccent(team.id, dark) : 'text.disabled',
-      }}>{l ? l.value : ''}</Typography>
-    </Box>
-  )
-
-  const head = (team: WpblTeam, align: 'left' | 'right') => (
-    <Box sx={{
-      flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.6,
-      justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
-    }}>
-      {align === 'left' && <TeamBadge team={team} size={18} />}
-      <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
-        color: wpblAccent(team.id, dark), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>{team.name}</Typography>
-      {align === 'right' && <TeamBadge team={team} size={18} />}
-    </Box>
-  )
-
-  return (
-    /* CAPPED AND CENTRED, AND THE CAP IS MEASURED. Each side's leader hugs the category down
-    the middle, so at the sheet's full width the rules run the whole card while the text sits
-    in the middle third: 725px wide, each side 328px holding 178px of "Kelsie Whitmore
-    1.669", which is 150px of empty card inside every row, twice. The cap, 500 real pixels at
-    the desktop chrome scale, puts each side at 217px, which clears the widest pair at the
-    default text size and still clears it at the Large setting, where the same string grows to
-    about 200px. What is left goes outside as margin, where it reads as a centred comparison
-    rather than a row with a hole at each end. `chromePx` because a cap on a block is a
-    structural length and not room reserved for a string, so it follows the desktop chrome
-    scale and not the reader's text size. */
-    <Box sx={{ mt: 0.75, maxWidth: chromePx(400), mx: 'auto' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-        {head(away, 'right')}
-        {/* Holds the label column's width on the header row, so the two club names sit exactly
-            over the two sides they label. */}
-        <Box sx={{ width: LEADER_LABEL_W, flexShrink: 0 }} />
-        {head(home, 'left')}
-      </Box>
-      {rows.map(c => (
-        <Box key={c} sx={{
-          display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0,
-          py: 0.3, borderTop: '1px solid', borderColor: 'divider',
-        }}>
-          {side(A.get(c), away, 'right')}
-          {/* THE SAME LABEL AS THE TEAM COMPARISON'S, which is inches above it and asks the
-              reader to read it the same way: micro, 800, secondary. It was 12px/900/disabled
-              here, so two identical middle columns in one sheet were set two different ways. */}
-          <Typography sx={{
-            width: LEADER_LABEL_W, flexShrink: 0, textAlign: 'center',
-            fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary',
-          }}>{c}</Typography>
-          {side(H.get(c), home, 'left')}
-        </Box>
-      ))}
     </Box>
   )
 }
