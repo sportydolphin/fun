@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { Box, Typography } from '@mui/material'
-import { EmojiEvents, IosShare } from '@mui/icons-material'
+import { Box, Typography, Menu, MenuItem, ListItemIcon } from '@mui/material'
+import { EmojiEvents, IosShare, ContentCopy, Download } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
   pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
-import { wpblManagerPortraitSet, wpblPortraitSet } from './portraits'
-import { wpblAccent, wpblColor, wpblLogo } from './constants'
+import { wpblManagerPortraitSet, wpblPortrait, wpblManagerPortrait } from './portraits'
+import { wpblAccent, wpblColor, wpblLogo, wpblSecondary, wpblFullName } from './constants'
 import { useEraBasis } from './EraBasisContext'
 import { fanVoteAwards, FAN_VOTE_IDS, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
 import { WPBL_AWARDS_PATH } from './routes'
@@ -789,13 +789,13 @@ interface ShareCardData {
    *  rather than an <img>, because html2canvas 1.4 mishandles srcSet + object-fit and rendered the
    *  portrait blank; background-size: cover it renders correctly. */
   portraitSrc: string | null
-  /** Fallback ring/fill colour and initials for a winner with no bundled face. */
-  portraitBg: string
+  /** The winner's club, for the background gradient and the portrait's fallback fill. */
+  teamId: string | null
+  /** Initials for a winner with no bundled face. */
   initials: string
   detail: string
   stats: { value: string; label: string }[]
   pct: number
-  accent: string
 }
 
 /**
@@ -812,7 +812,11 @@ const SHARE_W = 540
 const SHARE_H = 540
 
 function WinnerShareCard({ data }: { data: ShareCardData }) {
-  const { category, name, detail, stats, pct, accent, portraitSrc, portraitBg, initials } = data
+  const { category, name, detail, stats, pct, portraitSrc, teamId, initials } = data
+  // The club's colours: primary behind the photo, secondary as the portrait ring (the one place
+  // the second colour appears now that the background is a plain dark ground).
+  const primary = wpblColor(teamId)
+  const secondary = wpblSecondary(teamId)
   return (
     <Box
       // Force the chrome scale to 1 so PlayerPortrait/TeamBadge render at exactly the px asked for.
@@ -821,32 +825,41 @@ function WinnerShareCard({ data }: { data: ShareCardData }) {
         width: SHARE_W, height: SHARE_H, boxSizing: 'border-box', p: '34px',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
         fontFamily: '"Inter", system-ui, sans-serif', color: '#f4f6f8',
-        // A near-black ground with a wash of the club colour rising from the winner block.
-        background: `radial-gradient(120% 90% at 20% 78%, ${accent}33 0%, ${accent}00 55%), #0d1014`,
-        borderRadius: '24px', position: 'relative',
+        // The whole card in the club's primary (a near-black team colour), with the secondary as
+        // the portrait ring. Square corners, so the exported PNG is a full square rather than one
+        // with transparent rounded corners.
+        backgroundColor: primary,
+        position: 'relative',
       }}
     >
-      {/* Header: the section, and the award mark. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      {/* Header: the award mark beside the section name. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <EmojiEvents sx={{ fontSize: 22, color: '#eab308' }} />
         <Box component="span" sx={{
           fontSize: 15, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: '#aeb6bf',
         }}>WPBL Fan Awards</Box>
-        <EmojiEvents sx={{ fontSize: 26, color: '#eab308' }} />
       </Box>
 
       {/* THE MIDDLE, VERTICALLY CENTRED. Category, then the winner, then the big share, as one
           block that sits in the middle of the card so there is no dead gap under the header. */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '22px', minWidth: 0 }}>
         <Box component="div" sx={{
-          fontSize: 27, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
-          color: accent, lineHeight: 1.15,
+          // The club's SECONDARY colour, not the accent: on a card washed in the primary, the
+          // accent can be the same hue (Boston green on green) and vanish. The secondary is the
+          // contrasting brand colour (Boston orange), which is also the ring and the pop here.
+          fontSize: 32, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+          color: secondary, lineHeight: 1.1,
         }}>{category}</Box>
 
-        {/* The winner. The face is a background image, not an <img>, so html2canvas renders it. */}
+        {/* The winner. The face is drawn twice: as a background image so it is present if anything
+            goes wrong, and (for sharpness) composited at full resolution onto the captured canvas
+            afterwards, since html2canvas rasterises a background image at its CSS size and upscales
+            it, which is what looked pixelated. `data-portrait` is how the compositor finds this
+            circle. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: 0 }}>
-          <Box sx={{
+          <Box data-portrait="1" sx={{
             width: 132, height: 132, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
-            border: `3px solid ${accent}`, backgroundColor: portraitBg,
+            border: `3px solid ${secondary}`, backgroundColor: primary,
             backgroundImage: portraitSrc ? `url("${portraitSrc}")` : 'none',
             backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -858,10 +871,11 @@ function WinnerShareCard({ data }: { data: ShareCardData }) {
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
               <Box component="span" sx={{
-                fontSize: 34, fontWeight: 800, lineHeight: 1.1, whiteSpace: 'nowrap',
-                overflow: 'hidden', textOverflow: 'ellipsis',
+                // lineHeight generous enough that overflow:hidden (there for the ellipsis) does not
+                // clip a descender like the g in "Gigi"; a touch of bottom padding for the same.
+                fontSize: 42, fontWeight: 900, lineHeight: 1.3, letterSpacing: -0.5, whiteSpace: 'nowrap',
+                overflow: 'hidden', textOverflow: 'ellipsis', pb: '3px',
               }}>{name}</Box>
-              <EmojiEvents sx={{ fontSize: 30, color: '#eab308', flexShrink: 0 }} />
             </Box>
             {detail && (
               <Box component="div" sx={{ mt: '4px', fontSize: 17, color: '#aeb6bf', lineHeight: 1.3 }}>{detail}</Box>
@@ -879,35 +893,50 @@ function WinnerShareCard({ data }: { data: ShareCardData }) {
           </Box>
         </Box>
 
-        {/* The winning share, big. */}
+        {/* The winning share, big, in the club's secondary so it pops off the primary ground. */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-          <Box component="span" sx={{ fontSize: 64, fontWeight: 900, lineHeight: 1, color: accent }}>{pct}%</Box>
-          <Box component="span" sx={{ fontSize: 15, color: '#8b939c', letterSpacing: 0.3 }}>of the fan vote</Box>
+          <Box component="span" sx={{ fontSize: 78, fontWeight: 900, lineHeight: 1, letterSpacing: -1, color: secondary }}>{pct}%</Box>
+          <Box component="span" sx={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', letterSpacing: 0.3 }}>of the fan vote</Box>
         </Box>
       </Box>
 
-      {/* Footer. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0 }}>
-        <Box component="span" sx={{ fontSize: 15, fontWeight: 700, color: '#aeb6bf' }}>sportydolphin.fun</Box>
+      {/* Footer: the brand mark and the wordmark. The mark is a black frame with a white dolphin,
+          so on the dark card it sits in a small white chip rather than being inverted (html2canvas
+          does not apply CSS filters, so an invert would not survive the capture). */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#fff', borderRadius: '3px', p: '1px' }}>
+          <Box component="img" src="/logo-mark.png" alt="" sx={{ height: 20, width: 'auto', display: 'block' }} />
+        </Box>
+        <Box component="span" sx={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.9)', letterSpacing: 0.2 }}>sportydolphin.fun</Box>
       </Box>
     </Box>
   )
 }
 
+type ShareAction = 'share' | 'copy' | 'download'
+
+/** Whether the browser can copy an image to the clipboard / share files, for deciding which menu
+ *  items to offer. Guarded for SSR and older browsers. */
+export const canCopyImage = (): boolean =>
+  typeof navigator !== 'undefined' && !!navigator.clipboard
+  && typeof navigator.clipboard.write === 'function' && typeof window.ClipboardItem !== 'undefined'
+export const canNativeShare = (): boolean =>
+  typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
 /**
- * Mounts the share card off-screen, captures it, and hands it to the OS share sheet.
+ * Mounts the share card off-screen, captures it, and performs the chosen action: the OS share
+ * sheet, a clipboard copy, or a download.
  *
  * OFF-SCREEN RATHER THAN VISIBLE: the reader shares the RESULT, not a modal, so the card is
  * rendered where html2canvas can reach it but the eye cannot, and torn down when done. Portraits
- * are bundled assets (same origin), so nothing is CORS-tainted; it still waits for them to decode
- * so the capture is not blank.
+ * are bundled assets (same origin), so nothing is CORS-tainted; it still preloads them so the
+ * capture is not blank.
  *
- * SHARE, THEN DOWNLOAD. `navigator.share` with a file is the good path on a phone; a browser
- * without it (most desktops) gets a download instead. A share the reader cancels (AbortError) is
- * left alone; a share the browser refuses because the gesture expired during capture falls back to
- * the download rather than failing silently.
+ * EVERY ACTION FALLS BACK TO A DOWNLOAD, which is the one that cannot fail: a share the browser
+ * refuses (or the reader's browser cannot do), a copy an engine does not support. A share the
+ * reader CANCELS (AbortError) is left alone rather than downloaded, since they chose to stop.
  */
-function WinnerShareLauncher({ data, onDone }: { data: ShareCardData; onDone: () => void }) {
+function WinnerShareLauncher({ data, action, onDone }: { data: ShareCardData; action: ShareAction; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let alive = true
@@ -917,13 +946,45 @@ function WinnerShareLauncher({ data, onDone }: { data: ShareCardData; onDone: ()
       const node = ref.current
       if (!node) { onDone(); return }
       try {
-        // Preload the face so html2canvas paints it rather than a blank circle: the portrait is a
-        // background image, which the capture loads itself, but a cold full-size file can lose the
-        // race otherwise.
-        if (data.portraitSrc) {
-          await new Promise<void>(res => { const im = new Image(); im.onload = () => res(); im.onerror = () => res(); im.src = data.portraitSrc! })
+        // Preload the images so nothing captures blank. The portrait is kept as a decoded element:
+        // it is composited onto the canvas at full resolution below, not left to html2canvas.
+        const preload = (src: string) => new Promise<HTMLImageElement | null>(res => {
+          const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src
+        })
+        const [portraitImg] = await Promise.all([
+          data.portraitSrc ? preload(data.portraitSrc) : Promise.resolve(null),
+          preload('/logo-mark.png'),
+        ])
+        const cardRect = node.getBoundingClientRect()
+        // 3x, so the type and chrome are crisp; the portrait is drawn sharper still below.
+        const canvas = await html2canvas(node, { scale: 3, backgroundColor: null, logging: false, useCORS: true })
+
+        // COMPOSITE THE PORTRAIT AT FULL RESOLUTION. html2canvas draws a background image at the
+        // element's CSS pixels and then scales the whole canvas up, which pixelates a face; drawing
+        // the decoded image straight onto the output canvas, clipped to the circle, uses every
+        // pixel of the source instead. Cover fit, anchored centre-top to match the CSS.
+        if (portraitImg && portraitImg.naturalWidth) {
+          const el = node.querySelector('[data-portrait]') as HTMLElement | null
+          const ctx = canvas.getContext('2d')
+          if (el && ctx) {
+            const pr = el.getBoundingClientRect()
+            const s = canvas.width / cardRect.width
+            const x = (pr.left - cardRect.left) * s
+            const y = (pr.top - cardRect.top) * s
+            const d = pr.width * s
+            const ringPx = 3 * s // keep the secondary ring html2canvas drew
+            ctx.save()
+            ctx.beginPath()
+            ctx.arc(x + d / 2, y + d / 2, d / 2 - ringPx, 0, Math.PI * 2)
+            ctx.closePath()
+            ctx.clip()
+            const cover = Math.max(d / portraitImg.naturalWidth, d / portraitImg.naturalHeight)
+            const dw = portraitImg.naturalWidth * cover
+            const dh = portraitImg.naturalHeight * cover
+            ctx.drawImage(portraitImg, x + d / 2 - dw / 2, y, dw, dh)
+            ctx.restore()
+          }
         }
-        const canvas = await html2canvas(node, { scale: 2, backgroundColor: null, logging: false, useCORS: true })
         const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'))
         if (!alive || !blob) { onDone(); return }
         const file = new File([blob], filename, { type: 'image/png' })
@@ -933,7 +994,10 @@ function WinnerShareLauncher({ data, onDone }: { data: ShareCardData; onDone: ()
           const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
           setTimeout(() => URL.revokeObjectURL(url), 1000)
         }
-        if (navigator.canShare?.({ files: [file] })) {
+        if (action === 'copy') {
+          try { await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]) }
+          catch { download() }
+        } else if (action === 'share' && navigator.canShare?.({ files: [file] })) {
           try { await navigator.share({ files: [file], title }) }
           catch (err) { if ((err as { name?: string })?.name !== 'AbortError') download() }
         } else {
@@ -1014,11 +1078,11 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   const label = (c: AwardCandidate) => (c.playerId ? short(c.name) : c.name)
   const pct = (c: AwardCandidate) => (total > 0 ? Math.round((votesOf(c.key) / total) * 100) : 0)
 
-  // A per-award share button, behind the tester flag while we try it out. It builds a picture of
-  // this one result and hands it to the OS share sheet (or a download). Tester-only for now, so
-  // the experiment is not in front of every fan the moment the ballot locks.
-  const isTester = useIsTester()
-  const [sharing, setSharing] = useState(false)
+  // A per-award share button, open to everyone. Tapping it opens a small menu (Share / Copy /
+  // Download); the chosen action builds a picture of this one result and runs it.
+  const shareBtnRef = useRef<HTMLDivElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [sharing, setSharing] = useState<ShareAction | null>(null)
 
   const winner = ranked[0] ?? null
   const runnersUp = ranked.slice(1, 3)
@@ -1077,36 +1141,42 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
       {/* The confetti, drawn here so it flies free of the card below rather than being clipped by
           its rounded overflow. Placed on the measured winner portrait. */}
       {origin && fire && <WinnerConfetti x={origin.x} y={origin.y} r={origin.r} />}
-      {/* Off-screen capture + share, mounted only while a share is in flight. */}
+      {/* Off-screen capture, mounted only while an action is in flight; runs whichever the menu
+          chose. */}
       {sharing && winner && (
         <WinnerShareLauncher
+          action={sharing}
           data={{
             category: award.title,
             name: winner.name,
-            // Manager headshot, else the player's bundled portrait, else the club logo; a plain URL
-            // for the card's background image.
-            portraitSrc: wpblManagerPortraitSet(winner.key)?.src
-              ?? (winner.playerId ? wpblPortraitSet(winner.name)?.src ?? null : null)
+            // The FULL 512 file, not the thumbnail `.src` a set hands out, so the capture is sharp:
+            // manager headshot, else the player's bundled portrait, else the club logo.
+            portraitSrc: wpblManagerPortrait(winner.key)
+              ?? (winner.playerId ? wpblPortrait(winner.name) : null)
               ?? (winner.teamId ? wpblLogo(winner.teamId) : null),
-            portraitBg: wpblColor(winner.teamId),
+            teamId: winner.teamId,
             initials: winner.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join(''),
-            detail: winner.playerId
-              ? [teamOf(winner.teamId)?.name, winner.sub].filter(Boolean).join(' · ')
-              : (winner.sub ?? teamOf(winner.teamId)?.name ?? ''),
-            stats: (winner.stats ?? []).slice(0, 3).map(s => ({
+            detail: (() => {
+              // The FULL club name ("Boston Hunters") in the share card's subtitle, not the
+              // nickname the compact rows use.
+              const t = teamOf(winner.teamId)
+              const full = t ? wpblFullName(t) : null
+              return winner.playerId
+                ? [full, winner.sub].filter(Boolean).join(' · ')
+                : (winner.sub ?? full ?? '')
+            })(),
+            stats: (winner.stats ?? []).filter(s => s.label !== 'Team').slice(0, 3).map(s => ({
               value: s.eraBasisValue !== undefined ? fmtEra(s.eraBasisValue) : s.value, label: s.label,
             })),
             pct: pct(winner),
-            // The vivid (dark-mode) accent, because the card always sits on a dark ground.
-            accent: wpblAccent(winner.teamId, true),
           }}
-          onDone={() => setSharing(false)}
+          onDone={() => setSharing(null)}
         />
       )}
       {/* THE CATEGORY IS THE EYEBROW, NOT THE HEADLINE. In the voting view the award's name is
           the question and takes the largest type; here the question is answered, so the winner's
           name is the thing worth reading big and the category steps back to a label above it.
-          The share button sits on this row, tester-only for now. */}
+          The share button sits on this row. */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
         <Typography sx={{
           // The category, stepped up so it reads as the section heading it is. Uppercase and
@@ -1115,10 +1185,12 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
           textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3, minWidth: 0,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{award.title}</Typography>
-        {isTester && winner && (
+        {winner && (
           <Box
-            {...pressable(() => { if (!sharing) setSharing(true) })}
+            ref={shareBtnRef}
+            {...pressable(() => { if (!sharing) setMenuOpen(true) })}
             aria-label={`Share the ${award.title} result`}
+            aria-haspopup="menu"
             title="Share this result"
             sx={{
               ...TAPPABLE, ...FOCUS_RING, flexShrink: 0, cursor: 'pointer',
@@ -1135,6 +1207,36 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
           </Box>
         )}
       </Box>
+
+      {/* The action menu. Share… only where the browser can (mostly phones); Copy only where the
+          clipboard takes an image; Download always, as the floor every browser can do. */}
+      <Menu
+        anchorEl={shareBtnRef.current}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        // Above the results sheet (ModalShell defaults to 1500), or the menu opens behind it and
+        // the tap looks like it did nothing.
+        sx={{ zIndex: 1700 }}
+      >
+        {canNativeShare() && (
+          <MenuItem onClick={() => { setMenuOpen(false); setSharing('share') }}>
+            <ListItemIcon><IosShare fontSize="small" /></ListItemIcon>
+            Share…
+          </MenuItem>
+        )}
+        {canCopyImage() && (
+          <MenuItem onClick={() => { setMenuOpen(false); setSharing('copy') }}>
+            <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
+            Copy image
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => { setMenuOpen(false); setSharing('download') }}>
+          <ListItemIcon><Download fontSize="small" /></ListItemIcon>
+          Download
+        </MenuItem>
+      </Menu>
 
       {!winner ? (
         // No votes at all. A hero row here would crown a zero, so say the true thing instead.
@@ -1156,7 +1258,9 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
             // Only the winner links out, the one name this card is really about; a runner-up is a
             // figure in a chart here, not a destination.
             const rowExit = isWinner ? exit : null
-            const stats = (c.stats ?? []).slice(0, 3)
+            // Drop the aura award's lone "Team" stat: the club is already in the subtitle below the
+            // name, so the stat just repeats it. Leaves aura as name + subtitle, nothing else.
+            const stats = (c.stats ?? []).filter(s => s.label !== 'Team').slice(0, 3)
             const club = teamOf(c.teamId)?.name
             const detail = c.playerId ? [club, c.sub].filter(Boolean).join(' · ') : (c.sub ?? club ?? '')
             return (
