@@ -25,6 +25,7 @@ import { useSeo } from './seo'
 // entry bundle. See the note at the top of that file.
 import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblComparePage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
 import { jerseyQuery } from './wpbl/playerSearch'
+import { defaultSectionPath } from './lib/defaultSection'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
@@ -394,11 +395,11 @@ function AppInner() {
   const { mode, toggleTheme, skinConfig } = useTheme()
   const integratedHeader = skinConfig.integratedHeader
   const { user, loading: authLoading, signOut, openAuthDialog } = useAuth()
-  // Root redirects straight to WPBL, which is the default section. MLB is the only other
-  // place to go, and the MLB | WPBL toggle is how you get there.
+  // Root redirects straight to the reader's default section (WPBL unless they chose MLB in
+  // Settings). MLB is the only other place to go, and the MLB | WPBL toggle is how you get there.
   const [path, setPath] = useState<Route | string>(() => {
     const p = readPath()
-    if (p === '/') { window.history.replaceState({}, '', '/wpbl'); return '/wpbl' }
+    if (p === '/') { const dest = defaultSectionPath(); window.history.replaceState({}, '', dest); return dest }
     return p as Route
   })
   // Keep <title>, meta description, canonical, and OG tags in sync with the route.
@@ -653,7 +654,7 @@ function AppInner() {
   useEffect(() => {
     const onPop = () => {
       const p = readPath()
-      if (p === '/') { window.history.replaceState({}, '', '/wpbl'); setPath('/wpbl'); return }
+      if (p === '/') { const dest = defaultSectionPath(); window.history.replaceState({}, '', dest); setPath(dest); return }
       setPath(p as Route)
     }
     window.addEventListener('popstate', onPop)

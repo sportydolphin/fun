@@ -53,6 +53,7 @@ vi.mock('../lib/push', () => ({
 }))
 
 import { SettingsDialog } from '../SettingsDialog'
+import { AppThemeProvider } from '../ThemeContext'
 import { AuthProvider } from '../AuthContext'
 import { UnitsProvider } from '../UnitsContext'
 import { ExperimentsProvider } from '../ExperimentsContext'
@@ -64,23 +65,25 @@ import { AccessibilityProvider } from '../AccessibilityContext'
 // grew a change-password form, which is exactly the slip this arrangement is meant to catch.
 function openMlbSettings() {
   return render(
-    <AuthProvider>
-      <UnitsProvider>
-        <ExperimentsProvider>
-          <AccessibilityProvider>
-            <SettingsDialog
-              open
-              onClose={() => {}}
-              userId="u1"
-              email="fan@example.com"
-              currentUsername="fan"
-              onEditUsername={() => {}}
-              isWpbl={false}
-            />
-          </AccessibilityProvider>
-        </ExperimentsProvider>
-      </UnitsProvider>
-    </AuthProvider>,
+    <AppThemeProvider>
+      <AuthProvider>
+        <UnitsProvider>
+          <ExperimentsProvider>
+            <AccessibilityProvider>
+              <SettingsDialog
+                open
+                onClose={() => {}}
+                userId="u1"
+                email="fan@example.com"
+                currentUsername="fan"
+                onEditUsername={() => {}}
+                isWpbl={false}
+              />
+            </AccessibilityProvider>
+          </ExperimentsProvider>
+        </UnitsProvider>
+      </AuthProvider>
+    </AppThemeProvider>,
   )
 }
 

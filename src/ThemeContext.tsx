@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme, Theme } from '@mui/material/styles';
 
 type ThemeMode = 'light' | 'dark';
+// What the reader chose. `mode` above is always the RESOLVED light/dark that the app renders
+// from; this is the preference behind it, where 'system' means "follow the device".
+export type ThemePref = 'light' | 'dark' | 'system';
 
 // A "skin" is a full surface + accent treatment, flippable so several dark-mode
 // directions can be A/B'd side by side before committing to one. Every non-classic
@@ -103,6 +106,9 @@ export const SKIN_OPTIONS: { key: ThemeSkin; label: string }[] =
 
 interface ThemeContextType {
   mode: ThemeMode;
+  /** The reader's choice: an explicit light/dark, or 'system' to follow the device. */
+  themePref: ThemePref;
+  setThemePref: (p: ThemePref) => void;
   toggleTheme: () => void;
   skin: ThemeSkin;
   setSkin: (s: ThemeSkin) => void;
@@ -260,22 +266,26 @@ function isSkin(v: string | null): v is ThemeSkin {
 export const DEFAULT_SKIN: ThemeSkin = 'charcoal';
 
 export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) => {
-  const [mode, setMode] = useState<ThemeMode>(() => {
+  // The reader's CHOICE. 'system' (the default, and what a never-toggled reader has always had)
+  // follows the device; an explicit light/dark overrides it. `mode` below is the resolved value
+  // everything renders from, so no consumer has to know 'system' exists.
+  const [themePref, setThemePrefState] = useState<ThemePref>(() => {
     const saved = localStorage.getItem('theme');
-    if (saved === 'light' || saved === 'dark') return saved;
-    return prefersDark() ? 'dark' : 'light';
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+    return 'system';
   });
 
-  // Until the user explicitly picks a theme via the toggle button, keep
-  // following the device's color scheme — including live changes (e.g.
-  // system dark mode turning on at sunset) while the app is open.
+  // The device's current scheme, tracked live so a 'system' reader flips with the OS (e.g. dark
+  // mode turning on at sunset) while the app is open.
+  const [systemDark, setSystemDark] = useState(prefersDark);
   useEffect(() => {
-    if (localStorage.getItem('theme')) return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => setMode(e.matches ? 'dark' : 'light');
+    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
+
+  const mode: ThemeMode = themePref === 'system' ? (systemDark ? 'dark' : 'light') : themePref;
 
   // Which visual skin to render. Defaults to DEFAULT_SKIN (charcoal); a saved choice
   // from the dev picker overrides it and persists for future A/B testing.
@@ -286,6 +296,9 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) 
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', mode);
+    // Match the first-paint bootstrap in index.html: native form controls and scrollbars follow
+    // the resolved mode, not just the CSS palette, so a runtime switch is complete.
+    document.documentElement.style.colorScheme = mode;
   }, [mode]);
 
   useEffect(() => {
@@ -303,13 +316,14 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) 
     root.style.setProperty('--card-bg', c.paper);
   }, [skin, mode]);
 
-  const toggleTheme = () => {
-    setMode(prev => {
-      const next = prev === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme', next);
-      return next;
-    });
+  const setThemePref = (p: ThemePref) => {
+    localStorage.setItem('theme', p);
+    setThemePrefState(p);
   };
+
+  // The header sun/moon button: flips to the opposite of what is showing and makes it explicit.
+  // From 'system' this lands on a concrete choice, which is what a reader tapping it wants.
+  const toggleTheme = () => setThemePref(mode === 'light' ? 'dark' : 'light');
 
   const setSkin = (s: ThemeSkin) => {
     localStorage.setItem('themeSkin', s);
@@ -324,7 +338,7 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) 
   const skinConfig = resolveSkin(skin, mode);
 
   return (
-    <ThemeContext.Provider value={{ mode, toggleTheme, skin, setSkin, cycleSkin, skinConfig }}>
+    <ThemeContext.Provider value={{ mode, themePref, setThemePref, toggleTheme, skin, setSkin, cycleSkin, skinConfig }}>
       <MuiThemeProvider theme={theme}>
         {children}
       </MuiThemeProvider>

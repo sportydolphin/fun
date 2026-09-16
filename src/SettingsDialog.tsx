@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Typography, Box, CircularProgress, TextField, Switch, type SxProps, type Theme } from '@mui/material'
-import { ChevronRight, ExpandMore, WarningAmber } from '@mui/icons-material'
+import { Button, Typography, Box, CircularProgress, TextField, Switch, useMediaQuery, type SxProps, type Theme } from '@mui/material'
+import {
+  ChevronRight, ExpandMore, WarningAmber,
+  PersonOutlined, SportsBaseballOutlined, NotificationsNoneOutlined,
+  AccessibilityNewOutlined, TuneOutlined, DeleteOutlineOutlined,
+} from '@mui/icons-material'
 import { Team } from './mlb/types'
 import { TEAM_BG } from './mlb/constants'
 import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from './mlb/lib/colorUtils'
@@ -21,6 +25,8 @@ import {
 } from './lib/push'
 import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './wpbl/reminders'
 import { ModalShell, pressable, FOCUS_RING } from './wpbl/ui'
+import { useTheme, type ThemePref } from './ThemeContext'
+import { getDefaultSection, setDefaultSection, type DefaultSection } from './lib/defaultSection'
 import { useUnits, type UnitSystem } from './UnitsContext'
 import { useEraBasis, type EraBasis } from './wpbl/EraBasisContext'
 import { useExperimentsSetting } from './ExperimentsContext'
@@ -51,14 +57,28 @@ interface Props {
 // grey slab dropped on top of the page. These four primitives are that language: the same
 // bordered card, hairline divider and pill control the rest of the site uses.
 
-function SettingsLabel({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
+function SettingsLabel({ children, icon, danger, sx }: {
+  children: React.ReactNode
+  /** A small leading glyph so each section is recognisable at a glance, which earns its keep once
+   *  the desktop layout puts two columns of these on screen at once. Muted to match the label. */
+  icon?: React.ReactNode
+  /** The danger zone's header, tinted to match its card so the warning reads before the words. */
+  danger?: boolean
+  sx?: SxProps<Theme>
+}) {
+  const color = danger ? 'error.main' : 'text.disabled'
   return (
-    <Typography sx={{
-      fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
-      color: 'text.disabled', mb: 0.75, ...sx,
-    }}>
-      {children}
-    </Typography>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.75 }}>
+      {icon && (
+        <Box aria-hidden sx={{ display: 'flex', color, '& > svg': { fontSize: '1rem' } }}>{icon}</Box>
+      )}
+      <Typography sx={{
+        fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+        color, ...sx,
+      }}>
+        {children}
+      </Typography>
+    </Box>
   )
 }
 
@@ -238,13 +258,12 @@ function WpblSection({ userId, push }: { userId: string; push: PushState }) {
   }
 
   const blocked = !push.supported || !push.configured || push.perm === 'denied'
-  let hint: string
-  if (!push.supported)          hint = 'This browser doesn’t support push notifications.'
-  else if (!push.configured)    hint = 'Notifications aren’t set up on this deployment yet.'
+  // Only the states a reader cannot act on without an explanation: a disabled switch with no
+  // reason is a dead control. The plain on/off description is dropped as an unnecessary caption.
+  let hint: string | undefined
+  if (!push.supported)             hint = 'This browser doesn’t support push notifications.'
+  else if (!push.configured)       hint = 'Notifications aren’t set up on this deployment yet.'
   else if (push.perm === 'denied') hint = 'Blocked. Turn notifications back on for this site in your browser settings.'
-  else if (push.busy)           hint = 'Working…'
-  else if (on)                  hint = 'On. We’ll ping you before first pitch of every WPBL game.'
-  else                          hint = 'Get a heads-up before first pitch of every WPBL game.'
 
   return (
     <>
@@ -365,13 +384,11 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
   }
 
   const blocked = !push.supported || !push.configured || push.perm === 'denied'
-  let pickHint: string
-  if (!push.supported)          pickHint = 'This browser doesn’t support push notifications.'
-  else if (!push.configured)    pickHint = 'Notifications aren’t set up on this deployment yet.'
+  // As in WpblSection: keep only the reasons a switch is disabled, drop the on/off description.
+  let pickHint: string | undefined
+  if (!push.supported)             pickHint = 'This browser doesn’t support push notifications.'
+  else if (!push.configured)       pickHint = 'Notifications aren’t set up on this deployment yet.'
   else if (push.perm === 'denied') pickHint = 'Blocked. Turn notifications back on for this site in your browser settings.'
-  else if (push.busy)           pickHint = 'Working…'
-  else if (picks)               pickHint = 'On. We’ll remind you to make your predictions before first pitch.'
-  else                          pickHint = 'A daily nudge to make your predictions before today’s games lock.'
 
   const selectedTeam = teams.find(t => t.id === teamId)
   const selectedBg = teamId != null ? (TEAM_BG[teamId] ?? '#444') : undefined
@@ -385,7 +402,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
         <Row
           first
           title="Preferred team"
-          hint={saving ? 'Saving…' : 'Synced to your account, so it follows you across devices.'}
+          hint={saving ? 'Saving…' : undefined}
           onClick={() => setPickerOpen(o => !o)}
           control={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
@@ -495,9 +512,6 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
 
         <Row
           title="Game start reminders"
-          hint={gsEnabled
-            ? 'On. We’ll ping you before your preferred team’s next game.'
-            : 'A heads-up before your preferred team’s game starts.'}
           control={
             <Switch
               checked={gsEnabled}
@@ -527,9 +541,6 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
 
         <Row
           title="Milestone alerts"
-          hint={milestones
-            ? 'On. We’ll flag it in the bell when a player you follow is closing on a milestone.'
-            : 'A heads-up when a player you follow nears a milestone.'}
           control={
             <Switch
               checked={milestones}
@@ -566,10 +577,29 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   useEffect(() => { if (open) setLeague(isWpbl ? 'wpbl' : 'mlb') }, [open, isWpbl])
 
   const { changePassword, hasPassword } = useAuth()
+  const { themePref, setThemePref } = useTheme()
   const { units, setUnits } = useUnits()
   const { basis: eraBasis, setBasis: setEraBasis } = useEraBasis()
   const { experiments, setExperiments } = useExperimentsSetting()
   const { swipeNav, setSwipeNav, textScale, setTextScale, reduceMotion, setReduceMotion } = useAccessibilitySettings()
+
+  // Two columns once there is room for them (signed-in only: a signed-out reader has just the two
+  // app cards and does not need the width). Keyed off MUI's md (900px), the same width the modal
+  // widens at below, so the direction switch and the wider dialog land together.
+  const twoCol = useMediaQuery('(min-width:900px)')
+  const columns = signedIn && twoCol
+  // Each side of the desktop layout: a flex column that splits the width when there are two, and
+  // simply stacks full-width when there is one (mobile, or a signed-out reader).
+  const columnSx = {
+    flex: columns ? 1 : 'none', width: columns ? 'auto' : '100%', minWidth: 0,
+    display: 'flex', flexDirection: 'column', gap: 2.5,
+  } as const
+  // "Swipe between tabs" is a touch gesture, so it is meaningless on a mouse-only desktop and just
+  // one more switch to scan past. Shown only where the primary pointer is coarse (a touchscreen).
+  const touch = useMediaQuery('(pointer: coarse)')
+
+  // Which section a bare visit to "/" opens on. Device-local, so it works signed out too.
+  const [defaultSection, setDefaultSectionState] = useState<DefaultSection>(getDefaultSection)
 
   const [perm, setPerm] = useState<ReturnType<typeof notificationPermission>>('default')
   const [subscribed, setSubscribed] = useState(false)
@@ -648,16 +678,20 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
     // landing as a flat grey slab. It also drops the DialogActions bar and its "DONE" button
     // button, because every control here writes the moment you touch it and a commit-shaped button was
     // promising a step that does not exist. The ✕ in the header is the way out.
-    <ModalShell eyebrow="Settings" onClose={onClose} maxWidth={460}>
-      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+    <ModalShell eyebrow="Settings" onClose={onClose} maxWidth={signedIn ? { xs: 460, md: 780 } : 460}>
+      {/* One column on a phone and for a signed-out reader (who has only the two app cards); two
+          side by side on a desktop once signed in, so the account and league blocks no longer sit
+          above a long scroll of the accessibility and app settings. The left column carries the
+          two that expand (account, league); the right carries the rest. */}
+      <Box sx={{ p: 2, display: 'flex', flexDirection: columns ? 'row' : 'column', gap: 2.5, alignItems: columns ? 'flex-start' : 'stretch' }}>
+        <Box sx={columnSx}>
         {signedIn && (
           <Box>
-            <SettingsLabel>Account</SettingsLabel>
+            <SettingsLabel icon={<PersonOutlined />}>Account</SettingsLabel>
             <SettingsCard>
               <Row
                 first
                 title={currentUsername ? `@${currentUsername}` : (email || 'Set a username')}
-                hint="Your display name on leaderboards and predictions."
                 onClick={onEditUsername}
                 chevron
               />
@@ -668,9 +702,6 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
               {!pwOpen ? (
                 <Row
                   title={hasPassword ? 'Change password' : 'Set a password'}
-                  hint={hasPassword
-                    ? 'You will need your current one.'
-                    : 'You signed up with Google. Adding a password gives you a second way in.'}
                   onClick={() => { setPwOpen(true); setPwDone(false); setPwErr('') }}
                   chevron
                 />
@@ -744,7 +775,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
             app-wide settings and never see a switcher with nothing behind it. */}
         {signedIn && (
           <Box>
-            <SettingsLabel>League</SettingsLabel>
+            <SettingsLabel icon={<SportsBaseballOutlined />}>League</SettingsLabel>
             <Box sx={{ mb: 1.25 }}>
               <PillGroup
                 fullWidth
@@ -762,18 +793,19 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
               : <MlbSection userId={userId!} push={push} />}
           </Box>
         )}
+        </Box>
 
+        <Box sx={columnSx}>
         {/* Device-level, and deliberately outside both league blocks: one subscription
             delivers every reminder on the site, so switching a single one off must not tear it
             down. This is the only control that does. */}
         {signedIn && subscribed && (
           <Box>
-            <SettingsLabel>This device</SettingsLabel>
+            <SettingsLabel icon={<NotificationsNoneOutlined />}>This device</SettingsLabel>
             <SettingsCard>
               <Row
                 first
                 title="Stop all push"
-                hint="Stops every reminder reaching this browser. Your preferences are kept, so turning any reminder back on re-subscribes it."
                 control={
                   <Typography
                     {...pressable(busy ? undefined : async () => {
@@ -800,12 +832,11 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
             question for us; reduce motion is an explicit override of the OS `prefers-reduced-
             motion` query, which the site still honours as the baseline (see src/styles.css). */}
         <Box>
-          <SettingsLabel>Accessibility</SettingsLabel>
+          <SettingsLabel icon={<AccessibilityNewOutlined />}>Accessibility</SettingsLabel>
           <SettingsCard>
             <Row
               first
               title="Text size"
-              hint="Makes type larger without reflowing the layout the way browser zoom does."
               control={
                 <PillGroup
                   options={[{ key: 'default' as TextScale, label: 'Default' }, { key: 'large' as TextScale, label: 'Large' }]}
@@ -814,20 +845,22 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 />
               }
             />
-            <Row
-              title="Swipe between tabs"
-              hint="Off means tabs change only when you tap them. Useful if a stray drag keeps moving you off the page you were reading."
-              control={
-                <Switch
-                  checked={swipeNav}
-                  onChange={e => setSwipeNav(e.target.checked)}
-                  slotProps={{ input: { 'aria-label': 'Swipe between tabs' } }}
-                />
-              }
-            />
+            {/* Touch only: there is no swipe to disable on a mouse-only desktop, so the row is
+                hidden there rather than offering a switch that changes nothing a reader can feel. */}
+            {touch && (
+              <Row
+                title="Swipe between tabs"
+                control={
+                  <Switch
+                    checked={swipeNav}
+                    onChange={e => setSwipeNav(e.target.checked)}
+                    slotProps={{ input: { 'aria-label': 'Swipe between tabs' } }}
+                  />
+                }
+              />
+            )}
             <Row
               title="Reduce motion"
-              hint="Turns off sliding and fading animations across the site, even if your device isn't set to reduce motion."
               control={
                 <Switch
                   checked={reduceMotion}
@@ -840,12 +873,38 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
         </Box>
 
         <Box>
-          <SettingsLabel>App</SettingsLabel>
+          <SettingsLabel icon={<TuneOutlined />}>App</SettingsLabel>
           <SettingsCard>
             <Row
               first
+              title="Theme"
+              control={
+                <PillGroup
+                  options={[
+                    { key: 'light' as ThemePref, label: 'Light' },
+                    { key: 'dark' as ThemePref, label: 'Dark' },
+                    { key: 'system' as ThemePref, label: 'System' },
+                  ]}
+                  value={themePref}
+                  onChange={setThemePref}
+                />
+              }
+            />
+            <Row
+              title="Default section"
+              control={
+                <PillGroup
+                  options={[
+                    { key: 'wpbl' as DefaultSection, label: 'WPBL' },
+                    { key: 'mlb' as DefaultSection, label: 'MLB' },
+                  ]}
+                  value={defaultSection}
+                  onChange={s => { setDefaultSection(s); setDefaultSectionState(s) }}
+                />
+              }
+            />
+            <Row
               title="Measurement units"
-              hint="Pitch speeds and distances."
               control={
                 <PillGroup
                   options={[{ key: 'imperial' as UnitSystem, label: 'Imperial' }, { key: 'metric' as UnitSystem, label: 'Metric' }]}
@@ -891,7 +950,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
 
         {signedIn && (
           <Box>
-            <SettingsLabel>Danger zone</SettingsLabel>
+            <SettingsLabel danger icon={<DeleteOutlineOutlined />}>Danger zone</SettingsLabel>
             <SettingsCard danger>
               {!deleteOpen ? (
                 <Row
@@ -935,6 +994,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
             </SettingsCard>
           </Box>
         )}
+        </Box>
       </Box>
     </ModalShell>
   )

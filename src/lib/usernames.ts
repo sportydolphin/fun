@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { containsProfanity } from './profanity'
 
 // ─── Shared username validation ────────────────────────────────────────────────
 
@@ -9,6 +10,10 @@ export function usernameValidationMsg(val: string): string | null {
   if (val.length < 3)  return 'At least 3 characters'
   if (val.length > 20) return 'Max 20 characters'
   if (!/^[a-zA-Z0-9_-]+$/.test(val)) return 'Letters, numbers, _ and - only'
+  // A public display name (leaderboards, predictions), so keep the obviously offensive ones off
+  // it. A database trigger enforces the same rule on write (see lib/profanity.ts); this is the
+  // in-form half.
+  if (containsProfanity(val)) return 'Please choose a different name'
   return null
 }
 
@@ -70,6 +75,9 @@ function candidate(): string {
 export async function generateUniqueUsername(maxAttempts = 12): Promise<string> {
   for (let i = 0; i < maxAttempts; i++) {
     const name = candidate()
+    // The word lists are clean, but a concatenation is the one way two innocent parts could form
+    // something that is not, so never hand back a generated name the filter would reject.
+    if (containsProfanity(name)) continue
     if (!(await isUsernameTaken(name))) return name
   }
   // Astronomically unlikely fallback — a timestamp suffix guarantees uniqueness
