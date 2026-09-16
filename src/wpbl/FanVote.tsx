@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Box, Typography } from '@mui/material'
+import { LockOutlined, EmojiEvents } from '@mui/icons-material'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
   pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
@@ -8,14 +9,14 @@ import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
 import { wpblManagerPortraitSet } from './portraits'
 import { wpblAccent } from './constants'
 import { useEraBasis } from './EraBasisContext'
-import { fanVoteAwards, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
+import { fanVoteAwards, FAN_VOTE_IDS, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
 import { WPBL_AWARDS_PATH } from './routes'
 import type { WpblAward } from './awards'
 import { buildAwardBallot, withWriteIns } from './derive/awards'
 import type { AwardBallotEntry, AwardCandidate } from './derive/awards'
 import {
   fetchWpblAwardBallot, fetchWpblAwardResults, castWpblAwardVote, clearWpblAwardVote,
-  awardVoteCount,
+  awardVoteCount, fetchWpblAwardVoterCount,
 } from './awardVotes'
 import type { AwardBallot, AwardResults } from './awardVotes'
 import { searchPlayers } from './playerSearch'
@@ -706,9 +707,339 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
   )
 }
 
+// ─── the winner's confetti ─────────────────────────────────────────────────────────
+
+/**
+ * A one-shot confetti pop over a winner's portrait, fired when the results sheet opens.
+ *
+ * THE SAME NOD AS THE LEAGUE SWITCHER'S BURST (ConfettiBurst in App.tsx), rebuilt for this
+ * surface: that one portals to <body> at fixed viewport coords because it fires from a bar that
+ * scrolls under sticky chrome. This is placed by `x`/`y` inside AwardResult's OUTER box, which is
+ * NOT overflow-clipped, so the burst flies free of the results card's rounded corners rather than
+ * being cut off at the card's top edge (the card clips its own wash and bars). The caller measures
+ * the portrait so the origin and the rim radius `r` are exact at any chrome scale. Purely
+ * cosmetic, `pointer-events: none`, radial because a portrait has room on every side, and it
+ * animates once on mount: each winner row remounts every time the sheet opens.
+ *
+ * HONOURS reduced motion: a reader who has asked the OS for less movement gets the trophy and the
+ * result and no burst.
+ */
+const WINNER_CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de']
+
+function WinnerConfetti({ x, y, r }: { x: number; y: number; r: number }) {
+  const reduce = typeof window !== 'undefined'
+    && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  // Each piece LAUNCHES FROM THE RIM (radius `r`, the measured portrait) rather than the centre,
+  // so the burst reads as coming off the edge of the circle.
+  const pieces = useMemo(() => Array.from({ length: 26 }, (_, i) => {
+    // Radial: a portrait has space all around it, unlike the switcher at the top of the page.
+    const angle = Math.random() * Math.PI * 2
+    // Farther and more varied than before, so the burst carries well past the portrait: a fuller,
+    // more prominent pop now that nothing clips it.
+    const dist = 30 + Math.random() * 60
+    const cos = Math.cos(angle), sin = Math.sin(angle)
+    return {
+      id: i,
+      // Start on the circle's edge, travel outward from there along the same ray.
+      sx: cos * r, sy: sin * r,
+      ex: cos * (r + dist), ey: sin * (r + dist),
+      rot: (Math.random() * 2 - 1) * 300,
+      delay: Math.random() * 90,
+      color: WINNER_CONFETTI_COLORS[i % WINNER_CONFETTI_COLORS.length],
+      size: 5 + Math.random() * 5,
+      round: Math.random() < 0.4,
+    }
+  }), [r])
+  if (reduce) return null
+  return (
+    <Box aria-hidden sx={{
+      // Placed on the portrait's centre within the un-clipped outer box; pieces start at the rim.
+      position: 'absolute', left: x, top: y, width: 0, height: 0, pointerEvents: 'none', zIndex: 3,
+      '@keyframes winnerConfetti': {
+        '0%':   { transform: 'translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) rotate(0deg)', opacity: 1 },
+        '100%': { transform: 'translate(calc(-50% + var(--ex)), calc(-50% + var(--ey))) rotate(var(--rot))', opacity: 0 },
+      },
+    }}>
+      {pieces.map(p => (
+        <Box
+          key={p.id}
+          style={{
+            '--sx': `${p.sx}px`, '--sy': `${p.sy}px`,
+            '--ex': `${p.ex}px`, '--ey': `${p.ey}px`, '--rot': `${p.rot}deg`,
+            width: p.size, height: p.size, background: p.color,
+            borderRadius: p.round ? '50%' : '1px', animationDelay: `${p.delay}ms`,
+          } as React.CSSProperties}
+          sx={{ position: 'absolute', left: 0, top: 0, animation: 'winnerConfetti 1.6s cubic-bezier(0.2, 0.6, 0.35, 1) forwards' }}
+        />
+      ))}
+    </Box>
+  )
+}
+
+// ─── one category, once the votes are locked ──────────────────────────────────────
+
+/**
+ * The RESULT of a category, not the ballot for it: the winner shown large, then the two names
+ * behind them.
+ *
+ * A DIFFERENT SHAPE FROM `AwardQuestion` ON PURPOSE. The voting view is a grid of equal tiles,
+ * because before the votes are in every name is a live option and the layout must not say
+ * otherwise. Once it is locked that even weighting is the wrong answer: there is one winner and
+ * the sheet should read like a results page, so this promotes the top name to a hero row and
+ * demotes the rest to a short list under it.
+ *
+ * THE WINNER IS RESOLVED THROUGH `withWriteIns`, closed and revealed, so a name the crowd wrote
+ * in can win: the seeded four are a seed, not the ballot paper (see derive/awards), and a
+ * results view that could only ever crown one of them would be the site's award rather than the
+ * fans'. An unrostered write-in with no portrait or page is the one it cannot draw, the same
+ * limit the tiles have, so the top DRAWABLE name stands in that rare case.
+ *
+ * EMPTY IS A REAL STATE. A category nobody voted in has no winner, and a hero row built around a
+ * zero-vote name would invent one; it says so plainly instead.
+ */
+/** How long each award waits behind the one above it before its confetti fires. */
+const WINNER_CONFETTI_STAGGER_MS = 180
+
+function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpenTeam }: {
+  entry: AwardBallotEntry
+  /** This award's position in the sheet, top-first, for the staggered confetti cascade. */
+  index: number
+  players: WpblPlayer[]
+  teams: WpblTeam[]
+  state: FanVoteState
+  onOpenPlayer?: (p: WpblPlayer) => void
+  onOpenTeam?: (t: WpblTeam) => void
+}) {
+  const dark = useWpblDark()
+  const short = useWpblName()
+  const playerLink = useWpblPlayerLink()
+  const teamLink = useWpblTeamLink()
+  // ERA is stored on the league's basis and rescaled at DISPLAY time, so the same formatter the
+  // tiles and the stats board use has to price a winner's headline figure too, or a pitcher's
+  // ERA on this card would disagree with her ERA everywhere else. See AwardStat in derive/awards.
+  const { fmtEra } = useEraBasis()
+  const { award, candidates } = entry
+
+  const bucket = state.results[award.id] ?? {}
+  const total = awardVoteCount(state.results, award.id)
+  const votesOf = (key: string) => bucket[key] ?? 0
+  // Vote order, write-ins included, the same list the tiles fall back to at close. Only names
+  // with real votes are winners: a slate carries four candidates whether or not anyone picked
+  // them, and withWriteIns keeps the seeded four in the list at zero.
+  const ranked = useMemo(() => withWriteIns(candidates, {
+    bucket, players, picked: state.ballot[award.id] ?? null, reveal: true, closed: true,
+  }).filter(c => votesOf(c.key) > 0), [candidates, bucket, players, state.ballot, award.id])
+
+  const teamOf = (id: string | null) => (id ? teams.find(t => t.id === id) ?? null : null)
+  const label = (c: AwardCandidate) => (c.playerId ? short(c.name) : c.name)
+  const pct = (c: AwardCandidate) => (total > 0 ? Math.round((votesOf(c.key) / total) * 100) : 0)
+
+  const winner = ranked[0] ?? null
+  const runnersUp = ranked.slice(1, 3)
+  // The empty groove a share bar fills, faint in both themes.
+  const track = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)'
+
+  // The way out of the hero row: a player to her page, a club (manager, aura) to the club page.
+  // A play or game winner has no page these two helpers reach, so it simply is not a link, the
+  // same rule the tile's `exit` follows.
+  const winnerPlayer = winner?.playerId ? players.find(p => p.id === winner.playerId) ?? null : null
+  const winnerTeam = winner ? teamOf(winner.teamId) : null
+  const exit = winner && winnerPlayer && onOpenPlayer
+    ? playerLink(winnerPlayer, onOpenPlayer)
+    : winner && !winnerPlayer && winnerTeam && onOpenTeam
+      ? teamLink(winnerTeam, () => onOpenTeam(winnerTeam))
+      : null
+
+  // Every portrait rings in its OWN club's accent, so a card reads as one colour per row: the
+  // hero in the winner's, each runner-up in theirs. Overriding the default secondary ring is what
+  // stops the accent from stacking outside it as a second hue (see the ring note on the hero).
+  const portrait = (c: AwardCandidate, size: number) => {
+    const ring = wpblAccent(c.teamId, dark)
+    const headshot = wpblManagerPortraitSet(c.key)
+    if (c.playerId || headshot) return <PlayerPortrait name={c.name} teamId={c.teamId} size={size} src={headshot} ring={ring} />
+    const t = teamOf(c.teamId)
+    return t ? <TeamBadge team={t} size={size} ring={ring} /> : null
+  }
+
+  // The confetti fires from the winner portrait but is DRAWN in this outer box, which is not
+  // overflow-clipped, so the burst flies past the results card's rounded corners instead of being
+  // cut off at its top edge. Measuring the portrait after layout gives an exact origin and rim at
+  // any chrome/text scale; the size is fixed (56px) so the number is stable before the image loads.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const portraitRef = useRef<HTMLDivElement>(null)
+  const [origin, setOrigin] = useState<{ x: number; y: number; r: number } | null>(null)
+  useLayoutEffect(() => {
+    const root = rootRef.current, port = portraitRef.current
+    if (!winner || !root || !port) { setOrigin(null); return }
+    const rr = root.getBoundingClientRect(), pr = port.getBoundingClientRect()
+    setOrigin({ x: pr.left - rr.left + pr.width / 2, y: pr.top - rr.top + pr.height / 2, r: pr.width / 2 })
+  }, [winner?.key])
+
+  // STAGGERED, TOP TO BOTTOM. All the winners are on screen when the sheet opens, so firing them at
+  // once is one flat pop; delaying each by its position turns it into a cascade that draws the eye
+  // down the results the way a reader would read them. Mounts the burst only when its turn comes,
+  // so each one animates from its start rather than sitting at the rim through the wait.
+  const [fire, setFire] = useState(false)
+  useEffect(() => {
+    if (!origin) return
+    const t = window.setTimeout(() => setFire(true), index * WINNER_CONFETTI_STAGGER_MS)
+    return () => window.clearTimeout(t)
+  }, [origin, index])
+
+  return (
+    <Box ref={rootRef} sx={{ position: 'relative' }}>
+      {/* The confetti, drawn here so it flies free of the card below rather than being clipped by
+          its rounded overflow. Placed on the measured winner portrait. */}
+      {origin && fire && <WinnerConfetti x={origin.x} y={origin.y} r={origin.r} />}
+      {/* THE CATEGORY IS THE EYEBROW, NOT THE HEADLINE. In the voting view the award's name is
+          the question and takes the largest type; here the question is answered, so the winner's
+          name is the thing worth reading big and the category steps back to a label above it. */}
+      <Typography sx={{
+        // The category, stepped up so it reads as the section heading it is. Uppercase and
+        // secondary keep it clearly below the winner's name, which is bigger still.
+        fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800, letterSpacing: 0.5,
+        textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3, mb: 0.75,
+      }}>{award.title}</Typography>
+
+      {!winner ? (
+        // No votes at all. A hero row here would crown a zero, so say the true thing instead.
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', lineHeight: 1.4 }}>
+          No votes in this category yet.
+        </Typography>
+      ) : (
+        // ONE BAR SCALE FOR THE WHOLE CARD. The winner and the runners-up are the SAME row shape,
+        // and every bar spans the full card width from the same left edge, filled to that name's
+        // share of the vote. That is the whole fix for the bars reading oddly before: they used to
+        // start at different x's and run to different maxes (the hero's flush to the card, each
+        // runner's inset under its name), so two lengths a reader is meant to compare could not be.
+        // Now 41% and 38% are 41% and 38% of the same line, and the winner is set apart by size,
+        // weight and a colour wash instead of by a bar that did not line up.
+        <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          {[winner, ...runnersUp].map((c, idx) => {
+            const isWinner = idx === 0
+            const rowAccent = wpblAccent(c.teamId, dark)
+            // Only the winner links out, the one name this card is really about; a runner-up is a
+            // figure in a chart here, not a destination.
+            const rowExit = isWinner ? exit : null
+            const stats = (c.stats ?? []).slice(0, 3)
+            const club = teamOf(c.teamId)?.name
+            const detail = c.playerId ? [club, c.sub].filter(Boolean).join(' · ') : (c.sub ?? club ?? '')
+            return (
+              <Box
+                key={c.key}
+                {...(rowExit ?? {})}
+                aria-label={rowExit ? `Open ${c.name}` : undefined}
+                sx={{
+                  position: 'relative',
+                  display: 'flex', alignItems: 'center', gap: chromePx(isWinner ? 12 : 10),
+                  // The extra bottom padding is the room the full-width share bar sits in.
+                  px: chromePx(14),
+                  pt: chromePx(isWinner ? 12 : 9),
+                  pb: chromePx(isWinner ? 16 : 13),
+                  // The winner alone gets the colour wash; the runners-up stay plain so the hero
+                  // reads as the answer and they read as the field.
+                  bgcolor: isWinner ? `${rowAccent}1f` : 'transparent',
+                  textDecoration: 'none', color: 'text.primary',
+                  ...(rowExit ? { cursor: 'pointer', ...TAPPABLE, ...FOCUS_RING } : null),
+                }}
+              >
+                {/* The rank on a runner-up, so 2 and 3 read as places rather than as two more
+                    winners. The hero needs none: it is the winner by every other signal here. */}
+                {!isWinner && (
+                  <Typography sx={{
+                    fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
+                    width: chromePx(14), flexShrink: 0, fontVariantNumeric: 'tabular-nums',
+                  }}>{idx + 1}</Typography>
+                )}
+                {/* One ring, in the row's own club accent (see the portrait helper): the hero and
+                    each runner are keyed to their own club rather than stacking a second hue. The
+                    winner's portrait is measured (ref) so the confetti above can fire from its
+                    exact centre and rim. */}
+                <Box ref={isWinner ? portraitRef : undefined} sx={{ flexShrink: 0, display: 'flex' }}>
+                  {portrait(c, isWinner ? 56 : 30)}
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  {/* The winner's FULL name behind a trophy; the runners-up abbreviate to hold one
+                      line. The hero name steps up on desktop so it stays the biggest thing on the
+                      card, above the enlarged category heading. */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(6), minWidth: 0 }}>
+                    <Typography sx={{
+                      fontSize: isWinner ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading } : TYPE_SCALE.body,
+                      fontWeight: isWinner ? 800 : 700, lineHeight: 1.2, minWidth: 0,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>{isWinner ? c.name : label(c)}</Typography>
+                    {isWinner && (
+                      // The one place the section spends a trophy: it marks the winner and nothing
+                      // else on the sheet competes for the mark. After the name so it reads as a
+                      // seal on it. Gold rather than the club accent, because a trophy reads as
+                      // first place in a colour a green or blue one would not; sized off the name.
+                      <EmojiEvents titleAccess="Winner" sx={{
+                        fontSize: { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading }, color: '#eab308', flexShrink: 0,
+                      }} />
+                    )}
+                  </Box>
+                  {isWinner && detail && (
+                    <Typography sx={{
+                      // A step up on desktop, where the caption size was barely legible in the
+                      // wide hero; still compact on a phone.
+                      fontSize: { xs: TYPE_SCALE.caption, md: TYPE_SCALE.meta },
+                      color: 'text.secondary', lineHeight: 1.35, mt: '2px',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>{detail}</Typography>
+                  )}
+                  {/* THE HEADLINE STAT LINE, on the winner only: the same figures the tile carded
+                      her on, so the result says WHY as well as who. Empty for a write-in or an
+                      open-field category, which carry no figures by design.
+
+                      THE VALUES ARE THE READABLE HALF, so they carry the weight and the size and
+                      the labels stay small and quiet beside them. On desktop the values step up to
+                      body, where a caption-sized stat line all but disappeared in the wide row. */}
+                  {isWinner && stats.length > 0 && (
+                    <Box sx={{
+                      display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+                      columnGap: chromePx(10), rowGap: '2px', mt: '4px',
+                    }}>
+                      {stats.map(s => (
+                        <Box key={s.label} sx={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                          <Typography component="span" sx={{
+                            fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800,
+                            color: 'text.primary', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
+                          }}>{s.eraBasisValue !== undefined ? fmtEra(s.eraBasisValue) : s.value}</Typography>
+                          <Typography component="span" sx={{
+                            fontSize: { xs: TYPE_SCALE.caption, md: TYPE_SCALE.meta }, fontWeight: 700,
+                            letterSpacing: 0.3, textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2,
+                          }}>{s.label}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
+                  <Typography sx={{
+                    fontSize: isWinner ? TYPE_SCALE.heading : TYPE_SCALE.body,
+                    fontWeight: isWinner ? 900 : 800, lineHeight: 1,
+                    fontVariantNumeric: 'tabular-nums', color: rowAccent,
+                  }}>{pct(c)}%</Typography>
+                </Box>
+                {/* THE SHARE BAR: full card width, same left edge and same 100% for every row, so
+                    the lengths are comparable. It doubles as the divider between rows. */}
+                <Box aria-hidden sx={{
+                  position: 'absolute', left: 0, right: 0, bottom: 0, height: chromePx(4), bgcolor: track,
+                }}>
+                  <Box sx={{ height: '100%', width: `${pct(c)}%`, bgcolor: rowAccent }} />
+                </Box>
+              </Box>
+            )
+          })}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 // ─── the sheet ───────────────────────────────────────────────────────────────────
 
-function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = false, onClose, onOpenPlayer, onOpenTeam }: {
+function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = false, voterCount = null, onClose, onOpenPlayer, onOpenTeam }: {
   entries: AwardBallotEntry[]
   players: WpblPlayer[]
   teams: WpblTeam[]
@@ -717,6 +1048,8 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
   /** The closed state is a tester preview rather than the real deadline: say so, and don't let
    *  the sheet claim voting has finished when it has not. */
   testerPreview?: boolean
+  /** Distinct people who voted, for the results header. Null until it loads. */
+  voterCount?: number | null
   onClose: () => void
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
@@ -729,16 +1062,20 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
       // WIDER THAN THE OTHER SHEETS IN THE SECTION, on purpose. Every other modal here shows a
       // thing to read and 720 is generous for prose; this one shows five grids of player cards,
       // and each extra 80px of sheet is 40px on every card, which is the difference between a
-      // fourth figure fitting and not. 880 is where the cards stop gaining: past it the portrait
-      // and the name stay put and the gap after the figures grows instead.
-      maxWidth={{ xs: 560, md: 880 }}
+      // fourth figure fitting and not. 880 is where the VOTING grid stops gaining: past it the
+      // portrait and the name stay put and the gap after the figures grows instead.
+      //
+      // THE RESULTS VIEW WANTS MORE, though: it is a single wide row per category (a hero and its
+      // bars), so the extra width goes into the name, the stat line and the bar rather than into a
+      // gap, which is why the closed sheet opens wider.
+      maxWidth={{ xs: 560, md: closed ? 1040 : 880 }}
       onClose={onClose}
       footer={
         <Box {...pressable(onClose)} sx={{
           ...FOCUS_RING, minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: 2, cursor: 'pointer', userSelect: 'none',
           bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: TYPE_SCALE.title,
-        }}>{answered === entries.length ? 'Done' : `Done · ${answered} of ${entries.length}`}</Box>
+        }}>{closed || answered === entries.length ? 'Done' : `Done · ${answered} of ${entries.length}`}</Box>
       }
     >
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2.75 }}>
@@ -756,6 +1093,18 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
             ? 'Voting is closed. Here is how it finished.'
             : `Change your votes until ${AWARDS_CLOSE_LABEL}.`}
         </Typography>
+        {/* THE ONE HONEST HEADCOUNT. A per-category tally counts answers, so summing it double-
+            counts anyone who voted in more than one category; this is the distinct-voter number,
+            the same one the admin panel reports (see fetchWpblAwardVoterCount). Only on the results
+            view, and only once it is a real number, so it never flashes a zero while it loads. */}
+        {closed && voterCount != null && voterCount > 0 && (
+          <Typography sx={{
+            fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary', lineHeight: 1.3, mt: -1.5,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {voterCount.toLocaleString()} {voterCount === 1 ? 'fan' : 'fans'} voted
+          </Typography>
+        )}
         {/* THE WALL, AND IT STANDS BEHIND THE QUESTIONS RATHER THAN IN FRONT OF THEM. A reader
             who is not signed in still gets the whole ballot: every category, every nominee,
             every figure, and the tally on anything already decided. What they cannot do is
@@ -782,10 +1131,18 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
             <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.title, fontWeight: 900, flexShrink: 0 }}>&#8250;</Typography>
           </Box>
         )}
-        {entries.map(e => (
-          <AwardQuestion key={e.award.id} entry={e} players={players} teams={teams} state={state}
-            closed={closed} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
-        ))}
+        {/* LOCKED READS AS A RESULTS PAGE, OPEN READS AS A BALLOT. Once voting is closed the even
+            grid of tiles is the wrong shape (see AwardResult): there is a winner, so the sheet
+            shows one per category instead of asking a question that is already answered. */}
+        {closed
+          ? entries.map((e, i) => (
+            <AwardResult key={e.award.id} entry={e} index={i} players={players} teams={teams} state={state}
+              onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+          ))
+          : entries.map(e => (
+            <AwardQuestion key={e.award.id} entry={e} players={players} teams={teams} state={state}
+              closed={closed} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+          ))}
         {/* THE CREDIT GOES LAST, AND IT IS A CREDIT RATHER THAN A PROMOTION. This ballot exists
             because Ghost Baseboo suggested it and helped pick the categories, and that stays
             true however the traffic runs between the two sites. It sits under the final question
@@ -1001,6 +1358,18 @@ export default function FanVoteCard({
   const testerPreview = isTester && !clockClosed && entries.length > 0
   const closed = clockClosed || testerPreview
 
+  // HOW MANY PEOPLE VOTED, fetched only for the results view, where it is the one honest headline
+  // the per-category tallies cannot give (a category count is answers, not people). It is the same
+  // distinct-voter number the admin panel reports; see fetchWpblAwardVoterCount. Only when closed,
+  // so the open ballot pays nothing for it.
+  const [voterCount, setVoterCount] = useState<number | null>(null)
+  useEffect(() => {
+    if (!closed) return
+    let cancelled = false
+    fetchWpblAwardVoterCount(FAN_VOTE_IDS).then(n => { if (!cancelled) setVoterCount(n) })
+    return () => { cancelled = true }
+  }, [closed])
+
   const answered = entries.filter(e => state.ballot[e.award.id]).length
 
   useEffect(() => {
@@ -1095,10 +1464,22 @@ export default function FanVoteCard({
               ?? (() => { const p = players.find(x => x.id === picked)
                 return p ? { key: p.id, name: p.name, teamId: p.team_id, playerId: p.id, line: '' } as AwardCandidate : null })())
             : null
+          // ONCE LOCKED, THE ROW IS THE WINNER, NOT YOUR VOTE. The card is a glance at the ballot;
+          // while it is open that glance is your own five picks, but after it closes the answer is
+          // the crowd's, so the row shows who won (write-ins included, the same resolution the
+          // results sheet uses) with a trophy in place of your pick. Null only if nobody voted the
+          // category, which the row then shows as a dash.
+          const bucket = state.results[e.award.id] ?? {}
+          const winnerC = closed
+            ? (withWriteIns(e.candidates, { bucket, players, picked: picked ?? null, reveal: true, closed: true })
+                .find(c => (bucket[c.key] ?? 0) > 0) ?? null)
+            : null
           // Three faces: enough to read as a field, few enough to leave the question room on a
-          // 375px phone. Your own pick replaces the pile entirely, because once you have
-          // answered, the only name on this row that is about you is the one that should be on it.
-          const faces = mineC ? [mineC] : e.candidates.slice(0, 3)
+          // 375px phone. Your own pick (or, once locked, the winner) replaces the pile entirely,
+          // because the one name on this row that matters is the one that should be on it.
+          const faces = closed
+            ? (winnerC ? [winnerC] : e.candidates.slice(0, 3))
+            : (mineC ? [mineC] : e.candidates.slice(0, 3))
           return (
             <Box key={e.award.id}
               {...linkPress(WPBL_AWARDS_PATH, () => { setOpen(true); track(EVENTS.WPBL_AWARD_OPEN, { answered, from: e.award.id }) })}
@@ -1112,6 +1493,14 @@ export default function FanVoteCard({
                 py: 0.85, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider',
               }}
             >
+              {/* The same padlock on the card rows, so a reader who never opens the sheet still
+                  sees the ballot is locked. Off the body size in rem, to track the title beside
+                  it. */}
+              {closed && (
+                <LockOutlined titleAccess="Voting locked" sx={{
+                  fontSize: TYPE_SCALE.body, color: 'text.disabled', flexShrink: 0,
+                }} />
+              )}
               <Typography sx={{
                 fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -1144,25 +1533,46 @@ export default function FanVoteCard({
                     // seeded order rather than the last one covering the seed.
                     zIndex: faces.length - j,
                   }}>
-                    {c.playerId
-                      ? <PlayerPortrait name={c.name} teamId={c.teamId} size={26} />
-                      : (() => { const t = teams.find(x => x.id === c.teamId)
-                        return t ? <TeamBadge team={t} size={26} /> : null })()}
+                    {(() => {
+                      // A manager has no playerId but a bundled headshot keyed on her `mgr:` key,
+                      // the same one the results sheet's portrait helper uses; without this the
+                      // card fell back to the club badge for Manager of the Year while the sheet
+                      // showed her face.
+                      const headshot = wpblManagerPortraitSet(c.key)
+                      if (c.playerId || headshot) return <PlayerPortrait name={c.name} teamId={c.teamId} size={26} src={headshot} />
+                      const t = teams.find(x => x.id === c.teamId)
+                      return t ? <TeamBadge team={t} size={26} /> : null
+                    })()}
                   </Box>
                 ))}
               </Box>
-              <Typography sx={{
-                fontSize: TYPE_SCALE.body, fontWeight: mineC ? 800 : 700, flexShrink: 0,
-                whiteSpace: 'nowrap',
-                color: mineC ? 'text.primary' : 'var(--wpbl-accent-solid)',
-              }}>{mineC ? (mineC.playerId ? short(mineC.name) : mineC.name) : 'Vote'}</Typography>
+              {closed ? (
+                winnerC ? (
+                  // The winner, with a trophy in place of your pick. Gold, and after the name, the
+                  // same treatment the results sheet gives its heroes.
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(4), flexShrink: 0 }}>
+                    <Typography sx={{
+                      fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.primary', whiteSpace: 'nowrap',
+                    }}>{winnerC.playerId ? short(winnerC.name) : winnerC.name}</Typography>
+                    <EmojiEvents titleAccess="Winner" sx={{ fontSize: TYPE_SCALE.body, color: '#eab308' }} />
+                  </Box>
+                ) : (
+                  <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>&#8212;</Typography>
+                )
+              ) : (
+                <Typography sx={{
+                  fontSize: TYPE_SCALE.body, fontWeight: mineC ? 800 : 700, flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                  color: mineC ? 'text.primary' : 'var(--wpbl-accent-solid)',
+                }}>{mineC ? (mineC.playerId ? short(mineC.name) : mineC.name) : 'Vote'}</Typography>
+              )}
             </Box>
           )
         })}
       </Box>
       {open && (
         <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}
-          testerPreview={testerPreview}
+          testerPreview={testerPreview} voterCount={voterCount}
           onClose={() => setOpen(false)} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
       )}
     </SectionCard>

@@ -49,6 +49,24 @@ export async function fetchWpblAwardResults(): Promise<AwardResults> {
   return out
 }
 
+/**
+ * How many DISTINCT people have voted across the given categories, the accurate "N fans voted".
+ *
+ * NOT DERIVABLE FROM `fetchWpblAwardResults`, which is per choice: one person answering five
+ * categories is five of those votes, so summing them over-counts people. This asks the server for
+ * a distinct-voter count over exactly the ballot's categories (pass FAN_VOTE_IDS), which is the
+ * same number the admin panel reports. Empty on failure, like the tally: a count is not worth a
+ * broken page.
+ */
+export async function fetchWpblAwardVoterCount(categories: readonly string[]): Promise<number> {
+  const { data, error } = await supabase.rpc('wpbl_award_voter_count', { p_categories: categories })
+  if (error) {
+    console.warn('[wpbl] fetchWpblAwardVoterCount failed:', error.message)
+    return 0
+  }
+  return Number(data) || 0
+}
+
 /** What this browser has already picked, so a returning voter sees their ballot filled in. */
 export async function fetchWpblAwardBallot(voterKey: string): Promise<AwardBallot> {
   const { data, error } = await supabase.rpc('wpbl_award_ballot', { p_voter_key: voterKey })

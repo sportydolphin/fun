@@ -446,7 +446,12 @@ export const cardFooterBand = (isDark: boolean) => ({
 // near-black or page-matching primaries stay defined), with the bundled logo on top:
 // full-bleed for finished lockups (Boston), centered for transparent knockouts, or
 // the abbreviation when no logo exists.
-export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number }) {
+export function TeamBadge({ team, size = 34, ring }: {
+  team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number
+  /** Override the ring colour, which defaults to the club's secondary. For a surface that keys a
+   *  whole card on one team colour and needs the badge ring to match it rather than compete. */
+  ring?: string
+}) {
   const logo = wpblLogo(team.id)
   const fill = wpblLogoFill(team.id)
   return (
@@ -457,7 +462,7 @@ export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'ab
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
       borderRadius: '50%', flexShrink: 0,
       bgcolor: wpblColor(team.id),
-      border: `2px solid ${wpblSecondary(team.id)}`,
+      border: `2px solid ${ring ?? wpblSecondary(team.id)}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
       {logo
@@ -555,8 +560,12 @@ export function BaseDiamond({ first, second, third, size = 34, scale, color = '#
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square, src: given }: {
+export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring }: {
   name: string; teamId: string | null; size?: number
+  /** Override the ring colour, which defaults to the club's secondary. See TeamBadge's `ring`:
+   *  for a card keyed on one team colour, so the portrait ring matches it instead of stacking a
+   *  second hue outside it. */
+  ring?: string
   /** A rounded square instead of a circle. Opt-in, and only the player page uses it: a circle
    *  crops a head-and-shoulders portrait to the face, which is right at 32px in a table row
    *  and wasteful at 84px where there is room to show the shoulders and the uniform. */
@@ -577,7 +586,7 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given }: 
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
       borderRadius: square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
       bgcolor: wpblColor(teamId),
-      border: `2px solid ${wpblSecondary(teamId)}`,
+      border: `2px solid ${ring ?? wpblSecondary(teamId)}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
       {art
