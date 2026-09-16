@@ -88,3 +88,15 @@ export function useSiteRoles(): ReadonlySet<SiteRole> {
 export function useHasRole(role: SiteRole): boolean {
   return useSiteRoles().has(role)
 }
+
+/**
+ * The gate for in-progress features shown to testers before they ship.
+ *
+ * Cosmetic, exactly as every role gate here is: it hides UI, it grants nothing. A tester
+ * feature must degrade to the shipped behaviour when this is false, the same rule the
+ * experiments flag carries, because it decides visibility and never data. Gate a
+ * work-in-progress on this while it is being built, then drop the gate when it ships.
+ */
+export function useIsTester(): boolean {
+  return useHasRole('tester')
+}

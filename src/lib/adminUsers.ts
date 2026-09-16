@@ -16,7 +16,7 @@ import { localTz } from './analyticsAdmin'
 // must never become a view.
 
 /** The roles the panel can grant. Mirrored by the CHECK constraint on `user_roles.role`. */
-export const SITE_ROLES = ['collaborator', 'moderator'] as const
+export const SITE_ROLES = ['collaborator', 'moderator', 'tester'] as const
 export type SiteRole = typeof SITE_ROLES[number]
 
 export interface RoleGrant { role: SiteRole; note: string | null }

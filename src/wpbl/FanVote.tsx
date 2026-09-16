@@ -22,6 +22,7 @@ import { searchPlayers } from './playerSearch'
 import { fetchWpblAllFielding, getCachedWpblAllFielding } from './api'
 import { track, EVENTS } from '../lib/analytics'
 import { useAuth } from '../AuthContext'
+import { useIsTester } from '../lib/roles'
 import type { MvpRace } from './derive/mvpRace'
 import type {
   WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblRunValuePlay,
@@ -707,12 +708,15 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
 
 // ─── the sheet ───────────────────────────────────────────────────────────────────
 
-function FanVoteSheet({ entries, players, teams, state, closed, onClose, onOpenPlayer, onOpenTeam }: {
+function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = false, onClose, onOpenPlayer, onOpenTeam }: {
   entries: AwardBallotEntry[]
   players: WpblPlayer[]
   teams: WpblTeam[]
   state: FanVoteState
   closed: boolean
+  /** The closed state is a tester preview rather than the real deadline: say so, and don't let
+   *  the sheet claim voting has finished when it has not. */
+  testerPreview?: boolean
   onClose: () => void
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
@@ -739,7 +743,11 @@ function FanVoteSheet({ entries, players, teams, state, closed, onClose, onOpenP
     >
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2.75 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
-          {closed
+          {testerPreview
+            // The locked state, shown early to a tester. Say it is a preview and that voting is
+            // still live, so the read-only ballot below does not read as an early shutdown.
+            ? 'Tester preview of the locked ballot. Voting is still open for everyone else.'
+            : closed
             // ONE LINE AT 375px, WHICH IS WHAT DECIDES THE WORDING. This sits between the sheet's
             // title and the first question, and at two lines it pushes the first grid of faces far
             // enough down that the sheet opens on a paragraph. The date says what a sentence about
@@ -975,12 +983,23 @@ export default function FanVoteCard({
   }, [players, teams, games, batting, pitching, fielding, race, plays])
 
   // `drawable` asks only whether there is a ballot worth drawing. The ballot is open to
-  // everybody, so there is no audience gate here.
+  // everybody, so there is no audience gate here: this stays exactly one call so the "gated by
+  // nothing" invariant in routes.test.ts holds, and nothing below hides the ballot from anyone.
   const drawable = fanVoteIsWorthDrawing(entries)
   const state = useFanVote(drawable)
-  const closed = useMemo(
+  const clockClosed = useMemo(
     () => entries.length > 0 && entries.every(e => now() > Date.parse(e.award.closesAt)),
     [entries, now])
+
+  // A TESTER PREVIEW OF THE LOCKED BALLOT, and NOT a gate. Everyone still gets the full,
+  // votable ballot (drawable is untouched, and this never suppresses a render); a tester sees
+  // the closed rendering ahead of the real deadline so the locked state can be checked before
+  // the one evening it is ever live. It changes presentation only: voting still goes through
+  // wpbl_cast_award_vote, which has no clock, so for a tester the ballot is in fact still open
+  // underneath the preview. clockClosed remains the real answer for every other reader.
+  const isTester = useIsTester()
+  const testerPreview = isTester && !clockClosed && entries.length > 0
+  const closed = clockClosed || testerPreview
 
   const answered = entries.filter(e => state.ballot[e.award.id]).length
 
@@ -998,10 +1017,13 @@ export default function FanVoteCard({
       // NO SUBTITLE BEFORE THE FIRST ANSWER. The rows under the header are the five questions
       // and the nominees, so a line describing them said the same thing twice, above the thing
       // it was describing. What a reader who has answered nothing needs is to see the names.
-      subtitle={closed ? 'Voting is closed. See where it finished.'
-        : answered === 0 ? undefined
-          : answered < entries.length ? `${answered} of ${entries.length} answered.`
-            : 'All five in. Change them any time.'}
+      // A tester sees the locked rendering before the deadline, so the subtitle says so plainly:
+      // without it a tester reads the closed ballot as voting having shut early and files a bug.
+      subtitle={testerPreview ? 'Tester preview of the locked ballot. Voting is still open.'
+        : closed ? 'Voting is closed. See where it finished.'
+          : answered === 0 ? undefined
+            : answered < entries.length ? `${answered} of ${entries.length} answered.`
+              : 'All five in. Change them any time.'}
       fill={fill}
       action={
         <Box
@@ -1140,6 +1162,7 @@ export default function FanVoteCard({
       </Box>
       {open && (
         <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}
+          testerPreview={testerPreview}
           onClose={() => setOpen(false)} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
       )}
     </SectionCard>

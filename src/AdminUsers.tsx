@@ -210,6 +210,7 @@ function AlertCell({ u }: { u: AdminUser }) {
 const ROLE_STYLE: Record<SiteRole, { label: string; bg: string }> = {
   collaborator: { label: 'Collaborator', bg: 'var(--wpbl-accent-solid, #2563eb)' },
   moderator:    { label: 'Moderator',    bg: '#7c3aed' },
+  tester:       { label: 'Tester',       bg: '#0f766e' },
 }
 
 function RolePills({ roles }: { roles: AdminUser['roles'] }) {
