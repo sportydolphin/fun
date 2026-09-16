@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { Box, Typography } from '@mui/material'
-import { LockOutlined, EmojiEvents } from '@mui/icons-material'
+import { EmojiEvents, IosShare } from '@mui/icons-material'
+import html2canvas from 'html2canvas'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
   pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
-import { wpblManagerPortraitSet } from './portraits'
-import { wpblAccent } from './constants'
+import { wpblManagerPortraitSet, wpblPortraitSet } from './portraits'
+import { wpblAccent, wpblColor, wpblLogo } from './constants'
 import { useEraBasis } from './EraBasisContext'
 import { fanVoteAwards, FAN_VOTE_IDS, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
 import { WPBL_AWARDS_PATH } from './routes'
@@ -776,6 +778,184 @@ function WinnerConfetti({ x, y, r }: { x: number; y: number; r: number }) {
   )
 }
 
+// ─── sharing a single result ───────────────────────────────────────────────────────
+
+/** Everything a share card needs, pre-resolved so the card itself is presentational and the
+ *  capture is deterministic (fixed px, no dependence on the reader's text or chrome scale). */
+interface ShareCardData {
+  category: string
+  name: string
+  /** The winner's face, already resolved to a plain URL. The card draws it as a background image
+   *  rather than an <img>, because html2canvas 1.4 mishandles srcSet + object-fit and rendered the
+   *  portrait blank; background-size: cover it renders correctly. */
+  portraitSrc: string | null
+  /** Fallback ring/fill colour and initials for a winner with no bundled face. */
+  portraitBg: string
+  initials: string
+  detail: string
+  stats: { value: string; label: string }[]
+  pct: number
+  accent: string
+}
+
+/**
+ * The branded picture of one result, laid out at a fixed pixel size for html2canvas.
+ *
+ * EXPLICIT px, NOT THE SECTION'S SCALE. Everything on the sheet is sized in rem against
+ * `--app-type` and structural px against `--app-chrome`, both of which the reader can move; a
+ * capture target must not, or the same result would export at different sizes for different
+ * readers. So this card hardcodes its type and spacing and forces `--app-chrome: 1` on its root,
+ * which is also what keeps the portrait a known size. Dark ground on purpose: a share image is
+ * seen outside the app, where it should look like itself rather than like whoever's light setting.
+ */
+const SHARE_W = 540
+const SHARE_H = 540
+
+function WinnerShareCard({ data }: { data: ShareCardData }) {
+  const { category, name, detail, stats, pct, accent, portraitSrc, portraitBg, initials } = data
+  return (
+    <Box
+      // Force the chrome scale to 1 so PlayerPortrait/TeamBadge render at exactly the px asked for.
+      style={{ ['--app-chrome' as string]: '1' } as React.CSSProperties}
+      sx={{
+        width: SHARE_W, height: SHARE_H, boxSizing: 'border-box', p: '34px',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        fontFamily: '"Inter", system-ui, sans-serif', color: '#f4f6f8',
+        // A near-black ground with a wash of the club colour rising from the winner block.
+        background: `radial-gradient(120% 90% at 20% 78%, ${accent}33 0%, ${accent}00 55%), #0d1014`,
+        borderRadius: '24px', position: 'relative',
+      }}
+    >
+      {/* Header: the section, and the award mark. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <Box component="span" sx={{
+          fontSize: 15, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: '#aeb6bf',
+        }}>WPBL Fan Awards</Box>
+        <EmojiEvents sx={{ fontSize: 26, color: '#eab308' }} />
+      </Box>
+
+      {/* THE MIDDLE, VERTICALLY CENTRED. Category, then the winner, then the big share, as one
+          block that sits in the middle of the card so there is no dead gap under the header. */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '22px', minWidth: 0 }}>
+        <Box component="div" sx={{
+          fontSize: 27, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+          color: accent, lineHeight: 1.15,
+        }}>{category}</Box>
+
+        {/* The winner. The face is a background image, not an <img>, so html2canvas renders it. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: 0 }}>
+          <Box sx={{
+            width: 132, height: 132, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
+            border: `3px solid ${accent}`, backgroundColor: portraitBg,
+            backgroundImage: portraitSrc ? `url("${portraitSrc}")` : 'none',
+            backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {!portraitSrc && (
+              <Box component="span" sx={{ fontSize: 44, fontWeight: 800, color: '#fff' }}>{initials}</Box>
+            )}
+          </Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <Box component="span" sx={{
+                fontSize: 34, fontWeight: 800, lineHeight: 1.1, whiteSpace: 'nowrap',
+                overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>{name}</Box>
+              <EmojiEvents sx={{ fontSize: 30, color: '#eab308', flexShrink: 0 }} />
+            </Box>
+            {detail && (
+              <Box component="div" sx={{ mt: '4px', fontSize: 17, color: '#aeb6bf', lineHeight: 1.3 }}>{detail}</Box>
+            )}
+            {stats.length > 0 && (
+              <Box sx={{ mt: '12px', display: 'flex', flexWrap: 'wrap', columnGap: '18px', rowGap: '2px', alignItems: 'baseline' }}>
+                {stats.map(s => (
+                  <Box key={s.label} sx={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                    <Box component="span" sx={{ fontSize: 22, fontWeight: 800 }}>{s.value}</Box>
+                    <Box component="span" sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#8b939c' }}>{s.label}</Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        {/* The winning share, big. */}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+          <Box component="span" sx={{ fontSize: 64, fontWeight: 900, lineHeight: 1, color: accent }}>{pct}%</Box>
+          <Box component="span" sx={{ fontSize: 15, color: '#8b939c', letterSpacing: 0.3 }}>of the fan vote</Box>
+        </Box>
+      </Box>
+
+      {/* Footer. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0 }}>
+        <Box component="span" sx={{ fontSize: 15, fontWeight: 700, color: '#aeb6bf' }}>sportydolphin.fun</Box>
+      </Box>
+    </Box>
+  )
+}
+
+/**
+ * Mounts the share card off-screen, captures it, and hands it to the OS share sheet.
+ *
+ * OFF-SCREEN RATHER THAN VISIBLE: the reader shares the RESULT, not a modal, so the card is
+ * rendered where html2canvas can reach it but the eye cannot, and torn down when done. Portraits
+ * are bundled assets (same origin), so nothing is CORS-tainted; it still waits for them to decode
+ * so the capture is not blank.
+ *
+ * SHARE, THEN DOWNLOAD. `navigator.share` with a file is the good path on a phone; a browser
+ * without it (most desktops) gets a download instead. A share the reader cancels (AbortError) is
+ * left alone; a share the browser refuses because the gesture expired during capture falls back to
+ * the download rather than failing silently.
+ */
+function WinnerShareLauncher({ data, onDone }: { data: ShareCardData; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let alive = true
+    const slug = `${data.category}-${data.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const filename = `wpbl-${slug || 'award'}.png`
+    ;(async () => {
+      const node = ref.current
+      if (!node) { onDone(); return }
+      try {
+        // Preload the face so html2canvas paints it rather than a blank circle: the portrait is a
+        // background image, which the capture loads itself, but a cold full-size file can lose the
+        // race otherwise.
+        if (data.portraitSrc) {
+          await new Promise<void>(res => { const im = new Image(); im.onload = () => res(); im.onerror = () => res(); im.src = data.portraitSrc! })
+        }
+        const canvas = await html2canvas(node, { scale: 2, backgroundColor: null, logging: false, useCORS: true })
+        const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'))
+        if (!alive || !blob) { onDone(); return }
+        const file = new File([blob], filename, { type: 'image/png' })
+        const title = `${data.category}: ${data.name}`
+        const download = () => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        }
+        if (navigator.canShare?.({ files: [file] })) {
+          try { await navigator.share({ files: [file], title }) }
+          catch (err) { if ((err as { name?: string })?.name !== 'AbortError') download() }
+        } else {
+          download()
+        }
+      } catch (e) {
+        console.warn('[awards] share capture failed:', e)
+      } finally {
+        if (alive) onDone()
+      }
+    })()
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', zIndex: -1 }}>
+      <WinnerShareCard data={data} />
+    </div>,
+    document.body,
+  )
+}
+
 // ─── one category, once the votes are locked ──────────────────────────────────────
 
 /**
@@ -834,6 +1014,12 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   const label = (c: AwardCandidate) => (c.playerId ? short(c.name) : c.name)
   const pct = (c: AwardCandidate) => (total > 0 ? Math.round((votesOf(c.key) / total) * 100) : 0)
 
+  // A per-award share button, behind the tester flag while we try it out. It builds a picture of
+  // this one result and hands it to the OS share sheet (or a download). Tester-only for now, so
+  // the experiment is not in front of every fan the moment the ballot locks.
+  const isTester = useIsTester()
+  const [sharing, setSharing] = useState(false)
+
   const winner = ranked[0] ?? null
   const runnersUp = ranked.slice(1, 3)
   // The empty groove a share bar fills, faint in both themes.
@@ -891,15 +1077,64 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
       {/* The confetti, drawn here so it flies free of the card below rather than being clipped by
           its rounded overflow. Placed on the measured winner portrait. */}
       {origin && fire && <WinnerConfetti x={origin.x} y={origin.y} r={origin.r} />}
+      {/* Off-screen capture + share, mounted only while a share is in flight. */}
+      {sharing && winner && (
+        <WinnerShareLauncher
+          data={{
+            category: award.title,
+            name: winner.name,
+            // Manager headshot, else the player's bundled portrait, else the club logo; a plain URL
+            // for the card's background image.
+            portraitSrc: wpblManagerPortraitSet(winner.key)?.src
+              ?? (winner.playerId ? wpblPortraitSet(winner.name)?.src ?? null : null)
+              ?? (winner.teamId ? wpblLogo(winner.teamId) : null),
+            portraitBg: wpblColor(winner.teamId),
+            initials: winner.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join(''),
+            detail: winner.playerId
+              ? [teamOf(winner.teamId)?.name, winner.sub].filter(Boolean).join(' · ')
+              : (winner.sub ?? teamOf(winner.teamId)?.name ?? ''),
+            stats: (winner.stats ?? []).slice(0, 3).map(s => ({
+              value: s.eraBasisValue !== undefined ? fmtEra(s.eraBasisValue) : s.value, label: s.label,
+            })),
+            pct: pct(winner),
+            // The vivid (dark-mode) accent, because the card always sits on a dark ground.
+            accent: wpblAccent(winner.teamId, true),
+          }}
+          onDone={() => setSharing(false)}
+        />
+      )}
       {/* THE CATEGORY IS THE EYEBROW, NOT THE HEADLINE. In the voting view the award's name is
           the question and takes the largest type; here the question is answered, so the winner's
-          name is the thing worth reading big and the category steps back to a label above it. */}
-      <Typography sx={{
-        // The category, stepped up so it reads as the section heading it is. Uppercase and
-        // secondary keep it clearly below the winner's name, which is bigger still.
-        fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800, letterSpacing: 0.5,
-        textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3, mb: 0.75,
-      }}>{award.title}</Typography>
+          name is the thing worth reading big and the category steps back to a label above it.
+          The share button sits on this row, tester-only for now. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
+        <Typography sx={{
+          // The category, stepped up so it reads as the section heading it is. Uppercase and
+          // secondary keep it clearly below the winner's name, which is bigger still.
+          fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800, letterSpacing: 0.5,
+          textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3, minWidth: 0,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{award.title}</Typography>
+        {isTester && winner && (
+          <Box
+            {...pressable(() => { if (!sharing) setSharing(true) })}
+            aria-label={`Share the ${award.title} result`}
+            title="Share this result"
+            sx={{
+              ...TAPPABLE, ...FOCUS_RING, flexShrink: 0, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: chromePx(4),
+              borderRadius: 999, px: chromePx(8), py: chromePx(4),
+              border: '1px solid', borderColor: 'divider', color: 'text.secondary',
+              ...hoverOnly({ borderColor: 'var(--wpbl-accent-solid)', color: 'var(--wpbl-accent-solid)' }),
+            }}
+          >
+            <IosShare sx={{ fontSize: TYPE_SCALE.body }} />
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800 }}>
+              {sharing ? '…' : 'Share'}
+            </Typography>
+          </Box>
+        )}
+      </Box>
 
       {!winner ? (
         // No votes at all. A hero row here would crown a zero, so say the true thing instead.
@@ -1493,14 +1728,6 @@ export default function FanVoteCard({
                 py: 0.85, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider',
               }}
             >
-              {/* The same padlock on the card rows, so a reader who never opens the sheet still
-                  sees the ballot is locked. Off the body size in rem, to track the title beside
-                  it. */}
-              {closed && (
-                <LockOutlined titleAccess="Voting locked" sx={{
-                  fontSize: TYPE_SCALE.body, color: 'text.disabled', flexShrink: 0,
-                }} />
-              )}
               <Typography sx={{
                 fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

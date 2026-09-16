@@ -560,12 +560,15 @@ export function BaseDiamond({ first, second, third, size = 34, scale, color = '#
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring }: {
+export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring, eager }: {
   name: string; teamId: string | null; size?: number
   /** Override the ring colour, which defaults to the club's secondary. See TeamBadge's `ring`:
    *  for a card keyed on one team colour, so the portrait ring matches it instead of stacking a
    *  second hue outside it. */
   ring?: string
+  /** Load the image eagerly instead of lazily. Needed for an OFF-SCREEN capture (the share card):
+   *  a lazy image parked outside the viewport never loads, so it captures blank. */
+  eager?: boolean
   /** A rounded square instead of a circle. Opt-in, and only the player page uses it: a circle
    *  crops a head-and-shoulders portrait to the face, which is right at 32px in a table row
    *  and wasteful at 84px where there is room to show the shoulders and the uniform. */
@@ -598,7 +601,7 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
             // the safe direction (a sharper file than needed); understating it would send a
             // 2x player page the 128.
             sizes={`${Math.ceil(size * 1.4)}px`}
-            alt={name} loading="lazy"
+            alt={name} loading={eager ? 'eager' : 'lazy'}
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: '#fff' }}>{initials}</Typography>}
