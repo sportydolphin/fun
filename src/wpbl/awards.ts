@@ -62,20 +62,21 @@ export interface WpblAward {
  * visible deadline is a poll people mean to come back to, and "closes eventually" gives nobody a
  * reason to answer today. The final is the one date in the postseason that explains itself.
  *
- * SIX PM EASTERN ON THE DAY, WHICH IS AT OR BEFORE FIRST PITCH WHEREVER THE GAME IS PLAYED. The
- * published time is 6:00 PM with no zone, and the final's host is not known until the semifinals
- * end, so the club could be in any of four zones. Reading it as Eastern closes the ballot exactly
- * at first pitch for an east-coast host and up to three hours early for a west-coast one. That
- * asymmetry is the right way round: a regular-season award taking votes after the final has
- * started is worse than one that shut a little early.
+ * SIX PM CENTRAL ON THE DAY, WHICH IS THE FINAL'S ACTUAL FIRST PITCH. The league plays the whole
+ * postseason at its single hub venue in Central time, and POSTSEASON_SCHEDULE gives the final's
+ * first pitch as 6:00 PM, so the ballot closes at 2026-09-16T18:00:00-05:00. It used to close at
+ * 6 PM Eastern, an hour earlier: that guard was set before the schedule was fixed, when the host
+ * zone was unknown and shutting early was safer than shutting late. The zone is known now, so the
+ * deadline is the game itself.
  *
- * THE DATE IS `POSTSEASON_SCHEDULE.championship[0]` IN derive/bracket.ts, copied rather than
- * imported: this module is a dependency-free leaf (the same rule routes.ts follows) and pulling
- * the bracket in would drag seeding, series and season behind it. `awards.test.ts` pins the two
- * together so the copy cannot drift from the schedule.
+ * THE DATE AND TIME ARE `POSTSEASON_SCHEDULE.championship[0]` IN derive/bracket.ts, copied rather
+ * than imported: this module is a dependency-free leaf (the same rule routes.ts follows) and
+ * pulling the bracket in would drag seeding, series and season behind it. `awards.test.ts` pins
+ * the two together so the copy cannot drift from the schedule.
  */
 export const AWARDS_CLOSE_DATE = '2026-09-16'
-export const AWARDS_CLOSE_AT = `${AWARDS_CLOSE_DATE}T22:00:00Z`
+// 6:00 PM at the Central hub, in CDT (UTC-5) on this date. This is the final's first pitch; see above.
+export const AWARDS_CLOSE_AT = `${AWARDS_CLOSE_DATE}T18:00:00-05:00`
 
 const CLOSE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 

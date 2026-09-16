@@ -448,20 +448,17 @@ describe('the ballot closes at first pitch of the final', () => {
   // imported from the bracket. This is the seam that keeps the copy honest: move the final in
   // POSTSEASON_SCHEDULE and forget the constant, and the deadline silently points at a day the
   // league is not playing on, which nothing else in the app would notice.
-  it('uses the date the schedule gives the final', () => {
+  it('uses the date and time the schedule gives the final', () => {
     expect(AWARDS_CLOSE_DATE).toBe(POSTSEASON_SCHEDULE.championship[0].date)
     expect(AWARDS_CLOSE_AT.startsWith(AWARDS_CLOSE_DATE)).toBe(true)
+    // The final's own first pitch, so the copy cannot drift from the schedule's time either.
+    expect(POSTSEASON_SCHEDULE.championship[0].time).toBe('6:00 PM')
   })
 
-  // Read as Eastern, so it lands at first pitch for an east-coast host and early for a
-  // west-coast one. A regular-season award taking votes after the final has started is worse
-  // than one that shut a little early, and the host is unknown until the semifinals end.
-  it('closes at or before 6pm local wherever the final is played', () => {
-    const close = Date.parse(AWARDS_CLOSE_AT)
-    // 6pm Eastern on the day.
-    expect(close).toBe(Date.parse(`${AWARDS_CLOSE_DATE}T18:00:00-04:00`))
-    // Never after a 6pm Pacific first pitch.
-    expect(close).toBeLessThanOrEqual(Date.parse(`${AWARDS_CLOSE_DATE}T18:00:00-07:00`))
+  // First pitch: 6pm at the Central hub (CDT, UTC-5). The league plays the postseason at one
+  // venue, so the zone is known and the deadline is the game itself rather than an early guard.
+  it('closes at the final’s first pitch, 6pm Central', () => {
+    expect(Date.parse(AWARDS_CLOSE_AT)).toBe(Date.parse(`${AWARDS_CLOSE_DATE}T18:00:00-05:00`))
   })
 
   // The one line of copy that states the deadline reads off the same constant, by string
