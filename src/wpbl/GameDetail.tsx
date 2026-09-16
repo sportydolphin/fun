@@ -44,6 +44,21 @@ import type {
 
 type Tab = 'recap' | 'live' | 'box' | 'plays' | 'pitch'
 
+/**
+ * Whether a fresh read of the plays / box-line mirror is the ingest's mid-reinsert EMPTY gap
+ * rather than the truth: nothing now, something in hand.
+ *
+ * `wpbl_game_plays` and the box lines are a mirror `wpbl-ingest` DELETES and reinserts wholesale
+ * on every pass (see CLAUDE.md), and Game Center reloads on every realtime change to them, so a
+ * fetch can land in the window between the delete and the reinsert and come back empty. A game
+ * that has plays never truly reverts to none while the modal is open, so an empty read of
+ * something we already hold is that window. `reload` keeps the held value in exactly this case,
+ * which is what stops the last-play line, the win-probability chart, the box score and the Live
+ * tab itself from blanking for a beat between plays.
+ */
+export const isEmptyReadOf = (nextLen: number, heldLen: number): boolean =>
+  nextLen === 0 && heldLen > 0
+
 // ─── which board a shared link opens on ───────────────────────────────────────
 //
 // A game URL is the most-shared thing the section produces: the Discord recaps, the Bluesky
@@ -1868,6 +1883,16 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblGamePlay[]>(() => cached?.plays ?? [])
+  // The freshest plays and box lines, for reload's mid-reinsert guard. Both are a MIRROR the
+  // ingest deletes and reinserts wholesale each pass (CLAUDE.md), and reload runs on every
+  // realtime change to them, so a fetch can land in the empty gap between the delete and the
+  // reinsert. A game that has plays never truly reverts to none, so an empty read of something we
+  // already hold is that gap, not the truth. Refs rather than the state so reload's callback,
+  // which can outlive the render that built it, compares against what we hold now.
+  const playsRef = useRef(plays)
+  useEffect(() => { playsRef.current = plays }, [plays])
+  const linesRef = useRef(lines)
+  useEffect(() => { linesRef.current = lines }, [lines])
   const [tracking, setTracking] = useState<WpblPitchTracking[]>(() => cached?.tracking ?? [])
   const [details, setDetails] = useState<WpblGameDetails | null>(() => cached?.details ?? null)
   const [revisions, setRevisions] = useState<WpblGameRevision[]>(() => cached?.revisions ?? [])
@@ -1950,13 +1975,24 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
       seed.status === 'final' ? fetchWpblGameRevisions(seed.id) : Promise.resolve([]),
     ]).then(([all, a, h, l, pl, tr, det, rev]) => {
       const names = new Map([...all, ...a, ...h].map(p => [p.id, p]))
-      const lines = { batting: l.batting, pitching: l.pitching }
+      // KEEP WHAT WE HOLD OVER AN EMPTY READ. The plays and box lines are a mirror the ingest
+      // deletes and reinserts wholesale each pass, and the realtime subscription below reloads on
+      // every one of those changes, so a fetch can land in the gap between the delete and the
+      // reinsert and come back empty. A game that has plays never truly reverts to none, so an
+      // empty read of something we already hold is that gap. Taken at face value it blanks the
+      // last-play line, the win-prob chart and the whole box score for a beat between plays, and
+      // drops the Live tab out from under the reader.
+      const held = linesRef.current
+      const nextPlays = isEmptyReadOf(pl.length, playsRef.current.length) ? playsRef.current : pl
+      const lines = isEmptyReadOf(
+        l.batting.length + l.pitching.length, held.batting.length + held.pitching.length,
+      ) ? held : { batting: l.batting, pitching: l.pitching }
       // Written whether or not this render is still mounted: the reader who just closed the
       // modal is the likeliest person to open it again, and the answer is already in hand.
-      gameCache.set(seed.id, { names, lines, plays: pl, tracking: tr, details: det, revisions: rev })
+      gameCache.set(seed.id, { names, lines, plays: nextPlays, tracking: tr, details: det, revisions: rev })
       if (cancelled) return
       setNames(names)
-      setLines(lines); setPlays(pl); setTracking(tr)
+      setLines(lines); setPlays(nextPlays); setTracking(tr)
       setDetails(det)
       setRevisions(rev)
       setLoading(false)
@@ -2069,6 +2105,18 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     </Box>
   )
 
+  // KEEP THE LIVE TAB FOR THE WHOLE LIVE GAME ONCE IT HAS EARNED ITS PLACE. The gate is
+  // `plays.length >= 2`, and `plays` is re-read on every realtime change to the plays mirror,
+  // which the ingest deletes and reinserts wholesale (the empty-read guard in reload softens the
+  // same event). A read that still slips through empty, or the genuine one-play start the comment
+  // below describes, would otherwise pull the tab out from under a reader between plays, and the
+  // pager clamps to Box Score when the active tab stops being offered. Latch it: once the tab has
+  // shown in a live game it stays until the game is no longer live.
+  const liveTabSeen = useRef(false)
+  if (!live) liveTabSeen.current = false
+  else if (loading || plays.length >= 2) liveTabSeen.current = true
+  const showLiveTab = live && (loading || plays.length >= 2 || liveTabSeen.current)
+
   const tabs = [
     ...(final ? [{ value: 'recap' as Tab, label: 'Recap' }] : []),
     // The live view, in the slot the Recap takes once the game is final, so the two swap in
@@ -2089,7 +2137,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     // beat later when the plays land. A live game with fewer than two plays does exist (the
     // ingest can call one live off a ball or a strike alone), and there the tab appears and
     // then goes, which is the rarer and the more honest of the two.
-    ...(live && (loading || plays.length >= 2) ? [{ value: 'live' as Tab, label: 'Live' }] : []),
+    ...(showLiveTab ? [{ value: 'live' as Tab, label: 'Live' }] : []),
     { value: 'box' as Tab, label: 'Box Score' },
     { value: 'plays' as Tab, label: 'Play-by-Play' },
     // Only when the feed has actually posted TrackMan for this game. Offered for every played
