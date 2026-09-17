@@ -1004,6 +1004,23 @@ Deno.serve(async (req) => {
       const scoreHome = fg.presto_data?.score?.home
 
       // Upsert the game row (on api_game_id).
+      //
+      // THE LIST SCORE IS NOT WRITTEN WHILE LIVE, and this is a correctness fix, not an
+      // optimisation. The list's `presto_data.score` runs a run ahead of the game mid-inning:
+      // watched on Sep 16, 2026 it published away 6 for LA against the boxscore's away 5 in the
+      // same second, and the boxscore's line totals (5) agreed with the boxscore. The boxscore
+      // path below owns the score for a live game (it says so itself, and `wantBox` is always
+      // true when live), so folding the list score on here only ever ADDS a chance to be wrong:
+      // on any pass the boxscore fetch throws, the transient list value sticks on the row and
+      // the scoreboard reads 6-6 for a 6-5 game. Omitting the columns from the upsert RETAINS
+      // the prior (boxscore-written) value rather than blanking it. Scheduled and final games
+      // still take the list score: scheduled is 0-0, and on a final it is the fast path that
+      // propagates a league score correction before the boxscore is re-fetched (see the
+      // read-only-final trap in CLAUDE.md).
+      const listScore = status === 'live' ? {} : {
+        home_score: scoreHome != null && scoreHome !== '' ? n(scoreHome) : null,
+        away_score: scoreAway != null && scoreAway !== '' ? n(scoreAway) : null,
+      }
       const gameRow = {
         api_game_id: apiGameId, season_id: s(fg.season_id) || null,
         game_date: startIso ? chicagoDate(startIso) : new Date().toISOString().slice(0, 10),
@@ -1012,8 +1029,7 @@ Deno.serve(async (req) => {
         venue: s(fg.venue) || null, game_type: s(fg.game_type) || null,
         counts_in_standings: fg.counts_in_standings ?? null,
         status, status_detail: s(fg.status),
-        home_score: scoreHome != null && scoreHome !== '' ? n(scoreHome) : null,
-        away_score: scoreAway != null && scoreAway !== '' ? n(scoreAway) : null,
+        ...listScore,
         updated_at: new Date().toISOString(),
       }
       const { data: up, error: upErr } = await db.from('wpbl_games')
