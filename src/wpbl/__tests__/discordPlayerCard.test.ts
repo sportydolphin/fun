@@ -29,27 +29,56 @@ const subject = (jersey: string | null) =>
     team, [line()], [], games,
   ).embeds?.[0].description
 
+const regPitch = (): WpblPitchingLine => ({
+  id: 'r1', game_id: 'g1', player_id: 'p1', team_id: 'LA',
+  outs: 18, bf: 24, h: 4, r: 1, er: 1, bb: 1, so: 8, hr: 0, pitches: 90, decision: 'W',
+  gs: 1, hbp: 0, ibb: 0, wp: 0, bk: 0, strikes: 60, doubles: 0, triples: 0,
+} as unknown as WpblPitchingLine)
+
+const bothSeasons: WpblSeasonGame[] = [
+  { id: 'g1', game_type: 'regular', counts_in_standings: true },
+  // The postseason flag says nothing in 2026 (the feed sends counts_in_standings: true on
+  // bracket rows), so game_type is the only signal, exactly as on the site. See season.ts.
+  { id: 'gp', game_type: 'postseason', counts_in_standings: true },
+]
+
 describe('the /player card by role', () => {
-  // A pitcher who came to the plate only in a playoff game. The season line is the regular
-  // season, so her regular-season batting is empty; the raw batting line still exists because
-  // the postseason PA is real. The card must not push a "Batting" field of .000/.000/.000.
-  it('drops the batting field for a pitcher who only batted in the postseason', () => {
-    const games2: WpblSeasonGame[] = [
-      { id: 'g1', game_type: 'regular', counts_in_standings: true },
-      { id: 'gp', game_type: 'postseason', counts_in_standings: true },
-    ]
+  // A pitcher who came to the plate only in a playoff game. Her regular-season batting is
+  // empty, so the regular "Batting" field must not draw a .000/.000/.000 line; her postseason
+  // PA is real, so it belongs under its own "Postseason batting" field.
+  it('splits a pitcher whose only batting was in the postseason', () => {
     const postBat = { ...line(), id: 'pb', game_id: 'gp' } as WpblBattingLine
-    const regPitch = {
-      id: 'r1', game_id: 'g1', player_id: 'p1', team_id: 'LA',
-      outs: 18, bf: 24, h: 4, r: 1, er: 1, bb: 1, so: 8, hr: 0, pitches: 90, decision: 'W',
-      gs: 1, hbp: 0, ibb: 0, wp: 0, bk: 0, strikes: 60, doubles: 0, triples: 0,
-    } as unknown as WpblPitchingLine
     const reply = buildPlayerReply(
       { id: 'p1', name: 'Ayami Sato', position: 'RHP', jersey_number: '11' },
-      team, [postBat], [regPitch], games2)
+      team, [postBat], [regPitch()], bothSeasons)
     const names = reply.embeds?.[0].fields?.map(f => f.name) ?? []
+    // Regular pitching leads; regular batting is dropped; the postseason PA gets its own field.
     expect(names.some(n => n.startsWith('Pitching'))).toBe(true)
     expect(names.some(n => n.startsWith('Batting'))).toBe(false)
+    expect(names.some(n => n.startsWith('Postseason batting'))).toBe(true)
+  })
+
+  // The common two-slice case: a hitter with games in both. Both lines show, regular first.
+  it('shows regular and postseason batting as two fields, regular first', () => {
+    const postBat = { ...line(), id: 'pb', game_id: 'gp' } as WpblBattingLine
+    const reply = buildPlayerReply(
+      { id: 'p1', name: "Mo'ne Davis", position: 'CF', jersey_number: '3' },
+      team, [line(), postBat], [], bothSeasons)
+    const names = reply.embeds?.[0].fields?.map(f => f.name) ?? []
+    const reg = names.findIndex(n => n.startsWith('Batting'))
+    const post = names.findIndex(n => n.startsWith('Postseason batting'))
+    expect(reg).toBeGreaterThanOrEqual(0)
+    expect(post).toBeGreaterThan(reg)
+  })
+
+  // Most of the roster: a season that ended in the regular season carries no postseason field.
+  it('shows no postseason field for a player who never reached the bracket', () => {
+    const reply = buildPlayerReply(
+      { id: 'p1', name: "Mo'ne Davis", position: 'CF', jersey_number: '3' },
+      team, [line()], [], games)
+    const names = reply.embeds?.[0].fields?.map(f => f.name) ?? []
+    expect(names.some(n => n.startsWith('Postseason'))).toBe(false)
+    expect(names.filter(n => n.startsWith('Batting')).length).toBe(1)
   })
 })
 

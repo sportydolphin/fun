@@ -7,7 +7,8 @@
 //
 // The stat lines come from stats.ts, the same aggregation the player page and the season
 // leaderboards use, so a number here can never disagree with the number on the site.
-import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo } from './stats'
+import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo,
+  type WpblBattingTotals, type WpblPitchingTotals } from './stats'
 import { displayPosition, leadsWithPitching } from './positions'
 // From innings.ts directly, NOT via the constants.ts re-export. constants.ts imports the
 // team logos as .webp assets, which Vite resolves and the Cloudflare Functions bundler does
@@ -66,44 +67,69 @@ export function buildPlayerReply(
   // Zero-PA rows (a pinch-runner who scored, a defensive sub) would read as an 0-for-0
   // game, so they come out here exactly as they do on the player page.
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
+  // Two slices of the same lines: the regular season, and the postseason under it. Each is
+  // summed THROUGH the schedule, so a game lands in exactly one, and neither double-counts the
+  // other. `sumBatting`/`sumPitching` default to 'regular'; the postseason call is the same
+  // one the Stats tab and the season page's Runs-by-inning make. It fails CLOSED, so with no
+  // postseason game recognised the postseason totals are zero and their fields never draw:
+  // that is what keeps this line off every card in the league until a player actually appears
+  // in the bracket.
   const bt = sumBatting(batted, games)
   const pt = sumPitching(pitching, games)
-  // Regular-season production, not raw line count. `batted` and `pitching` include postseason
-  // rows, but `bt`/`pt` are summed through the schedule, which drops them, so a side whose only
-  // work was in the playoffs would otherwise push a field reading .000/.000/.000 or 0.0 IP. Same
-  // fix as the player page and the compare card.
+  const btPost = sumBatting(batted, games, 'postseason')
+  const ptPost = sumPitching(pitching, games, 'postseason')
+
   const hasBatting = plateAppearances(bt) > 0
   const hasPitching = pt.outs > 0 || pt.bf > 0
+  const hasBattingPost = plateAppearances(btPost) > 0
+  const hasPitchingPost = ptPost.outs > 0 || ptPost.bf > 0
+
+  // Which side leads, from the two slices together: a player whose only line is a postseason
+  // one (a call-up who debuted in the bracket) still has to be led by the side she played.
   const pitcherFirst = leadsWithPitching({
-    position: player.position, hasBatting, hasPitching,
-    gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
+    position: player.position,
+    hasBatting: hasBatting || hasBattingPost,
+    hasPitching: hasPitching || hasPitchingPost,
+    gs: pt.gs + ptPost.gs, bf: pt.bf + ptPost.bf,
+    pa: plateAppearances(bt) + plateAppearances(btPost),
   })
 
   const fields: { name: string; value: string; inline?: boolean }[] = []
-  const battingField = () => ({
-    name: `Batting · ${bt.g} G`,
+  const battingField = (t: WpblBattingTotals, label: string) => ({
+    name: `${label} · ${t.g} G`,
     value: [
-      `**${fmtRate(bt.avg)}** AVG · **${fmtRate(bt.obp)}** OBP · **${fmtRate(bt.slg)}** SLG · **${fmtRate(bt.ops)}** OPS`,
-      `${bt.h}-for-${bt.ab}, ${bt.r} R, ${bt.hr} HR, ${bt.rbi} RBI, ${bt.bb} BB, ${bt.so} SO, ${bt.sb} SB`,
+      `**${fmtRate(t.avg)}** AVG · **${fmtRate(t.obp)}** OBP · **${fmtRate(t.slg)}** SLG · **${fmtRate(t.ops)}** OPS`,
+      `${t.h}-for-${t.ab}, ${t.r} R, ${t.hr} HR, ${t.rbi} RBI, ${t.bb} BB, ${t.so} SO, ${t.sb} SB`,
     ].join('\n'),
   })
-  // Per-9 ERA, same reasoning as the OG cards: a card posted into a channel is read by
-  // people who never touched the site's settings, next to the league's own numbers.
-  const pitchingField = () => ({
-    name: `Pitching · ${pt.g} G`,
+  // ERA/WHIP on the league's own basis (the stored number), same reasoning as the OG cards: a
+  // card posted into a channel is read by people who never touched the site's settings, next to
+  // the league's numbers, so it must not rescale to a personal preference. See ERA_BASIS in stats.ts.
+  const pitchingField = (t: WpblPitchingTotals, label: string) => ({
+    name: `${label} · ${t.g} G`,
     value: [
-      `**${fmtTwo(pt.era)}** ERA · **${fmtTwo(pt.whip)}** WHIP · **${pt.w}-${pt.l}**${pt.s > 0 ? ` · **${pt.s}** SV` : ''}`,
-      `${outsToIp(pt.outs)} IP, ${pt.h} H, ${pt.er} ER, ${pt.bb} BB, ${pt.so} SO`,
+      `**${fmtTwo(t.era)}** ERA · **${fmtTwo(t.whip)}** WHIP · **${t.w}-${t.l}**${t.s > 0 ? ` · **${t.s}** SV` : ''}`,
+      `${outsToIp(t.outs)} IP, ${t.h} H, ${t.er} ER, ${t.bb} BB, ${t.so} SO`,
     ].join('\n'),
   })
 
-  if (pitcherFirst) {
-    fields.push(pitchingField())
-    if (hasBatting) fields.push(battingField())
-  } else {
-    if (hasBatting) fields.push(battingField())
-    if (hasPitching) fields.push(pitchingField())
+  // Regular season first, then postseason under it, each slice in the same lead order. The
+  // postseason pair simply does not appear for a player whose year ended in the regular season,
+  // which is most of the roster.
+  const pushSlice = (
+    bat: WpblBattingTotals, pit: WpblPitchingTotals,
+    hasBat: boolean, hasPit: boolean, batLabel: string, pitLabel: string,
+  ) => {
+    if (pitcherFirst) {
+      if (hasPit) fields.push(pitchingField(pit, pitLabel))
+      if (hasBat) fields.push(battingField(bat, batLabel))
+    } else {
+      if (hasBat) fields.push(battingField(bat, batLabel))
+      if (hasPit) fields.push(pitchingField(pit, pitLabel))
+    }
   }
+  pushSlice(bt, pt, hasBatting, hasPitching, 'Batting', 'Pitching')
+  pushSlice(btPost, ptPost, hasBattingPost, hasPitchingPost, 'Postseason batting', 'Postseason pitching')
 
   const teamName = team ? `${team.city} ${team.name}` : 'the WPBL'
   // The number leads, the way a player page header reads it. Kept out of the title so the
