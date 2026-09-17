@@ -16,14 +16,16 @@
 //
 // NO NAV PILL, like the league, glossary and sources pages beside it: a real path linked from the
 // footer, which is the crawl path that has actually worked. See WPBL_SEASON_PAGE in routes.ts.
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines,
   fetchWpblAllRunValuePlays, fetchWpblBattedBalls,
 } from './api'
 import SprayChart from './SprayChart'
+import SeasonShapeCard from './SeasonShapeCard'
 import RunsByInning from './RunsByInning'
+import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
 import { battedHalves } from './derive/runsByInning'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances,
@@ -32,13 +34,14 @@ import {
 } from './stats'
 import { countsInStandings } from './season'
 import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
-import { wpblPlayerPath, wpblGamePath } from './routes'
-import { wpblColor } from './constants'
-import { TAPPABLE, FOCUS_RING, hoverOnly, pressable } from './ui'
+import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
+import { wpblColor, wpblAccent } from './constants'
+import { TAPPABLE, FOCUS_RING, hoverOnly, pressable, useWpblDark } from './ui'
 import { navBack } from '../nav'
+import { useIsTester } from '../lib/roles'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
-  WpblSprayPlay,
+  WpblSprayPlay, WpblStandingRow,
 } from './types'
 
 /** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
@@ -169,6 +172,12 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
   const [battedBalls, setBattedBalls] = useState<WpblSprayPlay[]>([])
   const [hand, setHand] = useState<'R' | 'L'>('R')
   const [loading, setLoading] = useState(true)
+  const dark = useWpblDark()
+  // TESTER-ONLY, for now. The standings table and the race chart below are in review; until they
+  // ship the page keeps its shipped shape (no standings section) for everyone else. Cosmetic
+  // gate, per useIsTester's own note: it hides the block and grants nothing, and the block is a
+  // read of data every reader already has. Drop this when it ships.
+  const isTester = useIsTester()
 
   useEffect(() => {
     let cancelled = false
@@ -206,6 +215,26 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+
+  // The season's shape, feeding both the final standings table and the chart under it: one
+  // `seasonShape` read, so the table a reader scrubs to and the line they scrubbed cannot come
+  // from two different folds of the season. The same one-read rule StandingsView keeps.
+  const shape = useMemo(() => seasonShape(teams, games), [teams, games])
+  const lastCol = shape.columns.length - 1
+  // What the reader is pointing at on the chart below, in two speeds (see SeasonPreview): the
+  // figures track the cursor, the row order waits for it to settle. Null on both means the table
+  // is the season's last frame, which is the record this page is here to keep.
+  const [preview, setPreview] = useState<SeasonPreview>({ live: null, settled: null })
+  const onPreview = useCallback((view: SeasonPreview) => setPreview(view), [])
+  // Order from the settled column, figures from the live one: a row is its rank on one day and
+  // its record on another for as long as a scrub lasts. See StandingsView for the reasoning.
+  const stOrder = standingsAt(shape, preview.settled ?? lastCol)
+  const stFigures = standingsAt(shape, preview.live ?? lastCol)
+  const standingRows = useMemo(() => {
+    if (stOrder === stFigures) return stOrder
+    const byTeam = new Map(stFigures.map(r => [r.team.id, r]))
+    return stOrder.map(r => byTeam.get(r.team.id) ?? r)
+  }, [stOrder, stFigures])
 
   const batSeasons = useMemo(() => aggregateBatting(players, batting, games), [players, batting, games])
   const pitSeasons = useMemo(() => aggregatePitching(players, pitching, games), [players, pitching, games])
@@ -309,6 +338,7 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
   }
   const gameHref = (g: WpblGame) => wpblGamePath(g, teams, games)
   const playerHref = (p: WpblPlayer) => wpblPlayerPath(p, players)
+  const teamHref = (t: WpblTeam) => wpblTeamPath(t, teams)
 
   return (
     <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
@@ -330,8 +360,8 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
       </Typography>
       <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3 }}>
         The Women&rsquo;s Pro Baseball League&rsquo;s first season, read back through its own
-        numbers: the leaders, the things that make it its own league, and the plays its games
-        turned on.{gameCount > 0 && ` Regular season, ${gameCount} games.`}
+        numbers: {isTester && 'the final table and the race to it, '}the leaders, the things that
+        make it its own league, and the plays its games turned on.{gameCount > 0 && ` Regular season, ${gameCount} games.`}
       </Typography>
 
       {!hasData && (
@@ -342,6 +372,22 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
 
       {hasData && (
         <>
+          {/* ── Final standings ──────────────────────────────────────────────────
+              The record spine of the page, so it leads. The table is the season's last frame;
+              the chart under it is every earlier one, and dragging the chart scrubs the table
+              back to any date. Both are drawn from the one `shape` above, so they cannot
+              disagree. Regular season only, like everything else here: `seasonShape` folds
+              `standingsFinals`, which drops the postseason. */}
+          {isTester && shape.games > 0 && (
+            <>
+              <SectionHeading>Final standings</SectionHeading>
+              <FinalStandings rows={standingRows} teamHref={teamHref} onNavigate={onNavigate} dark={dark} />
+              <Box sx={{ mt: 1.5 }}>
+                <SeasonShapeCard shape={shape} onPreview={onPreview} />
+              </Box>
+            </>
+          )}
+
           {/* ── By the numbers ───────────────────────────────────────────────── */}
           <SectionHeading>By the numbers</SectionHeading>
           <Box sx={{
@@ -530,6 +576,89 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
           )}
         </>
       )}
+    </Box>
+  )
+}
+
+// ─── Final standings ───────────────────────────────────────────────────────────────
+// The season's last frame, or whichever day the chart below is scrubbed to. Compact on
+// purpose: the full Standings tab carries L10, streak and the form strip, and this is the
+// record read rather than the live table. Rank 1 is tinted, so a reader who scrubs back watches
+// the accent travel to whoever led on that date.
+
+// rank | club | W | L | PCT | (GB) | DIFF. The numeric columns are in rem so they hold their
+// width against the reader's text size, which is the box-reserving-type rule from CLAUDE.md.
+// GB is dropped on a phone: at 375px the fixed columns crowd the club name down to an initial,
+// and PCT plus the record already say where each club sits, so GB is the one to lose. Its cell
+// is display:none on xs and the xs template has one fewer track, so the grid stays aligned.
+const ST_COLS = '1.25rem minmax(0, 1fr) 1.75rem 1.75rem 2.75rem 2.25rem 2.75rem'
+const ST_COLS_XS = '1.1rem minmax(0, 1fr) 1.5rem 1.5rem 2.6rem 2.7rem'
+
+const fmtGb = (gb: number) => (gb === 0 ? '—' : Number.isInteger(gb) ? String(gb) : gb.toFixed(1))
+const fmtDiff = (d: number) => (d > 0 ? `+${d}` : String(d))
+
+function FinalStandings({ rows, teamHref, onNavigate, dark }: {
+  rows: WpblStandingRow[]; teamHref: (t: WpblTeam) => string; onNavigate: (to: string) => void; dark: boolean
+}) {
+  return (
+    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+      {/* Column labels. Same grid as the rows, so the numbers sit under their headings. */}
+      <Box sx={{
+        display: 'grid', gridTemplateColumns: { xs: ST_COLS_XS, sm: ST_COLS }, alignItems: 'center', gap: 1,
+        px: 1.25, py: 0.75, borderBottom: '1px solid', borderColor: 'divider',
+        fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
+        color: 'text.secondary',
+      }}>
+        <Box />
+        <Box>Club</Box>
+        <Box sx={{ textAlign: 'right' }}>W</Box>
+        <Box sx={{ textAlign: 'right' }}>L</Box>
+        <Box sx={{ textAlign: 'right' }}>PCT</Box>
+        <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>GB</Box>
+        <Box sx={{ textAlign: 'right' }}>DIFF</Box>
+      </Box>
+      {rows.map((r, i) => {
+        const leader = i === 0
+        const diff = r.runsFor - r.runsAgainst
+        return (
+          <Box
+            key={r.team.id}
+            component="a"
+            href={teamHref(r.team)}
+            onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(teamHref(r.team)) } }}
+            sx={{
+              ...FOCUS_RING,
+              display: 'grid', gridTemplateColumns: { xs: ST_COLS_XS, sm: ST_COLS }, alignItems: 'center', gap: 1,
+              px: 1.25, py: 0.85, textDecoration: 'none', color: 'inherit',
+              borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider',
+              bgcolor: leader ? 'var(--wpbl-compare-lead)' : 'transparent',
+              fontVariantNumeric: 'tabular-nums',
+              ...TAPPABLE,
+            }}
+          >
+            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: leader ? 'var(--wpbl-accent-fg)' : 'text.disabled' }}>
+              {i + 1}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0 }}>
+              {/* wpblAccent, not wpblColor: the four primaries are all near-black (see constants.ts)
+                  and read as identical dark blobs here, and this dot sits a few pixels above the
+                  chart line for the same club, which is drawn in exactly this accent. */}
+              <Box sx={{ flexShrink: 0, width: 9, height: 9, borderRadius: '50%', bgcolor: wpblAccent(r.team.id, dark) }} />
+              <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {r.team.city}
+              </Typography>
+            </Box>
+            <Typography sx={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 700 }}>{r.wins}</Typography>
+            <Typography sx={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 700 }}>{r.losses}</Typography>
+            <Typography sx={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 800 }}>{fmtRate(r.pct)}</Typography>
+            <Typography sx={{ textAlign: 'right', fontSize: '0.88rem', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>{fmtGb(r.gamesBack)}</Typography>
+            <Typography sx={{
+              textAlign: 'right', fontSize: '0.88rem', fontWeight: 700,
+              color: diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary',
+            }}>{fmtDiff(diff)}</Typography>
+          </Box>
+        )
+      })}
     </Box>
   )
 }
