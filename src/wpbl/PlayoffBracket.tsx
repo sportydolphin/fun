@@ -226,7 +226,7 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider',
       }}>
         <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
           color: isFinal ? 'var(--wpbl-medal-1)' : 'text.disabled', whiteSpace: 'nowrap',
         }}>{series.label}</Typography>
         {/* UP A SIZE AND DOWN A WEIGHT, which is the trade the weight ceiling in ui.tsx exists
@@ -256,7 +256,7 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
         column, on purpose. */}
         {showOdds && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5,
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6,
             textTransform: 'uppercase', color: 'text.disabled', flexShrink: 0,
           }}>Odds</Typography>
         )}
@@ -293,8 +293,8 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
           <Box sx={{ flex: 1 }} />
           {season && (
             <Typography sx={{
-              fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled',
-              textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', flexShrink: 0,
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
+              textTransform: 'uppercase', letterSpacing: 0.6, whiteSpace: 'nowrap', flexShrink: 0,
             }}>{season}</Typography>
           )}
         </Box>
@@ -412,7 +412,7 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
           instead of a line: without one it reads as a third semifinal. */}
       <Typography sx={{
         display: { xs: 'block', sm: 'none' },
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
       }}>The winners meet in the</Typography>
       {/* THE CHAMPIONSHIP TAKES THE WHOLE COLUMN, AND THE TITLE ODDS ARE INSIDE IT.
@@ -513,19 +513,19 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.9, mb: 0.75, px: 0.5 }}>
         <Typography sx={{
           flex: 1, minWidth: 0,
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
           color: 'text.disabled',
         }}>{decided ? 'Champion' : 'Chance to win it all'}</Typography>
         {fans && !decided && (
           <>
             <Typography sx={{
               width: '2.5rem', flexShrink: 0, textAlign: 'center',
-              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5,
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6,
               textTransform: 'uppercase', color: 'text.disabled',
             }}>Odds</Typography>
             <Typography sx={{
               width: '2.5rem', flexShrink: 0, textAlign: 'center',
-              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5,
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6,
               textTransform: 'uppercase', color: 'text.disabled',
             }}>Fans</Typography>
           </>

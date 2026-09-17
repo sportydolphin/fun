@@ -138,7 +138,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
     }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
         color: live ? '#ef4444' : 'text.secondary',
         // Never wrap: a second line here would make finals taller than upcoming chips and
         // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
@@ -233,7 +233,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
       }}
     >
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
         // The accent rather than text.secondary: it is the one mark separating a fixture that
         // exists from a date the league has only published, on a strip where the dashed border
         // is a hairline.
@@ -541,7 +541,13 @@ function Countdown({ target }: { target: number }) {
   if (!label) return null
   return (
     <Typography component="span" sx={{
-      fontSize: TYPE_SCALE.body, fontWeight: 800, color: WPBL_ACCENT,
+      // TEXT USES THE FOREGROUND-SAFE ACCENT, the tint behind it uses the raw one. `WPBL_ACCENT`
+      // (#60a5fa) measures ~2.3:1 as text on the light-mode paper and is documented in constants.ts
+      // as fill-only; as the countdown figure on white it was the pale blue that made this card's
+      // one live number the hardest accent on the page to read, and a second blue against the
+      // darker `--wpbl-accent-fg` links ("Full recap", "Try it") elsewhere on the feed. The wash
+      // stays raw: a 9% fill is what that constant is safe for.
+      fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
       px: 0.7, py: 0.15, borderRadius: 1, lineHeight: 1.35,
       bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
       fontVariantNumeric: 'tabular-nums',
@@ -689,7 +695,7 @@ function GameReminderRow({ game, away, home, startMs }: {
       onClick={!user ? () => openAuthDialog('signin') : undefined}
       sx={{ ...cardFooterBand(isDark), ...(!user ? { cursor: 'pointer', ...TAPPABLE } : {}) }}
     >
-      <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
+      <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: on ? 'var(--wpbl-accent-fg)' : 'text.disabled' }} />
       {/* THE OFFER IS BOLD, A STATUS IS NOT. "All games, 30 min early" is a thing to do and
           carries the weight of one. "Notifications blocked" and "Sign in for reminders" are
           states, and at the same 700 they were louder than the season-series line on a card
@@ -1050,8 +1056,8 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
             row in the mirror), not a rendering fault to defend against here. */}
         {postseason && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.4,
-            textTransform: 'uppercase', color: WPBL_ACCENT, mt: 1, lineHeight: 1.2,
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+            textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
           }}>
             {postseason.label} · Game {postseason.gameNumber} of {postseason.bestOf}
           </Typography>
@@ -1227,8 +1233,8 @@ export function NextPostseasonCard({ rows, teams, games }: {
         </Box>
 
         <Typography sx={{
-          fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.4,
-          textTransform: 'uppercase', color: WPBL_ACCENT, mt: 1, lineHeight: 1.2,
+          fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+          textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
         }}>
           {r.label} · Game {r.gameNumber} of {bestOf}
         </Typography>
@@ -1324,7 +1330,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
       mb: 1.25, '&:last-of-type': { mb: 0 },
       ...(spread ? { height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' } : {}),
     }}>
-      {!hideLabel && <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
+      {!hideLabel && <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
       {rows.map((r, i) => {
         const team = teamById.get(r.player.team_id)
         // Rank by the number the reader can actually SEE. Ties on a counting board (two players
@@ -1364,8 +1370,14 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
                 and its own number. The name is the only part allowed to shrink. */}
             <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
               <Box sx={{ minWidth: 0 }}>
+              {/* 700 AT BOTH RANKS, hierarchy carried by size, the headshot and the medal, not by
+                  weight: the hero is `title` over the runners' `body` and wears a 38px portrait to
+                  their 18px badge, which is plenty. At 800 it was the one featured name on Home
+                  heavier than the rest (club names, the bracket, the Compare heads are all 700 at
+                  their own sizes), for no reason a reader could name. See the weight note in
+                  teamRow: size and colour separate these, weight is spent within a size. */}
               <FittedName name={r.player.name} wrapperSx={{ minWidth: 0 }} sx={{
-                fontSize: isTop ? TYPE_SCALE.title : TYPE_SCALE.body, fontWeight: isTop ? 800 : 700, lineHeight: 1.15,
+                fontSize: isTop ? TYPE_SCALE.title : TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.15,
               }} />
               {isTop && team && (
                 <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -2024,7 +2036,7 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
         borderBottom: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: 'none' },
       }}>
         {valCell(aText, leadA)}
-        <Typography sx={{ flex: '0 0 auto', px: 1.5, textAlign: 'center', fontSize: TYPE_SCALE.micro, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ flex: '0 0 auto', px: 1.5, textAlign: 'center', fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
           {label}
         </Typography>
         {valCell(bText, leadB)}
@@ -2081,7 +2093,7 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
                 middle and leaves the left and right thirds of the card empty. */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%' }}>
               {head(a)}
-              <Typography aria-hidden sx={{ alignSelf: 'center', px: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled' }}>
+              <Typography aria-hidden sx={{ alignSelf: 'center', px: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.disabled' }}>
                 vs
               </Typography>
               {head(b)}

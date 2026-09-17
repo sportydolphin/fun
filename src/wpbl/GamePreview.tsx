@@ -225,7 +225,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
         <Typography sx={{
           flexShrink: 0, width: '2.375rem', textAlign: 'center',
           fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary',
-          textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1,
+          textTransform: 'uppercase', letterSpacing: 0.6, lineHeight: 1,
         }}>
           {def.key === 'k9' ? kLabel : def.label}
         </Typography>
@@ -289,15 +289,15 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
   if (compact) {
     return (
       <Box>
-        {/* Disabled ink, not secondary: the host card now puts a rule above this block, and a
-            rule plus a caption plus secondary-weight type is three ways of saying "new section"
-            for a footer that only needs one. */}
-        <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
-          textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 0.5,
-        }}>
-          Season stats
-        </Typography>
+        {/* A HAIRLINE, NOT A WORD, marks the break from the card's context to its data. On Home's
+            postseason card this block lands two lines under a blue "CHAMPIONSHIP · GAME 2 OF 5"
+            eyebrow and one under a grey "Queens lead 1-0", and a "SEASON STATS" label here was a
+            SECOND all-caps eyebrow stacked into that pile: four small lines under the big club
+            names, two of them competing caps labels a line apart. The rows name themselves (R/G,
+            OPS, ERA) at values a single game cannot post, so the word was labelling the obvious to
+            earn its line. The rule is the same device the full nine-stat cut uses to split Offense
+            from Pitching, and it separates the region without adding a third thing to read. */}
+        <Box sx={{ height: '1px', bgcolor: 'divider', mb: 1 }} />
         {COMPACT_KEYS.map(k => WPBL_TEAM_STAT_DEFS.find(d => d.key === k)).map(d => d && row(d))}
       </Box>
     )

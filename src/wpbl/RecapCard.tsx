@@ -5,7 +5,7 @@ import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from '
 import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE, useWpblDark, CLUB_BAND, cardFooterBand } from './ui'
-import { WPBL_ACCENT, relativeDayLabel, wpblFullName, wpblSurface } from './constants'
+import { relativeDayLabel, wpblFullName, wpblSurface } from './constants'
 import { GameHighlightCard } from './Highlights'
 import { linkColor, useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 
@@ -175,7 +175,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
 
       {recap.stars.length > 0 && (
         <Box>
-          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
           {/* Mobile: stack the three stars, each on its own full-width row so the name and
           statline show in full instead of all three cramming one line and truncating.
           Desktop lays them in one row, each star starting from the width its own name
@@ -201,7 +201,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
           {recap.decisions.map(d => (
             <Box key={d.key}>
-              <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: d.key === 'L' ? 'text.disabled' : WPBL_ACCENT }}>{d.key}</Typography>
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: d.key === 'L' ? 'text.disabled' : 'var(--wpbl-accent-fg)' }}>{d.key}</Typography>
               <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, ml: 0.5 }}>{d.name}</Typography>
               <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', ml: 0.5 }}>{d.statline}</Typography>
             </Box>
