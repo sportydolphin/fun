@@ -920,8 +920,15 @@ type ShareAction = 'share' | 'copy' | 'download'
 export const canCopyImage = (): boolean =>
   typeof navigator !== 'undefined' && !!navigator.clipboard
   && typeof navigator.clipboard.write === 'function' && typeof window.ClipboardItem !== 'undefined'
-export const canNativeShare = (): boolean =>
-  typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+/** Whether the browser can share an actual FILE (the OS share sheet on iOS/Android), tested with a
+ *  throwaway file so it is a real answer rather than just "navigator.share exists" (which is true on
+ *  desktops that cannot share files). When this is true the button skips our menu and goes straight
+ *  to the native sheet, which carries its own copy and save options. */
+export const canNativeShareFiles = (): boolean => {
+  if (typeof navigator === 'undefined' || typeof navigator.canShare !== 'function') return false
+  try { return navigator.canShare({ files: [new File([''], 'wpbl.png', { type: 'image/png' })] }) }
+  catch { return false }
+}
 
 /**
  * Mounts the share card off-screen, captures it, and performs the chosen action: the OS share
@@ -1188,7 +1195,13 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
         {winner && (
           <Box
             ref={shareBtnRef}
-            {...pressable(() => { if (!sharing) setMenuOpen(true) })}
+            {...pressable(() => {
+              if (sharing) return
+              // On a phone the native share sheet already offers copy and save, so go straight to
+              // it; only fall back to our own Copy/Download menu where a file share is unavailable.
+              if (canNativeShareFiles()) setSharing('share')
+              else setMenuOpen(true)
+            })}
             aria-label={`Share the ${award.title} result`}
             aria-haspopup="menu"
             title="Share this result"
@@ -1208,8 +1221,10 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
         )}
       </Box>
 
-      {/* The action menu. Share… only where the browser can (mostly phones); Copy only where the
-          clipboard takes an image; Download always, as the floor every browser can do. */}
+      {/* The desktop fallback menu: only reached where there is no native file share (the button
+          goes straight to the OS sheet otherwise). Copy where the clipboard takes an image;
+          Download always, as the floor every browser can do. No "Share…" item here: it would just
+          repeat the button, and this menu only exists where a native share is not possible. */}
       <Menu
         anchorEl={shareBtnRef.current}
         open={menuOpen}
@@ -1220,12 +1235,6 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
         // the tap looks like it did nothing.
         sx={{ zIndex: 1700 }}
       >
-        {canNativeShare() && (
-          <MenuItem onClick={() => { setMenuOpen(false); setSharing('share') }}>
-            <ListItemIcon><IosShare fontSize="small" /></ListItemIcon>
-            Share…
-          </MenuItem>
-        )}
         {canCopyImage() && (
           <MenuItem onClick={() => { setMenuOpen(false); setSharing('copy') }}>
             <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
