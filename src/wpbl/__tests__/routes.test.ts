@@ -41,7 +41,13 @@ import {
   WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, isCanonicalComparePath,
   wpblCompareStartPath, wpblCompareSlugFromPath,
   findWpblComparePair, isWpblComparePage, isWpblComparePicker,
+  wpblShortCode, wpblPlayerShortPath, wpblGameShortPath,
+  wpblShortPlayerCodeFromPath, wpblShortGameCodeFromPath, findByShortCode,
+  WPBL_SHORT_PLAYER_BASE, WPBL_SHORT_GAME_BASE,
 } from '../routes'
+// The Functions allow-list, imported as data: a short-link function that is not routed here
+// compiles, deploys, and is never called (the documented _routes.json trap).
+import routesJson from '../../../public/_routes.json'
 // The real club list, so the four files below are pinned against what the app actually ships
 // rather than against four strings copied into this test. A fifth club fails every assertion
 // in the block until its line, its tags and its sitemap entry exist.
@@ -860,5 +866,58 @@ describe('wpblAppOwnsPath', () => {
     for (const path of ['/mlb', '/privacy', '/wpbl/players', '/wpbl/api', '/wpbl/players/a/b', '/wpbl/nope']) {
       expect(wpblAppOwnsPath(path)).toBe(false)
     }
+  })
+})
+
+// The short share links, /p/<code> and /g/<code>. The resolvers live at the edge (functions/p,
+// functions/g), but everything they reason with is here and pure, so the round-trip and the
+// soft-404 guards are pinned here rather than needing a running Worker.
+describe('short share links', () => {
+  const A = '1a2b3c4d-1111-2222-3333-444455556666'
+  const B = '9f8e7d6c-aaaa-bbbb-cccc-ddddeeeeffff'
+  const roster = [{ id: A, name: 'Kelsie Whitmore' }, { id: B, name: 'Diana Ibarra' }]
+
+  it('codes the first 8 hex of the uuid, dash-stripped and lower-cased', () => {
+    expect(wpblShortCode(A)).toBe('1a2b3c4d')
+    expect(wpblShortCode('AB-CD-EF-01-23-45-67')).toBe('abcdef01')
+    expect(wpblShortCode(A)).toHaveLength(8)
+  })
+
+  it('builds /p and /g paths from the id alone', () => {
+    expect(wpblPlayerShortPath({ id: A })).toBe(`${WPBL_SHORT_PLAYER_BASE}/1a2b3c4d`)
+    expect(wpblGameShortPath({ id: B })).toBe(`${WPBL_SHORT_GAME_BASE}/9f8e7d6c`)
+  })
+
+  it('round-trips: a player path resolves back to that player', () => {
+    const code = wpblShortPlayerCodeFromPath(wpblPlayerShortPath({ id: A }))
+    expect(code).toBe('1a2b3c4d')
+    expect(findByShortCode(code!, roster)).toBe(roster[0])
+  })
+
+  it('parses one hex segment only, and rejects a typo path or a non-hex code', () => {
+    expect(wpblShortPlayerCodeFromPath('/p/1a2b3c4d')).toBe('1a2b3c4d')
+    expect(wpblShortPlayerCodeFromPath('/p/1a2b3c4d/')).toBe('1a2b3c4d') // trailing slash tolerated
+    expect(wpblShortGameCodeFromPath('/g/9f8e7d6c')).toBe('9f8e7d6c')
+    // Cloudflare's `*` matches across slashes, so /p/a/b reaches the handler and must NOT read as
+    // a code: it is a 404, not the app shell.
+    expect(wpblShortPlayerCodeFromPath('/p/a/b')).toBeNull()
+    expect(wpblShortPlayerCodeFromPath('/p/')).toBeNull()
+    expect(wpblShortPlayerCodeFromPath('/p/zzzz')).toBeNull() // not hex
+    expect(wpblShortGameCodeFromPath('/wpbl/games/x')).toBeNull() // not a /g path
+    expect(wpblShortPlayerCodeFromPath('/g/1a2b3c4d')).toBeNull() // wrong base
+  })
+
+  it('refuses an ambiguous prefix rather than guess', () => {
+    const twins = [{ id: 'aaaa1111-0000-0000-0000-000000000000', name: 'One' },
+                   { id: 'aaaa2222-0000-0000-0000-000000000000', name: 'Two' }]
+    expect(findByShortCode('aaaa', twins)).toBeNull()       // both match
+    expect(findByShortCode('aaaa1', twins)).toBe(twins[0])  // now unique
+    expect(findByShortCode('bbbb', twins)).toBeNull()       // none match
+  })
+
+  it('is routed in _routes.json, or the Functions never run', () => {
+    // The trap: an unrouted function compiles, deploys and is silently never called.
+    expect(routesJson.include).toContain('/p/*')
+    expect(routesJson.include).toContain('/g/*')
   })
 })

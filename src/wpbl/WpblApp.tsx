@@ -38,6 +38,7 @@ import {
   WPBL_AWARDS_PATH, isWpblAwardsPage,
   WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
   WPBL_PLAYERS_INDEX,
+  WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
 } from './routes'
 import { linkTo } from '../nav'
@@ -1252,6 +1253,20 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const pendingTeamSlug = useRef<string | null>(
     window.history.state?.wpbl ? null : wpblTeamSlugFromPath(window.location.pathname),
   )
+  /** `?ref=short` on the landing URL means a short link (functions/p, functions/g) sent this
+   *  reader here. Read at mount before `urlFor` rewrites the address bar and drops it, so the
+   *  open can be counted through the ordinary analytics path rather than the edge taking on a
+   *  write of its own. Only human loads run this JS, which is the point: it counts opens, never
+   *  the crawler fetches that unfurl the card. */
+  const arrivedViaShort = useRef(pendingParam(WPBL_SHORT_REF_PARAM) === WPBL_SHORT_REF_VALUE)
+  // Count the short-link open once, on the load it happened. `kind` comes from what the landing
+  // path names, which the edge resolved the code into: a player slug, a game slug, or neither.
+  useEffect(() => {
+    if (!arrivedViaShort.current) return
+    arrivedViaShort.current = false
+    const kind = pendingPlayerSlug.current ? 'player' : pendingGameSlug.current ? 'game' : 'other'
+    track(EVENTS.WPBL_SHARE_OPENED, { kind })
+  }, [])
   // Every forward navigation = one history entry (apply state + push a matching snapshot).
   const push = useCallback((s: WpblSnap) => {
     apply(s)

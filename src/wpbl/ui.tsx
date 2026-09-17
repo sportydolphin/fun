@@ -1373,14 +1373,21 @@ function unlockBodyScroll() {
 // The clipboard API needs a secure context. https and localhost both qualify, so the only
 // realistic gap is a plain-http host on a LAN, which is why the execCommand path is still
 // here as a fallback rather than being retired as legacy.
-export function CopyLinkButton({ url, title = 'Copy link' }: { url: string; title?: string }) {
+export function CopyLinkButton({ url, title = 'Copy link', onCopy }: {
+  url: string
+  title?: string
+  /** Fired once on a SUCCESSFUL copy, for the caller to log a share. Not fired on failure:
+   *  a copy that did not happen is not a share. */
+  onCopy?: () => void
+}) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   const copy = useCallback(async () => {
     const ok = await writeClipboard(url)
     setState(ok ? 'copied' : 'failed')
+    if (ok) onCopy?.()
     setTimeout(() => setState('idle'), ok ? 1600 : 2400)
-  }, [url])
+  }, [url, onCopy])
 
   const isDarkCopy = useWpblDark()
   const label = state === 'copied' ? 'Copied' : state === 'failed' ? "Couldn't copy" : 'Copy link'

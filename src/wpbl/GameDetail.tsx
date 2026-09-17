@@ -10,7 +10,8 @@ import { useLiveGame, LIVE_RED } from './Live'
 import { boxScoreRevision, formatRevisionDay, leagueDay } from './derive/feedHealth'
 import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from './refresh'
-import { wpblGameSlugFromPath } from './routes'
+import { wpblGameSlugFromPath, wpblGameShortPath } from './routes'
+import { useIsTester } from '../lib/roles'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard, GameRecapLinkCard } from './Reading'
@@ -20,7 +21,7 @@ import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
-import { ModalShell, SegNav, TapTip, TeamBadge, BaseDiamond, pressable, hoverOnly, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
+import { ModalShell, SegNav, TapTip, TeamBadge, BaseDiamond, CopyLinkButton, pressable, hoverOnly, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay, endsInCalledThirdStrike, stateAfter, pitchingChanges } from './derive/playByPlay'
 import type { WpblRunValuePlay } from './types'
@@ -1860,6 +1861,10 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   const away = byId.get(game.away_team_id)
 
   const gcUid = useRef(Math.random().toString(36).slice(2)).current
+  // The game page has never carried a copy button; the short-link one below is shown to testers
+  // only while it is being proved in production, so for everyone else this surface is exactly as
+  // it shipped. Drop the gate to give every reader the button.
+  const isTester = useIsTester()
   // Seeded from the session cache, so a second look at a game paints before it fetches.
   const cached = gameCache.get(seed.id)
   const [loading, setLoading] = useState(!cached)
@@ -2275,6 +2280,17 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
         : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`
       }
       onClose={onClose}
+      // The short /g share link, beside Close, so a game is as copy-able as a player. Built from
+      // the current origin (functions/g 302s it to the canonical /wpbl/games/<slug> the address
+      // bar shows and the OG rewrite unfurls), and needs only the id. Tester-only for now (see
+      // isTester above): undefined leaves the header exactly as it shipped for everyone else.
+      actions={isTester ? (
+        <CopyLinkButton
+          url={`${window.location.origin}${wpblGameShortPath(game)}`}
+          title="Copy a link to this game"
+          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'game', form: 'short', gameId: game.id })}
+        />
+      ) : undefined}
       // Width in `chromePx`, so the dialog scales with the section's desktop ramp like everything
       // in it; a raw 520 would leave it a phone column inside a wide window, overflowing
       // vertically with room to spare horizontally.

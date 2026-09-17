@@ -279,6 +279,75 @@ export function findWpblGameBySlug<T extends WpblSluggableGame>(
   return hits.length === 1 ? hits[0] : null
 }
 
+// ─── Short share links ────────────────────────────────────────────────────────
+//
+// `/p/<code>` and `/g/<code>`, resolved at the edge (functions/p, functions/g) and 30x'd to the
+// canonical player/game page. For pasting into a DM or a post where the readable
+// /wpbl/players/<slug> form is longer than the sentence around it.
+//
+// THE CODE IS THE FIRST 8 HEX OF THE ROW'S UUID, so it needs no storage and no new write path: it
+// is derived from the id every surface already holds, which makes a short link just a shorter
+// spelling of the legacy ?player=/?game= deep link the edge has always resolved. 32 bits is
+// unique across the 118-row roster and the season's ~40 games by a wide margin; the resolver
+// (findByShortCode) refuses an ambiguous prefix rather than guess, exactly as the slug resolvers
+// refuse a shared name. Lives in this dependency-free module so the Pages Functions can import it.
+//
+// The unfurl survives because the 30x lands on the canonical path, which functions/wpbl/index.ts
+// still OG-rewrites: every major unfurler follows the redirect. See ARCHITECTURE.md §share links.
+export const WPBL_SHORT_PLAYER_BASE = '/p'
+export const WPBL_SHORT_GAME_BASE = '/g'
+const SHORT_CODE_LEN = 8
+
+/** The query marker the edge adds to the redirect target so the landed SPA can count a
+ *  short-link open through the ordinary browser analytics path (functions → WpblApp), rather
+ *  than the edge taking on a database write of its own. It rides only to the client: the OG
+ *  rewrite still sets og:url to the clean canonical, and WpblApp strips it on the first history
+ *  rewrite, so it never becomes the page's indexed identity nor gets shared onward. */
+export const WPBL_SHORT_REF_PARAM = 'ref'
+export const WPBL_SHORT_REF_VALUE = 'short'
+
+/** The share code for a row: the first 8 hex of its uuid, lower-cased and dash-stripped. */
+export function wpblShortCode(id: string): string {
+  return id.replace(/-/g, '').slice(0, SHORT_CODE_LEN).toLowerCase()
+}
+
+export function wpblPlayerShortPath(player: { id: string }): string {
+  return `${WPBL_SHORT_PLAYER_BASE}/${wpblShortCode(player.id)}`
+}
+export function wpblGameShortPath(game: { id: string }): string {
+  return `${WPBL_SHORT_GAME_BASE}/${wpblShortCode(game.id)}`
+}
+
+/** The code a short pathname names, or null. One segment of hex only: /p/a/b is a typo and /p/xyz
+ *  is not a code, and the edge 404s both rather than serve the app shell (Cloudflare's `*` matches
+ *  across slashes, the guard every routed subtree here carries). */
+function shortCodeFromPath(pathname: string, base: string): string | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${base}/`)) return null
+  const rest = p.slice(base.length + 1)
+  return rest && !rest.includes('/') && /^[0-9a-f]{1,32}$/i.test(rest) ? rest.toLowerCase() : null
+}
+export const wpblShortPlayerCodeFromPath = (pathname: string): string | null =>
+  shortCodeFromPath(pathname, WPBL_SHORT_PLAYER_BASE)
+export const wpblShortGameCodeFromPath = (pathname: string): string | null =>
+  shortCodeFromPath(pathname, WPBL_SHORT_GAME_BASE)
+
+/** Resolve a code to the one row whose uuid starts with it, or null if none match or MORE than
+ *  one does. Ambiguity is a 404, never a guess: two rows sharing an 8-hex prefix will not happen
+ *  at this scale, but a hand-shortened code might, and serving the wrong player is the one
+ *  outcome worse than serving none. */
+export function findByShortCode<T extends { id: string }>(code: string, rows: readonly T[]): T | null {
+  const c = code.toLowerCase()
+  let hit: T | null = null
+  for (const r of rows) {
+    if (r.id.replace(/-/g, '').toLowerCase().startsWith(c)) {
+      if (hit) return null
+      hit = r
+    }
+  }
+  return hit
+}
+
 /** The players index, which exists mainly so every player page has something linking to it. */
 export const WPBL_PLAYERS_INDEX = WPBL_PLAYERS_BASE
 

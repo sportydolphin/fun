@@ -152,6 +152,13 @@ export const EVENTS = {
   // all), so without it the reminder feature's real usage is invisible: wpbl_game_reminder_on
   // only ever measured the minority who could take the push.
   WPBL_GAME_CALENDAR:  'wpbl_game_calendar',  // downloaded an .ics game reminder, props {gameId}
+  // Short share links (/p/<code>, /g/<code>). COPIED fires when someone taps Copy link on a
+  // player or game page; OPENED fires when a reader LANDS from one (the edge tags the redirect
+  // with ?ref=short and WpblApp reads it). The two are a funnel: how many shares get made, how
+  // many get clicked. OPENED is counted client-side on purpose, so it measures human opens and
+  // never the crawler fetches that unfurl the card.
+  WPBL_SHARE_COPIED:   'wpbl_share_copied',   // copied a share link, props {kind, form} (form: 'short' while testers exercise it, else 'canonical')
+  WPBL_SHARE_OPENED:   'wpbl_share_opened',   // arrived via a short share link, props {kind}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

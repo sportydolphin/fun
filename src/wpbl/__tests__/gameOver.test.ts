@@ -170,7 +170,11 @@ describe('where the rule is applied', () => {
   })
 
   it('runs on the share-card read, which is the one that goes outward', () => {
-    const fn = readFileSync('functions/wpbl/index.ts', 'utf8')
+    // The edge schedule read moved to shareEdge.ts so the OG rewriter (functions/wpbl) and the
+    // short-link resolvers (functions/p, functions/g) share one reader; the settle still has to
+    // live in it, or an unfurl (and now a short link) of a game the league left at "In Progress"
+    // serves the preview card / lands on a page reading as unplayed.
+    const fn = readFileSync('src/wpbl/shareEdge.ts', 'utf8')
     expect(fn.includes('settleGames(games)')).toBe(true)
     // It needs the column to reason from, and that select is the only place it comes from.
     expect(fn.includes('away_score,live_state')).toBe(true)

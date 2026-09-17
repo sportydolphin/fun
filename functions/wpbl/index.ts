@@ -20,7 +20,6 @@
 // The card's wording lives in src/wpbl/ogCard.ts, where it is unit-tested.
 import { wpblPlayerCard, type WpblCardBatting, type WpblCardPitching, type WpblPlayerCard } from '../../src/wpbl/ogCard'
 import type { WpblSeasonGame } from '../../src/wpbl/season'
-import { settleGames } from '../../src/wpbl/gameOver'
 // The slug rules come from the app's own module rather than being restated here. Two
 // implementations of "what is this player's URL" is precisely the drift that src/wpbl/slug.ts
 // was split out to prevent, and the failure mode is silent: the edge would 404 a player the
@@ -31,17 +30,9 @@ import {
   wpblCompareSlugFromPath, findWpblComparePair, WPBL_COMPARE_BASE,
 } from '../../src/wpbl/routes'
 import { wpblGameCard, type WpblCardGame, type WpblCardTeam } from '../../src/wpbl/ogCard'
-
-interface Env {
-  // Pages exposes the project's environment variables to functions at runtime, so these
-  // are the same two values the client bundle is built with. The anon key ships inside
-  // that bundle already — reading it here grants nothing new.
-  VITE_SUPABASE_URL?: string
-  VITE_SUPABASE_ANON_KEY?: string
-  SUPABASE_URL?: string
-  SUPABASE_ANON_KEY?: string
-  ASSETS?: { fetch: (request: Request) => Promise<Response> }
-}
+// The roster/schedule reads, SITE and Env live in shareEdge so this handler and the short-link
+// resolvers (functions/p, functions/g) cannot drift on how they read the same two tables.
+import { readRosterEdge, readScheduleEdge, SITE, DATA_TIMEOUT_MS, type Env } from '../../src/wpbl/shareEdge'
 
 interface Ctx {
   request: Request
@@ -52,13 +43,6 @@ interface Ctx {
 // A shared link's ?player= is a wpbl_players UUID. Anything else (a stale link, a probe)
 // goes straight through to the untouched page, unqueried.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-// A reader who follows the link waits on this too, so it's a deadline, not a retry budget:
-// past it we serve the generic card rather than hold the page. Four parallel PostgREST
-// reads from an edge colo normally land well inside it.
-const DATA_TIMEOUT_MS = 1200
-
-const SITE = 'https://sportydolphin.fun'
 
 // Legacy `?view=` value → the path that replaced it. Spelled out here rather than imported
 // from src/wpbl/routes.ts because it has to include the values that are NO LONGER views:
@@ -122,7 +106,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   if (gameSlug !== null) {
     let schedule: { games: WpblCardGame[]; teams: WpblCardTeam[] }
     try {
-      schedule = await readSchedule(env)
+      schedule = await readScheduleEdge(env)
     } catch {
       // Database unreachable. Same standing rule as the roster read: a page that renders
       // beats a 404 on a game that exists.
@@ -157,7 +141,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   if (compareSlug !== null) {
     let roster: WpblSluggable[]
     try {
-      roster = await readRoster(env)
+      roster = await readRosterEdge(env)
     } catch {
       // Database unreachable. Same standing rule as everywhere else in this file: a page that
       // renders beats a 404 on a comparison that is perfectly valid.
@@ -196,7 +180,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   if (slug !== null) {
     let player: WpblSluggable | null
     try {
-      player = findWpblPlayerBySlug(slug, await readRoster(env))
+      player = findWpblPlayerBySlug(slug, await readRosterEdge(env))
     } catch {
       // Database unreachable. Fall through and let the SPA try: a page that renders is a
       // better outcome than a 404 on a player who exists, and this file's standing rule is
@@ -214,7 +198,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
     // Hand the old URL's ranking signal to the new one. Best-effort: if the roster read
     // fails we simply serve the page as before rather than bouncing the reader nowhere.
     try {
-      const roster = await readRoster(env)
+      const roster = await readRosterEdge(env)
       const player = roster.find(p => p.id === legacyPlayerId)
       if (player) {
         const to = new URL(url)
@@ -233,7 +217,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   // game is the only thing this URL names.
   if (legacyGameId && UUID_RE.test(legacyGameId)) {
     try {
-      const schedule = await readSchedule(env)
+      const schedule = await readScheduleEdge(env)
       const game = schedule.games.find(g => g.id === legacyGameId)
       if (game) {
         const to = new URL(url)
@@ -297,72 +281,11 @@ async function notFound(context: Ctx): Promise<Response> {
 }
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
-
-/**
- * Every player's id and name, which is what slug resolution needs.
- *
- * The WHOLE roster, not a filtered query, because a slug cannot be turned back into a name
- * by PostgREST: `slugifyName` strips accents and punctuation, so "Samaria Benítez" and
- * "samaria-benitez" have no SQL relationship. It is 118 rows of two short columns, which is
- * cheaper than it sounds and is also the only way to tell a unique name from a shared one.
- */
-async function readRoster(env: Env): Promise<WpblSluggable[]> {
-  const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
-  const key = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY
-  if (!base || !key) throw new Error('no supabase binding')
-
-  const abort = new AbortController()
-  const timer = setTimeout(() => abort.abort(), DATA_TIMEOUT_MS)
-  try {
-    const res = await fetch(`${base.replace(/\/+$/, '')}/rest/v1/wpbl_players?select=id,name`, {
-      headers: { apikey: key, authorization: `Bearer ${key}`, accept: 'application/json' },
-      signal: abort.signal,
-    })
-    if (!res.ok) throw new Error(`postgrest ${res.status}`)
-    return (await res.json()) as WpblSluggable[]
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-/**
- * The whole schedule and the four clubs, which is what game-slug resolution needs.
- *
- * Whole, for the same reason the roster is read whole: a slug cannot be turned back into a
- * query. It carries a date and two club NICKNAMES, and PostgREST has no relationship
- * between "hunters" and the `BOS` sitting in the column. It is also the only way to tell a
- * unique date-and-matchup from a shared one. Forty rows of seven short columns, plus four
- * teams, both in flight at once.
- */
-async function readSchedule(env: Env): Promise<{ games: WpblCardGame[]; teams: WpblCardTeam[] }> {
-  const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
-  const key = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY
-  if (!base || !key) throw new Error('no supabase binding')
-
-  const abort = new AbortController()
-  const timer = setTimeout(() => abort.abort(), DATA_TIMEOUT_MS)
-  const read = async <T>(query: string): Promise<T[]> => {
-    const res = await fetch(`${base.replace(/\/+$/, '')}/rest/v1/${query}`, {
-      headers: { apikey: key, authorization: `Bearer ${key}`, accept: 'application/json' },
-      signal: abort.signal,
-    })
-    if (!res.ok) throw new Error(`postgrest ${res.status}`)
-    return (await res.json()) as T[]
-  }
-  try {
-    const [games, teams] = await Promise.all([
-      read<WpblCardGame>('wpbl_games?select=id,game_date,home_team_id,away_team_id,status,home_score,away_score,live_state'),
-      read<WpblCardTeam>('wpbl_teams?select=id,city,name'),
-    ])
-    // The same end-of-game call the section makes, for the same reason: an unfurl of a game
-    // the league left sitting at "In Progress" would otherwise serve the preview card, telling
-    // everyone who saw the link that a game finished hours ago has not been played. `live_state`
-    // is fetched only for this. See src/wpbl/gameOver.ts.
-    return { games: settleGames(games), teams }
-  } finally {
-    clearTimeout(timer)
-  }
-}
+//
+// The roster and schedule reads moved to src/wpbl/shareEdge.ts so the short-link resolvers
+// share them; `resolvePlayer` below keeps its own reads because it fetches the four extra
+// tables a player card needs (batting, pitching, and the season games for the season line),
+// which nothing else wants.
 
 interface PlayerRow { id: string; name: string; position: string | null; team_id: string | null }
 interface TeamRow { id: string; city: string; name: string }

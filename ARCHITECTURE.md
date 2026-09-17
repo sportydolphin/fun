@@ -651,6 +651,21 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   into one 1.91:1 banner, and a square arrived centre-cropped across the player's face. It **edits** `index.html`'s tags
   and never appends: unfurlers read the first occurrence of a property, so a default that
   ships in the static head cannot be overridden by a tag added after it.
+- **Short share links:** [`functions/p/[[code]].ts`](functions/p/%5B%5Bcode%5D%5D.ts) and
+  [`functions/g/[[code]].ts`](functions/g/%5B%5Bcode%5D%5D.ts) resolve `/p/<code>` and
+  `/g/<code>` to the canonical player/game page with a `302`, for a share short enough to sit
+  in a DM or a post (the player and game copy buttons emit these). The code is the first 8 hex
+  of the row's uuid ([`wpblShortCode`](src/wpbl/routes.ts)), resolved by id-prefix against the
+  roster/schedule, so there is **no storage and no new write path**: a short link is a shorter
+  spelling of the legacy `?player=`/`?game=` deep link. The unfurl survives because the redirect
+  lands on the canonical path the OG rewriter above still handles, and every major unfurler
+  follows the redirect. The reads it shares with that rewriter live in
+  [`src/wpbl/shareEdge.ts`](src/wpbl/shareEdge.ts). Usage is measured through the ordinary
+  browser analytics path, not an edge write: the redirect carries a `?ref=short` marker that
+  [`WpblApp`](src/wpbl/WpblApp.tsx) reads once on landing (`wpbl_share_opened`), paired with
+  `wpbl_share_copied` on the copy button, so the funnel counts human opens and never the crawler
+  fetches that unfurl the card. `302` not `301`: a slug can change if a namesake later joins, and
+  a short link carries no ranking signal to preserve (not indexed, not in the sitemap).
 - **Discord bot:** [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) is a second
   Pages Function, serving the `/player` slash command as an HTTP interactions endpoint,
   Discord POSTs the command and takes the reply from the response body, so there is no
@@ -658,11 +673,11 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   resolves the typed name against the roster
   ([`src/wpbl/playerSearch.ts`](src/wpbl/playerSearch.ts)), and answers from the same
   `stats.ts` aggregation the site uses. Setup: [`docs/DISCORD.md`](docs/DISCORD.md).
-- **`public/_routes.json` is an allow-list**, and it gates both of the above: only the paths
-  named in `include` invoke the Functions worker, everything else is served as a plain
-  asset with no function run. **Adding a function under `functions/` is not enough. Its
-  route has to be added here too**, or it compiles, uploads, deploys and is then never
-  called. It **narrows only**: routing is by file path, so `functions/wpbl/index.ts` serves
+- **`public/_routes.json` is an allow-list**, and it gates all of the above: only the paths
+  named in `include` (`/wpbl`, `/wpbl/*`, `/discord/wpbl`, `/p/*`, `/g/*`) invoke the Functions
+  worker, everything else is served as a plain asset with no function run. **Adding a function
+  under `functions/` is not enough. Its route has to be added here too**, or it compiles,
+  uploads, deploys and is then never called. It **narrows only**: routing is by file path, so `functions/wpbl/index.ts` serves
   `/wpbl` and nothing below it no matter what `include` says. The subtree is covered by the
   catch-all `functions/wpbl/[[tab]].ts`, which re-exports `onRequestGet` so the two cannot
   drift; without it a player shared from `/wpbl/stats?player=…` unfurls as the generic card. `npm run check-functions` bundles the functions the way Cloudflare will, since a
