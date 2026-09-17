@@ -46,10 +46,10 @@ import { createClient } from '@supabase/supabase-js'
 // @ts-expect-error: no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import { buildGameStartPost } from '../src/wpbl/derive/blueskyGameStart'
-import { linkFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
+import { linkFacets, tagFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
 import { seriesContext } from '../src/wpbl/derive/series'
 import { applyLeagueStartTimes, type PublishedStart } from '../src/wpbl/startTimes'
-import { wpblGamePath } from '../src/wpbl/routes'
+import { wpblGameShortPath } from '../src/wpbl/routes'
 import type { WpblGame, WpblTeam } from '../src/wpbl/types'
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ async function publish(session: Session, post: { text: string; url: string }) {
     text: post.text,
     createdAt: new Date().toISOString(),
     langs: ['en'],
-    facets: linkFacets(post.text, post.url),
+    facets: [...linkFacets(post.text, post.url), ...tagFacets(post.text, 'wpbl')],
   }
   const res = await fetch('https://bsky.social/xrpc/com.atproto.repo.createRecord', {
     method: 'POST',
@@ -180,7 +180,6 @@ async function main() {
   if (!games?.length) { console.log('No games.'); return }
 
   const teams = new Map<string, WpblTeam>((teamRows ?? []).map((t: WpblTeam) => [t.id, t]))
-  const teamList = [...teams.values()]
   const clubName = (id: string) => {
     const t = teams.get(id)
     return t ? `${t.city} ${t.name}` : '???'
@@ -223,7 +222,9 @@ async function main() {
 
   for (const { game, startMs } of due) {
     const ctx = seriesContext(game, corrected as WpblGame[], teams)
-    const url = `sportydolphin.fun${wpblGamePath(game, teamList, corrected as WpblGame[])}`
+    // Short /g/<code> form (schemeless; linkFacets restores https). It 302s to the game's
+    // canonical page and is shorter than the readable slug, leaving room for the #wpbl tag.
+    const url = `sportydolphin.fun${wpblGameShortPath(game)}`
     const post = buildGameStartPost({
       away: clubName(game.away_team_id),
       home: clubName(game.home_team_id),

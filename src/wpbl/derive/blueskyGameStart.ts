@@ -18,7 +18,7 @@
 //   * NOT SHARED: no countdown. The recap is a snapshot of a finished thing; a reminder is read
 //     long after it is posted, so "in 20 min" would be a lie to everyone scrolling past later.
 //     The post carries the league's own wall-clock first pitch instead, which ages honestly.
-import { graphemes, clip, POST_LIMIT } from './blueskyRecap.ts'
+import { graphemes, clip, POST_LIMIT, WPBL_TAG } from './blueskyRecap.ts'
 
 /** The subset of a SeriesContext this post reads. A pre-game post wants the round, which game
  *  of the series this is, where the series stands, and what a win tonight would settle. Passed
@@ -81,19 +81,22 @@ export function buildGameStartPost(input: GameStartInput): GameStartPost {
       .filter(Boolean).join('\n')
   const blockB = `${CTA}\n${url}`
   const leanB = url
+  // #wpbl on its own line at the tail, kept through every trim so the reminder lands in the tag
+  // feed too. Faceted as a real hashtag by the sender (tagFacets in blueskyRecap.ts).
+  const tail = `\n\n${WPBL_TAG}`
 
   // Richest to leanest: full block, then drop the series status, then drop the CTA label.
   const candidates = [
-    `${blockA(true)}\n\n${blockB}`,
-    `${blockA(false)}\n\n${blockB}`,
-    `${blockA(false)}\n\n${leanB}`,
+    `${blockA(true)}\n\n${blockB}${tail}`,
+    `${blockA(false)}\n\n${blockB}${tail}`,
+    `${blockA(false)}\n\n${leanB}${tail}`,
   ]
   const fitted = candidates.find(t => graphemes(t) <= POST_LIMIT)
   // Unreachable in practice, but a matchup with a runaway club name should still publish rather
   // than overrun. Cut by grapheme so an accented name never becomes a replacement glyph. The
   // budget subtracts the "⚾ " prefix (2) and the ellipsis clip adds (1) on top of the trailer.
   const text = fitted
-    ?? `⚾ ${clip(matchup, POST_LIMIT - graphemes(`\n\n${url}`) - 3)}\n\n${url}`
+    ?? `⚾ ${clip(matchup, POST_LIMIT - graphemes(`\n\n${url}${tail}`) - 3)}\n\n${url}${tail}`
 
   return { text, url }
 }

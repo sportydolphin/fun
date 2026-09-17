@@ -16,9 +16,7 @@ import SprayChart from './SprayChart'
 import { fetchWpblBattedBalls, getCachedWpblBattedBalls } from './api'
 import type { WpblSprayPlay } from './types'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
-import { wpblPlayerPath, wpblPlayerShortPath, wpblCompareStartPath } from './routes'
-import { useIsTester } from '../lib/roles'
-import { useIsAdmin } from '../lib/admin'
+import { wpblPlayerShortPath, wpblCompareStartPath } from './routes'
 import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
@@ -988,21 +986,14 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const { basis: eraBasis, fmtEra, fmtK, kLabel } = useEraBasis()
   const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
 
-  // GATED while the short link is being proved in production: a tester (or the owner, so it can be
-  // tested without granting a role row) copies the SHORT /p/<code> form (functions/p 302s it to the
-  // readable /wpbl/players/<slug>, which is what Google indexes and what functions/wpbl/index.ts
-  // OG-rewrites, so the unfurl still comes across as the player); everyone else copies the readable
-  // canonical link this page has always copied. Both unfurl the same. Drop the `shareShort` branch
-  // to ship the short form to everyone. Built from the current origin so a link copied out of a
-  // local or preview build resolves against that build.
-  const shareShort = useIsTester() || useIsAdmin()
+  // The SHORT /p/<code> form, for pasting into a DM or a post. functions/p 302s it to the readable
+  // /wpbl/players/<slug> the address bar shows, which is what Google indexes and what
+  // functions/wpbl/index.ts OG-rewrites, so the unfurl still comes across as the player. It needs
+  // only the id (no wait on the roster), and is built from the current origin so a link copied out
+  // of a local or preview build resolves against that build.
   const shareUrl = useMemo(
-    () => shareShort
-      ? `${window.location.origin}${wpblPlayerShortPath(player)}`
-      : players.length
-        ? `${window.location.origin}${wpblPlayerPath(player, players)}`
-        : `${window.location.origin}/wpbl?player=${encodeURIComponent(player.id)}`,
-    [shareShort, player, players])
+    () => `${window.location.origin}${wpblPlayerShortPath(player)}`,
+    [player])
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const color = team ? wpblAccent(team.id, isDark) : '#888'
@@ -1679,7 +1670,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       actions={<>
         <CompareChip player={player} roster={players} />
         <CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`}
-          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', form: shareShort ? 'short' : 'canonical', playerId: player.id })} />
+          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', playerId: player.id })} />
       </>}
       // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a Home
       // chip and a shared link, and a close button in the far top corner is the furthest point on a

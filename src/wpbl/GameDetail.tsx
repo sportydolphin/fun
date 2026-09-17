@@ -11,8 +11,6 @@ import { boxScoreRevision, formatRevisionDay, leagueDay } from './derive/feedHea
 import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from './refresh'
 import { wpblGameSlugFromPath, wpblGameShortPath } from './routes'
-import { useIsTester } from '../lib/roles'
-import { useIsAdmin } from '../lib/admin'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard, GameRecapLinkCard } from './Reading'
@@ -1862,11 +1860,6 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
   const away = byId.get(game.away_team_id)
 
   const gcUid = useRef(Math.random().toString(36).slice(2)).current
-  // The game page has never carried a copy button; the short-link one below is shown to testers
-  // (and the owner, so it can be tested without granting a role row) only while it is being proved
-  // in production, so for everyone else this surface is exactly as it shipped. Drop the gate to
-  // give every reader the button.
-  const shareShort = useIsTester() || useIsAdmin()
   // Seeded from the session cache, so a second look at a game paints before it fetches.
   const cached = gameCache.get(seed.id)
   const [loading, setLoading] = useState(!cached)
@@ -2284,15 +2277,14 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
       onClose={onClose}
       // The short /g share link, beside Close, so a game is as copy-able as a player. Built from
       // the current origin (functions/g 302s it to the canonical /wpbl/games/<slug> the address
-      // bar shows and the OG rewrite unfurls), and needs only the id. Gated for now (see
-      // shareShort above): undefined leaves the header exactly as it shipped for everyone else.
-      actions={shareShort ? (
+      // bar shows and the OG rewrite unfurls), and needs only the id.
+      actions={
         <CopyLinkButton
           url={`${window.location.origin}${wpblGameShortPath(game)}`}
           title="Copy a link to this game"
-          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'game', form: 'short', gameId: game.id })}
+          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'game', gameId: game.id })}
         />
-      ) : undefined}
+      }
       // Width in `chromePx`, so the dialog scales with the section's desktop ramp like everything
       // in it; a raw 520 would leave it a phone column inside a wide window, overflowing
       // vertically with room to spare horizontally.

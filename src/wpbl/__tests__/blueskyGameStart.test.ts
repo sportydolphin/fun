@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildGameStartPost, POST_LIMIT } from '../derive/blueskyGameStart'
-import { graphemes, linkFacets } from '../derive/blueskyRecap'
+import { graphemes, linkFacets, WPBL_TAG } from '../derive/blueskyRecap'
 
 // A pre-game reminder is public and permanent (Bluesky has no edit), and it is read long after
 // it is posted, so the two things that must never be wrong are what game it points at and that
@@ -17,6 +17,7 @@ describe('an ordinary game', () => {
     expect(post.text).toContain('Los Angeles Queens at Boston Hunters')
     expect(post.text).toContain('First pitch 6:00 PM CT')
     expect(post.text).toContain(URL)
+    expect(post.text).toContain(WPBL_TAG)
   })
 
   it('carries no countdown, because the post outlives the minute it was written', () => {
@@ -71,5 +72,6 @@ describe('it always fits', () => {
     })
     expect(graphemes(post.text)).toBeLessThanOrEqual(POST_LIMIT)
     expect(post.text).toContain(URL)
+    expect(post.text).toContain(WPBL_TAG)
   })
 })

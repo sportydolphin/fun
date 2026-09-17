@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  buildBlueskyPost, boxScoreAlt, boxScoreCard, cardDate, cardCharset, linkFacets, graphemes,
-  finalTag, accentOf, POST_LIMIT,
+  buildBlueskyPost, boxScoreAlt, boxScoreCard, cardDate, cardCharset, linkFacets, tagFacets, graphemes,
+  finalTag, accentOf, POST_LIMIT, WPBL_TAG,
 } from '../derive/blueskyRecap'
 import type { GameRecap } from '../derive/recap'
 import type { WpblGame, WpblTeam } from '../types'
@@ -47,11 +47,12 @@ const recap = (over: Partial<GameRecap> = {}): GameRecap => ({
 const GAME_URL = 'sportydolphin.fun/wpbl/games/2026-08-22-queens-at-hunters'
 
 describe('the post fits', () => {
-  it('stays under the cap and keeps the score and the link', () => {
+  it('stays under the cap and keeps the score, the link and the tag', () => {
     const post = buildBlueskyPost(game(), recap(), teams, GAME_URL)
     expect(graphemes(post.text)).toBeLessThanOrEqual(POST_LIMIT)
     expect(post.text).toContain('Hunters 7, Queens 3 (F)')
     expect(post.text).toContain(GAME_URL)
+    expect(post.text).toContain(WPBL_TAG)
   })
 
   it('drops the stars before the narrative when it has to', () => {
@@ -77,6 +78,8 @@ describe('the post fits', () => {
     expect(post.text).toContain('Maïka Dumais')
     expect(post.text).toContain('…')
     expect(post.text).toContain(GAME_URL)
+    // The tail survives even the last-resort clip: the link and the tag are never dropped.
+    expect(post.text).toContain(WPBL_TAG)
   })
 
   it('counts graphemes, not UTF-16 units', () => {
@@ -105,6 +108,23 @@ describe('link facets', () => {
 
   it('returns nothing rather than a facet pointing at nothing', () => {
     expect(linkFacets('no link here', 'sportydolphin.fun/x')).toEqual([])
+  })
+})
+
+describe('tag facets', () => {
+  it('makes #wpbl a real hashtag, indexed by UTF-8 byte and carrying no #', () => {
+    // Same byte-offset trap as a link: the tag sits after accented names, so a JS index would
+    // land the facet short. The index spans "#wpbl"; the tag value drops the #.
+    const text = 'Maïka · #wpbl'
+    const [facet] = tagFacets(text, 'wpbl') as any[]
+    expect(facet.index.byteStart).toBe(new TextEncoder().encode('Maïka · ').length)
+    expect(facet.index.byteEnd).toBe(facet.index.byteStart + new TextEncoder().encode('#wpbl').length)
+    expect(facet.features[0].$type).toBe('app.bsky.richtext.facet#tag')
+    expect(facet.features[0].tag).toBe('wpbl')
+  })
+
+  it('returns nothing when the tag is not in the text', () => {
+    expect(tagFacets('no tag here', 'wpbl')).toEqual([])
   })
 })
 

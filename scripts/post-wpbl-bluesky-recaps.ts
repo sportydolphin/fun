@@ -52,8 +52,8 @@ import { Resvg } from '@resvg/resvg-js'
 import subsetFont from 'subset-font'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
 import { seriesContexts } from '../src/wpbl/derive/series'
-import { buildBlueskyPost, boxScoreCard, cardCharset, isSettled, linkFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
-import { wpblGamePath } from '../src/wpbl/routes'
+import { buildBlueskyPost, boxScoreCard, cardCharset, isSettled, linkFacets, tagFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
+import { wpblGameShortPath } from '../src/wpbl/routes'
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../src/wpbl/types'
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ async function publish(session: Session, post: { text: string; alt: string; url:
     text: post.text,
     createdAt: new Date().toISOString(),
     langs: ['en'],
-    facets: linkFacets(post.text, post.url),
+    facets: [...linkFacets(post.text, post.url), ...tagFacets(post.text, 'wpbl')],
     embed: {
       $type: 'app.bsky.embed.images',
       // Alt text is not optional here. The image carries the entire box score, so a card with
@@ -282,10 +282,11 @@ async function main() {
       (id: string) => nameById.get(id) ?? 'Unknown', ctx, series.get(game.id) ?? null)
     if (!recap) { console.warn(`⚠️   ${game.id}: no recap could be built, skipping.`); continue }
 
-    // Schemeless on purpose: the post TEXT reads better without a scheme and `linkFacets`
-    // puts the https back on the target. This is the game's own page rather than the legacy
-    // ?game=<uuid>, which would spend every one of these public links on a 301.
-    const url = `sportydolphin.fun${wpblGamePath(game, [...teams.values()], games as WpblGame[])}`
+    // The SHORT /g/<code> form, schemeless (the text reads better without a scheme and
+    // `linkFacets` puts the https back on the target). It 302s to the game's canonical page; it
+    // is ~20 graphemes shorter than the readable slug, which is the headroom the #wpbl tag needs
+    // under the 300 cap. Needs only the game id.
+    const url = `sportydolphin.fun${wpblGameShortPath(game)}`
     const post = buildBlueskyPost(game, recap, teams, url)
     const png = await renderCard(boxScoreCard(game, recap, teams))
 

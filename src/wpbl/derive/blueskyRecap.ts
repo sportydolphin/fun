@@ -34,6 +34,10 @@ export function clip(s: string, n: number): string {
 
 export const POST_LIMIT = 300
 
+/** The one hashtag every WPBL post carries, so the account's timeline is a followable #wpbl feed.
+ *  Rendered as text AND faceted (tagFacets) so it is a real Bluesky tag, not just characters. */
+export const WPBL_TAG = '#wpbl'
+
 export interface BlueskyPost {
   text: string
   /** Alt text for the card. Not optional: an image carrying the entire box score with no
@@ -61,17 +65,20 @@ export function finalTag(recap: GameRecap): string {
 export function buildBlueskyPost(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>, gameUrl: string): BlueskyPost {
   // Required, and passed in rather than built here, for the reasons on buildRecapMessage.
   // It matters more on this side: these posts are public and crawlable, so each one is an
-  // inbound link to a distinct page, and inbound links are the one thing the section cannot
-  // ship its way out of. Pointed at the legacy `?game=` spelling they all land on a 301.
+  // inbound link to a distinct page. The sender passes the SHORT /g/<code> form, which 302s to
+  // the canonical game page; it costs ~20 graphemes less than the readable slug, which is what
+  // leaves room for the tag under the 300 cap.
   const url = gameUrl
   const score = `${recap.winner.name} ${recap.winnerScore}, ${recap.loser.name} ${recap.loserScore} (${finalTag(recap)})`
   const stars = recap.stars.slice(0, 2).map(s => `${s.name} ${s.statline}`)
 
   // Longest first, then progressively less. The last entry keeps only what cannot be dropped.
+  // WPBL_TAG rides on the tail with the URL, so it survives every trim: it is faceted as a real
+  // Bluesky hashtag by the sender (tagFacets), which is what puts the post in the #wpbl feed.
   const candidates = [
-    [score, recap.blurb, stars.join(' · '), url],
-    [score, recap.blurb, stars[0] ?? '', url],
-    [score, recap.blurb, '', url],
+    [score, recap.blurb, stars.join(' · '), url, WPBL_TAG],
+    [score, recap.blurb, stars[0] ?? '', url, WPBL_TAG],
+    [score, recap.blurb, '', url, WPBL_TAG],
   ]
   // Note there is deliberately no "score and link only" candidate. Dropping the sentence is
   // always worse than shortening it, and having that option here would make the clip below
@@ -82,7 +89,7 @@ export function buildBlueskyPost(game: WpblGame, recap: GameRecap, teams: Map<st
   // rather than publishing a bare score with no sentence. Cut by GRAPHEME, since slicing a
   // string mid-character is how a name like Maïka becomes a replacement glyph in public.
   const text = fitted
-    ?? render([score, clip(recap.blurb, POST_LIMIT - graphemes(render([score, '', '', url])) - 3), '', url])
+    ?? render([score, clip(recap.blurb, POST_LIMIT - graphemes(render([score, '', '', url, WPBL_TAG])) - 3), '', url, WPBL_TAG])
 
   return { text, alt: boxScoreAlt(game, recap, teams), url }
 }
@@ -123,6 +130,27 @@ export function linkFacets(text: string, url: string): unknown[] {
     // The text says "sportydolphin.fun/..." with no scheme, because it reads better; the
     // target still needs one or the client will not open it.
     features: [{ $type: 'app.bsky.richtext.facet#link', uri: url.startsWith('http') ? url : `https://${url}` }],
+  }]
+}
+
+/**
+ * The rich-text facet that makes "#wpbl" a real Bluesky hashtag rather than five plain characters.
+ *
+ * Same UTF-8 BYTE-offset trap as `linkFacets`: the tag sits at the end of a post full of accented
+ * names and "·" separators, each one JS-char one and UTF-8-byte two, so a JS index would put the
+ * facet a few bytes short and tag part of a word instead. The facet's `tag` value carries NO `#`;
+ * the index covers the `#`. Returns [] when the tag is not in the text.
+ */
+export function tagFacets(text: string, tag: string): unknown[] {
+  const hash = `#${tag}`
+  const at = text.indexOf(hash)
+  if (at < 0) return []
+  const enc = new TextEncoder()
+  const byteStart = enc.encode(text.slice(0, at)).length
+  const byteEnd = byteStart + enc.encode(hash).length
+  return [{
+    index: { byteStart, byteEnd },
+    features: [{ $type: 'app.bsky.richtext.facet#tag', tag }],
   }]
 }
 

@@ -157,7 +157,7 @@ export const EVENTS = {
   // with ?ref=short and WpblApp reads it). The two are a funnel: how many shares get made, how
   // many get clicked. OPENED is counted client-side on purpose, so it measures human opens and
   // never the crawler fetches that unfurl the card.
-  WPBL_SHARE_COPIED:   'wpbl_share_copied',   // copied a share link, props {kind, form} (form: 'short' while testers exercise it, else 'canonical')
+  WPBL_SHARE_COPIED:   'wpbl_share_copied',   // copied a short share link, props {kind}
   WPBL_SHARE_OPENED:   'wpbl_share_opened',   // arrived via a short share link, props {kind}
 } as const
 
