@@ -18,6 +18,7 @@ import type { WpblSprayPlay } from './types'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
 import { wpblPlayerPath, wpblPlayerShortPath, wpblCompareStartPath } from './routes'
 import { useIsTester } from '../lib/roles'
+import { useIsAdmin } from '../lib/admin'
 import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
@@ -987,20 +988,21 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const { basis: eraBasis, fmtEra, fmtK, kLabel } = useEraBasis()
   const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
 
-  // GATED ON TESTER while the short link is being proved in production. A tester copies the SHORT
-  // /p/<code> form (functions/p 302s it to the readable /wpbl/players/<slug>, which is what Google
-  // indexes and what functions/wpbl/index.ts OG-rewrites, so the unfurl still comes across as the
-  // player); everyone else copies the readable canonical link this page has always copied. Both
-  // unfurl the same. Drop the `isTester` branch to ship the short form to everyone. Built from the
-  // current origin so a link copied out of a local or preview build resolves against that build.
-  const isTester = useIsTester()
+  // GATED while the short link is being proved in production: a tester (or the owner, so it can be
+  // tested without granting a role row) copies the SHORT /p/<code> form (functions/p 302s it to the
+  // readable /wpbl/players/<slug>, which is what Google indexes and what functions/wpbl/index.ts
+  // OG-rewrites, so the unfurl still comes across as the player); everyone else copies the readable
+  // canonical link this page has always copied. Both unfurl the same. Drop the `shareShort` branch
+  // to ship the short form to everyone. Built from the current origin so a link copied out of a
+  // local or preview build resolves against that build.
+  const shareShort = useIsTester() || useIsAdmin()
   const shareUrl = useMemo(
-    () => isTester
+    () => shareShort
       ? `${window.location.origin}${wpblPlayerShortPath(player)}`
       : players.length
         ? `${window.location.origin}${wpblPlayerPath(player, players)}`
         : `${window.location.origin}/wpbl?player=${encodeURIComponent(player.id)}`,
-    [isTester, player, players])
+    [shareShort, player, players])
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const color = team ? wpblAccent(team.id, isDark) : '#888'
@@ -1653,7 +1655,17 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 
   return (
     <ModalShell
-      eyebrow={team ? wpblFullName(team) : 'Player'}
+      // Full club name where it fits, the nickname on a phone. The header row also carries the
+      // Compare and Copy-link chips and the close button, and "New York Heights" plus those two
+      // chips overran a 360px header and ellipsised the club to "New York Heig…". The nickname
+      // ("Heights") is the same fact, shorter, and clears the row; both are the club, so this
+      // reads as a compact label rather than a truncation.
+      eyebrow={team ? (
+        <>
+          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{wpblFullName(team)}</Box>
+          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{team.name}</Box>
+        </>
+      ) : 'Player'}
       onClose={onClose}
       // A fixed pair rather than a value derived from the content, so the dialog cannot resize under
       // the reader as the season totals land. The widest block on the card is the batting season
@@ -1667,7 +1679,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       actions={<>
         <CompareChip player={player} roster={players} />
         <CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`}
-          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', form: isTester ? 'short' : 'canonical', playerId: player.id })} />
+          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', form: shareShort ? 'short' : 'canonical', playerId: player.id })} />
       </>}
       // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a Home
       // chip and a shared link, and a close button in the far top corner is the furthest point on a

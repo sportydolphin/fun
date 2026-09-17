@@ -12,6 +12,7 @@ import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from './refresh'
 import { wpblGameSlugFromPath, wpblGameShortPath } from './routes'
 import { useIsTester } from '../lib/roles'
+import { useIsAdmin } from '../lib/admin'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard, GameRecapLinkCard } from './Reading'
@@ -1862,9 +1863,10 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
 
   const gcUid = useRef(Math.random().toString(36).slice(2)).current
   // The game page has never carried a copy button; the short-link one below is shown to testers
-  // only while it is being proved in production, so for everyone else this surface is exactly as
-  // it shipped. Drop the gate to give every reader the button.
-  const isTester = useIsTester()
+  // (and the owner, so it can be tested without granting a role row) only while it is being proved
+  // in production, so for everyone else this surface is exactly as it shipped. Drop the gate to
+  // give every reader the button.
+  const shareShort = useIsTester() || useIsAdmin()
   // Seeded from the session cache, so a second look at a game paints before it fetches.
   const cached = gameCache.get(seed.id)
   const [loading, setLoading] = useState(!cached)
@@ -2282,9 +2284,9 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
       onClose={onClose}
       // The short /g share link, beside Close, so a game is as copy-able as a player. Built from
       // the current origin (functions/g 302s it to the canonical /wpbl/games/<slug> the address
-      // bar shows and the OG rewrite unfurls), and needs only the id. Tester-only for now (see
-      // isTester above): undefined leaves the header exactly as it shipped for everyone else.
-      actions={isTester ? (
+      // bar shows and the OG rewrite unfurls), and needs only the id. Gated for now (see
+      // shareShort above): undefined leaves the header exactly as it shipped for everyone else.
+      actions={shareShort ? (
         <CopyLinkButton
           url={`${window.location.origin}${wpblGameShortPath(game)}`}
           title="Copy a link to this game"
