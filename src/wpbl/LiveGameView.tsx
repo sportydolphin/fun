@@ -199,6 +199,16 @@ function SituationPanel({ game, s, away, home, last, teams, batting, pitching, n
   // rather than off the feed, whose situation names only the batting side.
   const fielding = s.battingTeam.id === away.id ? home : away
 
+  // The pitcher, from the feed when it names one and from the box score when it does not. A named
+  // feed pitcher is the live source and wins; the fallback only fills the gap the feed leaves,
+  // where the situation and the play-by-play both drop her but the box score has her line. See
+  // currentPitcherLine. Between innings this code is unreachable (the panel returns above), so the
+  // fallback never resurrects a pitcher from a half-inning that is over.
+  const pitcherLine = s.pitcherName
+    ? lineFor(s.pitcherName, fielding, names, pitching, pitchingStatline)
+    : currentPitcherLine(pitching, fielding, names)
+  const pitcherName = s.pitcherName || pitcherLine.player?.name || null
+
   // Between innings the count, the outs, the runners and both names belong to a half-inning
   // that is over, so the panel says which break it is and shows none of them. Exactly the rule
   // SituationStrip already follows, and it matters more at this size: in a 34px strip a stale
@@ -234,8 +244,8 @@ function SituationPanel({ game, s, away, home, last, teams, batting, pitching, n
         />
         <Bases s={s} accent={accent} names={names} />
         <PersonCard
-          label="Pitching" name={s.pitcherName} team={fielding}
-          line={lineFor(s.pitcherName, fielding, names, pitching, pitchingStatline)}
+          label="Pitching" name={pitcherName} team={fielding}
+          line={pitcherLine}
           onOpenPlayer={onOpenPlayer}
           mirror
         />
@@ -622,7 +632,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
   return (
     <Box sx={{
       px: 1.5, py: 1.25, bgcolor: 'action.hover',
-      display: 'flex', alignItems: 'flex-start', gap: 1.25,
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 1.25,
     }}>
       <Typography sx={{
         fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
@@ -634,7 +644,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
         Last play{team ? ` · ${team.abbr}` : ''}
       </Typography>
 
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ flexShrink: 1, minWidth: 0 }}>
         {parsed.kind === 'substitution' ? (
           <Typography sx={{
             fontSize: '0.82rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.45,
@@ -724,6 +734,33 @@ export function lineFor<T extends { player_id: string }>(
 
   const line = lines.find(l => l.player_id === found.id)
   return { player: found, statline: line ? statline(line) : null }
+}
+
+/**
+ * Who is on the mound, from the BOX SCORE, for when the feed will not say.
+ *
+ * The live situation names the batter and leaves `pitcher_name` blank sometimes, and it is not
+ * only the situation: the play-by-play drops her too, writing "/" for the pitcher on every play
+ * of the half-inning. Watched in the top of the 7th on 2026-09-17 (postseason, LA at SF), where
+ * SF's Andréanne Leblanc was pitching and the only surface that knew it was the box score, which
+ * had entered her line and was updating it pitch by pitch. So it is the box score or nothing.
+ *
+ * The current pitcher is the fielding club's line with the latest `created_at`. The ingest
+ * upserts pitching lines on (game_id, player_id) rather than deleting and reinserting them, so a
+ * line's `created_at` is when that pitcher FIRST appeared, and the last to appear is the one
+ * throwing now. GameDetail fetches these with `select('*')` so `created_at` is present here;
+ * this reads it rather than trusting the array's order.
+ */
+function currentPitcherLine(
+  pitching: WpblPitchingLine[], fielding: WpblTeam, names: Map<string, WpblPlayer>,
+): { player: WpblPlayer | null; statline: string | null } {
+  let best: WpblPitchingLine | null = null
+  for (const l of pitching) {
+    if (l.team_id !== fielding.id) continue
+    if (!best || (l.created_at ?? '') > (best.created_at ?? '')) best = l
+  }
+  if (!best) return { player: null, statline: null }
+  return { player: names.get(best.player_id) ?? null, statline: pitchingStatline(best) }
 }
 
 /** "3rd". Innings only, so the teens never come up. */

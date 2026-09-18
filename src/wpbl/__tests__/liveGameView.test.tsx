@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import LiveGameView, { lineFor } from '../LiveGameView'
 import { deriveSituation } from '../Live'
 import type {
-  WpblBattingLine, WpblGame, WpblGamePlay, WpblLiveState, WpblPlayer, WpblTeam,
+  WpblBattingLine, WpblGame, WpblGamePlay, WpblLiveState, WpblPitchingLine, WpblPlayer, WpblTeam,
 } from '../types'
 
 // The Live tab draws things the feed only half-gives it, and each of those halves is a way to
@@ -45,7 +45,17 @@ const NAMES = new Map<string, WpblPlayer>([
   ['p1', player('p1', 'Denver Bryant', HOME.id)],
   ['p2', player('p2', 'Michelle Roche', AWAY.id)],
   ['p3', player('p3', 'Lexi Hastings', HOME.id)],
+  ['p6', player('p6', 'Odalys Vega', AWAY.id)],
+  ['p7', player('p7', 'June Hara', AWAY.id)],
 ])
+
+const pitch = (playerId: string, over: Partial<WpblPitchingLine> = {}): WpblPitchingLine => ({
+  id: `pl-${playerId}`, game_id: 'g1', player_id: playerId, team_id: AWAY.id,
+  outs: 3, bf: 4, h: 1, r: 0, er: 0, bb: 0, so: 1, hr: 0, pitches: 12, decision: null,
+  created_at: '2026-09-05T19:00:00Z', gs: 0, hbp: 0, ibb: 0, wp: 0, bk: 0, strikes: 8,
+  doubles: 0, triples: 0,
+  ...over,
+} as WpblPitchingLine)
 
 const play = (over: Partial<WpblGamePlay> = {}): WpblGamePlay => ({
   game_id: 'g1', sequence: 1, inning: 3, half: 'bottom', team_id: HOME.id,
@@ -331,5 +341,38 @@ describe('the last play', () => {
     const line = screen.getByText(/to p for Ayami Sato/)
     expect(line).toBeTruthy()
     expect(getComputedStyle(line).fontStyle).toBe('italic')
+  })
+})
+
+describe('the pitcher the feed will not name', () => {
+  const render0 = (state: WpblLiveState, pitching: WpblPitchingLine[]) => render(
+    <LiveGameView
+      game={game(state)} teams={TEAMS} away={AWAY} home={HOME}
+      plays={[play()]} batting={[bat('p1')]} pitching={pitching}
+      names={NAMES} games={[]}
+    />,
+  )
+
+  it('names the current pitcher from the box score when the feed sends none', () => {
+    // Watched in the top of the 7th on 2026-09-17 (postseason, LA at SF): the feed dropped the
+    // pitcher from BOTH the situation and every play, leaving the box score as the only source
+    // that named her. The current pitcher is the fielding club's latest-APPEARING line — upserted,
+    // so created_at is her first appearance — which is the reliever, never the starter she relieved.
+    render0({ ...LIVE, pitcher_name: '' }, [
+      pitch('p6', { created_at: '2026-09-05T19:00:00Z' }),
+      pitch('p7', { created_at: '2026-09-05T20:30:00Z', outs: 2, so: 0 }),
+    ])
+    expect(screen.getByText('June Hara')).toBeTruthy()
+    expect(screen.queryByText('Odalys Vega')).toBeNull()
+    // Her live line rides under the name, so this is not a bare label. "0.2 IP" is two outs.
+    expect(screen.getByText(/0\.2 IP/)).toBeTruthy()
+  })
+
+  it('leaves a named feed pitcher alone, box score or not', () => {
+    // A named feed pitcher is the live source and wins; the fallback only fills a blank, so a
+    // later box-score line does not override whoever the feed says is on the mound.
+    render0(LIVE, [pitch('p7', { created_at: '2026-09-05T20:30:00Z' })])
+    expect(screen.getByText('Michelle Roche')).toBeTruthy()
+    expect(screen.queryByText('June Hara')).toBeNull()
   })
 })
