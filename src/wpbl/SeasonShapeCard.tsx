@@ -265,6 +265,9 @@ export default function SeasonShapeCard({ shape, onPreview }: {
       // a raised card reads as a second surface arriving under the first: two panels on a tab
       // that holds one subject. This is the case `bare` exists for.
       bare
+      // On a phone the page's own 16px gutter is all the inset this chart can spare; a card frame
+      // inside it compresses the plot. Framed from `sm` up, flush to the gutter below it.
+      frameless
       action={
         <Box {...pressable(play)} aria-label={playing ? 'Pause' : 'Play the season from the start'} sx={{
           ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', flexShrink: 0,

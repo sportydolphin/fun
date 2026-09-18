@@ -24,6 +24,7 @@ import {
 } from './api'
 import SprayChart from './SprayChart'
 import SeasonShapeCard from './SeasonShapeCard'
+import LeaderboardRace from './LeaderboardRace'
 import RunsByInning from './RunsByInning'
 import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
 import { battedHalves } from './derive/runsByInning'
@@ -380,11 +381,35 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
               `standingsFinals`, which drops the postseason. */}
           {isTester && shape.games > 0 && (
             <>
+              {/* A LOUD, UNMISSABLE tester marker. Everything under it is behind useIsTester and is
+                  not live yet, and the block sits mid-page among sections that ARE live, so without
+                  this a tester cannot tell which parts a normal reader sees. Amber and bordered so it
+                  reads as scaffolding, not as content. Drop it with the gate when this ships. */}
+              <Box sx={{
+                display: 'flex', alignItems: 'center', gap: 1.25, mb: 2,
+                border: '2px solid', borderColor: '#f4b53a', bgcolor: 'rgba(244,181,58,0.14)',
+                borderRadius: 2, px: 1.75, py: 1.25,
+              }}>
+                <Box aria-hidden sx={{ fontSize: '1.4rem', lineHeight: 1, flexShrink: 0 }}>🧪</Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{
+                    fontSize: '0.72rem', fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase', color: '#f4b53a',
+                  }}>Tester preview · not live</Typography>
+                  <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.35 }}>
+                    The final standings, the standings race and the leaderboard race below are visible to testers only. A normal reader does not see them yet.
+                  </Typography>
+                </Box>
+              </Box>
+
               <SectionHeading>Final standings</SectionHeading>
               <FinalStandings rows={standingRows} teamHref={teamHref} onNavigate={onNavigate} dark={dark} />
               <Box sx={{ mt: 1.5 }}>
                 <SeasonShapeCard shape={shape} onPreview={onPreview} />
               </Box>
+              {/* The standings race is the clubs; this is the players. Same idea one level down,
+                  and the same tester gate, so both animated races ship together. */}
+              <SectionHeading>Leaderboard race</SectionHeading>
+              <LeaderboardRace players={players} teams={teams} games={games} batting={batting} plays={plays} />
             </>
           )}
 

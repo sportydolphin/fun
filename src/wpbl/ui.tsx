@@ -1143,7 +1143,7 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
   )
 }
 
-export function SectionCard({ icon, title, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, children }: {
+export function SectionCard({ icon, title, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
   icon?: React.ReactNode
   title: string
   /** A quiet second line under the title. Keep it to one line; this slot is 0.72rem and the
@@ -1179,13 +1179,20 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
    *  same tab. Off by default, because a card that holds prose or mixed content wants the
    *  raised fill that separates it from the page. */
   bare?: boolean
+  /** On a phone, drop the border, the radius and the side padding so the card's content runs to the
+   *  page's own gutter. For a reference page like the season recap where, at phone width, a card
+   *  sitting inside the page's 16px gutter compresses an already-narrow chart into a column: the
+   *  frame costs width the content cannot spare. Framed as normal from `sm` up, where the room is
+   *  there. Off by default. */
+  frameless?: boolean
   children: React.ReactNode
 }) {
   const collapsible = !!onToggleCollapse
   return (
     <Box sx={{
-      borderRadius: 3, overflow: 'hidden',
-      border: '1px solid', borderColor: CARD_BORDER,
+      borderRadius: frameless ? { xs: 0, sm: 3 } : 3, overflow: 'hidden',
+      borderStyle: 'solid', borderColor: CARD_BORDER,
+      borderWidth: frameless ? { xs: 0, sm: '1px' } : '1px',
       bgcolor: bare ? 'transparent' : 'background.paper',
       // No `height: 100%` here. A grid item already stretches to its row, so this would only
       // ever be redundant there, and below md, where the container falls back to a flex
@@ -1204,7 +1211,8 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleCollapse!() }
         }) : undefined}
         sx={{
-          px: 2, pt: 1.25, pb: collapsed ? 1.25 : 1, display: 'flex', alignItems: 'center', gap: 1,
+          px: frameless ? { xs: 0, sm: 2 } : 2, pt: 1.25, pb: collapsed ? 1.25 : 1,
+          display: 'flex', alignItems: 'center', gap: 1,
           ...(collapsible ? { cursor: 'pointer', userSelect: 'none', ...TAPPABLE } : {}),
         }}
       >
@@ -1232,7 +1240,7 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
       </Box>
       {!collapsed && (
         <Box sx={{
-          px: 2, pb: 1.5,
+          px: frameless ? { xs: 0, sm: 2 } : 2, pb: 1.5,
           // `flexShrink: 0` on every child so a filled body lays out exactly like the block
           // body it replaces: flex items shrink below their content height by default, which
           // would squash a leader board or a score row the moment the card ran short.
