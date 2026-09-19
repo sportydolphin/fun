@@ -98,5 +98,17 @@ export function useHasRole(role: SiteRole): boolean {
  * work-in-progress on this while it is being built, then drop the gate when it ships.
  */
 export function useIsTester(): boolean {
-  return useHasRole('tester')
+  return useHasRole('tester') || DEV_FORCE_TESTER
 }
+
+/**
+ * DEV-ONLY tester override, so an in-progress tester feature can be seen locally without a role row
+ * in the database. Read once at load: set `localStorage.sdForceTester = '1'` and reload. Gated on
+ * `import.meta.env.DEV`, so it is dead in every production build and cannot widen access for a real
+ * reader. Cosmetic like every gate here, so this is safe: it hides UI, it grants nothing.
+ */
+const DEV_FORCE_TESTER: boolean = (() => {
+  try {
+    return !!import.meta.env?.DEV && localStorage.getItem('sdForceTester') === '1'
+  } catch { return false }
+})()

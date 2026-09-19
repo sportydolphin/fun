@@ -1,15 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { createPortal } from 'react-dom'
 import { Box, Typography, Menu, MenuItem, ListItemIcon } from '@mui/material'
 import { EmojiEvents, IosShare, ContentCopy, Download } from '@mui/icons-material'
-import html2canvas from 'html2canvas'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
   pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
+import {
+  WinnerShareLauncher, canCopyImage, canNativeShareFiles,
+  type ShareAction, type ShareCardData,
+} from './awardShareCard'
+import AwardsWinnersExport from './AwardsWinnersExport'
 import { wpblManagerPortraitSet, wpblPortrait, wpblManagerPortrait } from './portraits'
-import { wpblAccent, wpblColor, wpblLogo, wpblSecondary, wpblFullName } from './constants'
+import { wpblAccent, wpblLogo, wpblFullName } from './constants'
 import { useEraBasis } from './EraBasisContext'
 import { fanVoteAwards, FAN_VOTE_IDS, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
 import { WPBL_AWARDS_PATH } from './routes'
@@ -778,253 +781,58 @@ function WinnerConfetti({ x, y, r }: { x: number; y: number; r: number }) {
   )
 }
 
-// ─── sharing a single result ───────────────────────────────────────────────────────
-
-/** Everything a share card needs, pre-resolved so the card itself is presentational and the
- *  capture is deterministic (fixed px, no dependence on the reader's text or chrome scale). */
-interface ShareCardData {
-  category: string
-  name: string
-  /** The winner's face, already resolved to a plain URL. The card draws it as a background image
-   *  rather than an <img>, because html2canvas 1.4 mishandles srcSet + object-fit and rendered the
-   *  portrait blank; background-size: cover it renders correctly. */
-  portraitSrc: string | null
-  /** The winner's club, for the background gradient and the portrait's fallback fill. */
-  teamId: string | null
-  /** Initials for a winner with no bundled face. */
-  initials: string
-  detail: string
-  stats: { value: string; label: string }[]
-  pct: number
-}
+// ─── sharing a result ────────────────────────────────────────────────────────────
+//
+// The card, the capture and the browser probes live in awardShareCard.ts, so the admin-only
+// all-winners export can reuse them without dragging its owner-only role gate into this file (see
+// AwardsWinnersExport and the routes.test pin that keeps every role check out of here). What stays
+// here is the one thing that needs this file's data: turning a category's votes into a ShareCardData.
 
 /**
- * The branded picture of one result, laid out at a fixed pixel size for html2canvas.
- *
- * EXPLICIT px, NOT THE SECTION'S SCALE. Everything on the sheet is sized in rem against
- * `--app-type` and structural px against `--app-chrome`, both of which the reader can move; a
- * capture target must not, or the same result would export at different sizes for different
- * readers. So this card hardcodes its type and spacing and forces `--app-chrome: 1` on its root,
- * which is also what keeps the portrait a known size. Dark ground on purpose: a share image is
- * seen outside the app, where it should look like itself rather than like whoever's light setting.
+ * The winner of one category as a share card's worth of data, or null if nobody has a vote in it
+ * yet. Resolved through `withWriteIns` closed and revealed, exactly as the results row is, so the
+ * name on the card is the same name the sheet crowns, write-ins included. Shared by the per-result
+ * Share button and the all-winners poster, so the two can never disagree about who won.
  */
-const SHARE_W = 540
-const SHARE_H = 540
+function winnerShareData(
+  entry: AwardBallotEntry,
+  state: FanVoteState,
+  players: WpblPlayer[],
+  teams: WpblTeam[],
+  fmtEra: (v: number) => string,
+): ShareCardData | null {
+  const { award, candidates } = entry
+  const bucket = state.results[award.id] ?? {}
+  const total = awardVoteCount(state.results, award.id)
+  const votesOf = (key: string) => bucket[key] ?? 0
+  const winner = withWriteIns(candidates, {
+    bucket, players, picked: state.ballot[award.id] ?? null, reveal: true, closed: true,
+  }).filter(c => votesOf(c.key) > 0)[0]
+  if (!winner) return null
 
-function WinnerShareCard({ data }: { data: ShareCardData }) {
-  const { category, name, detail, stats, pct, portraitSrc, teamId, initials } = data
-  // The club's colours: primary behind the photo, secondary as the portrait ring (the one place
-  // the second colour appears now that the background is a plain dark ground).
-  const primary = wpblColor(teamId)
-  const secondary = wpblSecondary(teamId)
-  return (
-    <Box
-      // Force the chrome scale to 1 so PlayerPortrait/TeamBadge render at exactly the px asked for.
-      style={{ ['--app-chrome' as string]: '1' } as React.CSSProperties}
-      sx={{
-        width: SHARE_W, height: SHARE_H, boxSizing: 'border-box', p: '34px',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        fontFamily: '"Inter", system-ui, sans-serif', color: '#f4f6f8',
-        // The whole card in the club's primary (a near-black team colour), with the secondary as
-        // the portrait ring. Square corners, so the exported PNG is a full square rather than one
-        // with transparent rounded corners.
-        backgroundColor: primary,
-        position: 'relative',
-      }}
-    >
-      {/* Header: the award mark beside the section name. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        <EmojiEvents sx={{ fontSize: 22, color: '#eab308' }} />
-        <Box component="span" sx={{
-          fontSize: 15, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: '#aeb6bf',
-        }}>WPBL Fan Awards</Box>
-      </Box>
-
-      {/* THE MIDDLE, VERTICALLY CENTRED. Category, then the winner, then the big share, as one
-          block that sits in the middle of the card so there is no dead gap under the header. */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '22px', minWidth: 0 }}>
-        <Box component="div" sx={{
-          // The club's SECONDARY colour, not the accent: on a card washed in the primary, the
-          // accent can be the same hue (Boston green on green) and vanish. The secondary is the
-          // contrasting brand colour (Boston orange), which is also the ring and the pop here.
-          fontSize: 32, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
-          color: secondary, lineHeight: 1.1,
-        }}>{category}</Box>
-
-        {/* The winner. The face is drawn twice: as a background image so it is present if anything
-            goes wrong, and (for sharpness) composited at full resolution onto the captured canvas
-            afterwards, since html2canvas rasterises a background image at its CSS size and upscales
-            it, which is what looked pixelated. `data-portrait` is how the compositor finds this
-            circle. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: 0 }}>
-          <Box data-portrait="1" sx={{
-            width: 132, height: 132, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
-            border: `3px solid ${secondary}`, backgroundColor: primary,
-            backgroundImage: portraitSrc ? `url("${portraitSrc}")` : 'none',
-            backgroundSize: 'cover', backgroundPosition: 'center top', overflow: 'hidden',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {!portraitSrc && (
-              <Box component="span" sx={{ fontSize: 44, fontWeight: 800, color: '#fff' }}>{initials}</Box>
-            )}
-          </Box>
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-              <Box component="span" sx={{
-                // lineHeight generous enough that overflow:hidden (there for the ellipsis) does not
-                // clip a descender like the g in "Gigi"; a touch of bottom padding for the same.
-                fontSize: 42, fontWeight: 900, lineHeight: 1.3, letterSpacing: -0.5, whiteSpace: 'nowrap',
-                overflow: 'hidden', textOverflow: 'ellipsis', pb: '3px',
-              }}>{name}</Box>
-            </Box>
-            {detail && (
-              <Box component="div" sx={{ mt: '4px', fontSize: 17, color: '#aeb6bf', lineHeight: 1.3 }}>{detail}</Box>
-            )}
-            {stats.length > 0 && (
-              <Box sx={{ mt: '12px', display: 'flex', flexWrap: 'wrap', columnGap: '18px', rowGap: '2px', alignItems: 'baseline' }}>
-                {stats.map(s => (
-                  <Box key={s.label} sx={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
-                    <Box component="span" sx={{ fontSize: 22, fontWeight: 800 }}>{s.value}</Box>
-                    <Box component="span" sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#8b939c' }}>{s.label}</Box>
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Box>
-        </Box>
-
-        {/* The winning share, big, in the club's secondary so it pops off the primary ground. */}
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-          <Box component="span" sx={{ fontSize: 78, fontWeight: 900, lineHeight: 1, letterSpacing: -1, color: secondary }}>{pct}%</Box>
-          <Box component="span" sx={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', letterSpacing: 0.3 }}>of the fan vote</Box>
-        </Box>
-      </Box>
-
-      {/* Footer: the brand mark and the wordmark. The mark is a black frame with a white dolphin,
-          so on the dark card it sits in a small white chip rather than being inverted (html2canvas
-          does not apply CSS filters, so an invert would not survive the capture). */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#fff', borderRadius: '3px', p: '1px' }}>
-          <Box component="img" src="/logo-mark.png" alt="" sx={{ height: 20, width: 'auto', display: 'block' }} />
-        </Box>
-        <Box component="span" sx={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.9)', letterSpacing: 0.2 }}>sportydolphin.fun</Box>
-      </Box>
-    </Box>
-  )
-}
-
-type ShareAction = 'share' | 'copy' | 'download'
-
-/** Whether the browser can copy an image to the clipboard / share files, for deciding which menu
- *  items to offer. Guarded for SSR and older browsers. */
-export const canCopyImage = (): boolean =>
-  typeof navigator !== 'undefined' && !!navigator.clipboard
-  && typeof navigator.clipboard.write === 'function' && typeof window.ClipboardItem !== 'undefined'
-/** Whether the browser can share an actual FILE (the OS share sheet on iOS/Android), tested with a
- *  throwaway file so it is a real answer rather than just "navigator.share exists" (which is true on
- *  desktops that cannot share files). When this is true the button skips our menu and goes straight
- *  to the native sheet, which carries its own copy and save options. */
-export const canNativeShareFiles = (): boolean => {
-  if (typeof navigator === 'undefined' || typeof navigator.canShare !== 'function') return false
-  try { return navigator.canShare({ files: [new File([''], 'wpbl.png', { type: 'image/png' })] }) }
-  catch { return false }
-}
-
-/**
- * Mounts the share card off-screen, captures it, and performs the chosen action: the OS share
- * sheet, a clipboard copy, or a download.
- *
- * OFF-SCREEN RATHER THAN VISIBLE: the reader shares the RESULT, not a modal, so the card is
- * rendered where html2canvas can reach it but the eye cannot, and torn down when done. Portraits
- * are bundled assets (same origin), so nothing is CORS-tainted; it still preloads them so the
- * capture is not blank.
- *
- * EVERY ACTION FALLS BACK TO A DOWNLOAD, which is the one that cannot fail: a share the browser
- * refuses (or the reader's browser cannot do), a copy an engine does not support. A share the
- * reader CANCELS (AbortError) is left alone rather than downloaded, since they chose to stop.
- */
-function WinnerShareLauncher({ data, action, onDone }: { data: ShareCardData; action: ShareAction; onDone: () => void }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    let alive = true
-    const slug = `${data.category}-${data.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-    const filename = `wpbl-${slug || 'award'}.png`
-    ;(async () => {
-      const node = ref.current
-      if (!node) { onDone(); return }
-      try {
-        // Preload the images so nothing captures blank. The portrait is kept as a decoded element:
-        // it is composited onto the canvas at full resolution below, not left to html2canvas.
-        const preload = (src: string) => new Promise<HTMLImageElement | null>(res => {
-          const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src
-        })
-        const [portraitImg] = await Promise.all([
-          data.portraitSrc ? preload(data.portraitSrc) : Promise.resolve(null),
-          preload('/logo-mark.png'),
-        ])
-        const cardRect = node.getBoundingClientRect()
-        // 3x, so the type and chrome are crisp; the portrait is drawn sharper still below.
-        const canvas = await html2canvas(node, { scale: 3, backgroundColor: null, logging: false, useCORS: true })
-
-        // COMPOSITE THE PORTRAIT AT FULL RESOLUTION. html2canvas draws a background image at the
-        // element's CSS pixels and then scales the whole canvas up, which pixelates a face; drawing
-        // the decoded image straight onto the output canvas, clipped to the circle, uses every
-        // pixel of the source instead. Cover fit, anchored centre-top to match the CSS.
-        if (portraitImg && portraitImg.naturalWidth) {
-          const el = node.querySelector('[data-portrait]') as HTMLElement | null
-          const ctx = canvas.getContext('2d')
-          if (el && ctx) {
-            const pr = el.getBoundingClientRect()
-            const s = canvas.width / cardRect.width
-            const x = (pr.left - cardRect.left) * s
-            const y = (pr.top - cardRect.top) * s
-            const d = pr.width * s
-            const ringPx = 3 * s // keep the secondary ring html2canvas drew
-            ctx.save()
-            ctx.beginPath()
-            ctx.arc(x + d / 2, y + d / 2, d / 2 - ringPx, 0, Math.PI * 2)
-            ctx.closePath()
-            ctx.clip()
-            const cover = Math.max(d / portraitImg.naturalWidth, d / portraitImg.naturalHeight)
-            const dw = portraitImg.naturalWidth * cover
-            const dh = portraitImg.naturalHeight * cover
-            ctx.drawImage(portraitImg, x + d / 2 - dw / 2, y, dw, dh)
-            ctx.restore()
-          }
-        }
-        const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/png'))
-        if (!alive || !blob) { onDone(); return }
-        const file = new File([blob], filename, { type: 'image/png' })
-        const title = `${data.category}: ${data.name}`
-        const download = () => {
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
-          setTimeout(() => URL.revokeObjectURL(url), 1000)
-        }
-        if (action === 'copy') {
-          try { await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]) }
-          catch { download() }
-        } else if (action === 'share' && navigator.canShare?.({ files: [file] })) {
-          try { await navigator.share({ files: [file], title }) }
-          catch (err) { if ((err as { name?: string })?.name !== 'AbortError') download() }
-        } else {
-          download()
-        }
-      } catch (e) {
-        console.warn('[awards] share capture failed:', e)
-      } finally {
-        if (alive) onDone()
-      }
-    })()
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  return createPortal(
-    <div ref={ref} style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', zIndex: -1 }}>
-      <WinnerShareCard data={data} />
-    </div>,
-    document.body,
-  )
+  const team = winner.teamId ? teams.find(t => t.id === winner.teamId) ?? null : null
+  const full = team ? wpblFullName(team) : null
+  return {
+    category: award.title,
+    name: winner.name,
+    // The FULL 512 file, not the thumbnail `.src` a set hands out, so the capture is sharp:
+    // manager headshot, else the player's bundled portrait, else the club logo.
+    portraitSrc: wpblManagerPortrait(winner.key)
+      ?? (winner.playerId ? wpblPortrait(winner.name) : null)
+      ?? (winner.teamId ? wpblLogo(winner.teamId) : null),
+    teamId: winner.teamId,
+    initials: winner.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join(''),
+    // The FULL club name ("San Francisco Firebells") in the subtitle, not the nickname the compact
+    // rows use: a non-player winner (Manager of the Year) carries the nickname in `sub`, so prefer
+    // the full name here and keep `sub` only as the write-in fallback for a winner with no club.
+    detail: winner.playerId ? [full, winner.sub].filter(Boolean).join(' · ') : (full ?? winner.sub ?? ''),
+    stats: (winner.stats ?? []).filter(s => s.label !== 'Team').slice(0, 3).map(s => ({
+      // ERA is stored on the league's basis and rescaled at DISPLAY time, so price it through the
+      // same formatter as everywhere else or the card would disagree with the player page.
+      value: s.eraBasisValue !== undefined ? fmtEra(s.eraBasisValue) : s.value, label: s.label,
+    })),
+    pct: total > 0 ? Math.round((votesOf(winner.key) / total) * 100) : 0,
+  }
 }
 
 // ─── one category, once the votes are locked ──────────────────────────────────────
@@ -1093,6 +901,13 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
 
   const winner = ranked[0] ?? null
   const runnersUp = ranked.slice(1, 3)
+  // The winner as a share card, built through the shared resolver so this button and the
+  // all-winners poster draw the same picture. Null until there is a winner, which is also the
+  // guard the launcher renders behind.
+  const shareData = useMemo(
+    () => (winner ? winnerShareData(entry, state, players, teams, fmtEra) : null),
+    [winner, entry, state, players, teams, fmtEra],
+  )
   // The empty groove a share bar fills, faint in both themes.
   const track = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)'
 
@@ -1150,33 +965,10 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
       {origin && fire && <WinnerConfetti x={origin.x} y={origin.y} r={origin.r} />}
       {/* Off-screen capture, mounted only while an action is in flight; runs whichever the menu
           chose. */}
-      {sharing && winner && (
+      {sharing && shareData && (
         <WinnerShareLauncher
           action={sharing}
-          data={{
-            category: award.title,
-            name: winner.name,
-            // The FULL 512 file, not the thumbnail `.src` a set hands out, so the capture is sharp:
-            // manager headshot, else the player's bundled portrait, else the club logo.
-            portraitSrc: wpblManagerPortrait(winner.key)
-              ?? (winner.playerId ? wpblPortrait(winner.name) : null)
-              ?? (winner.teamId ? wpblLogo(winner.teamId) : null),
-            teamId: winner.teamId,
-            initials: winner.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join(''),
-            detail: (() => {
-              // The FULL club name ("Boston Hunters") in the share card's subtitle, not the
-              // nickname the compact rows use.
-              const t = teamOf(winner.teamId)
-              const full = t ? wpblFullName(t) : null
-              return winner.playerId
-                ? [full, winner.sub].filter(Boolean).join(' · ')
-                : (winner.sub ?? full ?? '')
-            })(),
-            stats: (winner.stats ?? []).filter(s => s.label !== 'Team').slice(0, 3).map(s => ({
-              value: s.eraBasisValue !== undefined ? fmtEra(s.eraBasisValue) : s.value, label: s.label,
-            })),
-            pct: pct(winner),
-          }}
+          data={shareData}
           onDone={() => setSharing(null)}
         />
       )}
@@ -1403,6 +1195,15 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
   onOpenTeam?: (t: WpblTeam) => void
 }) {
   const answered = entries.filter(e => state.ballot[e.award.id]).length
+  const { fmtEra } = useEraBasis()
+  // Every category's winner as share-card data, for the admin-only "export all winners" poster.
+  // Only built once voting is locked, since that is the only time there is a winner to draw.
+  const winners = useMemo(
+    () => (closed
+      ? entries.map(e => winnerShareData(e, state, players, teams, fmtEra)).filter((w): w is ShareCardData => w !== null)
+      : []),
+    [closed, entries, state, players, teams, fmtEra],
+  )
   return (
     <ModalShell
       sheet
@@ -1453,6 +1254,10 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
             {voterCount.toLocaleString()} {voterCount === 1 ? 'fan' : 'fans'} voted
           </Typography>
         )}
+        {/* Owner-only, and it renders nothing for anyone else (the gate lives inside the component,
+            so this file stays free of the role check the ballot must never carry). One poster of
+            every winner, in the same card art as the per-result Share button. */}
+        {closed && <AwardsWinnersExport winners={winners} />}
         {/* THE WALL, AND IT STANDS BEHIND THE QUESTIONS RATHER THAN IN FRONT OF THEM. A reader
             who is not signed in still gets the whole ballot: every category, every nominee,
             every figure, and the tally on anything already decided. What they cannot do is
