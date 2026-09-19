@@ -221,7 +221,7 @@ export function useRowFlip(order: string[], durationMs?: number) {
  * font arriving, or the reader's text scale. Without the observer the lines are right until the
  * first of those and then silently wrong, which is the shape of bug this whole file is about.
  */
-export function useRowDividers(rowCount: number) {
+export function useRowDividers(rowCount: number, rowSelector = 'tbody tr') {
   const ref = useRef<HTMLDivElement>(null)
   const [tops, setTops] = useState<number[]>([])
 
@@ -229,7 +229,7 @@ export function useRowDividers(rowCount: number) {
     const host = ref.current
     if (!host) return
     const measure = () => {
-      const rows = Array.from(host.querySelectorAll('tbody tr')) as HTMLElement[]
+      const rows = Array.from(host.querySelectorAll(rowSelector)) as HTMLElement[]
       const next = rows.map(r => r.offsetTop)
       // Same values, same array: the observer fires on every resize tick, and a fresh array
       // each time would re-render the whole table for nothing.
@@ -244,7 +244,7 @@ export function useRowDividers(rowCount: number) {
     const ro = new ResizeObserver(measure)
     ro.observe(host)
     return () => ro.disconnect()
-  }, [rowCount])
+  }, [rowCount, rowSelector])
 
   return { ref, tops }
 }

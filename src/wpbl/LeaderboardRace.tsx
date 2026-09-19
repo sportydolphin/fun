@@ -57,8 +57,11 @@ const BAR_PX = 24
 
 /** The widest a bar may grow, as a percent of the track. Short of the full width ON PURPOSE: the
  *  value rides just past the bar's tip, so a leader at the full 100% would push a two-digit total
- *  off the right edge and clip it. Capping the bar leaves that headroom. */
-const BAR_MAX_PCT = 82
+ *  off the right edge and clip it. Capping the bar leaves exactly that headroom and no more: on a
+ *  375px phone the track is ~202px, a two-digit value is ~18px and rides 6px past the tip, so 88%
+ *  lands the value flush with the right edge. Measured, not guessed; do not raise without checking
+ *  the widest value still fits (see the geometry probe in the leaderboard-race verification). */
+const BAR_MAX_PCT = 88
 
 const HIT_EVENTS = new Set(['single', 'double', 'triple', 'home_run'])
 const XBH_EVENTS = new Set(['double', 'triple', 'home_run'])
@@ -364,58 +367,109 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
   const barGlide = reduce ? 'none' : isPlay ? 'width .12s linear' : 'width .5s cubic-bezier(.34,.02,.2,1)'
   const valGlide = reduce ? 'none' : isPlay ? 'left .12s linear' : 'left .5s cubic-bezier(.34,.02,.2,1)'
 
+  // Speed is one chip that cycles rather than three that crowd a phone: tap to step 0.5× → 1× → 2×
+  // and wrap. The current label rides the chip so the state is still legible at a glance.
+  const speedIdx = Math.max(0, SPEEDS.findIndex(s => s.mult === speed))
+  const cycleSpeed = () => setSpeed(SPEEDS[(speedIdx + 1) % SPEEDS.length].mult)
+
+  // The three touch controls live together in one toolbar under the title: the stat picker on the
+  // left, the speed and play transport on the right. One cluster on both phone and desktop, so there
+  // is a single place to reach and nothing renders twice. The date is not here; it rides the scrub at
+  // the bottom, since it reads the timeline the scrub drives.
+  // Native <select> on purpose: it gets the OS picker on mobile and is keyboard- and
+  // screen-reader-first for free, so the six stats cost one control, not a wrapping row of pills.
+  const statSelect = (
+    <Box sx={{ position: 'relative', display: 'inline-flex', minWidth: 0 }}>
+      <Box
+        component="select"
+        aria-label="Choose a stat"
+        value={metricKey}
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMetricKey(e.target.value)}
+        sx={{
+          ...FOCUS_RING, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+          appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+          // Room on the right for our own chevron, since the native arrow is suppressed. Height is a
+          // full 44px touch target on a phone and compact on desktop; chromePx alone would do the
+          // reverse (it scales DOWN on mobile), which is backwards for a tap target. All three
+          // controls share these two numbers so the cluster is one size at each breakpoint.
+          pl: 1.4, pr: chromePx(26), py: 0, minHeight: { xs: 44, sm: chromePx(30) }, borderRadius: 999,
+          border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'transparent',
+          fontSize: '0.82rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.primary',
+          // Themes the OS-rendered option list so it is not dark text on a dark sheet.
+          colorScheme: dark ? 'dark' : 'light',
+          ...hoverOnly({ borderColor: 'text.secondary' }),
+        }}
+      >
+        {METRICS.map(m => (
+          <option key={m.key} value={m.key}>{m.label}</option>
+        ))}
+      </Box>
+      <Box aria-hidden sx={{
+        position: 'absolute', right: chromePx(12), top: '50%', transform: 'translateY(-50%)',
+        pointerEvents: 'none', fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1,
+      }}>▾</Box>
+    </Box>
+  )
+
+  // The day the bars are showing, riding at the right end of the scrub since that is the timeline it
+  // reads. The loudest thing on the row: it is what the whole race is a function of, so it carries
+  // the accent and the largest type here.
+  const dateChip = (
+    <Typography aria-hidden sx={{
+      fontSize: '1.2rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      fontVariantNumeric: 'tabular-nums', lineHeight: 1, flexShrink: 0,
+    }}>{dateLabel}</Typography>
+  )
+
+  const speedChip = (
+    <Box
+      component="button"
+      type="button"
+      onClick={cycleSpeed}
+      aria-label={`Playback speed ${SPEEDS[speedIdx].label}. Tap to change.`}
+      sx={{
+        ...FOCUS_RING, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+        // A comfortable, square-ish tap target: it was the smallest control and the hardest to hit.
+        // The fixed min-width also stops it shrinking (and shoving Play) as the label cycles 0.5×/1×.
+        minWidth: { xs: 48, sm: chromePx(44) }, minHeight: { xs: 44, sm: chromePx(30) }, px: 1, borderRadius: 999,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'transparent',
+        fontSize: '0.72rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'text.secondary',
+        ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
+      }}
+    >{SPEEDS[speedIdx].label}</Box>
+  )
+
+  const playBtn = (
+    <Box {...pressable(play)} aria-label={playing ? 'Pause' : 'Play the race from opening day'} sx={{
+      ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', flexShrink: 0,
+      display: 'inline-flex', alignItems: 'center', gap: 0.5,
+      minHeight: { xs: 44, sm: chromePx(30) }, px: 1.5, borderRadius: 999,
+      border: '1px solid', borderColor: CARD_BORDER,
+      fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+    }}>
+      <Box component="span" aria-hidden>{playing ? '❚❚' : '▶'}</Box>
+      {playing ? 'Pause' : 'Play'}
+    </Box>
+  )
+
   return (
     <SectionCard
       bare
       frameless
       title="Batting leaders"
-      subtitle="Cumulative leaders through the regular season. Pick a stat, then press play or drag."
-      action={
-        <Box {...pressable(play)} aria-label={playing ? 'Pause' : 'Play the race from opening day'} sx={{
-          ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', flexShrink: 0,
-          display: 'inline-flex', alignItems: 'center', gap: 0.5,
-          minHeight: chromePx(30), px: 1.25, borderRadius: 999,
-          border: '1px solid', borderColor: CARD_BORDER,
-          fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-          touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
-        }}>
-          <Box component="span" aria-hidden>{playing ? '❚❚' : '▶'}</Box>
-          {playing ? 'Pause' : 'Play'}
-        </Box>
-      }
     >
-      {/* The stat picker and the day the bars are showing. One row that wraps on a phone, the date
-          holding the right edge where the leader's value ends up. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 1.25 }}>
-        <Box role="group" aria-label="Choose a stat" sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-          {METRICS.map(m => {
-            const on = m.key === metricKey
-            return (
-              <Box
-                key={m.key}
-                component="button"
-                type="button"
-                aria-pressed={on}
-                onClick={() => setMetricKey(m.key)}
-                sx={{
-                  ...FOCUS_RING, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-                  px: 1.1, py: 0.4, borderRadius: 999, border: '1px solid',
-                  fontSize: '0.72rem', fontWeight: 700, letterSpacing: 0.2,
-                  borderColor: on ? 'transparent' : CARD_BORDER,
-                  bgcolor: on ? 'text.primary' : 'transparent',
-                  color: on ? 'background.paper' : 'text.secondary',
-                  ...(on ? {} : hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' })),
-                }}
-              >{m.label}</Box>
-            )
-          })}
+      {/* The control toolbar: every touch control in one place, the same on phone and desktop. Stat
+          picker packed left, the speed and play transport packed right, one wide gap between the two
+          groups. justify space-between so the two clusters hold the edges and nothing wraps. The
+          scrub and its date readout are the separate row at the bottom, near the thumb. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.5, minWidth: 0 }}>
+        {statSelect}
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+          {speedChip}
+          {playBtn}
         </Box>
-        <Typography aria-hidden sx={{
-          fontSize: '1.1rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-          fontVariantNumeric: 'tabular-nums', lineHeight: 1,
-        }}>
-          {dateLabel}
-        </Typography>
       </Box>
 
       {/* The bars. Absolutely-positioned rows keyed by player, each moved by transform and grown by
@@ -441,16 +495,18 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
               pointerEvents: on ? 'auto' : 'none',
               transition: glide, willChange: 'transform',
             }}>
-              {/* Rank, club dot and name. RESERVES ROOM FOR A STRING, so its width is in rem. */}
+              {/* Just the name. The placement number and the club dot are both gone: the row's
+                  POSITION already ranks it and the bar already carries the club colour, so both were
+                  redundant, and dropping them keeps the row clean and hands their width to the bar.
+                  RESERVES ROOM FOR A STRING, so it is sized in rem and packed LEFT. The width blends
+                  vw (so it tracks screen width) with a rem term and rem bounds, so it GROWS with the
+                  reader's text size: a pure-vw column punished a Large-text reader, whose name grew
+                  while the box did not, and clipped the longest names. `22vw + 1rem` clears the
+                  longest name in the league at phone width; from `sm` up the column caps at 9.5rem. */}
               <Box sx={{
-                flex: `0 0 ${'clamp(6.5rem, 34vw, 9rem)'}`, width: 'clamp(6.5rem, 34vw, 9rem)',
-                display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.75, minWidth: 0,
+                flex: '0 0 clamp(6rem, calc(22vw + 1rem), 9.5rem)', width: 'clamp(6rem, calc(22vw + 1rem), 9.5rem)',
+                display: 'flex', alignItems: 'center', minWidth: 0,
               }}>
-                <Typography aria-hidden sx={{
-                  fontSize: '0.72rem', fontWeight: 700, color: 'text.disabled',
-                  fontVariantNumeric: 'tabular-nums', flexShrink: 0,
-                }}>{on ? r! + 1 : ''}</Typography>
-                <Box aria-hidden sx={{ width: chromePx(9), height: chromePx(9), borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
                 <Typography sx={{
                   fontSize: '0.84rem', fontWeight: 600, whiteSpace: 'nowrap',
                   overflow: 'hidden', textOverflow: 'ellipsis',
@@ -474,9 +530,10 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
         })}
       </Box>
 
-      {/* The scrub and the speed picker on one row: drag the season, and set how fast Play walks it.
-          They wrap on a phone, the scrub taking the width and the speeds sitting under it. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5, flexWrap: 'wrap' }}>
+      {/* The scrub: drag the season, the date reading out at its right end where the leader's value
+          also lands. The stat, speed and play controls are all up in the toolbar above the bars; this
+          row is the timeline and its readout, nothing to tap but the thumb. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mt: 1.5 }}>
         {/* Scrub. A native range so it is keyboard-first and reads a season by arrow key; touching it
             stops playback, because two things driving one cursor fight the reader. */}
         <Box
@@ -503,31 +560,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
             },
           }}
         />
-        {/* Speed multiplies the current cadence, so 0.5× slows the busy play races down and 2× runs
-            a game race quick, whichever mode the stat is in. */}
-        <Box role="group" aria-label="Playback speed" sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-          {SPEEDS.map(s => {
-            const on = s.mult === speed
-            return (
-              <Box
-                key={s.mult}
-                component="button"
-                type="button"
-                aria-pressed={on}
-                onClick={() => setSpeed(s.mult)}
-                sx={{
-                  ...FOCUS_RING, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-                  px: 0.9, py: 0.35, borderRadius: 999, border: '1px solid',
-                  fontSize: '0.7rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-                  borderColor: on ? 'transparent' : CARD_BORDER,
-                  bgcolor: on ? 'text.primary' : 'transparent',
-                  color: on ? 'background.paper' : 'text.secondary',
-                  ...(on ? {} : hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' })),
-                }}
-              >{s.label}</Box>
-            )
-          })}
-        </Box>
+        {dateChip}
       </Box>
     </SectionCard>
   )

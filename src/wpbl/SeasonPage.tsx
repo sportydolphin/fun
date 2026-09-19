@@ -34,12 +34,12 @@ import {
   type WpblBatSeason, type WpblPitSeason,
 } from './stats'
 import { countsInStandings } from './season'
+import { useRowFlip, useRowDividers } from './rowFlip'
 import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
-import { wpblColor, wpblAccent } from './constants'
-import { TAPPABLE, FOCUS_RING, hoverOnly, pressable, useWpblDark } from './ui'
+import { wpblColor, wpblFullName } from './constants'
+import { TAPPABLE, FOCUS_RING, hoverOnly, pressable, TeamBadge } from './ui'
 import { navBack } from '../nav'
-import { useIsTester } from '../lib/roles'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
   WpblSprayPlay, WpblStandingRow,
@@ -173,12 +173,6 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
   const [battedBalls, setBattedBalls] = useState<WpblSprayPlay[]>([])
   const [hand, setHand] = useState<'R' | 'L'>('R')
   const [loading, setLoading] = useState(true)
-  const dark = useWpblDark()
-  // TESTER-ONLY, for now. The standings table and the race chart below are in review; until they
-  // ship the page keeps its shipped shape (no standings section) for everyone else. Cosmetic
-  // gate, per useIsTester's own note: it hides the block and grants nothing, and the block is a
-  // read of data every reader already has. Drop this when it ships.
-  const isTester = useIsTester()
 
   useEffect(() => {
     let cancelled = false
@@ -236,6 +230,10 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
     const byTeam = new Map(stFigures.map(r => [r.team.id, r]))
     return stOrder.map(r => byTeam.get(r.team.id) ?? r)
   }, [stOrder, stFigures])
+  // The SETTLED order's ids, for the row-flip: keyed off `stOrder` (a shape frame, stable until the
+  // settled day moves) rather than `standingRows` (a fresh array on every figure tick), so the flip
+  // re-measures only when a row can actually have changed places. Same rule as StandingsView.
+  const stOrderIds = useMemo(() => stOrder.map(r => r.team.id), [stOrder])
 
   const batSeasons = useMemo(() => aggregateBatting(players, batting, games), [players, batting, games])
   const pitSeasons = useMemo(() => aggregatePitching(players, pitching, games), [players, pitching, games])
@@ -361,7 +359,7 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
       </Typography>
       <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3 }}>
         The Women&rsquo;s Pro Baseball League&rsquo;s first season, read back through its own
-        numbers: {isTester && 'the final table and the race to it, '}the leaders, the things that
+        numbers: the final table and the race to it, the leaders, the things that
         make it its own league, and the plays its games turned on.{gameCount > 0 && ` Regular season, ${gameCount} games.`}
       </Typography>
 
@@ -379,42 +377,26 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
               back to any date. Both are drawn from the one `shape` above, so they cannot
               disagree. Regular season only, like everything else here: `seasonShape` folds
               `standingsFinals`, which drops the postseason. */}
-          {isTester && shape.games > 0 && (
+          {shape.games > 0 && (
             <>
-              {/* A LOUD, UNMISSABLE tester marker. Everything under it is behind useIsTester and is
-                  not live yet, and the block sits mid-page among sections that ARE live, so without
-                  this a tester cannot tell which parts a normal reader sees. Amber and bordered so it
-                  reads as scaffolding, not as content. Drop it with the gate when this ships. */}
-              <Box sx={{
-                display: 'flex', alignItems: 'center', gap: 1.25, mb: 2,
-                border: '2px solid', borderColor: '#f4b53a', bgcolor: 'rgba(244,181,58,0.14)',
-                borderRadius: 2, px: 1.75, py: 1.25,
-              }}>
-                <Box aria-hidden sx={{ fontSize: '1.4rem', lineHeight: 1, flexShrink: 0 }}>🧪</Box>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{
-                    fontSize: '0.72rem', fontWeight: 900, letterSpacing: 1.2, textTransform: 'uppercase', color: '#f4b53a',
-                  }}>Tester preview · not live</Typography>
-                  <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.35 }}>
-                    The final standings, the standings race and the leaderboard race below are visible to testers only. A normal reader does not see them yet.
-                  </Typography>
-                </Box>
-              </Box>
-
               <SectionHeading>Final standings</SectionHeading>
-              <FinalStandings rows={standingRows} teamHref={teamHref} onNavigate={onNavigate} dark={dark} />
+              <FinalStandings rows={standingRows} orderIds={stOrderIds} cadence={preview.cadenceMs} teamHref={teamHref} onNavigate={onNavigate} />
               <Box sx={{ mt: 1.5 }}>
                 <SeasonShapeCard shape={shape} onPreview={onPreview} />
               </Box>
-              {/* The standings race is the clubs; this is the players. Same idea one level down,
-                  and the same tester gate, so both animated races ship together. */}
+            </>
+          )}
+
+          {/* The standings race above is the clubs; this is the players. Same idea one level down. */}
+          {shape.games > 0 && (
+            <>
               <SectionHeading>Leaderboard race</SectionHeading>
               <LeaderboardRace players={players} teams={teams} games={games} batting={batting} plays={plays} />
             </>
           )}
 
-          {/* ── By the numbers ───────────────────────────────────────────────── */}
-          <SectionHeading>By the numbers</SectionHeading>
+          {/* ── Notable numbers ──────────────────────────────────────────────── */}
+          <SectionHeading>Notable numbers</SectionHeading>
           <Box sx={{
             display: 'grid', gap: 1,
             gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr', md: 'repeat(4, 1fr)' },
@@ -622,11 +604,29 @@ const ST_COLS_XS = '1.1rem minmax(0, 1fr) 1.5rem 1.5rem 2.6rem 2.7rem'
 const fmtGb = (gb: number) => (gb === 0 ? '—' : Number.isInteger(gb) ? String(gb) : gb.toFixed(1))
 const fmtDiff = (d: number) => (d > 0 ? `+${d}` : String(d))
 
-function FinalStandings({ rows, teamHref, onNavigate, dark }: {
-  rows: WpblStandingRow[]; teamHref: (t: WpblTeam) => string; onNavigate: (to: string) => void; dark: boolean
+function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }: {
+  rows: WpblStandingRow[]
+  /** The SETTLED order the flip is keyed on, so a scrub that only moves the figures does not
+   *  re-measure. Its identity is stable until a club actually changes places. */
+  orderIds: string[]
+  /** When playback is driving, how long until the next day lands; the row travel is fit inside it. */
+  cadence: number | undefined
+  teamHref: (t: WpblTeam) => string; onNavigate: (to: string) => void
 }) {
+  // Four clubs changing places IS the reading of a scrub, so the rows slide past each other rather
+  // than snapping to the new order, the same as the Standings tab. The DOM still reorders (React
+  // keys the rows by club), which keeps a screen reader's order honest; the flip only puts the
+  // movement back. See rowFlip.ts, and StandingsView for the surface this mirrors.
+  const rowRef = useRowFlip(orderIds, cadence)
+  // The lines between the clubs, lifted off the rows and drawn as their own layer over them: a
+  // border on a row travels with the club standing in it and is painted under the opaque backing a
+  // moving row needs, so a reorder would take every divider with it. The rows keep a transparent
+  // border for its GEOMETRY and the lines are drawn at the fixed slots. See `useRowDividers`.
+  const dividers = useRowDividers(rows.length, '[data-standings-row]')
   return (
-    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    // `position: relative` is load-bearing twice: the divider overlay is placed against it, and it
+    // is what each row's `offsetTop` resolves to. See `useRowDividers`.
+    <Box sx={{ position: 'relative', borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }} ref={dividers.ref}>
       {/* Column labels. Same grid as the rows, so the numbers sit under their headings. */}
       <Box sx={{
         display: 'grid', gridTemplateColumns: { xs: ST_COLS_XS, sm: ST_COLS }, alignItems: 'center', gap: 1,
@@ -649,15 +649,30 @@ function FinalStandings({ rows, teamHref, onNavigate, dark }: {
           <Box
             key={r.team.id}
             component="a"
+            data-standings-row=""
+            ref={rowRef(r.team.id)}
             href={teamHref(r.team)}
             onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(teamHref(r.team)) } }}
             sx={{
               ...FOCUS_RING,
               display: 'grid', gridTemplateColumns: { xs: ST_COLS_XS, sm: ST_COLS }, alignItems: 'center', gap: 1,
               px: 1.25, py: 0.85, textDecoration: 'none', color: 'inherit',
-              borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider',
+              // Border here for its HEIGHT, drawn by the overlay below. Transparent rather than
+              // removed, so the slot keeps the pixel it has always been spaced by and nothing
+              // reflows when a club moves. The first row's line is the header's borderBottom.
+              borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'transparent',
               bgcolor: leader ? 'var(--wpbl-compare-lead)' : 'transparent',
               fontVariantNumeric: 'tabular-nums',
+              // ONLY WHILE MOVING. A row has no background of its own, so two clubs crossing print
+              // through each other; this gives the moving pair an opaque page-coloured backing (the
+              // card is `background.paper`) and a stacking order for exactly as long as the move
+              // lasts. The leader keeps its tint, composited over the opaque backing. See rowFlip.ts.
+              '&[data-moving]': {
+                position: 'relative', bgcolor: 'background.paper',
+                ...(leader ? { backgroundImage: 'linear-gradient(var(--wpbl-compare-lead), var(--wpbl-compare-lead))' } : {}),
+              },
+              '&[data-moving="up"]': { zIndex: 2 },
+              '&[data-moving="down"]': { zIndex: 1 },
               ...TAPPABLE,
             }}
           >
@@ -665,12 +680,15 @@ function FinalStandings({ rows, teamHref, onNavigate, dark }: {
               {i + 1}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0 }}>
-              {/* wpblAccent, not wpblColor: the four primaries are all near-black (see constants.ts)
-                  and read as identical dark blobs here, and this dot sits a few pixels above the
-                  chart line for the same club, which is drawn in exactly this accent. */}
-              <Box sx={{ flexShrink: 0, width: 9, height: 9, borderRadius: '50%', bgcolor: wpblAccent(r.team.id, dark) }} />
-              <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {r.team.city}
+              {/* The club logo, matching the Standings tab. */}
+              <TeamBadge team={r.team} size={22} />
+              {/* Full name where it fits, the nickname on a phone: once the fixed numeric columns
+                  claim their widths the full name truncates, and the badge already carries the city. */}
+              <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'block' } }}>
+                {wpblFullName(r.team)}
+              </Typography>
+              <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'block', sm: 'none' } }}>
+                {r.team.name}
               </Typography>
             </Box>
             <Typography sx={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 700 }}>{r.wins}</Typography>
@@ -684,6 +702,18 @@ function FinalStandings({ rows, teamHref, onNavigate, dark }: {
           </Box>
         )
       })}
+      {/* THE DIVIDERS, over the rows rather than on them, so a crossing club passes UNDER the line
+          instead of dragging it along. Skip the first slot: the line above row 0 is the header's
+          own borderBottom, and drawing one here too would double it. `zIndex` clears the 2 a row
+          moving up takes. See `useRowDividers`. */}
+      {dividers.tops.map((top, i) => (i === 0 ? null : (
+        <Box key={i} aria-hidden sx={{
+          position: 'absolute', left: 0, right: 0, top: `${top}px`,
+          // Ornament: a hairline reserving room for nothing, so raw px is the unit and it stays one
+          // line on every device. See CLAUDE.md.
+          height: '1px', bgcolor: 'divider', pointerEvents: 'none', zIndex: 3,
+        }} />
+      )))}
     </Box>
   )
 }
