@@ -110,14 +110,14 @@ export const WPBL_RULES: WpblRule[] = [
   {
     id: 'game-length',
     question: 'How long is a WPBL game?',
-    answer: 'Seven innings rather than nine, and extra innings if it is tied after seven.',
+    answer: 'Seven innings, and extra innings if it is tied after seven.',
     source: 'league',
   },
   {
     id: 'era-basis',
-    question: 'Why is the ERA here not the number I saw somewhere else?',
+    question: 'Is the ERA calculated differently?',
     answer: `ERA and strikeout rates are per ${ERA_BASIS_CANONICAL} innings, matching what the league publishes, `
-      + 'because seven innings is a full game here. The nine-inning version of the same pitching is a bigger number.',
+      + 'because seven innings is a full game here. Other leagues that play 9 inning games use nine.',
     source: 'league',
     note: 'Settings can show them per 9 instead. Nothing is recomputed — it is one performance on two scales, '
       + 'so no ranking moves either way.',
