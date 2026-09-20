@@ -25,7 +25,12 @@ import type { WpblGame, WpblTeam } from './types'
 const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
 
-export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string) => void }) {
+export default function WpblScorigami({ onOpenGame }: {
+  // Opens a game as a modal hovering over this page, rather than navigating to it (which would
+  // replace the page with WpblApp's Home). Supplied by the shell; see GameOverlayHost. The cells
+  // stay real <a href>s for crawlers, with the plain click intercepted.
+  onOpenGame: (g: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
+}) {
   const [games, setGames] = useState<WpblGame[]>([])
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [loading, setLoading] = useState(true)
@@ -186,7 +191,7 @@ export default function WpblScorigami({ onNavigate }: { onNavigate: (to: string)
                       href={href}
                       title={label}
                       aria-label={label}
-                      onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(href) } }}
+                      onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpenGame(cell.first, { teams, games }) } }}
                       sx={{
                         ...FOCUS_RING,
                         width: 'var(--cell)', height: 'var(--cell)', borderRadius: 0.75,

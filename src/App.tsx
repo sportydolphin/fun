@@ -23,7 +23,8 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblComparePage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblComparePage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
+import type { WpblGame, WpblTeam } from './wpbl/types'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { defaultSectionPath } from './lib/defaultSection'
 import { track, EVENTS } from './lib/analytics'
@@ -72,6 +73,10 @@ const WpblGlossaryPage = lazy(() => import('./wpbl/GlossaryPage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
 const WpblSeasonPage = lazy(() => import('./wpbl/SeasonPage'))
 const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
+// The game modal, hovering over a standalone page (see GameOverlayHost). Lazy so GameDetail's
+// large chunk lands only on the first game opened from /wpbl/season or /wpbl/scorigami, not in
+// the shell's entry chunk.
+const WpblGameOverlayHost = lazy(() => import('./wpbl/GameOverlayHost'))
 const WpblComparePage = lazy(() => import('./wpbl/Compare'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // The owner's dashboard. Its own route rather than a dialog: charts and tables need the
@@ -404,6 +409,18 @@ function AppInner() {
   })
   // Keep <title>, meta description, canonical, and OG tags in sync with the route.
   useSeo(path)
+  // A game opened from a STANDALONE page (/wpbl/season, /wpbl/scorigami), drawn as a modal over
+  // that page rather than by routing to it. See GameOverlayHost for why: routing would replace
+  // the page the reader is on with WpblApp's Home. Held with the two datasets the modal needs,
+  // which the opening page already has in hand, so the overlay needs no fetch of its own to paint.
+  const [overlayGame, setOverlayGame] = useState<{ game: WpblGame; teams: WpblTeam[]; games: WpblGame[] } | null>(null)
+  // Open the overlay: push the game's own URL so it is shareable and Back closes it, but do NOT
+  // fire a popstate, so the shell's `path` stays on the standalone page and keeps it mounted
+  // beneath. `onPop` below clears the overlay on the way back out.
+  const openOverlayGame = useCallback((game: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => {
+    window.history.pushState({ ...window.history.state }, '', wpblGamePath(game, ctx.teams, ctx.games))
+    setOverlayGame({ game, ...ctx })
+  }, [])
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [changelogOpen,    setChangelogOpen]    = useState(false)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
@@ -653,6 +670,11 @@ function AppInner() {
 
   useEffect(() => {
     const onPop = () => {
+      // Any history move dismisses a standalone-page game overlay. Opening it was a silent
+      // pushState (no popstate), so this only fires on the way back out — Back, the X (which
+      // calls history.back), or an in-modal navigation to a player/team. Cleared before `path`
+      // is touched so the standalone page below is never briefly shown without it.
+      setOverlayGame(null)
       const p = readPath()
       if (p === '/') { const dest = defaultSectionPath(); window.history.replaceState({}, '', dest); setPath(dest); return }
       setPath(p as Route)
@@ -1341,12 +1363,12 @@ function AppInner() {
           )}
           {isWpblSeasonPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblSeasonPage onNavigate={navigate} />
+              <WpblSeasonPage onNavigate={navigate} onOpenGame={openOverlayGame} />
             </Suspense>
           )}
           {isWpblScorigamiPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblScorigami onNavigate={navigate} />
+              <WpblScorigami onOpenGame={openOverlayGame} />
             </Suspense>
           )}
           {isWpblComparePage(path) && (
@@ -1434,6 +1456,21 @@ function AppInner() {
           />
         )}
       </Box>
+
+      {/* A game opened from a standalone page, hovering over it. Kept here at the shell level so
+          the page below (season, scorigami) stays mounted and visible behind it, rather than
+          being replaced by WpblApp's Home. The X and Back both go through history.back, which
+          `onPop` above turns into clearing this overlay. */}
+      {overlayGame && (
+        <Suspense fallback={<Box sx={{ position: 'fixed', inset: 0, zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>}>
+          <WpblGameOverlayHost
+            game={overlayGame.game}
+            teams={overlayGame.teams}
+            games={overlayGame.games}
+            onClose={() => window.history.back()}
+          />
+        </Suspense>
+      )}
 
       {feedbackMounted && (
         <Suspense fallback={DIALOG_FALLBACK}>

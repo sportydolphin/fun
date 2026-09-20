@@ -163,7 +163,13 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string) => void }) {
+export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
+  onNavigate: (to: string) => void
+  // Opens a game as a modal hovering over this page, rather than navigating to it (which would
+  // replace the page with WpblApp's Home). Supplied by the shell, which owns the overlay; see
+  // GameOverlayHost. The links stay real <a href>s for crawlers, with the plain click intercepted.
+  onOpenGame: (g: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
+}) {
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -526,7 +532,7 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
               <Box
                 component="a"
                 href={gameHref(comeback.game)}
-                onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(gameHref(comeback.game)) } }}
+                onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpenGame(comeback.game, { teams, games }) } }}
                 sx={{
                   display: 'block', textDecoration: 'none', color: 'inherit',
                   borderRadius: 2, p: 2, border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
@@ -556,7 +562,7 @@ export default function WpblSeasonPage({ onNavigate }: { onNavigate: (to: string
                     key={bp.game.id}
                     component="a"
                     href={gameHref(bp.game)}
-                    onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(gameHref(bp.game)) } }}
+                    onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpenGame(bp.game, { teams, games }) } }}
                     sx={{
                       display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
                       color: 'inherit', borderRadius: 2, p: 1.5,
