@@ -23,7 +23,7 @@ import { STAT_TERMS, WPBL_RULES, statFull, type RuleSource } from './glossary'
 import { useEraBasis } from './EraBasisContext'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, PillGroup } from './ui'
 import { WPBL_ACCENT } from './constants'
-import { useWpblHeadingTag } from './PageHeading'
+import WpblPage from './WpblPage'
 
 /** How a source is labelled on screen. `league` gets no badge: it is the default a reader
  *  assumes, and badging all five would make the two that matter invisible among them. */
@@ -54,7 +54,6 @@ const GROUPS: { key: string; label: string; keys: string[] }[] = [
 ]
 
 export default function WpblGlossaryPage() {
-  const headingTag = useWpblHeadingTag()
   const { basis } = useEraBasis()
   const [group, setGroup] = useState(GROUPS[0].key)
 
@@ -67,21 +66,16 @@ export default function WpblGlossaryPage() {
   }, [group])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box>
-        <Typography component={headingTag} sx={{
-          fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2,
-        }}>
-          WPBL rules &amp; glossary
-        </Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
-          How the Women&rsquo;s Pro Baseball League works, and what the numbers on a box score mean.
-          New to baseball? Start with the rules; the abbreviations underneath are the ones you will
-          meet on every page here.
-        </Typography>
-      </Box>
-
-      <SectionCard title="How the league works">
+    <WpblPage
+      title="WPBL rules & glossary"
+      standfirst={<>
+        How the Women&rsquo;s Pro Baseball League works, and what the numbers on a box score mean.
+        New to baseball? Start with the rules; the abbreviations underneath are the ones you will
+        meet on every page here.
+      </>}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <SectionCard title="How the league works" frameless bare>
         <Box component="dl" sx={{ m: 0, display: 'flex', flexDirection: 'column', gap: 1.75 }}>
           {WPBL_RULES.map(r => (
             // A real <dt>/<dd>, because this page IS a definition list and the FAQPage markup
@@ -127,6 +121,8 @@ export default function WpblGlossaryPage() {
       <SectionCard
         title="What the abbreviations mean"
         subtitle="The same definitions the tooltips show, in one place"
+        frameless
+        bare
       >
         {/* IN THE BODY, NOT THE HEADER'S `action` SLOT, and it was there first. That slot does
             not shrink, so at 375px the three pills took 255px of a 341px header and squeezed
@@ -182,6 +178,7 @@ export default function WpblGlossaryPage() {
         Not affiliated with the WPBL. Where a rule is not published by the league, this page says
         so and shows how it was worked out.
       </Typography>
-    </Box>
+      </Box>
+    </WpblPage>
   )
 }
