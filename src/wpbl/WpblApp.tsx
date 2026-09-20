@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
+import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, ListSubheader, SwipeableDrawer } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
   fetchWpblAllLines, fetchWpblAllTracking, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
@@ -37,7 +37,7 @@ import {
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
   WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
-  WPBL_PLAYERS_INDEX,
+  WPBL_PLAYERS_INDEX, WPBL_COMPARE_BASE,
   WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
 } from './routes'
@@ -827,13 +827,29 @@ function viewFromLocation(): string | null {
 // not move one.
 // `hint` is drawn only in the mobile bottom sheet (MoreSheet), which has room for a line under
 // each name; the desktop Menu shows the label alone.
-const MORE_LINKS: { href: string; label: string; hint?: string }[] = [
-  { href: WPBL_LEAGUE_PAGE,    label: 'The league',       hint: 'Where the players are from, the reading and the archive' },
-  { href: WPBL_SEASON_PAGE,    label: '2026 season',      hint: 'The season read back through its numbers' },
-  { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',        hint: 'Every final score the league has produced' },
-  { href: WPBL_PLAYERS_INDEX,  label: 'All players',      hint: 'Every roster, by club' },
-  { href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary', hint: 'How the league works, and what a stat means' },
-  { href: WPBL_SOURCES_PAGE,   label: 'Data sources',     hint: 'Where this site’s data comes from' },
+//
+// GROUPED, because a flat list of these outgrew being scannable: they are three different kinds of
+// thing (places to read the league, tools to play with its data, reference), and the Compare tool
+// had no home in the section's nav at all until it landed here under Tools. The groups are the one
+// source of order for both surfaces below, so the desktop menu and the mobile sheet cannot drift.
+// Every item is still a real <a href> via linkTo, the crawl-path rule the footer and pills follow.
+type MoreLink = { href: string; label: string; hint?: string; event?: (typeof EVENTS)[keyof typeof EVENTS]; eventProps?: Record<string, unknown> }
+const MORE_GROUPS: { group: string; items: MoreLink[] }[] = [
+  { group: 'Explore', items: [
+    { href: WPBL_LEAGUE_PAGE,    label: 'The league',   hint: 'Where the players are from, the reading and the archive' },
+    { href: WPBL_SEASON_PAGE,    label: '2026 season',  hint: 'The season read back through its numbers' },
+    { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',    hint: 'Every final score the league has produced' },
+    { href: WPBL_PLAYERS_INDEX,  label: 'All players',  hint: 'Every roster, by club' },
+  ] },
+  { group: 'Tools', items: [
+    // The picker with nobody chosen. `from: 'more'` joins the same funnel the Home card and the
+    // player-modal chip report into (WPBL_COMPARE_OPENED), so this becomes the third counted way in.
+    { href: WPBL_COMPARE_BASE,   label: 'Compare players', hint: 'Two players side by side', event: EVENTS.WPBL_COMPARE_OPENED, eventProps: { from: 'more', pair: false } },
+  ] },
+  { group: 'Reference', items: [
+    { href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary', hint: 'How the league works, and what a stat means' },
+    { href: WPBL_SOURCES_PAGE,   label: 'Data sources',     hint: 'Where this site’s data comes from' },
+  ] },
 ]
 
 function NavMore() {
@@ -871,21 +887,39 @@ function NavMore() {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         MenuListProps={{ dense: true }}
       >
-        {MORE_LINKS.map(l => {
-          const props = linkTo(l.href)
-          return (
-            <MenuItem
-              key={l.href}
-              {...props}
-              // linkTo handles the navigation and lets a modified click through to the browser;
-              // the menu only has to close itself once a plain click has been taken.
-              onClick={e => { props.onClick(e); if (e.defaultPrevented) setAnchor(null) }}
-              sx={{ fontSize: '0.82rem', fontWeight: 600, ...UNSTYLED_MENU_LINK }}
-            >
-              {l.label}
-            </MenuItem>
-          )
-        })}
+        {/* Grouped: a subheader per group, then its rows. flatMap because MUI's Menu wants a flat
+            child list, not nested arrays. The subheader is not a menu row, so keyboard focus skips
+            straight over it to the next item. */}
+        {MORE_GROUPS.flatMap(g => [
+          <ListSubheader
+            key={`h-${g.group}`}
+            disableSticky
+            sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 2.2, bgcolor: 'transparent' }}
+          >
+            {g.group}
+          </ListSubheader>,
+          ...g.items.map(l => {
+            const props = linkTo(l.href)
+            return (
+              <MenuItem
+                key={l.href}
+                {...props}
+                // linkTo handles the navigation and lets a modified click through to the browser;
+                // the menu only has to close itself once a plain click has been taken. A tracked
+                // item also records the open through the same funnel its other entry points use.
+                onClick={e => {
+                  const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+                  if (l.event && !modified) track(l.event, l.eventProps ?? {})
+                  props.onClick(e)
+                  if (e.defaultPrevented) setAnchor(null)
+                }}
+                sx={{ fontSize: '0.82rem', fontWeight: 600, ...UNSTYLED_MENU_LINK }}
+              >
+                {l.label}
+              </MenuItem>
+            )
+          }),
+        ])}
       </Menu>
     </>
   )
@@ -921,33 +955,45 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     >
       <Box sx={{ px: 2, pt: 1 }}>
         <Box aria-hidden sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
-          More
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {MORE_LINKS.map(l => {
-            const props = linkTo(l.href)
-            return (
-              <Box
-                key={l.href}
-                {...props}
-                // linkTo navigates and lets a modified click through to the browser; the sheet only
-                // has to close itself once a plain click has been taken.
-                onClick={e => { props.onClick(e); if (e.defaultPrevented) onClose() }}
-                sx={{
-                  display: 'flex', flexDirection: 'column', gap: 0.1,
-                  textDecoration: 'none', color: 'text.primary',
-                  py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
-                  '&:last-of-type': { borderBottom: 'none' },
-                  ...hoverOnly({ color: 'text.primary' }),
-                }}
-              >
-                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{l.label}</Typography>
-                {l.hint && <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{l.hint}</Typography>}
-              </Box>
-            )
-          })}
-        </Box>
+        {/* Grouped the same way the desktop menu is, from the one MORE_GROUPS above, so the two
+            surfaces stay in step. A group header per section, its rows under it. */}
+        {MORE_GROUPS.map(g => (
+          <Box key={g.group} sx={{ mb: 1 }}>
+            <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.25 }}>
+              {g.group}
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              {g.items.map(l => {
+                const props = linkTo(l.href)
+                return (
+                  <Box
+                    key={l.href}
+                    {...props}
+                    // linkTo navigates and lets a modified click through to the browser; the sheet
+                    // only has to close itself once a plain click has been taken, and a tracked item
+                    // records the open through the same funnel its other entry points use.
+                    onClick={e => {
+                      const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+                      if (l.event && !modified) track(l.event, l.eventProps ?? {})
+                      props.onClick(e)
+                      if (e.defaultPrevented) onClose()
+                    }}
+                    sx={{
+                      display: 'flex', flexDirection: 'column', gap: 0.1,
+                      textDecoration: 'none', color: 'text.primary',
+                      py: 1, borderBottom: '1px solid', borderColor: 'divider',
+                      '&:last-of-type': { borderBottom: 'none' },
+                      ...hoverOnly({ color: 'text.primary' }),
+                    }}
+                  >
+                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{l.label}</Typography>
+                    {l.hint && <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{l.hint}</Typography>}
+                  </Box>
+                )
+              })}
+            </Box>
+          </Box>
+        ))}
       </Box>
     </SwipeableDrawer>
   )

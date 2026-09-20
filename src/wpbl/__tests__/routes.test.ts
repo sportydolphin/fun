@@ -766,21 +766,25 @@ describe('/wpbl/scorigami, the final-scores grid', () => {
 })
 
 describe('the More menu surfaces every non-tab WPBL page', () => {
-  // Six pages have no nav pill (league, season, scorigami, players index, glossary, sources), so
-  // the "More" menu in the section nav is a reader's way in besides the footer. The menu is built
-  // from MORE_LINKS in WpblApp; pin its contents, because a page silently dropped from it still
-  // works and is still footer-linked, which is exactly the failure nothing else here would catch.
-  // The array body between `= [` and its closing `]`. Skipping past the type annotation (which
-  // carries its own `[]`) is why this keys on the `=` rather than the first bracket after the name.
-  const block = /MORE_LINKS[^=]*=\s*\[([\s\S]*?)\]/.exec(wpblAppSource)?.[1] ?? ''
+  // These pages have no nav pill (league, season, scorigami, players index, glossary, sources) and
+  // the Compare tool has no pill either, so the "More" menu in the section nav is a reader's way in
+  // besides the footer. The menu is built from MORE_GROUPS in WpblApp; pin its contents, because a
+  // page silently dropped from it still works and is still footer-linked (or, for Compare, still
+  // reachable from a player), which is exactly the failure nothing else here would catch.
+  // The array body between `= [` and its closing `]` at column 0. The nested per-group `items: [...]`
+  // arrays close indented, so keying the terminator on a newline-then-bracket skips past them to the
+  // one real closer; keying the start on `=` skips past the type annotation's own `[]`.
+  const block = /MORE_GROUPS[^=]*=\s*\[([\s\S]*?)\n\]/.exec(wpblAppSource)?.[1] ?? ''
 
-  it('has a MORE_LINKS array', () => {
+  it('has a MORE_GROUPS array', () => {
     expect(block).not.toBe('')
   })
 
   const expected = [
     'WPBL_LEAGUE_PAGE', 'WPBL_SEASON_PAGE', 'WPBL_SCORIGAMI_PAGE',
     'WPBL_PLAYERS_INDEX', 'WPBL_GLOSSARY_PAGE', 'WPBL_SOURCES_PAGE',
+    // Compare's permanent home: the tool had no nav entry at all until it landed here under Tools.
+    'WPBL_COMPARE_BASE',
   ]
   for (const c of expected) {
     it(`lists ${c}`, () => {
