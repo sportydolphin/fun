@@ -1,25 +1,27 @@
-// /wpbl/players: every player in the league, grouped by club, each one a real link.
+// /wpbl/players: every player who has APPEARED in a game, grouped by club, each one a real link.
 //
-// This page exists for a reason that is not obvious from looking at it: without it the 118
-// player pages have almost nothing pointing at them. A crawler reaches a player only by
-// following a link, and in the app a player is opened from a stat-leader row or a team
-// roster, both of which sit behind a tab and a team selection. That is a long way in from
-// /wpbl, and the leader boards only ever name the top five. One flat page of anchors puts
-// every player exactly one hop from a page Google already has.
+// ONLY PLAYERS WHO PLAYED. A roster carries people who never got into a game (49 of the league's
+// 118 have no box-score line between them), and a directory of names that never played is noise a
+// reader has to wade through. So this filters to anyone with at least one batting or pitching line.
+// A box-score line's `player_id` is the internal player id (it is what aggregateBatting keys on),
+// so "appeared" is simply: their id shows up in the season's lines.
 //
-// THE CRAWL PATH IS THE INVARIANT, not the layout. Every player's name is a real <a>, and the
-// default render (Club sort, nothing typed) has all 118 of them in the DOM on first paint, which
-// is what a crawler sees. The search box and the Name/Number sorts are reader conveniences layered
-// over that in React state: they reorder or hide anchors the first render already contained, and a
-// crawler, which does not type or click, is served the grouped roster exactly as before.
+// THE FULL-ROSTER CRAWL PATH STILL EXISTS, on /wpbl/league, which lists all 118 players as real
+// anchors (see LeaguePage). So dropping the non-appearing players here orphans nobody: their page
+// keeps its inbound link there and its sitemap entry. What this page is, then, is the who-played
+// roster; the league page is the everyone-signed one.
+//
+// The names shown are still real <a> elements, present in the DOM on first paint (Club sort,
+// nothing typed): the search box and the Name/Number sorts only reorder or hide anchors that first
+// render already held, so a crawler, which does not type or click, is served the grouped roster.
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, Collapse } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
-import { fetchWpblTeams, fetchWpblAllPlayers } from './api'
+import { fetchWpblTeams, fetchWpblAllPlayers, fetchWpblAllLines } from './api'
 import { wpblFullName } from './constants'
 import { TeamBadge, PlayerPortrait, SegNav, CARD_BORDER, TAPPABLE, FOCUS_RING, hoverOnly } from './ui'
 import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
-import { navBack } from '../nav'
+import WpblPage from './WpblPage'
 import type { WpblTeam, WpblPlayer } from './types'
 
 type SortKey = 'club' | 'name' | 'number'
@@ -32,7 +34,13 @@ function jerseyNum(p: WpblPlayer): number {
 
 export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: string) => void }) {
   const [teams, setTeams] = useState<WpblTeam[]>([])
+  // The FULL roster, kept whole for one reason: wpblPlayerPath needs the whole league to decide a
+  // slug is unambiguous (see routes.ts), so a path built from a filtered list could mint a URL that
+  // names the wrong player. Display is the appeared subset below; slugs are always league-wide.
   const [players, setPlayers] = useState<WpblPlayer[]>([])
+  // The ids that show up in a box-score line: who actually played. A line's player_id is the
+  // internal id, so this is a direct set membership against player.id.
+  const [appearedIds, setAppearedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortKey>('club')
@@ -48,8 +56,14 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchWpblTeams(), fetchWpblAllPlayers()])
-      .then(([t, p]) => { if (!cancelled) { setTeams(t); setPlayers(p) } })
+    // Lines are gated in with teams and players (not fetched after) so the page never paints the
+    // full roster for a beat and then drops the non-appearing half: it opens on the filtered list.
+    Promise.all([fetchWpblTeams(), fetchWpblAllPlayers(), fetchWpblAllLines()])
+      .then(([t, p, lines]) => {
+        if (cancelled) return
+        setTeams(t); setPlayers(p)
+        setAppearedIds(new Set([...lines.batting, ...lines.pitching].map(l => l.player_id)))
+      })
       .catch(() => { /* the empty state below is the whole error path */ })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -57,17 +71,21 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
+  // Only players who appeared. `players` stays the whole league for slug building; this is the
+  // display set everything below (groups, search, the count) is drawn from.
+  const appeared = useMemo(() => players.filter(p => appearedIds.has(p.id)), [players, appearedIds])
+
   // Filter first, on every mode. Name is the point; position and jersey number ride along so
   // "SS" or "24" find who you mean without a second control.
   const q = query.trim().toLowerCase()
   const filtered = useMemo(() => {
-    if (!q) return players
-    return players.filter(p =>
+    if (!q) return appeared
+    return appeared.filter(p =>
       p.name.toLowerCase().includes(q)
       || (p.position?.toLowerCase().includes(q) ?? false)
       || (p.jersey_number?.toLowerCase().includes(q) ?? false),
     )
-  }, [players, q])
+  }, [appeared, q])
 
   // Grouped by club, alphabetical within it. Free agents and anyone the feed has not assigned a
   // team land in a trailing group rather than being dropped: a player with no page is exactly the
@@ -150,26 +168,10 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   const shown = filtered.length
 
   return (
-    <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
-      <Box
-        component="a"
-        href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
-        sx={{
-          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
-          color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
-          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
-          bgcolor: 'background.paper',
-          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
-        }}
-      >← Back to WPBL</Box>
-
-      <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 800, mb: 0.5 }}>
-        WPBL Players
-      </Typography>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 1 }}>
-        Every player in the Women&rsquo;s Pro Baseball League, by club. {players.length} in all.
-      </Typography>
+    <WpblPage
+      title="WPBL Players"
+      standfirst={<>Everyone who has played in the Women&rsquo;s Pro Baseball League, by club. {appeared.length} in all.</>}
+    >
       {/* THE ONE LINK ON THE SECTION TO THE COMPARISON PAGES, alongside the chip on a player's
           own card. They are deliberately out of the sitemap (see WPBL_COMPARE_BASE), so being
           linked is the whole of how they are found, and this is the page a crawler already
@@ -220,13 +222,13 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
         </Box>
       </Box>
 
-      {players.length === 0 && (
+      {appeared.length === 0 && (
         <Typography sx={{ color: 'text.secondary' }}>
-          The roster loads here once the league feed has been ingested.
+          The roster loads here once games have been played.
         </Typography>
       )}
 
-      {players.length > 0 && shown === 0 && (
+      {appeared.length > 0 && shown === 0 && (
         <Typography sx={{ color: 'text.secondary', py: 2 }}>
           No players match &ldquo;{query.trim()}&rdquo;.
         </Typography>
@@ -282,7 +284,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           {flat.map(p => <PlayerCell key={p.id} p={p} showTeam />)}
         </Box>
       )}
-    </Box>
+    </WpblPage>
   )
 }
 
