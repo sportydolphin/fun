@@ -1844,6 +1844,20 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         display: 'flex', justifyContent: 'center',
         alignItems: sheet ? { xs: 'flex-end', sm: 'center' } : 'center',
         p: sheet ? { xs: 0, sm: 2 } : { xs: 1, sm: 2 },
+        // The dim fades in over the same beat the sheet takes to travel, instead of snapping to
+        // full black the instant the card starts moving: a hard cut behind a sliding sheet reads
+        // as two unrelated events. Phones and `sheet` only, matching wpblSheetUp on the card, and
+        // an `animation` (not a transition) so styles.css's reduced-motion collapse covers it too.
+        // No `forwards`: the element's own 0.6 is the resting state the keyframe lands on.
+        ...(sheet ? {
+          '@media (max-width: 599.95px)': {
+            animation: 'wpblBackdropIn 260ms cubic-bezier(0.2, 0, 0, 1)',
+            '@keyframes wpblBackdropIn': {
+              from: { backgroundColor: 'rgba(0,0,0,0)' },
+              to: { backgroundColor: 'rgba(0,0,0,0.6)' },
+            },
+          },
+        } : {}),
       }}
     >
       <Box ref={cardRef} sx={{
