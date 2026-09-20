@@ -23,7 +23,7 @@
 import { Box, Typography } from '@mui/material'
 import { WPBL_SOURCES, SOURCE_GROUPS } from './sources'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, hoverOnly } from './ui'
-import { useWpblHeadingTag } from './PageHeading'
+import WpblPage from './WpblPage'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
  *  way it does on any other. Same rule as LeaguePage. */
@@ -31,20 +31,14 @@ const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
 
 export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) => void }) {
-  const headingTag = useWpblHeadingTag()
+  // NO STANDFIRST UNDER THIS HEADING. An opener like "almost nothing on this site is original
+  // reporting" is both true and a terrible thing to say to a reader: this is the page handed to
+  // somebody deciding whether to trust or link to the site, and it would open by talking it down.
+  // The heading names the page and each group's own line says what that group is; a paragraph
+  // apologising for the whole thing helps nobody.
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* NO STANDFIRST UNDER THIS HEADING. An opener like "almost nothing on this site is
-      original reporting" is both true and a terrible thing to say to a reader: this is the
-      page handed to somebody deciding whether to trust or link to the site, and it would open
-      by talking it down. The heading names the page and each group's own line says what that
-      group is; a paragraph apologising for the whole thing helps nobody. */}
-      <Typography component={headingTag} sx={{
-        fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2,
-      }}>
-        Data sources
-      </Typography>
-
+    <WpblPage title="Data sources">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {SOURCE_GROUPS.map(group => {
         const rows = WPBL_SOURCES.filter(s => s.kind === group.kind)
         if (rows.length === 0) return null
@@ -129,7 +123,8 @@ export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) =
         Not affiliated with the WPBL, or with any of the sites above. The MLB section of this site
         is built on the public MLB Stats API in the same way.
       </Typography>
-    </Box>
+      </Box>
+    </WpblPage>
   )
 }
 

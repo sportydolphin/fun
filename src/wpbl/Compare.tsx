@@ -34,14 +34,13 @@ import {
   MICRO_TEXT, FOCUS_RING, useWpblDark,
 } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
-import { useWpblHeadingTag } from './PageHeading'
+import WpblPage from './WpblPage'
 import { useEraBasis } from './EraBasisContext'
 import {
   WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, wpblCompareStartPath,
   wpblCompareSlugFromPath, findWpblComparePair, findWpblPlayerBySlug, wpblPlayerPath,
 } from './routes'
 import { setDynamicSeo } from '../seo'
-import { navBack } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 
@@ -476,7 +475,6 @@ export default function WpblComparePage({ path, onNavigate }: {
   path: string
   onNavigate: (to: string) => void
 }) {
-  const headingTag = useWpblHeadingTag()
   const { basis } = useEraBasis()
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
@@ -600,40 +598,16 @@ export default function WpblComparePage({ path, onNavigate }: {
   // names, not a fourteen-column log: at 720 the two portraits sat a third of a screen apart
   // and read as two separate cards rather than as one comparison.
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: chromePx(560), mx: 'auto', width: '100%' }}>
-      {/* A WAY BACK TO THE SECTION. This is a standalone route, so the sticky pill nav that
-          carries Home / Schedule / Standings is not on the page. `navBack` returns the reader to
-          the screen they came from (usually the player page that opened this), and only falls
-          back to /wpbl when there is nothing behind it, a shared link opened cold. The href
-          stays /wpbl for a crawler, which has no history to go back through. */}
-      <Box
-        component="a"
-        href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
-        sx={{
-          alignSelf: 'flex-start',
-          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5,
-          color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
-          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
-          bgcolor: 'background.paper',
-          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }), ...FOCUS_RING,
-        }}
-      >← Back to WPBL</Box>
-
-      <Typography component={headingTag} sx={{
-        fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2,
-      }}>
-        {pair ? `${pair[0].name} vs ${pair[1].name}` : 'Compare players'}
-      </Typography>
-
-      {!pair && (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.5 }}>
-          {single
-            ? `Pick somebody to put next to ${single.name}.`
-            : 'Pick two players to put their 2026 seasons side by side.'}
-        </Typography>
-      )}
-
+    <WpblPage
+      // Narrower than the standard reading column: a comparison is two heads and two stat lines,
+      // and at the full width the portraits sat a third of a screen apart and read as two cards.
+      maxWidth={chromePx(560)}
+      title={pair ? `${pair[0].name} vs ${pair[1].name}` : 'Compare players'}
+      standfirst={!pair
+        ? (single ? `Pick somebody to put next to ${single.name}.` : 'Pick two players to put their 2026 seasons side by side.')
+        : undefined}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
       {(pair || single) && (
         <Box sx={{
           display: 'flex', alignItems: 'stretch', gap: 1,
@@ -711,6 +685,7 @@ export default function WpblComparePage({ path, onNavigate }: {
           </Box>
         </>
       )}
-    </Box>
+      </Box>
+    </WpblPage>
   )
 }

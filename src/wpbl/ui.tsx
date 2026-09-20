@@ -347,6 +347,9 @@ export const MICRO_TEXT = '0.68rem'
  * next size added has to be a decision about the scale rather than a number typed into an `sx`.
  */
 export const TYPE_SCALE = {
+  /** A standalone page's own title (the <h1> on /wpbl/league, /wpbl/season and the rest).
+   *  Bigger than `display`, which is the largest thing INSIDE a card; this is the page itself. */
+  page: '1.5rem',
   /** Club names on Next game, the one thing a card is about. */
   display: '1.2rem',
   /** Section headings, and a leaderboard's first row. */

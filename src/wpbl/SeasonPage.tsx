@@ -38,8 +38,8 @@ import { useRowFlip, useRowDividers } from './rowFlip'
 import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
 import { wpblColor, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, hoverOnly, pressable, TeamBadge } from './ui'
-import { navBack } from '../nav'
+import { TAPPABLE, FOCUS_RING, pressable, TeamBadge } from './ui'
+import WpblPage, { SectionHeading } from './WpblPage'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
   WpblSprayPlay, WpblStandingRow,
@@ -155,13 +155,6 @@ function StatTile({ value, label, sub, highlight }: { value: string; label: stri
   )
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography component="h2" sx={{ fontSize: '1.15rem', fontWeight: 800, mt: 4, mb: 1.5 }}>
-      {children}
-    </Typography>
-  )
-}
 
 export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   onNavigate: (to: string) => void
@@ -346,29 +339,14 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   const teamHref = (t: WpblTeam) => wpblTeamPath(t, teams)
 
   return (
-    <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
-      <Box
-        component="a"
-        href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
-        sx={{
-          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
-          color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
-          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
-          bgcolor: 'background.paper',
-          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
-        }}
-      >← Back to WPBL</Box>
-
-      <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 800, mb: 0.5 }}>
-        The 2026 season
-      </Typography>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3 }}>
+    <WpblPage
+      title="The 2026 season"
+      standfirst={<>
         The Women&rsquo;s Pro Baseball League&rsquo;s first season, read back through its own
         numbers: the final table and the race to it, the leaders, the things that
         make it its own league, and the plays its games turned on.{gameCount > 0 && ` Regular season, ${gameCount} games.`}
-      </Typography>
-
+      </>}
+    >
       {!hasData && (
         <Typography sx={{ color: 'text.secondary' }}>
           The season fills in here once the league feed has been ingested.
@@ -589,7 +567,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           )}
         </>
       )}
-    </Box>
+    </WpblPage>
   )
 }
 

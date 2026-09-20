@@ -25,7 +25,7 @@ import MediaShelf from './MediaShelf'
 import { Chevron, FOCUS_RING, pressable, TAPPABLE, hoverOnly } from './ui'
 import { byCountry, placeOf } from './derive/hometowns'
 import { wpblPlayerPath } from './routes'
-import { navBack } from '../nav'
+import WpblPage from './WpblPage'
 import type {
   WpblArticle, WpblPhoto, WpblPlayer, WpblTeam, WpblVideo, WpblGame,
   WpblBattingLine, WpblPitchingLine,
@@ -124,32 +124,17 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
   }
 
   return (
-    <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
-      <Box
-        component="a"
-        href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
-        sx={{
-          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
-          color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
-          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
-          bgcolor: 'background.paper',
-          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
-        }}
-      >← Back to WPBL</Box>
-
-      <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 800, mb: 0.5 }}>
-        The league
-      </Typography>
-      {/* NO TENSE. "played its first season" is wrong while it is being played and right
-          afterwards, and this page is the one built to outlive the feed, so it would be wrong
-          for the six weeks it matters most or wrong forever after. A colon is not a verb. */}
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3 }}>
+    <WpblPage
+      title="The league"
+      // NO TENSE. "played its first season" is wrong while it is being played and right
+      // afterwards, and this page is the one built to outlive the feed, so it would be wrong
+      // for the six weeks it matters most or wrong forever after. A colon is not a verb.
+      standfirst={<>
         The Women&rsquo;s Pro Baseball League&rsquo;s first season, 2026: four clubs and{' '}
         {players.length} players
         {countries.length > 1 && ` from ${countries.length} countries`}.
-      </Typography>
-
+      </>}
+    >
       {/* Reading, Highlights and the archive, here rather than on Home: all three are about the
       league rather than about today's games, and none of them needs a live feed. On Home they
       were three screens that 575 browsers saw and 39 used. Above the roster, because the roster
@@ -303,6 +288,6 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
           })}
         </>
       )}
-    </Box>
+    </WpblPage>
   )
 }

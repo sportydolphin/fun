@@ -18,8 +18,8 @@ import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblSchedule, fetchWpblTeams } from './api'
 import { wpblScorigami, scorigamiKey, type ScorigamiCell } from './derive/scorigami'
 import { wpblGamePath } from './routes'
-import { TAPPABLE, FOCUS_RING, hoverOnly } from './ui'
-import { navBack } from '../nav'
+import { TAPPABLE, FOCUS_RING } from './ui'
+import WpblPage from './WpblPage'
 import type { WpblGame, WpblTeam } from './types'
 
 const isModified = (e: React.MouseEvent) =>
@@ -91,32 +91,17 @@ export default function WpblScorigami({ onOpenGame }: {
   }
 
   return (
-    <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
-      <Box
-        component="a"
-        href="/wpbl"
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
-        sx={{
-          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
-          color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
-          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
-          bgcolor: 'background.paper',
-          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
-        }}
-      >&larr; Back to WPBL</Box>
-
-      <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 800, mb: 0.5 }}>
-        WPBL Scorigami
-      </Typography>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3, maxWidth: gridWidth }}>
+    <WpblPage
+      title="WPBL Scorigami"
+      standfirst={<>
         Every final score the Women&rsquo;s Pro Baseball League has produced. The winning score reads
         down the side, the losing score across the top, so each lit square is one score that has
         happened.{' '}
         {hasData
           ? `${grid.cells.size} different final scores across ${grid.totalGames} games so far, and in an inaugural season nearly every one is a first: the grid fills in as the seasons stack.`
           : ''}
-      </Typography>
-
+      </>}
+    >
       {!hasData && (
         <Typography sx={{ color: 'text.secondary' }}>
           The grid fills in here once games go final.
@@ -227,6 +212,6 @@ export default function WpblScorigami({ onOpenGame }: {
           is a score wherever it happened.
         </Typography>
       )}
-    </Box>
+    </WpblPage>
   )
 }
