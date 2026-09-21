@@ -291,6 +291,11 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
    * The caps are per SIDE on purpose. Capping the total would make the window lopsided at both
    * ends of a season: in April every game is upcoming and no result would show, and in the last
    * week there is one game left and the strip would be weeks of old scores.
+   *
+   * The finals cap is a FLOOR that grows: any of the four upcoming slots with no fixture to fill it
+   * is handed to another recent final, so the row stays seven chips wide and does not trail off into
+   * empty space on the desktop once the season runs low on games ahead. `UPCOMING` is what still
+   * caps the total, so the sum is never more than the seven that fit.
    */
   const RECENT_FINALS = 3
   const UPCOMING = 4
@@ -308,8 +313,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
    * the one time a strip of results is the whole story.
    */
   const { strip, anchorIndex } = useMemo(() => {
-    const head: StripItem[] = games.filter(g => g.status === 'final').slice(-RECENT_FINALS)
-      .map(g => ({ kind: 'game', id: g.id, game: g }))
+    const finals = games.filter(g => g.status === 'final')
     const rest: StripItem[] = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
       .map(g => ({ kind: 'game', id: g.id, game: g }))
     // The postseason fills whatever is left of the four upcoming slots: none of them during the
@@ -329,6 +333,14 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
       if (rest.length >= UPCOMING) break
       rest.push({ kind: 'post', id: r.id, row: r })
     }
+    // Every upcoming slot with no fixture to fill it is handed back to the finals side, so the strip
+    // stays a full seven-chip row instead of trailing off into empty desktop space in the last week
+    // of a season, when there is little or nothing still ahead. The extra results sit to the LEFT of
+    // the anchored next game: a phone keeps them one swipe away and unchanged, and the desktop, which
+    // shows the whole row, simply fills to its edge. The sum is still capped at the seven that fit.
+    const headCount = RECENT_FINALS + (UPCOMING - rest.length)
+    const head: StripItem[] = finals.slice(-headCount)
+      .map(g => ({ kind: 'game', id: g.id, game: g }))
     return {
       strip: [...head, ...rest],
       anchorIndex: rest.length > 0 ? head.length : Math.max(0, head.length - 1),
