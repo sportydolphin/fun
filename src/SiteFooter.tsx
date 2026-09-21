@@ -49,46 +49,71 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
 
           So the count was mostly not the problem and the flatness was: twelve links of four
           different kinds presented as one run of words. They are grouped now, by what a reader is
-          looking for, pages first. The ONE link that could move did: the API docs are reached
-          from the sources page, since where the data came from and how to take it are the same
-          conversation, and that is what gets the first row onto one line on a phone. */}
+          looking for. The six page links, which almost no reader wants and every crawler must
+          reach, are folded into a `More pages` expander (a `<details>`, so the anchors stay in the
+          DOM); the API docs moved onto the sources page for the same why, where the data came from
+          and how to take it being one conversation. What is left open is the row a reader acts on
+          and the fine print. */}
       <Box sx={{
         maxWidth: 1100, mx: 'auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
         fontSize: '0.72rem', color: 'text.disabled',
       }}>
         {isWpbl && (
-          <FooterRow>
-            {/* The players index, and the reason it leads. It is the one page carrying a real
-                <a href> to each of the 118 player pages, and until this line nothing on the
-                site linked to it: the nav has no Players tab and the boards reach a player
-                through a modal. So every player URL sat in the sitemap with no internal link
-                pointing anywhere near it, which is the orphan-page shape Google discounts.
-                Keyword-shaped anchor text for the same reason as the section switch below. */}
-            <Box component="a" href={WPBL_PLAYERS_INDEX} onClick={e => { e.preventDefault(); onNavigate(WPBL_PLAYERS_INDEX) }} sx={linkSx}>WPBL players</Box>
-            <Dot />
-            <Box component="a" href={WPBL_LEAGUE_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_LEAGUE_PAGE) }} sx={linkSx}>The league</Box>
-            <Dot />
-            {/* The one link that takes the row past four, which the note above says stops it
-                fitting a phone on one line. It wraps to a second line there and that is the right
-                trade: like the three pages beside it the season page has no nav pill, so the
-                footer is a reader's only way in and a crawler's only link to follow. Keyword-shaped
-                anchor for the same reason as the rest. */}
-            <Box component="a" href={WPBL_SEASON_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SEASON_PAGE) }} sx={linkSx}>2026 season</Box>
-            <Dot />
-            {/* Same reasoning as the season link beside it: no nav pill, so the footer is the only
-                way in for a reader and the only link a crawler can follow. Keyword-shaped anchor. */}
-            <Box component="a" href={WPBL_SCORIGAMI_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SCORIGAMI_PAGE) }} sx={linkSx}>Scorigami</Box>
-            <Dot />
-            <Box component="a" href={WPBL_GLOSSARY_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_GLOSSARY_PAGE) }} sx={linkSx}>Rules &amp; glossary</Box>
-            <Dot />
-            {/* THE API DOCS USED TO SIT HERE AND NOW LIVE ON THE SOURCES PAGE, which is the one
-                consolidation this footer had available: the two say where the data came from and
-                how to take it, which is the same conversation, and four links fit a phone on one
-                line where five did not. It means `/wpbl/api` is now reached through this page
-                rather than directly, so this link is load-bearing for both of them. */}
-            <Box component="a" href={WPBL_SOURCES_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SOURCES_PAGE) }} sx={linkSx}>Data sources</Box>
-          </FooterRow>
+          // FOLDED AWAY, NOT DELETED, and the difference is the whole reason this is a `<details>`
+          // and not a shorter list. These six are the site's ONLY crawlable <a href> to their pages
+          // (the note on each link below says why; the header's More menu links them too but from
+          // inside a MUI Menu that is not in the DOM until it opens, which a crawler never does). A
+          // closed `<details>` keeps every link IN the DOM, so a crawler still follows them, while a
+          // reader who does not want them sees one line instead of a wrapping run of twelve words.
+          // The links must therefore stay real anchors here: an onClick-only control would vanish
+          // from the crawl the moment it left the open row.
+          <Box
+            component="details"
+            sx={{
+              width: '100%', textAlign: 'center',
+              // The summary reads as one more footer link, not a form control: same muted-to-accent
+              // treatment, and the default disclosure triangle removed (Blink/WebKit both) in favour
+              // of a caret that turns when it opens.
+              '& > summary': { ...linkSx, display: 'inline-flex', alignItems: 'center', gap: 0.3, listStyle: 'none' },
+              '& > summary::-webkit-details-marker': { display: 'none' },
+              '&[open] .footer-caret': { transform: 'rotate(180deg)' },
+            }}
+          >
+            <Box component="summary">
+              More pages
+              <Box component="span" className="footer-caret" aria-hidden sx={{ fontSize: '0.6rem', transition: 'transform 0.15s' }}>▾</Box>
+            </Box>
+            <Box sx={{ mt: 0.75 }}>
+              <FooterRow>
+                {/* The players index. It is the one page carrying a real <a href> to each of the 118
+                    player pages, and nothing else on the site links to it: the nav has no Players tab
+                    and the boards reach a player through a modal. So every player URL sat in the
+                    sitemap with no internal link pointing anywhere near it, the orphan-page shape
+                    Google discounts. Keyword-shaped anchor text for the same reason as the section
+                    switch below. */}
+                <Box component="a" href={WPBL_PLAYERS_INDEX} onClick={e => { e.preventDefault(); onNavigate(WPBL_PLAYERS_INDEX) }} sx={linkSx}>WPBL players</Box>
+                <Dot />
+                <Box component="a" href={WPBL_LEAGUE_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_LEAGUE_PAGE) }} sx={linkSx}>The league</Box>
+                <Dot />
+                {/* Like the pages beside it the season page has no nav pill, so the footer is a
+                    reader's only way in and a crawler's only link to follow. Keyword-shaped anchor. */}
+                <Box component="a" href={WPBL_SEASON_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SEASON_PAGE) }} sx={linkSx}>2026 season</Box>
+                <Dot />
+                {/* Same reasoning as the season link beside it: no nav pill, so the footer is the only
+                    way in for a reader and the only link a crawler can follow. Keyword-shaped anchor. */}
+                <Box component="a" href={WPBL_SCORIGAMI_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SCORIGAMI_PAGE) }} sx={linkSx}>Scorigami</Box>
+                <Dot />
+                <Box component="a" href={WPBL_GLOSSARY_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_GLOSSARY_PAGE) }} sx={linkSx}>Rules &amp; glossary</Box>
+                <Dot />
+                {/* THE API DOCS LIVE ON THE SOURCES PAGE, which is the one consolidation this footer
+                    had available: the two say where the data came from and how to take it, the same
+                    conversation. `/wpbl/api` is reached through this page rather than directly, so this
+                    link is load-bearing for both of them. */}
+                <Box component="a" href={WPBL_SOURCES_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SOURCES_PAGE) }} sx={linkSx}>Data sources</Box>
+              </FooterRow>
+            </Box>
+          </Box>
         )}
 
         <FooterRow>
