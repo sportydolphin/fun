@@ -217,6 +217,9 @@ export type WpblLinesResult = { batting: WpblBattingLine[]; pitching: WpblPitchi
 let allPlayersCache:  { data: WpblPlayer[]; at: number } | null = null
 let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
 let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
+// Just the distinct game ids that carry tracking, for Home's "new tracking batch" banner. See
+// fetchWpblTrackedGameIds for why this exists separately from the full table above.
+let trackedGameIdsCache: { data: string[]; at: number } | null = null
 let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 let allPitchPlaysCache: { data: WpblPitchPlay[]; at: number } | null = null
 let allRunValuePlaysCache: { data: WpblRunValuePlay[]; at: number } | null = null
@@ -245,6 +248,7 @@ const isFresh = (c: { at: number } | null): boolean => !!c && Date.now() - c.at 
 export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
+export function getCachedWpblTrackedGameIds(): string[] | null { return trackedGameIdsCache?.data ?? null }
 export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
 export function getCachedWpblAllPitchPlays(): WpblPitchPlay[] | null { return allPitchPlaysCache?.data ?? null }
 export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { return allRunValuePlaysCache?.data ?? null }
@@ -351,10 +355,15 @@ export function wpblTrackingCacheAgeMs(): number {
   return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, allTrackingCache.at)
 }
 
-/** Age (ms) of the full set the Home tab reads (players+lines+plays+tracking); Infinity until all seeded. */
+/** Age (ms) of the set Home's own effect reads (players + lines + the tracked-game-id list its
+ *  banner needs); Infinity until all three are seeded, which is what makes a warm re-entry skip
+ *  the refetch. It deliberately does NOT wait on the run-value play log: that is fetched last and
+ *  on its own, so gating warmth on it would keep Home "cold" for the second it takes to land and
+ *  refetch everything else needlessly. (It used to wait on the firsts play log, which Home has
+ *  not read since the Hall of Firsts came off, so this never went warm at all.) */
 export function wpblHomeCacheAgeMs(): number {
-  if (!allPlayersCache || !allLinesCache || !allTrackingCache || !allPlaysCache) return Infinity
-  return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, allTrackingCache.at, allPlaysCache.at)
+  if (!allPlayersCache || !allLinesCache || !trackedGameIdsCache) return Infinity
+  return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, trackedGameIdsCache.at)
 }
 
 // Every player in the league (all four rosters): the name pool for search, for slugs, and for
@@ -758,6 +767,35 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   // doesn't clobber a previously good result.
   if (out.length > 0 || allTrackingCache == null) allTrackingCache = { data: out, at: Date.now() }
   return out
+  })
+}
+
+/**
+ * Just the distinct game ids that carry tracking, for Home's "new tracking batch" banner.
+ *
+ * The banner reduces the whole tracking table to `new Set(game_id)` (see `useNewTrackingBatch` in
+ * Home.tsx), so calling `fetchWpblAllTracking` for it moved the entire table across the wire to
+ * count a handful of games: 766 rows for a set of 2 today, and it grows with every tracked game
+ * while the answer stays tiny. This reads the ONE column instead, and the full table stays behind
+ * `fetchWpblAllTracking` for the Tracking tab, which actually plots the pitches.
+ *
+ * PAGED with a deterministic order, the section's "read every row" rule. A skipped row cannot
+ * drop a game id here, since a tracked game brings hundreds of rows and its id survives a lost
+ * one, but the read still has to reach every page or a whole game could vanish once tracking
+ * outgrows one page.
+ */
+export function fetchWpblTrackedGameIds(): Promise<string[]> {
+  if (isFresh(trackedGameIdsCache)) return Promise.resolve(trackedGameIdsCache!.data)
+  return once('trackedGameIds', async () => {
+    const rows = await fetchAllPaged<{ game_id: string }>('fetchWpblTrackedGameIds', (from, to) =>
+      supabase.from('wpbl_pitch_tracking').select('game_id')
+        .order('activity_id', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: { game_id: string }[] | null; error: unknown }>)
+    const ids = [...new Set(rows.map(r => String(r.game_id)))]
+    // Last-good, like the table read above: a transient empty must not clobber a good set.
+    if (ids.length > 0 || trackedGameIdsCache == null) trackedGameIdsCache = { data: ids, at: Date.now() }
+    return ids
   })
 }
 

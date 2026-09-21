@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, ListSubheader, SwipeableDrawer } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
-  fetchWpblAllLines, fetchWpblAllTracking, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
+  fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { applyLeagueStartTimes } from './startTimes'
@@ -1500,7 +1500,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     if (!landsOnHome.current) return
     void Promise.all([
       fetchWpblAllLines(),
-      fetchWpblAllTracking(),
+      fetchWpblTrackedGameIds(),
       fetchWpblVideos(),
       fetchWpblArticles(),
     ]).catch(() => { /* Home's own effect surfaces failures; this is only a head start */ })

@@ -114,9 +114,15 @@ export interface WpblFieldingTotals {
   fpct: number | null   // fielding %: (PO + A) / (PO + A + E)
 }
 
-export function sumFielding(lines: WpblFieldingLine[]): WpblFieldingTotals {
-  const t = { g: lines.length, po: 0, a: 0, e: 0, pb: 0, sba: 0, dp: 0 }
-  for (const l of lines) {
+// Scoped like `sumBatting` / `sumPitching`, and for the same reason: a fielding line carries a
+// `game_id` and nothing else about the game, so without the schedule a semifinal's putouts and
+// errors fold straight into the season line. This was the one summary left unscoped, so a
+// finalist's fielding on her player page counted her postseason while her batting and pitching
+// beside it did not. `games` is REQUIRED to keep forgetting it from being silent.
+export function sumFielding(lines: WpblFieldingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblFieldingTotals {
+  const scoped = scopedLines(lines, games, scope)
+  const t = { g: scoped.length, po: 0, a: 0, e: 0, pb: 0, sba: 0, dp: 0 }
+  for (const l of scoped) {
     t.po += l.po; t.a += l.a; t.e += l.e; t.pb += l.pb; t.sba += l.sba; t.dp += l.dp
   }
   const chances = t.po + t.a + t.e

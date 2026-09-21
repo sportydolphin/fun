@@ -309,6 +309,45 @@ export function buildBracket(rows: WpblStandingRow[], games: WpblGame[]): WpblBr
   }
 }
 
+/** The champion, the club it beat, and the series score, in one place so every surface that
+ *  names the champion (the Home banner, the Home season-recap card, the season page's champion
+ *  block) reads the same facts off the same record rather than re-deriving which side won. Null
+ *  until the final is decided, which is exactly when `bracket.champion` is set. */
+export interface ChampionResult {
+  champion: WpblTeam
+  runnerUp: WpblTeam | null
+  champWins: number
+  rivalWins: number
+}
+
+/** The clubs that can still win the title: the champion alone once decided, otherwise every club
+ *  not yet eliminated (a semifinal winner is through to the final; a semifinal still in progress
+ *  leaves both its clubs alive). Empty when there is no bracket. Pure, so the dev season-finale
+ *  simulator can pick a plausible champion off it on Home and the season page alike. */
+export function aliveContenders(bracket: WpblBracket): WpblTeam[] {
+  if (bracket.champion) return [bracket.champion]
+  const out: WpblTeam[] = []
+  const seen = new Set<string>()
+  const add = (t: WpblTeam | null | undefined) => { if (t && !seen.has(t.id)) { seen.add(t.id); out.push(t) } }
+  for (const s of bracket.semifinals) {
+    if (s.winner) add(s.winner)
+    else { add(s.home.team); add(s.away.team) }
+  }
+  return out
+}
+
+export function championResult(bracket: WpblBracket): ChampionResult | null {
+  const s = bracket.championship
+  if (!s.winner) return null
+  const champIsHome = s.winner.id === s.home.team?.id
+  return {
+    champion: s.winner,
+    runnerUp: champIsHome ? s.away.team : s.home.team,
+    champWins: champIsHome ? s.home.wins : s.away.wins,
+    rivalWins: champIsHome ? s.away.wins : s.home.wins,
+  }
+}
+
 // ─── The postseason on the schedule ─────────────────────────────────────────
 
 /** One side of a postseason game before the feed has a row for it. */

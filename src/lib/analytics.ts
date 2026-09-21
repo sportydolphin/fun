@@ -58,6 +58,11 @@ export const EVENTS = {
   // problem and the shelf should come back.
   WPBL_LEAGUE_CARD_SHOWN: 'wpbl_league_card_shown', // Home's league card rendered, once per mount
   WPBL_LEAGUE_CARD_OPEN:  'wpbl_league_card_open',  // tapped through to /wpbl/league, props {from}
+  // Home's season-recap card, which replaces the Next-game card once the season has no games
+  // ahead: it is the offseason's one route from Home into /wpbl/season, so both halves are worth
+  // knowing separately, same as the league card above.
+  WPBL_SEASON_CARD_SHOWN: 'wpbl_season_card_shown', // Home's season-recap card rendered, props {champion}
+  WPBL_SEASON_CARD_OPEN:  'wpbl_season_card_open',  // tapped through to /wpbl/season, props {from}
   // The Stats tab, which is the most-viewed surface in the section and was, until these,
   // entirely unmeasured below the tab itself. Its axes (Hitting/Pitching × Season/Tracked,
   // Players/Teams, and Draft) never touch the URL, so Cloudflare cannot see them and the

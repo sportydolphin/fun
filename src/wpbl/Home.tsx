@@ -1,24 +1,24 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Box, Typography, Skeleton, Switch, alpha } from '@mui/material'
-import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined } from '@mui/icons-material'
+import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined, EmojiEventsOutlined } from '@mui/icons-material'
 import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
 import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './reminders'
 import {
-  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllTracking, computeStandings, countsInStandings,
+  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameIds, computeStandings, countsInStandings,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
-  getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
+  getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblTrackedGameIds, wpblHomeCacheAgeMs,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
-import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
+import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
-import { postseasonScheduleRows, postseasonSlots, BEST_OF, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
+import { postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -28,6 +28,9 @@ import { track, EVENTS } from '../lib/analytics'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
+// Dev only: the settings gear can force the championship banner on with a random winner. Its own
+// module for the bundle reason in discordInvite.ts; the whole listener is DEV-guarded below.
+import { DEV_CHAMPION_EVENT, devChampionState, type DevChampionState } from './dev/devChampion'
 import { LastGameCard } from './RecapCard'
 import FeedDelayNote from './FeedDelayNote'
 import { WpblGamePreview, WpblMatchupPreview } from './GamePreview'
@@ -38,7 +41,7 @@ import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
 import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
 // column on a phone. Everything on it is derived from data the section already caches: the
@@ -861,11 +864,16 @@ export function nextGameContext(
  * Sizes on this card come from `TYPE_SCALE`, like the rest of the page. The scale, and the test
  * that keeps a raw rem literal out of this file, live in ui.tsx.
  */
-function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
+function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForceRecap, devChampion }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
   /** The dated-but-unpublished postseason, for when the feed has run out of games. */
   postseason: PostseasonScheduleRow[]
   onOpenGame: (g: WpblGame) => void
+  /** Dev only: force the season-recap card into this slot regardless of the real schedule, to
+   *  simulate the season being over. Always false in production (see WpblHome). */
+  devForceRecap?: boolean
+  /** Dev only: the simulated champion for that forced card (null while the final is "in progress"). */
+  devChampion?: WpblTeam | null
 }) {
   const gameLink = useWpblGameLink()
   const isDark = useWpblDark()
@@ -897,7 +905,20 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
   // It retires itself the same way the strip's rows do: `postseasonScheduleRows` drops a row as
   // soon as the feed carries a real game on its date, so the branch below stops being reached
   // without anything having to be deleted.
-  if (!next) return <NextPostseasonCard rows={postRows} teams={teams} games={games} />
+  // Dev only: the season-finale simulator forces the recap card here regardless of the real
+  // schedule, so the end-of-season Home can be seen before the final is played. `import.meta.env.DEV`
+  // is first so this whole branch drops from production.
+  if (import.meta.env.DEV && devForceRecap) {
+    return <SeasonRecapPreviewCard teams={teams} games={games} devChampion={devChampion} />
+  }
+  // Nothing in the feed ahead falls to the postseason calendar; once THAT is exhausted too, the
+  // season is over and this slot becomes the recap card. Same retire-by-emptiness the strip uses,
+  // so the pivot happens the moment the final goes live and nothing has to be deleted or dated.
+  if (!next) {
+    return nextPostseasonRow(postRows)
+      ? <NextPostseasonCard rows={postRows} teams={teams} games={games} />
+      : <SeasonRecapPreviewCard teams={teams} games={games} />
+  }
   const g = next.g
   const away = teams.get(g.away_team_id)
   const home = teams.get(g.home_team_id)
@@ -1135,28 +1156,314 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
  * away over home is how a fixture is written, the rows are stacked in that order, and a card
  * whose whole point is the next game does not need a character to say which club is at home.
  */
+/**
+ * The season, in one card, once there are no games ahead.
+ *
+ * It takes the Next-game slot from the moment the final goes live (see the pivot in
+ * `NextGameCard`): with no next game to count down to, the card that led "what is on" leads "what
+ * happened" instead. Champion-first once the title is decided, the season's framing while the
+ * final is still being played, and either way the offseason's one route from Home into the full
+ * recap at `/wpbl/season` (which the More menu and the footer also link).
+ *
+ * Self-contained on `games` + `teams`: the standings and the bracket are a few maps over the
+ * schedule it already holds, so computing them here keeps it a drop-in for the slot rather than
+ * another prop threaded down through `NextGameCard`. A real `<a href>` via `trackedLinkTo`, the
+ * crawl-path rule the league card and the footer follow.
+ */
+/** The championship series games in date order, for the in-progress card's game log. The two
+ *  finalists meet only in the championship, so any postseason game between them is a title game. */
+function championshipGames(games: WpblGame[], aId: string, bId: string): WpblGame[] {
+  return games
+    .filter(g => !countsInStandings(g)
+      && ((g.home_team_id === aId && g.away_team_id === bId) || (g.home_team_id === bId && g.away_team_id === aId)))
+    .sort((x, y) => (x.game_date < y.game_date ? -1 : x.game_date > y.game_date ? 1 : 0))
+}
+
+/** The stakes on a live championship game, or null while nobody is a win from the title yet:
+ *  "Winner takes the title" when the series is level at the brink (a 2-2 in a best-of-five), else
+ *  "<club> can clinch" when one club leads and can end it. `winsNeeded` keeps it right if the
+ *  series length ever changes. */
+function finalTitleStake(series: BracketSeries): string | null {
+  const need = winsNeeded('championship')
+  const { home: h, away: a } = series
+  if (Math.max(h.wins, a.wins) !== need - 1) return null
+  if (h.wins === a.wins) return 'Winner takes the title'
+  const lead = h.wins > a.wins ? h : a
+  return lead.team ? `${lead.team.name} can clinch` : null
+}
+
+function SeasonRecapPreviewCard({ teams, games, devChampion }: {
+  teams: Map<string, WpblTeam>; games: WpblGame[]
+  /** Dev only: a simulated champion to headline instead of the real one, with no series line
+   *  since a random winner is not the club that actually led the final. Null (or absent) shows
+   *  whatever the real bracket gives, which is the pre-champion state while the final is on. */
+  devChampion?: WpblTeam | null
+}) {
+  const isDark = useWpblDark()
+  const teamList = useMemo(() => [...teams.values()], [teams])
+  const standings = useMemo(() => computeStandings(teamList, games), [teamList, games])
+  const bracket = useMemo(() => buildBracket(standings, games), [standings, games])
+  const realChamp = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
+  // The dev simulation headlines its own club with no series line; otherwise the real champion,
+  // which carries one. Either resolves to a club to headline, or none for the pre-champion state.
+  const champTeam = devChampion ?? realChamp?.champion ?? null
+  const series = devChampion ? null : realChamp
+  // The title series is being played RIGHT NOW: the recap card only reaches its pre-champion state
+  // when the postseason calendar is exhausted, so a live championship series (started, no winner)
+  // means the final is under way. This is the one moment the card should lead with the game rather
+  // than the recap. `status === 'live'` guarantees both finalists are known. Not while a dev forces
+  // a champion, which takes precedence.
+  const finalSeries = bracket?.championship ?? null
+  const finalInProgress = !champTeam && !!finalSeries && finalSeries.status === 'live'
+  // The regular-season leader, for the teaser line while the title is not yet decided. `rows[0]`
+  // is first by the same `computeStandings` the Standings tab and card use, so the three agree.
+  const leader = standings[0] ?? null
+  // The title-series games, for the in-progress and finished bodies' logs. Computed whenever the
+  // championship pairing is known (both finalists), which is the only time either body draws.
+  const finalLog = useMemo(
+    () => finalSeries?.home.team && finalSeries?.away.team
+      ? championshipGames(games, finalSeries.home.team.id, finalSeries.away.team.id)
+      : [],
+    [finalSeries, games])
+
+  const shown = useRef(false)
+  useEffect(() => {
+    if (shown.current) return
+    shown.current = true
+    track(EVENTS.WPBL_SEASON_CARD_SHOWN, { champion: champTeam?.id ?? null })
+  }, [champTeam])
+
+  return (
+    <SectionCard title="2026 season" fill>
+      {/* The whole body is the link, the way the league card's is: a card whose one job is to send
+          a reader to the recap should open it from anywhere on the card, not just a trailing word.
+          `flex: 1` + centred so it absorbs whatever height the card beside it (Last game) forces,
+          the same trick the real Next-game card uses in this slot. */}
+      <Box
+        {...trackedLinkTo(WPBL_SEASON_PAGE, EVENTS.WPBL_SEASON_CARD_OPEN, { from: 'home' })}
+        sx={{
+          flex: 1, display: 'flex', flexDirection: 'column', gap: 1.25,
+          // Top-aligned for the two full-space bodies (the final in progress, and the champion with
+          // its series), so each fills from the top and its CTA pins to the bottom; centred for the
+          // off-season line or two.
+          justifyContent: finalInProgress || champTeam ? 'flex-start' : 'center',
+          textDecoration: 'none', color: 'inherit', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE,
+        }}
+      >
+        {finalInProgress && finalSeries ? (
+          <ChampionshipInProgressBody series={finalSeries} teams={teams} log={finalLog} />
+        ) : champTeam ? (
+          <ChampionRecapBody champion={champTeam} series={series} teams={teams} log={finalLog} isDark={isDark} />
+        ) : (
+          <>
+            <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15 }}>
+              The season, in full
+            </Typography>
+
+            {/* One line of fact so the card is not a bare link: the club that led the regular season. */}
+            {leader ? (
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
+                {wpblFullName(leader.team)} finished on top at {leader.wins}–{leader.losses}.
+              </Typography>
+            ) : null}
+
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
+              The final table and the race to it, the leaders, and the plays the season turned on.
+            </Typography>
+
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-solid)' }}>
+              Read the 2026 recap ›
+            </Typography>
+          </>
+        )}
+      </Box>
+    </SectionCard>
+  )
+}
+
+/** The in-progress card's body: the title series as a scoreboard, so the height the slot gives it
+ *  carries the series rather than white space. A gold "in progress" eyebrow, the two clubs with
+ *  their series wins, the stakes, and a game-by-game log; the CTA pins to the bottom. */
+function ChampionshipInProgressBody({ series, teams, log }: {
+  series: BracketSeries; teams: Map<string, WpblTeam>; log: WpblGame[]
+}) {
+  const isDark = useWpblDark()
+  const home = series.home.team, away = series.away.team
+  if (!home || !away) return null
+  const stake = finalTitleStake(series)
+
+  const clubRow = (t: WpblTeam, wins: number, leads: boolean) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.85, bgcolor: wpblSurface(t.id, isDark) }}>
+      <TeamBadge team={t} size={26} />
+      <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{wpblFullName(t)}</Typography>
+      <Typography sx={{
+        fontSize: TYPE_SCALE.display, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
+        color: leads ? 'text.primary' : 'text.secondary',
+      }}>{wins}</Typography>
+    </Box>
+  )
+
+  return (
+    <>
+      {/* Gold "in progress" eyebrow with a live pulse, so it reads as happening rather than as a fixture. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, '@keyframes wpblpulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.3 }, '100%': { opacity: 1 } } }}>
+        <Box aria-hidden sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'var(--wpbl-medal-1)', animation: 'wpblpulse 1.5s ease-in-out infinite' }} />
+        <Typography sx={{
+          fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+          color: 'var(--wpbl-medal-1)',
+        }}>Championship · in progress</Typography>
+      </Box>
+
+      {/* The two clubs and the series score, in the section's club-band treatment. */}
+      <Box sx={CLUB_BAND}>
+        {clubRow(home, series.home.wins, series.home.wins > series.away.wins)}
+        {clubRow(away, series.away.wins, series.away.wins > series.home.wins)}
+      </Box>
+
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
+        Best of {BEST_OF.championship}{stake ? ` · ${stake}` : ''}
+      </Typography>
+
+      <SeriesGameLog log={log} teams={teams} />
+
+      <Box sx={{ flex: 1 }} />
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-solid)' }}>
+        The season so far ›
+      </Typography>
+    </>
+  )
+}
+
+/** The championship series, game by game, in two columns. Played games carry the score with the
+ *  winner in ink; a decider still to come carries its date. Two columns, not a stack, so it spends
+ *  the card's WIDTH (as empty as its height) and keeps the card no taller than it was before.
+ *  Shared by the in-progress and the finished (champion) bodies. */
+function SeriesGameLog({ log, teams }: { log: WpblGame[]; teams: Map<string, WpblTeam> }) {
+  if (log.length === 0) return null
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1.5, rowGap: 0.35, mt: 0.25 }}>
+      {log.map((g, i) => {
+        const a = teams.get(g.away_team_id), h = teams.get(g.home_team_id)
+        const played = g.status === 'final' && g.home_score != null && g.away_score != null
+        const awayWon = played && g.away_score! > g.home_score!
+        const homeWon = played && g.home_score! > g.away_score!
+        return (
+          <Box key={g.id} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', minWidth: '3.4rem', flexShrink: 0 }}>
+              Game {i + 1}
+            </Typography>
+            {played ? (
+              <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, fontVariantNumeric: 'tabular-nums', minWidth: 0 }}>
+                <Box component="span" sx={{ fontWeight: awayWon ? 800 : 600, color: awayWon ? 'text.primary' : 'text.secondary' }}>{a?.abbr} {g.away_score}</Box>
+                <Box component="span" sx={{ color: 'text.disabled' }}> @ </Box>
+                <Box component="span" sx={{ fontWeight: homeWon ? 800 : 600, color: homeWon ? 'text.primary' : 'text.secondary' }}>{h?.abbr} {g.home_score}</Box>
+              </Typography>
+            ) : (
+              <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', minWidth: 0 }}>
+                {relativeDayShort(g.game_date)}{formatGameTime(g.game_date, g.start_time) ? `, ${formatGameTime(g.game_date, g.start_time)}` : ''}
+              </Typography>
+            )}
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
+/** The finished-season body: the champion crowned, the final it won, and the series game by game, so
+ *  the slot's height carries the story rather than the white space that used to sit under it. A
+ *  tinted champion hero leads, then the finals result, then the box scores; the CTA pins to the
+ *  bottom. The finals block is the real championship result; a dev-simulated champion has none, so it
+ *  shows the crown and the log of the real finalists' games alone. */
+function ChampionRecapBody({ champion, series, teams, log, isDark }: {
+  champion: WpblTeam
+  series: ChampionResult | null
+  teams: Map<string, WpblTeam>
+  log: WpblGame[]
+  isDark: boolean
+}) {
+  // Only games that were played: a decided series has no fixture left, and this also drops a
+  // still-scheduled decider under a dev-simulated champion, where the real series is not over.
+  const played = log.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null)
+  return (
+    <>
+      {/* CHAMPION HERO: a full-bleed band tinted in the club's surface colour, warming to gold on the
+          right, so the one thing this card is now about spends the card's width instead of sitting on
+          a bare line. A gold trophy and eyebrow mark the title; the club name carries the accent and
+          the badge takes a gold ring rather than its own secondary. */}
+      <Box sx={{
+        ...CLUB_BAND, px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5,
+        background: `linear-gradient(105deg, ${wpblSurface(champion.id, isDark)} 55%, ${alpha('#e0a100', isDark ? 0.22 : 0.15)})`,
+      }}>
+        <TeamBadge team={champion} size={44} ring="var(--wpbl-medal-1)" />
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+            <EmojiEventsOutlined sx={{ fontSize: ICON_SIZE.sm, color: 'var(--wpbl-medal-1)' }} />
+            <Typography sx={{
+              fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+              color: 'var(--wpbl-medal-1)',
+            }}>2026 WPBL Champions</Typography>
+          </Box>
+          <Typography noWrap sx={{
+            fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15,
+            color: wpblAccent(champion.id, isDark),
+          }}>{wpblFullName(champion)}</Typography>
+        </Box>
+      </Box>
+
+      {/* THE FINAL, real championship only: the runner-up it beat and the series score as the hero
+          number. Absent for a dev-simulated champion, whose random club has no real series (the box
+          scores below still carry the true finalists' games). */}
+      {series && series.runnerUp && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TeamBadge team={series.runnerUp} size={22} />
+          <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
+            def. {wpblFullName(series.runnerUp)} in the final
+          </Typography>
+          <Typography sx={{
+            fontSize: TYPE_SCALE.heading, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
+            color: 'var(--wpbl-medal-1)', flexShrink: 0,
+          }}>{series.champWins}–{series.rivalWins}</Typography>
+        </Box>
+      )}
+
+      <SeriesGameLog log={played} teams={teams} />
+
+      <Box sx={{ flex: 1 }} />
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-solid)' }}>
+        Read the 2026 recap ›
+      </Typography>
+    </>
+  )
+}
+
+/** The soonest postseason fixture still ahead, or null once the calendar is exhausted.
+ *
+ *  AN IF-NECESSARY GAME IS STILL THE NEXT GAME (drawn with the caveat on it): a conditional
+ *  decider is the one thing actually on the calendar between now and the next certain fixture, so
+ *  skipping it would jump a week ahead past the game that decides whether that fixture involves a
+ *  club at all. Safe because `postseasonScheduleRows` DROPS an if-necessary row the moment its
+ *  series is decided and CLEARS the flag the moment the game is forced. The grace window matches
+ *  the feed branch in `NextGameCard`, so a game that started three hours ago is still "next"
+ *  rather than skipped the moment its clock runs out.
+ *
+ *  Null is the season's own signal that nothing is ahead, which is what turns the Next-game slot
+ *  into the season-recap card. */
+function nextPostseasonRow(rows: PostseasonScheduleRow[]): { r: PostseasonScheduleRow; ms: number } | null {
+  const now = Date.now()
+  const dated = rows
+    .map(r => ({ r, ms: gameStartMs(r.date, r.time) }))
+    .filter((x): x is { r: PostseasonScheduleRow; ms: number } => x.ms != null)
+    .sort((a, b) => a.ms - b.ms)
+  return dated.find(x => x.ms >= now - 3 * 3600000) ?? dated[0] ?? null
+}
+
 export function NextPostseasonCard({ rows, teams, games }: {
   rows: PostseasonScheduleRow[]; teams: Map<string, WpblTeam>; games: WpblGame[]
 }) {
   const isDark = useWpblDark()
 
-  const next = useMemo(() => {
-    const now = Date.now()
-    const dated = rows
-      // AN IF-NECESSARY GAME IS STILL THE NEXT GAME, and it is drawn as one with the caveat on it (see
-      // the "if necessary" note below). A conditional decider is the one thing actually on the
-      // calendar between now and the next certain fixture, so skipping it would jump a week ahead past
-      // the game that decides whether that fixture involves this club at all. Safe because
-      // `postseasonScheduleRows` DROPS an if-necessary row the moment its series is decided and CLEARS
-      // the flag the moment the game is forced, so a row still `ifNecessary` here genuinely might
-      // still be played.
-      .map(r => ({ r, ms: gameStartMs(r.date, r.time) }))
-      .filter((x): x is { r: PostseasonScheduleRow; ms: number } => x.ms != null)
-      .sort((a, b) => a.ms - b.ms)
-    // The same grace window the feed branch uses, so a game that started three hours ago is
-    // still "next" rather than skipped the moment its clock runs out.
-    return dated.find(x => x.ms >= now - 3 * 3600000) ?? dated[0] ?? null
-  }, [rows])
+  const next = useMemo(() => nextPostseasonRow(rows), [rows])
 
   const recordOf = useMemo(() => {
     const by = new Map(computeStandings([...teams.values()], games).map(r => [r.team.id, `${r.wins}–${r.losses}`]))
@@ -1675,12 +1982,8 @@ function writeSeen(ids: Iterable<string>) {
 // Returns how many newly-tracked games appeared since this browser last acknowledged, and
 // an ack() that marks the current tracked set as seen. Waits for tracking to load before
 // judging (size 0 = not loaded yet), and seeds silently on a first visit.
-function useNewTrackingBatch(tracking: WpblTrackRow[]): { newCount: number; ack: () => void } {
-  const trackedIds = useMemo(() => {
-    const set = new Set<string>()
-    for (const t of tracking) if (t.game_id) set.add(t.game_id)
-    return set
-  }, [tracking])
+function useNewTrackingBatch(trackedGameIds: string[]): { newCount: number; ack: () => void } {
+  const trackedIds = useMemo(() => new Set(trackedGameIds.filter(Boolean)), [trackedGameIds])
   const [newCount, setNewCount] = useState(0)
 
   useEffect(() => {
@@ -2172,6 +2475,102 @@ function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
  * the tallest block on the page on a desktop, and a season where it does not render is a season
  * with no finals in it, which is over in the first week.
  */
+/** The dev season-finale simulator's champion pick: a club chosen deterministically from a seed,
+ *  so the top banner, the recap card and the season page all land on the SAME club off a shared
+ *  seed without one telling another. `aliveContenders` gives the clubs that can still win; before
+ *  there is a bracket (pre-postseason) it falls back to every club, so the simulator still
+ *  previews. Dev only, reached only from the DEV-guarded call sites, so it drops out of the
+ *  production bundle with them. */
+function devChampionPick(bracket: WpblBracket | null, teams: WpblTeam[], seed: number): WpblTeam | null {
+  const pool = bracket ? aliveContenders(bracket) : []
+  const list = pool.length > 0 ? pool : teams
+  return list.length > 0 ? list[Math.floor(seed * list.length) % list.length] : null
+}
+
+/**
+ * The inaugural title, at the top of Home.
+ *
+ * A title is the one biggest thing that happens to the league all year, so for the days it is
+ * true it takes the top of the page, above the scoreboard, the same slot the live game gets.
+ * The real banner renders only once the championship is decided (see `championView` in
+ * WpblHome); a dev toggle can force it on early with a random plausible winner, which is what
+ * `dev` marks.
+ *
+ * Fed the champion and, for the real one, the series line off the same record the bracket draws,
+ * rather than recomputing either. The dev preview carries no score line: a random club is not
+ * the one that actually leads the final, so a real "won 3-1" beside it would be a lie.
+ */
+function ChampionBanner({ champion, runnerUp, champWins, rivalWins, dev, onOpenTeam }: {
+  champion: WpblTeam
+  runnerUp?: WpblTeam | null
+  champWins?: number | null
+  rivalWins?: number | null
+  dev?: boolean
+  onOpenTeam?: (t: WpblTeam) => void
+}) {
+  const dark = useWpblDark()
+  const accent = wpblAccent(champion.id, dark)
+  const open = onOpenTeam
+    ? () => { track(EVENTS.WPBL_BRACKET_TEAM, { teamId: champion.id, from: 'champion-banner' }); onOpenTeam(champion) }
+    : undefined
+  const showSeries = !dev && champWins != null && rivalWins != null && runnerUp
+
+  return (
+    <Box
+      {...(open ? { role: 'button', tabIndex: 0, onClick: open,
+        onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } } } : {})}
+      sx={{
+        mb: 2, borderRadius: 3, overflow: 'hidden', position: 'relative',
+        cursor: open ? 'pointer' : 'default',
+        border: '1.5px solid', borderColor: 'var(--wpbl-medal-1)',
+        boxShadow: '0 0 0 1px color-mix(in srgb, var(--wpbl-medal-1) 22%, transparent)',
+        // A quiet gold-to-club wash so it reads as a trophy card at a glance, without a
+        // full-bleed colour block that would fight every other card on the page.
+        bgcolor: 'background.paper',
+        backgroundImage: `linear-gradient(120deg, color-mix(in srgb, var(--wpbl-medal-1) 14%, transparent), color-mix(in srgb, ${accent} 12%, transparent))`,
+        ...FOCUS_RING,
+      }}
+    >
+      {/* Gold eyebrow strip, the champion equivalent of LiveHero's red one. */}
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.75,
+        bgcolor: 'color-mix(in srgb, var(--wpbl-medal-1) 16%, transparent)',
+        borderBottom: '1px solid', borderColor: 'divider',
+      }}>
+        <Box aria-hidden sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1 }}>🏆</Box>
+        <Typography sx={{
+          fontSize: TYPE_SCALE.meta, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+          color: 'var(--wpbl-medal-1)',
+        }}>Champions</Typography>
+        {dev && (
+          <Typography sx={{
+            fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+            color: 'warning.main', ml: 0.25,
+          }}>· dev preview</Typography>
+        )}
+      </Box>
+
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.75, minWidth: 0 }}>
+        <TeamBadge team={champion} size={52} />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{
+            fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.15, color: accent,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{wpblFullName(champion)}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary', mt: 0.35 }}>
+            Inaugural WPBL champions
+          </Typography>
+          {showSeries && (
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', mt: 0.15 }}>
+              Won the final {champWins}-{rivalWins} over {runnerUp!.name}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
 export function WpblHomeSkeleton() {
   let discordDismissed = false
   try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
@@ -2325,7 +2724,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
-  const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
+  // Only the distinct game ids that carry tracking, not the whole table: the banner reduces it to
+  // a set of ids anyway, so this is a one-column read instead of the 766-row, 13-column scan the
+  // full fetch does (see fetchWpblTrackedGameIds). The Tracking tab still pulls the real rows.
+  const [trackedGameIds, setTrackedGameIds] = useState<string[]>(() => getCachedWpblTrackedGameIds() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
   // The play log, for the MVP race that seeds the ballot's MVP and Pitcher shortlists, and
   // DELIBERATELY NOT in the fetch below.
@@ -2360,14 +2762,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
   // Full load once, then revalidate on later mounts only when the cache is cold or stale:
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
-  // session; lines seed the leaders, and tracking drives the new-batch banner.
+  // session; lines seed the leaders, and the tracked-game-id list drives the new-batch banner.
   useEffect(() => {
     if (wpblHomeCacheAgeMs() < 30_000) return
     let cancelled = false
-    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllTracking()])
-      .then(([p, l, tr]) => {
+    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblTrackedGameIds()])
+      .then(([p, l, ids]) => {
         if (cancelled) return
-        setPlayers(p); setLines(l); setTracking(tr); setLoadingLeaders(false)
+        setPlayers(p); setLines(l); setTrackedGameIds(ids); setLoadingLeaders(false)
       })
       .catch(() => { if (!cancelled) setLoadingLeaders(false) })
     return () => { cancelled = true }
@@ -2406,6 +2808,46 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // StandingsCard: both call `computeStandings` on the same two arrays, so they cannot
   // disagree, and hoisting it would put the table's data in the page's scope for one consumer.
   const standingsRows = useMemo(() => computeStandings(teams, games), [teams, games])
+
+  // The bracket, for the champion banner at the top. The PlayoffBracket card builds its own from
+  // the same two arrays, so the two cannot disagree, and it is a handful of maps over the
+  // schedule rather than anything worth threading down. Null until there are finals, and
+  // `.champion` null until the title series is decided, so the real banner simply is not there
+  // until it is true.
+  const bracket = useMemo(() => buildBracket(standingsRows, games), [standingsRows, games])
+
+  // Dev only: the settings gear simulates the end of the season in two phases (see devChampion.ts).
+  // The whole listener is DEV-guarded, so in production this state stays 'off' and every branch
+  // below is dead code that tree-shakes out. Seeded from the module so a mid-session mount reads
+  // the current phase, not just future changes. Never overrides a real champion.
+  const [devSim, setDevSim] = useState<DevChampionState>(
+    () => import.meta.env.DEV ? devChampionState() : { phase: 'off', seed: 0 })
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const onDev = (e: Event) => setDevSim((e as CustomEvent<DevChampionState>).detail)
+    window.addEventListener(DEV_CHAMPION_EVENT, onDev)
+    return () => window.removeEventListener(DEV_CHAMPION_EVENT, onDev)
+  }, [])
+  // The simulated champion, only in the 'finished' phase: a random club that could win, picked off
+  // the shared seed so the banner, the recap card and the season page land on the same one. The
+  // DEV guard is first so production short-circuits to null and drops `devChampionPick` with it.
+  const devChampTeam = useMemo(() => {
+    if (!import.meta.env.DEV || devSim.phase !== 'finished') return null
+    return devChampionPick(bracket, teams, devSim.seed)
+  }, [devSim.phase, devSim.seed, bracket, teams])
+  // 'started' or 'finished' both force the recap card into the Next-game slot: once the final is
+  // under way there is no next game, which is the real trigger this stands in for.
+  const devForceRecap = import.meta.env.DEV && devSim.phase !== 'off'
+
+  // What the top-of-page banner draws, or null for none. A real champion always wins over the dev
+  // one, and carries the series line off the championship record; the simulated champion carries
+  // only the club, since a random winner is not the one that actually leads the final.
+  const championView = useMemo(() => {
+    const real = bracket && championResult(bracket)
+    if (real) return { ...real, dev: false }
+    if (devChampTeam) return { champion: devChampTeam, dev: true }
+    return null
+  }, [bracket, devChampTeam])
 
   /**
    * The bracket card, and whether it leads the page.
@@ -2449,7 +2891,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   }, [plays, players, games])
 
   // New-tracking batch banner: fires when the set of tracked games grows since last seen.
-  const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(tracking)
+  const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(trackedGameIds)
   const viewTracking = () => { ackTracking(); onViewTracking() }
 
   // Built here rather than inline because the right column renders its two cards in one of two
@@ -2546,6 +2988,20 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         </Box>
       </Box>
 
+      {/* The inaugural champion, when there is one. Top of the page, above everything else on
+          it: a title outranks the live game, the scoreboard and the tracking note for the days
+          it is true. Renders nothing until the final is decided, unless a dev forces a preview. */}
+      {championView && (
+        <ChampionBanner
+          champion={championView.champion}
+          runnerUp={'runnerUp' in championView ? championView.runnerUp : undefined}
+          champWins={'champWins' in championView ? championView.champWins : undefined}
+          rivalWins={'rivalWins' in championView ? championView.rivalWins : undefined}
+          dev={championView.dev}
+          onOpenTeam={onOpenTeam}
+        />
+      )}
+
       {/* A new pitch-tracking batch was just published: point readers to the Tracked board */}
       {newTrackingCount > 0 && (
         <NewTrackingBanner count={newTrackingCount} onView={viewTracking} onDismiss={ackTracking} />
@@ -2629,7 +3085,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} />
+          <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame}
+            devForceRecap={devForceRecap} devChampion={devChampTeam} />
           <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
         </Box>
 

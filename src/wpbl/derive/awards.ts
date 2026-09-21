@@ -586,7 +586,9 @@ function gloveSlate({ players, fielding, batting, games, plays }: AwardBallotInp
   const arms = plays?.length ? catcherArms(plays, batting, fielding, games) : null
   const out: AwardCandidate[] = []
   for (const { player } of resolveNominees(WPBL_GLOVE_SHORTLIST, players)) {
-    const t = sumFielding(byPlayer.get(player.id) ?? [])
+    // `byPlayer` is already regular-season only (built from `regularSeasonLines` above), so the
+    // schedule here just re-applies the same filter: harmless, and it satisfies the required arg.
+    const t = sumFielding(byPlayer.get(player.id) ?? [], games)
     const catcher = positions.get(player.id)?.position === 'c'
     out.push({
       ...playerCandidate(player, gloveLine(t, catcher ? arms?.get(player.id) ?? null : null, catcher)),
@@ -984,7 +986,9 @@ export function awardStatsLookup(
       const arr = lines.get(l.player_id) ?? []
       arr.push(l); lines.set(l.player_id, arr)
     }
-    gloves = new Map([...lines].map(([id, ls]) => [id, sumFielding(ls)]))
+    // `lines` is already regular-season only (see the filter above); the schedule re-applies the
+    // same filter and satisfies the now-required argument.
+    gloves = new Map([...lines].map(([id, ls]) => [id, sumFielding(ls, input.games)]))
     return gloves
   }
 

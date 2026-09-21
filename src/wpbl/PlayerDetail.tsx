@@ -1101,7 +1101,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // hiding games from it would read as missing data rather than as a filtered total.
   const bt = useMemo(() => sumBatting(battingReal, games), [battingReal, games])
   const pt = useMemo(() => sumPitching(pitching, games), [pitching, games])
-  const ft = useMemo(() => sumFielding(fielding), [fielding])
+  // Regular season too, like `bt`/`pt`: without the schedule this line folded a finalist's
+  // postseason putouts and errors into her season fielding while the two beside it did not.
+  const ft = useMemo(() => sumFielding(fielding, games), [fielding, games])
   const hasBatting = battingReal.length > 0
   const hasPitching = pitching.length > 0
   // WHETHER THERE IS ANYTHING TO SUMMARISE, in the SAME scope the summary shows. `hasBatting`

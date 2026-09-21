@@ -20,8 +20,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines,
-  fetchWpblAllRunValuePlays, fetchWpblBattedBalls,
+  fetchWpblAllRunValuePlays, fetchWpblBattedBalls, computeStandings,
 } from './api'
+import { buildBracket, championResult, aliveContenders, type ChampionResult } from './derive/bracket'
+// Dev only: the season-finale simulator, so the champion block can be seen before the real final.
+// The listener is DEV-guarded, so production never mounts it. See devChampion.ts.
+import { DEV_CHAMPION_EVENT, devChampionState, type DevChampionState } from './dev/devChampion'
 import SprayChart from './SprayChart'
 import SeasonShapeCard from './SeasonShapeCard'
 import LeaderboardRace from './LeaderboardRace'
@@ -37,8 +41,8 @@ import { countsInStandings } from './season'
 import { useRowFlip, useRowDividers } from './rowFlip'
 import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
-import { wpblColor, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, pressable, TeamBadge } from './ui'
+import { wpblColor, wpblAccent, wpblFullName } from './constants'
+import { TAPPABLE, FOCUS_RING, pressable, TeamBadge, useWpblDark } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
@@ -214,6 +218,41 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   // `seasonShape` read, so the table a reader scrubs to and the line they scrubbed cannot come
   // from two different folds of the season. The same one-read rule StandingsView keeps.
   const shape = useMemo(() => seasonShape(teams, games), [teams, games])
+
+  // The champion, for the block that opens the page. Postseason, so it comes off the bracket
+  // rather than the regular-season `shape` above: `championResult` reads the final series record
+  // (see derive/bracket), and is null until the title is decided, which is when the block appears.
+  // The rest of the page stays regular-season only; this is the one postseason fact on it, and it
+  // is the top of the story a reader arriving in the offseason came for.
+  const bracket = useMemo(() => buildBracket(computeStandings(teams, games), games), [teams, games])
+  const realChampion = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
+
+  // Dev only: the season-finale simulator. Seeded from the module so a mid-session mount reads the
+  // current phase, then updated by the DEV-guarded listener. In production this stays 'off' and the
+  // simulated block below is dead code that tree-shakes out; a real champion always wins over it.
+  const [devSim, setDevSim] = useState<DevChampionState>(
+    () => import.meta.env.DEV ? devChampionState() : { phase: 'off', seed: 0 })
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const onDev = (e: Event) => setDevSim((e as CustomEvent<DevChampionState>).detail)
+    window.addEventListener(DEV_CHAMPION_EVENT, onDev)
+    return () => window.removeEventListener(DEV_CHAMPION_EVENT, onDev)
+  }, [])
+
+  // What the block shows: the real champion (with its series line) if there is one, else, in the
+  // simulator's 'finished' phase, a random contender picked off the shared seed so it matches the
+  // same club Home shows. A simulated champion carries no series line: a random winner is not the
+  // club that actually led the final.
+  const champion = useMemo((): ChampionResult | null => {
+    if (realChampion) return realChampion
+    if (import.meta.env.DEV && devSim.phase === 'finished') {
+      const pool = bracket ? aliveContenders(bracket) : []
+      const list = pool.length > 0 ? pool : teams
+      const pick = list.length > 0 ? list[Math.floor(devSim.seed * list.length) % list.length] : null
+      if (pick) return { champion: pick, runnerUp: null, champWins: 0, rivalWins: 0 }
+    }
+    return null
+  }, [realChampion, devSim.phase, devSim.seed, bracket, teams])
   const lastCol = shape.columns.length - 1
   // What the reader is pointing at on the chart below, in two speeds (see SeasonPreview): the
   // figures track the cursor, the row order waits for it to settle. Null on both means the table
@@ -355,6 +394,13 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
 
       {hasData && (
         <>
+          {/* ── Champion ─────────────────────────────────────────────────────────
+              The one postseason fact on an otherwise regular-season page, and it leads because in
+              the offseason the champion IS the top of the story. Absent until the title is
+              decided, so the page reads as the season-so-far during the postseason and gains its
+              headline the day the final ends. */}
+          {champion && <SeasonChampionBlock champ={champion} />}
+
           {/* ── Final standings ──────────────────────────────────────────────────
               The record spine of the page, so it leads. The table is the season's last frame;
               the chart under it is every earlier one, and dragging the chart scrubs the table
@@ -568,6 +614,52 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
         </>
       )}
     </WpblPage>
+  )
+}
+
+// ─── Champion ────────────────────────────────────────────────────────────────────
+// The inaugural title, at the top of the recap. A gold hero rather than a stat line: the champion
+// is the one thing on this page that a stat cannot carry, and the block the reader who came for
+// "who won" is looking for. Full width, its own colour, and no link, because it is the answer
+// rather than a route to one; the championship game is one tap away in the schedule below.
+function SeasonChampionBlock({ champ }: { champ: ChampionResult }) {
+  const isDark = useWpblDark()
+  const accent = wpblAccent(champ.champion.id, isDark)
+  return (
+    <Box sx={{
+      mb: 2.5, borderRadius: 3, overflow: 'hidden',
+      border: '1.5px solid', borderColor: 'var(--wpbl-medal-1)',
+      backgroundImage: `linear-gradient(120deg, color-mix(in srgb, var(--wpbl-medal-1) 14%, transparent), color-mix(in srgb, ${accent} 12%, transparent))`,
+      bgcolor: 'background.paper',
+    }}>
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.85,
+        bgcolor: 'color-mix(in srgb, var(--wpbl-medal-1) 16%, transparent)',
+        borderBottom: '1px solid', borderColor: 'divider',
+      }}>
+        <Box aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>🏆</Box>
+        <Typography sx={{
+          fontSize: '0.7rem', fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+          color: 'var(--wpbl-medal-1)',
+        }}>WPBL Champions</Typography>
+      </Box>
+      <Box sx={{ p: { xs: 2, sm: 2.5 }, display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+        <TeamBadge team={champ.champion} size={56} />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: '1.5rem', fontWeight: 900, lineHeight: 1.1, color: accent }}>
+            {wpblFullName(champ.champion)}
+          </Typography>
+          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: 'text.primary', mt: 0.4 }}>
+            Inaugural WPBL champions
+          </Typography>
+          {champ.runnerUp && (
+            <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: 'text.secondary', mt: 0.25 }}>
+              Beat {wpblFullName(champ.runnerUp)} {champ.champWins}-{champ.rivalWins} in the championship series.
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </Box>
   )
 }
 

@@ -29,6 +29,7 @@ import { useDevDrama, setDevDramaEnabled, regenerateDevDrama } from '../mlb/dev/
 import { useDevDevice, setDeviceMode, currentPreset, isInsideDeviceFrame } from '../mlb/dev/devDevice'
 import { useDevSeasonSelector, setSeasonSelectorStyle } from '../mlb/dev/devSeasonSelector'
 import { devShowDiscordCard } from '../wpbl/discordInvite'
+import { setDevChampionPhase, rerollDevChampion, devChampionState, type DevChampionPhase } from '../wpbl/dev/devChampion'
 import { installWpblReadOverlay } from '../wpbl/api'
 import {
   DEV_LIVE_SPEEDS, devLiveCandidates, devLiveCursor, devLiveFinished, devLiveOverlay,
@@ -202,7 +203,60 @@ function WpblControls() {
 
       <Divider sx={{ my: 1.75 }} />
 
+      <ChampionBannerControls />
+
+      <Divider sx={{ my: 1.75 }} />
+
       <LiveGameSimControls />
+    </>
+  )
+}
+
+/**
+ * Simulate the end of the season, in the two steps it actually happens in.
+ *
+ * The champion surfaces (the top banner, Home's season-recap card, the season page's champion
+ * block) only appear once the real final is played, which is one moment a season and gone by the
+ * time anyone is working on them. This shows them on demand. STARTED is the moment the final goes
+ * live: the recap card takes the Next-game slot, with no champion yet. FINISHED is the moment it
+ * ends: a random club that could win becomes the champion on every one of those surfaces at once,
+ * off a shared seed so they agree. Re-roll asks for a fresh club. Off is the real behaviour, and
+ * a genuine champion always wins over this.
+ */
+function ChampionBannerControls() {
+  // Seeded from the module, not a default: the popover unmounts on close, so this reads the last
+  // phase back on reopen rather than snapping to Off while the simulation is still on.
+  const [phase, setPhase] = React.useState<DevChampionPhase>(() => devChampionState().phase)
+  const set = (next: DevChampionPhase) => { setPhase(next); setDevChampionPhase(next) }
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        Season finale (simulate)
+      </Typography>
+      <SegControl
+        options={[{ value: 'off', label: 'Off' }, { value: 'started', label: 'Started' }, { value: 'finished', label: 'Finished' }]}
+        value={phase}
+        onChange={v => set(v as DevChampionPhase)}
+      />
+      {phase === 'finished' && (
+        <Box sx={{ mt: 1.25 }}>
+          <Button
+            fullWidth size="small" variant="outlined" color="warning"
+            onClick={() => rerollDevChampion()}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
+            🎲 New random champion
+          </Button>
+        </Box>
+      )}
+      {phase !== 'off' && (
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
+          {phase === 'started'
+            ? 'The final has started: the recap card takes the Next-game slot, no champion yet.'
+            : 'The final is decided: a random champion on Home and the season page.'}
+          {' '}Open the WPBL section to see it.
+        </Typography>
+      )}
     </>
   )
 }
