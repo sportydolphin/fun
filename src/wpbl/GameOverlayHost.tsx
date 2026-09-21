@@ -17,11 +17,15 @@ import type { WpblGame, WpblTeam, WpblPlayer } from './types'
 // pushes the game URL without a popstate, so its own `path` stays the standalone page) and the
 // dismissal (any history move clears the overlay); this component is only the modal plus the
 // context the section's crawlable links need.
-export default function WpblGameOverlayHost({ game, teams, games, onClose }: {
+export default function WpblGameOverlayHost({ game, teams, games, onClose, onOpenPlayerNav }: {
   game: WpblGame
   teams: WpblTeam[]
   games: WpblGame[]
   onClose: () => void
+  /** Open a player from Game Center. The shell turns a player URL into a player overlay OVER the
+   *  same standalone page (replacing this game overlay), rather than routing to WpblApp's Home,
+   *  which is what a plain `navigate` to the player path used to do here. */
+  onOpenPlayerNav: (to: string) => void
 }) {
   // The full roster, only so a player name inside Game Center can build a real /wpbl/players/<slug>
   // link. Cached app-wide by the api layer, so on a reader who has been anywhere else in the
@@ -30,10 +34,10 @@ export default function WpblGameOverlayHost({ game, teams, games, onClose }: {
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
 
-  // Opening a player or a team from here LEAVES the overlay for that page, exactly as it does
-  // from a tab-view game: a real navigation, which fires the popstate App is listening for, so
-  // the overlay clears and the shell routes to the player/team. `navigate` keeps the address bar
-  // and Back honest the same way every other in-app link does.
+  // Opening a PLAYER stays an overlay over the same page (the shell swaps this game overlay for a
+  // player one); opening a TEAM still LEAVES for the Teams tab, a real navigation that fires the
+  // popstate App is listening for, so the overlay clears and the shell routes there. `navigate`
+  // keeps the address bar and Back honest the same way every other in-app link does.
   return (
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
       <GameDetailModal
@@ -42,7 +46,7 @@ export default function WpblGameOverlayHost({ game, teams, games, onClose }: {
         teams={teams}
         games={games}
         onClose={onClose}
-        onOpenPlayer={p => navigate(wpblPlayerPath(p, players))}
+        onOpenPlayer={p => onOpenPlayerNav(wpblPlayerPath(p, players))}
         onOpenTeam={t => navigate(wpblTeamPath(t, teams))}
       />
     </WpblLinkProvider>

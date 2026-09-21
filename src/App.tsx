@@ -77,6 +77,10 @@ const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
 // large chunk lands only on the first game opened from /wpbl/season or /wpbl/scorigami, not in
 // the shell's entry chunk.
 const WpblGameOverlayHost = lazy(() => import('./wpbl/GameOverlayHost'))
+// The player modal, hovering over a standalone page (see PlayerOverlayHost), the twin of the game
+// one above. Lazy for the same reason: PlayerDetail's chunk lands only on the first player opened
+// from /wpbl/compare, /wpbl/players, /wpbl/league or /wpbl/season, not in the shell's entry chunk.
+const WpblPlayerOverlayHost = lazy(() => import('./wpbl/PlayerOverlayHost'))
 const WpblComparePage = lazy(() => import('./wpbl/Compare'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // The owner's dashboard. Its own route rather than a dialog: charts and tables need the
@@ -414,13 +418,45 @@ function AppInner() {
   // the page the reader is on with WpblApp's Home. Held with the two datasets the modal needs,
   // which the opening page already has in hand, so the overlay needs no fetch of its own to paint.
   const [overlayGame, setOverlayGame] = useState<{ game: WpblGame; teams: WpblTeam[]; games: WpblGame[] } | null>(null)
-  // Open the overlay: push the game's own URL so it is shareable and Back closes it, but do NOT
-  // fire a popstate, so the shell's `path` stays on the standalone page and keeps it mounted
-  // beneath. `onPop` below clears the overlay on the way back out.
-  const openOverlayGame = useCallback((game: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => {
-    window.history.pushState({ ...window.history.state }, '', wpblGamePath(game, ctx.teams, ctx.games))
-    setOverlayGame({ game, ...ctx })
+  // A player opened the same way, over a standalone page: held as its slug, which the host resolves
+  // against the cached roster. A game and a player overlay are mutually exclusive (each opener clears
+  // the other), so at most one is ever mounted at a time.
+  const [overlayPlayer, setOverlayPlayer] = useState<string | null>(null)
+  // Whether an overlay is currently showing, read by the openers to choose push vs replace. The
+  // FIRST overlay over a standalone page pushes a history entry (so Back closes it and returns to the
+  // page); a cross-open from INSIDE one (a game from a player's log, a player from a game's box score)
+  // REPLACES that entry, so the stack stays one deep and Back always leaves to the page in a single
+  // step rather than stranding the reader on the overlay they came in through. A ref, not state,
+  // because the openers need its value synchronously and it drives no render of its own.
+  const anyOverlayRef = useRef(false)
+  // Seat an overlay's URL: shareable and Back-dismissable, but WITHOUT firing a popstate, so the
+  // shell's `path` stays on the standalone page and keeps it mounted beneath. `onPop` clears the
+  // overlay on the way back out.
+  const seatOverlayUrl = useCallback((url: string) => {
+    if (anyOverlayRef.current) window.history.replaceState({ ...window.history.state }, '', url)
+    else window.history.pushState({ ...window.history.state }, '', url)
+    anyOverlayRef.current = true
   }, [])
+  const openOverlayGame = useCallback((game: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => {
+    seatOverlayUrl(wpblGamePath(game, ctx.teams, ctx.games))
+    setOverlayPlayer(null)
+    setOverlayGame({ game, ...ctx })
+  }, [seatOverlayUrl])
+  const openOverlayPlayer = useCallback((slug: string, url: string) => {
+    seatOverlayUrl(url)
+    setOverlayGame(null)
+    setOverlayPlayer(slug)
+  }, [seatOverlayUrl])
+  // The onNavigate handed to the standalone WPBL pages (and the game overlay's own player links): a
+  // link to a player page opens that player as an overlay OVER the current page instead of routing to
+  // WpblApp and seating Home beneath it. Every other destination navigates normally. This is the one
+  // choke point, so a page added later gets the behaviour by taking this as its `onNavigate` rather
+  // than by re-wiring anything here.
+  const navigateFromStandalone = useCallback((to: string) => {
+    const slug = wpblPlayerSlugFromPath(to.split(/[?#]/)[0])
+    if (slug) openOverlayPlayer(slug, to)
+    else navigate(to)
+  }, [openOverlayPlayer])
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [changelogOpen,    setChangelogOpen]    = useState(false)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
@@ -670,11 +706,14 @@ function AppInner() {
 
   useEffect(() => {
     const onPop = () => {
-      // Any history move dismisses a standalone-page game overlay. Opening it was a silent
-      // pushState (no popstate), so this only fires on the way back out — Back, the X (which
-      // calls history.back), or an in-modal navigation to a player/team. Cleared before `path`
-      // is touched so the standalone page below is never briefly shown without it.
+      // Any history move dismisses a standalone-page overlay (game or player). Opening one was a
+      // silent push/replaceState (no popstate), so this only fires on the way back out — Back, the X
+      // (which calls history.back), or an in-modal navigation to a team. Cleared before `path` is
+      // touched so the standalone page below is never briefly shown without it, and the ref is reset
+      // so the next overlay opened over that page pushes a fresh entry rather than replacing.
       setOverlayGame(null)
+      setOverlayPlayer(null)
+      anyOverlayRef.current = false
       const p = readPath()
       if (p === '/') { const dest = defaultSectionPath(); window.history.replaceState({}, '', dest); setPath(dest); return }
       setPath(p as Route)
@@ -1343,12 +1382,12 @@ function AppInner() {
           )}
           {isWpblPlayersIndex(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblPlayersIndex onNavigate={navigate} />
+              <WpblPlayersIndex onNavigate={navigateFromStandalone} />
             </Suspense>
           )}
           {isWpblLeaguePage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblLeaguePage onNavigate={navigate} />
+              <WpblLeaguePage onNavigate={navigateFromStandalone} />
             </Suspense>
           )}
           {isWpblGlossaryPage(path) && (
@@ -1363,7 +1402,7 @@ function AppInner() {
           )}
           {isWpblSeasonPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblSeasonPage onNavigate={navigate} onOpenGame={openOverlayGame} />
+              <WpblSeasonPage onNavigate={navigateFromStandalone} onOpenGame={openOverlayGame} />
             </Suspense>
           )}
           {isWpblScorigamiPage(path) && (
@@ -1373,7 +1412,7 @@ function AppInner() {
           )}
           {isWpblComparePage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblComparePage path={path} onNavigate={navigate} />
+              <WpblComparePage path={path} onNavigate={navigateFromStandalone} />
             </Suspense>
           )}
           {rendersWpblApp(path) && (
@@ -1468,6 +1507,20 @@ function AppInner() {
             teams={overlayGame.teams}
             games={overlayGame.games}
             onClose={() => window.history.back()}
+            onOpenPlayerNav={navigateFromStandalone}
+          />
+        </Suspense>
+      )}
+
+      {/* A player opened from a standalone page (or from the game overlay above), hovering over it.
+          Same reasoning as the game overlay: keep the page below mounted rather than routing to
+          WpblApp's Home. onOpenGame lets its game log open a game overlay over the same page. */}
+      {overlayPlayer && (
+        <Suspense fallback={<Box sx={{ position: 'fixed', inset: 0, zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>}>
+          <WpblPlayerOverlayHost
+            slug={overlayPlayer}
+            onClose={() => window.history.back()}
+            onOpenGame={openOverlayGame}
           />
         </Suspense>
       )}
