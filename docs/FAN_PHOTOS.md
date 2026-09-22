@@ -27,8 +27,19 @@ type-ahead, caption, approve, all through the `is_site_owner()` RLS. **The web u
 2026): an Upload panel in that same tool plus [`fanPhotoUpload.ts`](../src/wpbl/fanPhotoUpload.ts)
 (canvas resize + webp + sha256, EXIF dropped by the canvas) and the owner-gated
 [`functions/api/fan-photo.ts`](../functions/api/fan-photo.ts) that puts the bytes in R2, so a
-photo can be uploaded from a phone with the same duplicate check as the CLI. **Not built:** every
-reader-facing surface (player strip, `/wpbl/photos`, Game Center). Nothing is public yet.
+photo can be uploaded from a phone with the same duplicate check as the CLI. **The reader-facing
+surfaces** (Sep 22, 2026), in [`FanPhotoViews.tsx`](../src/wpbl/FanPhotoViews.tsx): the player-page
+strip (`FanPhotoPlayerStrip`, in all three of PlayerDetail's layouts), the `/wpbl/photos` gallery
+([`PhotosGalleryPage.tsx`](../src/wpbl/PhotosGalleryPage.tsx), a standalone sibling route wired
+through routes/seo/_redirects/sitemap/footer and pinned in `routes.test.ts`), and the **Home card**
+(`FanPhotoHomeCard`, year-round once `HOME_MIN_PHOTOS` = 12 published, above "The league").
+The offseason Home is previewable in dev: the season-finale simulator plus a "Fan photos on Home
+(mock)" toggle ([`dev/devFanPhotos.ts`](../src/wpbl/dev/devFanPhotos.ts)) that pads the card. The
+fan-awards results give up their Home slot at `AWARDS_RESULTS_UNTIL` (end of Sep). **Deliberately
+NOT built:** Game Center "from this game" — the photos are not reliably matched to games, so the
+`game_id` column stays but no surface reads it. **The reader surfaces are committed on the
+`wpbl-fan-photos` branch and held unpushed** until a real batch is curated; the owner tools (ingest,
+upload, curation) are already live on `main`.
 
 ### The web upload's server env (owner)
 
