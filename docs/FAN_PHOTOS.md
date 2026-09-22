@@ -1,8 +1,47 @@
 # Fan photographs, tagged by who is in them
 
-**Plan of record. Nothing here is built yet.** Scoped Sep 21, 2026. Like
-[`ANDROID.md`](ANDROID.md) and [`IOS.md`](IOS.md), this is a design that has been argued
-through rather than a description of something running.
+**Plan of record.** Scoped Sep 21, 2026. Like [`ANDROID.md`](ANDROID.md) and
+[`IOS.md`](IOS.md), this is a design that has been argued through rather than a description of
+something running.
+
+**Built so far (Sep 21, 2026):** the four tables and their RLS, migration
+`20260922020815_add_wpbl_fan_photos_tables.sql`, applied; `wpbl_merge_players` extended to
+repoint tags. The client read layer: `fetchWpblFanPhotos` / `fetchWpblFanPhotoSubjects` /
+`fetchWpblFanPhotoFigures` and `fetchWpblFanPhotoIndex` in [`api.ts`](../src/wpbl/api.ts),
+paged and ordered, with `buildFanPhotoIndex` (the pure join) in
+[`fanPhotos.ts`](../src/wpbl/fanPhotos.ts), pinned by
+`src/wpbl/__tests__/fanPhotos.test.ts`. The local ingest pass:
+[`scripts/prepare-fan-photos.py`](../scripts/prepare-fan-photos.py) (`npm run
+prepare-fan-photos`), which hashes the original, strips ALL EXIF, emits the two webp renders
+and writes a manifest, verified end-to-end (GPS and device tags confirmed gone from the
+renders). The upload + insert half:
+[`scripts/ingest-fan-photos.mjs`](../scripts/ingest-fan-photos.mjs) (`npm run
+ingest-fan-photos`), which uploads both renders to R2 (via `aws4fetch`, content-addressed keys)
+and upserts the rows `approved = false`, with a credential-free `--dry-run`. Its DO UPDATE list
+omits every curator-owned column and coalesces `taken_on`, both validated against the live
+schema; only the R2 `PUT` itself is unexercised until the bucket exists. **Not built:** the R2
+bucket (below), the curation UI, and every surface (player strip, `/wpbl/photos`, Game Center).
+No approved rows exist yet, so every surface renders empty until the bucket is created and a
+batch is ingested.
+
+### The R2 bucket, the one manual step (owner)
+
+Everything above is code; this is Cloudflare setup, done once, and the ingest is blocked on it:
+
+1. Create an R2 bucket (Cloudflare dashboard → R2). Name it, e.g. `sportydolphin-fan-photos`.
+2. Bind a **custom domain** to it (bucket → Settings → Custom Domains), e.g.
+   `photos.sportydolphin.fun`. Not the `r2.dev` subdomain: Cloudflare rate-limits it and
+   documents it as development-only, and a bound subdomain also puts the images behind the cache.
+3. Add a **CORS policy** allowing the site origin (`https://sportydolphin.fun`) with `GET`, so
+   the future share card can draw a fan photo into a canvas without tainting it.
+4. Create an **R2 API token** (S3-compatible) with object read/write on that bucket; keep its
+   access key id and secret.
+5. Put these in `.env` (never committed): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `R2_PUBLIC_BASE=https://photos.sportydolphin.fun`.
+
+Then a batch is: drop photos into `scripts/fan-photos-drop/<contributor>/` with a
+`contributor.json`, `npm run prepare-fan-photos`, `npm run ingest-fan-photos -- --dry-run` to
+check, then `npm run ingest-fan-photos`.
 
 The feature: fans send photographs they took, with explicit permission. We tag each one with
 who is in it and surface them on the player pages, so looking up a player shows every photo of
@@ -168,6 +207,20 @@ Two things to set when the bucket is created, both much cheaper now than later:
   a share card, a cross-origin image without the header either taints the canvas so `toDataURL`
   throws, or is silently dropped and the card publishes with a hole in it. The share card is a
   likely second version of this feature, so assume it.
+
+**The site Worker's route catches the R2 subdomain, and the R2 domain reading "Active" does not
+mean it is serving.** The `fun` Worker (the whole site) is bound to `*.sportydolphin.fun/*`, a
+Worker Route that matches EVERY subdomain, `photos.` included. A Worker Route runs at the edge
+before the proxied R2 origin is ever reached, so `photos.sportydolphin.fun` returned the SPA's
+`index.html` with `content-type: text/html` (and no CORS header, because the request never
+touched R2) while R2's own custom-domain page showed the domain green and Active: Active only
+means R2 provisioned its cert, not that anything routes to it. The DNS was correct the whole
+time (a proxied `R2` CNAME on `photos`). The fix is a MORE-SPECIFIC Worker Route
+`photos.sportydolphin.fun/*` assigned to **None**, added on the ZONE's Workers Routes page (the
+Worker's own "Add Route" only binds `fun` and offers no None); the specific route wins over the
+wildcard and the request falls through to R2. Confirmed serving `image/webp` with the CORS
+header on Sep 21, 2026. **Any future subdomain that must NOT be the site** (a second bucket, a
+status page) needs the same carve-out, for the same reason.
 
 ## Ingest, in two passes
 

@@ -261,6 +261,50 @@ export interface WpblPhoto {
   sort_order: number | null
 }
 
+/** A fan-submitted photograph of the current league, tagged by who is in it. This is NOT
+ *  WpblPhoto: that is the Commons history gallery. See docs/FAN_PHOTOS.md.
+ *
+ *  Only approved rows reach the client, enforced in RLS, not in the query, exactly like
+ *  WpblPhoto: a caller cannot forget the filter and publish the unreviewed backlog. Every
+ *  string is PLAIN TEXT and nothing here is ever rendered as markup.
+ *
+ *  No club field: a photo's club comes from `game_id`'s box score or from `taken_on`, never
+ *  from a subject's current `team_id`, which means "now" and not "then". The contributor's
+ *  contact and permission record live in the owner-only wpbl_photo_contributors table; only
+ *  the public `credit` is denormalized here, so the browser never reads that table. */
+export interface WpblFanPhoto {
+  id: string
+  card_url: string           // the card render
+  full_url: string           // the lightbox render
+  width: number | null       // the PUBLISHED render's dimensions, for aspect ratio
+  height: number | null
+  caption: string | null
+  credit: string | null      // denormalized from the contributor
+  taken_on: string | null    // curated; EXIF seeds it and does not settle it
+  game_id: string | null     // set when the photo is from a known game; drives Game Center
+  sort_order: number | null
+}
+
+/** A non-player subject: a manager, coach, broadcaster, staff member, umpire or mascot
+ *  (Gladys the Goose). `key` follows the `mgr:<slug>` convention from awards.ts. `kind`
+ *  deliberately has no "place": every tag names a person or a character. */
+export interface WpblPhotoFigure {
+  key: string
+  name: string
+  kind: 'mascot' | 'manager' | 'coach' | 'broadcaster' | 'staff' | 'umpire'
+  blurb: string | null
+  team_id: string | null
+}
+
+/** One tag: exactly one of player_id / figure_key is set (a check constraint enforces it).
+ *  A tag is public only when its photo is, gated in RLS on the parent row. */
+export interface WpblPhotoSubject {
+  id: string
+  photo_id: string
+  player_id: string | null
+  figure_key: string | null
+}
+
 export interface WpblBattingLine {
   id: string
   game_id: string

@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import { FIRSTS_EVENT_TYPES } from './firsts'
 import { countsInStandings, standingsFinals } from './season'
 import { settleGames } from './gameOver'
+import { buildFanPhotoIndex, type FanPhotoIndex } from './fanPhotos'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
@@ -11,6 +12,7 @@ import type {
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails, WpblGameRevision,
+  WpblFanPhoto, WpblPhotoFigure, WpblPhotoSubject,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -237,6 +239,9 @@ let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 let allRecapsCache:   { data: WpblGameRecap[]; at: number } | null = null
 let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
 let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
+let fanPhotosCache:   { data: WpblFanPhoto[]; at: number } | null = null
+let fanPhotoSubjectsCache: { data: WpblPhotoSubject[]; at: number } | null = null
+let fanPhotoFiguresCache:  { data: WpblPhotoFigure[]; at: number } | null = null
 let siteGamesCache:   { data: WpblSiteGame[]; at: number } | null = null
 
 // How long a bulk result is served straight from the cache without re-querying.
@@ -266,6 +271,9 @@ export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCach
 export function getCachedWpblRecaps(): WpblGameRecap[] | null { return allRecapsCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
+export function getCachedWpblFanPhotos(): WpblFanPhoto[] | null { return fanPhotosCache?.data ?? null }
+export function getCachedWpblFanPhotoSubjects(): WpblPhotoSubject[] | null { return fanPhotoSubjectsCache?.data ?? null }
+export function getCachedWpblFanPhotoFigures(): WpblPhotoFigure[] | null { return fanPhotoFiguresCache?.data ?? null }
 export function getCachedWpblSiteGames(): WpblSiteGame[] | null { return siteGamesCache?.data ?? null }
 
 // ─── Per-entity session cache ───────────────────────────────────────────────────
@@ -926,6 +934,85 @@ export function fetchWpblPhotos(): Promise<WpblPhoto[]> {
     if (data.length > 0 || allPhotosCache == null) allPhotosCache = { data, at: Date.now() }
     return data
   })
+}
+
+// ─── Fan photos: this season's players, by name ──────────────────────────────
+//
+// The three flat reads that back every fan-photo surface. NOT wpbl_photos (the Commons
+// history gallery); see docs/FAN_PHOTOS.md for why they are separate tables. buildFanPhotoIndex
+// in fanPhotos.ts joins them client-side into per-player / per-figure / per-game lookups, the same
+// shape the section already uses for league-wide data (flat reads, indexed in memory), rather
+// than a PostgREST embed.
+//
+// All three are PAGED and ORDERED. Four hundred photos at three tags each is already 1,200
+// subject rows, so the tags cross PostgREST's silent 1000-row cap on the first real batch; a
+// truncated read is a short array with no error, and the photos it drops simply stop appearing
+// on the pages that sort last. See fetchAllPaged and CLAUDE.md.
+//
+// None filters on `approved`: RLS restricts the select to approved rows (and a tag to an
+// approved photo), so the unreviewed backlog is unreachable from the browser whatever the query
+// asks. A filter here would read as though it were the protection.
+
+// The card render, dims and caption drive the strip and gallery; game_id feeds Game Center.
+// Ordered by the curator's sequence, id breaking ties so the order is total.
+const FAN_PHOTO_COLUMNS = 'id,card_url,full_url,width,height,caption,credit,taken_on,game_id,sort_order'
+
+export function fetchWpblFanPhotos(): Promise<WpblFanPhoto[]> {
+  if (isFresh(fanPhotosCache)) return Promise.resolve(fanPhotosCache!.data)
+  return once('fanPhotos', async () => {
+    const data = await fetchAllPaged<WpblFanPhoto>('fetchWpblFanPhotos', (from, to) =>
+      supabase.from('wpbl_fan_photos')
+        .select(FAN_PHOTO_COLUMNS)
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: WpblFanPhoto[] | null; error: unknown }>)
+    if (data.length > 0 || fanPhotosCache == null) fanPhotosCache = { data, at: Date.now() }
+    return data
+  })
+}
+
+export function fetchWpblFanPhotoSubjects(): Promise<WpblPhotoSubject[]> {
+  if (isFresh(fanPhotoSubjectsCache)) return Promise.resolve(fanPhotoSubjectsCache!.data)
+  return once('fanPhotoSubjects', async () => {
+    const data = await fetchAllPaged<WpblPhotoSubject>('fetchWpblFanPhotoSubjects', (from, to) =>
+      supabase.from('wpbl_photo_subjects')
+        .select('id,photo_id,player_id,figure_key')
+        .order('photo_id', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: WpblPhotoSubject[] | null; error: unknown }>)
+    if (data.length > 0 || fanPhotoSubjectsCache == null) fanPhotoSubjectsCache = { data, at: Date.now() }
+    return data
+  })
+}
+
+export function fetchWpblFanPhotoFigures(): Promise<WpblPhotoFigure[]> {
+  if (isFresh(fanPhotoFiguresCache)) return Promise.resolve(fanPhotoFiguresCache!.data)
+  return once('fanPhotoFigures', async () => {
+    const data = await fetchAllPaged<WpblPhotoFigure>('fetchWpblFanPhotoFigures', (from, to) =>
+      supabase.from('wpbl_photo_figures')
+        .select('key,name,kind,blurb,team_id')
+        .order('name', { ascending: true })
+        .order('key', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: WpblPhotoFigure[] | null; error: unknown }>)
+    if (data.length > 0 || fanPhotoFiguresCache == null) fanPhotoFiguresCache = { data, at: Date.now() }
+    return data
+  })
+}
+
+// The one call a surface makes: all three reads in parallel, joined into the per-subject and
+// per-game lookups. Each read is cached and deduped on its own, so calling this from several
+// components in one load costs one round trip each, not one per caller.
+export async function fetchWpblFanPhotoIndex(): Promise<FanPhotoIndex> {
+  const [photos, subjects, figures] = await Promise.all([
+    fetchWpblFanPhotos(),
+    fetchWpblFanPhotoSubjects(),
+    fetchWpblFanPhotoFigures(),
+  ])
+  return buildFanPhotoIndex(photos, subjects, figures)
 }
 
 // Existing box-score lines for one game (for editing / display).

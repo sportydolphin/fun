@@ -230,6 +230,7 @@ flowchart TB
         t_recaplink["wpbl_recaps<br/>(This is Women's Baseball: LINKS only, one per game)"]
         t_site["wpbl_site_games<br/>(league WEBSITE calendar: postseason home/away, tickets)"]
         t_photo["wpbl_photos<br/>(Commons archive; approved-only reads)"]
+        t_fanphoto["wpbl_fan_photos + wpbl_photo_subjects<br/>+ wpbl_photo_figures + wpbl_photo_contributors<br/>(fan photos tagged by subject; approved-only; contributors owner-only)"]
         t_gdet["wpbl_game_details<br/>(RetroWPBL: first pitch, length, crew, weather)"]
         t_trackwatch["wpbl_tracking_watch<br/>(TrackMan watermark, one row)"]
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
@@ -384,6 +385,16 @@ backlog is the majority of the table and includes files that are correctly categ
 Commons and still have no business on the site. `fetchWpblPhotos` deliberately does not
 repeat the filter in the query, so nobody can mistake a client-side `.eq()` for the thing
 keeping the backlog private. See [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md).
+
+**`wpbl_fan_photos` is the second, and its tag table follows it.** Same `using (approved)`
+gate on the photo, and `wpbl_photo_subjects` gates its own `select` on the parent photo being
+approved, so an unreviewed photo leaks neither its existence nor who curation thinks is in it.
+`wpbl_photo_contributors` is owner-only with no public policy at all: the contact and permission
+record never reach the browser, and only the public `credit` is denormalized onto the photo row
+(RLS is row-level and cannot hide a column). `wpbl_photo_figures` is public-read (it supplies the
+gallery's subject filters). This is fan photography of the current league, tagged by subject and
+shown on player pages, and is NOT the Commons archive above. See
+[`docs/FAN_PHOTOS.md`](docs/FAN_PHOTOS.md).
 
 **Reserved, unread column:** `user_preferences.wpbl_favorite_team_id` (text) exists in
 production but nothing reads it, because the favourite-team feature it belongs to is parked on the
@@ -593,6 +604,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 | **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string, Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
 | **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_BOT_TOKEN` (for the `/predict` reveal) | Supabase (*auto-injected) |
 | **pg_cron** | service-role key; `github_dispatch_token` (fine-grained PAT on `sportydolphin/fun`, Contents: read+write, used only to fire the Bluesky nudge's `repository_dispatch`) | Supabase **Vault** (`wpbl_service_role_key`, `github_dispatch_token`) |
+| **Fan-photo ingest** (`scripts/ingest-fan-photos.mjs`, owner-run, not on a cron) | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE` (the bucket's custom domain, not r2.dev), plus `SUPABASE_DB_URL` for the raw-SQL upsert | `.env` locally. None is read under `--dry-run`. See [`docs/FAN_PHOTOS.md`](docs/FAN_PHOTOS.md) |
 | **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_HIGHLIGHTS_WEBHOOK_URL`, `DISCORD_BIRTHDAY_WEBHOOK_URL`, `DISCORD_RESTOCK_WEBHOOK_URL`, `DISCORD_SHOP_WEBHOOK_URL`, `DISCORD_RESTOCK_MENTION` (optional), `DISCORD_MENTIONS_WEBHOOK_URL`, `DISCORD_MENTIONS_MENTION` (optional), `DISCORD_BOT_TOKEN` (the postseason event sync, the only Actions job that writes to Discord with the bot rather than a webhook), `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `BLUESKY_IDENTIFIER`, `BLUESKY_APP_PASSWORD` (shared by the mention watcher, which only reads, and the two Bluesky posters, recaps and game-start reminders, which publish), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
 
 ---

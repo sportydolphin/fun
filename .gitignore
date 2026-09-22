@@ -29,3 +29,10 @@ giveaway-data/
 
 # Wrangler pulls secrets from here for `wrangler pages dev`. Same rule as .env.
 .dev.vars
+
+# Fan-photo ingest working folders (docs/FAN_PHOTOS.md). The drop folder holds fans' original
+# photographs and their contributor records; the staging folder holds the generated renders and
+# manifest. Neither belongs in git: the drop is other people's files, and the renders are bytes
+# bound for R2, not the repo. prepare-fan-photos.py writes the staging folder.
+scripts/fan-photos-drop/
+scripts/fan-photos-staging/
