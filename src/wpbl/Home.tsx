@@ -2529,6 +2529,31 @@ function ChampionBanner({ champion, runnerUp, champWins, rivalWins, dev, onOpenT
     : undefined
   const showSeries = !dev && champWins != null && rivalWins != null && runnerUp
 
+  // One shared trophy gold for every club, no club colour in the field. The title is a league
+  // award, so every champion banner reads as the same trophy, and the club lives in the badge and
+  // the name. This replaced a gold-into-club-colour gradient that turned to mud for the two warm
+  // clubs (SF red went rust, LA gold went flat brown) and needed a per-club special case to hide it.
+  const gold = dark ? '#ffce55' : '#e8a900'
+  const goldSoft = dark ? '#f2c04a' : '#3d2905' // strip text: bright on dark, deep espresso on the gold ribbon (small uppercase, needs AA on the bright gold)
+  const stripBg = dark
+    ? `linear-gradient(90deg, ${alpha(gold, 0.32)}, ${alpha(gold, 0.15)})`
+    : `linear-gradient(90deg, #ffd766, #f0b200)`
+  // The field goes DARK under the name and keeps the gold on the far edge, like an engraved plaque:
+  // the name sits over the left half, and a flat gold field left every bright club name short of AA
+  // there (SF was 2.67:1). Dark is espresso warming to a gold edge; light stays bright under the
+  // name and deepens to gold. Do not flatten this to an even gold and do not put the club colour
+  // back in the field: both drop the name below 4.5:1. Measured worst point under the name clears
+  // 4.5:1 for all four in both themes, SF the floor at 4.72 dark / 5.39 light.
+  const cardBg = dark
+    ? 'linear-gradient(115deg, #241906 0%, #2e2109 52%, #463610 100%)'
+    : 'linear-gradient(115deg, #fff0c2 0%, #ffe19a 55%, #f3c257 100%)'
+  // The name carries the club: its accent on the dark field, a deeper club/near-black mix on the
+  // bright one. Los Angeles' accent is itself a gold and would sit gold-on-gold in dark, so it
+  // takes a cream-gold there; light mode's deep mix reads on gold for every club, LA included.
+  const nameColor = dark
+    ? (champion.id === 'LA' ? '#f0d38a' : accent)
+    : `color-mix(in srgb, ${accent} 78%, #1a0f00)`
+
   return (
     <Box
       {...(open ? { role: 'button', tabIndex: 0, onClick: open,
@@ -2536,30 +2561,31 @@ function ChampionBanner({ champion, runnerUp, champWins, rivalWins, dev, onOpenT
       sx={{
         mb: 2, borderRadius: 3, overflow: 'hidden', position: 'relative',
         cursor: open ? 'pointer' : 'default',
-        border: '1.5px solid', borderColor: 'var(--wpbl-medal-1)',
-        boxShadow: '0 0 0 1px color-mix(in srgb, var(--wpbl-medal-1) 22%, transparent)',
-        // A quiet gold-to-club wash so it reads as a trophy card at a glance, without a
-        // full-bleed colour block that would fight every other card on the page.
-        bgcolor: 'background.paper',
-        backgroundImage: `linear-gradient(120deg, color-mix(in srgb, var(--wpbl-medal-1) 14%, transparent), color-mix(in srgb, ${accent} 12%, transparent))`,
+        border: '1.5px solid', borderColor: alpha(gold, dark ? 0.55 : 0.7),
+        boxShadow: `0 2px 14px -6px ${alpha(gold, dark ? 0.5 : 0.55)}`,
+        // A warm gold trophy card warming to a hint of the club's own colour, so the title reads
+        // as the one biggest thing on the page without a flat colour block fighting the cards
+        // under it.
+        backgroundImage: cardBg,
         ...FOCUS_RING,
       }}
     >
-      {/* Gold eyebrow strip, the champion equivalent of LiveHero's red one. */}
+      {/* Gold ribbon, the champion equivalent of LiveHero's red one. A real gold fill with
+          high-contrast text rather than a faint wash of the muddy medal colour. */}
       <Box sx={{
         display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.75,
-        bgcolor: 'color-mix(in srgb, var(--wpbl-medal-1) 16%, transparent)',
-        borderBottom: '1px solid', borderColor: 'divider',
+        background: stripBg,
+        borderBottom: '1px solid', borderColor: alpha(gold, dark ? 0.28 : 0.4),
       }}>
         <Box aria-hidden sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1 }}>🏆</Box>
         <Typography sx={{
           fontSize: TYPE_SCALE.meta, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
-          color: 'var(--wpbl-medal-1)',
+          color: goldSoft,
         }}>Champions</Typography>
         {dev && (
           <Typography sx={{
             fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
-            color: 'warning.main', ml: 0.25,
+            color: dark ? 'warning.main' : '#3d2905', ml: 0.25, opacity: dark ? 1 : 0.9,
           }}>· dev preview</Typography>
         )}
       </Box>
@@ -2568,7 +2594,7 @@ function ChampionBanner({ champion, runnerUp, champWins, rivalWins, dev, onOpenT
         <TeamBadge team={champion} size={52} />
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{
-            fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.15, color: accent,
+            fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.15, color: nameColor,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{wpblFullName(champion)}</Typography>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary', mt: 0.35 }}>
