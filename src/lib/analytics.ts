@@ -44,6 +44,7 @@ export const EVENTS = {
   WPBL_PHOTO_SOURCE:      'wpbl_photo_source',      // clicked through to the Commons file page, props {pageId}
   WPBL_PHOTOS_SHOWN:      'wpbl_photos_shown',      // Archive became the shelf's visible segment, props {count, collapsed}
   WPBL_PHOTOS_GALLERY:    'wpbl_photos_gallery',    // opened the full gallery from the strip's "All N" link
+  WPBL_FAN_PHOTO_OPENED:  'wpbl_fan_photo_opened',  // opened a FAN photo (not the Commons archive), props {photoId, from}
   // Home's media shelf: Reading, Highlights and Archive share one card behind a segmented
   // control, so only the active segment is ever seen. The *_SHOWN events above now fire on
   // segment ACTIVATION rather than on render, which makes them a true impression for the first

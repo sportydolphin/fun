@@ -11,6 +11,7 @@ import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, AccentPanel
 import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
+import { FanPhotoPlayerStrip } from './FanPhotoViews'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import { fetchWpblBattedBalls, getCachedWpblBattedBalls } from './api'
@@ -1641,6 +1642,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             who has been written about but has not logged a game is exactly the case where this
             is the most interesting thing on the page. Renders nothing when nobody has written
             about the player, which is most of the roster. */}
+        <FanPhotoPlayerStrip playerId={player.id} players={players} />
         <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} wide />
       </Box>
     )
@@ -1809,6 +1811,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
             <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>Season totals appear here once this player logs a game.</Typography>
           </Box>
+          <FanPhotoPlayerStrip playerId={player.id} players={players} />
           <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} />
         </Box>
       ) : (
@@ -1850,6 +1853,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
               {/* Under everything, spanning, for the reason it always did: it is the one block
                   here that is neither a season fact nor a game, and a well-covered player put
                   346px of article cards against a rail with nothing like that much to say. */}
+              <FanPhotoPlayerStrip playerId={player.id} players={players} />
               <Box sx={{ mt: 1 }}>
                 <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} wide />
               </Box>
