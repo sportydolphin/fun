@@ -305,6 +305,19 @@ export interface WpblPhotoSubject {
   figure_key: string | null
 }
 
+/** A photographer and the record that they granted permission. Owner-only: this table has no
+ *  public policy at all, so it never reaches a reader; only the denormalized `credit` on the
+ *  photo row is public. */
+export interface WpblPhotoContributor {
+  id: string
+  display_name: string
+  contact: string | null
+  permission_granted_on: string | null
+  permission_evidence: string | null
+  permission_scope: string | null
+  withdrawn_on: string | null
+}
+
 export interface WpblBattingLine {
   id: string
   game_id: string

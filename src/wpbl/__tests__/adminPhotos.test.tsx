@@ -19,21 +19,24 @@ const photos: WpblFanPhotoRow[] = [
 const players: WpblPlayer[] = [{ id: 'plW', name: 'Kelsie Whitmore', team_id: 'SF' } as WpblPlayer]
 let subjects: WpblPhotoSubject[] = []
 
-const setFanPhotoApproved = vi.fn(async () => true)
-const addFanPhotoSubject = vi.fn(async () => ({ id: 's1', photo_id: 'ph1', player_id: 'plW', figure_key: null }))
-const removeFanPhotoSubject = vi.fn(async () => true)
-const updateFanPhoto = vi.fn(async () => true)
-const upsertFanPhotoFigure = vi.fn(async () => true)
+const setFanPhotoApproved = vi.fn(async (..._a: unknown[]) => true)
+const addFanPhotoSubject = vi.fn(async (..._a: unknown[]) => ({ id: 's1', photo_id: 'ph1', player_id: 'plW', figure_key: null }))
+const removeFanPhotoSubject = vi.fn(async (..._a: unknown[]) => true)
+const updateFanPhoto = vi.fn(async (..._a: unknown[]) => true)
+const upsertFanPhotoFigure = vi.fn(async (..._a: unknown[]) => true)
 
 vi.mock('../api', () => ({
   fetchWpblFanPhotoQueue: vi.fn(async () => ({ photos, subjects, figures: [] })),
   fetchWpblAllPlayers: vi.fn(async () => players),
+  fetchFanPhotoContributors: vi.fn(async () => []),
   setFanPhotoApproved: (...a: unknown[]) => setFanPhotoApproved(...a),
   addFanPhotoSubject: (...a: unknown[]) => addFanPhotoSubject(...a),
   removeFanPhotoSubject: (...a: unknown[]) => removeFanPhotoSubject(...a),
   updateFanPhoto: (...a: unknown[]) => updateFanPhoto(...a),
   upsertFanPhotoFigure: (...a: unknown[]) => upsertFanPhotoFigure(...a),
 }))
+vi.mock('../../lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }))
+vi.mock('../fanPhotoUpload', () => ({ prepareForUpload: vi.fn(), uploadPreparedPhoto: vi.fn() }))
 
 import AdminPhotos from '../AdminPhotos'
 

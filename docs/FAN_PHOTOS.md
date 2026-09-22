@@ -19,10 +19,32 @@ renders). The upload + insert half:
 ingest-fan-photos`), which uploads both renders to R2 (via `aws4fetch`, content-addressed keys)
 and upserts the rows `approved = false`, with a credential-free `--dry-run`. Its DO UPDATE list
 omits every curator-owned column and coalesces `taken_on`, both validated against the live
-schema; only the R2 `PUT` itself is unexercised until the bucket exists. **Not built:** the R2
-bucket (below), the curation UI, and every surface (player strip, `/wpbl/photos`, Game Center).
-No approved rows exist yet, so every surface renders empty until the bucket is created and a
-batch is ingested.
+schema; only the R2 `PUT` itself is unexercised until the bucket exists. R2 bucket
+`sportydolphin-wpbl-photos`, custom domain `photos.sportydolphin.fun`, CORS, and the
+worker-route carve-out, all live (Sep 21, 2026). The curation tool
+[`AdminPhotos.tsx`](../src/wpbl/AdminPhotos.tsx), a Photos group on `/admin`: queue, subject
+type-ahead, caption, approve, all through the `is_site_owner()` RLS. **The web upload** (Sep 22,
+2026): an Upload panel in that same tool plus [`fanPhotoUpload.ts`](../src/wpbl/fanPhotoUpload.ts)
+(canvas resize + webp + sha256, EXIF dropped by the canvas) and the owner-gated
+[`functions/api/fan-photo.ts`](../functions/api/fan-photo.ts) that puts the bytes in R2, so a
+photo can be uploaded from a phone with the same duplicate check as the CLI. **Not built:** every
+reader-facing surface (player strip, `/wpbl/photos`, Game Center). Nothing is public yet.
+
+### The web upload's server env (owner)
+
+The `/api/fan-photo` endpoint is the only place the R2 keys live at the edge, and they are not
+there yet: they are in the local `.env` for the CLI, but a Cloudflare function reads the
+CLOUDFLARE environment. Add these to the Pages/Workers project env (dashboard), the same store
+that already holds `VITE_SUPABASE_URL` and the service-role key: `R2_ACCOUNT_ID`,
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE`. Until they are set the
+endpoint returns 500 and the web upload cannot work, while the CLI keeps working off `.env`. The
+owner check needs nothing new: the function calls the DB's own `is_site_owner()` with the
+caller's Supabase token, so there is no second definition of "who is the owner" and no JWT secret
+to store.
+
+### The R2 bucket, the one manual step (owner)
+
+Everything above is code; this is Cloudflare setup, done once, and the ingest is blocked on it:
 
 ### The R2 bucket, the one manual step (owner)
 

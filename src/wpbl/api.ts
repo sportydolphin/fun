@@ -12,7 +12,7 @@ import type {
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails, WpblGameRevision,
-  WpblFanPhoto, WpblPhotoFigure, WpblPhotoSubject,
+  WpblFanPhoto, WpblPhotoFigure, WpblPhotoSubject, WpblPhotoContributor,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -1117,6 +1117,69 @@ export function removeFanPhotoSubject(id: string): Promise<boolean> {
 export function upsertFanPhotoFigure(fig: WpblPhotoFigure): Promise<boolean> {
   return ownerWrite('upsertFanPhotoFigure', () =>
     supabase.from('wpbl_photo_figures').upsert(fig, { onConflict: 'key' }))
+}
+
+// ─── The web upload path (owner, from the browser) ───────────────────────────────────────
+//
+// The CLI ingest still exists for a laptop and a big drop folder; this is the from-anywhere
+// path. The bytes go to R2 through the owner-gated /api/fan-photo function (the browser cannot
+// hold R2 keys); the row is written HERE, through the same is_site_owner() RLS as the curation
+// edits, so there is no second writer to reason about.
+
+/** Does a photo with these original bytes already exist? Returns its id and approval, or null.
+ *  This is the real-time duplicate check the upload UI runs the moment a file is picked, so the
+ *  same shot is never uploaded twice. Owner-only read (the queue RLS returns the unapproved
+ *  backlog to is_site_owner()). */
+export async function findFanPhotoBySha(sha256: string): Promise<{ id: string; approved: boolean } | null> {
+  try {
+    const { data, error } = await supabase.from('wpbl_fan_photos')
+      .select('id,approved').eq('sha256', sha256).maybeSingle()
+    if (error) { console.error('findFanPhotoBySha:', error); return null }
+    return data ?? null
+  } catch (e) {
+    console.error('findFanPhotoBySha:', e)
+    return null
+  }
+}
+
+/** Insert a fan photo row after its renders are in R2. Returns the new id, or null on failure.
+ *  Lands `approved = false` by the column default: an uploaded photo is still just a queue
+ *  entry until it is tagged and published. */
+export async function insertFanPhoto(row: {
+  sha256: string; storage_path: string; card_url: string; full_url: string
+  width: number | null; height: number | null; credit: string | null; contributor_id: string | null
+}): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.from('wpbl_fan_photos').insert(row).select('id').single()
+    if (error) { console.error('insertFanPhoto:', error); return null }
+    return data.id as string
+  } catch (e) {
+    console.error('insertFanPhoto:', e)
+    return null
+  }
+}
+
+/** The contributors already on file, for the upload panel's picker. Owner-only table. */
+export async function fetchFanPhotoContributors(): Promise<WpblPhotoContributor[]> {
+  return safe<WpblPhotoContributor[]>('fetchFanPhotoContributors', () =>
+    supabase.from('wpbl_photo_contributors')
+      .select('id,display_name,contact,permission_granted_on,permission_evidence,permission_scope,withdrawn_on')
+      .order('display_name') as unknown as
+      PromiseLike<{ data: WpblPhotoContributor[] | null; error: unknown }>, [])
+}
+
+/** Create a contributor (the permission record), returning the new id. */
+export async function createFanPhotoContributor(
+  rec: Omit<WpblPhotoContributor, 'id' | 'withdrawn_on'>,
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.from('wpbl_photo_contributors').insert(rec).select('id').single()
+    if (error) { console.error('createFanPhotoContributor:', error); return null }
+    return data.id as string
+  } catch (e) {
+    console.error('createFanPhotoContributor:', e)
+    return null
+  }
 }
 
 // Existing box-score lines for one game (for editing / display).
