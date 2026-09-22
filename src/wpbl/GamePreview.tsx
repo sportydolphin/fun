@@ -118,6 +118,18 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
     [rosters, lines, players, away, home, games, teams, eraBasis],
   )
 
+  // Player ids that have appeared in a box-score line this season, batting or pitching. The
+  // roster filter needs this because `status` alone is wrong: nearly half the league sits at
+  // 'Drafted' rather than 'Signed', and ten of those have actually suited up (Baird, Frank and
+  // Villarreal all played for LA), so a `status === 'Signed'` gate drops real, rostered players.
+  // Built from `lines`, already in hand, so it costs no fetch.
+  const playedIds = useMemo(() => {
+    const s = new Set<string>()
+    for (const l of lines?.batting ?? []) if (l.player_id) s.add(l.player_id)
+    for (const l of lines?.pitching ?? []) if (l.player_id) s.add(l.player_id)
+    return s
+  }, [lines])
+
   const awayStats = stats?.get(away.id)
   const homeStats = stats?.get(home.id)
   const loading = !stats && !failed
@@ -303,13 +315,16 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
     )
   }
 
-  // One club's active roster: the signed players whose club is this one now, sorted by position
-  // the way a lineup card reads. `team_id` is "now", which is the right question for a game that
-  // has not happened yet. Named plainly (no box-score override), because this is the roster the
-  // league lists, not where a player has been used.
+  // One club's active roster: whose club is this one now, sorted by position the way a lineup
+  // card reads. `team_id` is "now", which is the right question for a game that has not happened
+  // yet. A player belongs if the league has them Signed OR they have appeared in a game (see
+  // `playedIds`): 'Drafted' is not off the roster, it is the status half the league carries, so
+  // gating on 'Signed' alone hid ten players who have actually played. The 48 draftees who have
+  // not suited up stay out, which is the line "on the roster" should draw. Named plainly (no
+  // box-score override), because this is the roster the league lists, not where a player has been used.
   const rosterCol = (team: WpblTeam, color: string) => {
     const list = (players ?? [])
-      .filter(p => p.team_id === team.id && p.status === 'Signed')
+      .filter(p => p.team_id === team.id && (p.status === 'Signed' || playedIds.has(p.id)))
       .sort((a, b) => positionRank(a.position) - positionRank(b.position) || a.name.localeCompare(b.name))
     return (
       <Box sx={{ minWidth: 0 }}>
