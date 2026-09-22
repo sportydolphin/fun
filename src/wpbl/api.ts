@@ -1015,6 +1015,110 @@ export async function fetchWpblFanPhotoIndex(): Promise<FanPhotoIndex> {
   return buildFanPhotoIndex(photos, subjects, figures)
 }
 
+// ─── Fan photo curation (owner-only, writes through the is_site_owner() RLS policy) ──────
+//
+// The curation tool under /admin. These writes are NOT a fourth write path (CLAUDE.md): the
+// owner policy on each table already exists, exactly as it does on wpbl_photos, and the
+// browser is refused every one of these unless is_site_owner() passes. The route gate in
+// App.tsx is cosmetic; RLS is the boundary.
+//
+// The queue read deliberately does NOT go through the cached public fetchers. It needs every
+// row including the unapproved backlog, and it must be fresh after each edit rather than served
+// from the 20s bulk cache. The owner's `for all using (is_site_owner())` policy ORs with the
+// public `using (approved)` one, so this returns all rows for the owner (and, harmlessly, only
+// approved rows for anyone else who called it).
+
+/** A fan photo as the curator sees it: the public shape plus the review-only columns. */
+export interface WpblFanPhotoRow extends WpblFanPhoto {
+  approved: boolean
+  contributor_id: string | null
+  created_at: string
+}
+
+export async function fetchWpblFanPhotoQueue(): Promise<{
+  photos: WpblFanPhotoRow[]; subjects: WpblPhotoSubject[]; figures: WpblPhotoFigure[]
+}> {
+  // All three read FRESH, not through the cached public fetchers: an approve or a new tag has to
+  // show on the next reload, and the bulk cache would serve the pre-edit set for its whole window.
+  const [photos, subjects, figures] = await Promise.all([
+    safe<WpblFanPhotoRow[]>('fetchWpblFanPhotoQueue', () =>
+      supabase.from('wpbl_fan_photos')
+        // Unreviewed first (approved ascending puts false before true), then the curated order.
+        .select(`${FAN_PHOTO_COLUMNS},approved,contributor_id,created_at`)
+        .order('approved', { ascending: true })
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true }) as unknown as
+        PromiseLike<{ data: WpblFanPhotoRow[] | null; error: unknown }>, []),
+    safe<WpblPhotoSubject[]>('fetchWpblFanPhotoQueueSubjects', () =>
+      supabase.from('wpbl_photo_subjects').select('id,photo_id,player_id,figure_key') as unknown as
+        PromiseLike<{ data: WpblPhotoSubject[] | null; error: unknown }>, []),
+    safe<WpblPhotoFigure[]>('fetchWpblFanPhotoQueueFigures', () =>
+      supabase.from('wpbl_photo_figures').select('key,name,kind,blurb,team_id').order('name') as unknown as
+        PromiseLike<{ data: WpblPhotoFigure[] | null; error: unknown }>, []),
+  ])
+  return { photos, subjects, figures }
+}
+
+/** True on success. Every one of these logs and returns false rather than throwing, so a
+ *  single failed edit leaves the rest of the queue usable. */
+async function ownerWrite(label: string, run: () => PromiseLike<{ error: unknown }>): Promise<boolean> {
+  try {
+    const { error } = await run()
+    if (error) { console.error(`${label}:`, error); return false }
+    return true
+  } catch (e) {
+    console.error(`${label}:`, e)
+    return false
+  }
+}
+
+export function setFanPhotoApproved(id: string, approved: boolean): Promise<boolean> {
+  return ownerWrite('setFanPhotoApproved', () =>
+    supabase.from('wpbl_fan_photos').update({ approved, updated_at: new Date().toISOString() }).eq('id', id))
+}
+
+/** Patch the curator-owned fields. Only the keys passed are written, so this never clobbers a
+ *  field it was not asked to touch. */
+export function updateFanPhoto(id: string, patch: {
+  caption?: string | null; taken_on?: string | null; game_id?: string | null; sort_order?: number | null
+}): Promise<boolean> {
+  return ownerWrite('updateFanPhoto', () =>
+    supabase.from('wpbl_fan_photos').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
+}
+
+/** Tag a subject, returning the new row (for optimistic UI) or null on failure. Exactly one of
+ *  playerId / figureKey is passed; the table's check constraint enforces that, and the unique
+ *  index rejects a repeat tag (which the UI avoids by not offering an already-tagged subject).
+ *  `.insert().select()` is safe here because the owner's RLS policy also grants the select. */
+export async function addFanPhotoSubject(
+  photoId: string, subject: { playerId: string } | { figureKey: string },
+): Promise<WpblPhotoSubject | null> {
+  const row = 'playerId' in subject
+    ? { photo_id: photoId, player_id: subject.playerId, figure_key: null }
+    : { photo_id: photoId, player_id: null, figure_key: subject.figureKey }
+  try {
+    const { data, error } = await supabase.from('wpbl_photo_subjects')
+      .insert(row).select('id,photo_id,player_id,figure_key').single()
+    if (error) { console.error('addFanPhotoSubject:', error); return null }
+    return data as WpblPhotoSubject
+  } catch (e) {
+    console.error('addFanPhotoSubject:', e)
+    return null
+  }
+}
+
+export function removeFanPhotoSubject(id: string): Promise<boolean> {
+  return ownerWrite('removeFanPhotoSubject', () =>
+    supabase.from('wpbl_photo_subjects').delete().eq('id', id))
+}
+
+/** Create or update a non-player figure (a mascot, manager, coach, ...). Keyed on `key`, so a
+ *  re-save edits rather than duplicates. */
+export function upsertFanPhotoFigure(fig: WpblPhotoFigure): Promise<boolean> {
+  return ownerWrite('upsertFanPhotoFigure', () =>
+    supabase.from('wpbl_photo_figures').upsert(fig, { onConflict: 'key' }))
+}
+
 // Existing box-score lines for one game (for editing / display).
 export async function fetchWpblGameLines(gameId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; fielding: WpblFieldingLine[] }> {
   const [batting, pitching, fielding] = await Promise.all([
