@@ -311,71 +311,92 @@ function UploadPanel({ onUploaded }: { onUploaded: () => void }) {
     onUploaded()
   }
 
+  // Comfortable touch height on a phone: a 28px input is a miss target. 44px is the floor.
   const field = (key: keyof typeof form, placeholder: string, type?: string) => (
     <TextField value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-      placeholder={placeholder} type={type} size="small" InputProps={{ sx: { fontSize: '0.8rem' } }}
-      sx={{ '& .MuiInputBase-input': { py: 0.5 } }} />
+      placeholder={placeholder} type={type} size="small" fullWidth
+      InputProps={{ sx: { fontSize: '0.85rem' } }}
+      sx={{ '& .MuiInputBase-input': { py: 1 } }} />
   )
+
+  // Every tappable control shares one comfortable pill shape and a 44px minimum, so nothing on
+  // this panel is a small target on a phone.
+  const tap = (active: boolean, accent = false) => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.6,
+    minHeight: 44, px: 2, borderRadius: 999, userSelect: 'none' as const,
+    fontSize: '0.8rem', fontWeight: 800, border: '1px solid',
+    cursor: active ? 'pointer' : 'default',
+    borderColor: accent && active ? 'primary.main' : 'divider',
+    color: accent && active ? 'primary.main' : active ? 'text.secondary' : 'text.disabled',
+  })
 
   return (
     <Section title="Upload photos">
-      <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {/* contributor: pick who took them, or add a new permission record */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {/* contributor: pick who took them, or add a new permission record. Same height, so the
+            Select and the button line up rather than jostling on a phone. */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'stretch' }}>
           <Select value={selected} onChange={e => setSelected(e.target.value)} displayEmpty size="small"
-            sx={{ fontSize: '0.8rem', minWidth: 200, flex: 1 }}>
-            <MenuItem value="" disabled sx={{ fontSize: '0.8rem' }}>Photographer…</MenuItem>
-            {contributors.map(c => <MenuItem key={c.id} value={c.id} sx={{ fontSize: '0.8rem' }}>{c.display_name}</MenuItem>)}
+            sx={{ fontSize: '0.85rem', flex: 1, minWidth: 0, '& .MuiSelect-select': { py: 1.25 } }}>
+            <MenuItem value="" disabled sx={{ fontSize: '0.85rem' }}>Photographer…</MenuItem>
+            {contributors.map(c => <MenuItem key={c.id} value={c.id} sx={{ fontSize: '0.85rem' }}>{c.display_name}</MenuItem>)}
           </Select>
-          <Box onClick={() => setAdding(a => !a)} role="button" tabIndex={0} sx={{
-            px: 1.3, py: 0.55, borderRadius: 999, cursor: 'pointer', userSelect: 'none', fontSize: '0.74rem',
-            fontWeight: 800, border: '1px solid', borderColor: 'divider', color: 'text.secondary',
-          }}>{adding ? 'Cancel' : '+ New'}</Box>
+          <Box onClick={() => setAdding(a => !a)} role="button" tabIndex={0} sx={{ ...tap(true), flexShrink: 0 }}>
+            {adding ? 'Cancel' : '+ New'}
+          </Box>
         </Box>
 
         {adding && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8, p: 1.2, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
             {field('display_name', 'Name to credit (required)')}
-            {field('permission_evidence', 'Where they said yes: Discord/email link (required)')}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Box sx={{ flex: 1, minWidth: 120 }}>{field('contact', 'Contact')}</Box>
-              <Box sx={{ width: 150 }}>{field('permission_granted_on', 'Granted on', 'date')}</Box>
+            {field('permission_evidence', 'Where they said yes: link or note (required)')}
+            {/* Stacks on a phone, sits side by side once there is room. A fixed-width date field
+                next to a flexible one was the thing that crowded on a narrow screen. */}
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>{field('contact', 'Contact')}</Box>
+              <Box sx={{ width: { xs: '100%', sm: 160 }, flexShrink: 0 }}>{field('permission_granted_on', 'Granted on', 'date')}</Box>
             </Box>
             {field('permission_scope', 'Scope (e.g. site display)')}
             <Box onClick={saveContributor} role="button" tabIndex={0} sx={{
-              alignSelf: 'flex-start', px: 1.5, py: 0.6, borderRadius: 999,
-              cursor: canSaveContributor ? 'pointer' : 'default', userSelect: 'none', fontSize: '0.74rem', fontWeight: 800,
-              border: '1px solid', borderColor: canSaveContributor ? 'primary.main' : 'divider',
-              color: canSaveContributor ? 'primary.main' : 'text.disabled',
+              ...tap(canSaveContributor, true), alignSelf: { xs: 'stretch', sm: 'flex-start' }, px: 2.5,
             }}>Save photographer</Box>
           </Box>
         )}
 
-        {/* the file picker: disabled until a photographer is chosen, so every photo has a credit */}
+        {/* the file picker: disabled until a photographer is chosen, so every photo has a credit.
+            Tall and two-line so it reads as the main action and is an easy tap on a phone. */}
         <Box component="label" sx={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, py: 1.6,
-          borderRadius: 1.5, border: '2px dashed', borderColor: selected && !busy ? 'primary.main' : 'divider',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.4,
+          minHeight: 88, px: 2, py: 2, textAlign: 'center',
+          borderRadius: 2, border: '2px dashed', borderColor: selected && !busy ? 'primary.main' : 'divider',
           color: selected && !busy ? 'primary.main' : 'text.disabled',
-          cursor: selected && !busy ? 'pointer' : 'default', fontSize: '0.82rem', fontWeight: 700,
+          cursor: selected && !busy ? 'pointer' : 'default',
         }}>
-          {busy ? <CircularProgress size={16} /> : null}
-          {busy ? 'Uploading…' : selected ? 'Choose photos to upload' : 'Pick a photographer first'}
+          {busy && <CircularProgress size={18} sx={{ mb: 0.3 }} />}
+          <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, color: 'inherit' }}>
+            {busy ? 'Uploading…' : selected ? 'Choose photos to upload' : 'Pick a photographer first'}
+          </Typography>
+          {!busy && selected && (
+            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>
+              JPEG or PNG, from your camera roll or camera
+            </Typography>
+          )}
           <input type="file" accept="image/*" multiple hidden disabled={!selected || busy}
             onChange={e => { onFiles(e.target.files); e.target.value = '' }} />
         </Box>
 
         {rows.length > 0 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3, mt: 0.3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
             {rows.map((r, i) => (
-              <Box key={`${r.name}-${i}`} sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-                <Typography noWrap sx={{ fontSize: '0.72rem', flex: 1, minWidth: 0 }}>{r.name}</Typography>
-                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: STATUS_COLOR[r.status] }}>
+              <Box key={`${r.name}-${i}`} sx={{ display: 'flex', alignItems: 'baseline', gap: 1, py: 0.2 }}>
+                <Typography noWrap sx={{ fontSize: '0.78rem', flex: 1, minWidth: 0 }}>{r.name}</Typography>
+                <Typography sx={{ fontSize: '0.74rem', fontWeight: 700, color: STATUS_COLOR[r.status], flexShrink: 0 }}>
                   {STATUS_LABEL[r.status]}
                 </Typography>
               </Box>
             ))}
             {rows.some(r => r.msg) && (
-              <Typography sx={{ fontSize: '0.64rem', color: 'error.main', mt: 0.3 }}>
+              <Typography sx={{ fontSize: '0.68rem', color: 'error.main', mt: 0.3 }}>
                 {rows.filter(r => r.msg).map(r => `${r.name}: ${r.msg}`).join(' · ')}
               </Typography>
             )}
