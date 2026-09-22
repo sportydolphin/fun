@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import PlayerDetailModal from './PlayerDetail'
 import { findWpblPlayerBySlug } from './routes'
-import { fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, getCachedWpblAllPlayers } from './api'
+import {
+  fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers,
+  getCachedWpblTeams, getCachedWpblSchedule, getCachedWpblAllPlayers,
+} from './api'
 import type { WpblGame, WpblTeam, WpblPlayer } from './types'
 
 // The player modal, hovering over a STANDALONE page rather than over a WPBL tab.
@@ -28,10 +31,11 @@ export default function WpblPlayerOverlayHost({ slug, onClose, onOpenGame }: {
    *  vs replace). The datasets come from here because this host is the only holder that has them. */
   onOpenGame: (game: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
 }) {
-  const [teams, setTeams] = useState<WpblTeam[]>([])
-  const [games, setGames] = useState<WpblGame[]>([])
-  // Seeded from the cache so the player resolves on the first render: every page that links a player
-  // has already loaded the roster to build the href, so this is populated before the overlay opens.
+  // All seeded from the cache so the player resolves on the first render with no flash: every page
+  // that links a player has already loaded the roster to build the href, and the section loaded
+  // teams and the schedule before it, so all three are populated before the overlay opens.
+  const [teams, setTeams] = useState<WpblTeam[]>(() => getCachedWpblTeams() ?? [])
+  const [games, setGames] = useState<WpblGame[]>(() => getCachedWpblSchedule() ?? [])
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   useEffect(() => {
     let cancelled = false

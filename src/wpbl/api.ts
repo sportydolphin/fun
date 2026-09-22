@@ -62,11 +62,21 @@ function once<T>(key: string, run: () => Promise<T>): Promise<T> {
   return p
 }
 
+// Last good teams read, for a synchronous seed on a surface that opens after the section has
+// already loaded them (the overlay hosts). Never overwritten by an empty read, same reasoning
+// as the schedule's last-good below.
+let teamsCache: WpblTeam[] | null = null
+export function getCachedWpblTeams(): WpblTeam[] | null { return teamsCache }
 export function fetchWpblTeams(): Promise<WpblTeam[]> {
   return once('teams', () => safe('fetchWpblTeams', () =>
     supabase.from('wpbl_teams').select('*').order('sort_order', { ascending: true }),
-    [] as WpblTeam[]))
+    [] as WpblTeam[]).then(t => { if (t.length > 0) teamsCache = t; return t }))
 }
+
+// The last good schedule the section fetched, for the same synchronous seed. `lastGoodSchedule`
+// is what fetchWpblSchedule already keeps for its empty-read guard, so this exposes it rather
+// than holding a second copy.
+export function getCachedWpblSchedule(): WpblGame[] | null { return lastGoodSchedule }
 
 // The feed occasionally emits a phantom `scheduled` duplicate of a game it already
 // reported final (same date + matchup, different api_game_id). Drop the not-yet-played
