@@ -30,6 +30,7 @@ import { useDevDevice, setDeviceMode, currentPreset, isInsideDeviceFrame } from 
 import { useDevSeasonSelector, setSeasonSelectorStyle } from '../mlb/dev/devSeasonSelector'
 import { devShowDiscordCard } from '../wpbl/discordInvite'
 import { setDevChampionPhase, rerollDevChampion, devChampionState, type DevChampionPhase } from '../wpbl/dev/devChampion'
+import { setDevFanPhotos, devFanPhotosOn } from '../wpbl/dev/devFanPhotos'
 import { installWpblReadOverlay } from '../wpbl/api'
 import {
   DEV_LIVE_SPEEDS, devLiveCandidates, devLiveCursor, devLiveFinished, devLiveOverlay,
@@ -207,6 +208,10 @@ function WpblControls() {
 
       <Divider sx={{ my: 1.75 }} />
 
+      <FanPhotosDevControl />
+
+      <Divider sx={{ my: 1.75 }} />
+
       <LiveGameSimControls />
     </>
   )
@@ -223,6 +228,34 @@ function WpblControls() {
  * off a shared seed so they agree. Re-roll asks for a fresh club. Off is the real behaviour, and
  * a genuine champion always wins over this.
  */
+/**
+ * Force the Home fan-photos card on, padded with mock rows. The card is gated on there being
+ * twelve real published photos, which there will not be for a while, so this is the only way to
+ * see the offseason Home the plan is about. Pair it with the season finale set to Finished.
+ */
+function FanPhotosDevControl() {
+  const [on, setOn] = React.useState<boolean>(() => devFanPhotosOn())
+  const toggle = () => { const next = !on; setOn(next); setDevFanPhotos(next) }
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        Fan photos on Home (mock)
+      </Typography>
+      <Button
+        fullWidth size="small" variant="outlined" color={on ? 'success' : 'warning'}
+        onClick={toggle}
+        sx={{ textTransform: 'none', fontWeight: 600 }}
+      >
+        {on ? 'On — showing mock photos' : 'Off'}
+      </Button>
+      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.5 }}>
+        Pads the Home card to twelve so it renders before there are that many real photos. Reuses
+        real photos where they exist. Open the WPBL section to see it.
+      </Typography>
+    </>
+  )
+}
+
 function ChampionBannerControls() {
   // Seeded from the module, not a default: the popover unmounts on close, so this reads the last
   // phase back on reopen rather than snapping to Off while the simulation is still on.

@@ -36,6 +36,8 @@ import FeedDelayNote from './FeedDelayNote'
 import { WpblGamePreview, WpblMatchupPreview } from './GamePreview'
 import { mvpRaceIsWorthDrawing } from './MvpRace'
 import FanVoteCard, { FanAwardsCta } from './FanVote'
+import { awardsResultsShowOnHome } from './awards'
+import { FanPhotoHomeCard } from './FanPhotoViews'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
@@ -3120,7 +3122,13 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               and the slot contents change when that lands, about a second after first paint.
               Without stable keys React reconciles by position and remounts the compare card, which
               holds a per-mount seed and would re-deal its pair mid-visit. */}
-          {(mvpRaceIsWorthDrawing(race)
+          {(!awardsResultsShowOnHome()
+            // Past the results window: the ballot's slot gives way, exactly as it does when there
+            // is no race to draw. Compare takes row 1 and an empty cell takes row 2, so the season
+            // column collapses to what Next game needs rather than holding a slot for a card that
+            // is not coming back.
+            ? [compareCard, <Box key="mvp-empty" />]
+            : mvpRaceIsWorthDrawing(race)
             ? [
               /* It spends whatever slack the row gives it on the chart, which is the one child
                  that gets better with height; see the note on RaceChart's `fill`. */
@@ -3167,6 +3175,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
           Last on the page at both breakpoints, which is also the right editorial answer during
           a season: everything above is about games that just happened or are about to. */}
+      {/* Fan photos, year-round once there are enough (see HOME_MIN_PHOTOS). Above The league and
+          below everything about the games, the explore-and-relive zone: it stays out of the way of
+          the live cards during a season and rises on its own once those go quiet. Renders nothing,
+          and adds no gap, until the threshold is met. */}
+      <FanPhotoHomeCard />
+
       <Box sx={{ mt: 1.5 }}>
         <LeagueCard />
       </Box>

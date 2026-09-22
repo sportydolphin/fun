@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, CARD_BORDER, useRailPaging, RailArrow, RailScroller, hoverOnly } from './ui'
+import { ModalShell, SectionCard, CARD_BORDER, useRailPaging, RailArrow, RailScroller, hoverOnly } from './ui'
 import type { FanPhotoWithSubjects, FanPhotoIndex } from './fanPhotos'
-import { fetchWpblFanPhotoIndex } from './api'
+import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers } from './api'
 import type { WpblPlayer } from './types'
+import { WPBL_PHOTOS_PAGE } from './routes'
+import { linkTo } from '../nav'
+import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
 import { track, EVENTS } from '../lib/analytics'
+
+// How many published photos before the Home card earns its slot, and the most it shows in the
+// rail. The threshold is deliberately not small: a card on the front page has to look like a
+// collection, not a lonely thumbnail, and the plan parked a Home rail during the season precisely
+// because it had nothing to show. Twelve is "enough". See docs/FAN_PHOTOS.md.
+const HOME_MIN_PHOTOS = 12
+const HOME_RAIL_MAX = 12
 
 // The reader-facing fan-photo UI: the strip on a player page, the grid on /wpbl/photos, and the
 // lightbox both open. This is NOT Photos.tsx: that renders the Commons archive (wpbl_photos), a
@@ -193,6 +203,73 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
         Fan photos
       </Typography>
       <FanPhotoStrip photos={photos} resolveNames={resolveNames} from="player" />
+    </Box>
+  )
+}
+
+// ─── The Home card ──────────────────────────────────────────────────────────────
+
+/**
+ * The fan-photos card on Home: a rail of recent photographs and a link to the full gallery. Shows
+ * year-round once there are HOME_MIN_PHOTOS published, because the photos keep arriving and the
+ * card grows with them; it sits low on Home (above "The league"), the explore-and-relive zone,
+ * where it stays out of the live cards during a season and rises on its own once those go quiet.
+ *
+ * Self-fetching off the app-wide-cached index, so Home hands it nothing. In dev the offseason
+ * preview can pad it with mock rows (see devFanPhotos), which is the only way to see the card
+ * before twelve real photos exist.
+ */
+export function FanPhotoHomeCard() {
+  const [index, setIndex] = useState<FanPhotoIndex | null>(null)
+  const [players, setPlayers] = useState<WpblPlayer[]>([])
+  const [mockOn, setMockOn] = useState(() => import.meta.env.DEV && devFanPhotosOn())
+
+  useEffect(() => {
+    let live = true
+    Promise.all([fetchWpblFanPhotoIndex(), fetchWpblAllPlayers()])
+      .then(([idx, pl]) => { if (live) { setIndex(idx); setPlayers(pl) } })
+      .catch(() => { /* renders nothing */ })
+    return () => { live = false }
+  }, [])
+
+  // Dev only: the settings menu can force the card on with mock rows. The listener and its import
+  // tree-shake out of production behind this guard.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const onDev = (e: Event) => setMockOn((e as CustomEvent<boolean>).detail)
+    window.addEventListener(DEV_FAN_PHOTOS_EVENT, onDev)
+    return () => window.removeEventListener(DEV_FAN_PHOTOS_EVENT, onDev)
+  }, [])
+
+  const nameById = useMemo(() => new Map(players.map(p => [p.id, p.name])), [players])
+  const resolveNames = useCallback((photo: FanPhotoWithSubjects): string[] => {
+    const names: string[] = []
+    for (const pid of photo.playerIds) names.push(nameById.get(pid) ?? '—')
+    for (const key of photo.figureKeys) names.push(index?.figures.get(key)?.name ?? '—')
+    return names
+  }, [nameById, index])
+
+  const real = index?.photos ?? []
+  const photos = import.meta.env.DEV && mockOn ? mockFanPhotos(real, players, HOME_MIN_PHOTOS) : real
+  if (photos.length < HOME_MIN_PHOTOS) return null
+
+  const seeAll = linkTo(WPBL_PHOTOS_PAGE)
+  // Its own top margin (Home's 1.5 step), carried here rather than by a wrapper on Home, so a
+  // hidden card (below the threshold) leaves no empty gap above "The league".
+  return (
+    <Box sx={{ mt: 1.5 }}>
+      <SectionCard
+        title="Fan photos"
+        action={
+          <Box {...seeAll} sx={{
+            textDecoration: 'none', fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
+            '&:hover': { color: 'text.primary' },
+            '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 1 },
+          }}>See all {photos.length} →</Box>
+        }
+      >
+        <FanPhotoStrip photos={photos.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" />
+      </SectionCard>
     </Box>
   )
 }

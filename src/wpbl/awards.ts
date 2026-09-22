@@ -78,6 +78,18 @@ export const AWARDS_CLOSE_DATE = '2026-09-16'
 // 6:00 PM at the Central hub, in CDT (UTC-5) on this date. This is the final's first pitch; see above.
 export const AWARDS_CLOSE_AT = `${AWARDS_CLOSE_DATE}T18:00:00-05:00`
 
+/** When the results stop appearing ON HOME. Voting closed Sep 16 and the closed ballot shows the
+ *  results in place; this is the separate, later date those results come off Home and the page
+ *  moves on. Kept apart from AWARDS_CLOSE_AT because they answer different questions ("is voting
+ *  over" vs "is this still worth a card on the front page"), and this one is the easy dial to turn
+ *  when the season's cards should give way to the offseason. Home reads it; nothing else does, so
+ *  the standalone ballot surface is unaffected. Midnight Oct 1 Central = through the end of Sep. */
+export const AWARDS_RESULTS_UNTIL = '2026-10-01T00:00:00-05:00'
+
+/** True while the fan-awards results still earn their slot on Home. */
+export const awardsResultsShowOnHome = (now = Date.now()): boolean =>
+  now < Date.parse(AWARDS_RESULTS_UNTIL)
+
 const CLOSE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** "Sep 16", for the one line of copy that states the deadline. Built by string surgery and not
