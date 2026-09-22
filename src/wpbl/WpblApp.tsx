@@ -36,7 +36,7 @@ import {
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
-  WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
+  WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_PHOTOS_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
   WPBL_PLAYERS_INDEX, WPBL_COMPARE_BASE,
   WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
@@ -839,6 +839,7 @@ const MORE_GROUPS: { group: string; items: MoreLink[] }[] = [
     { href: WPBL_LEAGUE_PAGE,    label: 'The league',   hint: 'Where the players are from, the reading and the archive' },
     { href: WPBL_SEASON_PAGE,    label: '2026 season',  hint: 'The season read back through its numbers' },
     { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',    hint: 'Every final score the league has produced' },
+    { href: WPBL_PHOTOS_PAGE,    label: 'Fan photos',   hint: "Photographs of this season's players, by who is in them" },
     { href: WPBL_PLAYERS_INDEX,  label: 'All players',  hint: 'Every roster, by club' },
   ] },
   { group: 'Tools', items: [

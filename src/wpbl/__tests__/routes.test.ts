@@ -36,6 +36,7 @@ import {
   isWpblSourcesPage,
   isWpblSeasonPage,
   isWpblScorigamiPage,
+  isWpblPhotosPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
   WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, isCanonicalComparePath,
@@ -762,6 +763,35 @@ describe('/wpbl/scorigami, the final-scores grid', () => {
   // crawler can follow. An orphaned copy of a page written to be found is worth nothing.
   it('is linked from the site footer', () => {
     expect(footerSource).toContain('WPBL_SCORIGAMI_PAGE')
+  })
+})
+
+describe('/wpbl/photos, the fan photos gallery', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/photos\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/photos\/\s+\/wpbl\/photos\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/wpbl/photos': {")
+    expect(seoSource).toMatch(/'\/wpbl\/photos':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/photos</loc>')
+  })
+
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblPhotosPage('/wpbl/photos')).toBe(true)
+    expect(isWpblPhotosPage('/wpbl/photos/')).toBe(true)
+    expect(isWpblPhotosPage('/wpbl/photographs')).toBe(false)
+    expect(isWpblPhotosPage('/wpbl/photos/extra')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/photos')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/photos')).toBe(false)
+  })
+
+  it('is linked from the site footer', () => {
+    expect(footerSource).toContain('WPBL_PHOTOS_PAGE')
   })
 })
 

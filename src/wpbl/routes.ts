@@ -599,6 +599,19 @@ export const WPBL_SCORIGAMI_PAGE = `${WPBL_BASE}/scorigami`
 export const isWpblScorigamiPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_SCORIGAMI_PAGE
 
+// ─── The fan photos gallery ─────────────────────────────────────────────────────
+//
+// A sixth sibling, on the same footing as the league, glossary, sources, season and scorigami
+// pages: a real path linked from the footer and absent from WPBL_NAV, so the pills never grow a
+// destination this has not earned from the events (docs/FAN_PHOTOS.md settles that the player
+// page is where the photos matter and a rail has the archive's near-zero numbers as its prior).
+// Its own URL because it is a browse-all surface with a subject filter, indexable and shareable,
+// rather than a card that scrolls away under Home.
+export const WPBL_PHOTOS_PAGE = `${WPBL_BASE}/photos`
+
+export const isWpblPhotosPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_PHOTOS_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

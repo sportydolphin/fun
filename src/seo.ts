@@ -135,6 +135,14 @@ const ROUTES: Record<string, Seo> = {
     description:
       "A grid of every final score the Women's Pro Baseball League has produced, winning runs down the side and losing runs across the top. Each lit square opens the game it came from.",
   },
+  // Fan photographs of this season's players, tagged by who is in them. Written for the reader
+  // who wants to see the league, not read about it: photos, not a stat line. Every one carries
+  // the photographer's credit, and the same photos also sit on each player's own page.
+  '/wpbl/photos': {
+    title: "WPBL fan photos | sportydolphin.fun",
+    description:
+      "Fan photographs of the Women's Pro Baseball League's players this season, sent in with permission and tagged by who is in them. Filter by player, and open any one full size.",
+  },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
     description:
