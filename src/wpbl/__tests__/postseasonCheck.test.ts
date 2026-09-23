@@ -126,6 +126,18 @@ describe('findCalendarDrift', () => {
     expect(findCalendarDrift(extra, SCHEDULE).map(d => d.kind)).toEqual(['not-in-constant'])
   })
 
+  // A played game's time is history. Semifinal B game 1 was rained to 7:30 PM and the league's
+  // calendar still says 6:00, which kept this failing for weeks after the game.
+  it('ignores games already played once today is given, on either side', () => {
+    const moved = CALENDAR.map(r => (r.game_number === 2 && r.round === 'semifinal'
+      ? { ...r, start_time: '1:00 PM' } : r))
+    expect(findCalendarDrift(moved, SCHEDULE, '2026-09-12')).toEqual([])
+    expect(findCalendarDrift(moved, SCHEDULE, '2026-09-11').map(d => d.kind)).toEqual(['moved'])
+    const extra = [...CALENDAR, site({ game_date: '2026-09-13', game_number: 3 })]
+    expect(findCalendarDrift(extra, SCHEDULE, '2026-09-14')).toEqual([])
+    expect(findCalendarDrift(CALENDAR.filter(r => r.round !== 'championship'), SCHEDULE, '2026-09-17')).toEqual([])
+  })
+
   // The mirror is filled by its own cron job. "The sync has not run yet" must not read as the
   // league having cancelled the postseason.
   it('says nothing at all when the mirror is empty', () => {
