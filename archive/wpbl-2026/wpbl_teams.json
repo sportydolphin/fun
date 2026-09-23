@@ -2,6 +2,10 @@
  {
   "abbr": "BOS",
   "api_id": "9f08or2mffx81409",
+  "api_ids": [
+   "9f08or2mffx81409",
+   "rknw1oz8pl20apx4"
+  ],
   "city": "Boston",
   "color": "#2e5e3a",
   "color_secondary": null,
@@ -14,6 +18,10 @@
  {
   "abbr": "LA",
   "api_id": "v4gisr4rbgmn67b0",
+  "api_ids": [
+   "e1u35z4hgkmddl84",
+   "v4gisr4rbgmn67b0"
+  ],
   "city": "Los Angeles",
   "color": "#6b2fa0",
   "color_secondary": null,
@@ -26,6 +34,10 @@
  {
   "abbr": "NY",
   "api_id": "fttth861nft1j2s7",
+  "api_ids": [
+   "07xl5m9s98ckxth4",
+   "fttth861nft1j2s7"
+  ],
   "city": "New York",
   "color": "#1d3461",
   "color_secondary": null,
@@ -38,6 +50,10 @@
  {
   "abbr": "SF",
   "api_id": "vhubhz8li07tmgq8",
+  "api_ids": [
+   "r622khgeymi55fwo",
+   "vhubhz8li07tmgq8"
+  ],
   "city": "San Francisco",
   "color": "#c8402b",
   "color_secondary": null,

@@ -3,50 +3,50 @@
   "league": "Women's Pro Baseball League",
   "source": "https://sportydolphin.fun — mirrored from stats.womensprobaseballleague.com",
   "note": "The public record of the WPBL inaugural season. Plain JSON arrays of rows, one file per table, keys sorted. NOT a database backup: it is what the anonymous client can read, which is what the website serves. See scripts/export-wpbl-archive.ts.",
-  "exported_at": "2026-09-01T20:48:51.579Z",
-  "total_rows": 4707,
+  "exported_at": "2026-09-23T07:24:25.276Z",
+  "total_rows": 6983,
   "tables": [
     {
       "table": "wpbl_teams",
       "rows": 4,
-      "sha256": "16e2015f2ebdbdfc",
-      "bytes": 1016
+      "sha256": "ec01de4c91c02535",
+      "bytes": 1276
     },
     {
       "table": "wpbl_players",
-      "rows": 119,
-      "sha256": "4b0d19ef4f6052b3",
-      "bytes": 65555
+      "rows": 118,
+      "sha256": "afab7e84f7ab2ab7",
+      "bytes": 66485
     },
     {
       "table": "wpbl_games",
-      "rows": 30,
-      "sha256": "001cad56cc0b2ecc",
-      "bytes": 46847
+      "rows": 40,
+      "sha256": "76735be4d4949526",
+      "bytes": 68695
     },
     {
       "table": "wpbl_batting_lines",
-      "rows": 610,
-      "sha256": "c6727aa621f616e8",
-      "bytes": 308837
+      "rows": 967,
+      "sha256": "209aa9e15b960d24",
+      "bytes": 489538
     },
     {
       "table": "wpbl_pitching_lines",
-      "rows": 142,
-      "sha256": "644a658b0156e51d",
-      "bytes": 65980
+      "rows": 233,
+      "sha256": "9b5c8fe2ca6aed65",
+      "bytes": 108238
     },
     {
       "table": "wpbl_fielding_lines",
-      "rows": 469,
-      "sha256": "0153356983ffdad4",
-      "bytes": 145010
+      "rows": 752,
+      "sha256": "01d73d51af3ebcd1",
+      "bytes": 232476
     },
     {
       "table": "wpbl_game_plays",
-      "rows": 2358,
-      "sha256": "39b795f5ba20d692",
-      "bytes": 2519388
+      "rows": 3707,
+      "sha256": "d87cb43ec688b530",
+      "bytes": 3972568
     },
     {
       "table": "wpbl_pitch_tracking",
@@ -56,39 +56,39 @@
     },
     {
       "table": "wpbl_play_corrections",
-      "rows": 0,
-      "sha256": "37517e5f3dc66819",
-      "bytes": 3
+      "rows": 65,
+      "sha256": "ae855a04989a494e",
+      "bytes": 38488
     },
     {
       "table": "wpbl_player_team_changes",
-      "rows": 18,
-      "sha256": "13f13af6fed124be",
-      "bytes": 6177
+      "rows": 27,
+      "sha256": "961e0f40893dd510",
+      "bytes": 9250
     },
     {
       "table": "wpbl_videos",
-      "rows": 132,
-      "sha256": "0ed9d0935c921e3a",
-      "bytes": 59533
+      "rows": 232,
+      "sha256": "e1d221c5444ccc88",
+      "bytes": 104683
     },
     {
       "table": "wpbl_articles",
-      "rows": 23,
-      "sha256": "728e6586a974cea0",
-      "bytes": 23512
+      "rows": 26,
+      "sha256": "adadfd6607782260",
+      "bytes": 27457
     },
     {
       "table": "wpbl_game_details",
-      "rows": 20,
-      "sha256": "205889a9ef5a6309",
-      "bytes": 12832
+      "rows": 30,
+      "sha256": "0467263141a9bacf",
+      "bytes": 19216
     },
     {
       "table": "wpbl_photos",
       "rows": 16,
-      "sha256": "95fb295d797d8045",
-      "bytes": 27979
+      "sha256": "c7adb99475d5d7fe",
+      "bytes": 27953
     }
   ]
 }

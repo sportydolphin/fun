@@ -59,7 +59,7 @@
   ],
   "team_ids": [],
   "title": "Wishcasting the WPBL Draft ",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/wishcasting-the-wpbl-draft",
   "video_count": null,
   "word_count": 2405
@@ -209,7 +209,7 @@
   ],
   "team_ids": [],
   "title": "The WPBL's Countdown Tour first stop concludes; commissioner title claimed",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/the-wpbls-countdown-tour-first-stop",
   "video_count": null,
   "word_count": 519
@@ -228,7 +228,7 @@
   ],
   "team_ids": [],
   "title": "My pitch for WPBL team names",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/my-pitch-for-wpbl-team-names",
   "video_count": null,
   "word_count": 1524
@@ -247,7 +247,7 @@
   ],
   "team_ids": [],
   "title": "What's going on with Robin Roberts Stadium?",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/whats-going-on-with-robin-roberts",
   "video_count": null,
   "word_count": 429
@@ -266,7 +266,7 @@
   ],
   "team_ids": [],
   "title": "The WPBL: Who, What, When, Where, Why",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/wpbl-who-what-when-where-why",
   "video_count": 0,
   "word_count": 23
@@ -290,7 +290,7 @@
   ],
   "team_ids": [],
   "title": "Women's Pro Baseball League schedule released",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/womens-pro-baseball-league-schedule",
   "video_count": 0,
   "word_count": 464
@@ -311,7 +311,7 @@
   ],
   "team_ids": [],
   "title": "Help! Who do I root for in the WPBL?",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/help-who-do-i-root-for-in-the-wpbl",
   "video_count": 1,
   "word_count": 1416
@@ -321,21 +321,21 @@
   "created_at": "2026-08-18T05:41:09.614702+00:00",
   "game_id": "280e43eb-0038-4150-9e5d-a22ce4f42653",
   "player_ids": [
-   "aa131d4c-e81a-4fe5-b497-3d317b4e9200",
-   "6d7b3ded-045e-4e4e-8028-5c52f68b4e7c",
-   "8b3b62b9-067c-4491-bf0a-296604f24e53",
-   "dbc25b77-a599-4435-938a-98771be94a95",
-   "288b2108-b1c2-4185-b108-3dc838aae072",
-   "e7e6d277-d3cc-4e63-a4b2-f1e487271cd6",
    "75339f9c-e932-4af0-ae61-faf032be0cc1",
    "1142dad3-3520-48f2-94ea-78346f4d177c",
+   "dbc25b77-a599-4435-938a-98771be94a95",
+   "e7e6d277-d3cc-4e63-a4b2-f1e487271cd6",
+   "8b3b62b9-067c-4491-bf0a-296604f24e53",
+   "6d7b3ded-045e-4e4e-8028-5c52f68b4e7c",
+   "aa131d4c-e81a-4fe5-b497-3d317b4e9200",
+   "288b2108-b1c2-4185-b108-3dc838aae072",
    "030a471e-8821-481c-a1e1-aa3f3789e46e",
+   "183f0df8-1a02-46a4-84c5-90f54638cab8",
    "0d5608f1-e966-4c4d-b495-5f770792cf21",
+   "8e089c3d-fb97-4c6c-a67e-03007a6e4110",
    "0e35359f-568d-476c-958e-b064e207f98d",
    "4d34311c-b7d6-44da-9614-b5ad954ddc59",
    "bcdea34a-c9f1-41c6-b9f8-66360cb33bee",
-   "8e089c3d-fb97-4c6c-a67e-03007a6e4110",
-   "183f0df8-1a02-46a4-84c5-90f54638cab8",
    "7254031e-8d7b-4383-abac-38b93d9367db",
    "c48feb41-9526-460a-8f4f-ae5ac4f708fe"
   ],
@@ -347,11 +347,11 @@
    "Women's Pro Baseball League"
   ],
   "team_ids": [
-   "LA",
-   "NY"
+   "NY",
+   "LA"
   ],
   "title": "Queens Topple Heights, 10-8, In Just Another Ballgame",
-  "updated_at": "2026-09-01T20:17:01.01+00:00",
+  "updated_at": "2026-09-23T07:17:00.961+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/queens-topple-heights-10-8-in-just",
   "video_count": 1,
   "word_count": 1731
@@ -363,15 +363,15 @@
   "player_ids": [
    "92d4e669-c64f-4f91-8782-498de8167a0a",
    "e7e6d277-d3cc-4e63-a4b2-f1e487271cd6",
+   "3d9e02a6-e25d-45d6-a1bb-dec4ed8ae238",
    "9c5549a7-9f10-4278-a84d-81fb6e80cb86",
+   "183f0df8-1a02-46a4-84c5-90f54638cab8",
    "0d5608f1-e966-4c4d-b495-5f770792cf21",
    "0e35359f-568d-476c-958e-b064e207f98d",
-   "3d9e02a6-e25d-45d6-a1bb-dec4ed8ae238",
-   "183f0df8-1a02-46a4-84c5-90f54638cab8",
    "4b51c3fa-02a9-42ad-bde9-15cb993b74d3",
    "18019f8d-ab94-4907-ae5b-2b45c7aeb379",
-   "ed10bc24-6e46-4baf-a2d0-9d97f61c7c6a",
    "0804b1b9-5e38-46e3-a315-84f346728810",
+   "ed10bc24-6e46-4baf-a2d0-9d97f61c7c6a",
    "ff1f001e-32ac-442d-b3aa-6bde77fec86c"
   ],
   "post_id": 210082507,
@@ -386,7 +386,7 @@
    "NY"
   ],
   "title": "Who's Afraid of the Boston Hunters?",
-  "updated_at": "2026-09-01T20:17:01.008+00:00",
+  "updated_at": "2026-09-23T07:17:00.958+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/whos-afraid-of-the-boston-hunters",
   "video_count": 0,
   "word_count": 1233
@@ -396,14 +396,14 @@
   "created_at": "2026-08-18T05:41:09.529236+00:00",
   "game_id": null,
   "player_ids": [
-   "dbc25b77-a599-4435-938a-98771be94a95",
    "8864bf37-ab58-48df-964e-3d6a5f0322d5",
-   "5bec741f-1040-413f-845d-797eb267bda7",
    "1142dad3-3520-48f2-94ea-78346f4d177c",
-   "0e35359f-568d-476c-958e-b064e207f98d",
+   "dbc25b77-a599-4435-938a-98771be94a95",
    "3d9e02a6-e25d-45d6-a1bb-dec4ed8ae238",
    "d7cbd347-2d86-4475-9795-e7cba7c41048",
+   "5bec741f-1040-413f-845d-797eb267bda7",
    "5d6c54f5-fc55-466a-a998-6de6a71069d7",
+   "0e35359f-568d-476c-958e-b064e207f98d",
    "4e6a118d-d3ab-485c-bedf-20c6446d7aa6",
    "62eacc29-4f39-47a9-813a-2af511d966da"
   ],
@@ -418,7 +418,7 @@
    "NY"
   ],
   "title": "Let's Watch These Two Guys Race to Eat a Hot Dog, Slowly",
-  "updated_at": "2026-09-01T20:17:01.009+00:00",
+  "updated_at": "2026-09-23T07:17:00.959+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/lets-watch-these-two-guys-race-to",
   "video_count": 2,
   "word_count": 795
@@ -429,8 +429,8 @@
   "game_id": null,
   "player_ids": [
    "1142dad3-3520-48f2-94ea-78346f4d177c",
-   "030a471e-8821-481c-a1e1-aa3f3789e46e",
-   "c677026f-8113-4481-becc-13995c2a56de"
+   "c677026f-8113-4481-becc-13995c2a56de",
+   "030a471e-8821-481c-a1e1-aa3f3789e46e"
   ],
   "post_id": 210750088,
   "published_at": "2026-08-12T13:09:25.132+00:00",
@@ -443,7 +443,7 @@
    "NY"
   ],
   "title": "I Cannot Overstate to You How Good Denae Benites is Playing WPBL Baseball Right Now",
-  "updated_at": "2026-09-01T20:17:01.007+00:00",
+  "updated_at": "2026-09-23T07:17:00.956+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/i-cannot-overstate-to-you-how-denae",
   "video_count": 3,
   "word_count": 722
@@ -453,17 +453,17 @@
   "created_at": "2026-08-18T05:41:09.277508+00:00",
   "game_id": null,
   "player_ids": [
+   "1142dad3-3520-48f2-94ea-78346f4d177c",
    "92d4e669-c64f-4f91-8782-498de8167a0a",
+   "8d2247b5-dc50-42c5-9397-0a75bb7aec94",
+   "9c5549a7-9f10-4278-a84d-81fb6e80cb86",
+   "0d5608f1-e966-4c4d-b495-5f770792cf21",
+   "ea0925c9-1c81-44e5-9c86-fe0f12650161",
+   "fcd8d5a1-1c4b-4b67-9ad9-c7ba7c55b767",
+   "bede0e76-5f3b-481f-8970-27c87100cf92",
+   "18019f8d-ab94-4907-ae5b-2b45c7aeb379",
    "bfbf0385-a657-403a-bb55-39c621480945",
    "9b34b6d6-ecb4-4ece-9f71-8ee14b24d8c5",
-   "9c5549a7-9f10-4278-a84d-81fb6e80cb86",
-   "1142dad3-3520-48f2-94ea-78346f4d177c",
-   "0d5608f1-e966-4c4d-b495-5f770792cf21",
-   "bede0e76-5f3b-481f-8970-27c87100cf92",
-   "8d2247b5-dc50-42c5-9397-0a75bb7aec94",
-   "fcd8d5a1-1c4b-4b67-9ad9-c7ba7c55b767",
-   "18019f8d-ab94-4907-ae5b-2b45c7aeb379",
-   "ea0925c9-1c81-44e5-9c86-fe0f12650161",
    "a278e279-9e77-448d-b3a1-6284930434d6"
   ],
   "post_id": 211174405,
@@ -478,7 +478,7 @@
    "NY"
   ],
   "title": "Ticara Geldenhuis and the Denver Disposition Are Reviving the Boston Hunters",
-  "updated_at": "2026-09-01T20:17:01.006+00:00",
+  "updated_at": "2026-09-23T07:17:00.955+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/ticara-geldenhuis-and-the-denver",
   "video_count": 2,
   "word_count": 1178
@@ -502,11 +502,11 @@
    "Women's Pro Baseball League"
   ],
   "team_ids": [
-   "LA",
-   "SF"
+   "SF",
+   "LA"
   ],
   "title": "I'm Afraid to Report that Kelsie Whitmore Woke Up",
-  "updated_at": "2026-09-01T20:17:01.004+00:00",
+  "updated_at": "2026-09-23T07:17:00.953+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/im-afraid-to-report-that-kelsie-whitmore",
   "video_count": 5,
   "word_count": 858
@@ -516,8 +516,8 @@
   "created_at": "2026-08-29T15:17:00.737965+00:00",
   "game_id": null,
   "player_ids": [
-   "1cee2f7f-4db1-4972-9ffc-477954c7eab3",
    "1142dad3-3520-48f2-94ea-78346f4d177c",
+   "1cee2f7f-4db1-4972-9ffc-477954c7eab3",
    "3d9e02a6-e25d-45d6-a1bb-dec4ed8ae238",
    "ea0925c9-1c81-44e5-9c86-fe0f12650161",
    "4e6a118d-d3ab-485c-bedf-20c6446d7aa6"
@@ -530,14 +530,14 @@
    "Women's Pro Baseball League"
   ],
   "team_ids": [
-   "NY",
-   "SF"
+   "SF",
+   "NY"
   ],
   "title": "The Kelsie Whitmore and Denae Benites Home Run Chase May Just be Legend the WPBL Needs",
-  "updated_at": "2026-09-01T20:17:00.997+00:00",
+  "updated_at": "2026-09-23T07:17:00.948+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/the-kelsie-whitmore-and-denae-benites",
   "video_count": 5,
-  "word_count": 1218
+  "word_count": 1219
  },
  {
   "cover_url": "https://substackcdn.com/image/fetch/$s_!LDHj!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F8b0a17ae-3f15-4842-9665-cc9c22718218_927x776.png",
@@ -546,8 +546,8 @@
   "player_ids": [
    "8d6f2f81-c06b-4ba4-a567-4c6f92b1d049",
    "0d680c54-82ac-47e9-ae0d-e7fef2947800",
-   "4b51c3fa-02a9-42ad-bde9-15cb993b74d3",
    "ea0925c9-1c81-44e5-9c86-fe0f12650161",
+   "4b51c3fa-02a9-42ad-bde9-15cb993b74d3",
    "0804b1b9-5e38-46e3-a315-84f346728810"
   ],
   "post_id": 212140334,
@@ -562,7 +562,7 @@
    "NY"
   ],
   "title": "Jemile Weeks Joins the August Brotherhood of Ejected Managers",
-  "updated_at": "2026-09-01T20:17:01.003+00:00",
+  "updated_at": "2026-09-23T07:17:00.952+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/jemile-weeks-joins-the-august-brotherhood",
   "video_count": 0,
   "word_count": 718
@@ -572,12 +572,12 @@
   "created_at": "2026-08-24T14:17:01.345624+00:00",
   "game_id": null,
   "player_ids": [
-   "aa131d4c-e81a-4fe5-b497-3d317b4e9200",
    "1142dad3-3520-48f2-94ea-78346f4d177c",
+   "aa131d4c-e81a-4fe5-b497-3d317b4e9200",
    "47f9e26e-902a-4417-9863-8475342d8361",
    "030a471e-8821-481c-a1e1-aa3f3789e46e",
-   "0d5608f1-e966-4c4d-b495-5f770792cf21",
    "4939d32c-ba47-4586-b224-e658c5ac2309",
+   "0d5608f1-e966-4c4d-b495-5f770792cf21",
    "0e35359f-568d-476c-958e-b064e207f98d",
    "c48feb41-9526-460a-8f4f-ae5ac4f708fe",
    "e26bb4c3-b408-4780-bbe9-5a775703c063",
@@ -591,13 +591,113 @@
    "Women's Pro Baseball League"
   ],
   "team_ids": [
-   "LA",
-   "NY"
+   "NY",
+   "LA"
   ],
   "title": "Jaida Lee Put the LA Queens to Bed",
-  "updated_at": "2026-09-01T20:17:00.998+00:00",
+  "updated_at": "2026-09-23T07:17:00.95+00:00",
   "url": "https://towardsamoreperfectgame.substack.com/p/jaida-lee-put-the-la-queens-to-bed",
   "video_count": 1,
   "word_count": 950
+ },
+ {
+  "cover_url": "https://substackcdn.com/image/fetch/$s_!zb_9!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F47ee36a8-5dbd-4494-bfb3-24bb41fe9c7e_1536x864.jpeg",
+  "created_at": "2026-09-08T16:17:00.973447+00:00",
+  "game_id": null,
+  "player_ids": [
+   "92d4e669-c64f-4f91-8782-498de8167a0a",
+   "3d9e02a6-e25d-45d6-a1bb-dec4ed8ae238",
+   "288b2108-b1c2-4185-b108-3dc838aae072",
+   "8d2247b5-dc50-42c5-9397-0a75bb7aec94",
+   "9c5549a7-9f10-4278-a84d-81fb6e80cb86",
+   "c677026f-8113-4481-becc-13995c2a56de",
+   "183f0df8-1a02-46a4-84c5-90f54638cab8",
+   "0e35359f-568d-476c-958e-b064e207f98d",
+   "4d34311c-b7d6-44da-9614-b5ad954ddc59",
+   "7c45753e-a682-4cad-b5ae-78d9321a9bc8",
+   "bcdea34a-c9f1-41c6-b9f8-66360cb33bee",
+   "0fa7be6b-989e-44fd-ad0a-ddd50845a6d0",
+   "0804b1b9-5e38-46e3-a315-84f346728810",
+   "943cf741-2671-4b65-a425-4db63511e0d8",
+   "ff1f001e-32ac-442d-b3aa-6bde77fec86c"
+  ],
+  "post_id": 214051004,
+  "published_at": "2026-09-08T16:00:34.318+00:00",
+  "slug": "what-ill-remember-from-the-wpbl-regular",
+  "subtitle": null,
+  "tags": [
+   "Women's Pro Baseball League"
+  ],
+  "team_ids": [],
+  "title": "What I’ll Remember From the WPBL Regular Season",
+  "updated_at": "2026-09-23T07:17:00.938+00:00",
+  "url": "https://towardsamoreperfectgame.substack.com/p/what-ill-remember-from-the-wpbl-regular",
+  "video_count": 0,
+  "word_count": 1031
+ },
+ {
+  "cover_url": "https://substackcdn.com/image/fetch/$s_!_q78!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fefafe8c9-49b7-4311-81e1-a2070492971b_1407x711.png",
+  "created_at": "2026-09-05T17:17:00.60639+00:00",
+  "game_id": null,
+  "player_ids": [
+   "1142dad3-3520-48f2-94ea-78346f4d177c",
+   "dbc25b77-a599-4435-938a-98771be94a95",
+   "2f152cdb-59b0-4174-954a-33fcf0ca635e",
+   "3d9e02a6-e25d-45d6-a1bb-dec4ed8ae238",
+   "53604e8c-0c0c-4ea8-b531-a4a6035754d6",
+   "8b3b62b9-067c-4491-bf0a-296604f24e53",
+   "6d7b3ded-045e-4e4e-8028-5c52f68b4e7c",
+   "d7cbd347-2d86-4475-9795-e7cba7c41048",
+   "c677026f-8113-4481-becc-13995c2a56de",
+   "5d6c54f5-fc55-466a-a998-6de6a71069d7",
+   "030a471e-8821-481c-a1e1-aa3f3789e46e",
+   "0d5608f1-e966-4c4d-b495-5f770792cf21",
+   "8e089c3d-fb97-4c6c-a67e-03007a6e4110",
+   "0e35359f-568d-476c-958e-b064e207f98d",
+   "ea0925c9-1c81-44e5-9c86-fe0f12650161",
+   "7c45753e-a682-4cad-b5ae-78d9321a9bc8",
+   "4e6a118d-d3ab-485c-bedf-20c6446d7aa6",
+   "e3fd76c1-cb78-49dd-aaa6-6539de34fb5e",
+   "9e22846e-a73a-4202-a359-1a71138c5105",
+   "ed10bc24-6e46-4baf-a2d0-9d97f61c7c6a"
+  ],
+  "post_id": 214302223,
+  "published_at": "2026-09-05T17:16:38.692+00:00",
+  "slug": "the-new-york-heights-went-out-on",
+  "subtitle": null,
+  "tags": [
+   "Women's Pro Baseball League"
+  ],
+  "team_ids": [
+   "SF",
+   "NY",
+   "LA"
+  ],
+  "title": "The New York Heights Went Out On Top",
+  "updated_at": "2026-09-23T07:17:00.946+00:00",
+  "url": "https://towardsamoreperfectgame.substack.com/p/the-new-york-heights-went-out-on",
+  "video_count": 0,
+  "word_count": 1468
+ },
+ {
+  "cover_url": "https://substackcdn.com/image/fetch/$s_!O8Cz!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F58e1e5df-3fb1-4733-9e2a-92bdba6e639d_678x452.jpeg",
+  "created_at": "2026-09-18T21:17:00.720679+00:00",
+  "game_id": null,
+  "player_ids": [
+   "4d34311c-b7d6-44da-9614-b5ad954ddc59"
+  ],
+  "post_id": 216355507,
+  "published_at": "2026-09-18T20:20:31.183+00:00",
+  "slug": "not-even-womens-baseball-can-escape",
+  "subtitle": null,
+  "tags": [
+   "Women's Pro Baseball League"
+  ],
+  "team_ids": [],
+  "title": "Not Even Women’s Baseball Can Escape the Caprices of Ownership",
+  "updated_at": "2026-09-23T07:17:00.936+00:00",
+  "url": "https://towardsamoreperfectgame.substack.com/p/not-even-womens-baseball-can-escape",
+  "video_count": 0,
+  "word_count": 556
  }
 ]
