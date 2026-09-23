@@ -125,6 +125,20 @@ async function fetchHeartbeats() {
   return data ?? []
 }
 
+// Whether a game falls within [-2, +3] Central days of today: the same window the ingest cron
+// (wpbl_ingest_due) and this job's own pg_cron nudge use to decide the two-minute cadence is
+// expected. Off it, the ingest runs four times a day and healthAlerts relaxes its staleness
+// window to match. A failed read answers undefined, which healthAlerts treats as in-season.
+async function nearGame() {
+  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+  const day = offset => { const d = new Date(today); d.setDate(d.getDate() + offset); return d.toLocaleDateString('en-CA') }
+  const { count, error } = await supabase.from('wpbl_games')
+    .select('id', { count: 'exact', head: true })
+    .gte('game_date', day(-2)).lte('game_date', day(3))
+  if (error) { console.warn(`⚠️  Reading wpbl_games failed: ${error.message}`); return undefined }
+  return (count ?? 0) > 0
+}
+
 // ─── Test mode ────────────────────────────────────────────────────────────────
 
 async function runTest() {
@@ -141,13 +155,14 @@ async function runTest() {
 async function main() {
   if (TEST) return runTest()
 
-  const [ingest, validation, heartbeats] = await Promise.all([
+  const [ingest, validation, heartbeats, near] = await Promise.all([
     latestRun('wpbl_ingest_runs', 'ran_at, ok, error_count, errors'),
     latestRun('wpbl_pbp_validation_runs', 'ran_at, ok'),
     fetchHeartbeats(),
+    nearGame(),
   ])
 
-  const alerts = healthAlerts({ ingest, validation, heartbeats })
+  const alerts = healthAlerts({ ingest, validation, heartbeats, nearGame: near })
 
   // Prior dedupe state. If the table is missing (migration not applied) we alert WITHOUT
   // dedupe rather than going silent — a noisy alert is recoverable, a missed outage is the

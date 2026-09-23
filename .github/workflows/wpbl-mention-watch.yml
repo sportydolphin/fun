@@ -36,7 +36,10 @@ name: WPBL Mention Watch
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # March to October, like the other game-dependent jobs. It looks for people asking where to
+    # follow a game, which nobody asks with no game to follow, and ungated it woke a runner 96
+    # times a day all winter. workflow_dispatch still covers an off-season look.
+    - cron: '*/15 * * 3-10 *'
   workflow_dispatch:
     inputs:
       dry_run:

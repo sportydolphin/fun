@@ -36,6 +36,11 @@
  *  deliberately more lenient than the panel's 6-minute amber, which is a glance-state, not a page. */
 export const INGEST_STALE_MS = 15 * 60_000
 
+/** Away from a game date the ingest runs four times a day, not every two minutes (see
+ *  wpbl_ingest_due in the 20260923072614 migration), so a 15-minute window would page all winter.
+ *  Six hours plus margin: a page here still means the floor itself has stopped. */
+export const INGEST_STALE_OFFSEASON_MS = 7 * 60 * 60_000
+
 /** Scoring runs nightly. 30h is a whole missed day plus margin for GitHub's best-effort cron,
  *  matching the spirit of AdminPanel's 26h amber but slower, because this one buzzes a phone. */
 export const VALIDATION_STALE_MS = 30 * 60 * 60_000
@@ -80,7 +85,10 @@ export const HEARTBEAT_CHECKS = [
 /**
  * Decide what should page the owner, given the latest row from each health table.
  *
- * @param {{ ingest?: any, validation?: any }} rows  Latest wpbl_ingest_runs / wpbl_pbp_validation_runs.
+ * @param {{ ingest?: any, validation?: any, nearGame?: boolean }} rows  Latest wpbl_ingest_runs /
+ *   wpbl_pbp_validation_runs. `nearGame: false` relaxes the ingest staleness window to the
+ *   off-season cadence; anything else, including absent, keeps the strict one, so a caller that
+ *   forgets to say fails toward paging rather than toward silence.
  * @param {number} [nowMs]  Injected clock, so staleness is testable.
  * @returns {HealthAlert[]}  Empty when everything actionable is fine.
  */
@@ -112,12 +120,12 @@ export function healthAlerts(rows, nowMs = Date.now()) {
           ? `Last run reported ok but logged: ${detail}${ingest.error_count > 3 ? ` (+${ingest.error_count - 3} more)` : ''}.`
           : `Last run reported ok but logged ${ingest.error_count} per-game error(s).`,
       })
-    } else if (nowMs - Date.parse(ingest.ran_at) > INGEST_STALE_MS) {
+    } else if (nowMs - Date.parse(ingest.ran_at) > (rows?.nearGame === false ? INGEST_STALE_OFFSEASON_MS : INGEST_STALE_MS)) {
       out.push({
         key: 'ingest-stale',
         signature: 'stale',
         title: 'WPBL ingest has stalled',
-        body: `No feed-mirror run since ${ingest.ran_at}. The every-two-minutes cron may have stopped.`,
+        body: `No feed-mirror run since ${ingest.ran_at}. The ingest cron may have stopped.`,
       })
     }
   }

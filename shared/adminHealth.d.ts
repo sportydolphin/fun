@@ -42,6 +42,7 @@ export interface HeartbeatCheck {
 }
 
 export const INGEST_STALE_MS: number
+export const INGEST_STALE_OFFSEASON_MS: number
 export const VALIDATION_STALE_MS: number
 export const HEARTBEAT_CHECKS: HeartbeatCheck[]
 
@@ -50,6 +51,7 @@ export function healthAlerts(
     ingest?: IngestRunRow | null
     validation?: ValidationRunRow | null
     heartbeats?: Heartbeat[]
+    nearGame?: boolean
   },
   nowMs?: number,
 ): HealthAlert[]
