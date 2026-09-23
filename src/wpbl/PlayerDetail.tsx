@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, type Theme } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getCachedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, plateAppearances, hasPlateAppearance, fmtRate, fmtTwo } from './stats'
-import { regularSeasonLines } from './season'
+import { scopedLines, type SeasonScope } from './season'
 import { computeWpblPlayerRanks, ordinal, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
@@ -1021,11 +1021,16 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const [pitching, setPitching] = useState<WpblPitchingLine[]>(() => seeded?.pitching ?? [])
   const [fielding, setFielding] = useState<WpblFieldingLine[]>(() => seeded?.fielding ?? [])
   const [pitchLocs, setPitchLocs] = useState<WpblPitchLoc[]>([])
+  // Which slice of the season the whole card shows. Defaults to the regular season, which is
+  // what this page has always shown and what the OG cards and the Discord `/player` card still
+  // publish; the toggle below only appears for a player who actually has postseason lines. Every
+  // total, the game log and the pitch plot read through this; the ranks do not (see `ranks`).
+  const [scope, setScope] = useState<SeasonScope>('regular')
   // Season-scoped like every other number on this page. The tracking read asks for every pitch
   // under every feed id the player has held, which is right for finding them and wrong for
-  // plotting them: the card sits beside a pitching line that stops at the regular season, and
-  // its own caption counts `pt.g` games from that same total.
-  const seasonPitchLocs = useMemo(() => regularSeasonLines(pitchLocs, games), [pitchLocs, games])
+  // plotting them: the card sits beside a pitching line that follows the same scope, and its own
+  // caption counts `pt.g` games from that same total.
+  const seasonPitchLocs = useMemo(() => scopedLines(pitchLocs, games, scope), [pitchLocs, games, scope])
   // Every batting and pitching line in the league, for the percentile strip. Deliberately a
   // separate piece of state from the player's own lines: this one is allowed to never arrive.
   // `fetchWpblAllLines` is cached, deduped and already prefetched when the section lands on
@@ -1097,14 +1102,22 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // Only real plate appearances count as batting: a 0-for-0 pinch/defensive cameo shouldn't
   // produce an all-zero batting card or a phantom game-log row.
   const battingReal = useMemo(() => batting.filter(hasPlateAppearance), [batting])
-  // The season line is the REGULAR season. The game log below it still lists every game
-  // the player appeared in, postseason included: a log is a record of what happened, and
-  // hiding games from it would read as missing data rather than as a filtered total.
-  const bt = useMemo(() => sumBatting(battingReal, games), [battingReal, games])
-  const pt = useMemo(() => sumPitching(pitching, games), [pitching, games])
-  // Regular season too, like `bt`/`pt`: without the schedule this line folded a finalist's
-  // postseason putouts and errors into her season fielding while the two beside it did not.
-  const ft = useMemo(() => sumFielding(fielding, games), [fielding, games])
+  // Every total on the card follows the scope toggle. The game log follows it too (see
+  // `battingLog`/`pitchingLog`): with an explicit Regular / Playoffs / Both control on the card,
+  // a log filtered to the chosen slice is the answer the reader asked for, not missing data.
+  const bt = useMemo(() => sumBatting(battingReal, games, scope), [battingReal, games, scope])
+  const pt = useMemo(() => sumPitching(pitching, games, scope), [pitching, games, scope])
+  const ft = useMemo(() => sumFielding(fielding, games, scope), [fielding, games, scope])
+  // The lines behind the game log and the form strip, in the same slice as the totals above.
+  const battingLog = useMemo(() => scopedLines(battingReal, games, scope), [battingReal, games, scope])
+  const pitchingLog = useMemo(() => scopedLines(pitching, games, scope), [pitching, games, scope])
+  // Whether the player has any postseason line at all, which is the only thing that earns the
+  // scope toggle: without one, the card has nothing to switch to and stays regular-season only.
+  const hasPostseason = useMemo(
+    () => scopedLines(battingReal, games, 'postseason').length > 0
+      || scopedLines(pitching, games, 'postseason').length > 0
+      || scopedLines(fielding, games, 'postseason').length > 0,
+    [battingReal, pitching, fielding, games])
   const hasBatting = battingReal.length > 0
   const hasPitching = pitching.length > 0
   // WHETHER THERE IS ANYTHING TO SUMMARISE, in the SAME scope the summary shows. `hasBatting`
@@ -1124,11 +1137,15 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // only as a pitcher and already covered by the 'p' the other games carry.
   const fieldedPositions = useMemo(() => positionsPlayed(batting, games), [batting, games])
 
+  // Ranks, OPS+, the percentile rail and the qualifying meter are all built against the regular
+  // season: its league baseline and its qualifying bar. Laid over a playoff or combined total
+  // they would rank a five-game line against a fifteen-game field, so they stand down for any
+  // scope but the regular season, and every consumer already treats a null `ranks` as "not yet".
   const ranks = useMemo(
-    () => leagueLines
+    () => scope === 'regular' && leagueLines
       ? computeWpblPlayerRanks(player.id, players, teams, games, leagueLines.batting, leagueLines.pitching, eraBasis)
       : null,
-    [leagueLines, player.id, players, teams, games, eraBasis])
+    [scope, leagueLines, player.id, players, teams, games, eraBasis])
 
   // Lead with the skill the player is actually here for. The rule is `leadsWithPitching` in
   // positions.ts, shared with the unfurl card and the Discord card so the three cannot tell
@@ -1269,9 +1286,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const FORM_GAMES = 5
   const formGames = (r: Role): { opp: string; value: string }[] =>
     r === 'pitching'
-      ? newestFirst(pitching).slice(0, FORM_GAMES).reverse()
+      ? newestFirst(pitchingLog).slice(0, FORM_GAMES).reverse()
         .map(l => ({ opp: oppLabel(l.game_id, l.team_id).short, value: outsToIp(l.outs) }))
-      : newestFirst(battingReal).slice(0, FORM_GAMES).reverse()
+      : newestFirst(battingLog).slice(0, FORM_GAMES).reverse()
         .map(l => ({ opp: oppLabel(l.game_id, l.team_id).short, value: `${l.h}-${l.ab}` }))
 
   // Posts naming this player, newest first (the query already orders that way).
@@ -1343,7 +1360,14 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    *  WHICH season these are. */
   const lineCaption = (r: Role) => (
     <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
-      <Typography sx={{ ...sectionSx, mb: 0 }}>{seasonYear ? `${seasonYear} season` : 'Season'}</Typography>
+      {/* "2026 postseason" in the playoff slice, so the caption says WHICH games these totals
+          are, not just which year. Regular and Both both read "season". */}
+      <Typography sx={{ ...sectionSx, mb: 0 }}>
+        {(() => {
+          const noun = scope === 'postseason' ? 'postseason' : 'season'
+          return seasonYear ? `${seasonYear} ${noun}` : noun.charAt(0).toUpperCase() + noun.slice(1)
+        })()}
+      </Typography>
       <Typography sx={{
         ...TYPE.micro, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
         textAlign: 'right',
@@ -1359,7 +1383,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // is true about her year, `log` is the record of the games it came out of. On anything
   // narrower they simply stack in this order and nothing about the reading changes.
   const battingPane = {
-    hasLog: battingReal.length > 0,
+    hasLog: battingLog.length > 0,
     head: paneHead('batting'),
     line: (merged: boolean) => (
       <>
@@ -1434,7 +1458,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         totals={['—', bt.ab, bt.r, bt.h, bt.doubles, bt.triples, bt.hr, bt.rbi, bt.sb, bt.bb, bt.so, bt.tb]}
         best={BATTING_BEST}
         accent={color}
-        rows={newestFirst(battingReal).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [gamePosition(l.position), l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.sb, l.bb, l.so, l.tb] }))}
+        rows={newestFirst(battingLog).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [gamePosition(l.position), l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.sb, l.bb, l.so, l.tb] }))}
       />
     ),
     /** What follows the log and the fielding line. */
@@ -1451,7 +1475,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   }
 
   const pitchingPane = {
-    hasLog: pitching.length > 0 || seasonPitchLocs.length > 0,
+    hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
     head: paneHead('pitching'),
     line: (merged: boolean) => (
       <>
@@ -1520,7 +1544,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
           totals={[`${pt.w}-${pt.l}`, outsToIp(pt.outs), pt.h, pt.r, pt.er, pt.hr, pt.bb, pt.so, pt.pitches]}
           best={PITCHING_BEST}
           accent={color}
-          rows={newestFirst(pitching).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.hr, l.bb, l.so, l.pitches ?? '—'] }))}
+          rows={newestFirst(pitchingLog).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.hr, l.bb, l.so, l.pitches ?? '—'] }))}
         />
       </>
     ),
@@ -1816,6 +1840,25 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         </Box>
       ) : (
         <>
+          {/* Regular / Playoffs / Both, for a player who actually played in the postseason. A
+              card-level control, above the role pills and outside the pager's scroller, because it
+              re-slices every number on the card (both roles) rather than switching between them.
+              Pinned so it does not scroll away under the totals it governs. */}
+          {hasPostseason && (
+            <Box sx={{ flexShrink: 0, px: 2, pt: 1, pb: wide ? 0 : showTabs ? 0.5 : 1 }}>
+              <SegNav
+                options={[
+                  { value: 'regular', label: 'Regular' },
+                  { value: 'postseason', label: 'Playoffs' },
+                  { value: 'all', label: 'Both' },
+                ]}
+                value={scope}
+                onChange={v => setScope(v as SeasonScope)}
+                accent={color}
+                mb={0}
+              />
+            </Box>
+          )}
           {showTabs && !wide && (
             /* The pinned strip the role pills live in, and its padding is not arbitrary: it matches
                 Game Center's tab bar, which is the same control doing the same job over the same kind
@@ -1848,7 +1891,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             /* THE DESKTOP PAGE. One scroller holding every role in full, rather than a pager
                holding one of them. See desktopRoleBlock for what each role is made of and why
                the tabs come off up here. */
-            <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 2 }}>
+            <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: hasPostseason ? 1 : 2, pb: 2 }}>
               {roles.map((r, i) => desktopRoleBlock(r, i === roles.length - 1))}
               {/* Under everything, spanning, for the reason it always did: it is the one block
                   here that is neither a season fact nor a game, and a well-covered player put
