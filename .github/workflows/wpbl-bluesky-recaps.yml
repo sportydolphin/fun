@@ -35,7 +35,10 @@ on:
   repository_dispatch:
     types: [wpbl-final]
   schedule:
-    - cron: '*/15 * * * *'
+    # The backstop only, and only March to October: with no game there is nothing for it to post,
+    # and the database dispatch above is not windowed, so a game played outside these months
+    # still gets its post.
+    - cron: '*/15 * * 3-10 *'
   workflow_dispatch:
     inputs:
       dry_run:

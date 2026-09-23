@@ -33,7 +33,10 @@ select cron.schedule(
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'wpbl_service_role_key')
     ),
     body    := jsonb_build_object('mode', 'active')
-  );
+  )
+  -- Every tick near a game date, four a day otherwise. Defined in the 20260923072614 migration;
+  -- drop this line and the job polls a silent feed every two minutes all winter.
+  where public.wpbl_ingest_due();
   $$
 );
 

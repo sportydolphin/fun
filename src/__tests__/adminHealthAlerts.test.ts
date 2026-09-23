@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { healthAlerts, INGEST_STALE_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS } from '../../shared/adminHealth.js'
+import { healthAlerts, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS } from '../../shared/adminHealth.js'
 
 // The thresholds ARE the feature: a job that quietly broke while still looking fine is the
 // whole failure mode, and paging on an expected state (a "behind" TrackMan feed, a nightly
@@ -41,6 +41,18 @@ describe('healthAlerts — ingest', () => {
 
   it('tolerates a single slipped tick (under the stale window)', () => {
     expect(healthAlerts({ ingest: freshIngest({ ran_at: ago(INGEST_STALE_MS - 60_000) }) }, NOW)).toEqual([])
+  })
+
+  it('off-season, tolerates the six-hourly ingest floor but still pages when that stops', () => {
+    const between = freshIngest({ ran_at: ago(6 * 60 * 60_000) })
+    expect(healthAlerts({ ingest: between, nearGame: false }, NOW)).toEqual([])
+    expect(keys({ ingest: freshIngest({ ran_at: ago(INGEST_STALE_OFFSEASON_MS + 60_000) }), nearGame: false })).toContain('ingest-stale')
+  })
+
+  it('keeps the strict window when the caller does not say whether a game is near', () => {
+    // Failing toward a page: a broken season read must not silence a real two-minute stall.
+    expect(keys({ ingest: freshIngest({ ran_at: ago(INGEST_STALE_MS + 60_000) }), nearGame: undefined })).toContain('ingest-stale')
+    expect(keys({ ingest: freshIngest({ ran_at: ago(INGEST_STALE_MS + 60_000) }), nearGame: true })).toContain('ingest-stale')
   })
 
   it('holds one signature across a streak of failures, so an outage pages once', () => {
