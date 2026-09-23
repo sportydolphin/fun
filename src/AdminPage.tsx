@@ -47,6 +47,12 @@ const GROUPS: Array<{ value: Group; label: string }> = [
 // that exists to be checked occasionally, not scanned daily.
 const EVENT_HEAD = 12
 
+// The stats-board list runs to seventeen rows and most of the bottom half is near-zero (the
+// Tracked boards sit at a single event), so it gets the same head-plus-"show all" treatment as
+// the events list rather than a long dribble of invisible bars. Ten mirrors the top-players
+// card and keeps everything over ~200 events visible without a tap.
+const BOARD_HEAD = 10
+
 // `days_back` in every RPC means "this many calendar days back, ending now", so 1 is
 // midnight-to-now in the reader's own timezone. It is labelled "Today" rather than "24h"
 // because that is what the number is: at 9am it covers nine hours, not twenty-four. A true
@@ -330,6 +336,7 @@ export default function AdminPage() {
   // Long tail: 28 event names and counting, most of them near-zero. Show the head, and keep
   // the rest one tap away rather than making the card scroll past everything else on the page.
   const [allEvents, setAllEvents] = useState(false)
+  const [allBoards, setAllBoards] = useState(false)
   const tz = useMemo(() => localTz(), [])
   // Read once for the whole page, not per group: the header strip summarises it from
   // wherever you are, so it cannot wait for the Health group to mount.
@@ -577,7 +584,7 @@ export default function AdminPage() {
           </Box>
         ) : (
           <Box sx={{ px: 1.5, py: 1 }}>
-            {statsBoards.boards.map(b => (
+            {(allBoards ? statsBoards.boards : statsBoards.boards.slice(0, BOARD_HEAD)).map(b => (
               <Box key={`${b.board}|${b.mode}`} sx={{
                 display: 'flex', alignItems: 'center', gap: 1.25, py: 0.7,
                 '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
@@ -594,6 +601,22 @@ export default function AdminPage() {
                 </Box>
               </Box>
             ))}
+            {statsBoards.boards.length > BOARD_HEAD && (
+              <Box
+                onClick={() => setAllBoards(v => !v)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setAllBoards(v => !v) } }}
+                sx={{
+                  py: 0.9, textAlign: 'center', cursor: 'pointer', userSelect: 'none',
+                  borderTop: '1px solid', borderColor: 'divider',
+                  fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
+                  '&:hover': { color: 'text.primary' },
+                }}
+              >
+                {allBoards ? 'Show fewer' : `Show all ${statsBoards.boards.length}`}
+              </Box>
+            )}
 
             {/* Arrivals (open/return, the board they already had) against deliberate
                 switches. A board nobody ever switches *to* is one the defaults chose. */}
@@ -713,8 +736,14 @@ export default function AdminPage() {
               sub={plural(search.totals.searched_browsers, 'browser')} />
             <StatRow label="Found nothing" value={formatCount(search.totals.empty)}
               sub={formatShare(search.totals.empty, search.totals.searched)} />
+            {/* Picks are not a subset of searches: one query can lead to several result clicks,
+                and a pick from the recent-searches list counts with no query at all. So the ratio
+                can pass 100%, where a "%" reads like a bug ("Picked a result 111%"). Above parity
+                it is shown as a multiple, which is what it actually is. */}
             <StatRow label="Picked a result" value={formatCount(search.totals.picked)}
-              sub={formatShare(search.totals.picked, search.totals.searched)} />
+              sub={search.totals.picked > search.totals.searched
+                ? `${(search.totals.picked / search.totals.searched).toFixed(1)}× searches`
+                : formatShare(search.totals.picked, search.totals.searched)} />
 
             {search.picks.length > 0 && (
               <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1 }}>

@@ -30,6 +30,14 @@ describe('formatDelta', () => {
     expect(formatDelta(0.3)).toBe('0%')
     expect(formatDelta(-0.2)).toBe('0%')
   })
+
+  it('switches a near-zero-baseline blowup to a multiple instead of a five-digit percent', () => {
+    // 15207% is the bracket card the day the fan-awards ballot was shared: prev was tiny, so
+    // the percent is noise. cur/prev ≈ 153x reads as "brand new", which is the truth.
+    expect(formatDelta(15207)).toBe('×153')
+    expect(formatDelta(900)).toBe('+900%') // still a percent just under the switch
+    expect(formatDelta(1000)).toBe('×11')  // the switch itself
+  })
 })
 
 describe('formatCount', () => {

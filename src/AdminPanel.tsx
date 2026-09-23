@@ -577,13 +577,16 @@ export function HealthStrip({ health, onOpen }: { health: OpsHealth; onOpen: () 
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
       aria-label="Pipeline health: open the Health group"
       sx={{
-        display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5, cursor: 'pointer',
+        // A tighter column gap packs the seven pipeline chips onto fewer rows, so the strip
+        // does not strand a lone "Recap sync" on a second line; rowGap keeps the wrapped lines
+        // from crowding when it still wraps on a narrow screen.
+        display: 'flex', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.75, mb: 1.5, cursor: 'pointer',
         alignItems: 'center', userSelect: 'none', borderRadius: 1.5, p: 0.5, mx: -0.5,
         '&:hover': { bgcolor: 'action.hover' },
       }}
     >
       {healthStatuses(health).map(st => (
-        <Box key={st.key} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+        <Box key={st.key} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4 }}>
           <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{st.name}</Typography>
           <StatusPill tone={st.tone} label={st.label} />
         </Box>

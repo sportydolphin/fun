@@ -86,11 +86,20 @@ export function deltaPct(curr: number, prev: number): number | null {
   return ((curr - prev) / prev) * 100
 }
 
-/** "+12%" / "−4%" / "—". Rounds to whole percent; anything under 0.5% reads as flat. */
+/**
+ * "+12%" / "−4%" / "×153" / "—". Rounds to whole percent; anything under 0.5% reads as flat.
+ *
+ * Past 10x growth the percent stops being readable: a surface instrumented mid-window has a
+ * near-zero baseline, so `deltaPct` divides by it and the chip reads "+15207%", which is not
+ * "up a lot" but "brand new" (the bracket card the day the fan-awards ballot got shared). A
+ * multiple is honest and bounded where a five-digit percent is just noise the reader has been
+ * told to ignore. Only positive deltas reach here: a loss floors at −100%.
+ */
 export function formatDelta(pct: number | null): string {
   if (pct == null) return '—'
   const r = Math.round(pct)
   if (r === 0) return '0%'
+  if (r >= 1000) return `×${Math.round(1 + pct / 100)}`
   return `${r > 0 ? '+' : '−'}${Math.abs(r)}%`
 }
 
