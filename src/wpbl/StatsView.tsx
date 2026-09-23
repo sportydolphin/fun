@@ -1940,7 +1940,6 @@ export default function WpblStatsView({
       {filtersOpen && (
         <FilterSheet teams={teamChips} teamId={teamId} onTeam={filterTeam}
           qualified={qualified} onQualified={toggleQualified}
-          side={side} minPa={qual.minPa} minIp={outsToIp(qual.minOuts)}
           scope={hasPostseason ? scope : null} onScope={setScope}
           showWho={source === 'season' && mode === 'players'}
           onClose={() => setFiltersOpen(false)} />
@@ -2252,19 +2251,14 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
 
 // The two filters, on a phone, in one sheet.
 //
-// Rows rather than tiles: there are only seven, a club wants its badge and its whole name
-// rather than three letters, and "Qualified" needs a sentence under it saying what qualified
-// MEANS: a word a reader either knows or is excluded by, set against a bar that moves with
-// the season (see wpblQualifiers), so nobody could know it from memory either.
-function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minPa, minIp, scope, onScope, showWho, onClose }: {
+// Rows rather than tiles: there are only seven, and a club wants its badge and its whole name
+// rather than three letters.
+function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, showWho, onClose }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
   qualified: boolean
   onQualified: () => void
-  side: Side
-  minPa: number
-  minIp: string
   /** Null when no postseason game has finished, which is when the choice does not exist yet
    *  rather than when it is set to the regular season. */
   scope: SeasonScope | null
@@ -2309,11 +2303,7 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minP
         <SheetGroup title="Who to include">
           <Box sx={rows}>
             <OptionRow label="Qualified" on={qualified}
-              hint={side === 'pitching' ? `${minIp} innings pitched or more` : `${minPa} plate appearances or more`}
               onClick={() => { if (!qualified) onQualified() }} />
-            {/* No hint. "Qualified" needs one because it names a threshold a reader cannot see;
-                "Everyone" is self-evident, and a warning here would be the board arguing with the
-                option it is offering. */}
             <OptionRow label="Everyone" on={!qualified}
               onClick={() => { if (qualified) onQualified() }} />
           </Box>
