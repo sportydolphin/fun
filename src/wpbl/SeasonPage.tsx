@@ -42,7 +42,7 @@ import { useRowFlip, useRowDividers } from './rowFlip'
 import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, pressable, TeamBadge, useWpblDark } from './ui'
+import { TAPPABLE, FOCUS_RING, pressable, TeamBadge, PlayerPortrait, useWpblDark } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
@@ -837,7 +837,10 @@ function LeaderRow({ rank, name, teamId, value, href, onNavigate }: {
       <Typography sx={{ flexShrink: 0, width: '1rem', fontSize: '0.8rem', fontWeight: 700, color: 'text.disabled' }}>
         {rank}
       </Typography>
-      <Box sx={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', bgcolor: wpblColor(teamId) }} />
+      {/* The player's face, not a bare team-colour dot: the portrait keeps the club signal (it
+          falls back to initials on the team colour with a team-secondary ring) while turning an
+          anonymous leaderboard into a row of people, which is what a season recap is about. */}
+      <PlayerPortrait name={name} teamId={teamId} size={28} />
       <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
       </Typography>
