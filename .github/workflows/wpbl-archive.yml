@@ -48,13 +48,16 @@ jobs:
         with:
           node-version: '22'
 
-      # A warning rather than a quiet echo, and rather than a failure. An archive job nobody
-      # wired up reads as covered when it is not, and that is the whole risk this addresses;
-      # but a red X for a missing secret would be a config problem wearing the costume of data
-      # loss.
-      - name: Warn when not configured
+      # A FAILURE, not a warning. This used to warn, and it ran green every Sunday from Sep 6
+      # to Sep 21, 2026 without exporting anything, because the two secrets had never been
+      # added: the only archive in git was a hand run from Sep 1 holding 30 of 40 games. A
+      # warning on a green run is read by nobody, so the job looked covered for the three weeks
+      # it mattered most. A missing secret is exactly the case a person must be told about.
+      - name: Fail when not configured
         if: env.VITE_SUPABASE_ANON_KEY == ''
-        run: echo "::warning::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set, so the season archive did NOT run."
+        run: |
+          echo "::error::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set as Actions secrets, so the season archive did NOT run."
+          exit 1
 
       - name: Install the bundler
         if: env.VITE_SUPABASE_ANON_KEY != ''

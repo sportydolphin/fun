@@ -25,9 +25,10 @@
  {
   "active": true,
   "age": 25,
-  "api_id": "4sf1dspa52dw7oew",
+  "api_id": "kjbamn7yjnc3zwa6",
   "api_ids": [
-   "4sf1dspa52dw7oew"
+   "4sf1dspa52dw7oew",
+   "kjbamn7yjnc3zwa6"
   ],
   "bats": "R",
   "bio": null,
@@ -42,7 +43,7 @@
   "name": "Ashton Lansdell",
   "position": "3B",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Pisces"
@@ -90,7 +91,7 @@
   "name": "Sabrina Robinson",
   "position": "1B",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Aquarius"
@@ -98,9 +99,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "devdfkrvkpfm95i5",
+  "api_id": "3hbsmutm6fkimn8j",
   "api_ids": [
-   "devdfkrvkpfm95i5"
+   "devdfkrvkpfm95i5",
+   "3hbsmutm6fkimn8j"
   ],
   "bats": "R",
   "bio": null,
@@ -115,7 +117,7 @@
   "name": "Denver Bryant",
   "position": "2B",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -123,9 +125,10 @@
  {
   "active": true,
   "age": 26,
-  "api_id": "n4n9isveqnhvmxn1",
+  "api_id": "v5qn1kocg826lof9",
   "api_ids": [
-   "n4n9isveqnhvmxn1"
+   "n4n9isveqnhvmxn1",
+   "v5qn1kocg826lof9"
   ],
   "bats": "R",
   "bio": null,
@@ -140,7 +143,7 @@
   "name": "Rakyung Kim",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Scorpio"
@@ -165,7 +168,7 @@
   "name": "Katherine Murphy",
   "position": "LF",
   "status": "Drafted",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Libra"
@@ -190,7 +193,7 @@
   "name": "Jaida Lee",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Capricorn"
@@ -198,9 +201,10 @@
  {
   "active": true,
   "age": 19,
-  "api_id": "vjeeaoxap16nadnw",
+  "api_id": "amwr4e8td49jgh3p",
   "api_ids": [
-   "vjeeaoxap16nadnw"
+   "vjeeaoxap16nadnw",
+   "amwr4e8td49jgh3p"
   ],
   "bats": "R",
   "bio": null,
@@ -215,7 +219,7 @@
   "name": "Peyton Coria",
   "position": "RHP",
   "status": "Drafted",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Scorpio"
@@ -223,9 +227,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "6fn9036v8jpxmptb",
+  "api_id": "j5j2kopq545y57gp",
   "api_ids": [
-   "6fn9036v8jpxmptb"
+   "6fn9036v8jpxmptb",
+   "j5j2kopq545y57gp"
   ],
   "bats": "R",
   "bio": null,
@@ -240,7 +245,7 @@
   "name": "Denae Benites",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Virgo"
@@ -248,9 +253,10 @@
  {
   "active": true,
   "age": 19,
-  "api_id": "8mkfb0hp49z92suw",
+  "api_id": "zjb55om74d4mszlk",
   "api_ids": [
-   "8mkfb0hp49z92suw"
+   "8mkfb0hp49z92suw",
+   "zjb55om74d4mszlk"
   ],
   "bats": "L",
   "bio": null,
@@ -265,7 +271,7 @@
   "name": "Molly Paddison",
   "position": "CF",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "L",
   "zodiac_sign": "Libra"
@@ -273,9 +279,10 @@
  {
   "active": true,
   "age": 33,
-  "api_id": "54od878q20rx7hv5",
+  "api_id": "908zf3d6h13wylds",
   "api_ids": [
-   "54od878q20rx7hv5"
+   "54od878q20rx7hv5",
+   "908zf3d6h13wylds"
   ],
   "bats": "R",
   "bio": null,
@@ -290,7 +297,7 @@
   "name": "Kylee Lahners",
   "position": "3B",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Aquarius"
@@ -361,7 +368,7 @@
   "name": "Jacqui Reynolds",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Pisces"
@@ -392,9 +399,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "ow19tkcctx9fd643",
+  "api_id": "gwnsxjnoq1owclex",
   "api_ids": [
-   "ow19tkcctx9fd643"
+   "ow19tkcctx9fd643",
+   "gwnsxjnoq1owclex"
   ],
   "bats": "L",
   "bio": null,
@@ -409,7 +417,7 @@
   "name": "Paloma Benach",
   "position": "LHP",
   "status": "Drafted",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "L",
   "zodiac_sign": "Sagittarius"
@@ -417,9 +425,10 @@
  {
   "active": true,
   "age": 22,
-  "api_id": "tkrtkar39cpn8kpl",
+  "api_id": "8k5pjjay6fo976tu",
   "api_ids": [
-   "tkrtkar39cpn8kpl"
+   "tkrtkar39cpn8kpl",
+   "8k5pjjay6fo976tu"
   ],
   "bats": "L",
   "bio": null,
@@ -434,7 +443,7 @@
   "name": "Jordan Eyster",
   "position": "CF",
   "status": "Drafted",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "L",
   "zodiac_sign": "Leo"
@@ -465,9 +474,10 @@
  {
   "active": true,
   "age": 25,
-  "api_id": "621he4harla4rfs1",
+  "api_id": "rn23vnmave1p6s2c",
   "api_ids": [
-   "621he4harla4rfs1"
+   "621he4harla4rfs1",
+   "rn23vnmave1p6s2c"
   ],
   "bats": "R",
   "bio": null,
@@ -482,7 +492,7 @@
   "name": "Mo'ne Davis",
   "position": "CF",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -513,8 +523,11 @@
  {
   "active": true,
   "age": 18,
-  "api_id": null,
-  "api_ids": [],
+  "api_id": "70rhe3ul6tticdxu",
+  "api_ids": [
+   "n6fptazerna1mwyt",
+   "70rhe3ul6tticdxu"
+  ],
   "bats": "S",
   "bio": null,
   "birth_date": "2008-03-06",
@@ -524,11 +537,11 @@
   "draft_round": 6,
   "hometown": "Granger, Indiana, USA",
   "id": "2b20ed64-3b05-486c-b10d-d46a69d20c60",
-  "jersey_number": null,
+  "jersey_number": "17",
   "name": "Addisyn Baird",
   "position": "SS",
   "status": "Drafted",
-  "team_as_of": null,
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Pisces"
@@ -536,9 +549,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "k89g6dvpn3fh4hoc",
+  "api_id": "cevr626761qn0fae",
   "api_ids": [
-   "k89g6dvpn3fh4hoc"
+   "k89g6dvpn3fh4hoc",
+   "cevr626761qn0fae"
   ],
   "bats": "L",
   "bio": null,
@@ -553,7 +567,7 @@
   "name": "Skylar Kaplan",
   "position": "LF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Virgo"
@@ -584,9 +598,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "i7y6bj0a1i8uwwgu",
+  "api_id": "n0gb2fusndobpf7p",
   "api_ids": [
-   "i7y6bj0a1i8uwwgu"
+   "i7y6bj0a1i8uwwgu",
+   "n0gb2fusndobpf7p"
   ],
   "bats": "L",
   "bio": null,
@@ -601,7 +616,7 @@
   "name": "Emi Saiki",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -632,9 +647,10 @@
  {
   "active": true,
   "age": 19,
-  "api_id": "fvj1lg6pwlrh58wy",
+  "api_id": "035snom6x0awsbf4",
   "api_ids": [
-   "fvj1lg6pwlrh58wy"
+   "fvj1lg6pwlrh58wy",
+   "035snom6x0awsbf4"
   ],
   "bats": "R",
   "bio": null,
@@ -649,7 +665,7 @@
   "name": "Keira Izumi",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Libra"
@@ -680,9 +696,10 @@
  {
   "active": true,
   "age": 22,
-  "api_id": "wi0ky369nd4npn8g",
+  "api_id": "byhlnmqpp71mps8h",
   "api_ids": [
-   "wi0ky369nd4npn8g"
+   "wi0ky369nd4npn8g",
+   "byhlnmqpp71mps8h"
   ],
   "bats": "R",
   "bio": null,
@@ -697,7 +714,7 @@
   "name": "Edith De Leija",
   "position": "3B",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "L",
   "zodiac_sign": "Aries"
@@ -720,7 +737,7 @@
   "name": "Maria José Valenzuela",
   "position": "IF",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -751,9 +768,10 @@
  {
   "active": true,
   "age": 22,
-  "api_id": "2zsg0pra73anus35",
+  "api_id": "h5eylslxtku52nz8",
   "api_ids": [
-   "2zsg0pra73anus35"
+   "2zsg0pra73anus35",
+   "h5eylslxtku52nz8"
   ],
   "bats": "L",
   "bio": null,
@@ -768,7 +786,7 @@
   "name": "Ayuri Shimano",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Pisces"
@@ -776,9 +794,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "psop4589hgseq83d",
+  "api_id": "fe7emqdcc5t65c5e",
   "api_ids": [
-   "psop4589hgseq83d"
+   "psop4589hgseq83d",
+   "fe7emqdcc5t65c5e"
   ],
   "bats": "R",
   "bio": null,
@@ -793,7 +812,7 @@
   "name": "Jamie Mackay",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Taurus"
@@ -801,9 +820,10 @@
  {
   "active": true,
   "age": 21,
-  "api_id": "0bmjr7fj9cu71yvt",
+  "api_id": "8tfu5byonj3e87al",
   "api_ids": [
-   "0bmjr7fj9cu71yvt"
+   "0bmjr7fj9cu71yvt",
+   "8tfu5byonj3e87al"
   ],
   "bats": "R",
   "bio": null,
@@ -818,7 +838,7 @@
   "name": "Raine Padgham",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -826,9 +846,10 @@
  {
   "active": true,
   "age": 36,
-  "api_id": "3d36iqt0pwdh6i8b",
+  "api_id": "cm6rqu5cn0h9at4h",
   "api_ids": [
-   "3d36iqt0pwdh6i8b"
+   "3d36iqt0pwdh6i8b",
+   "cm6rqu5cn0h9at4h"
   ],
   "bats": "R",
   "bio": null,
@@ -843,7 +864,7 @@
   "name": "Ayami Sato",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Sagittarius"
@@ -851,9 +872,10 @@
  {
   "active": true,
   "age": 28,
-  "api_id": "5htcb87cbshse09e",
+  "api_id": "us39spqfx7fno64z",
   "api_ids": [
-   "5htcb87cbshse09e"
+   "5htcb87cbshse09e",
+   "us39spqfx7fno64z"
   ],
   "bats": "R",
   "bio": null,
@@ -868,7 +890,7 @@
   "name": "Kelsie Whitmore",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -922,9 +944,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "m66jsdnwe03tnfey",
+  "api_id": "4t6q4urrlgbd4k0r",
   "api_ids": [
-   "m66jsdnwe03tnfey"
+   "m66jsdnwe03tnfey",
+   "4t6q4urrlgbd4k0r"
   ],
   "bats": "L",
   "bio": null,
@@ -939,7 +962,7 @@
   "name": "Caitlin Eynon",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Taurus"
@@ -947,9 +970,10 @@
  {
   "active": true,
   "age": 25,
-  "api_id": "tnt51eebunwaqu93",
+  "api_id": "mevpd4ebbenpp8ok",
   "api_ids": [
-   "tnt51eebunwaqu93"
+   "tnt51eebunwaqu93",
+   "mevpd4ebbenpp8ok"
   ],
   "bats": "L",
   "bio": null,
@@ -964,7 +988,7 @@
   "name": "Liz Gilder",
   "position": "LHP",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "L",
   "zodiac_sign": "Capricorn"
@@ -972,9 +996,10 @@
  {
   "active": true,
   "age": 20,
-  "api_id": "qdpgigusdzaox501",
+  "api_id": "tu3gn3bnglr7phvy",
   "api_ids": [
-   "qdpgigusdzaox501"
+   "qdpgigusdzaox501",
+   "tu3gn3bnglr7phvy"
   ],
   "bats": "L",
   "bio": null,
@@ -989,7 +1014,7 @@
   "name": "London Studer",
   "position": "1B",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "L",
   "zodiac_sign": "Cancer"
@@ -997,9 +1022,10 @@
  {
   "active": true,
   "age": 22,
-  "api_id": "bpyqct4a85lh306g",
+  "api_id": "a6ny4lq5gcrsg4x5",
   "api_ids": [
-   "bpyqct4a85lh306g"
+   "bpyqct4a85lh306g",
+   "a6ny4lq5gcrsg4x5"
   ],
   "bats": "R",
   "bio": null,
@@ -1014,7 +1040,7 @@
   "name": "Jill Albayati",
   "position": "RHP, UTL",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Taurus"
@@ -1068,9 +1094,10 @@
  {
   "active": true,
   "age": 34,
-  "api_id": "qpz463w9p8a43hmp",
+  "api_id": "fb54cn685esocvf0",
   "api_ids": [
-   "qpz463w9p8a43hmp"
+   "qpz463w9p8a43hmp",
+   "fb54cn685esocvf0"
   ],
   "bats": "R",
   "bio": null,
@@ -1085,7 +1112,7 @@
   "name": "Valerie Perez",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -1116,9 +1143,10 @@
  {
   "active": true,
   "age": 18,
-  "api_id": "46594pfod50536vw",
+  "api_id": "p89i2ngdenfspaof",
   "api_ids": [
-   "46594pfod50536vw"
+   "46594pfod50536vw",
+   "p89i2ngdenfspaof"
   ],
   "bats": "L",
   "bio": null,
@@ -1133,7 +1161,7 @@
   "name": "Amira Hondras",
   "position": "2B",
   "status": "Drafted",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Gemini"
@@ -1141,9 +1169,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "0unpm1ekzapebqws",
+  "api_id": "et7vzle5g6jn2p7t",
   "api_ids": [
-   "0unpm1ekzapebqws"
+   "0unpm1ekzapebqws",
+   "et7vzle5g6jn2p7t"
   ],
   "bats": "R",
   "bio": null,
@@ -1158,7 +1187,7 @@
   "name": "Samantha Gutierrez",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Aries"
@@ -1166,10 +1195,11 @@
  {
   "active": true,
   "age": 26,
-  "api_id": "27svefz41ds4k58k",
+  "api_id": "codwzeph1tx75yns",
   "api_ids": [
    "27svefz41ds4k58k",
-   "moizfkn9dtrm4vno"
+   "moizfkn9dtrm4vno",
+   "codwzeph1tx75yns"
   ],
   "bats": "R",
   "bio": null,
@@ -1180,12 +1210,12 @@
   "draft_round": 3,
   "hometown": "Tepatitlan, Mexico",
   "id": "7254031e-8d7b-4383-abac-38b93d9367db",
-  "jersey_number": "8",
+  "jersey_number": "6",
   "name": "Diana Ibarra",
   "position": "CF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
-  "team_id": "NY",
+  "team_as_of": "2026-09-22",
+  "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Capricorn"
  },
@@ -1215,9 +1245,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "r3alfpx10dzb94lc",
+  "api_id": "223tiixuh4g4wju2",
   "api_ids": [
-   "r3alfpx10dzb94lc"
+   "r3alfpx10dzb94lc",
+   "223tiixuh4g4wju2"
   ],
   "bats": "R",
   "bio": null,
@@ -1232,7 +1263,7 @@
   "name": "Samaria Benítez",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Virgo"
@@ -1263,9 +1294,10 @@
  {
   "active": true,
   "age": 21,
-  "api_id": "5uue0zu3y0p9focn",
+  "api_id": "nr9d593zc0wphjum",
   "api_ids": [
-   "5uue0zu3y0p9focn"
+   "5uue0zu3y0p9focn",
+   "nr9d593zc0wphjum"
   ],
   "bats": "R",
   "bio": null,
@@ -1280,7 +1312,7 @@
   "name": "Jua Park",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Sagittarius"
@@ -1380,9 +1412,10 @@
  {
   "active": true,
   "age": 22,
-  "api_id": "x80flpxyfp6sfoqs",
+  "api_id": "kjh8e6vrfdjsb1zm",
   "api_ids": [
-   "x80flpxyfp6sfoqs"
+   "x80flpxyfp6sfoqs",
+   "kjh8e6vrfdjsb1zm"
   ],
   "bats": "R",
   "bio": null,
@@ -1397,7 +1430,7 @@
   "name": "Ayaka Yamamoto",
   "position": "3B",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -1405,9 +1438,10 @@
  {
   "active": true,
   "age": 21,
-  "api_id": "psexfbwrg9daflgp",
+  "api_id": "lr5rrshyqld0gczn",
   "api_ids": [
-   "psexfbwrg9daflgp"
+   "psexfbwrg9daflgp",
+   "lr5rrshyqld0gczn"
   ],
   "bats": "R",
   "bio": null,
@@ -1422,7 +1456,7 @@
   "name": "Ela Day-Bédard",
   "position": "IF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Pisces"
@@ -1453,9 +1487,10 @@
  {
   "active": true,
   "age": 20,
-  "api_id": "v4hgumauqrlhu8cl",
+  "api_id": "tua92dqjv287ps1h",
   "api_ids": [
-   "v4hgumauqrlhu8cl"
+   "v4hgumauqrlhu8cl",
+   "tua92dqjv287ps1h"
   ],
   "bats": "R",
   "bio": null,
@@ -1470,7 +1505,7 @@
   "name": "Maggie Foxx",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Sagittarius"
@@ -1501,9 +1536,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "inhlf16towxd1rlv",
+  "api_id": "h5xpfkolu8yfkzq1",
   "api_ids": [
-   "inhlf16towxd1rlv"
+   "inhlf16towxd1rlv",
+   "h5xpfkolu8yfkzq1"
   ],
   "bats": "L",
   "bio": null,
@@ -1518,7 +1554,7 @@
   "name": "Lexi Hastings",
   "position": "LF",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "L",
   "zodiac_sign": "Libra"
@@ -1526,9 +1562,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "6yezcikkcsqlcbk4",
+  "api_id": "3ywaci050q0tlw34",
   "api_ids": [
-   "6yezcikkcsqlcbk4"
+   "6yezcikkcsqlcbk4",
+   "3ywaci050q0tlw34"
   ],
   "bats": "R",
   "bio": null,
@@ -1543,7 +1580,7 @@
   "name": "Kate Blunt",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Aries"
@@ -1551,9 +1588,10 @@
  {
   "active": true,
   "age": 20,
-  "api_id": "tjwiwtd9nzc4y23e",
+  "api_id": "h5j4m5qjj0txs3n7",
   "api_ids": [
-   "tjwiwtd9nzc4y23e"
+   "tjwiwtd9nzc4y23e",
+   "h5j4m5qjj0txs3n7"
   ],
   "bats": "R",
   "bio": null,
@@ -1568,7 +1606,7 @@
   "name": "Isabella Villarreal",
   "position": "2B",
   "status": "Drafted",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -1622,9 +1660,10 @@
  {
   "active": true,
   "age": 18,
-  "api_id": "lx8fhakk17z85naw",
+  "api_id": "474eytjz3ncrqkxt",
   "api_ids": [
-   "lx8fhakk17z85naw"
+   "lx8fhakk17z85naw",
+   "474eytjz3ncrqkxt"
   ],
   "bats": "L",
   "bio": null,
@@ -1639,7 +1678,7 @@
   "name": "Maïka Dumais",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Aries"
@@ -1664,7 +1703,7 @@
   "name": "Brittany Apgar",
   "position": "CF",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "L",
   "zodiac_sign": "Leo"
@@ -1695,9 +1734,10 @@
  {
   "active": true,
   "age": 25,
-  "api_id": "g03ry24i1v31ubum",
+  "api_id": "3vw0yx2ob4wb4me0",
   "api_ids": [
-   "g03ry24i1v31ubum"
+   "g03ry24i1v31ubum",
+   "3vw0yx2ob4wb4me0"
   ],
   "bats": "L",
   "bio": null,
@@ -1712,7 +1752,7 @@
   "name": "Olivia Bricker",
   "position": "LHP",
   "status": "Drafted",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "L",
   "zodiac_sign": "Virgo"
@@ -1720,9 +1760,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "ceq498y9px8462u1",
+  "api_id": "1yjdk3qlqwtfznkp",
   "api_ids": [
-   "ceq498y9px8462u1"
+   "ceq498y9px8462u1",
+   "1yjdk3qlqwtfznkp"
   ],
   "bats": "R",
   "bio": null,
@@ -1737,7 +1778,7 @@
   "name": "Ticara Geldenhuis",
   "position": "OF",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Virgo"
@@ -1745,9 +1786,10 @@
  {
   "active": true,
   "age": 22,
-  "api_id": "n6zoj50tv6fuahf7",
+  "api_id": "opu0jjy9k8tno507",
   "api_ids": [
-   "n6zoj50tv6fuahf7"
+   "n6zoj50tv6fuahf7",
+   "opu0jjy9k8tno507"
   ],
   "bats": "R",
   "bio": null,
@@ -1762,7 +1804,7 @@
   "name": "Alexia Jorge",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -1793,9 +1835,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "893g5axrjgz1ve0t",
+  "api_id": "m0jlcsf54kwyxsil",
   "api_ids": [
-   "893g5axrjgz1ve0t"
+   "893g5axrjgz1ve0t",
+   "m0jlcsf54kwyxsil"
   ],
   "bats": "R",
   "bio": null,
@@ -1810,7 +1853,7 @@
   "name": "Gabrielle Haas",
   "position": "SS",
   "status": "Drafted",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -1818,9 +1861,10 @@
  {
   "active": true,
   "age": 27,
-  "api_id": "zecbi9a2l7s9d1ix",
+  "api_id": "8yyb2d3x6rdqdbl2",
   "api_ids": [
-   "zecbi9a2l7s9d1ix"
+   "zecbi9a2l7s9d1ix",
+   "8yyb2d3x6rdqdbl2"
   ],
   "bats": "L",
   "bio": null,
@@ -1835,7 +1879,7 @@
   "name": "Suzuka Yamamoto",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -1889,9 +1933,10 @@
  {
   "active": true,
   "age": 27,
-  "api_id": "nkyvasxbczf0o2br",
+  "api_id": "97egowarmrw5je7o",
   "api_ids": [
-   "nkyvasxbczf0o2br"
+   "nkyvasxbczf0o2br",
+   "97egowarmrw5je7o"
   ],
   "bats": "R",
   "bio": null,
@@ -1906,7 +1951,7 @@
   "name": "Joely Leguizamon",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -1937,9 +1982,10 @@
  {
   "active": true,
   "age": 30,
-  "api_id": "g3rfk5r0u3tsd9g5",
+  "api_id": "byciyfe63oi3wjld",
   "api_ids": [
-   "g3rfk5r0u3tsd9g5"
+   "g3rfk5r0u3tsd9g5",
+   "byciyfe63oi3wjld"
   ],
   "bats": "S",
   "bio": null,
@@ -1954,7 +2000,7 @@
   "name": "Sarah Edwards",
   "position": "1B",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "L",
   "zodiac_sign": "Cancer"
@@ -2008,9 +2054,10 @@
  {
   "active": true,
   "age": 20,
-  "api_id": "a8mrjimrhgjeg3xx",
+  "api_id": "5ffitbg4ix5yqio4",
   "api_ids": [
-   "a8mrjimrhgjeg3xx"
+   "a8mrjimrhgjeg3xx",
+   "5ffitbg4ix5yqio4"
   ],
   "bats": "R",
   "bio": null,
@@ -2025,7 +2072,7 @@
   "name": "Michelle Roche",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -2056,9 +2103,10 @@
  {
   "active": true,
   "age": 38,
-  "api_id": "qia9474ayx8cyeuw",
+  "api_id": "quwbg637juv61d6y",
   "api_ids": [
-   "qia9474ayx8cyeuw"
+   "qia9474ayx8cyeuw",
+   "quwbg637juv61d6y"
   ],
   "bats": "R",
   "bio": null,
@@ -2073,7 +2121,7 @@
   "name": "Meggie Meidlinger",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Scorpio"
@@ -2098,7 +2146,7 @@
   "name": "Hyeonah Kim",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Cancer"
@@ -2106,9 +2154,10 @@
  {
   "active": true,
   "age": 19,
-  "api_id": "kodbwa3vuzo1kbzt",
+  "api_id": "ic7hj7uon4sxwmkq",
   "api_ids": [
-   "kodbwa3vuzo1kbzt"
+   "kodbwa3vuzo1kbzt",
+   "ic7hj7uon4sxwmkq"
   ],
   "bats": "R",
   "bio": null,
@@ -2123,41 +2172,19 @@
   "name": "Gigi Schiano",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Capricorn"
  },
  {
   "active": true,
-  "age": null,
-  "api_id": null,
-  "api_ids": [],
-  "bats": "R",
-  "bio": null,
-  "birth_date": null,
-  "birth_date_source": null,
-  "created_at": "2026-08-27T22:18:00.825861+00:00",
-  "draft_pick": null,
-  "draft_round": null,
-  "hometown": null,
-  "id": "c0836216-7f23-44c6-bb69-dafb8dec0489",
-  "jersey_number": "8",
-  "name": "Suzu Naraski",
-  "position": null,
-  "status": null,
-  "team_as_of": "2026-08-29",
-  "team_id": "LA",
-  "throws": "R",
-  "zodiac_sign": null
- },
- {
-  "active": true,
   "age": 27,
-  "api_id": "y920acalpn22r200",
+  "api_id": "7kzyrbse7dsdz9eq",
   "api_ids": [
    "lehztczt9t20uuv8",
-   "y920acalpn22r200"
+   "y920acalpn22r200",
+   "7kzyrbse7dsdz9eq"
   ],
   "bats": "R",
   "bio": null,
@@ -2172,7 +2199,7 @@
   "name": "Suzu Narasaki",
   "position": "CF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Taurus"
@@ -2197,7 +2224,7 @@
   "name": "Thaima Maximiliana",
   "position": "SS",
   "status": "Signed",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "R",
   "zodiac_sign": "Libra"
@@ -2222,7 +2249,7 @@
   "name": "Hinano Beppu",
   "position": "2B",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Sagittarius"
@@ -2230,9 +2257,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "qo6ahavmzhlynlcv",
+  "api_id": "n89agnwgzf7hqtxm",
   "api_ids": [
-   "qo6ahavmzhlynlcv"
+   "qo6ahavmzhlynlcv",
+   "n89agnwgzf7hqtxm"
   ],
   "bats": "R",
   "bio": null,
@@ -2247,7 +2275,7 @@
   "name": "Natsuki Yonetani",
   "position": "LF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -2347,9 +2375,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "19hks0fi4jxlzunj",
+  "api_id": "zymnr82u1jgujn4o",
   "api_ids": [
-   "19hks0fi4jxlzunj"
+   "19hks0fi4jxlzunj",
+   "zymnr82u1jgujn4o"
   ],
   "bats": "S",
   "bio": null,
@@ -2364,7 +2393,7 @@
   "name": "Andréanne Leblanc",
   "position": "1B",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -2395,9 +2424,10 @@
  {
   "active": true,
   "age": 28,
-  "api_id": "5k1pl6aopao2hedi",
+  "api_id": "ks0hccaq9mqnlmt8",
   "api_ids": [
-   "5k1pl6aopao2hedi"
+   "5k1pl6aopao2hedi",
+   "ks0hccaq9mqnlmt8"
   ],
   "bats": "L",
   "bio": null,
@@ -2412,7 +2442,7 @@
   "name": "Claire Eccles",
   "position": "CF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "L",
   "zodiac_sign": "Scorpio"
@@ -2443,9 +2473,10 @@
  {
   "active": true,
   "age": 23,
-  "api_id": "wqe4emzjph7jjxbe",
+  "api_id": "n07fb4u46cxph8x3",
   "api_ids": [
-   "wqe4emzjph7jjxbe"
+   "wqe4emzjph7jjxbe",
+   "n07fb4u46cxph8x3"
   ],
   "bats": "L",
   "bio": null,
@@ -2460,7 +2491,7 @@
   "name": "Niki Eckert",
   "position": "LHP",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "L",
   "zodiac_sign": "Capricorn"
@@ -2468,9 +2499,10 @@
  {
   "active": true,
   "age": 18,
-  "api_id": "vjzadspxd0kcgpmn",
+  "api_id": "ytyma1daiyokw8gr",
   "api_ids": [
-   "vjzadspxd0kcgpmn"
+   "vjzadspxd0kcgpmn",
+   "ytyma1daiyokw8gr"
   ],
   "bats": "L",
   "bio": null,
@@ -2481,11 +2513,11 @@
   "draft_round": 6,
   "hometown": "Oakville, Missouri, USA",
   "id": "e26bb4c3-b408-4780-bbe9-5a775703c063",
-  "jersey_number": "17",
+  "jersey_number": "16",
   "name": "Adelaide Frank",
   "position": "1B",
   "status": "Drafted",
-  "team_as_of": "2026-08-29",
+  "team_as_of": "2026-09-22",
   "team_id": "LA",
   "throws": "L",
   "zodiac_sign": "Taurus"
@@ -2516,9 +2548,10 @@
  {
   "active": true,
   "age": 29,
-  "api_id": "v3d0akr1chosb9hc",
+  "api_id": "ew7ptrh3zpp8rp7o",
   "api_ids": [
-   "v3d0akr1chosb9hc"
+   "v3d0akr1chosb9hc",
+   "ew7ptrh3zpp8rp7o"
   ],
   "bats": "R",
   "bio": null,
@@ -2533,7 +2566,7 @@
   "name": "Amanda Gianelloni",
   "position": "2B",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Aquarius"
@@ -2541,9 +2574,10 @@
  {
   "active": true,
   "age": 25,
-  "api_id": "v5hhkau8fhbyk14s",
+  "api_id": "8wwswx6t5ywvoo9a",
   "api_ids": [
-   "v5hhkau8fhbyk14s"
+   "v5hhkau8fhbyk14s",
+   "8wwswx6t5ywvoo9a"
   ],
   "bats": "R",
   "bio": null,
@@ -2558,7 +2592,7 @@
   "name": "Madison Willan",
   "position": "IF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Aquarius"
@@ -2566,9 +2600,10 @@
  {
   "active": true,
   "age": 28,
-  "api_id": "hapmlnm53nvru5v7",
+  "api_id": "dyzyy1v7l05oun0m",
   "api_ids": [
-   "hapmlnm53nvru5v7"
+   "hapmlnm53nvru5v7",
+   "dyzyy1v7l05oun0m"
   ],
   "bats": "R",
   "bio": null,
@@ -2583,7 +2618,7 @@
   "name": "Rosi del Castillo",
   "position": "CF",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-22",
   "team_id": "SF",
   "throws": "R",
   "zodiac_sign": "Leo"
@@ -2593,6 +2628,7 @@
   "age": 31,
   "api_id": "pz426861jkjn70d3",
   "api_ids": [
+   "kfli26dz84mtz2rh",
    "pz426861jkjn70d3"
   ],
   "bats": "R",
@@ -2608,7 +2644,7 @@
   "name": "Claire O'Sullivan",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Aquarius"
@@ -2656,7 +2692,7 @@
   "name": "Elodie Ciamarro",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Libra"
@@ -2664,9 +2700,10 @@
  {
   "active": true,
   "age": 26,
-  "api_id": "ivkfx1lpe1vhbuq0",
+  "api_id": "jtbxu7sxajouw5px",
   "api_ids": [
-   "ivkfx1lpe1vhbuq0"
+   "ivkfx1lpe1vhbuq0",
+   "jtbxu7sxajouw5px"
   ],
   "bats": "R",
   "bio": null,
@@ -2681,7 +2718,7 @@
   "name": "Beth Greenwood",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Libra"
@@ -2804,9 +2841,10 @@
  {
   "active": true,
   "age": 24,
-  "api_id": "1d8hclall8bo0ux0",
+  "api_id": "y7jb72yw7km8kt54",
   "api_ids": [
-   "1d8hclall8bo0ux0"
+   "1d8hclall8bo0ux0",
+   "y7jb72yw7km8kt54"
   ],
   "bats": "R",
   "bio": null,
@@ -2821,7 +2859,7 @@
   "name": "Alli Schroder",
   "position": "RHP",
   "status": "Signed",
-  "team_as_of": "2026-08-28",
+  "team_as_of": "2026-09-11",
   "team_id": "BOS",
   "throws": "R",
   "zodiac_sign": "Taurus"
@@ -2852,9 +2890,10 @@
  {
   "active": true,
   "age": 19,
-  "api_id": "m88moq3qi0q1081g",
+  "api_id": "npeuv3h8rabkt2mf",
   "api_ids": [
-   "m88moq3qi0q1081g"
+   "m88moq3qi0q1081g",
+   "npeuv3h8rabkt2mf"
   ],
   "bats": "R",
   "bio": null,
@@ -2869,7 +2908,7 @@
   "name": "Alyssa Zettlemoyer",
   "position": "C",
   "status": "Signed",
-  "team_as_of": "2026-08-30",
+  "team_as_of": "2026-09-14",
   "team_id": "NY",
   "throws": "R",
   "zodiac_sign": "Aries"

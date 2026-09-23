@@ -1,5 +1,16 @@
 [
  {
+  "detected_at": "2026-09-04T23:42:02.219681+00:00",
+  "feed_api_id": "i7y6bj0a1i8uwwgu",
+  "from_team_id": "LA",
+  "game_date": "2026-09-04",
+  "game_id": "1116d89a-879b-4e8e-8a8b-413f626afd9f",
+  "id": "18e2efb1-fb68-482d-9d46-59bb5e964e15",
+  "player_id": "2f152cdb-59b0-4174-954a-33fcf0ca635e",
+  "reason": "feed-id",
+  "to_team_id": "NY"
+ },
+ {
   "detected_at": "2026-08-29T23:22:06.711732+00:00",
   "feed_api_id": null,
   "from_team_id": "NY",
@@ -44,6 +55,50 @@
   "to_team_id": "NY"
  },
  {
+  "detected_at": "2026-09-03T22:46:06.855305+00:00",
+  "feed_api_id": null,
+  "from_team_id": "NY",
+  "game_date": "2026-09-03",
+  "game_id": "eb72bb20-20ca-41f1-91cf-07e2a54f99ff",
+  "id": "4c0e2fce-c3db-484d-8afc-decb6ce0460a",
+  "player_id": "2f152cdb-59b0-4174-954a-33fcf0ca635e",
+  "reason": "name-match",
+  "to_team_id": "LA"
+ },
+ {
+  "detected_at": "2026-09-03T22:48:06.370976+00:00",
+  "feed_api_id": "i7y6bj0a1i8uwwgu",
+  "from_team_id": "LA",
+  "game_date": "2026-09-03",
+  "game_id": "eb72bb20-20ca-41f1-91cf-07e2a54f99ff",
+  "id": "57bc7a65-6437-4124-8782-4dd328a6d27f",
+  "player_id": "2f152cdb-59b0-4174-954a-33fcf0ca635e",
+  "reason": "feed-id",
+  "to_team_id": "NY"
+ },
+ {
+  "detected_at": "2026-09-03T22:46:06.855305+00:00",
+  "feed_api_id": null,
+  "from_team_id": "NY",
+  "game_date": "2026-09-03",
+  "game_id": "eb72bb20-20ca-41f1-91cf-07e2a54f99ff",
+  "id": "5d203510-cf56-4b24-8687-797fe905b23c",
+  "player_id": "7254031e-8d7b-4383-abac-38b93d9367db",
+  "reason": "name-match",
+  "to_team_id": "LA"
+ },
+ {
+  "detected_at": "2026-09-04T23:42:02.219681+00:00",
+  "feed_api_id": null,
+  "from_team_id": "LA",
+  "game_date": "2026-09-04",
+  "game_id": "1116d89a-879b-4e8e-8a8b-413f626afd9f",
+  "id": "5dd7a898-9074-462e-941f-3e0b199c0fac",
+  "player_id": "7254031e-8d7b-4383-abac-38b93d9367db",
+  "reason": "name-match",
+  "to_team_id": "NY"
+ },
+ {
   "detected_at": "2026-08-22T07:50:57.962879+00:00",
   "feed_api_id": "27svefz41ds4k58k",
   "from_team_id": "NY",
@@ -66,6 +121,17 @@
   "to_team_id": "NY"
  },
  {
+  "detected_at": "2026-09-05T23:40:02.884574+00:00",
+  "feed_api_id": null,
+  "from_team_id": "NY",
+  "game_date": "2026-09-05",
+  "game_id": "471f23ed-1e89-4a40-8d34-ed07851d9bb5",
+  "id": "905bacdc-44b9-4008-884f-0285791e364c",
+  "player_id": "2f152cdb-59b0-4174-954a-33fcf0ca635e",
+  "reason": "name-match",
+  "to_team_id": "LA"
+ },
+ {
   "detected_at": "2026-08-27T22:16:06.95171+00:00",
   "feed_api_id": null,
   "from_team_id": "LA",
@@ -75,6 +141,17 @@
   "player_id": "7254031e-8d7b-4383-abac-38b93d9367db",
   "reason": "name-match",
   "to_team_id": "NY"
+ },
+ {
+  "detected_at": "2026-09-05T23:40:02.884574+00:00",
+  "feed_api_id": null,
+  "from_team_id": "NY",
+  "game_date": "2026-09-05",
+  "game_id": "471f23ed-1e89-4a40-8d34-ed07851d9bb5",
+  "id": "a2005e59-a5b5-4ac1-999c-dcb027ec0bec",
+  "player_id": "c2c0093d-4394-48a7-9cca-e2fd2b82133b",
+  "reason": "name-match",
+  "to_team_id": "LA"
  },
  {
   "detected_at": "2026-08-31T03:26:06.225653+00:00",
@@ -97,6 +174,28 @@
   "player_id": "7254031e-8d7b-4383-abac-38b93d9367db",
   "reason": "name-match",
   "to_team_id": "NY"
+ },
+ {
+  "detected_at": "2026-09-03T22:48:06.370976+00:00",
+  "feed_api_id": null,
+  "from_team_id": "LA",
+  "game_date": "2026-09-03",
+  "game_id": "eb72bb20-20ca-41f1-91cf-07e2a54f99ff",
+  "id": "b8ad2a11-bd8e-4ad7-be3f-c0dd1f1c63db",
+  "player_id": "7254031e-8d7b-4383-abac-38b93d9367db",
+  "reason": "name-match",
+  "to_team_id": "NY"
+ },
+ {
+  "detected_at": "2026-09-05T23:40:02.884574+00:00",
+  "feed_api_id": null,
+  "from_team_id": "NY",
+  "game_date": "2026-09-05",
+  "game_id": "471f23ed-1e89-4a40-8d34-ed07851d9bb5",
+  "id": "bb756cb3-d764-475b-a64c-756a878f3107",
+  "player_id": "7254031e-8d7b-4383-abac-38b93d9367db",
+  "reason": "name-match",
+  "to_team_id": "LA"
  },
  {
   "detected_at": "2026-08-22T22:56:06.964197+00:00",

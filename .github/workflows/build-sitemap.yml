@@ -8,10 +8,11 @@ name: Rebuild sitemap
 # alone otherwise (see scripts/build-sitemap.ts), so a quiet day produces no commit and
 # no deploy. That matters here because a push to main IS a Cloudflare deploy.
 #
-# Dormant until configured: add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repository
-# secrets. Both are public values that already ship in the client bundle; they are secrets
-# here only because Actions has nowhere else to put them. Until they exist every run skips
-# cleanly rather than failing, so there are no red-X emails.
+# Needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repository secrets. Both are public
+# values that already ship in the client bundle; they are secrets here only because Actions has
+# nowhere else to put them. Without them the run FAILS. It used to skip cleanly instead, and
+# every one of its 32 runs to Sep 22, 2026 was a green no-op: the Sep 22 championship game
+# only reached the sitemap because someone ran it by hand.
 on:
   schedule:
     - cron: '40 6 * * *'   # 06:40 UTC daily. Clear of update-playoff-odds at 06:20.
@@ -41,9 +42,11 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Skip when not configured
+      - name: Fail when not configured
         if: env.VITE_SUPABASE_ANON_KEY == ''
-        run: echo "Supabase vars not set, skipping. Add VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable."
+        run: |
+          echo "::error::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set as Actions secrets, so the sitemap was NOT rebuilt."
+          exit 1
 
       # Unlike most of the cron scripts this one is TypeScript and is bundled by esbuild
       # first, so it needs the dev dependencies. `npm ci` rather than `npm install` to keep
