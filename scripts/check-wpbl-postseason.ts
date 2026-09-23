@@ -155,8 +155,15 @@ export interface CalendarDrift {
  * AN EMPTY MIRROR REPORTS NOTHING. The table is filled by a separate cron job, and a check
  * that turned "the sync has not run yet" into eleven missing games would go red for a reason
  * that has nothing to do with the league.
+ *
+ * A GAME ALREADY PLAYED IS HISTORY, when `today` (a Central yyyy-mm-dd) is given. The constant is
+ * only still read for games to come, by the watch-party events and a render before the mirror
+ * arrives, so a disagreement about one that is over changes nothing. And they do disagree for
+ * good: semifinal B game 1 was rained from 6:00 to 7:30 PM, the constant says 7:30 because that is
+ * when it was played, and the league's calendar never updated. Without this the check failed
+ * four times a day through October over a game that finished on Sep 10.
  */
-export function findCalendarDrift(site: SiteRow[], schedule = POSTSEASON_SCHEDULE): CalendarDrift[] {
+export function findCalendarDrift(site: SiteRow[], schedule = POSTSEASON_SCHEDULE, today?: string): CalendarDrift[] {
   if (!site.length) return []
   const key = (round: string, series: string | null, game: number) => `${round}:${series ?? '-'}:${game}`
   const theirs = new Map<string, SiteRow>()
@@ -174,6 +181,7 @@ export function findCalendarDrift(site: SiteRow[], schedule = POSTSEASON_SCHEDUL
       const k = key(round, series, g.game)
       seen.add(k)
       const t = theirs.get(k)
+      if (today && g.date < today && (!t || t.game_date < today)) continue
       const ours = `${g.date} ${g.time}`
       if (!t) {
         out.push({ kind: 'not-on-calendar', game: k, ours, theirs: '—' })
@@ -184,7 +192,7 @@ export function findCalendarDrift(site: SiteRow[], schedule = POSTSEASON_SCHEDUL
     }
   }
   for (const [k, t] of theirs) {
-    if (!seen.has(k)) out.push({ kind: 'not-in-constant', game: k, ours: '—', theirs: `${t.game_date} ${t.start_time}` })
+    if (!seen.has(k) && !(today && t.game_date < today)) out.push({ kind: 'not-in-constant', game: k, ours: '—', theirs: `${t.game_date} ${t.start_time}` })
   }
   return out
 }
@@ -207,7 +215,8 @@ async function main(): Promise<void> {
   const games = await fetchGames()
   const postseason = games.filter(g => g.game_date >= from)
   const bad = findDisagreements(games, from)
-  const drift = findCalendarDrift(await fetchSiteGames())
+  const drift = findCalendarDrift(await fetchSiteGames(), POSTSEASON_SCHEDULE,
+    new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }))
 
   if (JSON_OUT) {
     console.log(JSON.stringify({
