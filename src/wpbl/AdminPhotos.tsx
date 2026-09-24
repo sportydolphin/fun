@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Typography, TextField, CircularProgress, MenuItem, Select, IconButton } from '@mui/material'
-import { Close, Refresh } from '@mui/icons-material'
+import { Box, Typography, TextField, CircularProgress, MenuItem, Select, IconButton, Dialog } from '@mui/material'
+import { Close, Refresh, ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { Section } from '../AdminPanel'
 import { supabase } from '../lib/supabase'
 import {
@@ -104,21 +104,42 @@ function SubjectPicker({ candidates, onPick }: {
   )
 }
 
-function PhotoCard({ photo, subjects, players, figures, teams, onChange }: {
-  photo: WpblFanPhotoRow
-  subjects: WpblPhotoSubject[]
+// What every photo editor needs to hand its controls: the lookups for naming a tag, and the one
+// write wrapper. `run` dims the controls while a write is in flight and reloads the queue after,
+// so a double tap cannot tag the same player twice.
+type Lookups = {
   players: Map<string, WpblPlayer>
   figures: Map<string, WpblPhotoFigure>
   teams: WpblTeam[]
-  onChange: () => void
-}) {
+}
+type Runner = { busy: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }
+
+function useRunner(onChange: () => void): Runner {
   const [busy, setBusy] = useState(false)
   const run = async (fn: () => Promise<unknown>) => { setBusy(true); await fn(); setBusy(false); onChange() }
+  return { busy, run }
+}
 
-  const tagged = new Set<string>()
-  for (const s of subjects) {
-    tagged.add(s.player_id ? `p:${s.player_id}` : s.team_id ? `t:${s.team_id}` : `f:${s.figure_key}`)
-  }
+const tagKey = (s: WpblPhotoSubject) =>
+  s.player_id ? `p:${s.player_id}` : s.team_id ? `t:${s.team_id}` : `f:${s.figure_key}`
+const candidateKey = (c: Candidate) =>
+  'playerId' in c.add ? `p:${c.add.playerId}` : `f:${c.add.figureKey}`
+
+// The tagging controls themselves: who is tagged, the picker, the team-photo row and the caption.
+// Shared by the list card and tag mode, so the two cannot drift into tagging differently.
+// `recent` is tag mode's one-tap row: people tagged on the photos just before this one, because a
+// batch is usually one game and the same few players.
+function TagFields({ photo, subjects, lookups, runner, recent, onPicked }: {
+  photo: WpblFanPhotoRow
+  subjects: WpblPhotoSubject[]
+  lookups: Lookups
+  runner: Runner
+  recent?: Candidate[]
+  onPicked?: (c: Candidate) => void
+}) {
+  const { players, figures, teams } = lookups
+  const { busy, run } = runner
+  const tagged = new Set(subjects.map(tagKey))
   const teamTag = new Map(subjects.filter(s => s.team_id).map(s => [s.team_id!, s.id]))
 
   const candidates: Candidate[] = useMemo(() => {
@@ -135,11 +156,102 @@ function PhotoCard({ photo, subjects, players, figures, teams, onChange }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, figures, subjects])
 
+  const pick = (c: Candidate) => { if (busy) return; onPicked?.(c); run(() => addFanPhotoSubject(photo.id, c.add)) }
+  const quick = (recent ?? []).filter(c => !tagged.has(candidateKey(c)))
+
   const subjectName = (s: WpblPhotoSubject) =>
     s.player_id ? (players.get(s.player_id)?.name ?? 'Unknown player')
     : s.team_id ? `${fanPhotoTeamName(teams.find(t => t.id === s.team_id))} (team)`
     : (figures.get(s.figure_key ?? '')?.name ?? s.figure_key ?? 'Unknown')
 
+  return (
+    <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+        {subjects.length === 0 && (
+          <Typography sx={{ fontSize: '0.7rem', color: 'warning.main', fontWeight: 700 }}>
+            No subjects tagged yet
+          </Typography>
+        )}
+        {subjects.map(s => (
+          <Box key={s.id} sx={{
+            display: 'flex', alignItems: 'center', gap: 0.3, pl: 0.9, pr: 0.4, py: 0.2,
+            borderRadius: 999, bgcolor: 'action.hover',
+          }}>
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600 }}>{subjectName(s)}</Typography>
+            <IconButton size="small" disabled={busy} aria-label={`Remove ${subjectName(s)}`}
+              onClick={() => run(() => removeFanPhotoSubject(s.id))} sx={{ p: 0.1 }}>
+              <Close sx={{ fontSize: '0.85rem' }} />
+            </IconButton>
+          </Box>
+        ))}
+      </Box>
+
+      {quick.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6 }}>
+          <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', mr: 0.2 }}>
+            Recent
+          </Typography>
+          {quick.map(c => (
+            <Chip key={candidateKey(c)} label={`+ ${c.label}`} active={false} onClick={() => pick(c)} />
+          ))}
+        </Box>
+      )}
+
+      <SubjectPicker candidates={candidates} onPick={pick} />
+
+      {/* Team photo: tag the whole club rather than twenty players one by one. Toggles. */}
+      {teams.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6 }}>
+          <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', mr: 0.2 }}>
+            Team photo
+          </Typography>
+          {teams.map(t => {
+            const tagId = teamTag.get(t.id)
+            return (
+              <Chip key={t.id} label={t.abbr} active={!!tagId} onClick={() => {
+                if (busy) return
+                run(() => tagId ? removeFanPhotoSubject(tagId) : addFanPhotoSubject(photo.id, { teamId: t.id }))
+              }} />
+            )
+          })}
+        </Box>
+      )}
+
+      <SavingField value={photo.caption} placeholder="Caption (plain text)" multiline
+        onSave={v => run(() => updateFanPhoto(photo.id, { caption: v }))} />
+    </Box>
+  )
+}
+
+function PublishButton({ approved, label, onClick }: { approved: boolean; label?: string; onClick: () => void }) {
+  return (
+    <Box
+      onClick={onClick}
+      role="button" tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      sx={{
+        flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: { xs: 44, sm: 0 }, px: 2, py: 0.6, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+        fontSize: '0.8rem', fontWeight: 800, border: '1px solid',
+        borderColor: approved ? 'success.main' : 'primary.main',
+        bgcolor: approved ? 'success.main' : 'primary.main',
+        color: '#fff',
+      }}
+    >
+      {label ?? (approved ? '✓ Published' : 'Publish')}
+    </Box>
+  )
+}
+
+function PhotoCard({ photo, subjects, lookups, onChange, onOpen }: {
+  photo: WpblFanPhotoRow
+  subjects: WpblPhotoSubject[]
+  lookups: Lookups
+  onChange: () => void
+  onOpen: () => void
+}) {
+  const runner = useRunner(onChange)
+  const { busy, run } = runner
   const togglePublish = () => { if (!busy) run(() => setFanPhotoApproved(photo.id, !photo.approved)) }
 
   // A grid rather than a row: beside a 120px thumbnail a phone has ~190px left, too little for the
@@ -155,9 +267,13 @@ function PhotoCard({ photo, subjects, players, figures, teams, onChange }: {
       opacity: busy ? 0.6 : 1, transition: 'opacity .15s',
     }}>
       <Box sx={{ gridArea: 'img', minWidth: 0 }}>
-        <Box component="img" src={photo.card_url} alt={photo.caption ?? 'Fan photo'} loading="lazy"
-          sx={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 1.5, bgcolor: 'action.hover',
-                display: 'block', border: '1px solid', borderColor: 'divider' }} />
+        {/* The thumbnail opens tag mode on this photo: a 120px square is too small to tell who is who. */}
+        <Box component="button" type="button" onClick={onOpen} aria-label="Open in tag mode"
+          sx={{ p: 0, border: 0, bgcolor: 'transparent', cursor: 'zoom-in', display: 'block', width: '100%' }}>
+          <Box component="img" src={photo.card_url} alt={photo.caption ?? 'Fan photo'} loading="lazy"
+            sx={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 1.5, bgcolor: 'action.hover',
+                  display: 'block', border: '1px solid', borderColor: 'divider' }} />
+        </Box>
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.5 }}>
           {photo.credit ?? 'no credit'}
         </Typography>
@@ -166,51 +282,8 @@ function PhotoCard({ photo, subjects, players, figures, teams, onChange }: {
         )}
       </Box>
 
-      <Box sx={{ gridArea: 'fields', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-        {/* subjects */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-          {subjects.length === 0 && (
-            <Typography sx={{ fontSize: '0.7rem', color: 'warning.main', fontWeight: 700 }}>
-              No subjects tagged yet
-            </Typography>
-          )}
-          {subjects.map(s => (
-            <Box key={s.id} sx={{
-              display: 'flex', alignItems: 'center', gap: 0.3, pl: 0.9, pr: 0.4, py: 0.2,
-              borderRadius: 999, bgcolor: 'action.hover',
-            }}>
-              <Typography sx={{ fontSize: '0.72rem', fontWeight: 600 }}>{subjectName(s)}</Typography>
-              <IconButton size="small" disabled={busy} aria-label={`Remove ${subjectName(s)}`}
-                onClick={() => run(() => removeFanPhotoSubject(s.id))} sx={{ p: 0.1 }}>
-                <Close sx={{ fontSize: '0.85rem' }} />
-              </IconButton>
-            </Box>
-          ))}
-        </Box>
-
-        <SubjectPicker candidates={candidates}
-          onPick={c => run(() => addFanPhotoSubject(photo.id, c.add))} />
-
-        {/* Team photo: tag the whole club rather than twenty players one by one. Toggles. */}
-        {teams.length > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6 }}>
-            <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', mr: 0.2 }}>
-              Team photo
-            </Typography>
-            {teams.map(t => {
-              const tagId = teamTag.get(t.id)
-              return (
-                <Chip key={t.id} label={t.abbr} active={!!tagId} onClick={() => {
-                  if (busy) return
-                  run(() => tagId ? removeFanPhotoSubject(tagId) : addFanPhotoSubject(photo.id, { teamId: t.id }))
-                }} />
-              )
-            })}
-          </Box>
-        )}
-
-        <SavingField value={photo.caption} placeholder="Caption (plain text)" multiline
-          onSave={v => run(() => updateFanPhoto(photo.id, { caption: v }))} />
+      <Box sx={{ gridArea: 'fields', minWidth: 0 }}>
+        <TagFields photo={photo} subjects={subjects} lookups={lookups} runner={runner} />
       </Box>
 
       <Box sx={{ gridArea: 'actions', minWidth: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -219,23 +292,127 @@ function PhotoCard({ photo, subjects, players, figures, teams, onChange }: {
             onSave={v => run(() => updateFanPhoto(photo.id, { taken_on: v }))} />
         </Box>
         <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
-        <Box
-          onClick={togglePublish}
-          role="button" tabIndex={0}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePublish() } }}
-          sx={{
-            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            minHeight: { xs: 44, sm: 0 }, px: 2, py: 0.6, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-            fontSize: '0.8rem', fontWeight: 800, border: '1px solid',
-            borderColor: photo.approved ? 'success.main' : 'primary.main',
-            bgcolor: photo.approved ? 'success.main' : 'primary.main',
-            color: '#fff',
-          }}
-        >
-          {photo.approved ? '✓ Published' : 'Publish'}
-        </Box>
+        <PublishButton approved={photo.approved} onClick={togglePublish} />
       </Box>
     </Box>
+  )
+}
+
+// Tag mode: one photo at a time, as large as the screen allows, with the same controls directly
+// under it, and a way to step through the rest. The list card's thumbnail is too small to tell
+// who is who, which made tagging a batch a matter of opening each one elsewhere.
+//
+// It walks a SNAPSHOT of the ids that were on screen when it opened, not the live filtered list:
+// publishing a photo drops it out of "To review", and walking the live list would skip the next
+// one under the reader's thumb. Each step looks its photo up fresh, so edits show immediately.
+function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClose }: {
+  ids: string[]
+  start: number
+  photos: WpblFanPhotoRow[]
+  subjectsByPhoto: Map<string, WpblPhotoSubject[]>
+  lookups: Lookups
+  onChange: () => void
+  onClose: () => void
+}) {
+  const [at, setAt] = useState(start)
+  const [recent, setRecent] = useState<Candidate[]>([])
+  const runner = useRunner(onChange)
+  const { busy, run } = runner
+  const byId = useMemo(() => new Map(photos.map(p => [p.id, p])), [photos])
+  const photo = byId.get(ids[at])
+  const last = at >= ids.length - 1
+
+  const go = useCallback((d: number) => setAt(i => Math.min(ids.length - 1, Math.max(0, i + d))), [ids.length])
+
+  // Arrow keys step through, except while typing, where they move the caret.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      if (e.key === 'ArrowRight') go(1)
+      else if (e.key === 'ArrowLeft') go(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [go])
+
+  // Most recent first, eight at most: enough for one club's regulars without becoming a roster.
+  const onPicked = (c: Candidate) =>
+    setRecent(r => [c, ...r.filter(x => candidateKey(x) !== candidateKey(c))].slice(0, 8))
+
+  const publishAndNext = () => {
+    if (busy || !photo) return
+    if (!photo.approved) run(() => setFanPhotoApproved(photo.id, true))
+    if (!last) go(1)
+  }
+
+  const navBtn = { color: '#fff', '&.Mui-disabled': { color: 'rgba(255,255,255,0.25)' } }
+
+  return (
+    <Dialog open fullScreen onClose={onClose} PaperProps={{ sx: { bgcolor: 'background.default' } }}>
+      {/* Top bar: close, position, and the step buttons, over the photo's dark backdrop. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, bgcolor: '#000', color: '#fff' }}>
+        <IconButton onClick={onClose} aria-label="Close tag mode" sx={navBtn}><Close /></IconButton>
+        <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, flex: 1 }}>
+          {ids.length > 0 ? `${at + 1} / ${ids.length}` : ''}
+        </Typography>
+        <IconButton onClick={() => go(-1)} disabled={at === 0} aria-label="Previous photo" sx={navBtn}><ChevronLeft /></IconButton>
+        <IconButton onClick={() => go(1)} disabled={last} aria-label="Next photo" sx={navBtn}><ChevronRight /></IconButton>
+      </Box>
+
+      <Box sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {/* The photo, contained rather than cropped: a face at the edge of the frame is exactly the
+            one you need to see. Capped so the controls start above the fold on a phone. */}
+        <Box sx={{
+          bgcolor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          height: { xs: '48vh', md: '62vh' }, flexShrink: 0,
+        }}>
+          {photo ? (
+            <Box component="img" key={photo.id} src={photo.full_url} alt={photo.caption ?? 'Fan photo'}
+              sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
+          ) : (
+            <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>This photo is gone.</Typography>
+          )}
+        </Box>
+
+        {photo && (
+          <Box sx={{
+            width: '100%', maxWidth: 720, mx: 'auto', p: { xs: 1.5, sm: 2 },
+            display: 'flex', flexDirection: 'column', gap: 1.2,
+            opacity: busy ? 0.6 : 1, transition: 'opacity .15s',
+          }}>
+            <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+              {photo.credit ?? 'no credit'}{photo.approved ? ' · published' : ' · not published'}
+            </Typography>
+            <TagFields photo={photo} subjects={subjectsByPhoto.get(photo.id) ?? []} lookups={lookups}
+              runner={runner} recent={recent} onPicked={onPicked} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ flex: { xs: '1 1 100%', sm: '0 0 160px' }, minWidth: 0 }}>
+                <SavingField value={photo.taken_on} placeholder="Taken on" type="date"
+                  onSave={v => run(() => updateFanPhoto(photo.id, { taken_on: v }))} />
+              </Box>
+              <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
+              {photo.approved && (
+                <Box onClick={() => { if (!busy) run(() => setFanPhotoApproved(photo.id, false)) }} role="button" tabIndex={0}
+                  sx={{ fontSize: '0.74rem', fontWeight: 700, color: 'text.secondary', cursor: 'pointer', px: 1, userSelect: 'none' }}>
+                  Unpublish
+                </Box>
+              )}
+              {!last && !photo.approved && (
+                <Box onClick={() => go(1)} role="button" tabIndex={0} sx={{
+                  display: 'flex', alignItems: 'center', minHeight: { xs: 44, sm: 0 }, px: 2, py: 0.6,
+                  borderRadius: 999, border: '1px solid', borderColor: 'divider', cursor: 'pointer', userSelect: 'none',
+                  fontSize: '0.8rem', fontWeight: 800, color: 'text.secondary',
+                }}>Skip</Box>
+              )}
+              <PublishButton approved={photo.approved}
+                label={photo.approved ? (last ? '✓ Published' : 'Next') : (last ? 'Publish' : 'Publish & next')}
+                onClick={publishAndNext} />
+            </Box>
+          </Box>
+        )}
+      </Box>
+    </Dialog>
   )
 }
 
@@ -448,6 +625,7 @@ export default function AdminPhotos() {
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('unapproved')
+  const [tagging, setTagging] = useState<{ ids: string[]; start: number } | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -474,6 +652,9 @@ export default function AdminPhotos() {
 
   const shown = photos.filter(p =>
     filter === 'all' ? true : filter === 'approved' ? p.approved : !p.approved)
+  const lookups = useMemo<Lookups>(() => ({ players: playersById, figures: figuresByKey, teams }),
+    [playersById, figuresByKey, teams])
+  const openTagMode = (start: number) => setTagging({ ids: shown.map(p => p.id), start })
 
   return (
     <Box>
@@ -484,6 +665,9 @@ export default function AdminPhotos() {
         ))}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {loading && <CircularProgress size={14} />}
+          {shown.length > 0 && (
+            <Chip label={`Tag mode (${shown.length})`} active={false} onClick={() => openTagMode(0)} />
+          )}
           <IconButton size="small" onClick={load} sx={{ color: 'text.secondary' }} aria-label="Refresh">
             <Refresh sx={{ fontSize: '1.05rem' }} />
           </IconButton>
@@ -516,12 +700,17 @@ export default function AdminPhotos() {
             </Typography>
           </Box>
         ) : (
-          shown.map(p => (
+          shown.map((p, i) => (
             <PhotoCard key={p.id} photo={p} subjects={subjectsByPhoto.get(p.id) ?? []}
-              players={playersById} figures={figuresByKey} teams={teams} onChange={load} />
+              lookups={lookups} onChange={load} onOpen={() => openTagMode(i)} />
           ))
         )}
       </Section>
+
+      {tagging && (
+        <TagMode ids={tagging.ids} start={tagging.start} photos={photos} subjectsByPhoto={subjectsByPhoto}
+          lookups={lookups} onChange={load} onClose={() => setTagging(null)} />
+      )}
 
       <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', mt: 1 }}>
         Bytes arrive by the ingest CLI ("npm run ingest-fan-photos"); this only tags, captions and

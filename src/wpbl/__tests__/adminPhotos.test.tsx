@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import type { WpblFanPhotoRow } from '../api'
 import type { WpblPlayer, WpblPhotoSubject, WpblTeam } from '../types'
 
@@ -91,5 +91,29 @@ describe('AdminPhotos curation', () => {
     expect(await screen.findByText('Boston Hunters (team)')).toBeTruthy()
     fireEvent.click(screen.getByText('BOS'))
     await waitFor(() => expect(removeFanPhotoSubject).toHaveBeenCalledWith('s7'))
+  })
+
+  it('opens tag mode on the photo list and steps with Publish & next', async () => {
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByText('All (2)'))
+    fireEvent.click(await screen.findByText('Tag mode (2)'))
+    expect(await screen.findByText('1 / 2')).toBeTruthy()
+    fireEvent.click(screen.getByText('Publish & next'))
+    await waitFor(() => expect(setFanPhotoApproved).toHaveBeenCalledWith('ph1', true))
+    expect(await screen.findByText('2 / 2')).toBeTruthy()
+  })
+
+  it('offers the people just tagged as one-tap chips on the next photo', async () => {
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByText('All (2)'))
+    fireEvent.click(await screen.findByText('Tag mode (2)'))
+    const dialog = await screen.findByRole('dialog')
+    const picker = within(dialog).getByPlaceholderText('Tag who is in it…')
+    fireEvent.change(picker, { target: { value: 'kelsie' } })
+    fireEvent.mouseDown(await within(dialog).findByText('Kelsie Whitmore'))
+    await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph1', { playerId: 'plW' }))
+    fireEvent.click(within(dialog).getByLabelText('Next photo'))
+    fireEvent.click(await within(dialog).findByText('+ Kelsie Whitmore'))
+    await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph2', { playerId: 'plW' }))
   })
 })
