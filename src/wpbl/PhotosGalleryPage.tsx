@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import WpblPage from './WpblPage'
-import { FanPhotoGrid } from './FanPhotoViews'
+import { FanPhotoGrid, FanPhotoSubmitNote, useFanPhotosVersion } from './FanPhotoViews'
 import { useFanPhotosVisible } from './fanPhotoGate'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers } from './api'
 import { fanPhotoTeamName, type FanPhotoIndex, type FanPhotoWithSubjects } from './fanPhotos'
@@ -21,6 +21,7 @@ export default function PhotosGalleryPage() {
   // Owner-only for now (see useFanPhotosVisible). Anyone else gets the page's own empty state, the
   // same thing it showed before the first photo was published, rather than a hole in the site.
   const visible = useFanPhotosVisible()
+  const version = useFanPhotosVersion()
   const [index, setIndex] = useState<FanPhotoIndex | null>(null)
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,7 +34,7 @@ export default function PhotosGalleryPage() {
       .then(([idx, pl]) => { if (live) { setIndex(idx); setPlayers(pl); setLoading(false) } })
       .catch(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [])
+  }, [version])
 
   const nameById = useMemo(() => new Map(players.map(p => [p.id, p.name])), [players])
   const resolveNames = useMemo(() => (photo: FanPhotoWithSubjects): string[] => {
@@ -98,12 +99,13 @@ export default function PhotosGalleryPage() {
     : "Photographs from this season's games."
 
   return (
-    <WpblPage title="Fan photos" standfirst={standfirst}>
+    <WpblPage title="2026 gallery" standfirst={standfirst}>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
       ) : total === 0 ? (
         <Box sx={{ py: 6, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>No fan photos yet.</Typography>
+          <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>No photos yet.</Typography>
+          <FanPhotoSubmitNote variant="block" />
         </Box>
       ) : (
         <>
@@ -129,6 +131,7 @@ export default function PhotosGalleryPage() {
             </Box>
           )}
           <FanPhotoGrid photos={shown} resolveNames={resolveNames} from="gallery" />
+          <FanPhotoSubmitNote variant="block" />
         </>
       )}
     </WpblPage>

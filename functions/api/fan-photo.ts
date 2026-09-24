@@ -83,13 +83,18 @@ export async function onRequestPost(context: Ctx): Promise<Response> {
   if (!/^[0-9a-f]{64}$/.test(sha) || !(card instanceof File) || !(full instanceof File))
     return json(400, { error: 'need sha256 plus card and full webp files' })
   if (card.size > MAX_BYTES || full.size > MAX_BYTES) return json(413, { error: 'render too large' })
+  // A crop's renders go beside the original under their own key, never over it: the originals
+  // are what every later crop is cut from, and the public host caches for hours, so an overwrite
+  // would show stale framing. Tightly shaped so it can never climb out of this photo's prefix.
+  const variant = String(form.get('variant') || '')
+  if (variant && !/^c[0-9a-z]{1,16}$/.test(variant)) return json(400, { error: 'bad variant' })
 
   const client = new AwsClient({
     accessKeyId: env.R2_ACCESS_KEY_ID, secretAccessKey: env.R2_SECRET_ACCESS_KEY,
     region: 'auto', service: 's3',
   })
   const ep = `https://${acct}.r2.cloudflarestorage.com/${bucket}`
-  const prefix = `fan/${sha}`
+  const prefix = variant ? `fan/${sha}/${variant}` : `fan/${sha}`
   try {
     await put(client, `${ep}/${prefix}/card.webp`, card)
     await put(client, `${ep}/${prefix}/full.webp`, full)

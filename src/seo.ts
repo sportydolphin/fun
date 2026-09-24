@@ -139,7 +139,7 @@ const ROUTES: Record<string, Seo> = {
   // who wants to see the league, not read about it: photos, not a stat line. Every one carries
   // the photographer's credit, and the same photos also sit on each player's own page.
   '/wpbl/photos': {
-    title: "WPBL fan photos | sportydolphin.fun",
+    title: "WPBL 2026 gallery | sportydolphin.fun",
     description:
       "Photographs from the Women's Pro Baseball League's season: the players, the fans and their signs, every one credited. Filter by category or by player, and open any one full size.",
     // Owner-only for now (useFanPhotosVisible in FanPhotoViews.tsx), so a reader here sees an empty

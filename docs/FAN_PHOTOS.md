@@ -190,6 +190,22 @@ cover places.** Every tag is therefore a person or a character, so `wpbl_photo_s
 exactly one question: who is in this photograph. A future "photos of the ballpark" wants its own
 column rather than a second meaning for this one.
 
+### Crops
+
+Tag mode can crop a photo after upload ([`PhotoCropper.tsx`](../src/wpbl/PhotoCropper.tsx)). The
+original file is gone by then, so a crop is cut in the browser from the UNCROPPED full render at
+`<storage_path>/full.webp`, and its two renders go to R2 under `<storage_path>/<variant>/`
+(`/api/fan-photo` takes an optional `variant`). The row's `card_url` / `full_url` / dimensions are
+repointed; `storage_path` is not, which is how every later crop and "Reset to original" find the
+original again. Two reasons it is never an overwrite: re-cropping a crop would lose resolution
+each time, and `photos.sportydolphin.fun` serves `max-age=14400`, so an overwritten render would
+show the old framing for hours. Superseded crop renders are left in R2; they are small and
+nothing links to them.
+
+Reading the render back into a canvas depends on the bucket's CORS rule allowing
+`https://sportydolphin.fun`, so cropping works on the production site and not from
+`localhost`.
+
 ### `wpbl_photo_categories`
 
 That column, as of Sep 23, 2026: `wpbl_fan_photos.category_key` points at an owner-made category

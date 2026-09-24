@@ -71,14 +71,62 @@ export interface UploadedLocation {
   full_url: string
 }
 
+// ─── Cropping, after upload ────────────────────────────────────────────────────────
+//
+// The original file is gone by the time a photo is being tagged, so a crop is cut from the
+// UNCROPPED full render (<=1600px), which never moves: it stays at `<storage_path>/full.webp` and
+// a crop is written beside it under its own variant key. That keeps every crop redoable from the
+// same source and makes "reset" a pointer change. It also has to be a new key rather than an
+// overwrite, because photos.sportydolphin.fun serves `max-age=14400`: an overwritten render would
+// show the old framing for four hours in every browser and edge cache that had seen it.
+
+/** The uncropped renders of a photo, derived from where the upload put them. */
+export function originalRenders(photo: { storage_path?: string | null; full_url: string }): { card: string; full: string } | null {
+  if (!photo.storage_path) return null
+  let origin: string
+  try { origin = new URL(photo.full_url).origin } catch { return null }
+  return { card: `${origin}/${photo.storage_path}/card.webp`, full: `${origin}/${photo.storage_path}/full.webp` }
+}
+
+/** Fetch a render's bytes for the cropper. `cache: 'reload'` matters: tag mode has already shown
+ *  this image through a plain <img>, and a cached copy fetched without CORS would taint the canvas. */
+export async function fetchRender(url: string): Promise<Blob> {
+  const res = await fetch(url, { mode: 'cors', cache: 'reload' })
+  if (!res.ok) throw new Error(`could not load the original (${res.status})`)
+  return res.blob()
+}
+
+/** A crop in the SOURCE image's pixels. */
+export interface PixelCrop { x: number; y: number; width: number; height: number }
+
+/** Cut `crop` out of `source` and make the two webp renders from it. */
+export async function renderCrop(source: Blob, crop: PixelCrop): Promise<Omit<PreparedPhoto, 'sha256'>> {
+  const bitmap = await createImageBitmap(source,
+    Math.round(crop.x), Math.round(crop.y), Math.max(1, Math.round(crop.width)), Math.max(1, Math.round(crop.height)))
+  try {
+    const card = await toWebp(bitmap, CARD_MAX)
+    const full = await toWebp(bitmap, FULL_MAX)
+    return { card: card.blob, full: full.blob, width: full.width, height: full.height }
+  } finally {
+    bitmap.close()
+  }
+}
+
+/** A fresh variant key for a crop's renders: unique per save, so a URL never changes content. */
+export function newCropVariant(): string {
+  return `c${Date.now().toString(36)}`
+}
+
 /** Send the two renders to the owner-gated endpoint, which puts them in R2 and returns the URLs.
  *  `token` is the owner's Supabase access token, which the endpoint checks against
- *  is_site_owner(); an upload never leaves the browser without it. */
-export async function uploadPreparedPhoto(prepared: PreparedPhoto, token: string): Promise<UploadedLocation> {
+ *  is_site_owner(); an upload never leaves the browser without it. `variant` files a crop beside
+ *  the original instead of over it (see above). */
+export async function uploadPreparedPhoto(prepared: PreparedPhoto, token: string, variant?: string): Promise<UploadedLocation> {
   const form = new FormData()
   form.set('sha256', prepared.sha256)
   form.set('card', prepared.card, 'card.webp')
   form.set('full', prepared.full, 'full.webp')
+  if (variant) form.set('variant', variant)
   const res = await fetch('/api/fan-photo', {
     method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form,
   })

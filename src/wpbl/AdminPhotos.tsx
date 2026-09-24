@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, TextField, CircularProgress, MenuItem, Select, IconButton, Dialog } from '@mui/material'
-import { Close, Refresh, ChevronLeft, ChevronRight } from '@mui/icons-material'
+import { Close, Refresh, ChevronLeft, ChevronRight, Crop } from '@mui/icons-material'
 import { Section } from '../AdminPanel'
 import { supabase } from '../lib/supabase'
 import {
-  fetchWpblFanPhotoQueue, fetchWpblAllPlayers, fetchWpblTeams,
+  fetchWpblFanPhotoQueue, fetchWpblAllPlayers, fetchWpblTeams, invalidateWpblFanPhotos,
   setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject, upsertFanPhotoFigure, upsertFanPhotoCategory,
   fetchFanPhotoContributors, createFanPhotoContributor, findFanPhotoBySha, insertFanPhoto,
   type WpblFanPhotoRow,
 } from './api'
 import { prepareForUpload, uploadPreparedPhoto } from './fanPhotoUpload'
+
+// The crop library and its stylesheet load only when Crop is pressed.
+const PhotoCropper = lazy(() => import('./PhotoCropper'))
 import { fanPhotoTeamName } from './fanPhotos'
 import type { WpblPlayer, WpblPhotoSubject, WpblPhotoFigure, WpblPhotoContributor, WpblTeam, WpblPhotoCategory } from './types'
 
@@ -292,7 +295,7 @@ function PhotoCard({ photo, subjects, lookups, onChange, onOpen }: {
         <Box component="button" type="button" onClick={onOpen} aria-label="Open in tag mode"
           sx={{ p: 0, border: 0, bgcolor: 'transparent', cursor: 'zoom-in', display: 'block', width: '100%' }}>
           <Box component="img" src={photo.card_url} alt={photo.caption ?? 'Fan photo'} loading="lazy"
-            sx={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 1.5, bgcolor: 'action.hover',
+            sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', borderRadius: 1.5, bgcolor: 'action.hover',
                   display: 'block', border: '1px solid', borderColor: 'divider' }} />
         </Box>
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.5 }}>
@@ -337,17 +340,24 @@ function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClo
 }) {
   const [at, setAt] = useState(start)
   const [recent, setRecent] = useState<Candidate[]>([])
+  const [cropping, setCropping] = useState(false)
   const runner = useRunner(onChange)
   const { busy, run } = runner
   const byId = useMemo(() => new Map(photos.map(p => [p.id, p])), [photos])
   const photo = byId.get(ids[at])
   const last = at >= ids.length - 1
 
-  const go = useCallback((d: number) => setAt(i => Math.min(ids.length - 1, Math.max(0, i + d))), [ids.length])
+  // Stepping always leaves the crop step: a crop belongs to the photo it was started on.
+  const go = useCallback((d: number) => {
+    setCropping(false)
+    setAt(i => Math.min(ids.length - 1, Math.max(0, i + d)))
+  }, [ids.length])
 
-  // Arrow keys step through, except while typing, where they move the caret.
+  // Arrow keys step through, except while typing, where they move the caret, and while cropping,
+  // where the cropper uses them to nudge the selection.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (cropping) return
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (e.key === 'ArrowRight') go(1)
@@ -355,7 +365,7 @@ function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClo
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [go])
+  }, [go, cropping])
 
   // Most recent first, eight at most: enough for one club's regulars without becoming a roster.
   const onPicked = (c: Candidate) =>
@@ -377,11 +387,22 @@ function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClo
         <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, flex: 1 }}>
           {ids.length > 0 ? `${at + 1} / ${ids.length}` : ''}
         </Typography>
+        {photo && (
+          <IconButton onClick={() => setCropping(c => !c)} aria-label={cropping ? 'Stop cropping' : 'Crop photo'}
+            sx={{ ...navBtn, ...(cropping ? { bgcolor: 'rgba(255,255,255,0.18)' } : {}) }}><Crop /></IconButton>
+        )}
         <IconButton onClick={() => go(-1)} disabled={at === 0} aria-label="Previous photo" sx={navBtn}><ChevronLeft /></IconButton>
         <IconButton onClick={() => go(1)} disabled={last} aria-label="Next photo" sx={navBtn}><ChevronRight /></IconButton>
       </Box>
 
       <Box sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {cropping && photo ? (
+          <Suspense fallback={<Box sx={{ height: { xs: '48vh', md: '62vh' }, bgcolor: '#000' }} />}>
+            <PhotoCropper key={photo.id} photo={photo}
+              onCancel={() => setCropping(false)}
+              onDone={() => { setCropping(false); onChange() }} />
+          </Suspense>
+        ) : <>
         {/* The photo, contained rather than cropped: a face at the edge of the frame is exactly the
             one you need to see. Capped so the controls start above the fold on a phone. */}
         <Box sx={{
@@ -432,6 +453,7 @@ function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClo
             </Box>
           </Box>
         )}
+        </>}
       </Box>
     </Dialog>
   )
@@ -672,6 +694,52 @@ function UploadPanel({ categories, onUploaded }: { categories: WpblPhotoCategory
         )}
       </Box>
     </Section>
+  )
+}
+
+/**
+ * Tag mode on ONE photo, opened from the enlarged view on a public surface by the owner, so a
+ * wrong tag or a typo can be fixed where it was noticed rather than by finding the photo again in
+ * /admin. Loads its own fresh copy of the queue (the public surfaces only hold the published
+ * shape), and on close drops the public caches so every mounted surface shows the edit.
+ */
+export function FanPhotoEditor({ photoId, onClose }: { photoId: string; onClose: () => void }) {
+  const [data, setData] = useState<{
+    photos: WpblFanPhotoRow[]; subjects: WpblPhotoSubject[]; figures: WpblPhotoFigure[]
+    categories: WpblPhotoCategory[]; players: WpblPlayer[]; teams: WpblTeam[]
+  } | null>(null)
+  const load = useCallback(() => {
+    Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams()])
+      .then(([q, players, teams]) => setData({ ...q, players, teams }))
+  }, [])
+  useEffect(() => load(), [load])
+
+  const lookups = useMemo<Lookups | null>(() => data && ({
+    players: new Map(data.players.map(p => [p.id, p])),
+    figures: new Map(data.figures.map(f => [f.key, f])),
+    teams: data.teams,
+    categories: data.categories,
+  }), [data])
+  const subjectsByPhoto = useMemo(() => {
+    const m = new Map<string, WpblPhotoSubject[]>()
+    for (const s of data?.subjects ?? []) m.set(s.photo_id, [...(m.get(s.photo_id) ?? []), s])
+    return m
+  }, [data])
+
+  const close = () => { invalidateWpblFanPhotos(); onClose() }
+
+  if (!data || !lookups) {
+    return (
+      <Dialog open fullScreen onClose={close}>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#000' }}>
+          <CircularProgress sx={{ color: '#fff' }} />
+        </Box>
+      </Dialog>
+    )
+  }
+  return (
+    <TagMode ids={[photoId]} start={0} photos={data.photos} subjectsByPhoto={subjectsByPhoto}
+      lookups={lookups} onChange={load} onClose={close} />
   )
 }
 

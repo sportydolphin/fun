@@ -11,10 +11,10 @@ import type { WpblPlayer, WpblPhotoSubject, WpblTeam } from '../types'
 const photos: WpblFanPhotoRow[] = [
   { id: 'ph1', card_url: 'c1', full_url: 'f1', width: 800, height: 600, caption: null,
     credit: 'Jamie Fan', taken_on: null, game_id: null, sort_order: null, category_key: null,
-    approved: false, contributor_id: 'con1', created_at: '2026-09-01T00:00:00Z' },
+    approved: false, contributor_id: 'con1', created_at: '2026-09-01T00:00:00Z', storage_path: 'fan/a', sha256: 'a' },
   { id: 'ph2', card_url: 'c2', full_url: 'f2', width: 800, height: 600, caption: 'Already up',
     credit: 'Alex', taken_on: null, game_id: null, sort_order: null, category_key: null,
-    approved: true, contributor_id: 'con2', created_at: '2026-09-02T00:00:00Z' },
+    approved: true, contributor_id: 'con2', created_at: '2026-09-02T00:00:00Z', storage_path: 'fan/b', sha256: 'b' },
 ]
 const players: WpblPlayer[] = [{ id: 'plW', name: 'Kelsie Whitmore', team_id: 'SF' } as WpblPlayer]
 const teams: WpblTeam[] = [{ id: 'BOS', city: 'Boston', name: 'Hunters', abbr: 'BOS' } as WpblTeam]

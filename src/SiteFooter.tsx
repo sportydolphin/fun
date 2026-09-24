@@ -109,7 +109,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
                 {/* No nav pill, so the footer is the reader's way in and the crawler's only link.
                     Owner-only while the first batch is checked on production (useFanPhotosVisible). */}
                 {showPhotos && <>
-                  <Box component="a" href={WPBL_PHOTOS_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_PHOTOS_PAGE) }} sx={linkSx}>Fan photos</Box>
+                  <Box component="a" href={WPBL_PHOTOS_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_PHOTOS_PAGE) }} sx={linkSx}>2026 gallery</Box>
                   <Dot />
                 </>}
                 <Box component="a" href={WPBL_GLOSSARY_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_GLOSSARY_PAGE) }} sx={linkSx}>Rules &amp; glossary</Box>

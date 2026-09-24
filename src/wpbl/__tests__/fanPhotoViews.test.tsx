@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { fanPhotoCaption, FanPhotoStrip } from '../FanPhotoViews'
+import { fanPhotoCaption, FanPhotoStrip, FanPhotoGrid, railTileAspect, FAN_PHOTO_SUBMIT_HREF } from '../FanPhotoViews'
 import type { FanPhotoWithSubjects } from '../fanPhotos'
 
+const gate = { canEdit: false }
+vi.mock('../fanPhotoGate', () => ({ useFanPhotosVisible: () => true, useCanEditFanPhotos: () => gate.canEdit }))
 vi.mock('../../lib/analytics', () => ({ track: vi.fn(), EVENTS: new Proxy({}, { get: (_t, k) => String(k) }) }))
 
 const photo = (o: Partial<FanPhotoWithSubjects> & { id: string }): FanPhotoWithSubjects => ({
@@ -21,7 +23,10 @@ describe('fanPhotoCaption', () => {
     expect(fanPhotoCaption(photo({ id: 'a' }), ['Kelsie', 'Gladys'])).toBe('Kelsie, Gladys')
   })
   it('falls back to a bare label when there is nothing else', () => {
-    expect(fanPhotoCaption(photo({ id: 'a' }), [])).toBe('Fan photograph')
+    expect(fanPhotoCaption(photo({ id: 'a' }), [])).toBe('Photo')
+  })
+  it('names the category when nobody is tagged', () => {
+    expect(fanPhotoCaption(photo({ id: 'a', categoryName: 'Fan signs' }), [])).toBe('Fan signs')
   })
 })
 
@@ -33,11 +38,61 @@ describe('FanPhotoStrip', () => {
     expect(screen.getAllByText('Jamie Fan').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByLabelText('View photograph: At the rail'))
     // The lightbox mounts its own eyebrow.
-    expect(screen.getByText('Fan photo')).toBeTruthy()
+    expect(screen.getByText('Gallery')).toBeTruthy()
+    // Not the owner, so no Edit button.
+    expect(screen.queryByText('Edit photo')).toBeNull()
   })
 
   it('renders nothing when there are no photos', () => {
     const { container } = render(<FanPhotoStrip photos={[]} resolveNames={() => []} from="player" />)
     expect(container.firstChild).toBeNull()
+  })
+})
+
+// No photo is cropped to fit its tile: a photographed mock baseball card with its border cut off
+// is a broken card. The tile takes the photo's shape and the image is contained inside it.
+describe('uncropped tiles', () => {
+  it('sizes a rail tile to the photo, within a sane band', () => {
+    expect(railTileAspect(1600, 1200)).toBeCloseTo(4 / 3)
+    expect(railTileAspect(714, 1000)).toBeCloseTo(0.714) // a baseball card on its end
+    expect(railTileAspect(300, 1000)).toBe(0.7)          // a sliver is held, then letterboxed
+    expect(railTileAspect(4000, 1000)).toBe(2)           // so is a panorama
+    expect(railTileAspect(null, null)).toBeCloseTo(4 / 3)
+  })
+
+  it('never uses object-fit: cover in the strip or the gallery', () => {
+    const photos = [photo({ id: 'a', width: 714, height: 1000 }), photo({ id: 'b' })]
+    const strip = render(<FanPhotoStrip photos={photos} resolveNames={() => []} from="home" />)
+    const grid = render(<FanPhotoGrid photos={photos} resolveNames={() => []} from="gallery" />)
+    for (const root of [strip.container, grid.container]) {
+      const imgs = Array.from(root.querySelectorAll('img'))
+      expect(imgs.length).toBe(2)
+      for (const img of imgs) expect(getComputedStyle(img).objectFit).toBe('contain')
+    }
+  })
+})
+
+describe('the owner edit button', () => {
+  it('shows Edit photo in the enlarged view for the owner only', () => {
+    gate.canEdit = true
+    try {
+      render(<FanPhotoStrip photos={[photo({ id: 'a', caption: 'At the rail' })]} resolveNames={() => []} from="home" />)
+      fireEvent.click(screen.getByLabelText('View photograph: At the rail'))
+      expect(screen.getByText('Edit photo')).toBeTruthy()
+    } finally {
+      gate.canEdit = false
+    }
+  })
+})
+
+// The submission email doubles as the permission record, so the consent line must survive into
+// the pre-filled body; a mailto that lost it would hand curation photos with no "yes" attached.
+describe('the photo submission link', () => {
+  it('is a pre-filled email carrying the consent line', () => {
+    // The public domain address, never the owner's personal inbox.
+    expect(FAN_PHOTO_SUBMIT_HREF.startsWith('mailto:support@sportydolphin.fun?')).toBe(true)
+    const body = decodeURIComponent(new URL(FAN_PHOTO_SUBMIT_HREF).searchParams.get('body') ?? '')
+    expect(body).toContain('Name to credit')
+    expect(body).toContain("I took these photos and I'm happy for them to be shown")
   })
 })

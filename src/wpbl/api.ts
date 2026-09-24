@@ -1020,6 +1020,19 @@ export function fetchWpblFanPhotoCategories(): Promise<WpblPhotoCategory[]> {
   })
 }
 
+/** Fired after the owner edits a photo in place, so every mounted photo surface reads again. */
+export const FAN_PHOTOS_CHANGED_EVENT = 'wpbl:fan-photos-changed'
+
+/** Drop the cached public photo reads and tell the mounted surfaces. Without this an edit made from
+ *  the enlarged view would not show until the 20s bulk cache expired and the page was reopened. */
+export function invalidateWpblFanPhotos(): void {
+  fanPhotosCache = null
+  fanPhotoSubjectsCache = null
+  fanPhotoFiguresCache = null
+  fanPhotoCategoriesCache = null
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(FAN_PHOTOS_CHANGED_EVENT))
+}
+
 // The one call a surface makes: all three reads in parallel, joined into the per-subject and
 // per-game lookups. Each read is cached and deduped on its own, so calling this from several
 // components in one load costs one round trip each, not one per caller.
@@ -1052,6 +1065,9 @@ export interface WpblFanPhotoRow extends WpblFanPhoto {
   approved: boolean
   contributor_id: string | null
   created_at: string
+  /** Where the UNCROPPED renders live; a crop is filed beside them (fanPhotoUpload.ts). */
+  storage_path: string
+  sha256: string
 }
 
 export async function fetchWpblFanPhotoQueue(): Promise<{
@@ -1063,7 +1079,7 @@ export async function fetchWpblFanPhotoQueue(): Promise<{
     safe<WpblFanPhotoRow[]>('fetchWpblFanPhotoQueue', () =>
       supabase.from('wpbl_fan_photos')
         // Unreviewed first (approved ascending puts false before true), then the curated order.
-        .select(`${FAN_PHOTO_COLUMNS},approved,contributor_id,created_at`)
+        .select(`${FAN_PHOTO_COLUMNS},approved,contributor_id,created_at,storage_path,sha256`)
         .order('approved', { ascending: true })
         .order('sort_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true }) as unknown as
@@ -1105,6 +1121,8 @@ export function setFanPhotoApproved(id: string, approved: boolean): Promise<bool
 export function updateFanPhoto(id: string, patch: {
   caption?: string | null; taken_on?: string | null; game_id?: string | null; sort_order?: number | null
   category_key?: string | null
+  // A crop repoints the served renders; `storage_path` is left alone so the original stays findable.
+  card_url?: string; full_url?: string; width?: number | null; height?: number | null
 }): Promise<boolean> {
   return ownerWrite('updateFanPhoto', () =>
     supabase.from('wpbl_fan_photos').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))

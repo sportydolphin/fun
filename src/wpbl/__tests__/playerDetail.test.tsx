@@ -63,7 +63,7 @@ const field = (over: Partial<WpblFieldingLine> = {}): WpblFieldingLine => ({
 const lines = { batting: [] as WpblBattingLine[], pitching: [] as WpblPitchingLine[], fielding: [] as WpblFieldingLine[] }
 
 // The fan-photo strip is owner-gated through useAuth, and this page renders with no AuthProvider.
-vi.mock('../fanPhotoGate', () => ({ useFanPhotosVisible: () => false }))
+vi.mock('../fanPhotoGate', () => ({ useFanPhotosVisible: () => false, useCanEditFanPhotos: () => false }))
 
 vi.mock('../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api')>()

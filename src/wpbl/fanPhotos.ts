@@ -20,6 +20,8 @@ export interface FanPhotoWithSubjects extends WpblFanPhoto {
   figureKeys: string[]
   /** Clubs tagged as a whole: a team photo, rather than one of its players. */
   teamIds: string[]
+  /** The category's display name, for a caption when nothing else names the photo. */
+  categoryName?: string | null
 }
 
 /** How a tagged club reads in a caption and a filter chip: "Boston Hunters". */
@@ -75,6 +77,7 @@ export function buildFanPhotoIndex(
   for (const f of figures) figureMap.set(f.key, f)
   const teamMap = new Map<string, WpblTeam>()
   for (const t of teams) teamMap.set(t.id, t)
+  const categoryNames = new Map(categories.map(c => [c.key, c.name]))
 
   // Group tags by photo so each photo carries its own subjects, ready to fold in below.
   const playerTags = new Map<string, string[]>()
@@ -107,7 +110,8 @@ export function buildFanPhotoIndex(
     const playerIds = playerTags.get(p.id) ?? []
     const figureKeys = figureTags.get(p.id) ?? []
     const teamIds = teamTags.get(p.id) ?? []
-    const photo: FanPhotoWithSubjects = { ...p, playerIds, figureKeys, teamIds }
+    const categoryName = p.category_key ? (categoryNames.get(p.category_key) ?? null) : null
+    const photo: FanPhotoWithSubjects = { ...p, playerIds, figureKeys, teamIds, categoryName }
     withSubjects.push(photo)
     for (const pid of playerIds) push(byPlayer, pid, photo)
     for (const key of figureKeys) push(byFigure, key, photo)
