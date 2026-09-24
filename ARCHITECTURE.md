@@ -192,7 +192,9 @@ flowchart LR
   govern), **Health** (the four background pipelines, with a summary strip that follows you
   across the other groups) and **Tools**. See
   [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md), whose security section is
-  load-bearing. The route gate is cosmetic; the RPC guards are the boundary.
+  load-bearing. The route gate is cosmetic; the RPC guards are the boundary. Rows with
+  `path = '/'` are test-run writes and a trigger diverts them to `events_test` (owner-only,
+  no policies), so no RPC has to filter them.
 - **Client libs** ([`src/lib/`](src/lib)): `supabase` (anon client), `analytics`
   (→ `events` table), `analyticsAdmin` (owner-only reads of it), `push`, `notifications`,
   `adminUsers`, `feedback`, `userActive`, `usernames`, `units`.

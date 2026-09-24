@@ -116,6 +116,16 @@ come from `auth.users` and no browser read can reach them; this function is the 
 keeps them owner-only. It is the reason the panel can answer "which of these is the person who
 emailed me" at all, and the reason it must never be relaxed into a view or granted to `anon`.
 
+**Test-run rows live in `events_test`, not `events`.** Vitest loads the real `.env`, so until
+Sep 24, 2026 every component test that fired `track()` wrote a production row: 41,100 events
+by then, and most of that day's apparent traffic. Their signature is `path = '/'`, which the
+live app never records (the root redirects before anything fires). `track()` now returns early
+under Vitest, and a `before insert` trigger on `events` diverts any `'/'` row into
+`events_test`, which has RLS on and no policies. Moved rather than flagged, so none of the
+`admin_*` functions needs a filter it could forget. See
+[`20260924233310_quarantine_test_run_events.sql`](../scripts/migrations/20260924233310_quarantine_test_run_events.sql),
+which also carries the one statement that moves them back.
+
 ---
 
 ## 3. The RPCs

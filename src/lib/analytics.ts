@@ -200,6 +200,13 @@ export function track(
   props: Record<string, unknown> = {},
   userId?: string | null,
 ): void {
+  // NEVER FROM A TEST RUN. Vitest loads the real `.env`, so the client under test is the
+  // production one, and every component test that fired an event inserted a real row: a full
+  // suite run is ~130 sessions on path "/" with fixture ids like "g1". By Sep 24, 2026 that was
+  // 600 of the day's 806 sessions and read as a traffic spike on /admin. MODE is a build-time
+  // constant, so this is gone from the production bundle. Tests that care about an event mock
+  // this module and never reach here.
+  if (import.meta.env.MODE === 'test') return
   try {
     const path = typeof window !== 'undefined' ? window.location.pathname : null
 
