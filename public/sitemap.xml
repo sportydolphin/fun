@@ -69,6 +69,12 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://sportydolphin.fun/wpbl/reading</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://sportydolphin.fun/wpbl/glossary</loc>
     <lastmod>2026-09-24</lastmod>
     <changefreq>yearly</changefreq>
@@ -915,13 +921,13 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://sportydolphin.fun/wpbl/games/2026-08-15-queens-at-hunters</loc>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-15-firebells-at-heights</loc>
     <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://sportydolphin.fun/wpbl/games/2026-08-15-firebells-at-heights</loc>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-15-queens-at-hunters</loc>
     <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -951,13 +957,13 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-heights-at-queens</loc>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-firebells-at-hunters</loc>
     <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-firebells-at-hunters</loc>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-heights-at-queens</loc>
     <lastmod>2026-09-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

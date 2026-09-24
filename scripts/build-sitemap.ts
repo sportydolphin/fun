@@ -54,6 +54,8 @@ const STATIC: Entry[] = [
   { loc: '/wpbl/scorigami', changefreq: 'weekly', priority: '0.7' },
   // Fan photos. Weekly: the gallery grows as photos are sent in and approved.
   { loc: '/wpbl/photos', changefreq: 'weekly', priority: '0.6' },
+  // Reading. Weekly: the writer files about twice a week in season.
+  { loc: '/wpbl/reading', changefreq: 'weekly', priority: '0.6' },
   // Yearly, and that is the point of it: the rules do not move with the season, so this is
   // one of the two pages here still worth serving in February.
   { loc: '/wpbl/glossary', changefreq: 'yearly', priority: '0.7' },

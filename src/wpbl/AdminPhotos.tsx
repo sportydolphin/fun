@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 import {
   fetchWpblFanPhotoQueue, fetchWpblAllPlayers, fetchWpblTeams, invalidateWpblFanPhotos,
   setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject, upsertFanPhotoFigure, upsertFanPhotoCategory,
-  fetchFanPhotoContributors, createFanPhotoContributor, findFanPhotoBySha, insertFanPhoto,
+  fetchFanPhotoContributors, createFanPhotoContributor, updateFanPhotoContributor, findFanPhotoBySha, insertFanPhoto,
   type WpblFanPhotoRow,
 } from './api'
 import { prepareForUpload, uploadPreparedPhoto } from './fanPhotoUpload'
@@ -115,6 +115,8 @@ type Lookups = {
   figures: Map<string, WpblPhotoFigure>
   teams: WpblTeam[]
   categories: WpblPhotoCategory[]
+  /** The photographers (owner-only permission records), for the photo's Photographer field. */
+  contributors: WpblPhotoContributor[]
 }
 type Runner = { busy: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }
 
@@ -128,6 +130,211 @@ const tagKey = (s: WpblPhotoSubject) =>
   s.player_id ? `p:${s.player_id}` : s.team_id ? `t:${s.team_id}` : `f:${s.figure_key}`
 const candidateKey = (c: Candidate) =>
   'playerId' in c.add ? `p:${c.add.playerId}` : `f:${c.add.figureKey}`
+
+// ─── Photographers ─────────────────────────────────────────────────────────────────
+
+type ContributorDraft = {
+  display_name: string; contact: string; permission_granted_on: string
+  permission_evidence: string; permission_scope: string; withdrawn_on: string
+}
+const EMPTY_CONTRIBUTOR: ContributorDraft = {
+  display_name: '', contact: '', permission_granted_on: '', permission_evidence: '', permission_scope: 'site display', withdrawn_on: '',
+}
+const draftOf = (c: WpblPhotoContributor): ContributorDraft => ({
+  display_name: c.display_name, contact: c.contact ?? '', permission_granted_on: c.permission_granted_on ?? '',
+  permission_evidence: c.permission_evidence ?? '', permission_scope: c.permission_scope ?? '', withdrawn_on: c.withdrawn_on ?? '',
+})
+
+/**
+ * A photographer's record, for adding one (the upload panel) and for editing one (the photo editor
+ * and the Photographers section): the one form, so a field added to the record is editable
+ * everywhere it is entered. Name and "where they said yes" are required, because a photo with no
+ * credit or no permission record should not be publishable. Withdrawal is offered only when
+ * editing, since nobody withdraws before they have been added.
+ */
+function ContributorForm({ initial, editing, submitLabel, onSubmit, onCancel }: {
+  initial: ContributorDraft
+  editing?: boolean
+  submitLabel: string
+  onSubmit: (d: ContributorDraft) => Promise<void>
+  onCancel?: () => void
+}) {
+  const [form, setForm] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  // `initial` seeds the draft once; callers key the form by the record, so a different
+  // photographer remounts it rather than a reload wiping what is being typed.
+  const ok = form.display_name.trim() !== '' && form.permission_evidence.trim() !== ''
+  const submit = async () => {
+    if (!ok || saving) return
+    if (editing && form.withdrawn_on && !initial.withdrawn_on
+      && !window.confirm(`Mark ${form.display_name.trim()} as withdrawn? Every photo of theirs will be unpublished.`)) return
+    setSaving(true)
+    await onSubmit(form)
+    setSaving(false)
+  }
+  const field = (key: keyof ContributorDraft, placeholder: string, type?: string) => (
+    <TextField value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+      placeholder={placeholder} label={type === 'date' ? placeholder : undefined} type={type} size="small" fullWidth
+      InputLabelProps={type === 'date' ? { shrink: true } : undefined}
+      InputProps={{ sx: { fontSize: '0.85rem' } }}
+      sx={{ '& .MuiInputBase-input': { py: 1 } }} />
+  )
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1.5, borderRadius: 2, bgcolor: 'action.hover', opacity: saving ? 0.6 : 1 }}>
+      {field('display_name', 'Name to credit (required)')}
+      {field('permission_evidence', 'Where they said yes: link or note (required)')}
+      {/* Stacks on a phone, sits side by side once there is room. */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>{field('contact', 'Contact')}</Box>
+        <Box sx={{ width: { xs: '100%', sm: 170 }, flexShrink: 0 }}>{field('permission_granted_on', 'Granted on', 'date')}</Box>
+      </Box>
+      {field('permission_scope', 'Scope (e.g. site display)')}
+      {editing && (
+        <Box sx={{ width: { xs: '100%', sm: 170 } }}>{field('withdrawn_on', 'Withdrawn on', 'date')}</Box>
+      )}
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box onClick={submit} role="button" tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); submit() } }}
+          sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, px: 2.5,
+            borderRadius: 999, userSelect: 'none', fontSize: '0.8rem', fontWeight: 800, border: '1px solid',
+            cursor: ok ? 'pointer' : 'default',
+            borderColor: ok ? 'primary.main' : 'divider', color: ok ? 'primary.main' : 'text.disabled',
+          }}>{saving ? 'Saving…' : submitLabel}</Box>
+        {onCancel && (
+          <Box onClick={onCancel} role="button" tabIndex={0} sx={{
+            display: 'flex', alignItems: 'center', minHeight: 44, px: 1.5, cursor: 'pointer', userSelect: 'none',
+            fontSize: '0.8rem', fontWeight: 700, color: 'text.secondary',
+          }}>Cancel</Box>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+/** The draft as the record the API takes: blanks become nulls, the name is trimmed. */
+const recordOf = (d: ContributorDraft) => ({
+  display_name: d.display_name.trim(),
+  contact: d.contact.trim() || null,
+  permission_granted_on: d.permission_granted_on || null,
+  permission_evidence: d.permission_evidence.trim(),
+  permission_scope: d.permission_scope.trim() || null,
+})
+
+/**
+ * Who took this photo: pick a photographer, or fix their details in place.
+ *
+ * PICKING SETS BOTH COLUMNS: `contributor_id` (the permission record) and `credit` (its public
+ * copy, which is all a reader ever sees). Editing the record renames the credit on every photo of
+ * theirs (updateFanPhotoContributor), so a typo in a name is one fix, not one per photo.
+ */
+function PhotographerField({ photo, lookups, runner }: { photo: WpblFanPhotoRow; lookups: Lookups; runner: Runner }) {
+  const { busy, run } = runner
+  const [editing, setEditing] = useState(false)
+  const current = lookups.contributors.find(c => c.id === photo.contributor_id) ?? null
+  const initial = useMemo(() => (current ? draftOf(current) : EMPTY_CONTRIBUTOR), [current])
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>Photographer</Typography>
+        {/* The current record's id, or '' when there is none or it did not load: an id with no
+            matching option would leave MUI's Select showing nothing at all. */}
+        <Select value={current ? current.id : ''} displayEmpty size="small" disabled={busy}
+          onChange={e => {
+            const id = String(e.target.value)
+            const c = lookups.contributors.find(x => x.id === id)
+            setEditing(false)
+            run(() => updateFanPhoto(photo.id, { contributor_id: c ? c.id : null, credit: c ? c.display_name : null }))
+          }}
+          sx={{ flex: 1, minWidth: 0, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.5 } }}>
+          <MenuItem value="" sx={{ fontSize: '0.8rem' }}>
+            {photo.credit ? `${photo.credit} (no record)` : 'No photographer'}
+          </MenuItem>
+          {lookups.contributors.map(c => (
+            <MenuItem key={c.id} value={c.id} sx={{ fontSize: '0.8rem' }}>
+              {c.display_name}{c.withdrawn_on ? ' (withdrawn)' : ''}
+            </MenuItem>
+          ))}
+        </Select>
+        {current && (
+          <Box onClick={() => setEditing(v => !v)} role="button" tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditing(v => !v) } }}
+            sx={{ flexShrink: 0, fontSize: '0.74rem', fontWeight: 700, color: 'primary.main', cursor: 'pointer', userSelect: 'none', px: 0.5 }}>
+            {editing ? 'Close' : 'Edit details'}
+          </Box>
+        )}
+      </Box>
+      {current?.withdrawn_on && (
+        <Typography sx={{ fontSize: '0.68rem', color: 'warning.main', fontWeight: 700 }}>
+          Withdrawn {current.withdrawn_on}: this photo should not be published.
+        </Typography>
+      )}
+      {editing && current && (
+        <ContributorForm key={current.id} initial={initial} editing submitLabel="Save photographer"
+          onCancel={() => setEditing(false)}
+          onSubmit={async d => {
+            await run(() => updateFanPhotoContributor(current.id, { ...recordOf(d), withdrawn_on: d.withdrawn_on || null }, current))
+            setEditing(false)
+          }} />
+      )}
+    </Box>
+  )
+}
+
+/**
+ * The Photographers section of /admin: every permission record, how many photos it covers, and
+ * the same form to fix one. This is where a photographer with no photos yet (or one whose photos
+ * are all unpublished) is reachable, which the per-photo field cannot offer.
+ */
+function PhotographersSection({ contributors, photos, onChange }: {
+  contributors: WpblPhotoContributor[]; photos: WpblFanPhotoRow[]; onChange: () => void
+}) {
+  const [open, setOpen] = useState<string | null>(null)
+  return (
+    <Section title={`Photographers (${contributors.length})`}>
+      {contributors.length === 0 ? (
+        <Typography sx={{ px: 1.5, py: 2, fontSize: '0.8rem', color: 'text.disabled' }}>
+          None yet. Add one from Upload photos.
+        </Typography>
+      ) : contributors.map(c => {
+        const theirs = photos.filter(p => p.contributor_id === c.id)
+        const published = theirs.filter(p => p.approved).length
+        const isOpen = open === c.id
+        return (
+          <Box key={c.id} sx={{ px: 1.5, py: 1, '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' } }}>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                  {c.display_name}
+                  {c.withdrawn_on && <Box component="span" sx={{ color: 'warning.main', fontSize: '0.7rem', ml: 0.75 }}>withdrawn {c.withdrawn_on}</Box>}
+                </Typography>
+                <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+                  {theirs.length} photo{theirs.length === 1 ? '' : 's'} · {published} published
+                  {c.contact ? ` · ${c.contact}` : ''}
+                </Typography>
+              </Box>
+              <Box onClick={() => setOpen(isOpen ? null : c.id)} role="button" tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(isOpen ? null : c.id) } }}
+                sx={{ flexShrink: 0, fontSize: '0.76rem', fontWeight: 700, color: 'primary.main', cursor: 'pointer', userSelect: 'none', px: 0.5, py: 0.5 }}>
+                {isOpen ? 'Close' : 'Edit'}
+              </Box>
+            </Box>
+            {isOpen && (
+              <Box sx={{ mt: 1 }}>
+                <ContributorForm key={c.id} initial={draftOf(c)} editing submitLabel="Save photographer"
+                  onCancel={() => setOpen(null)}
+                  onSubmit={async d => {
+                    const ok = await updateFanPhotoContributor(c.id, { ...recordOf(d), withdrawn_on: d.withdrawn_on || null }, c)
+                    if (ok) { setOpen(null); onChange() }
+                  }} />
+              </Box>
+            )}
+          </Box>
+        )
+      })}
+    </Section>
+  )
+}
 
 // The tagging controls themselves: who is tagged, the picker, the team-photo row and the caption.
 // Shared by the list card and tag mode, so the two cannot drift into tagging differently.
@@ -228,6 +435,8 @@ function TagFields({ photo, subjects, lookups, runner, recent, onPicked }: {
 
       <SavingField value={photo.caption} placeholder="Caption (plain text)" multiline
         onSave={v => run(() => updateFanPhoto(photo.id, { caption: v }))} />
+
+      <PhotographerField photo={photo} lookups={lookups} runner={runner} />
     </Box>
   )
 }
@@ -298,11 +507,8 @@ function PhotoCard({ photo, subjects, lookups, onChange, onOpen }: {
             sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', borderRadius: 1.5, bgcolor: 'action.hover',
                   display: 'block', border: '1px solid', borderColor: 'divider' }} />
         </Box>
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.5 }}>
-          {photo.credit ?? 'no credit'}
-        </Typography>
         {photo.taken_on && (
-          <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled' }}>shot {photo.taken_on}</Typography>
+          <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.5 }}>shot {photo.taken_on}</Typography>
         )}
       </Box>
 
@@ -424,7 +630,7 @@ function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClo
             opacity: busy ? 0.6 : 1, transition: 'opacity .15s',
           }}>
             <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
-              {photo.credit ?? 'no credit'}{photo.approved ? ' · published' : ' · not published'}
+              {photo.approved ? 'Published' : 'Not published'}
             </Typography>
             <TagFields photo={photo} subjects={subjectsByPhoto.get(photo.id) ?? []} lookups={lookups}
               runner={runner} recent={recent} onPicked={onPicked} />
@@ -532,36 +738,24 @@ const STATUS_LABEL: Record<UploadRow['status'], string> = {
   preparing: 'preparing…', uploading: 'uploading…', duplicate: 'already uploaded', done: 'uploaded', error: 'failed',
 }
 
-function UploadPanel({ categories, onUploaded }: { categories: WpblPhotoCategory[]; onUploaded: () => void }) {
+function UploadPanel({ categories, contributors, onContributorsChanged, onUploaded }: {
+  categories: WpblPhotoCategory[]
+  /** Loaded by the page, so a photographer edited in the Photographers section shows here too. */
+  contributors: WpblPhotoContributor[]
+  onContributorsChanged: () => Promise<void>
+  onUploaded: () => void
+}) {
   // Which category this batch goes into. Kept across batches, since a run of sign photos is
   // usually uploaded in several goes.
   const [category, setCategory] = useState<string | null>(null)
-  const [contributors, setContributors] = useState<WpblPhotoContributor[]>([])
   const [selected, setSelected] = useState('')
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ display_name: '', contact: '', permission_granted_on: '', permission_evidence: '', permission_scope: 'site display' })
   const [rows, setRows] = useState<UploadRow[]>([])
   const [busy, setBusy] = useState(false)
 
-  const loadContribs = useCallback(() => { fetchFanPhotoContributors().then(setContributors) }, [])
-  useEffect(() => loadContribs(), [loadContribs])
-
-  const canSaveContributor = form.display_name.trim() !== '' && form.permission_evidence.trim() !== ''
-  const saveContributor = async () => {
-    if (!canSaveContributor) return
-    setBusy(true)
-    const id = await createFanPhotoContributor({
-      display_name: form.display_name.trim(),
-      contact: form.contact.trim() || null,
-      permission_granted_on: form.permission_granted_on || null,
-      permission_evidence: form.permission_evidence.trim(),
-      permission_scope: form.permission_scope.trim() || null,
-    })
-    setBusy(false)
-    if (id) {
-      setForm({ display_name: '', contact: '', permission_granted_on: '', permission_evidence: '', permission_scope: 'site display' })
-      setAdding(false); await loadContribs(); setSelected(id)
-    }
+  const saveContributor = async (d: ContributorDraft) => {
+    const id = await createFanPhotoContributor(recordOf(d))
+    if (id) { setAdding(false); await onContributorsChanged(); setSelected(id) }
   }
 
   const onFiles = async (fileList: FileList | null) => {
@@ -597,14 +791,6 @@ function UploadPanel({ categories, onUploaded }: { categories: WpblPhotoCategory
     onUploaded()
   }
 
-  // Comfortable touch height on a phone: a 28px input is a miss target. 44px is the floor.
-  const field = (key: keyof typeof form, placeholder: string, type?: string) => (
-    <TextField value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-      placeholder={placeholder} type={type} size="small" fullWidth
-      InputProps={{ sx: { fontSize: '0.85rem' } }}
-      sx={{ '& .MuiInputBase-input': { py: 1 } }} />
-  )
-
   // Every tappable control shares one comfortable pill shape and a 44px minimum, so nothing on
   // this panel is a small target on a phone.
   const tap = (active: boolean, accent = false) => ({
@@ -633,20 +819,7 @@ function UploadPanel({ categories, onUploaded }: { categories: WpblPhotoCategory
         </Box>
 
         {adding && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
-            {field('display_name', 'Name to credit (required)')}
-            {field('permission_evidence', 'Where they said yes: link or note (required)')}
-            {/* Stacks on a phone, sits side by side once there is room. A fixed-width date field
-                next to a flexible one was the thing that crowded on a narrow screen. */}
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
-              <Box sx={{ flex: 1, minWidth: 0 }}>{field('contact', 'Contact')}</Box>
-              <Box sx={{ width: { xs: '100%', sm: 160 }, flexShrink: 0 }}>{field('permission_granted_on', 'Granted on', 'date')}</Box>
-            </Box>
-            {field('permission_scope', 'Scope (e.g. site display)')}
-            <Box onClick={saveContributor} role="button" tabIndex={0} sx={{
-              ...tap(canSaveContributor, true), alignSelf: { xs: 'stretch', sm: 'flex-start' }, px: 2.5,
-            }}>Save photographer</Box>
-          </Box>
+          <ContributorForm initial={EMPTY_CONTRIBUTOR} submitLabel="Save photographer" onSubmit={saveContributor} />
         )}
 
         {categories.length > 0 && (
@@ -706,11 +879,11 @@ function UploadPanel({ categories, onUploaded }: { categories: WpblPhotoCategory
 export function FanPhotoEditor({ photoId, onClose }: { photoId: string; onClose: () => void }) {
   const [data, setData] = useState<{
     photos: WpblFanPhotoRow[]; subjects: WpblPhotoSubject[]; figures: WpblPhotoFigure[]
-    categories: WpblPhotoCategory[]; players: WpblPlayer[]; teams: WpblTeam[]
+    categories: WpblPhotoCategory[]; players: WpblPlayer[]; teams: WpblTeam[]; contributors: WpblPhotoContributor[]
   } | null>(null)
   const load = useCallback(() => {
-    Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams()])
-      .then(([q, players, teams]) => setData({ ...q, players, teams }))
+    Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams(), fetchFanPhotoContributors()])
+      .then(([q, players, teams, contributors]) => setData({ ...q, players, teams, contributors }))
   }, [])
   useEffect(() => load(), [load])
 
@@ -719,6 +892,7 @@ export function FanPhotoEditor({ photoId, onClose }: { photoId: string; onClose:
     figures: new Map(data.figures.map(f => [f.key, f])),
     teams: data.teams,
     categories: data.categories,
+    contributors: data.contributors,
   }), [data])
   const subjectsByPhoto = useMemo(() => {
     const m = new Map<string, WpblPhotoSubject[]>()
@@ -750,6 +924,7 @@ export default function AdminPhotos() {
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [categories, setCategories] = useState<WpblPhotoCategory[]>([])
+  const [contributors, setContributors] = useState<WpblPhotoContributor[]>([])
   // '*' is every category; '' is the uncategorised fan photos.
   const [categoryFilter, setCategoryFilter] = useState<string>('*')
   const [loading, setLoading] = useState(true)
@@ -758,11 +933,13 @@ export default function AdminPhotos() {
 
   const load = useCallback(() => {
     setLoading(true)
-    Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams()]).then(([q, pl, tm]) => {
+    Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams(), fetchFanPhotoContributors()]).then(([q, pl, tm, cs]) => {
       setPhotos(q.photos); setSubjects(q.subjects); setFigures(q.figures); setCategories(q.categories); setPlayers(pl); setTeams(tm)
+      setContributors(cs)
       setLoading(false)
     })
   }, [])
+  const reloadContributors = useCallback(async () => { setContributors(await fetchFanPhotoContributors()) }, [])
   useEffect(() => load(), [load])
 
   const playersById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
@@ -782,8 +959,8 @@ export default function AdminPhotos() {
   const shown = photos.filter(p =>
     (filter === 'all' ? true : filter === 'approved' ? p.approved : !p.approved)
     && (categoryFilter === '*' || (p.category_key ?? '') === categoryFilter))
-  const lookups = useMemo<Lookups>(() => ({ players: playersById, figures: figuresByKey, teams, categories }),
-    [playersById, figuresByKey, teams, categories])
+  const lookups = useMemo<Lookups>(() => ({ players: playersById, figures: figuresByKey, teams, categories, contributors }),
+    [playersById, figuresByKey, teams, categories, contributors])
   const openTagMode = (start: number) => setTagging({ ids: shown.map(p => p.id), start })
 
   return (
@@ -812,7 +989,10 @@ export default function AdminPhotos() {
         </Box>
       </Box>
 
-      <UploadPanel categories={categories} onUploaded={load} />
+      <UploadPanel categories={categories} contributors={contributors}
+        onContributorsChanged={reloadContributors} onUploaded={load} />
+
+      <PhotographersSection contributors={contributors} photos={photos} onChange={load} />
 
       <Section title="Categories">
         <CategoryAdder count={categories.length} onAdded={load} />

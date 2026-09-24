@@ -1128,6 +1128,9 @@ export function setFanPhotoApproved(id: string, approved: boolean): Promise<bool
 export function updateFanPhoto(id: string, patch: {
   caption?: string | null; taken_on?: string | null; game_id?: string | null; sort_order?: number | null
   category_key?: string | null
+  // Reassigning the photographer: both together, since `credit` is the public copy of the
+  // contributor's name (see updateFanPhotoContributor).
+  contributor_id?: string | null; credit?: string | null
   // A crop repoints the served renders; `storage_path` is left alone so the original stays findable.
   card_url?: string; full_url?: string; width?: number | null; height?: number | null
 }): Promise<boolean> {
@@ -1239,6 +1242,36 @@ export async function createFanPhotoContributor(
     console.error('createFanPhotoContributor:', e)
     return null
   }
+}
+
+/** Edit a contributor's record, and keep the public credit in step with it.
+ *
+ *  THE CREDIT IS DENORMALIZED onto every photo row (the contributors table is owner-only, so a
+ *  reader can never join to it), which means a renamed photographer would otherwise keep their
+ *  old name on every photo already published. So a `display_name` change rewrites `credit` on
+ *  all of their photos in the same call. Two writes rather than a trigger: the owner is the only
+ *  writer, and this is the only path that renames.
+ *
+ *  Withdrawing (setting `withdrawn_on`) also unpublishes every photo of theirs, which is what the
+ *  table's own note defines withdrawal as: the date records it, the unpublish carries it out. */
+export async function updateFanPhotoContributor(
+  id: string, patch: Partial<Omit<WpblPhotoContributor, 'id'>>, prev: WpblPhotoContributor,
+): Promise<boolean> {
+  const ok = await ownerWrite('updateFanPhotoContributor', () =>
+    supabase.from('wpbl_photo_contributors').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
+  if (!ok) return false
+  if (patch.display_name && patch.display_name !== prev.display_name) {
+    const synced = await ownerWrite('updateFanPhotoContributorCredit', () =>
+      supabase.from('wpbl_fan_photos').update({ credit: patch.display_name, updated_at: new Date().toISOString() }).eq('contributor_id', id))
+    if (!synced) return false
+  }
+  if (patch.withdrawn_on && !prev.withdrawn_on) {
+    const pulled = await ownerWrite('updateFanPhotoContributorWithdraw', () =>
+      supabase.from('wpbl_fan_photos').update({ approved: false, updated_at: new Date().toISOString() }).eq('contributor_id', id))
+    if (!pulled) return false
+  }
+  invalidateWpblFanPhotos()
+  return true
 }
 
 // Existing box-score lines for one game (for editing / display).

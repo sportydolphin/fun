@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
-import { WPBL_PLAYERS_INDEX, WPBL_LEAGUE_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_PHOTOS_PAGE } from './wpbl/routes'
+import { WPBL_FOOTER_PAGES } from './wpbl/morePages'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -86,34 +86,19 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
             </Box>
             <Box sx={{ mt: 0.75 }}>
               <FooterRow>
-                {/* The players index. It is the one page carrying a real <a href> to each of the 118
-                    player pages, and nothing else on the site links to it: the nav has no Players tab
-                    and the boards reach a player through a modal. So every player URL sat in the
-                    sitemap with no internal link pointing anywhere near it, the orphan-page shape
-                    Google discounts. Keyword-shaped anchor text for the same reason as the section
-                    switch below. */}
-                <Box component="a" href={WPBL_PLAYERS_INDEX} onClick={e => { e.preventDefault(); onNavigate(WPBL_PLAYERS_INDEX) }} sx={linkSx}>WPBL players</Box>
-                <Dot />
-                <Box component="a" href={WPBL_LEAGUE_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_LEAGUE_PAGE) }} sx={linkSx}>The league</Box>
-                <Dot />
-                {/* Like the pages beside it the season page has no nav pill, so the footer is a
-                    reader's only way in and a crawler's only link to follow. Keyword-shaped anchor. */}
-                <Box component="a" href={WPBL_SEASON_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SEASON_PAGE) }} sx={linkSx}>2026 season</Box>
-                <Dot />
-                {/* Same reasoning as the season link beside it: no nav pill, so the footer is the only
-                    way in for a reader and the only link a crawler can follow. Keyword-shaped anchor. */}
-                <Box component="a" href={WPBL_SCORIGAMI_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SCORIGAMI_PAGE) }} sx={linkSx}>Scorigami</Box>
-                <Dot />
-                {/* No nav pill, so the footer is the reader's way in and the crawler's only link. */}
-                <Box component="a" href={WPBL_PHOTOS_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_PHOTOS_PAGE) }} sx={linkSx}>2026 gallery</Box>
-                <Dot />
-                <Box component="a" href={WPBL_GLOSSARY_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_GLOSSARY_PAGE) }} sx={linkSx}>Rules &amp; glossary</Box>
-                <Dot />
-                {/* THE API DOCS LIVE ON THE SOURCES PAGE, which is the one consolidation this footer
-                    had available: the two say where the data came from and how to take it, the same
-                    conversation. `/wpbl/api` is reached through this page rather than directly, so this
-                    link is load-bearing for both of them. */}
-                <Box component="a" href={WPBL_SOURCES_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SOURCES_PAGE) }} sx={linkSx}>Data sources</Box>
+                {/* From WPBL_FOOTER_PAGES, the list the section's More menu reads too, so a page
+                    cannot be in one and missing from the other (see morePages.ts). Real anchors,
+                    and each one is load-bearing: several of these pages have no other internal
+                    link a crawler can follow (the players index is the only page linking every
+                    player; Data sources is the only way in to the API docs). */}
+                {WPBL_FOOTER_PAGES.map((pg, i) => (
+                  <React.Fragment key={pg.href}>
+                    {i > 0 && <Dot />}
+                    <Box component="a" href={pg.href} onClick={e => { e.preventDefault(); onNavigate(pg.href) }} sx={linkSx}>
+                      {pg.footerLabel ?? pg.label}
+                    </Box>
+                  </React.Fragment>
+                ))}
               </FooterRow>
             </Box>
           </Box>

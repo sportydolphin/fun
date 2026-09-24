@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller, chromePx, hoverOnly } from './ui'
+import { ModalShell, TeamBadge, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, chromePx, hoverOnly } from './ui'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo, WpblTeam } from './types'
 
@@ -100,7 +100,7 @@ function RailCard({ video, teamById, onPlay }: {
       sx={{
         flexShrink: 0, width: { xs: 232, sm: 248 }, cursor: 'pointer', scrollSnapAlign: 'start',
         borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: CARD_BORDER,
-        bgcolor: 'background.paper', transition: 'transform 0.1s, border-color 0.15s',
+        bgcolor: CARD_FILL, transition: 'transform 0.1s, border-color 0.15s',
         ...hoverOnly({ borderColor: 'text.disabled' }),
         '&:hover .play-badge': { background: 'linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45))' },
         '&:hover .play-disc': { transform: 'scale(1.08)' },
@@ -139,13 +139,18 @@ function RailCard({ video, teamById, onPlay }: {
 }
 
 /**
- * The Highlights strip, as one segment of the league page's media shelf. Bare: the card, the
- * title and the collapse control belong to the shelf (see MediaShelf.tsx).
+ * The Highlights strip, on the season recap: the league channel's game recaps as a rail. Bare, no
+ * card of its own; the page's section heading titles it. It left the league page's media shelf
+ * with the rest of that shelf, and the recap is where a reader looking back at the season is.
  *
  * Nothing here touches YouTube until a viewer clicks Play. The cards are static thumbnail
  * facades and only then does the privacy-mode embed mount.
  */
-export function HighlightsStrip({ videos, teams }: { videos: WpblVideo[]; teams: WpblTeam[] }) {
+export function HighlightsStrip({ videos, teams, from = 'recap' }: {
+  videos: WpblVideo[]; teams: WpblTeam[]
+  /** Which surface a play came from, for WPBL_HIGHLIGHT_PLAYED. ('shelf' in the older events.) */
+  from?: string
+}) {
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const [active, setActive] = useState<WpblVideo | null>(null)
 
@@ -170,7 +175,7 @@ export function HighlightsStrip({ videos, teams }: { videos: WpblVideo[]; teams:
               key={v.video_id}
               video={v}
               teamById={teamById}
-              onPlay={() => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from: 'shelf' }); setActive(v) }}
+              onPlay={() => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from }); setActive(v) }}
             />
           ))}
         </RailScroller>
@@ -200,7 +205,7 @@ export function GameHighlightCard({ video }: { video: WpblVideo }) {
         aria-label={`Watch highlights: ${video.title}`}
         sx={{
           display: 'flex', alignItems: 'center', gap: 1.25, cursor: 'pointer',
-          p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+          p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
           transition: 'border-color 0.15s, background 0.15s',
           ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
           '&:hover .play-badge': { background: 'linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45))' },

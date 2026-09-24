@@ -19,8 +19,10 @@ import { regularSeasonLines, type WpblSeasonGame } from './season'
 //   • dot area scales with playing time, so a 2-PA cameo can't look like a regular's season
 //   • every round-average marker is labelled with the n behind it, and goes hollow and
 //     faint below MIN_SOLID_N, so a point resting on one player never reads as a finding
-//   • the correlation is computed live and stated in words above the chart, including when
-//     it is nothing: the number is the headline, not the shape of the line
+//   • the correlation is computed live and the headline is its verdict IN WORDS ("earlier picks
+//     hit a little better"), including when it is nothing. The coefficient itself sits under it
+//     as fine print: "r = -0.31" as the lead line was the most expert-looking thing on a page
+//     that is read by people who came for the players.
 //
 // Hitters and pitchers are two separate panels on purpose. They are different measures on
 // different scales, and putting them on one plot with two y-axes would invent a
@@ -64,6 +66,8 @@ interface Pt {
 
 interface PanelSpec {
   title: string
+  /** What the players on this panel do, for the verdict: "hit", "pitched". */
+  verb: string
   yLabel: string
   better: 'higher' | 'lower'
   fmt: (v: number) => string
@@ -148,11 +152,14 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
           {spec.yLabel} · {spec.better} is better
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', mb: 0.75 }}>
-        {r == null
-          ? `Only ${points.length} players here, too few to measure.`
-          : `Draft slot vs ${spec.yLabel}: r = ${r >= 0 ? '+' : ''}${r.toFixed(2)}, ${describeR(r, spec.better)}`}
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.35, mt: 0.25 }}>
+        {r == null ? `Only ${points.length} players here, too few to tell.` : verdict(r, spec)}
       </Typography>
+      {r != null && (
+        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mb: 0.75 }}>
+          Correlation between draft slot and {spec.yLabel}: r = {r >= 0 ? '+' : '−'}{Math.abs(r).toFixed(2)}
+        </Typography>
+      )}
 
       <Box
         component="svg"
@@ -268,22 +275,24 @@ function LegendKey({ color, label }: { color: string; label: string }) {
   )
 }
 
-/** Put the coefficient in words, so the reader isn't left to guess what 0.05 means. */
-function describeR(r: number, better: 'higher' | 'lower'): string {
+/** The coefficient as a plain sentence, which is the panel's headline. */
+function verdict(r: number, spec: PanelSpec): string {
   const mag = Math.abs(r)
-  if (mag < 0.2) return 'no real pattern'
+  if (mag < 0.2) return `No real pattern: where a player was drafted says little about how they ${spec.verb}.`
   // "Earlier is better" means a NEGATIVE r for higher-is-better stats (small pick number,
   // big stat) and a POSITIVE r when lower is better (small pick number, small ERA).
-  const earlyBetter = better === 'higher' ? r < 0 : r > 0
-  const strength = mag < 0.4 ? 'a slight' : mag < 0.6 ? 'a moderate' : 'a strong'
-  return `${strength} lean to ${earlyBetter ? 'earlier picks' : 'later picks'}`
+  const earlyBetter = spec.better === 'higher' ? r < 0 : r > 0
+  const strength = mag < 0.4 ? 'a little' : mag < 0.6 ? 'noticeably' : 'clearly'
+  return `${earlyBetter ? 'Earlier' : 'Later'} picks ${spec.verb} ${strength} better.`
 }
 
 // ─── The view ─────────────────────────────────────────────────────────────────
 
 type Cut = 'all' | 'sample'
 
-export default function WpblDraftValue({ players, batting, pitching, games: schedule, onOpenPlayer }: {
+export default function WpblDraftValue({ players, batting, pitching, games: schedule, onOpenPlayer, side }: {
+  /** One panel for this side (the Stats tab's Hitting/Pitching switch), or both when omitted. */
+  side?: 'hitting' | 'pitching'
   players: WpblPlayer[]
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
@@ -343,42 +352,46 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
     }
   }, [players, batting, pitching, cut, eraBasis])
 
+  const hitterPanel = (
+    <Panel onOpenPlayer={onOpenPlayer} spec={{
+      title: 'Hitters', verb: 'hit', yLabel: 'OPS', better: 'higher',
+      fmt: fmtRate, points: hitters,
+      minLabel: `${MIN_PA} PA`,
+    }} />
+  )
+  const pitcherPanel = (
+    <Panel onOpenPlayer={onOpenPlayer} spec={{
+      title: 'Pitchers', verb: 'pitched', yLabel: 'ERA', better: 'lower',
+      fmt: fmtTwo, points: pitchers,
+      minLabel: `${MIN_IP} IP`,
+    }} />
+  )
+  const floor = side === 'hitting' ? `${MIN_PA}+ PA` : side === 'pitching' ? `${MIN_IP}+ IP` : `${MIN_PA}+ PA / ${MIN_IP}+ IP`
+
   return (
     <Box>
-      <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 1.5 }}>
-        Where a player went in the draft, against how they have hit or pitched since.
-        {' '}{drafted} players over {roundCount} rounds of {roundSize}. The line is each
-        round's average.
+      <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
+        Did the players taken early in the draft turn out better? Each dot is one of the {drafted}
+        {' '}drafted players ({roundCount} rounds of {roundSize}), placed by where they were picked and
+        how they {side === 'pitching' ? 'pitched' : side === 'hitting' ? 'hit' : 'played'}, and bigger
+        the more they played. The line is each round's average.
       </Typography>
 
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
         <Chip active={cut === 'all'} onClick={() => setCut('all')}>Everyone who played</Chip>
-        <Chip active={cut === 'sample'} onClick={() => setCut('sample')}>
-          {MIN_PA}+ PA / {MIN_IP}+ IP
-        </Chip>
+        <Chip active={cut === 'sample'} onClick={() => setCut('sample')}>Regulars only ({floor})</Chip>
       </Box>
 
-      <Box sx={{
-        display: 'grid', gap: 3,
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-      }}>
-        <Panel onOpenPlayer={onOpenPlayer} spec={{
-          title: 'Hitters', yLabel: 'OPS', better: 'higher',
-          fmt: fmtRate, points: hitters,
-          minLabel: `${MIN_PA} PA`,
-        }} />
-        <Panel onOpenPlayer={onOpenPlayer} spec={{
-          title: 'Pitchers', yLabel: 'ERA', better: 'lower',
-          fmt: fmtTwo, points: pitchers,
-          minLabel: `${MIN_IP} IP`,
-        }} />
-      </Box>
+      {side ? (side === 'hitting' ? hitterPanel : pitcherPanel) : (
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+          {hitterPanel}
+          {pitcherPanel}
+        </Box>
+      )}
 
       <Typography sx={{ fontSize: '0.74rem', color: 'text.disabled', mt: 2, lineHeight: 1.5 }}>
-        {gamesPlayed} games into the season. Any round showing a hollow marker is down to
-        one or two players with any playing time, so a single good night swings its average
-        a long way. That is what the n on each point is for. Flip between the two filters
-        above and watch the trend change shape.
+        Across {gamesPlayed} regular-season games. A hollow round marker stands on one or two players,
+        so one good night moves it a long way: read it as noise, not a trend.
       </Typography>
     </Box>
   )

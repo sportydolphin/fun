@@ -20,13 +20,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines,
-  fetchWpblAllRunValuePlays, fetchWpblBattedBalls, computeStandings,
+  fetchWpblAllRunValuePlays, fetchWpblBattedBalls, computeStandings, fetchWpblVideos, getCachedWpblVideos,
 } from './api'
 import { buildBracket, championResult, championshipGames, aliveContenders, type ChampionResult } from './derive/bracket'
 // Dev only: the season-finale simulator, so the champion block can be seen before the real final.
 // The listener is DEV-guarded, so production never mounts it. See devChampion.ts.
 import { DEV_CHAMPION_EVENT, devChampionState, type DevChampionState } from './dev/devChampion'
 import SprayChart from './SprayChart'
+import { HighlightsStrip } from './Highlights'
 import { batStarScore, pitchStarScore, battingStatline, pitchingStatline } from './derive/recap'
 import SeasonShapeCard from './SeasonShapeCard'
 import { BracketDiagram } from './PlayoffBracket'
@@ -48,7 +49,7 @@ import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadg
 import WpblPage, { SectionHeading } from './WpblPage'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
-  WpblSprayPlay, WpblStandingRow,
+  WpblSprayPlay, WpblStandingRow, WpblVideo,
 } from './types'
 
 /** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
@@ -182,6 +183,8 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
   const [plays, setPlays] = useState<WpblRunValuePlay[]>([])
   const [battedBalls, setBattedBalls] = useState<WpblSprayPlay[]>([])
+  // The league channel's highlight reels, which moved here off the league page's media shelf.
+  const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
   const [hand, setHand] = useState<'R' | 'L'>('R')
   const [loading, setLoading] = useState(true)
 
@@ -216,6 +219,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   useEffect(() => {
     let cancelled = false
     fetchWpblBattedBalls().then(b => { if (!cancelled) setBattedBalls(b) }).catch(() => { /* section omits itself */ })
+    fetchWpblVideos().then(v => { if (!cancelled) setVideos(v) }).catch(() => { /* section omits itself */ })
     return () => { cancelled = true }
   }, [])
 
@@ -517,6 +521,16 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               </>
             )
           })()}
+
+          {/* ── Highlights ───────────────────────────────────────────────────────
+              The league channel's game recaps, here rather than on the league page since a reader
+              looking back at the season is on this one. Each game page carries its own reel too. */}
+          {videos.length > 0 && (
+            <>
+              <SectionHeading>Highlights</SectionHeading>
+              <HighlightsStrip videos={videos} teams={teams} from="recap" />
+            </>
+          )}
 
           {/* ── Final standings ──────────────────────────────────────────────────
               The record spine of the page, so it leads. The table is the season's last frame;

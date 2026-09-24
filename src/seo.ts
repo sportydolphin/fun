@@ -98,13 +98,13 @@ const ROUTES: Record<string, Seo> = {
     description:
       "Every player in the 2026 Women's Pro Baseball League, by club, with a stats page for each: the Firebells, Queens, Hunters and Heights rosters in one list.",
   },
-  // The league as a subject rather than as a set of games. Written for the query it can
-  // plausibly win, which is not "WPBL stats" (every other page here competes for that) but
-  // where the players are from, a question no other site covering this league answers at all.
+  // The league as a subject rather than as a set of games: what it is, its clubs, and where the
+  // players are from. The hometowns stay in the description because that is the query it can
+  // plausibly win, a question no other site covering this league answers at all.
   '/wpbl/league': {
-    title: "The WPBL: where its players come from | sportydolphin.fun",
+    title: "About the WPBL: the league, its clubs and its players | sportydolphin.fun",
     description:
-      "Hometowns for all 118 players in the 2026 Women's Pro Baseball League, by country, with a page for each: how a four-club league drew players from eleven countries.",
+      "What the Women's Pro Baseball League is and how it works: four clubs, seven-inning games, the postseason format, and hometowns for all 118 players of the 2026 season, by country.",
   },
   // The rules, and the only page in the section written for a question the WPBL itself does
   // not answer anywhere public: how a pitcher earns a win. Searched for, and currently
@@ -139,9 +139,17 @@ const ROUTES: Record<string, Seo> = {
   // who wants to see the league, not read about it: photos, not a stat line. Every one carries
   // the photographer's credit, and the same photos also sit on each player's own page.
   '/wpbl/photos': {
-    title: "WPBL 2026 gallery | sportydolphin.fun",
+    title: "WPBL photos: the 2026 season and the archive | sportydolphin.fun",
     description:
-      "Photographs from the Women's Pro Baseball League's season: the players, the fans and their signs, every one credited. Filter by category or by player, and open any one full size.",
+      "Photographs from the Women's Pro Baseball League's first season, the players, the fans and their signs, plus freely licensed photos of women's baseball history. Every one credited.",
+  },
+  // One independent writer's coverage of the league, every post. Titled for the writer and the
+  // league together, since a reader searching for either should land here, and plain that the
+  // writing is theirs: the posts open on their Substack, not here.
+  '/wpbl/reading': {
+    title: "WPBL reading: every post by mary mustard | sportydolphin.fun",
+    description:
+      "Every piece mary mustard has written about the Women's Pro Baseball League on their Substack, towards a more perfect game, newest first and filterable by club.",
   },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",

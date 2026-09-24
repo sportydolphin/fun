@@ -38,6 +38,9 @@ const WpblPitchView = lazy(() => import('./PitchView'))
 const WpblRunValueView = lazy(() => import('./RunValueView'))
 const WpblBestsView = lazy(() => import('./BestsView'))
 const WpblFindView = lazy(() => import('./FindView'))
+// The draft-class model. On Stats since it left the league page: it is a question about how players
+// performed, asked of the draft, and this is where a reader looks for how players performed.
+const WpblDraftValue = lazy(() => import('./DraftValue'))
 
 // Complete season stat table for the WPBL: a sortable board of every hitting and
 // pitching stat aggregated from box-score lines, mirroring the MLB Stats view. Fetches
@@ -63,7 +66,7 @@ const WpblFindView = lazy(() => import('./FindView'))
 // "Pitches", which beside the side named Pitching reads as "you are about to leave the
 // hitters". The internal value stays 'pitches' so the board-usage analytics keep one name.
 type Side = 'hitting' | 'pitching'
-type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs'
+type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
 
 /** Boards that lay themselves out in two columns on a large desktop, and so take the wider
  *  page column. Everything else is one column and stays at the list measure. */
@@ -188,7 +191,7 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
  * sees one tab called Teams, where the code sees `source: 'season'` plus `mode: 'teams'`. The
  * URL is read by people, so it spells the thing on screen.
  */
-type BoardParam = 'players' | 'teams' | 'bests' | 'find' | 'pitches' | 'runs' | 'tracked'
+type BoardParam = 'players' | 'teams' | 'bests' | 'find' | 'pitches' | 'runs' | 'tracked' | 'draft'
 
 const STATS_PATH = '/wpbl/stats'
 
@@ -235,6 +238,7 @@ function boardAxes(board: string | null): { source: Source; mode: Mode } | null 
     case 'find':    return { source: 'find', mode: 'players' }
     case 'pitches': return { source: 'pitches', mode: 'players' }
     case 'runs':    return { source: 'runs', mode: 'players' }
+    case 'draft':   return { source: 'draft', mode: 'players' }
     case 'tracked': return { source: 'tracked', mode: 'players' }
     // Anything else is a hand-edited or stale link, and the honest answer to one of those is
     // the default board rather than a blank screen.
@@ -1102,6 +1106,8 @@ export default function WpblStatsView({
     // only to the readers least likely to misread it. What it needs is the sentence above the
     // table saying what a "run" means here.
     { key: 'runs', label: 'Run value' },
+    // Last of the always-on boards: one question about one season's draft, answered once.
+    { key: 'draft', label: 'Draft' },
     // Hidden while the league has published radar for barely any games, and kept for the
     // session once a link has opened it anyway. See trackedOffered.
     ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
@@ -1636,6 +1642,11 @@ export default function WpblStatsView({
       ) : source === 'pitches' ? (
         <Suspense fallback={<SubViewFallback />}>
           <WpblPitchView side={side} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
+        </Suspense>
+      ) : source === 'draft' ? (
+        <Suspense fallback={<SubViewFallback />}>
+          <WpblDraftValue side={side} players={players} batting={lines.batting}
+            pitching={lines.pitching} games={games} onOpenPlayer={onOpenPlayer} />
         </Suspense>
       ) : source === 'runs' ? (
         // STILL FULL-BLEED, with the content inside capped and centred, even though the board is one

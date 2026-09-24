@@ -15,6 +15,7 @@ import { describe, it, expect } from 'vitest'
 import indexHtml from '../../../index.html?raw'
 import redirects from '../../../public/_redirects?raw'
 import footerSource from '../../SiteFooter.tsx?raw'
+import morePagesSource from '../morePages.ts?raw'
 // The section shell, read as source: the "More" menu is the reader-facing discovery path for the
 // pages that have no nav pill, and dropping one from it fails invisibly (the page still works and
 // the footer still links it).
@@ -36,6 +37,7 @@ import {
   isWpblSourcesPage,
   isWpblSeasonPage,
   isWpblScorigamiPage,
+  isWpblReadingPage,
   isWpblPhotosPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
@@ -53,6 +55,16 @@ import routesJson from '../../../public/_routes.json'
 // rather than against four strings copied into this test. A fifth club fails every assertion
 // in the block until its line, its tags and its sitemap entry exist.
 import { WPBL_TEAMS } from '../constants'
+
+
+/** A page is linked from the footer when it is in WPBL_FOOTER_PAGES (morePages.ts) and the footer
+ *  renders that list. The footer no longer spells each constant out; see morePages.ts. */
+function expectInFooter(constant: string) {
+  expect(footerSource).toContain('WPBL_FOOTER_PAGES')
+  const footerBlock = /WPBL_FOOTER_PAGES[^=]*=\s*\[([\s\S]*?)\n\]/.exec(morePagesSource)?.[1] ?? ''
+  const moreBlock = /WPBL_MORE_PAGES[^=]*=\s*\[([\s\S]*?)\n\]/.exec(morePagesSource)?.[1] ?? ''
+  expect(footerBlock.includes('...WPBL_MORE_PAGES') ? footerBlock + moreBlock : footerBlock).toContain(constant)
+}
 
 describe('wpblViewFromPath', () => {
   it('maps the section root to Home', () => {
@@ -543,7 +555,7 @@ describe('/wpbl/league, a page without a tab', () => {
   // link a crawler can follow. Losing it turns the page into an orphan without breaking it,
   // which is a failure nothing else here would notice.
   it('is linked from the site footer', () => {
-    expect(footerSource).toContain('WPBL_LEAGUE_PAGE')
+    expectInFooter('WPBL_LEAGUE_PAGE')
   })
 })
 
@@ -653,7 +665,7 @@ describe('/wpbl/glossary, the rules page', () => {
   // crawler can follow. This page is the one here written to be found cold from a search
   // result, which makes an orphaned copy of it worth less than nothing.
   it('is linked from the site footer', () => {
-    expect(footerSource).toContain('WPBL_GLOSSARY_PAGE')
+    expectInFooter('WPBL_GLOSSARY_PAGE')
   })
 
   // The rich-result claim. FAQPage markup that does not match the page under it is the kind
@@ -693,7 +705,7 @@ describe('/wpbl/sources, the provenance page', () => {
   // follow. It matters more here than on the other two: this page's whole job is to be a URL
   // somebody else can cite, and an orphaned one is worth nothing.
   it('is linked from the site footer', () => {
-    expect(footerSource).toContain('WPBL_SOURCES_PAGE')
+    expectInFooter('WPBL_SOURCES_PAGE')
   })
 
   // The Terms page carries the accuracy statement it has to, and points here for the detail;
@@ -731,7 +743,7 @@ describe('/wpbl/season, the season recap', () => {
   // crawler can follow. This is the page written to be found cold after the feed stops, which
   // makes an orphaned copy of it worth nothing.
   it('is linked from the site footer', () => {
-    expect(footerSource).toContain('WPBL_SEASON_PAGE')
+    expectInFooter('WPBL_SEASON_PAGE')
   })
 })
 
@@ -762,7 +774,34 @@ describe('/wpbl/scorigami, the final-scores grid', () => {
   // No nav pill by design, so the footer is the only way in for a reader and the only link a
   // crawler can follow. An orphaned copy of a page written to be found is worth nothing.
   it('is linked from the site footer', () => {
-    expect(footerSource).toContain('WPBL_SCORIGAMI_PAGE')
+    expectInFooter('WPBL_SCORIGAMI_PAGE')
+  })
+})
+
+describe('/wpbl/reading, the writing', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/reading\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/reading\/\s+\/wpbl\/reading\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toMatch(/'\/wpbl\/reading':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/reading</loc>')
+  })
+
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblReadingPage('/wpbl/reading')).toBe(true)
+    expect(isWpblReadingPage('/wpbl/reading/')).toBe(true)
+    expect(isWpblReadingPage('/wpbl/readings')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/reading')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/reading')).toBe(false)
+  })
+
+  it('is linked from the site footer', () => {
+    expectInFooter('WPBL_READING_PAGE')
   })
 })
 
@@ -793,30 +832,25 @@ describe('/wpbl/photos, the fan photos gallery', () => {
   })
 
   it('is linked from the site footer', () => {
-    expect(footerSource).toContain('WPBL_PHOTOS_PAGE')
+    expectInFooter('WPBL_PHOTOS_PAGE')
   })
 })
 
 describe('the More menu surfaces every non-tab WPBL page', () => {
-  // These pages have no nav pill (league, season, scorigami, players index, glossary, sources) and
-  // the Compare tool has no pill either, so the "More" menu in the section nav is a reader's way in
-  // besides the footer. The menu is built from MORE_GROUPS in WpblApp; pin its contents, because a
-  // page silently dropped from it still works and is still footer-linked (or, for Compare, still
-  // reachable from a player), which is exactly the failure nothing else here would catch.
-  // The array body between `= [` and its closing `]` at column 0. The nested per-group `items: [...]`
-  // arrays close indented, so keying the terminator on a newline-then-bracket skips past them to the
-  // one real closer; keying the start on `=` skips past the type annotation's own `[]`.
-  const block = /MORE_GROUPS[^=]*=\s*\[([\s\S]*?)\n\]/.exec(wpblAppSource)?.[1] ?? ''
+  // These pages have no nav pill, so the More menu in the section nav is a reader's way in besides
+  // the footer. The menu reads WPBL_MORE_PAGES from morePages.ts; pin its contents, because a page
+  // silently dropped from it still works and is still footer-linked, which is exactly the failure
+  // nothing else here would catch.
+  const block = /WPBL_MORE_PAGES[^=]*=\s*\[([\s\S]*?)\n\]/.exec(morePagesSource)?.[1] ?? ''
 
-  it('has a MORE_GROUPS array', () => {
+  it('has a WPBL_MORE_PAGES array, and the menu reads it', () => {
     expect(block).not.toBe('')
+    expect(wpblAppSource).toContain('WPBL_MORE_PAGES')
   })
 
   const expected = [
-    'WPBL_LEAGUE_PAGE', 'WPBL_SEASON_PAGE', 'WPBL_SCORIGAMI_PAGE',
-    'WPBL_PLAYERS_INDEX', 'WPBL_GLOSSARY_PAGE', 'WPBL_SOURCES_PAGE',
-    // Compare's permanent home: the tool had no nav entry at all until it landed here under Tools.
-    'WPBL_COMPARE_BASE',
+    'WPBL_SEASON_PAGE', 'WPBL_READING_PAGE', 'WPBL_PHOTOS_PAGE', 'WPBL_LEAGUE_PAGE',
+    'WPBL_SCORIGAMI_PAGE', 'WPBL_COMPARE_BASE', 'WPBL_PLAYERS_INDEX', 'WPBL_GLOSSARY_PAGE',
   ]
   for (const c of expected) {
     it(`lists ${c}`, () => {
@@ -824,11 +858,16 @@ describe('the More menu surfaces every non-tab WPBL page', () => {
     })
   }
 
+  // Data sources is footer-only on purpose: a reader rarely wants it and a crawler must reach it.
+  it('keeps Data sources in the footer list and out of the menu', () => {
+    expect(block).not.toContain('WPBL_SOURCES_PAGE')
+    expectInFooter('WPBL_SOURCES_PAGE')
+  })
+
   // On a phone the bottom bar REPLACES the top pill nav, so NavMore (the desktop dropdown) is not
-  // on screen; the same six pages are reached from the bar's More slot as a sheet instead. If that
+  // on screen; the same pages are reached from the bar's More slot as a sheet instead. If that
   // wiring is dropped, the pages are footer-only on a phone again, the exact regression the More
-  // menu exists to prevent, and invisible on desktop. Pin that the bar carries the slot and the
-  // sheet is rendered.
+  // menu exists to prevent, and invisible on desktop.
   it('reaches the same pages from the bottom bar (MoreSheet + MORE_KEY)', () => {
     expect(wpblAppSource).toContain('MoreSheet')
     expect(wpblAppSource).toContain('MORE_KEY')

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, ListSubheader, SwipeableDrawer } from '@mui/material'
+import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
   fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
@@ -37,14 +37,13 @@ import {
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
-  WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_PHOTOS_PAGE, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
-  WPBL_PLAYERS_INDEX, WPBL_COMPARE_BASE,
   WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
 } from './routes'
 import { linkTo } from '../nav'
 import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
+import { WPBL_MORE_PAGES } from './morePages'
 import { useForegroundInterval } from './refresh'
 import { WpblHeadingOwnerProvider, WpblNavAtBottomProvider, useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
 import { wpblGameCard } from './ogCard'
@@ -816,52 +815,19 @@ function viewFromLocation(): string | null {
     ?? wpblViewFromPath(window.location.pathname)
 }
 
-// The WPBL pages that are not tabs: the league, the season recap, the scorigami grid, the players
-// index, the rules and the data sources. The footer links them, which is a fine crawl path and a
-// poor way for a reader to find anything, so this menu is one discovery surface for all of them,
+// The WPBL pages that are not tabs. The footer links them, which is a fine crawl path and a poor
+// way for a reader to find anything, so this menu is one discovery surface for all of them,
 // WITHOUT a sixth nav pill: WPBL_NAV, the pager and the mobile bottom bar all stay at five, because
 // a sixth pill does not fit a phone (see BottomNav.tsx and the note on WPBL_LEAGUE_PAGE).
 //
 // Not a tab and switches nothing in the pager: it opens a menu. Each item is a real <a href> via
-// linkTo, so it is crawlable and cmd/middle-click opens it in a new tab, the same rule the footer
-// and the nav pills already follow. The footer keeps these links too; this adds a way in, it does
-// not move one.
-// `hint` is drawn only in the mobile bottom sheet (MoreSheet), which has room for a line under
-// each name; the desktop Menu shows the label alone.
-//
-// GROUPED, because a flat list of these outgrew being scannable: they are three different kinds of
-// thing (places to read the league, tools to play with its data, reference), and the Compare tool
-// had no home in the section's nav at all until it landed here under Tools. The groups are the one
-// source of order for both surfaces below, so the desktop menu and the mobile sheet cannot drift.
-// Every item is still a real <a href> via linkTo, the crawl-path rule the footer and pills follow.
-type MoreLink = { href: string; label: string; hint?: string; event?: (typeof EVENTS)[keyof typeof EVENTS]; eventProps?: Record<string, unknown> }
-const MORE_GROUPS: { group: string; items: MoreLink[] }[] = [
-  { group: 'Explore', items: [
-    { href: WPBL_LEAGUE_PAGE,    label: 'The league',   hint: 'Where the players are from, the reading and the archive' },
-    { href: WPBL_SEASON_PAGE,    label: '2026 season',  hint: 'The season read back through its numbers' },
-    { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',    hint: 'Every final score the league has produced' },
-    { href: WPBL_PHOTOS_PAGE,    label: '2026 gallery',   hint: "Photographs of this season's players, by who is in them" },
-    { href: WPBL_PLAYERS_INDEX,  label: 'All players',  hint: 'Every roster, by club' },
-  ] },
-  { group: 'Tools', items: [
-    // The picker with nobody chosen. `from: 'more'` joins the same funnel the Home card and the
-    // player-modal chip report into (WPBL_COMPARE_OPENED), so this becomes the third counted way in.
-    { href: WPBL_COMPARE_BASE,   label: 'Compare players', hint: 'Two players side by side', event: EVENTS.WPBL_COMPARE_OPENED, eventProps: { from: 'more', pair: false } },
-  ] },
-  { group: 'Reference', items: [
-    { href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary', hint: 'How the league works, and what a stat means' },
-    { href: WPBL_SOURCES_PAGE,   label: 'Data sources',     hint: 'Where this site’s data comes from' },
-  ] },
-]
-
-// Both the desktop menu and the phone sheet read this, so the two cannot disagree about what a
-// reader is offered. It filtered out owner-only rows until the gallery, the last of them, opened.
-function useMoreGroups() {
-  return MORE_GROUPS
-}
+// linkTo, so it is crawlable and cmd/middle-click opens it in a new tab. The list itself lives in
+// morePages.ts, shared with the footer, so the desktop menu, the phone sheet and the footer cannot
+// disagree about what a reader is offered.
+const useMorePages = () => WPBL_MORE_PAGES
 
 function NavMore() {
-  const groups = useMoreGroups()
+  const pages = useMorePages()
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const open = Boolean(anchor)
   return (
@@ -896,39 +862,28 @@ function NavMore() {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         MenuListProps={{ dense: true }}
       >
-        {/* Grouped: a subheader per group, then its rows. flatMap because MUI's Menu wants a flat
-            child list, not nested arrays. The subheader is not a menu row, so keyboard focus skips
-            straight over it to the next item. */}
-        {groups.flatMap(g => [
-          <ListSubheader
-            key={`h-${g.group}`}
-            disableSticky
-            sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 2.2, bgcolor: 'transparent' }}
-          >
-            {g.group}
-          </ListSubheader>,
-          ...g.items.map(l => {
-            const props = linkTo(l.href)
-            return (
-              <MenuItem
-                key={l.href}
-                {...props}
-                // linkTo handles the navigation and lets a modified click through to the browser;
-                // the menu only has to close itself once a plain click has been taken. A tracked
-                // item also records the open through the same funnel its other entry points use.
-                onClick={e => {
-                  const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-                  if (l.event && !modified) track(l.event, l.eventProps ?? {})
-                  props.onClick(e)
-                  if (e.defaultPrevented) setAnchor(null)
-                }}
-                sx={{ fontSize: '0.82rem', fontWeight: 600, ...UNSTYLED_MENU_LINK }}
-              >
-                {l.label}
-              </MenuItem>
-            )
-          }),
-        ])}
+        {/* One flat list, no subheaders: see morePages.ts for why the groups went. */}
+        {pages.map(l => {
+          const props = linkTo(l.href)
+          return (
+            <MenuItem
+              key={l.href}
+              {...props}
+              // linkTo handles the navigation and lets a modified click through to the browser;
+              // the menu only has to close itself once a plain click has been taken. A tracked
+              // item also records the open through the same funnel its other entry points use.
+              onClick={e => {
+                const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+                if (l.event && !modified) track(l.event, l.eventProps ?? {})
+                props.onClick(e)
+                if (e.defaultPrevented) setAnchor(null)
+              }}
+              sx={{ fontSize: '0.82rem', fontWeight: 600, ...UNSTYLED_MENU_LINK }}
+            >
+              {l.label}
+            </MenuItem>
+          )
+        })}
       </Menu>
     </>
   )
@@ -937,13 +892,13 @@ function NavMore() {
 // An anchor carries a browser underline and link colour; a MenuItem should look like a menu row.
 const UNSTYLED_MENU_LINK = { textDecoration: 'none', color: 'text.primary' } as const
 
-// The mobile counterpart to NavMore: the same six non-tab pages, reached from the bottom bar's
+// The mobile counterpart to NavMore: the same non-tab pages, reached from the bottom bar's
 // More slot as a bottom sheet instead of a dropdown. The bottom bar replaces the top pill nav on a
 // phone (so NavMore is not on screen there); this is how those pages stay reachable without a
 // footer scroll. Every row is a real <a href> (linkTo), so it is crawlable and cmd/long-press opens
 // a new tab, the same rule the footer and the menu follow.
 function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const groups = useMoreGroups()
+  const pages = useMorePages()
   return (
     <SwipeableDrawer
       anchor="bottom"
@@ -965,45 +920,38 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     >
       <Box sx={{ px: 2, pt: 1 }}>
         <Box aria-hidden sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
-        {/* Grouped the same way the desktop menu is, from the one MORE_GROUPS above, so the two
-            surfaces stay in step. A group header per section, its rows under it. */}
-        {groups.map(g => (
-          <Box key={g.group} sx={{ mb: 1 }}>
-            <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.25 }}>
-              {g.group}
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              {g.items.map(l => {
-                const props = linkTo(l.href)
-                return (
-                  <Box
-                    key={l.href}
-                    {...props}
-                    // linkTo navigates and lets a modified click through to the browser; the sheet
-                    // only has to close itself once a plain click has been taken, and a tracked item
-                    // records the open through the same funnel its other entry points use.
-                    onClick={e => {
-                      const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-                      if (l.event && !modified) track(l.event, l.eventProps ?? {})
-                      props.onClick(e)
-                      if (e.defaultPrevented) onClose()
-                    }}
-                    sx={{
-                      display: 'flex', flexDirection: 'column', gap: 0.1,
-                      textDecoration: 'none', color: 'text.primary',
-                      py: 1, borderBottom: '1px solid', borderColor: 'divider',
-                      '&:last-of-type': { borderBottom: 'none' },
-                      ...hoverOnly({ color: 'text.primary' }),
-                    }}
-                  >
-                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{l.label}</Typography>
-                    {l.hint && <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{l.hint}</Typography>}
-                  </Box>
-                )
-              })}
-            </Box>
-          </Box>
-        ))}
+        {/* The same flat list as the desktop menu, from morePages.ts, with a line under each
+            name saying what is there. */}
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          {pages.map(l => {
+            const props = linkTo(l.href)
+            return (
+              <Box
+                key={l.href}
+                {...props}
+                // linkTo navigates and lets a modified click through to the browser; the sheet
+                // only has to close itself once a plain click has been taken, and a tracked item
+                // records the open through the same funnel its other entry points use.
+                onClick={e => {
+                  const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+                  if (l.event && !modified) track(l.event, l.eventProps ?? {})
+                  props.onClick(e)
+                  if (e.defaultPrevented) onClose()
+                }}
+                sx={{
+                  display: 'flex', flexDirection: 'column', gap: 0.1,
+                  textDecoration: 'none', color: 'text.primary',
+                  py: 1, borderBottom: '1px solid', borderColor: 'divider',
+                  '&:last-of-type': { borderBottom: 'none' },
+                  ...hoverOnly({ color: 'text.primary' }),
+                }}
+              >
+                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{l.label}</Typography>
+                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{l.hint}</Typography>
+              </Box>
+            )
+          })}
+        </Box>
       </Box>
     </SwipeableDrawer>
   )

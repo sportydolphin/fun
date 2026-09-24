@@ -4,6 +4,7 @@ import { APP_VERSION } from './version'
 import type { ChangelogChange, ChangelogEntry } from './version'
 import { CHANGELOG } from './changelog'
 import { ACCENT } from './mlb/constants'
+import { useIsAdmin } from './lib/admin'
 
 /**
  * The "What's New" dialog and its per-day detail view.
@@ -30,8 +31,10 @@ import { ACCENT } from './mlb/constants'
  *  is short enough to read standing up. The rest is one tap away and nothing is dropped. */
 const INITIAL_DAYS = 5
 
-/** Bullets on a day in the summary. A day can carry thirty; the point of this dialog is to say
- *  what happened, not to list it, so the tail goes behind the day's own link. */
+/** Bullets on a day in the summary, FOR THE OWNER ONLY. A reader sees every `short` line,
+ *  because the full notes are owner-only: the `full` sentences are written for the record (the
+ *  why, the numbers behind a decision) and read as a build log to anyone else. Capping a reader
+ *  at three with no link behind them would hide the rest of the day entirely. */
 const SUMMARY_BULLETS = 3
 
 /** One day's releases. */
@@ -119,6 +122,7 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
   const [viewAllDate, setViewAllDate] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
   const isDesktop = useMediaQuery('(min-width:900px)')
+  const isAdmin = useIsAdmin()
 
   const days = useMemo(() => groupByDay(CHANGELOG), [])
   const shown = showAll ? days : days.slice(0, INITIAL_DAYS)
@@ -140,6 +144,7 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
         </DialogTitle>
         <DialogContent dividers>
           {shown.map((day, idx) => {
+            const bullets = isAdmin ? day.changes.slice(0, SUMMARY_BULLETS) : day.changes
             const rest = day.changes.length - SUMMARY_BULLETS
             return (
               <Box key={day.date} sx={{ mb: idx === shown.length - 1 ? 0 : 3 }}>
@@ -156,7 +161,7 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
                   </Typography>
                 </Box>
                 <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                  {day.changes.slice(0, SUMMARY_BULLETS).map((c, i) => (
+                  {bullets.map((c, i) => (
                     <ChangelogBullet key={i} text={c.short} />
                   ))}
                 </Box>
@@ -164,12 +169,14 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
                     loud. "View all changes" sat under every block before, including the ones
                     with a single change, where all it opened was the same sentence again at
                     greater length. */}
-                <MoreLink
-                  label={rest > 0
-                    ? `See all ${day.changes.length} changes`
-                    : 'Read the full notes'}
-                  onClick={() => setViewAllDate(day.date)}
-                />
+                {isAdmin && (
+                  <MoreLink
+                    label={rest > 0
+                      ? `See all ${day.changes.length} changes`
+                      : 'Read the full notes'}
+                    onClick={() => setViewAllDate(day.date)}
+                  />
+                )}
               </Box>
             )
           })}
@@ -186,7 +193,7 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openDay !== null} onClose={() => setViewAllDate(null)} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
+      <Dialog open={isAdmin && openDay !== null} onClose={() => setViewAllDate(null)} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
         {openDay && (
           <>
             <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>

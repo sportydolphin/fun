@@ -612,6 +612,16 @@ export const WPBL_PHOTOS_PAGE = `${WPBL_BASE}/photos`
 export const isWpblPhotosPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_PHOTOS_PAGE
 
+// ─── The Reading page ──────────────────────────────────────────────────────────
+//
+// A seventh sibling: one writer's coverage of the league, every post, with a club filter. Its own
+// URL because the writing used to be a segment of a card on the league page with a modal archive
+// that had no address at all, which made it unshareable and invisible to search. See ReadingPage.tsx.
+export const WPBL_READING_PAGE = `${WPBL_BASE}/reading`
+
+export const isWpblReadingPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_READING_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

@@ -8,10 +8,12 @@ import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameIds, computeStandings, countsInStandings,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblTrackedGameIds, wpblHomeCacheAgeMs,
+  fetchWpblArticles, getCachedWpblArticles,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
-import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
+import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
+import { AUTHOR_NAME, PUBLICATION_NAME, readMinutes } from './derive/articles'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
@@ -2264,6 +2266,66 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
 
 
 /**
+ * The latest post from the writer the section mirrors, as one line, and a door to all of them.
+ *
+ * ONE LINE, NOT A RAIL. A shelf of her work sat on Home once and was seen far more than it was
+ * opened (575 browsers, 39 click-throughs), so what comes back is the smallest thing that still
+ * answers "is there anything new to read": her newest headline, which opens the post, and a link
+ * to /wpbl/reading for the rest. Named as hers in the eyebrow, because readers have mistaken her
+ * for the person who runs this site (see AuthorByline in Reading.tsx). Renders nothing until
+ * there is a post.
+ */
+function LatestReadingCard() {
+  const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
+  useEffect(() => {
+    let live = true
+    fetchWpblArticles().then(a => { if (live) setArticles(a) }).catch(() => { /* renders nothing */ })
+    return () => { live = false }
+  }, [])
+  const latest = articles[0]
+  const shown = useRef(false)
+  useEffect(() => {
+    if (shown.current || !latest) return
+    shown.current = true
+    track(EVENTS.WPBL_READING_SHOWN, { count: articles.length, from: 'home' })
+  }, [latest, articles.length])
+  if (!latest) return null
+
+  const all = linkTo(WPBL_READING_PAGE)
+  const date = new Date(latest.published_at)
+  const when = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return (
+    <Box sx={{
+      border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,
+      px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5,
+    }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+        <Typography sx={{
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+          textTransform: 'uppercase', color: 'text.secondary',
+        }}>Latest from {AUTHOR_NAME}</Typography>
+        <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
+          sx={{
+            flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-solid)',
+            textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+          }}>All {articles.length} posts ›</Box>
+      </Box>
+      <Box component="a" href={latest.url} target="_blank" rel="noopener noreferrer"
+        onClick={() => track(EVENTS.WPBL_ARTICLE_OPENED, { postId: latest.post_id, slug: latest.slug, from: 'home' })}
+        aria-label={`Read: ${latest.title}, opens in a new tab`}
+        sx={{ textDecoration: 'none', color: 'text.primary', borderRadius: 1, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.3, color: 'inherit' }}>
+          {latest.title} <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontWeight: 600 }}>↗</Box>
+        </Typography>
+      </Box>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
+        {[when, `${readMinutes(latest.word_count, latest.video_count)} min read`, `on ${PUBLICATION_NAME}`].filter(Boolean).join(' · ')}
+      </Typography>
+    </Box>
+  )
+}
+
+/**
  * One line on Home pointing at /wpbl/league, where Reading, Highlights and the archive live.
  *
  * IT MEASURES ITSELF, and that is not boilerplate. Anything on Home carries its own impression
@@ -2306,11 +2368,10 @@ function LeagueCard() {
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary' }}>
-          The league
+          About the league
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.25 }}>
-          Where all 118 players are from and how the draft class turned out, plus the reading, the
-          highlight reels and the archive.
+          How it works, the four clubs, and where the players are from.
         </Typography>
       </Box>
       <Box aria-hidden sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.display, flexShrink: 0 }}>›</Box>
@@ -3348,20 +3409,17 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       {/* Its ordinary home, under the season's numbers. See bracketLeads. */}
       {!bracketLeads && bracketCard}
 
-      {/* One line pointing at /wpbl/league, where Reading, Highlights and the archive live. A
-          shelf of three horizontal strips is not worth screens of Home when few readers open
-          it, and Home needs to get shorter before it gets anything else. The card carries its
-          own impression event so the trade can be read rather than assumed.
-
-          Last on the page at both breakpoints, which is also the right editorial answer during
-          a season: everything above is about games that just happened or are about to. */}
+      {/* The latest post, then About the league: two single lines, last on the page at both
+          breakpoints, since everything above is about games. Both carry their own impression
+          events so the reach of each can be read rather than assumed. */}
       {/* Fan photos during a season, once there are enough (see HOME_MIN_PHOTOS). Above The league
           and below everything about the games, the explore-and-relive zone. In the offseason it
           moves to the top instead (see above). Renders nothing, and adds no gap, until the
           threshold is met. */}
       {!seasonDone && <FanPhotoHomeCard />}
 
-      <Box sx={{ mt: 1.5 }}>
+      <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <LatestReadingCard />
         <LeagueCard />
       </Box>
 

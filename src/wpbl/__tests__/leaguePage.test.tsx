@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { WpblPlayer } from '../types'
 
-// The country sections on /wpbl/league fold, and the thing that has to survive the folding is
-// the anchors. This page is 118 player links and the crawl path they make is the reason it
-// exists, so a closed country that returns `null` instead of hiding its grid would delete
-// those links from the document a crawler reads, while looking identical to a human who
-// opened the page and never touched a heading. Nothing else would catch that.
+// /wpbl/league shows one country's players at a time, picked from chips, and the thing that has
+// to survive that is the anchors. This page carries a link to every player and the crawl path
+// they make is part of why it exists, so a country that is not picked must HIDE its grid rather
+// than render nothing: returning null would delete those links from the document a crawler
+// reads, while looking identical to a human. Nothing else would catch that.
 
 const player = (name: string, hometown: string, id: string): WpblPlayer => ({
   id, name, hometown, age: 27,
@@ -24,12 +24,7 @@ vi.mock('../api', async (importOriginal) => {
     ...actual,
     fetchWpblAllPlayers: () => Promise.resolve(ROSTER),
     fetchWpblTeams: () => Promise.resolve([]),
-    fetchWpblVideos: () => Promise.resolve([]),
-    fetchWpblArticles: () => Promise.resolve([]),
-    fetchWpblPhotos: () => Promise.resolve([]),
-    getCachedWpblVideos: () => [],
-    getCachedWpblArticles: () => [],
-    getCachedWpblPhotos: () => [],
+    fetchWpblSchedule: () => Promise.resolve([]),
   }
 })
 
@@ -37,50 +32,54 @@ const { default: WpblLeaguePage } = await import('../LeaguePage')
 
 const show = () => render(<WpblLeaguePage onNavigate={() => {}} />)
 
-/** A country's fold control, which is its whole heading row. */
-const heading = (country: string) =>
-  screen.getByRole('heading', { name: new RegExp(country) }).closest('[aria-expanded]') as HTMLElement
+/** A country's chip, found by its name. */
+const chip = (country: string) =>
+  screen.getAllByRole('button').find(b => b.textContent?.includes(country)) as HTMLElement
+
+/** Whether a player's grid is on screen (not merely in the document). */
+const gridShown = (name: string) =>
+  (screen.getByText(name).closest('a')!.parentElement as HTMLElement).style.display !== 'none'
+  && getComputedStyle(screen.getByText(name).closest('a')!.parentElement as HTMLElement).display !== 'none'
 
 beforeEach(() => { vi.clearAllMocks() })
 
-describe('the league page’s country sections', () => {
-  it('renders every country open, so the roster is the page rather than a menu', async () => {
+describe('About the league: where the players are from', () => {
+  it('is titled About the league', async () => {
+    show()
+    expect(await screen.findByRole('heading', { name: 'About the league' })).toBeTruthy()
+  })
+
+  it('keeps every player link in the document before any country is picked', async () => {
     show()
     await screen.findByText('Denae Benites')
-    expect(heading('USA').getAttribute('aria-expanded')).toBe('true')
-    expect(heading('Japan').getAttribute('aria-expanded')).toBe('true')
+    for (const [name, slug] of [['Denae Benites', 'denae-benites'], ['Ayami Sato', 'ayami-sato']]) {
+      const link = screen.getByText(name).closest('a')
+      expect(link).not.toBeNull()
+      expect(link!.getAttribute('href')).toBe(`/wpbl/players/${slug}`)
+    }
+    expect(gridShown('Denae Benites')).toBe(false)
+    expect(gridShown('Ayami Sato')).toBe(false)
   })
 
-  it('keeps a closed country’s player links in the document', async () => {
-    show()
-    await screen.findByText('Denae Benites')
-    fireEvent.click(heading('USA'))
-    await waitFor(() => expect(heading('USA').getAttribute('aria-expanded')).toBe('false'))
-
-    // Still queryable, still an anchor, still pointing at the player's canonical URL. This is
-    // the assertion the comment in LeaguePage.tsx is about.
-    const link = screen.getByText('Denae Benites').closest('a')
-    expect(link).not.toBeNull()
-    expect(link!.getAttribute('href')).toBe('/wpbl/players/denae-benites')
-  })
-
-  it('folds one country without folding the others', async () => {
+  it('shows one country at a time', async () => {
     show()
     await screen.findByText('Ayami Sato')
-    fireEvent.click(heading('USA'))
-    await waitFor(() => expect(heading('USA').getAttribute('aria-expanded')).toBe('false'))
-    expect(heading('Japan').getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(chip('USA'))
+    expect(chip('USA').getAttribute('aria-pressed')).toBe('true')
+    expect(gridShown('Denae Benites')).toBe(true)
+    expect(gridShown('Ayami Sato')).toBe(false)
+
+    fireEvent.click(chip('Japan'))
+    expect(gridShown('Denae Benites')).toBe(false)
+    expect(gridShown('Ayami Sato')).toBe(true)
   })
 
-  it('collapses and restores every country from one control', async () => {
+  it('closes a country when its chip is tapped again', async () => {
     show()
     await screen.findByText('Ayami Sato')
-    fireEvent.click(screen.getByText('Collapse all'))
-    await waitFor(() => expect(heading('USA').getAttribute('aria-expanded')).toBe('false'))
-    expect(heading('Japan').getAttribute('aria-expanded')).toBe('false')
-
-    fireEvent.click(screen.getByText('Expand all'))
-    await waitFor(() => expect(heading('USA').getAttribute('aria-expanded')).toBe('true'))
-    expect(heading('Japan').getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(chip('Japan'))
+    fireEvent.click(chip('Japan'))
+    expect(chip('Japan').getAttribute('aria-pressed')).toBe('false')
+    expect(gridShown('Ayami Sato')).toBe(false)
   })
 })

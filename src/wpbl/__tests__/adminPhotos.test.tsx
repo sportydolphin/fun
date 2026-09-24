@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import type { WpblFanPhotoRow } from '../api'
-import type { WpblPlayer, WpblPhotoSubject, WpblTeam } from '../types'
+import type { WpblPlayer, WpblPhotoSubject, WpblTeam, WpblPhotoContributor } from '../types'
 
 // The curation tool is the only surface that writes these tables from the browser, so the thing
 // worth pinning is that its controls reach the right owner-write helper: Publish flips approved,
@@ -26,12 +26,18 @@ const removeFanPhotoSubject = vi.fn(async (..._a: unknown[]) => true)
 const updateFanPhoto = vi.fn(async (..._a: unknown[]) => true)
 const upsertFanPhotoFigure = vi.fn(async (..._a: unknown[]) => true)
 const upsertFanPhotoCategory = vi.fn(async (..._a: unknown[]) => true)
+const updateFanPhotoContributor = vi.fn(async (..._a: unknown[]) => true)
+const contributors: WpblPhotoContributor[] = [
+  { id: 'con1', display_name: 'Jamie Fan', contact: null, permission_granted_on: null, permission_evidence: 'DM Sep 1', permission_scope: 'site display', withdrawn_on: null },
+  { id: 'con2', display_name: 'Alex', contact: null, permission_granted_on: null, permission_evidence: 'email', permission_scope: null, withdrawn_on: null },
+]
 
 vi.mock('../api', () => ({
   fetchWpblFanPhotoQueue: vi.fn(async () => ({ photos, subjects, figures: [], categories: [] })),
   fetchWpblAllPlayers: vi.fn(async () => players),
   fetchWpblTeams: vi.fn(async () => teams),
-  fetchFanPhotoContributors: vi.fn(async () => []),
+  fetchFanPhotoContributors: vi.fn(async () => contributors),
+  updateFanPhotoContributor: (...a: unknown[]) => updateFanPhotoContributor(...a),
   setFanPhotoApproved: (...a: unknown[]) => setFanPhotoApproved(...a),
   addFanPhotoSubject: (...a: unknown[]) => addFanPhotoSubject(...a),
   removeFanPhotoSubject: (...a: unknown[]) => removeFanPhotoSubject(...a),
@@ -49,8 +55,8 @@ describe('AdminPhotos curation', () => {
 
   it('defaults to the review queue and counts each bucket', async () => {
     render(<AdminPhotos />)
-    // Unapproved photo is shown by default; its credit renders.
-    expect(await screen.findByText('Jamie Fan')).toBeTruthy()
+    // Unapproved photo is shown by default; its photographer renders (in the picker and the list).
+    expect((await screen.findAllByText('Jamie Fan')).length).toBeGreaterThan(0)
     // The published one is filtered out of the default view.
     expect(screen.queryByText('Already up')).toBeNull()
     expect(screen.getByText('To review (1)')).toBeTruthy()
@@ -117,6 +123,18 @@ describe('AdminPhotos curation', () => {
     fireEvent.click(within(dialog).getByLabelText('Next photo'))
     fireEvent.click(await within(dialog).findByText('+ Kelsie Whitmore'))
     await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph2', { playerId: 'plW' }))
+  })
+
+  it('renames a photographer from the Photographers section', async () => {
+    render(<AdminPhotos />)
+    await screen.findAllByText('Jamie Fan')
+    const section = screen.getByText('Photographers (2)').closest('div')!.parentElement!
+    fireEvent.click(within(section).getAllByText('Edit')[0])
+    const name = within(section).getByDisplayValue('Jamie Fan')
+    fireEvent.change(name, { target: { value: 'Jamie Fanning' } })
+    fireEvent.click(within(section).getByText('Save photographer'))
+    await waitFor(() => expect(updateFanPhotoContributor).toHaveBeenCalledWith(
+      'con1', expect.objectContaining({ display_name: 'Jamie Fanning', permission_evidence: 'DM Sep 1' }), contributors[0]))
   })
 
   it('creates a category keyed on the slug of its name', async () => {

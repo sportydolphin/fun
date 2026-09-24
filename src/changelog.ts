@@ -4,6 +4,167 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.93.0',
+    date:    '2026-09-24',
+    title:   'The offseason: a reading page, a clearer league page, and fan photos for everyone',
+    changes: [
+      {
+        short: 'Fan photos are open to everyone',
+        full:  'The gallery at /wpbl/photos is public now, along with the photos on Home and on player pages. It opens straight onto the photos, and on a phone the player-name filters are one row you swipe along instead of a wall of chips in front of the first picture.',
+      },
+      {
+        short: 'Reading: every post from the writer the site links, on one page',
+        full:  'The league coverage we link to has its own page at /wpbl/reading, with every post and a filter by club. It used to be one section of a card on the league page, with an archive that had no address of its own, so it could not be shared or found by search. Home carries just the latest headline and a link to the rest.',
+      },
+      {
+        short: 'About the league: a shorter page that says what the WPBL is',
+        full:  'The league page now answers one question, what is this league, for someone arriving cold: how it works, the four clubs, and where the players come from, picked one country at a time. The things it used to hold have moved to where they fit: the writing to Reading, the history photos into the gallery, highlights onto the season recap and each game, and the draft chart onto Stats.',
+      },
+      {
+        short: 'Postseason games are easier to open from Home and the recap',
+        full:  'With the scoreboard gone for the offseason, the series overview draws each game as a small scoreboard tile with a Box score link, and a game the series did not need says so. The season card’s games are links of their own.',
+      },
+      {
+        short: 'Flatter cards in dark mode',
+        full:  'Home, the season recap, the Teams tab and every team page draw their cards as outlines with no grey fill in dark mode, so a page reads as one document rather than a stack of panels. Light mode is unchanged.',
+      },
+      {
+        short: 'The season recap tells the postseason',
+        full:  'Under the champion: the final’s five games as cards, the bracket as it finished, and the best single playoff performances at the plate and on the mound. Each row opens that game’s box score on the player’s own club. Home drops the title odds and the series details that only mattered while there was still something to decide.',
+      },
+    ],
+  },
+  {
+    version: '1.92.0',
+    date:    '2026-09-22',
+    title:   'Playoff numbers on every player page',
+    changes: [
+      {
+        short: 'Regular season, playoffs or both on a player page',
+        full:  'A player who reached the postseason gets a toggle on their page to show the regular season, the playoffs, or both together. Every total, the game log, fielding and the pitch plot follow it. Ranks and OPS+ only show for the regular season, where there is a league to rank against.',
+      },
+      {
+        short: 'Player faces on the season recap leaders',
+        full:  'The leaders on the season recap carry each player’s photo beside their name.',
+      },
+      {
+        short: 'A trophy-gold banner for the champion',
+        full:  'The champion banner is drawn in a gold that stays readable in both light and dark mode.',
+      },
+    ],
+  },
+  {
+    version: '1.91.0',
+    date:    '2026-09-21',
+    title:   'Players open over the page you are on',
+    changes: [
+      {
+        short: 'A player opens as a card over the page you are on',
+        full:  'Opening a player from Compare, the players page, the league page or the season recap used to leave that page and drop you on Home behind the player card. Players now open as an overlay the way games already did, and Back walks you out one card at a time to where you started.',
+      },
+      {
+        short: 'The season card crowns the champion',
+        full:  'Once the final was decided, Home’s season card turned into a champion card: the winning club in gold, the runner-up, the series score, and the box scores under it.',
+      },
+      {
+        short: 'The scoreboard row fills out when only a few games are left',
+        full:  'With only one or two games ahead, the scoreboard at the top of Home spreads them across the row instead of leaving most of it empty.',
+      },
+      {
+        short: 'A tidier footer',
+        full:  'The WPBL page links in the footer fold behind a More pages line, so the footer opens with the things a reader actually came for.',
+      },
+    ],
+  },
+  {
+    version: '1.90.0',
+    date:    '2026-09-20',
+    title:   'A players page worth browsing',
+    changes: [
+      {
+        short: 'The players page shows faces, numbers and positions, with search and sort',
+        full:  'Every player has a headshot, jersey number and position, with a search box that takes a name, a position or a number, and a sort by club, name or number. It lists the 69 players who got into a game, rather than the whole 118-name roster.',
+      },
+      {
+        short: 'The More menu is grouped, and Compare has a place in it',
+        full:  'The More menu is sorted into groups, and the Compare tool, which used to be reachable only from a player card or Home, is listed there.',
+      },
+      {
+        short: 'The standalone pages share one look',
+        full:  'The league page, the season recap, Scorigami, Data sources, Compare and the glossary use one header, one width and one Back button, where each had drifted its own way.',
+      },
+    ],
+  },
+  {
+    version: '1.89.0',
+    date:    '2026-09-19',
+    title:   'The final standings, and how the race was run',
+    changes: [
+      {
+        short: 'Final standings and the standings race on the season recap',
+        full:  'The season recap has the final regular-season table, and a chart under it you can drag back to any date to see the table as it stood that day. A leaderboard race sits beside it, with one row of controls that works on a phone.',
+      },
+      {
+        short: 'Game modals open over the season recap and Scorigami',
+        full:  'A game opened from the season recap or Scorigami appears over that page instead of sending you back to Home.',
+      },
+      {
+        short: 'The phone sheet backdrop fades in',
+        full:  'On a phone the dark backdrop behind a sheet fades in with the slide rather than snapping on.',
+      },
+    ],
+  },
+  {
+    version: '1.88.0',
+    date:    '2026-09-17',
+    title:   'Short links, and a cleaner Home',
+    changes: [
+      {
+        short: 'Short share links for players and games',
+        full:  'Copying a player or game link gives you a short /p/ or /g/ address that fits in a message or a post. Every post the site makes to Bluesky carries #wpbl.',
+      },
+      {
+        short: 'One type system across Home',
+        full:  'Home’s cards use one set of sizes, weights and one accent blue, where they had drifted into a dozen near-matches.',
+      },
+      {
+        short: 'The Discord /player card shows postseason stats',
+        full:  'The /player command in the fan Discord shows a player’s postseason numbers too, not only the regular season.',
+      },
+      {
+        short: 'The live view names the pitcher when the feed forgets to',
+        full:  'When the league feed drops the current pitcher from a live game, Game Center takes the name from the box score instead of showing a blank.',
+      },
+    ],
+  },
+  {
+    version: '1.87.0',
+    date:    '2026-09-16',
+    title:   'Fan award winners',
+    changes: [
+      {
+        short: 'Fan award results, with a card to share',
+        full:  'When the ballot closed at the final’s first pitch it turned into a results view: each winner, the honest number of people who voted, and a card you can share. On a phone, Share goes straight to the phone’s own share sheet. The winners also show on Home.',
+      },
+      {
+        short: 'Game previews: matchups, leaders and rosters',
+        full:  'A game preview has a Matchup, Leaders and Rosters toggle. Leaders shows each club’s best hitters and pitchers with their photos, Rosters lists who is active, and every row opens that player. It is wider on a desktop.',
+      },
+      {
+        short: 'Settings: pick light, dark or system theme, and your default section',
+        full:  'The settings dialog has a Theme choice and a default section to open on, and lays out in two columns on a desktop instead of one long scroll.',
+      },
+      {
+        short: 'Game Center keeps the live view up between plays',
+        full:  'The live tab no longer blinks back to an empty state in the gap between one play and the next, and the recap and live tabs are tidier on a phone.',
+      },
+      {
+        short: 'A Bluesky reminder before first pitch',
+        full:  'The site’s Bluesky account posts a short reminder shortly before each game starts, alongside the recap it already posted after.',
+      },
+    ],
+  },
+  {
     version: '1.86.0',
     date:    '2026-09-14',
     title:   'When in a game the runs come',

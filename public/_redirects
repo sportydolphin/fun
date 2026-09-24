@@ -37,6 +37,7 @@
 /wpbl/season/    /wpbl/season     301
 /wpbl/scorigami/ /wpbl/scorigami  301
 /wpbl/photos/    /wpbl/photos     301
+/wpbl/reading/   /wpbl/reading    301
 /wpbl/compare/   /wpbl/compare    301
 /mlb/          /mlb       301
 /privacy/      /privacy   301
@@ -79,6 +80,8 @@
 /wpbl/scorigami  /  200
 # The fan photos gallery. Not a tab: see WPBL_PHOTOS_PAGE in src/wpbl/routes.ts.
 /wpbl/photos     /  200
+# One writer's coverage of the league. Not a tab: see WPBL_READING_PAGE in src/wpbl/routes.ts.
+/wpbl/reading    /  200
 # Not a tab either: see the note on WPBL_COMPARE_BASE in src/wpbl/routes.ts.
 /wpbl/compare    /  200
 # The one wildcard in this file, and the exception that proves the rule. A player URL is

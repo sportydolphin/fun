@@ -74,15 +74,18 @@ These Two Guys Race to Eat a Hot Dog, Slowly."* The surface is called **Reading*
 
 | Surface | Component | Shows when |
 |---|---|---|
-| Home rail, under Highlights | `ReadingRail` | any posts exist |
-| Full archive (modal from "See all") | `ReadingArchive` | always offered |
+| `/wpbl/reading`, every post with a club filter | `ReadingPage` + `ReadingRow` | any posts exist |
+| Home, one line: the latest headline and "All N posts" | `LatestReadingCard` (Home.tsx) | any posts exist |
 | Game center, under the highlight reel | `GameStoryCard` | a final has a matched post |
 | Player page, under the stat blocks | `WrittenAbout` | a post names that player |
 
 All four live in [`src/wpbl/Reading.tsx`](../src/wpbl/Reading.tsx) and every one self-hides
 when it has nothing, so an empty feed leaves no empty shells.
 
-`AuthorByline` sits under the rail and at the head of the archive: her photo, her name, her
+*(Sep 24, 2026: the Home rail and its modal archive, later a segment of the league page's shelf,
+were replaced by the `/wpbl/reading` page, which has a URL, shows every post, and filters by club.)*
+
+`AuthorByline` sits at the head of the Reading page: her photo, her name, her
 own one-line description of herself, and a link to the publication. It is the only link here
 that goes somewhere other than a single article. There is deliberately no "opens in her
 site" note anywhere: every card already carries a ↗, and saying it in words as well read as
