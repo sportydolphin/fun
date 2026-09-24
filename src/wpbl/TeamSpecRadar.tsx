@@ -1,7 +1,7 @@
 import { useId, useMemo, useState, useRef, useEffect } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { wpblAccent } from './constants'
-import { useWpblDark, CARD_BORDER } from './ui'
+import { useWpblDark, CARD_BORDER, INNER_BORDER } from './ui'
 import {
   TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES, formatSpecStat, specHighlights, specRank, specDirectionHint,
   type TeamSpecKey, type TeamSpecs,
@@ -371,7 +371,7 @@ export function TeamSpecDetail({ specs, teamId, selected, kLabel, scaleK, onClea
   if (!row) return null
   const accent = wpblAccent(teamId, isDark)
   const shell = {
-    px: 1.25, py: 0.9, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
+    px: 1.25, py: 0.9, borderRadius: 2, border: '1px solid', borderColor: INNER_BORDER,
     display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.75, minHeight: 34,
   } as const
 

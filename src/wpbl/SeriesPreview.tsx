@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
-  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark,
-  TYPE_SCALE, chromePx,
+  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark,
+  TYPE_SCALE,
 } from './ui'
 import { wpblAccent, wpblSurface, formatGameTime } from './constants'
 import { fetchWpblAllLines, getCachedWpblAllLines, fetchWpblAllPlayers, countsInStandings } from './api'
@@ -29,8 +29,8 @@ import type {
  * on stays comparable.
  *
  * WHAT IT ANSWERS, in the order somebody asks it: who is playing and how likely each of them is,
- * when the games are, what happened when these two met in the season, how the clubs compare, and
- * who to watch on each side. The first four exist in pieces elsewhere in the section; the
+ * when the games are (and, once played, a way into each one), how the clubs compare, and who to
+ * watch on each side. The first three exist in pieces elsewhere in the section; the
  * leaders are the reason this is a series overview rather than a bigger tooltip.
  *
  * IT FETCHES NOTHING ANYBODY ELSE HAS NOT ALREADY FETCHED. Box-score lines and the league roster
@@ -38,20 +38,26 @@ import type {
  * request at all; on a cold one it asks for the same two reads the rest of the page wants.
  */
 
-/** The regular-season meetings between two clubs, newest first. The season series line in the
- *  bracket is a record; this is the games behind it. */
-export function seasonMeetings(a: string, b: string, games: WpblGame[]): WpblGame[] {
+/** A series' games that have started (final or live), oldest first. Two clubs meet in at most one
+ *  series of a four-club bracket (the semifinals are 1v4 and 2v3, and the final takes one club
+ *  from each), so every postseason game between them belongs to this series. */
+export function seriesGamesStarted(a: string, b: string, games: WpblGame[]): WpblGame[] {
   return games
-    .filter(g => g.status === 'final' && countsInStandings(g)
+    .filter(g => !countsInStandings(g) && (g.status === 'final' || g.status === 'live')
       && ((g.home_team_id === a && g.away_team_id === b) || (g.home_team_id === b && g.away_team_id === a)))
-    .sort((x, y) => (x.game_date < y.game_date ? 1 : -1))
+    .sort((x, y) => (x.game_date < y.game_date ? -1 : x.game_date > y.game_date ? 1 : 0))
 }
 
-function ClubChip({ team, seed, record, winP, onOpenTeam }: {
+function ClubChip({ team, seed, record, winP, wins, won, onOpenTeam }: {
   team: WpblTeam; seed: number | null; record: string | null; winP: number | null
+  /** Series wins, shown in the percentage's slot once the odds are gone (a decided series). */
+  wins: number | null
+  /** Whether this club took the series; the loser's count goes grey. */
+  won: boolean
   onOpenTeam?: (t: WpblTeam) => void
 }) {
   const dark = useWpblDark()
+  const figure = winP != null ? fmtOdds(winP) : wins != null ? String(wins) : null
   return (
     <Box
       {...pressable(onOpenTeam ? () => onOpenTeam(team) : undefined)}
@@ -60,8 +66,8 @@ function ClubChip({ team, seed, record, winP, onOpenTeam }: {
       aria-label={onOpenTeam ? `${team.city} ${team.name} team page` : undefined}
       sx={{
         position: 'relative', overflow: 'hidden', flex: 1, minWidth: 0,
-        borderRadius: 2, border: '1px solid', borderColor: 'divider', p: 1.25,
-        display: 'flex', alignItems: 'center', gap: 1,
+        borderRadius: 2, border: '1px solid', borderColor: 'divider', px: 1.5, py: 1.25,
+        display: 'flex', alignItems: 'center', gap: 1.25,
         cursor: onOpenTeam ? 'pointer' : 'default',
         ...(onOpenTeam ? TAPPABLE : null), ...FOCUS_RING,
       }}
@@ -72,103 +78,239 @@ function ClubChip({ team, seed, record, winP, onOpenTeam }: {
           bgcolor: wpblSurface(team.id, dark),
         }} />
       )}
-      <Box sx={{ position: 'relative', flexShrink: 0, display: 'flex' }}><TeamBadge team={team} size={30} /></Box>
+      <Box sx={{ position: 'relative', flexShrink: 0, display: 'flex' }}><TeamBadge team={team} size={32} /></Box>
       <Box sx={{ position: 'relative', minWidth: 0, flex: 1 }}>
         {/* THE NICKNAME ON TOP AND THE CITY UNDERNEATH, which is not the bracket's answer and
         should not be. Two of these sit side by side inside a 560px sheet with a percentage
         on each, so "San Francisco Firebells" on one line ellipsises to "San Franci…" and
         throws the city away, which is the half the bracket's own boxes are already showing.
         Split across two lines nothing is lost and nothing is cut. */}
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, minWidth: 0 }}>
-          {/* The seed rides the nickname line rather than the meta line below it. Three items
-          down there ("San Francisco · 1 seed · 10-5") do not fit beside a percentage in half
-          a 560px sheet, and the one that gets cut is the city, which is the whole reason this
-          line exists. */}
-          {seed != null && (
-            <Typography sx={{
-              flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
-              fontVariantNumeric: 'tabular-nums',
-            }}>{seed}</Typography>
-          )}
-          <Typography sx={{
-            fontSize: TYPE_SCALE.heading, fontWeight: 900, lineHeight: 1.15, minWidth: 0,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{team.name}</Typography>
-        </Box>
-        {/* WRAPS RATHER THAN ELLIPSISES. It is the only line in the chip that can afford a
-            second row, and at the Large text setting "San Francisco · 10-5" does not fit beside
-            a percentage in half a 560px sheet. Cutting it would drop the record, which is the
-            half that is not already on the bracket behind this sheet. */}
         <Typography sx={{
-          fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1.3,
-        }}>{[team.city, record].filter(Boolean).join(' · ')}</Typography>
+          fontSize: TYPE_SCALE.heading, fontWeight: 900, lineHeight: 1.2, minWidth: 0,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{team.name}</Typography>
+        {/* The seed LEADS the meta line, as "1 seed", rather than riding the nickname as a bare
+            digit: a lone grey "4" at caption size beside a 900-weight name read as a stray
+            character, not a seed. WRAPS RATHER THAN ELLIPSISES: it is the only line in the chip
+            that can afford a second row, and at the Large text setting the three items do not
+            fit beside a percentage in half a 560px sheet. Cutting it would drop the record,
+            which is the half that is not already on the bracket behind this sheet. */}
+        <Typography sx={{
+          fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.35, mt: 0.15,
+        }}>{[seed != null ? `${seed} seed` : null, team.city, record].filter(Boolean).join(' · ')}</Typography>
       </Box>
       {/* A step BELOW the club name. The chip is about a club and the number is what is said
-      about it; a step above (21px against the name's 19px), the reader's eye lands on the
-      percentage first, in a row whose whole job is to say who is playing. */}
-      {winP != null && (
+      about it; a step above, the reader's eye lands on the percentage first, in a row whose
+      whole job is to say who is playing. */}
+      {figure != null && (
         <Typography sx={{
           position: 'relative', flexShrink: 0, fontSize: TYPE_SCALE.title, fontWeight: 900,
-          fontVariantNumeric: 'tabular-nums', color: wpblAccent(team.id, dark),
-        }}>{fmtOdds(winP)}</Typography>
+          fontVariantNumeric: 'tabular-nums',
+          color: winP != null || won ? wpblAccent(team.id, dark) : 'text.disabled',
+        }}>{figure}</Typography>
       )}
     </Box>
   )
 }
 
-/** The published fixture list for this series, resolved onto the two clubs.
+/** A section's heading, with an optional one-line answer on the right ("SF won 5-0"). The answer
+ *  used to be glued onto the label ("REGULAR SEASON MATCHUP · SF WON IT 5-0"), which put a result
+ *  in the smallest, faintest, all-caps type on the card; or it floated alone above the columns as
+ *  a sentence with no heading at all. */
+function SectionHead({ label, detail }: { label: string; detail?: string | null }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1.5, minWidth: 0 }}>
+      <SectionLabel>{label}</SectionLabel>
+      {detail && (
+        <Typography sx={{
+          fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary',
+          textAlign: 'right', minWidth: 0, lineHeight: 1.35,
+        }}>{detail}</Typography>
+      )}
+    </Box>
+  )
+}
+
+// No weekday: five tiles across a desktop sheet leave "Wed, Sep 16" cut to "Wed, Se…" beside the
+// game number, and the date is the half of that string anyone is reading for.
+const dayOf = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+
+/** One club's line on a game tile. */
+interface TileSide { team: WpblTeam | null | undefined; score?: number | null; won?: boolean }
+
+/** What a tile can say about its game, which decides everything about how it is drawn. */
+type TileState = 'final' | 'live' | 'upcoming' | 'unneeded'
+
+/** ONE GAME OF THE SERIES AS A SCOREBOARD TILE, and the tile is the way into its Game Center.
  *
- *  THE LEAGUE PUBLISHES A SEAT, NOT A CLUB ("higher" or "lower" seed bats last), which is what
- *  makes this printable before anyone knows who is in it. The championship's five carry no seat
- *  at all, because the league has not said which end of the bracket bats last in which game, and
- *  a guessed "@" is exactly what that field exists not to print: those rows show the date and
- *  nothing else. */
-function SeriesSchedule({ series }: { series: BracketSeries }) {
-  const list = postseasonGames(series.round, series.key)
-  if (list.length === 0) return null
-  const higher = series.home.team
-  const lower = series.away.team
+ *  WHY TILES AND NOT ROWS. Home's scoreboard is gone for the offseason, so this sheet is now the
+ *  route from the bracket to a postseason box score, and a hairline row with a hover tint did not
+ *  read as something to press: it looked like a table. A bordered tile with the two clubs stacked
+ *  the way every scoreboard stacks them, and a "Box score ›" in the link colour at its foot, says
+ *  what it does before anybody hovers. A game still to come gets the same frame with no link, so
+ *  the difference between the two is the link and nothing else.
+ *
+ *  THE SCORE COLUMN IS rem, not chrome px, because it reserves room for a number. */
+function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
+  n: number
+  date: string | null
+  time?: string | null
+  state: TileState
+  /** Null when the league has not said who bats last (the championship's published fixtures). */
+  away: TileSide | null
+  home: TileSide | null
+  onOpen?: () => void
+  ariaLabel?: string
+}) {
+  const dark = useWpblDark()
+  const line = ({ team, score, won }: TileSide) => {
+    const decided = state === 'final'
+    const color = decided && won && team ? wpblAccent(team.id, dark) : decided ? 'text.secondary' : 'text.primary'
+    const weight = decided && won ? 900 : 700
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+        {team && <TeamBadge team={team} size={22} />}
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.title, fontWeight: weight, color, whiteSpace: 'nowrap' }}>
+          {team?.abbr ?? 'TBD'}
+        </Typography>
+        {score != null && (
+          <Typography sx={{
+            minWidth: '1.4rem', textAlign: 'right', fontSize: TYPE_SCALE.title, fontWeight: weight, color,
+            fontVariantNumeric: 'tabular-nums',
+          }}>{score}</Typography>
+        )}
+      </Box>
+    )
+  }
+  const micro = {
+    fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', whiteSpace: 'nowrap',
+  } as const
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-      {list.map(g => {
-        const host = g.home === 'higher' ? higher : g.home === 'lower' ? lower : null
-        const guest = g.home === 'higher' ? lower : g.home === 'lower' ? higher : null
-        const when = formatGameTime(g.date, g.time)
-        const day = new Date(`${g.date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
-        return (
-          <Box key={g.game} sx={{
-            display: 'flex', alignItems: 'center', gap: 0.75, py: 0.7, minWidth: 0,
-            borderTop: '1px solid', borderColor: 'divider',
-            opacity: g.ifNecessary ? 0.6 : 1,
-          }}>
-            <Typography sx={{
-              // "Game 3" and nothing longer, at the smallest size on the row, so it gets the
-              // width that string needs and not a hand-picked column. A wider column takes pixels
-              // the matchup on the right needs at the Large text setting, where "BOS @ SF" comes
-              // out as "BOS @ S…".
-              width: '2.75rem', flexShrink: 0,
-              fontSize: TYPE_SCALE.caption, fontWeight: 800,
-              letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled',
-            }}>{`Game ${g.game}`}</Typography>
-            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, whiteSpace: 'nowrap' }}>{day}</Typography>
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', whiteSpace: 'nowrap' }}>{when}</Typography>
-            <Box sx={{ flex: 1 }} />
-            {host && guest && (
-              <Typography sx={{
-                fontSize: TYPE_SCALE.caption, color: 'text.disabled', whiteSpace: 'nowrap',
-                overflow: 'hidden', textOverflow: 'ellipsis',
-              }}>{`${guest.abbr} @ ${host.abbr}`}</Typography>
-            )}
-            {g.ifNecessary && (
-              <Typography sx={{
-                fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
-                whiteSpace: 'nowrap', flexShrink: 0,
-              }}>if needed</Typography>
-            )}
-          </Box>
-        )
-      })}
+    <Box
+      {...pressable(onOpen)}
+      aria-label={onOpen ? ariaLabel : undefined}
+      sx={{
+        minWidth: 0, borderRadius: 2, p: 1.25, display: 'flex', flexDirection: 'column', gap: 1,
+        border: '1px solid', borderColor: 'divider',
+        // Hidden on a phone, where the grid is two across and a swept best-of-3's third tile
+        // would take a row of its own to say nothing was played.
+        ...(state === 'unneeded' ? { borderStyle: 'dashed', opacity: 0.55, display: { xs: 'none', sm: 'flex' } } : null),
+        ...(onOpen ? {
+          cursor: 'pointer', transition: 'background 0.12s, border-color 0.12s',
+          ...hoverOnly({ bgcolor: 'action.hover', borderColor: 'text.disabled' }),
+        } : null),
+        ...FOCUS_RING,
+      }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+        <Typography sx={{ ...micro, color: 'text.secondary' }}>{`Game ${n}`}</Typography>
+        {date && (
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {dayOf(date)}
+          </Typography>
+        )}
+      </Box>
+
+      {state === 'unneeded' ? (
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1.1, textAlign: 'center' }}>Not needed</Typography>
+      ) : away && home ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+          {line(away)}
+          {line(home)}
+        </Box>
+      ) : (
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1.1, textAlign: 'center' }}>Matchup to come</Typography>
+      )}
+
+      {state !== 'unneeded' && (
+        <Box sx={{
+          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, minWidth: 0,
+          pt: 0.75, borderTop: '1px solid', borderColor: 'divider',
+        }}>
+          {state === 'live' ? (
+            <Typography sx={{ ...micro, color: 'error.main' }}>● Live</Typography>
+          ) : state === 'final' ? (
+            <Typography sx={{ ...micro, color: 'text.disabled' }}>Final</Typography>
+          ) : (
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap' }}>{time ?? 'Time TBA'}</Typography>
+          )}
+          {onOpen && (
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'primary.main', whiteSpace: 'nowrap' }}>
+              {state === 'live' ? 'Watch ›' : 'Box score ›'}
+            </Typography>
+          )}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+/** Every game of the series as a tile: the ones played, the published fixtures still to come, and
+ *  once the series is decided the ones it did not need.
+ *
+ *  THE LEAGUE PUBLISHES A SEAT, NOT A CLUB ("higher" or "lower" seed bats last), which is what
+ *  makes a fixture printable before anyone knows who is in it. The championship's five carry no
+ *  seat at all, because the league has not said which end of the bracket bats last in which game,
+ *  and a guessed "@" is exactly what that field exists not to print.
+ *
+ *  THE TILE COUNT IS THE FORMAT, so the grid is always the shape of the series: a best-of-3 swept
+ *  in two still draws three tiles, the third marked "Not needed". Dropping it left two tiles
+ *  stranded at the left of a row built for five, and "won in two" is worth seeing anyway. */
+function SeriesGames({ series, played, teams, onOpenGame }: {
+  series: BracketSeries
+  /** This series' games that have started, in order (see `seriesGamesStarted`). */
+  played: WpblGame[]
+  teams: WpblTeam[]
+  onOpenGame?: (g: WpblGame) => void
+}) {
+  // A played game takes its published slot's place, counted in order rather than matched on the
+  // date, so a rain-out that moves game 2 by a day still lands on "Game 2".
+  const published = postseasonGames(series.round, series.key)
+  const higher = series.home.team
+  const lower = series.away.team
+  const slots = Math.max(series.bestOf, played.length)
+  if (slots === 0) return null
+
+  const tiles = Array.from({ length: slots }, (_, i) => {
+    const n = i + 1
+    const g = played[i]
+    if (g) {
+      const at = teams.find(t => t.id === g.away_team_id)
+      const ht = teams.find(t => t.id === g.home_team_id)
+      const live = g.status === 'live'
+      const a = g.away_score ?? 0, h = g.home_score ?? 0
+      return (
+        <GameTile key={g.id} n={n} date={g.game_date} state={live ? 'live' : 'final'}
+          away={{ team: at, score: a, won: a > h }} home={{ team: ht, score: h, won: h > a }}
+          onOpen={onOpenGame ? () => onOpenGame(g) : undefined}
+          ariaLabel={`Game ${n}: ${at?.abbr ?? ''} ${a} at ${ht?.abbr ?? ''} ${h}${live ? ', in progress' : ''}, box score`} />
+      )
+    }
+    if (series.winner) return <GameTile key={`n${n}`} n={n} date={null} state="unneeded" away={null} home={null} />
+    const p = published.find(x => x.game === n)
+    const host = p?.home === 'higher' ? higher : p?.home === 'lower' ? lower : null
+    const guest = p?.home === 'higher' ? lower : p?.home === 'lower' ? higher : null
+    return (
+      <GameTile key={`n${n}`} n={n} date={p?.date ?? null} time={p ? formatGameTime(p.date, p.time) : null}
+        state="upcoming"
+        away={host && guest ? { team: guest } : null} home={host && guest ? { team: host } : null} />
+    )
+  })
+
+  return (
+    <Box sx={{
+      display: 'grid', gap: 1,
+      // The whole series on one row on a desktop, which is what a series looks like on a
+      // scoreboard. Two to a row on a phone and three in a 560px sheet, where five across would
+      // leave each tile narrower than a badge, an abbreviation and a two-digit score.
+      gridTemplateColumns: {
+        xs: 'repeat(2, minmax(0, 1fr))',
+        sm: `repeat(${Math.min(slots, 3)}, minmax(0, 1fr))`,
+        md: `repeat(${slots}, minmax(0, 1fr))`,
+      },
+    }}>
+      {tiles}
     </Box>
   )
 }
@@ -182,11 +324,10 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
   onClose: () => void
   onOpenTeam?: (t: WpblTeam) => void
   onOpenPlayer?: (p: WpblPlayer) => void
-  /** Open one of the season's meetings in Game Center. Optional: without it the rows are still
+  /** Open one of this series' games in Game Center. Optional: without it the tiles are still
    *  worth reading, they just stop being a way in. */
   onOpenGame?: (g: WpblGame) => void
 }) {
-  const dark = useWpblDark()
   const { basis: eraBasis } = useEraBasis()
   const [lines, setLines] = useState(() => getCachedWpblAllLines())
   const [players, setPlayers] = useState<WpblPlayer[]>([])
@@ -205,24 +346,30 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
     return r ? `${r.wins}-${r.losses}` : null
   }
 
+  const played = useMemo(
+    () => (home && away ? seriesGamesStarted(home.id, away.id, games) : []),
+    [home, away, games])
+  const seriesFinals = useMemo(() => played.filter(g => g.status === 'final'), [played])
+
+  // SERIES LEADERS ONCE A GAME OF IT IS FINAL, the season's before that. Before first pitch the
+  // season is the only evidence of who to watch; after it, the sheet is about this series, and a
+  // club's season leader who has gone 1-for-12 in it is not who led it. The switch waits for a
+  // FINAL, not a live game, because a line in progress would make the board move mid-inning.
+  const seriesScope = seriesFinals.length > 0 && !!home && !!away
   const leaders = useMemo(() => {
     if (!lines || players.length === 0) return null
-    const of = (t: WpblTeam) => teamLeaders(t, players, lines.batting, lines.pitching, games, teams, eraBasis)
+    const of = (t: WpblTeam) => seriesScope
+      ? teamLeaders(t, players, lines.batting, lines.pitching, seriesFinals, [away!, home!], eraBasis, 'postseason')
+      : teamLeaders(t, players, lines.batting, lines.pitching, games, teams, eraBasis)
     return { home: home ? of(home) : [], away: away ? of(away) : [] }
-  }, [lines, players, games, teams, home, away, eraBasis])
+  }, [lines, players, games, teams, home, away, eraBasis, seriesScope, seriesFinals])
 
-  const meetings = useMemo(
-    () => (home && away ? seasonMeetings(home.id, away.id, games) : []),
-    [home, away, games])
-
-  const h2h = odds?.h2h
-  const h2hLine = h2h && home && away && h2h.homeWins + h2h.awayWins > 0
-    ? (h2h.homeWins === h2h.awayWins
-      ? `Split ${h2h.homeWins}-${h2h.awayWins}`
-      : h2h.homeWins > h2h.awayWins
-        ? `${home.abbr} won it ${h2h.homeWins}-${h2h.awayWins}`
-        : `${away.abbr} won it ${h2h.awayWins}-${h2h.homeWins}`)
-    : null
+  // The state of the series, but only when it is more than the format: the eyebrow already says
+  // "best of 3", so an unplayed series would print that twice.
+  const stateLine = [
+    series.summary !== `Best of ${series.bestOf}` ? series.summary : null,
+    odds?.eliminationFor ? `${odds.eliminationFor.name} face elimination` : null,
+  ].filter(Boolean).join(' · ') || null
 
   return (
     // WIDER THAN A SHEET ON A DESKTOP, because it is five blocks and they do not want to be a
@@ -239,141 +386,59 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
             "Hei…" on the one surface where this sheet is most likely to be opened. */}
         {/* AWAY FIRST, THEN HOME, which is the order every other block in this sheet uses. The
         bracket draws the higher seed on top, and following it here would put these chips the
-        other way round from the schedule ("BOS @ SF"), the team comparison ("BOS vs SF") and
+        other way round from the game tiles (away over home), the team comparison ("BOS vs SF") and
         the leaders (Boston on the left). Away first everywhere is also how a baseball line
         reads. */}
         <Box sx={{ display: 'flex', gap: 1, minWidth: 0, flexDirection: { xs: 'column', sm: 'row' } }}>
           {away && (
             <ClubChip team={away} seed={series.away.seed} record={recordOf(away.id)}
-              winP={odds && !series.winner ? odds.awayWinP : null} onOpenTeam={onOpenTeam} />
+              winP={odds && !series.winner ? odds.awayWinP : null}
+              wins={series.played > 0 ? series.away.wins : null} won={series.winner?.id === away.id}
+              onOpenTeam={onOpenTeam} />
           )}
           {home && (
             <ClubChip team={home} seed={series.home.seed} record={recordOf(home.id)}
-              winP={odds && !series.winner ? odds.homeWinP : null} onOpenTeam={onOpenTeam} />
+              winP={odds && !series.winner ? odds.homeWinP : null}
+              wins={series.played > 0 ? series.home.wins : null} won={series.winner?.id === home.id}
+              onOpenTeam={onOpenTeam} />
           )}
         </Box>
 
-        {/* The state of the series, but only when it is more than the format: the eyebrow above
-            already says "best of 3", so an unplayed series was printing that twice, once as a
-            heading and once as a sentence. */}
-        {(series.summary !== `Best of ${series.bestOf}` || odds?.eliminationFor) && (
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
-            {series.summary !== `Best of ${series.bestOf}` ? series.summary : ''}
-            {odds?.eliminationFor ? `${series.summary !== `Best of ${series.bestOf}` ? ' · ' : ''}${odds.eliminationFor.name} face elimination.` : ''}
-          </Typography>
-        )}
-
-        {/* TWO COLUMNS FROM md UP, and the split is by KIND rather than by length: the left is
-            what is going to happen and what already has, the right is how the two clubs measure
-            up. Either column reads on its own, which is what lets them stack on a phone in that
-            same order without anything being orphaned. */}
-        <Box sx={{
-          display: 'grid', gap: { xs: 2.25, md: 3 }, alignItems: 'start',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-        }}>
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+        {/* THE GAMES FIRST AND ACROSS THE WHOLE SHEET. They are what a reader came from the
+            bracket to open, now that Home has no scoreboard to open them from, and a row of tiles
+            is the one block here that wants the full width rather than a column of it. */}
         <Box>
-          <SectionLabel>Game schedule</SectionLabel>
-          <Box sx={{ mt: 0.5 }}><SeriesSchedule series={series} /></Box>
+          <SectionHead label="Games" detail={stateLine} />
+          <SeriesGames series={series} played={played} teams={teams} onOpenGame={onOpenGame} />
         </Box>
 
-        {meetings.length > 0 && (
-          <Box>
-            <SectionLabel>{h2hLine ? `Regular season matchup · ${h2hLine}` : 'Regular season matchup'}</SectionLabel>
-            <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column' }}>
-              {meetings.map(g => {
-                const homeWon = (g.home_score ?? 0) > (g.away_score ?? 0)
-                const ht = teams.find(x => x.id === g.home_team_id)
-                const at = teams.find(x => x.id === g.away_team_id)
-                /* EACH GAME AS IT WAS PLAYED, away at home, rather than the winner and a
-                scoreline. A date on the far left and "SF 13-7" on the far right leaves 250px of
-                nothing between them, which is a lot of width spent on less information: it never
-                says where the game was, and in a series where one club won all five it prints that
-                club's name five times. This says who was at home, which is the same thing the
-                schedule block above says about the games still to come, and it fills the row it is
-                given. */
-                const sideText = (team: WpblTeam | undefined, score: number | null, won: boolean) => (
-                  <Typography sx={{
-                    // A step up on a desktop, where this block sits in a 430px column with
-                    // room to spare and was reading as a footnote beside the comparison
-                    // bars next to it. A phone has no such room and keeps the smaller size.
-                    fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, whiteSpace: 'nowrap',
-                    fontWeight: won ? 900 : 600,
-                    color: won && team ? wpblAccent(team.id, dark) : 'text.secondary',
-                  }}>{`${team?.abbr ?? '???'} ${score ?? 0}`}</Typography>
-                )
-                return (
-                  <Box
-                    key={g.id}
-                    {...pressable(onOpenGame ? () => onOpenGame(g) : undefined)}
-                    aria-label={onOpenGame
-                      ? `${at?.abbr ?? ''} ${g.away_score ?? 0} at ${ht?.abbr ?? ''} ${g.home_score ?? 0}, box score`
-                      : undefined}
-                    sx={{
-                      display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.25 },
-                      py: { xs: 0.55, md: 0.85 }, minWidth: 0,
-                      borderTop: '1px solid', borderColor: 'divider',
-                      cursor: onOpenGame ? 'pointer' : 'default',
-                      ...(onOpenGame ? TAPPABLE : null), ...FOCUS_RING,
-                    }}>
-                    <Typography sx={{
-                      width: { xs: '3rem', md: '3.5rem' }, flexShrink: 0,
-                      fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title },
-                      color: 'text.disabled', whiteSpace: 'nowrap',
-                    }}>
-                      {new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                    </Typography>
-                    {at && <TeamBadge team={at} size={22} />}
-                    {sideText(at, g.away_score, !homeWon)}
-                    <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', flexShrink: 0 }}>@</Typography>
-                    {ht && <TeamBadge team={ht} size={22} />}
-                    {sideText(ht, g.home_score, homeWon)}
-                  </Box>
-                )
-              })}
-            </Box>
-          </Box>
-        )}
-        </Box>
-
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-        {/* The tale of the tape, which is the card that already existed for exactly this and was
-            only ever shown for a scheduled GAME. A series is the same question asked once. */}
-        {home && away && (
-          <Box>
-            <SectionLabel>Team comparison</SectionLabel>
-            <Box sx={{ mt: 0.5 }}>
+        {/* TWO COLUMNS FROM md UP: how the clubs measure up, and who to watch on each. Both are
+            "away on the left, home on the right" boards of about the same height, so side by side
+            they read as one comparison. */}
+        <Box sx={{
+          display: 'grid', gap: { xs: 2.25, md: 3.5 }, alignItems: 'start',
+          // The leaders get the wider half. Their names are the one thing on this sheet that
+          // cannot be shortened without losing who it is ("Joely Leguiz…" at an even split), and
+          // the comparison's bars give up the difference without anyone noticing.
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 2fr) minmax(0, 3fr)' },
+        }}>
+          {/* The tale of the tape, which is the card that already existed for exactly this and
+              was only ever shown for a scheduled GAME. A series is the same question asked once. */}
+          {home && away && (
+            <Box sx={{ minWidth: 0 }}>
+              <SectionHead label="Team comparison" />
               <WpblGamePreview away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} bare />
             </Box>
-          </Box>
-        )}
-
-        </Box>
-        </Box>
-
-        {/* ACROSS BOTH COLUMNS, because this block is itself two columns. Nested inside one half
-        of the sheet each club's list gets about 200px, and every name over eleven characters
-        comes out as "Kelsie Whit…", which is most of them, and a leaders list whose leaders
-        cannot be read is decoration. Out here each side has the width the names need. */}
-        {leaders && (leaders.home.length > 0 || leaders.away.length > 0) && (
-          <Box>
-            {/* CENTRED OVER THE TABLE, WHICH TAKES BOTH HALVES. The table's own 400 cap puts the
-            label in the right BOX, and centring puts the words where the content is. Flush left
-            inside that box, the words sit at the left edge of a block whose content pools around
-            the middle (each side's leader hugs the category column, so the outer thirds of every
-            row are empty): about 250px left of everything they label, at an indent that matches
-            nothing else in the sheet, where the two headings above sit on their own columns'
-            edges. */}
-            <Box sx={{ maxWidth: chromePx(400), mx: 'auto', textAlign: 'center' }}>
-              <SectionLabel>Team leaders</SectionLabel>
-            </Box>
-            {away && home && (
+          )}
+          {leaders && away && home && (leaders.home.length > 0 || leaders.away.length > 0) && (
+            <Box sx={{ minWidth: 0 }}>
+              <SectionHead label={seriesScope ? 'Series leaders' : 'Team leaders'} />
               <LeaderTable away={away} home={home}
                 awayLeaders={leaders.away} homeLeaders={leaders.home}
                 onOpenPlayer={onOpenPlayer} />
-            )}
-          </Box>
-        )}
+            </Box>
+          )}
+        </Box>
       </Box>
     </ModalShell>
   )

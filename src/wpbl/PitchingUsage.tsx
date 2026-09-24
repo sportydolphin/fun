@@ -20,11 +20,10 @@ import type { WpblPitchingUsageRow, WpblPlayer } from './types'
  */
 
 export default function PitchingUsage({
-  rows, roster, accent, onOpenPlayer, collapsed, onToggleCollapse,
+  rows, roster, onOpenPlayer, collapsed, onToggleCollapse,
 }: {
   rows: WpblPitchingUsageRow[]
   roster: WpblPlayer[]
-  accent: string
   onOpenPlayer: (p: WpblPlayer) => void
   /** Collapsed by the team page on a phone, where this grid is a sideways scroller inside a
    *  vertical one and costs several hundred pixels of a page already five screens long. Owned
@@ -39,7 +38,7 @@ export default function PitchingUsage({
 
   if (!games.length) {
     return (
-      <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Pitching usage" subtitle={`Last ${gridGames} games`}>
+      <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Pitching usage" subtitle="Every game">
         <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
           No pitching recorded yet.
         </Typography>
@@ -54,7 +53,7 @@ export default function PitchingUsage({
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
       title="Pitching usage"
-      subtitle={`Last ${games.length} games · pitches (IP)`}
+      subtitle={`${games.length} game${games.length === 1 ? '' : 's'} · pitches (IP)`}
     >
       <GameGrid
         // The widest thing in a column here is 3 digits and an asterisk ("102*", 28px), so
@@ -100,7 +99,8 @@ export default function PitchingUsage({
               <Typography sx={{
                 fontSize: '0.72rem', fontWeight: c.started ? 800 : 600,
                 fontVariantNumeric: 'tabular-nums',
-                color: c.started ? accent : 'text.primary',
+                // Plain text, as in the lineup grid: a start is told by its weight, not the club accent.
+                color: 'text.primary',
               }}>
                 {c.pitches ?? '?'}
                 {backToBack && (

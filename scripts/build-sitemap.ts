@@ -52,9 +52,8 @@ const STATIC: Entry[] = [
   // The scorigami grid. Weekly while games are still going final (each new final can light a new
   // square), and durable after: it is a season-over-season artifact that only grows.
   { loc: '/wpbl/scorigami', changefreq: 'weekly', priority: '0.7' },
-  // Fan photos: OUT while the gallery is owner-only (useFanPhotosVisible), since a reader landing
-  // from search would find an empty page. Put this back when it opens:
-  //   { loc: '/wpbl/photos', changefreq: 'weekly', priority: '0.6' },
+  // Fan photos. Weekly: the gallery grows as photos are sent in and approved.
+  { loc: '/wpbl/photos', changefreq: 'weekly', priority: '0.6' },
   // Yearly, and that is the point of it: the rules do not move with the season, so this is
   // one of the two pages here still worth serving in February.
   { loc: '/wpbl/glossary', changefreq: 'yearly', priority: '0.7' },

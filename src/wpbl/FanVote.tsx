@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Box, Typography, Menu, MenuItem, ListItemIcon } from '@mui/material'
+import { Box, Typography, Menu, MenuItem, ListItemIcon, useMediaQuery, type Theme } from '@mui/material'
 import { EmojiEvents, IosShare, ContentCopy, Download } from '@mui/icons-material'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
-  pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
+  pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx, CARD_INK,
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
 import {
@@ -1525,6 +1525,16 @@ export default function FanVoteCard({
 
   const answered = entries.filter(e => state.ballot[e.award.id]).length
 
+  // A STEP UP IN SIZE WHEN THE CARD IS STRETCHED, which is the desktop pairing only (below md
+  // there is no stretch; see the note on the rows). The rows already grow to share the height the
+  // card beside them sets, and since the season card gained its game buttons and recap button that
+  // is enough height that body-size rows at 26px faces read as a short list floating in a tall
+  // card. The text takes the next step of the type scale and the faces grow with it, so the card
+  // spends its height on being readable rather than on padding.
+  const roomy = useMediaQuery((t: Theme) => t.breakpoints.up('md')) && !!fill
+  const rowText = roomy ? TYPE_SCALE.title : TYPE_SCALE.body
+  const face = roomy ? 32 : 26
+
   useEffect(() => {
     if (drawable && state.loaded) track(EVENTS.WPBL_AWARD_SHOWN, { answered, categories: entries.length })
     // Once per load, not once per vote.
@@ -1647,7 +1657,7 @@ export default function FanVoteCard({
               }}
             >
               <Typography sx={{
-                fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0,
+                fontSize: rowText, fontWeight: 700, minWidth: 0,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>{e.award.title}</Typography>
               <Box sx={{ flex: 1, minWidth: chromePx(8) }} />
@@ -1673,7 +1683,7 @@ export default function FanVoteCard({
                   <Box key={c.key} sx={{
                     display: 'flex', borderRadius: '50%',
                     ml: j === 0 ? 0 : `calc(-1 * ${chromePx(9)})`,
-                    boxShadow: t => `0 0 0 2px ${t.palette.background.paper}`,
+                    boxShadow: t => `0 0 0 2px ${CARD_INK(t)}`,
                     // Later faces sit UNDER earlier ones, so the pile reads left to right in
                     // seeded order rather than the last one covering the seed.
                     zIndex: faces.length - j,
@@ -1684,9 +1694,9 @@ export default function FanVoteCard({
                       // card fell back to the club badge for Manager of the Year while the sheet
                       // showed her face.
                       const headshot = wpblManagerPortraitSet(c.key)
-                      if (c.playerId || headshot) return <PlayerPortrait name={c.name} teamId={c.teamId} size={26} src={headshot} />
+                      if (c.playerId || headshot) return <PlayerPortrait name={c.name} teamId={c.teamId} size={face} src={headshot} />
                       const t = teams.find(x => x.id === c.teamId)
-                      return t ? <TeamBadge team={t} size={26} /> : null
+                      return t ? <TeamBadge team={t} size={face} /> : null
                     })()}
                   </Box>
                 ))}
@@ -1697,16 +1707,16 @@ export default function FanVoteCard({
                   // same treatment the results sheet gives its heroes.
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(4), flexShrink: 0 }}>
                     <Typography sx={{
-                      fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.primary', whiteSpace: 'nowrap',
+                      fontSize: rowText, fontWeight: 800, color: 'text.primary', whiteSpace: 'nowrap',
                     }}>{winnerC.playerId ? short(winnerC.name) : winnerC.name}</Typography>
-                    <EmojiEvents titleAccess="Winner" sx={{ fontSize: TYPE_SCALE.body, color: '#eab308' }} />
+                    <EmojiEvents titleAccess="Winner" sx={{ fontSize: rowText, color: '#eab308' }} />
                   </Box>
                 ) : (
-                  <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>&#8212;</Typography>
+                  <Typography sx={{ fontSize: rowText, fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>&#8212;</Typography>
                 )
               ) : (
                 <Typography sx={{
-                  fontSize: TYPE_SCALE.body, fontWeight: mineC ? 800 : 700, flexShrink: 0,
+                  fontSize: rowText, fontWeight: mineC ? 800 : 700, flexShrink: 0,
                   whiteSpace: 'nowrap',
                   color: mineC ? 'text.primary' : 'var(--wpbl-accent-solid)',
                 }}>{mineC ? (mineC.playerId ? short(mineC.name) : mineC.name) : 'Vote'}</Typography>

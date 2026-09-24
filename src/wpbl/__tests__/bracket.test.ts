@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeStandings } from '../api'
-import { buildBracket, winsNeeded, BEST_OF } from '../derive/bracket'
+import { buildBracket, winsNeeded, BEST_OF, championBannerUntil } from '../derive/bracket'
 import type { WpblGame, WpblTeam } from '../types'
 
 // The bracket is drawn from the standings order plus whatever postseason games exist, and the
@@ -265,5 +265,31 @@ describe('settled', () => {
   it('is true once every seed is locked', () => {
     // Nothing left on the schedule, so every club's range has closed.
     expect(bracketOf(seededSeason()).settled).toBe(true)
+  })
+})
+
+// Home's champion banner is news for the day of the title and the day after, then comes down so
+// the season card carries the champion alone. Dated off the clinching game, so it returns on its
+// own next season with nobody editing a constant.
+describe('championBannerUntil', () => {
+  const t = (id: string) => TEAMS.find(x => x.id === id)!
+  const result = { champion: t('LA'), runnerUp: t('SF'), champWins: 3, rivalWins: 2 }
+  const final = (date: string, status: WpblGame['status'] = 'final') => game({
+    game_date: date, status, home_team_id: 'LA', away_team_id: 'SF', game_type: 'Championship', counts_in_standings: false,
+  })
+
+  it('ends at local midnight after the day following the clinching game', () => {
+    const games = [final('2026-09-18'), final('2026-09-20'), final('2026-09-22'), win('LA', 'SF', '2026-09-01')]
+    expect(championBannerUntil(games, result)).toBe(new Date(2026, 8, 24).getTime())
+  })
+
+  it('dates from the last FINAL, not a game still listed after it', () => {
+    const games = [final('2026-09-20'), final('2026-09-23', 'scheduled')]
+    expect(championBannerUntil(games, result)).toBe(new Date(2026, 8, 22).getTime())
+  })
+
+  it('is null with no runner-up or no decided final to date it from', () => {
+    expect(championBannerUntil([final('2026-09-20')], { ...result, runnerUp: null })).toBeNull()
+    expect(championBannerUntil([], result)).toBeNull()
   })
 })

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import WpblPage from './WpblPage'
 import { FanPhotoGrid, FanPhotoSubmitNote, useFanPhotosVersion } from './FanPhotoViews'
-import { useFanPhotosVisible } from './fanPhotoGate'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers } from './api'
 import { fanPhotoTeamName, type FanPhotoIndex, type FanPhotoWithSubjects } from './fanPhotos'
 import type { WpblPlayer } from './types'
@@ -18,9 +17,6 @@ import type { WpblPlayer } from './types'
 type SubjectFilter = { key: string; label: string; photos: FanPhotoWithSubjects[] }
 
 export default function PhotosGalleryPage() {
-  // Owner-only for now (see useFanPhotosVisible). Anyone else gets the page's own empty state, the
-  // same thing it showed before the first photo was published, rather than a hole in the site.
-  const visible = useFanPhotosVisible()
   const version = useFanPhotosVersion()
   const [index, setIndex] = useState<FanPhotoIndex | null>(null)
   const [players, setPlayers] = useState<WpblPlayer[]>([])
@@ -45,14 +41,13 @@ export default function PhotosGalleryPage() {
     return names
   }, [nameById, index])
 
-  // Categories that actually hold a published photo, in the curator's order, plus the ordinary fan
-  // photos as their own chip once there is anything else to tell them apart from. '*' is all of
-  // them; '' is the uncategorised fan photos. With no categories in use the row does not draw.
+  // Categories that actually hold a published photo, in the curator's order. '*' is all of them.
+  // NO CHIP FOR THE UNCATEGORISED FAN PHOTOS: they are what the gallery IS, and "All" already
+  // shows them, so a "Fan photos" chip beside it offered the same thing minus the few special sets,
+  // which nobody reaches for. With no categories in use the row does not draw.
   const categoryChips = useMemo(() => {
     if (!index) return []
     const out: Array<{ key: string; label: string; count: number }> = []
-    const general = index.photos.filter(p => !p.category_key).length
-    if (general > 0) out.push({ key: '', label: 'Fan photos', count: general })
     for (const c of index.categories) {
       const n = index.byCategory.get(c.key)?.length ?? 0
       if (n > 0) out.push({ key: c.key, label: c.name, count: n })
@@ -62,7 +57,7 @@ export default function PhotosGalleryPage() {
   const inCategory = useMemo(() => {
     if (!index) return []
     if (category === '*') return index.photos
-    return category === '' ? index.photos.filter(p => !p.category_key) : (index.byCategory.get(category) ?? [])
+    return index.byCategory.get(category) ?? []
   }, [index, category])
 
   // The subjects that actually have photos in the chosen category, each with its set, sorted by
@@ -91,15 +86,12 @@ export default function PhotosGalleryPage() {
 
   const pickCategory = (key: string) => { setCategory(key); setSelected('all') }
 
-  // Not every photo is a fan's own any more (a category can hold broadcast stills), so the page
-  // promises only what is true of all of them: each one is credited.
-  const total = visible ? (index?.photos.length ?? 0) : 0
-  const standfirst = total > 0
-    ? `${total} photograph${total === 1 ? '' : 's'} from this season's games. Every one carries its credit.`
-    : "Photographs from this season's games."
+  const total = index?.photos.length ?? 0
 
   return (
-    <WpblPage title="2026 gallery" standfirst={standfirst}>
+    // NO STANDFIRST. The count it carried is on the "All" chip directly below, and the credit line
+    // is on every photo, so the sentence was two lines of a phone screen spent before the filters.
+    <WpblPage title="2026 gallery">
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
       ) : total === 0 ? (
@@ -109,32 +101,57 @@ export default function PhotosGalleryPage() {
         </Box>
       ) : (
         <>
-          {/* Category first (Fan photos, Fan signs, ...), then who is in them within it. */}
-          {categoryChips.length > 1 && (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
+          {/* Category first (Fan signs, ...), then who is in them within it. */}
+          {categoryChips.length > 0 && (
+            <ChipRow mb={1}>
               <FilterChip label={`All (${total})`} active={category === '*'} onClick={() => pickCategory('*')} />
               {categoryChips.map(c => (
-                <FilterChip key={c.key || 'general'} label={`${c.label} (${c.count})`}
+                <FilterChip key={c.key} label={`${c.label} (${c.count})`}
                   active={category === c.key} onClick={() => pickCategory(c.key)} />
               ))}
-            </Box>
+            </ChipRow>
           )}
           {/* Filter by subject. "Everyone" plus one chip per person who appears in a photo; the
               count rides on each so the reader can see who has the most before tapping. */}
           {subjects.length > 1 && (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2.5 }}>
+            <ChipRow mb={2}>
               <FilterChip label={`Everyone (${inCategory.length})`} active={selected === 'all'} onClick={() => setSelected('all')} />
               {subjects.map(s => (
                 <FilterChip key={s.key} label={`${s.label} (${s.photos.length})`}
                   active={selected === s.key} onClick={() => setSelected(s.key)} />
               ))}
-            </Box>
+            </ChipRow>
           )}
           <FanPhotoGrid photos={shown} resolveNames={resolveNames} from="gallery" />
           <FanPhotoSubmitNote variant="block" />
         </>
       )}
     </WpblPage>
+  )
+}
+
+/** A row of filter chips: ONE LINE THAT SCROLLS SIDEWAYS ON A PHONE, wrapping from sm up.
+ *
+ *  Wrapped at 375px the subject row was twenty-odd pills stacked eleven lines deep, a full screen of
+ *  names in front of the first photo, on the page whose whole point is the photos. One swipeable
+ *  line costs one line, and the chip cut off at the right edge is what says there is more.
+ *  Full-bleed on a phone (cancelling the page's gutter and handing it back as padding) so a
+ *  chip scrolls out under the screen edge rather than being clipped at an invisible margin. From
+ *  sm up there is room for a few rows and wrapping shows every name at once. */
+function ChipRow({ mb, children }: { mb: number; children: React.ReactNode }) {
+  return (
+    <Box sx={{
+      display: 'flex', gap: 0.75, mb,
+      flexWrap: { xs: 'nowrap', sm: 'wrap' },
+      overflowX: { xs: 'auto', sm: 'visible' },
+      // `50% - 50vw` rather than a fixed -16px: the page sits inside two 16px gutters (the
+      // section's and WpblPage's), and this reaches the screen edge whatever they add up to.
+      mx: { xs: 'calc(50% - 50vw)', sm: 0 }, px: { xs: 'calc(50vw - 50%)', sm: 0 },
+      scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
+      '& > *': { flexShrink: 0, whiteSpace: 'nowrap' },
+    }}>
+      {children}
+    </Box>
   )
 }
 

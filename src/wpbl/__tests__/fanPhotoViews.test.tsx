@@ -4,7 +4,7 @@ import { fanPhotoCaption, FanPhotoStrip, FanPhotoGrid, railTileAspect, FAN_PHOTO
 import type { FanPhotoWithSubjects } from '../fanPhotos'
 
 const gate = { canEdit: false }
-vi.mock('../fanPhotoGate', () => ({ useFanPhotosVisible: () => true, useCanEditFanPhotos: () => gate.canEdit }))
+vi.mock('../fanPhotoGate', () => ({ useCanEditFanPhotos: () => gate.canEdit }))
 vi.mock('../../lib/analytics', () => ({ track: vi.fn(), EVENTS: new Proxy({}, { get: (_t, k) => String(k) }) }))
 
 const photo = (o: Partial<FanPhotoWithSubjects> & { id: string }): FanPhotoWithSubjects => ({

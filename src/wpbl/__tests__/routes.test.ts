@@ -777,11 +777,10 @@ describe('/wpbl/photos, the fan photos gallery', () => {
     expect(seoSource).toMatch(/'\/wpbl\/photos':\s*\{[^}]*title:/)
   })
 
-  // Owner-only for now (useFanPhotosVisible), so it stays out of the index. Invert both of these
-  // the day it opens to everyone.
-  it('is out of the sitemap and noindexed while owner-only', () => {
-    expect(sitemap).not.toContain('<loc>https://sportydolphin.fun/wpbl/photos</loc>')
-    expect(seoSource).toMatch(/'\/wpbl\/photos':\s*\{[^}]*noindex:\s*true/)
+  // Public since Sep 24, 2026: in the sitemap and indexable, like every other page it links from.
+  it('is in the sitemap and not noindexed', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/photos</loc>')
+    expect(seoSource).not.toMatch(/'\/wpbl\/photos':\s*\{[^}]*noindex/)
   })
 
   it('is recognised as itself and not as a tab', () => {

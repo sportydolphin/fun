@@ -20,11 +20,10 @@ import type { WpblLineupHistoryRow, WpblPlayer } from './types'
  */
 
 export default function LineupHistory({
-  rows, roster, accent, onOpenPlayer, collapsed, onToggleCollapse,
+  rows, roster, onOpenPlayer, collapsed, onToggleCollapse,
 }: {
   rows: WpblLineupHistoryRow[]
   roster: WpblPlayer[]
-  accent: string
   onOpenPlayer: (p: WpblPlayer) => void
   /** Collapsed by the team page on a phone, where this grid is a sideways scroller inside a
    *  vertical one and costs several hundred pixels of a page already five screens long. Owned
@@ -38,7 +37,7 @@ export default function LineupHistory({
 
   if (!games.length) {
     return (
-      <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Lineup history" subtitle={`Last ${gridGames} games`}>
+      <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Lineup history" subtitle="Every game">
         <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
           No lineups recorded yet.
         </Typography>
@@ -47,7 +46,7 @@ export default function LineupHistory({
   }
 
   return (
-    <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Lineup history" subtitle={`Last ${games.length} games · position (spot)`}>
+    <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Lineup history" subtitle={`${games.length} game${games.length === 1 ? '' : 's'} · position (spot)`}>
       <GameGrid
         // REM, NOT PIXELS: 3.625rem is the 58px this was measured at, and passing the pixel
         // number made the grid twenty times too wide. Measured at 375px, the widest cell
@@ -91,11 +90,13 @@ export default function LineupHistory({
             <Typography sx={{
               fontSize: '0.68rem', lineHeight: 1.2, textAlign: 'center',
               fontVariantNumeric: 'tabular-nums',
-              // A start is stated plainly; a substitute appearance is dimmed and italic, so
-              // scanning a row shows regular usage at a glance.
+              // A start is stated plainly; a substitute appearance is lighter and italic, so
+              // scanning a row shows regular usage at a glance. PLAIN TEXT COLOURS, not the club
+              // accent: a dense grid of red on a dark card read as a warning and was the lowest-
+              // contrast thing on the page. Weight and italic already carry start against sub.
               fontWeight: c.started ? 800 : 500,
               fontStyle: c.started ? 'normal' : 'italic',
-              color: c.started ? accent : 'text.disabled',
+              color: c.started ? 'text.primary' : 'text.secondary',
             }}>
               {(c.position ?? '?').toUpperCase()}
               <Box component="span" sx={{ fontWeight: 500, opacity: 0.75 }}>{` (${c.spot})`}</Box>

@@ -357,6 +357,25 @@ export function championshipGames(games: WpblGame[], aId: string, bId: string): 
     .sort((x, y) => (x.game_date < y.game_date ? -1 : x.game_date > y.game_date ? 1 : 0))
 }
 
+/**
+ * When Home's champion banner comes down: midnight at the end of the day AFTER the title was
+ * clinched, in the reader's own zone. The banner is news, and news that stays up all offseason
+ * stops being read as news, while the season card below it keeps the champion for good. Keyed on
+ * the clinching game's date rather than a constant, so it comes back on its own next season.
+ *
+ * `game_date` is the league's calendar day, parsed as a LOCAL date on purpose: `new Date('2026-09-22')`
+ * is UTC midnight, which is the previous evening anywhere in the Americas and would take a day
+ * off the window. Null when there is no decided final to date it from.
+ */
+export function championBannerUntil(games: WpblGame[], result: ChampionResult): number | null {
+  if (!result.runnerUp) return null
+  const finals = championshipGames(games, result.champion.id, result.runnerUp.id).filter(g => g.status === 'final')
+  const clincher = finals[finals.length - 1]
+  const m = clincher?.game_date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + 2).getTime()
+}
+
 // ─── The postseason on the schedule ─────────────────────────────────────────
 
 /** One side of a postseason game before the feed has a row for it. */

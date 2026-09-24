@@ -195,7 +195,53 @@ export function useWpblName(mobileMaxLen = 12): (name: string) => string {
 // Card outline color: noticeably stronger than MUI's faint `divider` so the WPBL
 // cards (and the sub-cards nested inside them) read as crisply outlined in both light
 // and dark mode. Use for card container borders; keep `divider` for thin inner row rules.
-export const CARD_BORDER = (t: Theme) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.34)'
+//
+// A FLAT CARD TAKES A STRONGER OUTLINE IN DARK MODE, through `--wpbl-card-border`. With no fill the
+// border is the only thing drawing the card, and 0.30 was tuned against a lifted paper grey that
+// did half that job; on the bare page it reads faint. Set by `FLAT_CARDS_DARK` on a flat page, and
+// by a `bare` card on itself, so the paper cards elsewhere keep the weight they were tuned at.
+export const CARD_BORDER = (t: Theme) => t.palette.mode === 'dark'
+  ? 'var(--wpbl-card-border, rgba(255,255,255,0.30))'
+  : 'rgba(0,0,0,0.34)'
+
+/** The dark-mode outline of a card with no fill. */
+const FLAT_BORDER_DARK = 'rgba(255,255,255,0.46)'
+
+/** The outline of a box nested INSIDE a card (a bracket series, a game chip): `divider` on paper,
+ *  where the fill around it gives it its edge, and a step up on a flat card, where `divider` alone
+ *  left it barely there. Kept a clear step below the card's own outline so the nesting still reads. */
+export const INNER_BORDER = (t: Theme) => `var(--wpbl-inner-border, ${t.palette.divider})`
+const FLAT_INNER_BORDER_DARK = 'rgba(255,255,255,0.24)'
+
+/** What a `bare` card sets on itself in dark mode: the flat outline, and the flat inner outline for
+ *  anything nested in it. The fill is already off, so only the borders need saying. */
+export const BARE_CARD_DARK = (t: Theme) => t.palette.mode === 'dark'
+  ? { '--wpbl-card-border': FLAT_BORDER_DARK, '--wpbl-inner-border': FLAT_INNER_BORDER_DARK }
+  : {}
+
+/** A raised card's fill: `background.paper`, unless a page has asked for flat cards (see
+ *  `FLAT_CARDS_DARK`). A variable rather than a prop because a page is more than its
+ *  `SectionCard`s: Home also hand-rolls chips, a league row and skeletons on the same surface,
+ *  and a prop would have to reach every one of them or leave the page half converted. */
+export const CARD_FILL = (t: Theme) => `var(--wpbl-card-fill, ${t.palette.background.paper})`
+
+/** The solid colour directly behind a card's content, for the things that must PAINT it rather
+ *  than show through: the 2px ring that separates overlapping portraits. On a flat card that is
+ *  the page, and a ring left in the paper grey reads as a halo around every face. */
+export const CARD_INK = (t: Theme) => `var(--wpbl-card-ink, ${t.palette.background.paper})`
+
+/** Flat cards in dark mode, set on a page's root: the fill goes and the border alone holds the
+ *  card, the way the season recap draws. Dark only for now. In dark mode `background.paper` is a
+ *  lifted grey, so a page of paper cards reads as grey boxes holding grey boxes (bracket rows,
+ *  game chips), and the recap one click away already sits flat on the page. Light mode keeps its
+ *  paper until it is decided separately. Scoped by inheritance, so it stops at the page: a
+ *  `ModalShell` portals to the body and keeps its paper. */
+export const FLAT_CARDS_DARK = (t: Theme) => t.palette.mode === 'dark'
+  ? {
+    '--wpbl-card-fill': 'transparent', '--wpbl-card-ink': t.palette.background.default,
+    '--wpbl-card-border': FLAT_BORDER_DARK, '--wpbl-inner-border': FLAT_INNER_BORDER_DARK,
+  }
+  : {}
 
 // Is the app in dark mode? Used to pick foreground-safe team accents (see wpblAccent).
 export function useWpblDark(): boolean {
@@ -1195,17 +1241,17 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
 }) {
   const collapsible = !!onToggleCollapse
   return (
-    <Box sx={{
+    <Box sx={[{
       borderRadius: frameless ? { xs: 0, sm: 3 } : 3, overflow: 'hidden',
       borderStyle: 'solid', borderColor: CARD_BORDER,
       borderWidth: frameless ? { xs: 0, sm: '1px' } : '1px',
-      bgcolor: bare ? 'transparent' : 'background.paper',
+      bgcolor: bare ? 'transparent' : CARD_FILL,
       // No `height: 100%` here. A grid item already stretches to its row, so this would only
       // ever be redundant there, and below md, where the container falls back to a flex
       // column, a percentage height resolves against the column's own height and makes every
       // card in it the same size, squashing the shorter ones on a phone.
       ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
-    }}>
+    }, bare ? BARE_CARD_DARK : {}]}>
       {/* The whole header toggles: a thumb-sized target rather than a small chevron hitbox.
           `action` keeps its own click (e.g. "View all"), so it stops the event bubbling. */}
       <Box

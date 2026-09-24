@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { computeStandings, fetchWpblAllLines, fetchWpblAllPitchPlays } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
-import { TeamBadge, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
+import { TeamBadge, FOCUS_RING, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
@@ -137,7 +137,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
       // chrome is what made the old grid read as a list of links. Hover still lifts the whole
       // hairline to the same colour, so the two states are one idea at two strengths.
       borderLeft: '3px solid', borderLeftColor: accent,
-      bgcolor: 'background.paper',
+      bgcolor: CARD_FILL,
       transition: 'border-color 0.15s',
       // On a phone a bare :hover latches on tap, so the card a reader opened stayed ringed in
       // its club colour behind them, reading as selected rather than as opened.
@@ -246,7 +246,9 @@ export default function TeamsGrid({ teams, games, onSelect }: {
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    // Flat cards in dark mode, Home's surface (see FLAT_CARDS_DARK), so the tab a reader reaches
+    // from Home's club chips does not switch back to grey panels.
+    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 2 }, FLAT_CARDS_DARK]}>
       {/* The page's one <h1>: /wpbl/teams. A selected team renders TeamPage instead, which
           carries the club name as its own heading. */}
       <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, ...hidePhone }}>

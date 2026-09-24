@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, TAPPABLE, TYPE_SCALE, CARD_BORDER } from './ui'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, TAPPABLE, TYPE_SCALE, CARD_BORDER, CARD_FILL, INNER_BORDER } from './ui'
 import { wpblAccent, wpblSurface, wpblFullName } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
@@ -221,8 +221,8 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, chi
       aria-label={onOpen ? `${series.label} overview` : undefined}
       sx={{
         borderRadius: 2, overflow: 'hidden', flex: 1, minWidth: 0,
-        border: '1px solid', borderColor: isFinal ? 'var(--wpbl-medal-1)' : bare ? CARD_BORDER : 'divider',
-        bgcolor: bare ? 'transparent' : 'background.paper',
+        border: '1px solid', borderColor: isFinal ? 'var(--wpbl-medal-1)' : bare ? CARD_BORDER : INNER_BORDER,
+        bgcolor: bare ? 'transparent' : CARD_FILL,
         cursor: onOpen ? 'pointer' : 'default',
         ...(onOpen ? TAPPABLE : null),
         ...(onOpen ? FOCUS_RING : null),

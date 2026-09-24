@@ -3,6 +3,7 @@ import { TeamBadge, PlayerPortrait, useWpblDark, useWpblName, pressable, hoverOn
 import { wpblAccent } from './constants'
 import { aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, scaleToBasis } from './stats'
 import { outsToIp } from './innings'
+import type { SeasonScope } from './season'
 import type { WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGame } from './types'
 
 // The "players to watch" logic and its side-by-side table, shared by the series overview and the
@@ -27,6 +28,12 @@ export interface Leader {
  * Rate stats are gated on the same qualifier the leaderboards use, so the club's batting average
  * is not a pinch-hitter who went 2-for-2 in August. Counting stats are not gated, because a home
  * run leader with nine home runs led whether or not they batted enough to hold a rate title.
+ *
+ * `scope` is the stats layer's slice, passed straight through to the aggregates and the
+ * qualifier. A SERIES is `'postseason'` over only that series' games, with `teams` the two clubs
+ * in it: the postseason slice keeps a line only when its game is in `games` and positively a
+ * playoff game, and the qualifier then scales off the games those two clubs have played in the
+ * series, so a rate title in a best-of-five needs a best-of-five's worth of plate appearances.
  */
 export function teamLeaders(
   team: WpblTeam,
@@ -36,10 +43,11 @@ export function teamLeaders(
   games: WpblGame[],
   teams: WpblTeam[],
   eraBasis: 7 | 9,
+  scope: SeasonScope = 'regular',
 ): Leader[] {
-  const qual = wpblQualifiers(teams, games)
-  const bats = aggregateBatting(players, batting.filter(l => l.team_id === team.id), games)
-  const pits = aggregatePitching(players, pitching.filter(l => l.team_id === team.id), games)
+  const qual = wpblQualifiers(teams, games, scope)
+  const bats = aggregateBatting(players, batting.filter(l => l.team_id === team.id), games, scope)
+  const pits = aggregatePitching(players, pitching.filter(l => l.team_id === team.id), games, scope)
 
   const best = <T,>(rows: T[], value: (r: T) => number | null, ok: (r: T) => boolean): T | null => {
     let top: T | null = null, topV = -Infinity
@@ -164,7 +172,7 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
     }}>
       {align === 'left' && <TeamBadge team={team} size={18} />}
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
         color: wpblAccent(team.id, dark), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{team.name}</Typography>
       {align === 'right' && <TeamBadge team={team} size={18} />}
@@ -174,12 +182,12 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
   return (
     /* CAPPED AND CENTRED, AND THE CAP IS MEASURED. Each side's leader hugs the category down
     the middle, so at the sheet's full width the rules run the whole card while the text sits
-    in the middle third. The cap, 400 real pixels at the desktop chrome scale, puts each side
+    in the middle third. The cap, 520 real pixels at the desktop chrome scale, puts each side
     at a readable measure; what is left goes outside as margin, where it reads as a centred
     comparison rather than a row with a hole at each end. `chromePx` because a cap on a block is
     a structural length and not room reserved for a string, so it follows the desktop chrome
     scale and not the reader's text size. */
-    <Box sx={{ mt: 0.75, maxWidth: chromePx(400), mx: 'auto' }}>
+    <Box sx={{ mt: 0.75, maxWidth: chromePx(520), mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
         {head(away, 'right')}
         {/* Holds the label column's width on the header row, so the two club names sit exactly

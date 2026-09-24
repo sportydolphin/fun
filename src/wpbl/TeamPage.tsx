@@ -4,7 +4,7 @@ import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
-import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
+import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, CARD_FILL, INNER_BORDER, FLAT_CARDS_DARK, TAPPABLE, hoverOnly } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   wpblQualifiers, plateAppearances,
@@ -606,7 +606,8 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     : 'Inaugural season'
 
   return (
-    <Box>
+    // Flat cards in dark mode, the same surface as the Teams grid it opens from; see FLAT_CARDS_DARK.
+    <Box sx={FLAT_CARDS_DARK}>
       {/* Header row. It says whose page this is, carries the record, and switches clubs in one
           tap. It scrolls away with the page rather than pinning to the top.
 
@@ -673,7 +674,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                   display: 'flex', alignItems: 'center', gap: 0.6,
                   px: 0.9, py: 0.4, borderRadius: 999,
                   border: '1px solid', borderColor: CARD_BORDER,
-                  bgcolor: 'background.paper',
+                  bgcolor: CARD_FILL,
                 }}
               >
                 <TeamBadge team={h.opp!} size={16} />
@@ -841,14 +842,14 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
           {/* How the manager has actually been filling out the card */}
           {roster && lineups.length > 0 && (
-            <LineupHistory rows={lineups} roster={league} accent={accent} onOpenPlayer={onOpenPlayer}
+            <LineupHistory rows={lineups} roster={league} onOpenPlayer={onOpenPlayer}
               collapsed={!openGrids.lineups}
               onToggleCollapse={() => setOpenGrids(o => ({ ...o, lineups: !o.lineups }))} />
           )}
 
           {/* Who's been worked, and who's available */}
           {roster && usage.length > 0 && (
-            <PitchingUsage rows={usage} roster={league} accent={accent} onOpenPlayer={onOpenPlayer}
+            <PitchingUsage rows={usage} roster={league} onOpenPlayer={onOpenPlayer}
               collapsed={!openGrids.usage}
               onToggleCollapse={() => setOpenGrids(o => ({ ...o, usage: !o.usage }))} />
           )}
@@ -967,7 +968,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRosterAll(true) } }}
                 sx={{
                   mt: 1, py: 0.9, borderRadius: 1, textAlign: 'center', cursor: 'pointer',
-                  border: '1px solid', borderColor: CARD_BORDER,
+                  border: '1px solid', borderColor: INNER_BORDER,
                   ...TAPPABLE, ...FOCUS_RING,
                 }}
               >

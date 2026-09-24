@@ -44,7 +44,7 @@ import { useRowFlip, useRowDividers } from './rowFlip'
 import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TeamBadge, PlayerPortrait, useWpblDark } from './ui'
+import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
@@ -445,8 +445,11 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
         </Typography>
       )}
 
+      {/* Flat cards in dark mode, the same surface Home uses: every card here is already an outline
+          with no fill (see the note above StatTile), and this is what gives those outlines the
+          flat surface's stronger weight. */}
       {hasData && (
-        <>
+        <Box sx={FLAT_CARDS_DARK}>
           {/* ── Champion ─────────────────────────────────────────────────────────
               The one postseason fact on an otherwise regular-season page, and it leads because in
               the offseason the champion IS the top of the story. Absent until the title is
@@ -496,7 +499,10 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
             return (
               <>
                 <SectionHeading>Best playoff performances</SectionHeading>
-                <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+                {/* minmax(0, ...) because a bare `1fr` track cannot shrink below its content's
+                    min-content width, and a single-game line ("5-5, 1 HR, 4 RBI") is nowrap: on a
+                    phone both boards ran off the right edge of the page instead of the name giving. */}
+                <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
                   {playoffBest.bats.length > 0 && (
                     <LeaderBoard title="Hitting">
                       {playoffBest.bats.map((b, i) => row(b.id, i + 1, b.player_id, b.team_id, b.game_id, battingStatline(b)))}
@@ -722,7 +728,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               </Box>
             </>
           )}
-        </>
+        </Box>
       )}
     </WpblPage>
   )
@@ -989,7 +995,7 @@ function LeaderGrid({ children }: { children: React.ReactNode }) {
 
 function LeaderBoard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Box sx={{ borderRadius: 2, p: 1.5, border: '1px solid', borderColor: CARD_BORDER }}>
+    <Box sx={{ minWidth: 0, borderRadius: 2, p: 1.5, border: '1px solid', borderColor: CARD_BORDER }}>
       <Typography component="h3" sx={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', mb: 1 }}>
         {title}
       </Typography>
@@ -1038,6 +1044,8 @@ function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen }: {
   rank: number; name: string; teamId: string | null; context: string; stat: string
   href: string; onOpen: () => void
 }) {
+  // "A. Lansdell" on a phone, the section's answer everywhere a name shares a row with a stat.
+  const shortName = useWpblName()
   return (
     <Box
       component="a"
@@ -1053,17 +1061,23 @@ function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen }: {
         {rank}
       </Typography>
       <PlayerPortrait name={name} teamId={teamId} size={28} />
+      {/* THE STAT RIDES THE NAME'S LINE, NOT A COLUMN OF ITS OWN. As a third column beside both
+          lines it held its full width through the second line too, so on a phone "Semifinal,
+          game 3 vs NY" came out as "Semifinal, game …" under a stat that was only one line tall.
+          Here the name gives way to the stat, and the game underneath gets the whole row. */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.88rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {name}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
+          <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {shortName(name)}
+          </Typography>
+          <Typography sx={{ flexShrink: 0, fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {stat}
+          </Typography>
+        </Box>
         <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {context}
         </Typography>
       </Box>
-      <Typography sx={{ flexShrink: 0, fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-        {stat}
-      </Typography>
     </Box>
   )
 }

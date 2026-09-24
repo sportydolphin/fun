@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, useMediaQuery } from '@mui/material'
-import { pressable, FOCUS_RING, wpblNameStages, tappableIf } from './ui'
+import { Box, Typography } from '@mui/material'
+import { pressable, FOCUS_RING, wpblNameStages, tappableIf, CARD_INK } from './ui'
+import type { Theme } from '@mui/material'
 
 /**
  * The scrolling game-by-game grid shared by the lineup-history and pitching-usage cards:
@@ -12,21 +13,17 @@ import { pressable, FOCUS_RING, wpblNameStages, tappableIf } from './ui'
  * two non-obvious traps that are easy to reintroduce (both flagged inline).
  */
 
-/** How many games either grid shows on a phone. Fangraphs shows six on a depth chart, and six
- *  fits a phone with a sticky name column. */
-const GRID_GAMES = 6
-
-/** Desktop shows twice as many. Both view queries already pull the team's whole season, so the
- *  count here is purely how much of it to draw, and a card that is ~980px wide would otherwise
- *  spend more than half of that on nothing. Twelve columns land at a natural ~68px each once a
- *  team has played that many; until then they simply grow to fill (see the flex sizing below). */
-const GRID_GAMES_WIDE = 12
-
-/** The window either grid covers, for the viewport it's on. Shared so the two cards always
- *  cover the SAME window: reading one against the other is most of the point of having both
- *  on the page, and that breaks silently if they ever disagree. */
+/** How many games either grid shows: ALL OF THEM. It was six on a phone and twelve on a desktop,
+ *  Fangraphs' depth-chart habit, which suits a season in progress where only the recent weeks are
+ *  live. With the season over the whole run is the story (who started in May and lost the job by
+ *  August), and both view queries already pull the team's full season, so the cap was hiding data
+ *  that had already been fetched. The grid scrolls sideways and opens on the newest game (see the
+ *  scroll effect below), so a longer window costs a reader nothing they did not ask for.
+ *
+ *  Still one hook shared by both cards, so the two always cover the SAME window: reading one
+ *  against the other is most of the point of having both on the page. */
 export function useGridGames(): number {
-  return useMediaQuery('(max-width:600px)') ? GRID_GAMES : GRID_GAMES_WIDE
+  return Number.POSITIVE_INFINITY
 }
 
 /** The one colour either grid uses to flag something the reader should not skim past: a
@@ -165,8 +162,11 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
     position: 'absolute' as const, top: 0, bottom: 10, width: side === 'left' ? 22 : 26,
     pointerEvents: 'none' as const, zIndex: 3,
     ...(side === 'left' ? { left: NAME_W_CSS } : { right: 0 }),
-    background: (t: { palette: { background: { paper: string } } }) =>
-      `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${t.palette.background.paper}, ${t.palette.background.paper}00)`,
+    // CARD_INK, not `background.paper`: the colour actually behind the card, which on a flat page
+    // is the page itself, and a paper-grey fade there reads as a grey smear at the edge.
+    // `transparent` rather than the colour plus `00`, since the colour may be a var().
+    background: (t: Theme) =>
+      `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${CARD_INK(t)}, transparent)`,
   })
 
   return (
@@ -191,7 +191,9 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
               beside the pinned names. */}
           <Box sx={{
             width: NAME_W_CSS, flexShrink: 0, position: 'sticky', left: 0, zIndex: 2,
-            bgcolor: 'background.paper', alignSelf: 'stretch',
+            // Solid, to mask the columns scrolling under it, in the card's own backdrop (CARD_INK),
+            // so on a flat page the pinned column is not a grey strip.
+            bgcolor: CARD_INK, alignSelf: 'stretch',
             borderRight: '1px solid', borderColor: 'divider',
           }} />
           {columns.map(c => (
@@ -243,7 +245,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
           >
             <Box sx={{
               width: NAME_W_CSS, flexShrink: 0, position: 'sticky', left: 0, zIndex: 2,
-              bgcolor: 'background.paper', display: 'flex', alignItems: 'center',
+              bgcolor: CARD_INK, display: 'flex', alignItems: 'center',
               py: 0.55, pr: 0.5,
               borderRight: '1px solid', borderColor: 'divider',
             }}>

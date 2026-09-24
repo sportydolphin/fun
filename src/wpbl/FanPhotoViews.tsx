@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, SectionCard, CARD_BORDER, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx } from './ui'
+import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx } from './ui'
 import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
 import type { WpblPlayer } from './types'
 import { WPBL_PHOTOS_PAGE } from './routes'
-import { useFanPhotosVisible, useCanEditFanPhotos } from './fanPhotoGate'
+import { useCanEditFanPhotos } from './fanPhotoGate'
 import { linkTo } from '../nav'
 import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
 import { track, EVENTS } from '../lib/analytics'
@@ -106,11 +106,16 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
     )
   }
   return (
-    <Box sx={{ mt: 3, p: { xs: 1.75, sm: 2 }, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper' }}>
+    <Box sx={{ mt: 3, p: { xs: 1.75, sm: 2 }, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL }}>
       <Typography sx={{ fontSize: '0.9rem', fontWeight: 800 }}>Your photos</Typography>
       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
         Took photos at a WPBL game? Send them in and they could be featured here and on the players'
-        pages, always credited to you. {link(`Email ${CONTACT_EMAIL}`)}
+        pages, always credited to you.
+      </Typography>
+      {/* Its own line: run on at the end of the sentence it wrapped mid-address on a phone, and
+          the address is the one thing in this panel a reader has to act on. */}
+      <Typography sx={{ fontSize: '0.8rem', mt: 0.75, lineHeight: 1.5 }}>
+        {link(`Email ${CONTACT_EMAIL}`)}
       </Typography>
     </Box>
   )
@@ -177,11 +182,14 @@ const RAIL_ASPECT_MAX = 2
 /** The rail's one fixed dimension. Structure, so it scales with the chrome (see chromePx). */
 const RAIL_TILE_H = { xs: 168, sm: 184 } as const
 
-function PhotoCard({ photo, names, onOpen, frame }: {
+function PhotoCard({ photo, names, onOpen, frame, focusable = true }: {
   photo: FanPhotoWithSubjects; names: string[]; onOpen: () => void
   /** 'rail': fixed height, width follows the photo. 'natural': full width of its column, height
    *  follows the photo (the gallery's masonry). */
   frame: 'rail' | 'natural'
+  /** False on the Home rail's loop copy, which `inert` already hides; this keeps it out of the
+   *  tab order in a browser too old to know `inert`. */
+  focusable?: boolean
 }) {
   const caption = fanPhotoCaption(photo, names)
   const size = frame === 'rail'
@@ -192,7 +200,7 @@ function PhotoCard({ photo, names, onOpen, frame }: {
       <Box
         onClick={onOpen}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
-        role="button" tabIndex={0} aria-label={`View photograph: ${caption}`}
+        role="button" tabIndex={focusable ? 0 : -1} aria-label={`View photograph: ${caption}`}
         sx={{
           position: 'relative', ...size, cursor: 'pointer',
           borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
@@ -260,22 +268,33 @@ function useFanPhotoViewer(photos: FanPhotoWithSubjects[], resolveNames: Resolve
 //   • An open photo pauses it, and so does being off screen, where it would only burn frames.
 //   • Reduced motion turns it off entirely.
 //
-// It ping-pongs rather than looping, holding a moment at each end: a seamless loop needs a second
-// copy of every tile, which doubles the buttons a screen reader and the tab key walk through.
+// It LOOPS, always forward, over a second copy of the tiles laid after the first: when the drift
+// has moved exactly one copy's width it steps back by that width, which lands on an identical
+// frame, so the seam never shows. The copy is `inert` and aria-hidden, so a screen reader and the
+// tab key walk the real tiles once, which is what the ping-pong this replaced was protecting. It
+// used to bounce between the ends with a hold at each, and every reversal read as the rail having
+// run out of photos.
 
-const AUTO_SCROLL_PX_PER_S = 24
-const AUTO_SCROLL_END_HOLD_MS = 2500
+/** Slower from md up, where the tiles are larger and the eye follows one across a wider rail. */
+const AUTO_SCROLL_PX_PER_S = { phone: 24, desktop: 16 } as const
 
-/** Returns whether the rail is auto-scrolling, so the scroller can turn snapping off meanwhile. */
+/** The drift's sub-pixel remainder, 0 to 1, set on the scroller and read by every tile's
+ *  transform. One property on the parent rather than a style per tile, so a frame writes once. */
+const DRIFT_VAR = '--rail-drift'
+
+/** The drift, and whether the rail should carry the loop's second copy. They differ: a phone
+ *  reader who drags the rail stops the drift for good, but the copy stays, or removing it would
+ *  clamp a rail scrolled into it back to the end in one jump. */
 function useRailAutoScroll(
   scrollRef: RefObject<HTMLDivElement | null>,
   areaRef: RefObject<HTMLDivElement | null>,
   enabled: boolean,
   held: boolean,
-): boolean {
+): { drifting: boolean; looping: boolean } {
   const [reduced] = useState(prefersReducedMotion)
   const [stopped, setStopped] = useState(false)
-  const active = enabled && !reduced && !stopped
+  const looping = enabled && !reduced
+  const active = looping && !stopped
   const heldRef = useRef(held)
   heldRef.current = held
   const syncRef = useRef<(() => void) | null>(null)
@@ -286,29 +305,47 @@ function useRailAutoScroll(
     if (!active || !c || !area) return
     let hovered = false, focused = false, touching = false, onScreen = true
     let touchStartLeft = 0
-    let pos = 0, dir = 1, holdUntil = 0, last = 0, frame = 0
+    let pos = 0, last = 0, frame = 0
     // What we last wrote to scrollLeft. Anything else that moves it (the arrows, a trackpad) is
     // picked up by comparing against this, so the drift resumes from there instead of jumping.
     let written = NaN
+    const wide = window.matchMedia?.('(min-width: 900px)')
 
     const tick = (t: number) => {
       frame = requestAnimationFrame(tick)
       const dt = last ? Math.min(t - last, 100) : 0
       last = t
-      const max = c.scrollWidth - c.clientWidth
-      if (max <= 0) return
+      // One copy's width, gap included: the distance from the first real tile to its copy.
+      // Measured every frame rather than cached, since lazy images and a text-size change both
+      // move it, and two offsetLefts on a laid-out rail cost nothing.
+      const first = c.firstElementChild as HTMLElement | null
+      const copy = c.querySelector<HTMLElement>('[data-loop-copy] > *')
+      if (!first || !copy) return
+      const period = copy.offsetLeft - first.offsetLeft
+      // Photos that do not fill the rail have nothing to scroll to, and wrapping them would pull
+      // the copy into view beside the originals.
+      if (period <= c.clientWidth) return
       if (!(Math.abs(c.scrollLeft - written) <= 2)) pos = c.scrollLeft
-      if (t < holdUntil) { written = c.scrollLeft; return }
-      pos += dir * AUTO_SCROLL_PX_PER_S * dt / 1000
-      if (pos >= max) { pos = max; dir = -1; holdUntil = t + AUTO_SCROLL_END_HOLD_MS }
-      else if (pos <= 0) { pos = 0; dir = 1; holdUntil = t + AUTO_SCROLL_END_HOLD_MS }
-      c.scrollLeft = pos
-      written = pos
+      pos += (wide?.matches ? AUTO_SCROLL_PX_PER_S.desktop : AUTO_SCROLL_PX_PER_S.phone) * dt / 1000
+      while (pos >= period) pos -= period
+      // WHOLE PIXELS TO scrollLeft, THE FRACTION TO A TRANSFORM. At 16px/s a frame moves a
+      // quarter of a pixel, and the browser snaps a scroll offset to the pixel grid, so writing
+      // `pos` straight in held the rail still for three frames and jumped it on the fourth: the
+      // judder. A transform is not snapped, so the tiles slide the remainder (see DRIFT_VAR).
+      const whole = Math.floor(pos)
+      c.scrollLeft = whole
+      c.style.setProperty(DRIFT_VAR, String(pos - whole))
+      written = whole
     }
     const sync = () => {
       const run = onScreen && !hovered && !focused && !touching && !heldRef.current
       if (run && !frame) { last = 0; written = NaN; frame = requestAnimationFrame(tick) }
-      else if (!run && frame) { cancelAnimationFrame(frame); frame = 0 }
+      else if (!run && frame) {
+        cancelAnimationFrame(frame); frame = 0
+        // Drop the sub-pixel offset while paused, so a reader scrolling by hand or with the arrows
+        // is not carrying a fraction of a pixel the drift is no longer maintaining.
+        c.style.removeProperty(DRIFT_VAR)
+      }
     }
     syncRef.current = sync
 
@@ -338,6 +375,7 @@ function useRailAutoScroll(
 
     return () => {
       cancelAnimationFrame(frame)
+      c.style.removeProperty(DRIFT_VAR)
       syncRef.current = null
       io?.disconnect()
       area.removeEventListener('pointerenter', onEnter)
@@ -350,10 +388,10 @@ function useRailAutoScroll(
     }
   }, [active, scrollRef, areaRef])
 
-  // Opening a photo pauses without tearing the loop down, so it resumes in the same direction.
+  // Opening a photo pauses without tearing the loop down, so it resumes where it was.
   useEffect(() => { syncRef.current?.() }, [held])
 
-  return active
+  return { drifting: active, looping }
 }
 
 // ─── The strip (player page, Game Center) ──────────────────────────────────────────
@@ -367,26 +405,40 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false }
   const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(photos.length)
   const { open, node, viewing } = useFanPhotoViewer(photos, resolveNames, from)
   const areaRef = useRef<HTMLDivElement>(null)
-  const drifting = useRailAutoScroll(scrollRef, areaRef, autoScroll && photos.length > 0, viewing)
+  const { drifting, looping } = useRailAutoScroll(scrollRef, areaRef, autoScroll && photos.length > 0, viewing)
 
   if (photos.length === 0) return null
+  // Each tile as wide as its photo is at the rail's height, so a portrait and a landscape shot sit
+  // side by side at their own shapes.
+  const tiles = (copy: boolean) => photos.map(p => {
+    const a = railTileAspect(p.width, p.height)
+    return (
+      <Box key={p.id} sx={{
+        flexShrink: 0, scrollSnapAlign: 'start',
+        width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` },
+        // The drift's sub-pixel remainder (see useRailAutoScroll). Only while drifting, so a still
+        // rail is not holding a compositor layer per tile for nothing.
+        ...(drifting ? { transform: `translateX(calc(var(${DRIFT_VAR}, 0) * -1px))`, willChange: 'transform' } : {}),
+      }}>
+        <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" focusable={!copy} />
+      </Box>
+    )
+  })
   return (
     <>
       <Box ref={areaRef} sx={{ position: 'relative' }}>
         <RailScroller scrollRef={scrollRef} onScroll={syncEdges} snap={!drifting}>
-          {photos.map(p => {
-            // Each tile as wide as its photo is at the rail's height, so a portrait and a
-            // landscape shot sit side by side at their own shapes.
-            const a = railTileAspect(p.width, p.height)
-            return (
-              <Box key={p.id} sx={{
-                flexShrink: 0, scrollSnapAlign: 'start',
-                width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` },
-              }}>
-                <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" />
-              </Box>
-            )
-          })}
+          {tiles(false)}
+          {/* The loop's second copy (see useRailAutoScroll). `display: contents` so its tiles are
+              flex items of the rail like the originals, with the same gap at the seam. `inert`
+              is set through the ref because React 18 has no prop for it; it takes the copy out
+              of the tab order and the accessibility tree while leaving it clickable. */}
+          {looping && (
+            <Box data-loop-copy aria-hidden ref={(el: HTMLElement | null) => { el?.setAttribute('inert', '') }}
+              sx={{ display: 'contents' }}>
+              {tiles(true)}
+            </Box>
+          )}
         </RailScroller>
         <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="photographs" />
         <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="photographs" />
@@ -435,15 +487,13 @@ export function FanPhotoGrid({ photos, resolveNames, from }: {
  * caption, since it is her page.
  */
 export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; players: WpblPlayer[] }) {
-  const visible = useFanPhotosVisible()
   const version = useFanPhotosVersion()
   const [index, setIndex] = useState<FanPhotoIndex | null>(null)
   useEffect(() => {
-    if (!visible) return
     let live = true
     fetchWpblFanPhotoIndex().then(idx => { if (live) setIndex(idx) }).catch(() => { /* renders nothing */ })
     return () => { live = false }
-  }, [visible, version])
+  }, [version])
 
   const nameById = useMemo(() => new Map(players.map(p => [p.id, p.name])), [players])
   const resolveNames = useCallback((photo: FanPhotoWithSubjects): string[] => {
@@ -455,7 +505,7 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
   }, [playerId, nameById, index])
 
   const photos = index?.byPlayer.get(playerId) ?? []
-  if (!visible || photos.length === 0) return null
+  if (photos.length === 0) return null
   return (
     <Box sx={{ mt: 2 }}>
       <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', mb: 1 }}>
@@ -480,20 +530,18 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
  * before twelve real photos exist.
  */
 export function FanPhotoHomeCard() {
-  const visible = useFanPhotosVisible()
   const version = useFanPhotosVersion()
   const [index, setIndex] = useState<FanPhotoIndex | null>(null)
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [mockOn, setMockOn] = useState(() => import.meta.env.DEV && devFanPhotosOn())
 
   useEffect(() => {
-    if (!visible) return
     let live = true
     Promise.all([fetchWpblFanPhotoIndex(), fetchWpblAllPlayers()])
       .then(([idx, pl]) => { if (live) { setIndex(idx); setPlayers(pl) } })
       .catch(() => { /* renders nothing */ })
     return () => { live = false }
-  }, [visible, version])
+  }, [version])
 
   // Dev only: the settings menu can force the card on with mock rows. The listener and its import
   // tree-shake out of production behind this guard.
@@ -527,7 +575,7 @@ export function FanPhotoHomeCard() {
     return [...photos].sort((a, b) => keys.get(a.id)! - keys.get(b.id)!)
   }, [photos])
 
-  if (!visible || photos.length < HOME_MIN_PHOTOS) return null
+  if (photos.length < HOME_MIN_PHOTOS) return null
 
   const seeAll = linkTo(WPBL_PHOTOS_PAGE)
   // Its own top margin (Home's 1.5 step), carried here rather than by a wrapper on Home, so a
@@ -544,7 +592,12 @@ export function FanPhotoHomeCard() {
           }}>See all {photos.length} →</Box>
         }
       >
-        <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll />
+        {/* Edge to edge on a phone: the card's side padding is 2 of a ~340px body, and the rail
+            is the one thing on the card that gains from every pixel of width. The negative margin
+            matches the card body's `px: 2`; the card's own overflow clips the tiles at its border. */}
+        <Box sx={{ mx: { xs: -2, sm: 0 } }}>
+          <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll />
+        </Box>
         <FanPhotoSubmitNote variant="line" />
       </SectionCard>
     </Box>

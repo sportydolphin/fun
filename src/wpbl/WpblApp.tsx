@@ -3,6 +3,7 @@ import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuI
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
   fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
+  getCachedWpblTeams, getCachedWpblSchedule, getCachedWpblSiteGames,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { applyLeagueStartTimes } from './startTimes'
@@ -19,7 +20,6 @@ import { seriesContexts } from './derive/series'
 import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
-import { useFanPhotosVisible } from './fanPhotoGate'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton } from './Home'
 import WpblStatsView, { carryStatsParams, type WpblStatsFocus } from './StatsView'
@@ -834,13 +834,13 @@ function viewFromLocation(): string | null {
 // had no home in the section's nav at all until it landed here under Tools. The groups are the one
 // source of order for both surfaces below, so the desktop menu and the mobile sheet cannot drift.
 // Every item is still a real <a href> via linkTo, the crawl-path rule the footer and pills follow.
-type MoreLink = { href: string; label: string; hint?: string; ownerOnly?: boolean; event?: (typeof EVENTS)[keyof typeof EVENTS]; eventProps?: Record<string, unknown> }
+type MoreLink = { href: string; label: string; hint?: string; event?: (typeof EVENTS)[keyof typeof EVENTS]; eventProps?: Record<string, unknown> }
 const MORE_GROUPS: { group: string; items: MoreLink[] }[] = [
   { group: 'Explore', items: [
     { href: WPBL_LEAGUE_PAGE,    label: 'The league',   hint: 'Where the players are from, the reading and the archive' },
     { href: WPBL_SEASON_PAGE,    label: '2026 season',  hint: 'The season read back through its numbers' },
     { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',    hint: 'Every final score the league has produced' },
-    { href: WPBL_PHOTOS_PAGE,    label: '2026 gallery',   hint: "Photographs of this season's players, by who is in them", ownerOnly: true },
+    { href: WPBL_PHOTOS_PAGE,    label: '2026 gallery',   hint: "Photographs of this season's players, by who is in them" },
     { href: WPBL_PLAYERS_INDEX,  label: 'All players',  hint: 'Every roster, by club' },
   ] },
   { group: 'Tools', items: [
@@ -854,11 +854,10 @@ const MORE_GROUPS: { group: string; items: MoreLink[] }[] = [
   ] },
 ]
 
-// MORE_GROUPS minus the owner-only rows for anyone else. Both the desktop menu and the phone sheet
-// read this, so the two cannot disagree about what a reader is offered.
+// Both the desktop menu and the phone sheet read this, so the two cannot disagree about what a
+// reader is offered. It filtered out owner-only rows until the gallery, the last of them, opened.
 function useMoreGroups() {
-  const showPhotos = useFanPhotosVisible()
-  return useMemo(() => MORE_GROUPS.map(g => ({ ...g, items: g.items.filter(l => !l.ownerOnly || showPhotos) })), [showPhotos])
+  return MORE_GROUPS
 }
 
 function NavMore() {
@@ -1100,8 +1099,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     if (view === 'stats' && statsPillNew) { markBadgeSeen('stats-tab-v184'); setStatsPillNew(false) }
   }, [view, statsPillNew])
 
-  const [teams, setTeams] = useState<WpblTeam[]>([])
-  const [feedGames, setFeedGames] = useState<WpblGame[]>([])
+  // SEEDED FROM THE LAST GOOD READS, the way the overlay hosts are. This component unmounts
+  // whenever the reader opens a page from the More menu (App renders those instead of it), so
+  // without a seed every Back from one repainted the whole Home skeleton while it re-read two
+  // tables it had read seconds earlier. The reads below still run on every mount, so the seed is
+  // only ever what paints first, never what stays.
+  const [teams, setTeams] = useState<WpblTeam[]>(() => getCachedWpblTeams() ?? [])
+  const [feedGames, setFeedGames] = useState<WpblGame[]>(() => getCachedWpblSchedule() ?? [])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   // The league's own website calendar, mirrored nightly. It answers two questions the stats
   // feed answers worse: for a postseason game the feed has not published yet, which club bats
@@ -1110,7 +1114,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Home's Next game card build their postseason rows from the same function and must not
   // disagree about who is at home. An empty list is a working state, not a broken one: see
   // postseasonScheduleRows.
-  const [siteGames, setSiteGames] = useState<WpblSiteGame[]>([])
+  const [siteGames, setSiteGames] = useState<WpblSiteGame[]>(() => getCachedWpblSiteGames() ?? [])
   /**
    * THE SCHEDULE THE WHOLE SECTION RENDERS, which is the feed's with the league's own published
    * first pitches over it. Every start time, countdown and reminder below reads `games`.
@@ -1123,7 +1127,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
    * arrives, without anything else in the section knowing that it did.
    */
   const games = useMemo(() => applyLeagueStartTimes(feedGames, siteGames), [feedGames, siteGames])
-  const [loading, setLoading] = useState(true)
+  // Only the first visit waits. A return with both reads cached paints at once (see the seed).
+  const [loading, setLoading] = useState(() => !(getCachedWpblTeams() && getCachedWpblSchedule()))
   // `noSsr` so this is right on the FIRST render, not one tick late. Without it MUI returns `false`
   // on the initial client render and corrects in an effect, so the bottom bar would be absent from
   // the first paint and inserted a frame later into an already laid-out page, with the pill nav
