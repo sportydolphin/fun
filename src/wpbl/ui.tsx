@@ -966,15 +966,18 @@ export function RailArrow({ dir, show, onClick, label }: {
  * The scroller itself: hidden scrollbar, snap points, and `data-swipe-ignore` so a sideways
  * drag here never reaches SwipeableViews and changes tab underneath the reader.
  */
-export function RailScroller({ onScroll, scrollRef, children }: {
+export function RailScroller({ onScroll, scrollRef, children, snap = true }: {
   onScroll: () => void
   scrollRef: React.RefObject<HTMLDivElement | null>
   children: React.ReactNode
+  /** Off while something drives the scroll itself: a snap point re-snaps every programmatic
+   *  nudge, so a slow auto-scroll would never get off the tile it started on. */
+  snap?: boolean
 }) {
   return (
     <Box ref={scrollRef} onScroll={onScroll} data-swipe-ignore="true" sx={{
       display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,
-      scrollSnapType: 'x proximity',
+      scrollSnapType: snap ? 'x proximity' : 'none',
       '&::-webkit-scrollbar': { display: 'none' },
       msOverflowStyle: 'none', scrollbarWidth: 'none',
     }}>

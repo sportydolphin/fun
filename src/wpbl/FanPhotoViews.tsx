@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, SectionCard, CARD_BORDER, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx } from './ui'
 import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
@@ -10,6 +10,7 @@ import { linkTo } from '../nav'
 import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
 import { track, EVENTS } from '../lib/analytics'
 import { CONTACT_EMAIL } from '../lib/contact'
+import { prefersReducedMotion } from '../lib/motion'
 
 // How many published photos before the Home card earns its slot, and the most it shows in the
 // rail. The threshold is deliberately not small: a card on the front page has to look like a
@@ -228,6 +229,7 @@ function useFanPhotoViewer(photos: FanPhotoWithSubjects[], resolveNames: Resolve
     setActiveId(photo.id)
   }, [from])
   const active = activeId ? (photos.find(p => p.id === activeId) ?? null) : null
+  const viewing = activeId !== null || editingId !== null
   const node = (
     <>
       {active && (
@@ -241,24 +243,137 @@ function useFanPhotoViewer(photos: FanPhotoWithSubjects[], resolveNames: Resolve
       )}
     </>
   )
-  return { open, node }
+  return { open, node, viewing }
+}
+
+// ─── Auto-scroll (the Home rail) ──────────────────────────────────────────────────
+//
+// The Home rail drifts slowly through its photos on its own, so a reader who never touches it
+// still sees more than the first three. It gets out of the way of anyone who shows interest:
+//
+//   • A mouse over the rail (or its arrows) PAUSES it, and it picks up from wherever the reader
+//     left it, arrows included. Keyboard focus inside it does the same.
+//   • A finger that actually DRAGS the rail STOPS it for good, until the page reloads. A phone
+//     has no hover to resume on, and a rail that starts moving again while you are reading a
+//     caption you scrolled to is the one thing worse than no auto-scroll. A touch that does not
+//     move it (a tap, or a vertical page scroll that started on it) only pauses it.
+//   • An open photo pauses it, and so does being off screen, where it would only burn frames.
+//   • Reduced motion turns it off entirely.
+//
+// It ping-pongs rather than looping, holding a moment at each end: a seamless loop needs a second
+// copy of every tile, which doubles the buttons a screen reader and the tab key walk through.
+
+const AUTO_SCROLL_PX_PER_S = 24
+const AUTO_SCROLL_END_HOLD_MS = 2500
+
+/** Returns whether the rail is auto-scrolling, so the scroller can turn snapping off meanwhile. */
+function useRailAutoScroll(
+  scrollRef: RefObject<HTMLDivElement | null>,
+  areaRef: RefObject<HTMLDivElement | null>,
+  enabled: boolean,
+  held: boolean,
+): boolean {
+  const [reduced] = useState(prefersReducedMotion)
+  const [stopped, setStopped] = useState(false)
+  const active = enabled && !reduced && !stopped
+  const heldRef = useRef(held)
+  heldRef.current = held
+  const syncRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    const c = scrollRef.current
+    const area = areaRef.current
+    if (!active || !c || !area) return
+    let hovered = false, focused = false, touching = false, onScreen = true
+    let touchStartLeft = 0
+    let pos = 0, dir = 1, holdUntil = 0, last = 0, frame = 0
+    // What we last wrote to scrollLeft. Anything else that moves it (the arrows, a trackpad) is
+    // picked up by comparing against this, so the drift resumes from there instead of jumping.
+    let written = NaN
+
+    const tick = (t: number) => {
+      frame = requestAnimationFrame(tick)
+      const dt = last ? Math.min(t - last, 100) : 0
+      last = t
+      const max = c.scrollWidth - c.clientWidth
+      if (max <= 0) return
+      if (!(Math.abs(c.scrollLeft - written) <= 2)) pos = c.scrollLeft
+      if (t < holdUntil) { written = c.scrollLeft; return }
+      pos += dir * AUTO_SCROLL_PX_PER_S * dt / 1000
+      if (pos >= max) { pos = max; dir = -1; holdUntil = t + AUTO_SCROLL_END_HOLD_MS }
+      else if (pos <= 0) { pos = 0; dir = 1; holdUntil = t + AUTO_SCROLL_END_HOLD_MS }
+      c.scrollLeft = pos
+      written = pos
+    }
+    const sync = () => {
+      const run = onScreen && !hovered && !focused && !touching && !heldRef.current
+      if (run && !frame) { last = 0; written = NaN; frame = requestAnimationFrame(tick) }
+      else if (!run && frame) { cancelAnimationFrame(frame); frame = 0 }
+    }
+    syncRef.current = sync
+
+    // Pointer events, not mouse events: a touch browser fires emulated mouseenter on every tap
+    // and never the leave, which would pause a phone's rail forever on the first tap.
+    const onEnter = (e: PointerEvent) => { if (e.pointerType !== 'touch') { hovered = true; sync() } }
+    const onLeave = (e: PointerEvent) => { if (e.pointerType !== 'touch') { hovered = false; sync() } }
+    const onFocusIn = () => { focused = true; sync() }
+    const onFocusOut = (e: FocusEvent) => { focused = area.contains(e.relatedTarget as Node | null); sync() }
+    const onTouchStart = () => { touching = true; touchStartLeft = c.scrollLeft; sync() }
+    const onTouchEnd = () => {
+      touching = false
+      if (Math.abs(c.scrollLeft - touchStartLeft) > 4) setStopped(true)
+      else sync()
+    }
+    area.addEventListener('pointerenter', onEnter)
+    area.addEventListener('pointerleave', onLeave)
+    area.addEventListener('focusin', onFocusIn)
+    area.addEventListener('focusout', onFocusOut)
+    area.addEventListener('touchstart', onTouchStart, { passive: true })
+    area.addEventListener('touchend', onTouchEnd)
+    area.addEventListener('touchcancel', onTouchEnd)
+    const io = typeof IntersectionObserver === 'undefined' ? null
+      : new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; sync() })
+    io?.observe(c)
+    sync()
+
+    return () => {
+      cancelAnimationFrame(frame)
+      syncRef.current = null
+      io?.disconnect()
+      area.removeEventListener('pointerenter', onEnter)
+      area.removeEventListener('pointerleave', onLeave)
+      area.removeEventListener('focusin', onFocusIn)
+      area.removeEventListener('focusout', onFocusOut)
+      area.removeEventListener('touchstart', onTouchStart)
+      area.removeEventListener('touchend', onTouchEnd)
+      area.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [active, scrollRef, areaRef])
+
+  // Opening a photo pauses without tearing the loop down, so it resumes in the same direction.
+  useEffect(() => { syncRef.current?.() }, [held])
+
+  return active
 }
 
 // ─── The strip (player page, Game Center) ──────────────────────────────────────────
 
 /** A horizontal rail of a subject's or a game's photos, opening the lightbox. `from` labels the
- *  open event so a player-page strip and a Game Center strip can be judged separately. */
-export function FanPhotoStrip({ photos, resolveNames, from }: {
-  photos: FanPhotoWithSubjects[]; resolveNames: ResolveNames; from: string
+ *  open event so a player-page strip and a Game Center strip can be judged separately.
+ *  `autoScroll` makes it drift on its own (Home only; see useRailAutoScroll). */
+export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false }: {
+  photos: FanPhotoWithSubjects[]; resolveNames: ResolveNames; from: string; autoScroll?: boolean
 }) {
   const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(photos.length)
-  const { open, node } = useFanPhotoViewer(photos, resolveNames, from)
+  const { open, node, viewing } = useFanPhotoViewer(photos, resolveNames, from)
+  const areaRef = useRef<HTMLDivElement>(null)
+  const drifting = useRailAutoScroll(scrollRef, areaRef, autoScroll && photos.length > 0, viewing)
 
   if (photos.length === 0) return null
   return (
     <>
-      <Box sx={{ position: 'relative' }}>
-        <RailScroller scrollRef={scrollRef} onScroll={syncEdges}>
+      <Box ref={areaRef} sx={{ position: 'relative' }}>
+        <RailScroller scrollRef={scrollRef} onScroll={syncEdges} snap={!drifting}>
           {photos.map(p => {
             // Each tile as wide as its photo is at the rail's height, so a portrait and a
             // landscape shot sit side by side at their own shapes.
@@ -354,7 +469,8 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
 // ─── The Home card ──────────────────────────────────────────────────────────────
 
 /**
- * The fan-photos card on Home: a rail of recent photographs and a link to the full gallery. Shows
+ * The fan-photos card on Home: a slowly drifting rail of photographs in random order and a link
+ * to the full gallery. Shows
  * year-round once there are HOME_MIN_PHOTOS published, because the photos keep arriving and the
  * card grows with them; it sits low on Home (above "The league"), the explore-and-relive zone,
  * where it stays out of the live cards during a season and rises on its own once those go quiet.
@@ -399,6 +515,18 @@ export function FanPhotoHomeCard() {
 
   const real = index?.photos ?? []
   const photos = import.meta.env.DEV && mockOn ? mockFanPhotos(real, players, HOME_MIN_PHOTOS) : real
+
+  // A fresh random order on every load, so the rail (which shows at most HOME_RAIL_MAX) is a
+  // different sample each visit rather than always the newest dozen. Each photo draws its sort key
+  // once, by id: an in-place edit refetches the index, and reshuffling then would rearrange the
+  // rail under the owner who just made the edit.
+  const sortKeys = useRef(new Map<string, number>())
+  const shuffled = useMemo(() => {
+    const keys = sortKeys.current
+    for (const p of photos) if (!keys.has(p.id)) keys.set(p.id, Math.random())
+    return [...photos].sort((a, b) => keys.get(a.id)! - keys.get(b.id)!)
+  }, [photos])
+
   if (!visible || photos.length < HOME_MIN_PHOTOS) return null
 
   const seeAll = linkTo(WPBL_PHOTOS_PAGE)
@@ -416,7 +544,7 @@ export function FanPhotoHomeCard() {
           }}>See all {photos.length} →</Box>
         }
       >
-        <FanPhotoStrip photos={photos.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" />
+        <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll />
         <FanPhotoSubmitNote variant="line" />
       </SectionCard>
     </Box>
