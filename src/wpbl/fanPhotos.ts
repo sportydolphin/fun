@@ -107,6 +107,9 @@ export function buildFanPhotoIndex(
   const byCategory = new Map<string, FanPhotoWithSubjects[]>()
 
   for (const p of photos) {
+    // Only published photos reach an audience surface. For a reader RLS already guarantees it;
+    // for the owner, whose read includes the backlog, this is what enforces it (see api.ts).
+    if (p.approved === false) continue
     const playerIds = playerTags.get(p.id) ?? []
     const figureKeys = figureTags.get(p.id) ?? []
     const teamIds = teamTags.get(p.id) ?? []

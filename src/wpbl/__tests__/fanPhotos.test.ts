@@ -76,4 +76,18 @@ describe('buildFanPhotoIndex', () => {
     expect([...idx.byCategory.keys()]).toEqual(['fan-signs'])
     expect(idx.categories).toEqual([signs])
   })
+
+  // The owner's read includes the unreviewed backlog (their RLS policy grants every row), so the
+  // index is what keeps an unpublished photo off Home, the player pages and the gallery for them.
+  it('leaves unpublished photos, and their tags, out of every surface', () => {
+    const idx = buildFanPhotoIndex(
+      [photo({ id: 'pub', approved: true }), photo({ id: 'draft', approved: false, game_id: 'g1', category_key: 'fan-signs' })],
+      [playerTag('pub', 'p1'), playerTag('draft', 'p1'), playerTag('draft', 'p2')],
+      [], [], [{ key: 'fan-signs', name: 'Fan signs', blurb: null, sort_order: 0 }])
+    expect(idx.photos.map(p => p.id)).toEqual(['pub'])
+    expect(idx.byPlayer.get('p1')?.map(p => p.id)).toEqual(['pub'])
+    expect(idx.byPlayer.has('p2')).toBe(false)
+    expect(idx.byGame.has('g1')).toBe(false)
+    expect(idx.byCategory.has('fan-signs')).toBe(false)
+  })
 })

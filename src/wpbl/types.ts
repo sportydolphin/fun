@@ -284,6 +284,9 @@ export interface WpblFanPhoto {
   game_id: string | null     // set when the photo is from a known game; drives Game Center
   sort_order: number | null
   category_key: string | null // null is an ordinary fan photograph; see WpblPhotoCategory
+  /** Published. Readers only ever receive approved rows (RLS); the owner receives everything, so
+   *  the public surfaces check this to show the owner what the audience sees. */
+  approved?: boolean
 }
 
 /** A gallery category for photos that are not OF someone (a fan's sign, the ballpark), so they

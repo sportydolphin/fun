@@ -950,13 +950,19 @@ export function fetchWpblPhotos(): Promise<WpblPhoto[]> {
 // truncated read is a short array with no error, and the photos it drops simply stop appearing
 // on the pages that sort last. See fetchAllPaged and CLAUDE.md.
 //
-// None filters on `approved`: RLS restricts the select to approved rows (and a tag to an
-// approved photo), so the unreviewed backlog is unreachable from the browser whatever the query
-// asks. A filter here would read as though it were the protection.
+// RLS restricts a reader's select to approved rows (and a tag to an approved photo), and THAT is
+// the protection: nothing here could hide the backlog from someone determined to read it.
+//
+// But RLS answers "who may read this", not "what does the audience see", and for the OWNER those
+// differ: the owner's `for all using (is_site_owner())` policy ORs with the public one, so an
+// unfiltered read hands the owner the whole unreviewed queue, and every public surface drew
+// unpublished photos for the one person checking what readers see. So the photo read filters on
+// `approved` too, and buildFanPhotoIndex drops anything not approved as a second line. Neither is
+// the security boundary; both are what keep the owner's view honest.
 
 // The card render, dims and caption drive the strip and gallery; game_id feeds Game Center.
 // Ordered by the curator's sequence, id breaking ties so the order is total.
-const FAN_PHOTO_COLUMNS = 'id,card_url,full_url,width,height,caption,credit,taken_on,game_id,sort_order,category_key'
+const FAN_PHOTO_COLUMNS = 'id,card_url,full_url,width,height,caption,credit,taken_on,game_id,sort_order,category_key,approved'
 
 export function fetchWpblFanPhotos(): Promise<WpblFanPhoto[]> {
   if (isFresh(fanPhotosCache)) return Promise.resolve(fanPhotosCache!.data)
@@ -964,6 +970,7 @@ export function fetchWpblFanPhotos(): Promise<WpblFanPhoto[]> {
     const data = await fetchAllPaged<WpblFanPhoto>('fetchWpblFanPhotos', (from, to) =>
       supabase.from('wpbl_fan_photos')
         .select(FAN_PHOTO_COLUMNS)
+        .eq('approved', true)
         .order('sort_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
@@ -1079,7 +1086,7 @@ export async function fetchWpblFanPhotoQueue(): Promise<{
     safe<WpblFanPhotoRow[]>('fetchWpblFanPhotoQueue', () =>
       supabase.from('wpbl_fan_photos')
         // Unreviewed first (approved ascending puts false before true), then the curated order.
-        .select(`${FAN_PHOTO_COLUMNS},approved,contributor_id,created_at,storage_path,sha256`)
+        .select(`${FAN_PHOTO_COLUMNS},contributor_id,created_at,storage_path,sha256`)
         .order('approved', { ascending: true })
         .order('sort_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true }) as unknown as
