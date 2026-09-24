@@ -62,6 +62,9 @@ const field = (over: Partial<WpblFieldingLine> = {}): WpblFieldingLine => ({
 // The page's own lines, and the league-wide read behind the percentile strip.
 const lines = { batting: [] as WpblBattingLine[], pitching: [] as WpblPitchingLine[], fielding: [] as WpblFieldingLine[] }
 
+// The fan-photo strip is owner-gated through useAuth, and this page renders with no AuthProvider.
+vi.mock('../fanPhotoGate', () => ({ useFanPhotosVisible: () => false }))
+
 vi.mock('../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api')>()
   return {

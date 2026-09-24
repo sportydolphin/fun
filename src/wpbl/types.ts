@@ -296,13 +296,15 @@ export interface WpblPhotoFigure {
   team_id: string | null
 }
 
-/** One tag: exactly one of player_id / figure_key is set (a check constraint enforces it).
- *  A tag is public only when its photo is, gated in RLS on the parent row. */
+/** One tag: exactly one of player_id / figure_key / team_id is set (a check constraint enforces
+ *  it). A team tag is a club photo, the whole side at once. A tag is public only when its photo
+ *  is, gated in RLS on the parent row. */
 export interface WpblPhotoSubject {
   id: string
   photo_id: string
   player_id: string | null
   figure_key: string | null
+  team_id: string | null
 }
 
 /** A photographer and the record that they granted permission. Owner-only: this table has no

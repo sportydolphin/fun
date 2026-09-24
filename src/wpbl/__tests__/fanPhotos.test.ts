@@ -13,10 +13,10 @@ const photo = (o: Partial<WpblFanPhoto> & { id: string }): WpblFanPhoto => ({
 })
 
 const playerTag = (photo_id: string, player_id: string): WpblPhotoSubject =>
-  ({ id: `${photo_id}-${player_id}`, photo_id, player_id, figure_key: null })
+  ({ id: `${photo_id}-${player_id}`, photo_id, player_id, figure_key: null, team_id: null })
 
 const figureTag = (photo_id: string, figure_key: string): WpblPhotoSubject =>
-  ({ id: `${photo_id}-${figure_key}`, photo_id, player_id: null, figure_key })
+  ({ id: `${photo_id}-${figure_key}`, photo_id, player_id: null, figure_key, team_id: null })
 
 const gladys: WpblPhotoFigure =
   { key: 'mascot:gladys-goose', name: 'Gladys the Goose', kind: 'mascot', blurb: null, team_id: null }

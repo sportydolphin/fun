@@ -26,7 +26,7 @@ describe('mockFanPhotos', () => {
   const real: FanPhotoWithSubjects[] = [{
     id: 'r1', card_url: 'real/card', full_url: 'real/full', width: 800, height: 600,
     caption: null, credit: 'A Fan', taken_on: null, game_id: null, sort_order: null,
-    playerIds: ['p1'], figureKeys: [],
+    playerIds: ['p1'], figureKeys: [], teamIds: [],
   }]
 
   it('pads up to the count, keeping the real rows first', () => {

@@ -4,13 +4,14 @@ import { Close, Refresh } from '@mui/icons-material'
 import { Section } from '../AdminPanel'
 import { supabase } from '../lib/supabase'
 import {
-  fetchWpblFanPhotoQueue, fetchWpblAllPlayers,
+  fetchWpblFanPhotoQueue, fetchWpblAllPlayers, fetchWpblTeams,
   setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject, upsertFanPhotoFigure,
   fetchFanPhotoContributors, createFanPhotoContributor, findFanPhotoBySha, insertFanPhoto,
   type WpblFanPhotoRow,
 } from './api'
 import { prepareForUpload, uploadPreparedPhoto } from './fanPhotoUpload'
-import type { WpblPlayer, WpblPhotoSubject, WpblPhotoFigure, WpblPhotoContributor } from './types'
+import { fanPhotoTeamName } from './fanPhotos'
+import type { WpblPlayer, WpblPhotoSubject, WpblPhotoFigure, WpblPhotoContributor, WpblTeam } from './types'
 
 // The fan-photo curation tool. Bytes arrive by the ingest CLI (approved = false); this is where
 // they get their subjects, a caption and the approve toggle that makes them public. It never
@@ -103,18 +104,22 @@ function SubjectPicker({ candidates, onPick }: {
   )
 }
 
-function PhotoCard({ photo, subjects, players, figures, onChange }: {
+function PhotoCard({ photo, subjects, players, figures, teams, onChange }: {
   photo: WpblFanPhotoRow
   subjects: WpblPhotoSubject[]
   players: Map<string, WpblPlayer>
   figures: Map<string, WpblPhotoFigure>
+  teams: WpblTeam[]
   onChange: () => void
 }) {
   const [busy, setBusy] = useState(false)
   const run = async (fn: () => Promise<unknown>) => { setBusy(true); await fn(); setBusy(false); onChange() }
 
   const tagged = new Set<string>()
-  for (const s of subjects) tagged.add(s.player_id ? `p:${s.player_id}` : `f:${s.figure_key}`)
+  for (const s of subjects) {
+    tagged.add(s.player_id ? `p:${s.player_id}` : s.team_id ? `t:${s.team_id}` : `f:${s.figure_key}`)
+  }
+  const teamTag = new Map(subjects.filter(s => s.team_id).map(s => [s.team_id!, s.id]))
 
   const candidates: Candidate[] = useMemo(() => {
     const out: Candidate[] = []
@@ -132,17 +137,26 @@ function PhotoCard({ photo, subjects, players, figures, onChange }: {
 
   const subjectName = (s: WpblPhotoSubject) =>
     s.player_id ? (players.get(s.player_id)?.name ?? 'Unknown player')
-                : (figures.get(s.figure_key ?? '')?.name ?? s.figure_key ?? 'Unknown')
+    : s.team_id ? `${fanPhotoTeamName(teams.find(t => t.id === s.team_id))} (team)`
+    : (figures.get(s.figure_key ?? '')?.name ?? s.figure_key ?? 'Unknown')
 
+  const togglePublish = () => { if (!busy) run(() => setFanPhotoApproved(photo.id, !photo.approved)) }
+
+  // A grid rather than a row: beside a 120px thumbnail a phone has ~190px left, too little for the
+  // date field and Publish together, and the Section clips its overflow, so Publish was simply cut
+  // off. On a phone the actions take the card's full width under the thumbnail.
   return (
     <Box sx={{
-      display: 'flex', gap: 1.5, p: 1.5,
+      display: 'grid', columnGap: 1.5, rowGap: 1, p: 1.5,
+      gridTemplateColumns: { xs: '84px minmax(0, 1fr)', sm: '120px minmax(0, 1fr)' },
+      gridTemplateAreas: { xs: '"img fields" "actions actions"', sm: '"img fields" "img actions"' },
+      gridTemplateRows: { sm: 'auto 1fr' },
       '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
       opacity: busy ? 0.6 : 1, transition: 'opacity .15s',
     }}>
-      <Box sx={{ flexShrink: 0, width: 120 }}>
+      <Box sx={{ gridArea: 'img', minWidth: 0 }}>
         <Box component="img" src={photo.card_url} alt={photo.caption ?? 'Fan photo'} loading="lazy"
-          sx={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 1.5, bgcolor: 'action.hover',
+          sx={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 1.5, bgcolor: 'action.hover',
                 display: 'block', border: '1px solid', borderColor: 'divider' }} />
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.5 }}>
           {photo.credit ?? 'no credit'}
@@ -152,7 +166,7 @@ function PhotoCard({ photo, subjects, players, figures, onChange }: {
         )}
       </Box>
 
-      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+      <Box sx={{ gridArea: 'fields', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.8 }}>
         {/* subjects */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
           {subjects.length === 0 && (
@@ -177,29 +191,48 @@ function PhotoCard({ photo, subjects, players, figures, onChange }: {
         <SubjectPicker candidates={candidates}
           onPick={c => run(() => addFanPhotoSubject(photo.id, c.add))} />
 
+        {/* Team photo: tag the whole club rather than twenty players one by one. Toggles. */}
+        {teams.length > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6 }}>
+            <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', mr: 0.2 }}>
+              Team photo
+            </Typography>
+            {teams.map(t => {
+              const tagId = teamTag.get(t.id)
+              return (
+                <Chip key={t.id} label={t.abbr} active={!!tagId} onClick={() => {
+                  if (busy) return
+                  run(() => tagId ? removeFanPhotoSubject(tagId) : addFanPhotoSubject(photo.id, { teamId: t.id }))
+                }} />
+              )
+            })}
+          </Box>
+        )}
+
         <SavingField value={photo.caption} placeholder="Caption (plain text)" multiline
           onSave={v => run(() => updateFanPhoto(photo.id, { caption: v }))} />
+      </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 150 }}>
-            <SavingField value={photo.taken_on} placeholder="Taken on" type="date"
-              onSave={v => run(() => updateFanPhoto(photo.id, { taken_on: v }))} />
-          </Box>
-          <Box sx={{ flex: 1 }} />
-          <Box
-            onClick={() => !busy && run(() => setFanPhotoApproved(photo.id, !photo.approved))}
-            role="button" tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!busy) run(() => setFanPhotoApproved(photo.id, !photo.approved)) } }}
-            sx={{
-              px: 1.5, py: 0.6, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-              fontSize: '0.74rem', fontWeight: 800, border: '1px solid',
-              borderColor: photo.approved ? 'success.main' : 'divider',
-              bgcolor: photo.approved ? 'success.main' : 'background.paper',
-              color: photo.approved ? '#fff' : 'text.secondary',
-            }}
-          >
-            {photo.approved ? '✓ Published' : 'Publish'}
-          </Box>
+      <Box sx={{ gridArea: 'actions', minWidth: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ flex: { xs: 1, sm: '0 0 150px' }, minWidth: 0 }}>
+          <SavingField value={photo.taken_on} placeholder="Taken on" type="date"
+            onSave={v => run(() => updateFanPhoto(photo.id, { taken_on: v }))} />
+        </Box>
+        <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
+        <Box
+          onClick={togglePublish}
+          role="button" tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePublish() } }}
+          sx={{
+            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            minHeight: { xs: 44, sm: 0 }, px: 2, py: 0.6, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+            fontSize: '0.8rem', fontWeight: 800, border: '1px solid',
+            borderColor: photo.approved ? 'success.main' : 'primary.main',
+            bgcolor: photo.approved ? 'success.main' : 'primary.main',
+            color: '#fff',
+          }}
+        >
+          {photo.approved ? '✓ Published' : 'Publish'}
         </Box>
       </Box>
     </Box>
@@ -412,13 +445,14 @@ export default function AdminPhotos() {
   const [subjects, setSubjects] = useState<WpblPhotoSubject[]>([])
   const [figures, setFigures] = useState<WpblPhotoFigure[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
+  const [teams, setTeams] = useState<WpblTeam[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('unapproved')
 
   const load = useCallback(() => {
     setLoading(true)
-    Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers()]).then(([q, pl]) => {
-      setPhotos(q.photos); setSubjects(q.subjects); setFigures(q.figures); setPlayers(pl)
+    Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams()]).then(([q, pl, tm]) => {
+      setPhotos(q.photos); setSubjects(q.subjects); setFigures(q.figures); setPlayers(pl); setTeams(tm)
       setLoading(false)
     })
   }, [])
@@ -484,7 +518,7 @@ export default function AdminPhotos() {
         ) : (
           shown.map(p => (
             <PhotoCard key={p.id} photo={p} subjects={subjectsByPhoto.get(p.id) ?? []}
-              players={playersById} figures={figuresByKey} onChange={load} />
+              players={playersById} figures={figuresByKey} teams={teams} onChange={load} />
           ))
         )}
       </Section>

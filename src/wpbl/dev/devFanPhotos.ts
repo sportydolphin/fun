@@ -66,6 +66,7 @@ export function mockFanPhotos(
       sort_order: i,
       playerIds: player ? [player.id] : [],
       figureKeys: [],
+      teamIds: [],
     })
   }
   return out

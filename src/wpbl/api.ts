@@ -978,7 +978,7 @@ export function fetchWpblFanPhotoSubjects(): Promise<WpblPhotoSubject[]> {
   return once('fanPhotoSubjects', async () => {
     const data = await fetchAllPaged<WpblPhotoSubject>('fetchWpblFanPhotoSubjects', (from, to) =>
       supabase.from('wpbl_photo_subjects')
-        .select('id,photo_id,player_id,figure_key')
+        .select('id,photo_id,player_id,figure_key,team_id')
         .order('photo_id', { ascending: true })
         .order('id', { ascending: true })
         .range(from, to) as unknown as
@@ -1007,12 +1007,13 @@ export function fetchWpblFanPhotoFigures(): Promise<WpblPhotoFigure[]> {
 // per-game lookups. Each read is cached and deduped on its own, so calling this from several
 // components in one load costs one round trip each, not one per caller.
 export async function fetchWpblFanPhotoIndex(): Promise<FanPhotoIndex> {
-  const [photos, subjects, figures] = await Promise.all([
+  const [photos, subjects, figures, teams] = await Promise.all([
     fetchWpblFanPhotos(),
     fetchWpblFanPhotoSubjects(),
     fetchWpblFanPhotoFigures(),
+    fetchWpblTeams(),
   ])
-  return buildFanPhotoIndex(photos, subjects, figures)
+  return buildFanPhotoIndex(photos, subjects, figures, teams)
 }
 
 // ─── Fan photo curation (owner-only, writes through the is_site_owner() RLS policy) ──────
@@ -1050,7 +1051,7 @@ export async function fetchWpblFanPhotoQueue(): Promise<{
         .order('created_at', { ascending: true }) as unknown as
         PromiseLike<{ data: WpblFanPhotoRow[] | null; error: unknown }>, []),
     safe<WpblPhotoSubject[]>('fetchWpblFanPhotoQueueSubjects', () =>
-      supabase.from('wpbl_photo_subjects').select('id,photo_id,player_id,figure_key') as unknown as
+      supabase.from('wpbl_photo_subjects').select('id,photo_id,player_id,figure_key,team_id') as unknown as
         PromiseLike<{ data: WpblPhotoSubject[] | null; error: unknown }>, []),
     safe<WpblPhotoFigure[]>('fetchWpblFanPhotoQueueFigures', () =>
       supabase.from('wpbl_photo_figures').select('key,name,kind,blurb,team_id').order('name') as unknown as
@@ -1087,18 +1088,21 @@ export function updateFanPhoto(id: string, patch: {
 }
 
 /** Tag a subject, returning the new row (for optimistic UI) or null on failure. Exactly one of
- *  playerId / figureKey is passed; the table's check constraint enforces that, and the unique
+ *  playerId / figureKey / teamId is passed; the table's check constraint enforces that, and the unique
  *  index rejects a repeat tag (which the UI avoids by not offering an already-tagged subject).
  *  `.insert().select()` is safe here because the owner's RLS policy also grants the select. */
 export async function addFanPhotoSubject(
-  photoId: string, subject: { playerId: string } | { figureKey: string },
+  photoId: string, subject: { playerId: string } | { figureKey: string } | { teamId: string },
 ): Promise<WpblPhotoSubject | null> {
-  const row = 'playerId' in subject
-    ? { photo_id: photoId, player_id: subject.playerId, figure_key: null }
-    : { photo_id: photoId, player_id: null, figure_key: subject.figureKey }
+  const row = {
+    photo_id: photoId,
+    player_id: 'playerId' in subject ? subject.playerId : null,
+    figure_key: 'figureKey' in subject ? subject.figureKey : null,
+    team_id: 'teamId' in subject ? subject.teamId : null,
+  }
   try {
     const { data, error } = await supabase.from('wpbl_photo_subjects')
-      .insert(row).select('id,photo_id,player_id,figure_key').single()
+      .insert(row).select('id,photo_id,player_id,figure_key,team_id').single()
     if (error) { console.error('addFanPhotoSubject:', error); return null }
     return data as WpblPhotoSubject
   } catch (e) {

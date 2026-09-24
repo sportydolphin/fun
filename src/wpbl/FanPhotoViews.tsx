@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, SectionCard, CARD_BORDER, useRailPaging, RailArrow, RailScroller, hoverOnly } from './ui'
-import type { FanPhotoWithSubjects, FanPhotoIndex } from './fanPhotos'
+import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers } from './api'
 import type { WpblPlayer } from './types'
 import { WPBL_PHOTOS_PAGE } from './routes'
+import { useFanPhotosVisible } from './fanPhotoGate'
 import { linkTo } from '../nav'
 import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
 import { track, EVENTS } from '../lib/analytics'
@@ -180,23 +181,26 @@ export function FanPhotoGrid({ photos, resolveNames, from }: {
  * caption, since it is her page.
  */
 export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; players: WpblPlayer[] }) {
+  const visible = useFanPhotosVisible()
   const [index, setIndex] = useState<FanPhotoIndex | null>(null)
   useEffect(() => {
+    if (!visible) return
     let live = true
     fetchWpblFanPhotoIndex().then(idx => { if (live) setIndex(idx) }).catch(() => { /* renders nothing */ })
     return () => { live = false }
-  }, [])
+  }, [visible])
 
   const nameById = useMemo(() => new Map(players.map(p => [p.id, p.name])), [players])
   const resolveNames = useCallback((photo: FanPhotoWithSubjects): string[] => {
     const names: string[] = []
     for (const pid of photo.playerIds) if (pid !== playerId) names.push(nameById.get(pid) ?? '—')
     for (const key of photo.figureKeys) names.push(index?.figures.get(key)?.name ?? '—')
+    for (const tid of photo.teamIds) names.push(fanPhotoTeamName(index?.teams.get(tid)))
     return names
   }, [playerId, nameById, index])
 
   const photos = index?.byPlayer.get(playerId) ?? []
-  if (photos.length === 0) return null
+  if (!visible || photos.length === 0) return null
   return (
     <Box sx={{ mt: 2 }}>
       <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', mb: 1 }}>
@@ -220,17 +224,19 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
  * before twelve real photos exist.
  */
 export function FanPhotoHomeCard() {
+  const visible = useFanPhotosVisible()
   const [index, setIndex] = useState<FanPhotoIndex | null>(null)
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [mockOn, setMockOn] = useState(() => import.meta.env.DEV && devFanPhotosOn())
 
   useEffect(() => {
+    if (!visible) return
     let live = true
     Promise.all([fetchWpblFanPhotoIndex(), fetchWpblAllPlayers()])
       .then(([idx, pl]) => { if (live) { setIndex(idx); setPlayers(pl) } })
       .catch(() => { /* renders nothing */ })
     return () => { live = false }
-  }, [])
+  }, [visible])
 
   // Dev only: the settings menu can force the card on with mock rows. The listener and its import
   // tree-shake out of production behind this guard.
@@ -246,12 +252,13 @@ export function FanPhotoHomeCard() {
     const names: string[] = []
     for (const pid of photo.playerIds) names.push(nameById.get(pid) ?? '—')
     for (const key of photo.figureKeys) names.push(index?.figures.get(key)?.name ?? '—')
+    for (const tid of photo.teamIds) names.push(fanPhotoTeamName(index?.teams.get(tid)))
     return names
   }, [nameById, index])
 
   const real = index?.photos ?? []
   const photos = import.meta.env.DEV && mockOn ? mockFanPhotos(real, players, HOME_MIN_PHOTOS) : real
-  if (photos.length < HOME_MIN_PHOTOS) return null
+  if (!visible || photos.length < HOME_MIN_PHOTOS) return null
 
   const seeAll = linkTo(WPBL_PHOTOS_PAGE)
   // Its own top margin (Home's 1.5 step), carried here rather than by a wrapper on Home, so a

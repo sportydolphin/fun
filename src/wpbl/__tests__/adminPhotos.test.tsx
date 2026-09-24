@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { WpblFanPhotoRow } from '../api'
-import type { WpblPlayer, WpblPhotoSubject } from '../types'
+import type { WpblPlayer, WpblPhotoSubject, WpblTeam } from '../types'
 
 // The curation tool is the only surface that writes these tables from the browser, so the thing
 // worth pinning is that its controls reach the right owner-write helper: Publish flips approved,
@@ -17,10 +17,11 @@ const photos: WpblFanPhotoRow[] = [
     approved: true, contributor_id: 'con2', created_at: '2026-09-02T00:00:00Z' },
 ]
 const players: WpblPlayer[] = [{ id: 'plW', name: 'Kelsie Whitmore', team_id: 'SF' } as WpblPlayer]
+const teams: WpblTeam[] = [{ id: 'BOS', city: 'Boston', name: 'Hunters', abbr: 'BOS' } as WpblTeam]
 let subjects: WpblPhotoSubject[] = []
 
 const setFanPhotoApproved = vi.fn(async (..._a: unknown[]) => true)
-const addFanPhotoSubject = vi.fn(async (..._a: unknown[]) => ({ id: 's1', photo_id: 'ph1', player_id: 'plW', figure_key: null }))
+const addFanPhotoSubject = vi.fn(async (..._a: unknown[]) => ({ id: 's1', photo_id: 'ph1', player_id: 'plW', figure_key: null, team_id: null }))
 const removeFanPhotoSubject = vi.fn(async (..._a: unknown[]) => true)
 const updateFanPhoto = vi.fn(async (..._a: unknown[]) => true)
 const upsertFanPhotoFigure = vi.fn(async (..._a: unknown[]) => true)
@@ -28,6 +29,7 @@ const upsertFanPhotoFigure = vi.fn(async (..._a: unknown[]) => true)
 vi.mock('../api', () => ({
   fetchWpblFanPhotoQueue: vi.fn(async () => ({ photos, subjects, figures: [] })),
   fetchWpblAllPlayers: vi.fn(async () => players),
+  fetchWpblTeams: vi.fn(async () => teams),
   fetchFanPhotoContributors: vi.fn(async () => []),
   setFanPhotoApproved: (...a: unknown[]) => setFanPhotoApproved(...a),
   addFanPhotoSubject: (...a: unknown[]) => addFanPhotoSubject(...a),
@@ -70,10 +72,24 @@ describe('AdminPhotos curation', () => {
   })
 
   it('removes a tagged subject', async () => {
-    subjects = [{ id: 's9', photo_id: 'ph1', player_id: 'plW', figure_key: null }]
+    subjects = [{ id: 's9', photo_id: 'ph1', player_id: 'plW', figure_key: null, team_id: null }]
     render(<AdminPhotos />)
     const remove = await screen.findByLabelText('Remove Kelsie Whitmore')
     fireEvent.click(remove)
     await waitFor(() => expect(removeFanPhotoSubject).toHaveBeenCalledWith('s9'))
+  })
+
+  it('tags and untags a whole club as a team photo', async () => {
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByText('BOS'))
+    await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph1', { teamId: 'BOS' }))
+  })
+
+  it('untags a club already on the photo', async () => {
+    subjects = [{ id: 's7', photo_id: 'ph1', player_id: null, figure_key: null, team_id: 'BOS' }]
+    render(<AdminPhotos />)
+    expect(await screen.findByText('Boston Hunters (team)')).toBeTruthy()
+    fireEvent.click(screen.getByText('BOS'))
+    await waitFor(() => expect(removeFanPhotoSubject).toHaveBeenCalledWith('s7'))
   })
 })

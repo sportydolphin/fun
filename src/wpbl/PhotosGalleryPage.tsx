@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import WpblPage from './WpblPage'
 import { FanPhotoGrid } from './FanPhotoViews'
+import { useFanPhotosVisible } from './fanPhotoGate'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers } from './api'
-import type { FanPhotoIndex, FanPhotoWithSubjects } from './fanPhotos'
+import { fanPhotoTeamName, type FanPhotoIndex, type FanPhotoWithSubjects } from './fanPhotos'
 import type { WpblPlayer } from './types'
 
 // The /wpbl/photos gallery: every published fan photograph, filterable by who is in it. A sibling
@@ -17,6 +18,9 @@ import type { WpblPlayer } from './types'
 type SubjectFilter = { key: string; label: string; photos: FanPhotoWithSubjects[] }
 
 export default function PhotosGalleryPage() {
+  // Owner-only for now (see useFanPhotosVisible). Anyone else gets the page's own empty state, the
+  // same thing it showed before the first photo was published, rather than a hole in the site.
+  const visible = useFanPhotosVisible()
   const [index, setIndex] = useState<FanPhotoIndex | null>(null)
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,6 +39,7 @@ export default function PhotosGalleryPage() {
     const names: string[] = []
     for (const pid of photo.playerIds) names.push(nameById.get(pid) ?? '—')
     for (const key of photo.figureKeys) names.push(index?.figures.get(key)?.name ?? '—')
+    for (const tid of photo.teamIds) names.push(fanPhotoTeamName(index?.teams.get(tid)))
     return names
   }, [nameById, index])
 
@@ -45,6 +50,7 @@ export default function PhotosGalleryPage() {
     const out: SubjectFilter[] = []
     for (const [pid, photos] of index.byPlayer) out.push({ key: `p:${pid}`, label: nameById.get(pid) ?? 'Unknown', photos })
     for (const [fkey, photos] of index.byFigure) out.push({ key: `f:${fkey}`, label: index.figures.get(fkey)?.name ?? fkey, photos })
+    for (const [tid, photos] of index.byTeam) out.push({ key: `t:${tid}`, label: fanPhotoTeamName(index.teams.get(tid)), photos })
     return out.sort((a, b) => a.label.localeCompare(b.label))
   }, [index, nameById])
 
@@ -54,7 +60,7 @@ export default function PhotosGalleryPage() {
     return subjects.find(s => s.key === selected)?.photos ?? index.photos
   }, [index, selected, subjects])
 
-  const total = index?.photos.length ?? 0
+  const total = visible ? (index?.photos.length ?? 0) : 0
   const standfirst = total > 0
     ? `${total} photograph${total === 1 ? '' : 's'} of this season's players, sent in by fans with permission. Every one carries the photographer's credit.`
     : "Photographs of this season's players, sent in by fans with permission."

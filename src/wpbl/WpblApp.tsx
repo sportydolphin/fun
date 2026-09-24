@@ -19,6 +19,7 @@ import { seriesContexts } from './derive/series'
 import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
+import { useFanPhotosVisible } from './fanPhotoGate'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton } from './Home'
 import WpblStatsView, { carryStatsParams, type WpblStatsFocus } from './StatsView'
@@ -833,13 +834,13 @@ function viewFromLocation(): string | null {
 // had no home in the section's nav at all until it landed here under Tools. The groups are the one
 // source of order for both surfaces below, so the desktop menu and the mobile sheet cannot drift.
 // Every item is still a real <a href> via linkTo, the crawl-path rule the footer and pills follow.
-type MoreLink = { href: string; label: string; hint?: string; event?: (typeof EVENTS)[keyof typeof EVENTS]; eventProps?: Record<string, unknown> }
+type MoreLink = { href: string; label: string; hint?: string; ownerOnly?: boolean; event?: (typeof EVENTS)[keyof typeof EVENTS]; eventProps?: Record<string, unknown> }
 const MORE_GROUPS: { group: string; items: MoreLink[] }[] = [
   { group: 'Explore', items: [
     { href: WPBL_LEAGUE_PAGE,    label: 'The league',   hint: 'Where the players are from, the reading and the archive' },
     { href: WPBL_SEASON_PAGE,    label: '2026 season',  hint: 'The season read back through its numbers' },
     { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',    hint: 'Every final score the league has produced' },
-    { href: WPBL_PHOTOS_PAGE,    label: 'Fan photos',   hint: "Photographs of this season's players, by who is in them" },
+    { href: WPBL_PHOTOS_PAGE,    label: 'Fan photos',   hint: "Photographs of this season's players, by who is in them", ownerOnly: true },
     { href: WPBL_PLAYERS_INDEX,  label: 'All players',  hint: 'Every roster, by club' },
   ] },
   { group: 'Tools', items: [
@@ -853,7 +854,15 @@ const MORE_GROUPS: { group: string; items: MoreLink[] }[] = [
   ] },
 ]
 
+// MORE_GROUPS minus the owner-only rows for anyone else. Both the desktop menu and the phone sheet
+// read this, so the two cannot disagree about what a reader is offered.
+function useMoreGroups() {
+  const showPhotos = useFanPhotosVisible()
+  return useMemo(() => MORE_GROUPS.map(g => ({ ...g, items: g.items.filter(l => !l.ownerOnly || showPhotos) })), [showPhotos])
+}
+
 function NavMore() {
+  const groups = useMoreGroups()
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const open = Boolean(anchor)
   return (
@@ -891,7 +900,7 @@ function NavMore() {
         {/* Grouped: a subheader per group, then its rows. flatMap because MUI's Menu wants a flat
             child list, not nested arrays. The subheader is not a menu row, so keyboard focus skips
             straight over it to the next item. */}
-        {MORE_GROUPS.flatMap(g => [
+        {groups.flatMap(g => [
           <ListSubheader
             key={`h-${g.group}`}
             disableSticky
@@ -935,6 +944,7 @@ const UNSTYLED_MENU_LINK = { textDecoration: 'none', color: 'text.primary' } as 
 // footer scroll. Every row is a real <a href> (linkTo), so it is crawlable and cmd/long-press opens
 // a new tab, the same rule the footer and the menu follow.
 function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const groups = useMoreGroups()
   return (
     <SwipeableDrawer
       anchor="bottom"
@@ -958,7 +968,7 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         <Box aria-hidden sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
         {/* Grouped the same way the desktop menu is, from the one MORE_GROUPS above, so the two
             surfaces stay in step. A group header per section, its rows under it. */}
-        {MORE_GROUPS.map(g => (
+        {groups.map(g => (
           <Box key={g.group} sx={{ mb: 1 }}>
             <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.25 }}>
               {g.group}
