@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.94.0',
+    date:    '2026-09-24',
+    title:   'A faster Home',
+    changes: [
+      {
+        short: 'Home downloads about a third less before it can draw',
+        full:  'Every player’s thumbnail used to be packed into the site’s first download, so every visit paid for 118 faces whether or not any were on screen. Faces now load one at a time, only when shown, and are cached for good. The image-sharing code also waits until someone actually presses Share.',
+      },
+      {
+        short: 'Home’s data arrives sooner',
+        full:  'The gallery and the rest of Home now start loading at the same moment as the schedule instead of after it, the play-by-play log is fetched in one round rather than four in a row, and a couple of reads Home was making twice are made once.',
+      },
+      {
+        short: 'The page no longer jumps while it loads',
+        full:  'The loading placeholder now has the shape of the offseason page, the gallery holds its space until its photos arrive, and the footer no longer flashes halfway up the screen on the first frame.',
+      },
+    ],
+  },
+  {
     version: '1.93.0',
     date:    '2026-09-24',
     title:   'The offseason: a reading page, a clearer league page, and fan photos for everyone',

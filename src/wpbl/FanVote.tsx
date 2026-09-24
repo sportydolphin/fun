@@ -7,7 +7,7 @@ import {
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
 import {
-  WinnerShareLauncher, canCopyImage, canNativeShareFiles,
+  WinnerShareLauncher, canCopyImage, canNativeShareFiles, preloadCapture,
   type ShareAction, type ShareCardData,
 } from './awardShareCard'
 import AwardsWinnersExport from './AwardsWinnersExport'
@@ -908,6 +908,8 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
     () => (winner ? winnerShareData(entry, state, players, teams, fmtEra) : null),
     [winner, entry, state, players, teams, fmtEra],
   )
+  // The share buttons are about to be on screen, so fetch what a press will need now.
+  useEffect(() => { if (shareData) preloadCapture() }, [shareData])
   // The empty groove a share bar fills, faint in both themes.
   const track = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)'
 

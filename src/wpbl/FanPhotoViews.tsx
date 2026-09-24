@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx } from './ui'
 import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
-import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
+import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
 import type { WpblPlayer } from './types'
 import { WPBL_PHOTOS_PAGE } from './routes'
 import { useCanEditFanPhotos } from './fanPhotoGate'
@@ -529,10 +529,39 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
  * preview can pad it with mock rows (see devFanPhotos), which is the only way to see the card
  * before twelve real photos exist.
  */
-export function FanPhotoHomeCard() {
+/** The Home card's shape with nothing in it: the same card, a rail of tiles at the rail's height
+ *  with their two caption lines, and the ask under it, so the real card lands on the same pixels. */
+export function FanPhotoHomeCardSkeleton() {
+  return (
+    <Box sx={{ mt: 1.5 }} aria-hidden>
+      <SectionCard title="2026 gallery">
+        <Box sx={{ mx: { xs: -2, sm: 0 }, display: 'flex', gap: 1.25, overflow: 'hidden', pb: 0.5 }}>
+          {[1.5, 1, 1.5, 1.33, 1.5].map((a, i) => (
+            <Box key={i} sx={{ flexShrink: 0, width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` } }}>
+              <Skeleton variant="rounded" sx={{ width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }} />
+              <Skeleton variant="text" width="60%" sx={{ fontSize: '0.74rem', lineHeight: 1.3, mt: 0.6 }} />
+              <Skeleton variant="text" width="45%" sx={{ fontSize: '0.62rem', lineHeight: 1.35, mt: 0.5 }} />
+            </Box>
+          ))}
+        </Box>
+        <Skeleton variant="text" width="16rem" sx={{ fontSize: '0.72rem', mt: 1, maxWidth: '100%' }} />
+      </SectionCard>
+    </Box>
+  )
+}
+
+export function FanPhotoHomeCard({ reserve = false }: {
+  /** Hold the card's height while its reads are in flight. Only where the card sits ABOVE other
+   *  content (the offseason top slot): there a card that renders nothing and then appears pushes
+   *  the whole page down by its own height, a second after the reader started reading it. Lower
+   *  down it can keep rendering nothing, since nothing under it is on screen yet. */
+  reserve?: boolean
+} = {}) {
   const version = useFanPhotosVersion()
-  const [index, setIndex] = useState<FanPhotoIndex | null>(null)
-  const [players, setPlayers] = useState<WpblPlayer[]>([])
+  // Seeded from the session caches, which the section warms beside the schedule, so a Home that
+  // mounts after they land draws the rail on its first paint.
+  const [index, setIndex] = useState<FanPhotoIndex | null>(() => getCachedWpblFanPhotoIndex())
+  const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [mockOn, setMockOn] = useState(() => import.meta.env.DEV && devFanPhotosOn())
 
   useEffect(() => {
@@ -575,6 +604,7 @@ export function FanPhotoHomeCard() {
     return [...photos].sort((a, b) => keys.get(a.id)! - keys.get(b.id)!)
   }, [photos])
 
+  if (reserve && index === null) return <FanPhotoHomeCardSkeleton />
   if (photos.length < HOME_MIN_PHOTOS) return null
 
   const seeAll = linkTo(WPBL_PHOTOS_PAGE)

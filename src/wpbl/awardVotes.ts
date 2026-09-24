@@ -35,7 +35,21 @@ export type AwardBallot = Record<string, string>
 
 /** The running tally, for everyone. Empty on any failure, which renders as "no votes yet"
  *  rather than as an error: a tally is not worth a broken page. */
-export async function fetchWpblAwardResults(): Promise<AwardResults> {
+export function fetchWpblAwardResults(): Promise<AwardResults> {
+  // Shared by every caller for a few seconds. Home draws the pick'em and the fan ballot, both
+  // read the tally on mount, and each used to spend its own RPC on the same numbers. Neither
+  // caller mutates what it gets back (a vote copies the bucket it moves), and a write clears
+  // this so the next read after a vote is a real one.
+  if (resultsCache && Date.now() - resultsCache.at < RESULTS_TTL_MS) return resultsCache.p
+  const p = readAwardResults()
+  resultsCache = { p, at: Date.now() }
+  return p
+}
+
+const RESULTS_TTL_MS = 15_000
+let resultsCache: { p: Promise<AwardResults>; at: number } | null = null
+
+async function readAwardResults(): Promise<AwardResults> {
   const { data, error } = await supabase.rpc('wpbl_award_results')
   if (error) {
     console.warn('[wpbl] fetchWpblAwardResults failed:', error.message)
@@ -105,6 +119,7 @@ export async function castWpblAwardVote(
   choice: string,
   voterKey: string,
 ): Promise<boolean> {
+  resultsCache = null
   if (!category || !choice || !voterKey) return false
   const { data, error } = await supabase.rpc('wpbl_cast_award_vote', {
     p_category: category, p_voter_key: voterKey, p_choice: choice,
@@ -135,6 +150,7 @@ export async function clearWpblAwardVote(
   category: string,
   voterKey: string,
 ): Promise<boolean> {
+  resultsCache = null
   if (!category || !voterKey) return false
   const { data, error } = await supabase.rpc('wpbl_clear_award_vote', {
     p_category: category, p_voter_key: voterKey,

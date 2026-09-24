@@ -529,11 +529,21 @@ function AppInner() {
   // only for the two routes that have another section to go to.
   useEffect(() => {
     if (path !== '/mlb' && !isWpblSection(path)) return
-    const run = () => preloadSection(path)
+    // NOT ON THE FIRST IDLE MOMENT. The page goes idle while it waits on the network, so an idle
+    // callback alone fired at ~0.7s on production, and ~100 KB of the other section went out
+    // right beside the first data reads, on the connection and the phone CPU the page still
+    // needed. A few seconds' wait gets the page drawn first; a reader who flips the switch sooner
+    // than that is covered by the hover and focus prefetch.
     const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
-    if (ric) { const id = ric(run, { timeout: 3000 }); return () => (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(id) }
-    const t = window.setTimeout(run, 1500)
-    return () => window.clearTimeout(t)
+    let idle: number | null = null
+    const t = window.setTimeout(() => {
+      if (ric) idle = ric(() => preloadSection(path), { timeout: 3000 })
+      else preloadSection(path)
+    }, 4000)
+    return () => {
+      window.clearTimeout(t)
+      if (idle != null) (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(idle)
+    }
   }, [path])
 
   const headerRef = useRef<HTMLElement>(null)
@@ -1444,7 +1454,11 @@ function AppInner() {
             </Suspense>
           )}
           {rendersWpblApp(path) && (
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+            // A SCREEN TALL, NOT A SPINNER TALL. React.lazy suspends for at least a tick even with
+            // the chunk preloaded, so this is always the first thing painted on /wpbl, and at spinner
+            // height it put the footer halfway up the screen for that frame. The section's skeleton
+            // then shoved it off, which was nearly all of the page's 0.18 layout shift on load.
+            <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
               {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
                   WpblApp) instead of sitting shared below them. The shared one is suppressed
                   just below. Desktop keeps the app-level footer. */}

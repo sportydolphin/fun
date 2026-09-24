@@ -13,7 +13,6 @@ import { useEffect, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Box } from '@mui/material'
 import { EmojiEvents } from '@mui/icons-material'
-import html2canvas from 'html2canvas'
 import { wpblColor, wpblSecondary } from './constants'
 
 /** Everything a share card needs, pre-resolved so the card itself is presentational and the
@@ -290,6 +289,13 @@ export const canNativeShareFiles = (): boolean => {
  * to drop faces or misplace them. The only thing to get right is that every <img> in the node is
  * decoded before html2canvas reads it, or it captures a blank where the picture should be.
  */
+/** Fetch the capture library ahead of a press. Share goes to the OS sheet only while the tap's
+ *  user activation lasts, and Safari refuses it once that has run out, so the download must not
+ *  start inside the press. Called when a results row with a share button is on screen. */
+export function preloadCapture(): void {
+  void import('html2canvas').catch(() => { /* the press will retry and report */ })
+}
+
 export async function captureNode(node: HTMLElement, scale = 3): Promise<Blob | null> {
   // DECODE EVERY <img> FIRST (portraits and the footer wordmark). html2canvas does not wait for
   // images to load; it draws whatever is ready the instant it runs, so a face still decoding
@@ -322,6 +328,10 @@ export async function captureNode(node: HTMLElement, scale = 3): Promise<Blob | 
   void node.getBoundingClientRect()
   await new Promise(r => setTimeout(r, 60))
 
+  // Loaded on the first capture rather than with the module. It is ~48 KB gzipped, and because
+  // the share card is reachable from Home it rode into the section's first load for every
+  // visitor, while almost none of them ever press Share.
+  const { default: html2canvas } = await import('html2canvas')
   const canvas = await html2canvas(node, { scale, backgroundColor: null, logging: false, useCORS: true })
 
   // REDRAW THE CAPTION TITLES OURSELVES. html2canvas's text engine drops leading glyphs, and on some

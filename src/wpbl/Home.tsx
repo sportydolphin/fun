@@ -20,7 +20,7 @@ import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblD
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
-import { postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, championBannerUntil, championshipGames, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
+import { POSTSEASON_SCHEDULE, postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, championBannerUntil, championshipGames, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -39,7 +39,7 @@ import { WpblGamePreview, WpblMatchupPreview } from './GamePreview'
 import { mvpRaceIsWorthDrawing } from './MvpRace'
 import FanVoteCard, { FanAwardsCta } from './FanVote'
 import { awardsResultsShowOnHome } from './awards'
-import { FanPhotoHomeCard } from './FanPhotoViews'
+import { FanPhotoHomeCard, FanPhotoHomeCardSkeleton } from './FanPhotoViews'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
@@ -2785,7 +2785,25 @@ function ChampionBanner({ champion, season, runnerUp, champWins, rivalWins, dev,
   )
 }
 
+/**
+ * Whether the calendar says the postseason is over, for the one surface that has to guess before
+ * any data exists: the skeleton. The loaded page keys on the decided champion (`seasonDone`),
+ * which needs the schedule; this needs nothing, and answers from the last date the league
+ * published for the final. A final decided before its last scheduled date leaves the skeleton on
+ * the in-season shape for those few days, which is the same page it drew before this existed.
+ */
+function offseasonByCalendar(now = Date.now()): boolean {
+  const dates = Object.values(POSTSEASON_SCHEDULE).flat().map(g => g.date).sort()
+  const last = dates[dates.length - 1]
+  // The end of that day in the league's zone, generously: 06:00Z the next morning.
+  return !!last && now > Date.parse(`${last}T00:00:00Z`) + 30 * 3600_000
+}
+
 export function WpblHomeSkeleton() {
+  // THE OFFSEASON HOME IS A DIFFERENT PAGE, and a skeleton of the in-season one swapped for it
+  // moved everything: the scoreboard strip became the taller gallery and the two-by-two grid a
+  // single row, which measured 0.19 of layout shift on load, most of it above the fold.
+  if (offseasonByCalendar()) return <OffseasonHomeSkeleton />
   let discordDismissed = false
   try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
 
@@ -2884,6 +2902,56 @@ export function WpblHomeSkeleton() {
 
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '3.45rem', md: '24rem' }} titleWidth="8rem" lines={0} />
+      </Box>
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
+      </Box>
+    </Box>
+  )
+}
+
+/** The offseason Home with nothing in it, mirroring the loaded page block for block (see the
+ *  render below): the header, the gallery in the scoreboard's slot, the Discord invite on a phone,
+ *  one row of the season card and the award results (the season card alone once the results come
+ *  off), then the bracket and the two single-line cards. Heights measured off the real page. */
+function OffseasonHomeSkeleton() {
+  let discordDismissed = false
+  try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
+  const awards = awardsResultsShowOnHome()
+  return (
+    <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={[homeWideSx, FLAT_CARDS_DARK]}>
+      <Box sx={{
+        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
+        mb: { xs: 0, sm: HEADER_GAP },
+      }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
+        </Box>
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
+          {SKELETON_CLUB_CHIPS.map(i => (
+            <Skeleton key={i} variant="rounded" sx={{
+              borderRadius: 999, width: chromePx(58), height: `calc(24px * var(--app-chrome, 1) + 8px)`,
+            }} />
+          ))}
+        </Box>
+      </Box>
+
+      <FanPhotoHomeCardSkeleton />
+
+      {!discordDismissed && (
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
+          <CardSkeleton minHeight="3.55rem" titleWidth="6rem" lines={0} />
+        </Box>
+      )}
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: awards ? '1fr 1fr' : '1fr' }, mt: 1.5, gap: 1.5 }}>
+        <CardSkeleton minHeight={{ xs: '26.5rem', md: '21.6rem' }} titleWidth="6rem" lines={5} />
+        {awards && <CardSkeleton minHeight={{ xs: '16.7rem', md: '21.6rem' }} titleWidth="5.5rem" lines={4} />}
+      </Box>
+
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={{ xs: '3.45rem', md: '19.45rem' }} titleWidth="8rem" lines={0} />
       </Box>
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
@@ -2992,7 +3060,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // The MVP race's data, on its own. Failure is silent and the card just never appears, which
   // is the right outcome for a card that is a bonus rather than the page: nothing above it
   // depends on this resolving.
+  //
+  // NOT FETCHED AT ALL once the ballot's results have come off Home: the race then feeds nothing
+  // on this page (see `seasonCards`, which keys on the same predicate), and the play log is four
+  // pages plus a corrections read that every offseason visitor would pay for an unused number.
   useEffect(() => {
+    if (!awardsResultsShowOnHome()) return
     let cancelled = false
     fetchWpblAllRunValuePlays()
       .then(p => { if (!cancelled) { setPlays(p); setPlaysSettled(true) } })
@@ -3302,7 +3375,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           games left, nothing above the fold changes from one visit to the next except this, and
           the rail reshuffles every load. During a season it sits lower (below), out of the way of
           the cards about games that just happened or are about to. */}
-      {seasonDone && <FanPhotoHomeCard />}
+      {seasonDone && <FanPhotoHomeCard reserve />}
 
       {/* Discord invite, mobile only. Sits between the scoreboard and the feed. Hidden at md+
           because the desktop feed is a two-column subgrid with shared row boundaries that a

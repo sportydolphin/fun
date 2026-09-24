@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
-  fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
+  fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblArticles, fetchWpblSiteGames, fetchWpblFanPhotoIndex,
   getCachedWpblTeams, getCachedWpblSchedule, getCachedWpblSiteGames,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
@@ -1467,8 +1467,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     void Promise.all([
       fetchWpblAllLines(),
       fetchWpblTrackedGameIds(),
-      fetchWpblVideos(),
       fetchWpblArticles(),
+      // The gallery, which leads Home in the offseason and so is the card most in need of the
+      // head start. Videos used to be here for Home's media shelf; the shelf is gone and nothing
+      // on Home reads them now.
+      fetchWpblFanPhotoIndex(),
     ]).catch(() => { /* Home's own effect surfaces failures; this is only a head start */ })
   }, [])
 

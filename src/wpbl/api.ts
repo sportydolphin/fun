@@ -70,6 +70,10 @@ function once<T>(key: string, run: () => Promise<T>): Promise<T> {
 let teamsCache: WpblTeam[] | null = null
 export function getCachedWpblTeams(): WpblTeam[] | null { return teamsCache }
 export function fetchWpblTeams(): Promise<WpblTeam[]> {
+  // Served from the last good read once there is one. The four clubs do not change inside a
+  // session, and without this every surface that joins against them paid its own round trip:
+  // Home's first paint read the table twice, once for the section and again for the gallery.
+  if (teamsCache) return Promise.resolve(teamsCache)
   return once('teams', () => safe('fetchWpblTeams', () =>
     supabase.from('wpbl_teams').select('*').order('sort_order', { ascending: true }),
     [] as WpblTeam[]).then(t => { if (t.length > 0) teamsCache = t; return t }))
@@ -553,14 +557,19 @@ const RUN_VALUE_PLAY_SELECT =
 export function fetchWpblAllRunValuePlays(): Promise<WpblRunValuePlay[]> {
   if (isFresh(allRunValuePlaysCache)) return Promise.resolve(allRunValuePlaysCache!.data)
   return once('allRunValuePlays', async () => {
-    const out = await fetchAllPaged<WpblRunValuePlay>('fetchWpblAllRunValuePlays', (from, to) =>
-      supabase.from('wpbl_game_plays')
-        .select(RUN_VALUE_PLAY_SELECT)
-        .order('game_id', { ascending: true })
-        .order('sequence', { ascending: true })
-        .range(from, to) as unknown as
-        PromiseLike<{ data: WpblRunValuePlay[] | null; error: unknown }>)
-    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    // The corrections read runs BESIDE the pages, not after them: it is independent of them and
+    // used to add a whole round trip to the end of the section's slowest read.
+    const [out, corrections] = await Promise.all([
+      fetchAllPaged<WpblRunValuePlay>('fetchWpblAllRunValuePlays', (from, to) =>
+        supabase.from('wpbl_game_plays')
+          .select(RUN_VALUE_PLAY_SELECT)
+          .order('game_id', { ascending: true })
+          .order('sequence', { ascending: true })
+          .range(from, to) as unknown as
+          PromiseLike<{ data: WpblRunValuePlay[] | null; error: unknown }>, PLAY_LOG_WAVE),
+      fetchAllPlayCorrections(),
+    ])
+    const corrected = applyPlayCorrections(out, corrections)
     if (corrected.length > 0 || allRunValuePlaysCache == null) {
       allRunValuePlaysCache = { data: corrected, at: Date.now() }
     }
@@ -571,15 +580,18 @@ export function fetchWpblAllRunValuePlays(): Promise<WpblRunValuePlay[]> {
 export function fetchWpblAllPitchPlays(): Promise<WpblPitchPlay[]> {
   if (isFresh(allPitchPlaysCache)) return Promise.resolve(allPitchPlaysCache!.data)
   return once('allPitchPlays', async () => {
-    const out = await fetchAllPaged<WpblPitchPlay>('fetchWpblAllPitchPlays', (from, to) =>
-      supabase.from('wpbl_game_plays')
-        .select(PITCH_PLAY_SELECT)
-        .not('pitch_sequence', 'is', null)
-        .order('game_id', { ascending: true })
-        .order('sequence', { ascending: true })
-        .range(from, to) as unknown as
-        PromiseLike<{ data: WpblPitchPlay[] | null; error: unknown }>)
-    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    const [out, corrections] = await Promise.all([
+      fetchAllPaged<WpblPitchPlay>('fetchWpblAllPitchPlays', (from, to) =>
+        supabase.from('wpbl_game_plays')
+          .select(PITCH_PLAY_SELECT)
+          .not('pitch_sequence', 'is', null)
+          .order('game_id', { ascending: true })
+          .order('sequence', { ascending: true })
+          .range(from, to) as unknown as
+          PromiseLike<{ data: WpblPitchPlay[] | null; error: unknown }>, PLAY_LOG_WAVE),
+      fetchAllPlayCorrections(),
+    ])
+    const corrected = applyPlayCorrections(out, corrections)
     if (corrected.length > 0 || allPitchPlaysCache == null) allPitchPlaysCache = { data: corrected, at: Date.now() }
     return corrected
   })
@@ -597,16 +609,28 @@ export function fetchWpblAllPitchPlays(): Promise<WpblPitchPlay[]> {
 async function fetchAllPaged<T>(
   label: string,
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  /** Pages requested at once. 1 for a table that usually fits one page, where a speculative
+   *  second request would be wasted; more for the play log, which runs to several pages and
+   *  used to fetch them one round trip after another (four in a row on Home's first load). */
+  wave = 1,
 ): Promise<T[]> {
   const PAGE = 1000
   const out: T[] = []
-  for (let from = 0; ; from += PAGE) {
-    const rows = await safe<T[]>(label, () => page(from, from + PAGE - 1), [])
-    out.push(...rows)
-    if (rows.length < PAGE) break
+  for (let from = 0; ; from += PAGE * wave) {
+    const pages = await Promise.all(Array.from({ length: wave }, (_, i) =>
+      safe<T[]>(label, () => page(from + i * PAGE, from + (i + 1) * PAGE - 1), [])))
+    // IN ORDER, AND STOPPING AT THE FIRST SHORT PAGE, exactly as the one-at-a-time loop did. A
+    // page that failed comes back empty, and a later page that succeeded must not be stitched on
+    // after the gap: a prefix is a known shape of wrong, rows with a hole in them are not.
+    for (const rows of pages) {
+      out.push(...rows)
+      if (rows.length < PAGE) return out
+    }
   }
-  return out
 }
+
+/** Four pages covers the whole 2026 play log (about 3,500 rows) in one round trip. */
+const PLAY_LOG_WAVE = 4
 
 // Every box-score line in the league, for season aggregates. Paged, because a truncated read
 // here doesn't fail, it just makes every league-wide rate quietly wrong: OPS+ and ERA+ derive
@@ -1038,6 +1062,16 @@ export function invalidateWpblFanPhotos(): void {
   fanPhotoFiguresCache = null
   fanPhotoCategoriesCache = null
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(FAN_PHOTOS_CHANGED_EVENT))
+}
+
+/** The index from the session caches alone, or null until every read behind it has landed.
+ *  For a synchronous first paint: the section warms these reads beside the schedule, so by the
+ *  time Home mounts the gallery can usually draw at once instead of popping in a beat later and
+ *  pushing the page down under the reader. */
+export function getCachedWpblFanPhotoIndex(): FanPhotoIndex | null {
+  if (!fanPhotosCache || !fanPhotoSubjectsCache || !fanPhotoFiguresCache || !fanPhotoCategoriesCache || !teamsCache) return null
+  return buildFanPhotoIndex(fanPhotosCache.data, fanPhotoSubjectsCache.data, fanPhotoFiguresCache.data,
+    teamsCache, fanPhotoCategoriesCache.data)
 }
 
 // The one call a surface makes: all three reads in parallel, joined into the per-subject and

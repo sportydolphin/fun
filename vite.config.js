@@ -20,6 +20,16 @@ export default defineConfig({
   server: process.env.PORT
     ? { port: Number(process.env.PORT) }
     : { port: 5173, strictPort: true },
+  build: {
+    // NEVER INLINE A FACE. Vite turns any asset under 4 KB into a base64 data URL inside the chunk
+    // that imports it, and portraits.ts imports all 118 player thumbnails eagerly (it needs the
+    // name-to-URL map), so every thumbnail landed in the ENTRY chunk: 187 KB of base64, about a
+    // third of what every visitor downloaded before anything could render, for faces the page
+    // mostly never draws. As files they cost a request each, only for the faces actually on
+    // screen, and they are hashed and cached for good. Anything else keeps the default rule.
+    assetsInlineLimit: (filePath) =>
+      /[\\/]src[\\/]wpbl[\\/](portraits|managers)[\\/]/.test(filePath) ? false : undefined,
+  },
   // NOTE: a manualChunks split of MUI/React into separate vendor chunks was tried and
   // reverted — it produced a circular import between the two chunks (react-vendor ⇄ mui,
   // because MUI's transitive deps straddled the split), which broke module init order and

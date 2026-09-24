@@ -5,7 +5,6 @@ import {
   Popover, Menu, MenuItem, Tooltip, useMediaQuery,
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert } from '@mui/icons-material'
-import html2canvas from 'html2canvas'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, PlayerContract } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
@@ -255,7 +254,10 @@ export function SearchView({
         } catch { /* fall back to original */ }
       }))
 
-      const captured = await html2canvas(cardRef.current, { useCORS: true, scale: 2, logging: false, backgroundColor: null })
+      // Loaded here, not with the view: this chunk is prefetched on every WPBL visit, and the
+      // library is ~48 KB gzipped for a button few readers press.
+      const { default: html2canvas } = await import('html2canvas')
+      const captured = await html2canvas(cardRef.current!, { useCORS: true, scale: 2, logging: false, backgroundColor: null })
       restoreSrcs.forEach(([img, src]) => { img.src = src })
       const out = document.createElement('canvas')
       out.width = 1080; out.height = 1920
