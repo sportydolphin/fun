@@ -79,7 +79,7 @@ supabase functions deploy send-test-push
 supabase secrets set \
   VAPID_PUBLIC_KEY=BCd3nM7dda8C49Th-PJSgwraiaao-pikJplq7pZDIoA_KEws4fgE3KfB1ledOmQW4S7KmNn3dcgEZBs-62X6o_A \
   VAPID_PRIVATE_KEY=GjFZpp61joRTd1ULE6BnhG2fA2TQuacsjkQNjfSuQGg \
-  VAPID_SUBJECT=mailto:snichols246@gmail.com
+  VAPID_SUBJECT=mailto:support@sportydolphin.fun
 ```
 
 (`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically, so don't

@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const vapidPublic    = Deno.env.get('VAPID_PUBLIC_KEY')
   const vapidPrivate   = Deno.env.get('VAPID_PRIVATE_KEY')
-  const vapidSubject   = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:notifications@sportydolphin.fun'
+  const vapidSubject   = Deno.env.get('VAPID_SUBJECT') || 'mailto:support@sportydolphin.fun'
 
   if (!vapidPublic || !vapidPrivate) {
     return json({ error: 'VAPID keys are not set for this function. Run: supabase secrets set VAPID_PUBLIC_KEY=… VAPID_PRIVATE_KEY=… VAPID_SUBJECT=…' }, 500)

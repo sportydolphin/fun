@@ -42,7 +42,7 @@ const SUPABASE_URL  = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL 
 const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY ?? process.env.VITE_VAPID_PUBLIC_KEY ?? ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY ?? ''
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'mailto:notifications@sportydolphin.fun'
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:support@sportydolphin.fun'
 
 // The one place the owner is named in code is public.is_site_owner() (scripts/add_user_admin.sql);
 // this mirrors it. If the owner email ever changes, both move together.

@@ -4,6 +4,7 @@ import {
   Button, TextField, Typography, Box, CircularProgress,
 } from '@mui/material'
 import { submitFeedback } from './lib/feedback'
+import { CONTACT_EMAIL } from './lib/contact'
 
 const MAX_LEN = 2000
 
@@ -92,7 +93,7 @@ export function FeedbackDialog({ open, onClose, userId, userEmail }: {
             />
             {failed && (
               <Typography sx={{ fontSize: '0.78rem', color: 'error.main', mt: 1.5 }}>
-                Something went wrong sending that. You can also email snichols246@gmail.com.
+                Something went wrong sending that. You can also email {CONTACT_EMAIL}.
               </Typography>
             )}
           </>

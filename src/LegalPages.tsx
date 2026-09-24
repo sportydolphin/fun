@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material'
+import { CONTACT_EMAIL } from './lib/contact'
 
 // Privacy Policy + Terms of Service pages. Reachable at /privacy and /terms, linked
 // from the footer, and used as the Google OAuth consent-screen policy links. Written
@@ -6,7 +7,6 @@ import { Box, Typography } from '@mui/material'
 // not boilerplate. Plain language, no legalese theater.
 
 const LAST_UPDATED = 'August 5, 2026'
-const CONTACT_EMAIL = 'snichols246@gmail.com'
 const SITE = 'sportydolphin.fun'
 
 function LegalLayout({ title, children }: { title: string; children: React.ReactNode }) {
