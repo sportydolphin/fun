@@ -165,6 +165,19 @@ export function battingStatline(b: WpblBattingLine): string {
   return parts.slice(0, 3).join(', ')
 }
 
+/** How big one batting line was, on the scale the Stars of the game rank on. Exported so the
+ *  season recap's best-single-game boards rank on the same number, and a line that led a game's
+ *  stars cannot sit below a smaller one on the season page. */
+export function batStarScore(b: WpblBattingLine): number {
+  return b.tb + b.rbi + b.r + b.sb + b.bb * 0.5
+}
+
+/** The pitching half of the same scale. Comparable with batStarScore, since the two are ranked
+ *  together in one list above. */
+export function pitchStarScore(p: WpblPitchingLine): number {
+  return p.outs + p.so * 1.2 - p.er * 2 - p.h * 0.4 - p.bb * 0.4 + (p.decision === 'W' ? 2 : 0) + (p.decision === 'S' ? 3 : 0)
+}
+
 export function pitchingStatline(p: WpblPitchingLine): string {
   const parts = [`${outsToIp(p.outs)} IP`, `${p.so} K`]
   parts.push(`${p.er} ER`)
@@ -275,12 +288,12 @@ export function buildRecap(
   const batStars: RecapStar[] = batting
     .filter(b => b.h > 0 || b.rbi > 0 || b.r > 0)
     .map(b => ({ playerId: b.player_id, name: nameOf(b.player_id), teamId: b.team_id, kind: 'bat' as const,
-      statline: battingStatline(b), score: b.tb + b.rbi + b.r + b.sb + b.bb * 0.5 }))
+      statline: battingStatline(b), score: batStarScore(b) }))
   const pitchStars: RecapStar[] = pitching
     .filter(p => p.er <= 3 && (p.outs >= 9 || p.decision === 'S') && (p.team_id === winner.id || p.decision === 'S'))
     .map(p => ({ playerId: p.player_id, name: nameOf(p.player_id), teamId: p.team_id, kind: 'pitch' as const,
       statline: pitchingStatline(p),
-      score: p.outs + p.so * 1.2 - p.er * 2 - p.h * 0.4 - p.bb * 0.4 + (p.decision === 'W' ? 2 : 0) + (p.decision === 'S' ? 3 : 0) }))
+      score: pitchStarScore(p) }))
     .filter(s => s.score >= 8)
   const seen = new Set<string>()
   const ranked = [...batStars, ...pitchStars]

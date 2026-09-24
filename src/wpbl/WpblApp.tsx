@@ -1305,6 +1305,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
    * particular game actually has.
    */
   const pendingGameTab = useRef<string | null>(pendingParam('tab'))
+  /** The box score's club (`?side=home`), dropped by `urlFor` for the same reason as the tab. */
+  const pendingGameSide = useRef<string | null>(pendingParam('side'))
   /** And for /wpbl/teams/<slug>, which selects a club on the Teams tab rather than opening a
    *  modal, so it is applied with the tab itself rather than through `openFromLink`. */
   const pendingTeamSlug = useRef<string | null>(
@@ -2039,6 +2041,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
           <GameDetailModal
             game={detailGame}
             initialTab={pendingGameTab.current}
+            initialSide={pendingGameSide.current}
             teams={teams}
             games={games}
             onClose={closeTop}

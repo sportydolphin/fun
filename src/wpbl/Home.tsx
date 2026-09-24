@@ -18,7 +18,7 @@ import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblD
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
-import { postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
+import { postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, championshipGames, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -1184,15 +1184,6 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
  * another prop threaded down through `NextGameCard`. A real `<a href>` via `trackedLinkTo`, the
  * crawl-path rule the league card and the footer follow.
  */
-/** The championship series games in date order, for the in-progress card's game log. The two
- *  finalists meet only in the championship, so any postseason game between them is a title game. */
-function championshipGames(games: WpblGame[], aId: string, bId: string): WpblGame[] {
-  return games
-    .filter(g => !countsInStandings(g)
-      && ((g.home_team_id === aId && g.away_team_id === bId) || (g.home_team_id === bId && g.away_team_id === aId)))
-    .sort((x, y) => (x.game_date < y.game_date ? -1 : x.game_date > y.game_date ? 1 : 0))
-}
-
 /** The stakes on a live championship game, or null while nobody is a win from the title yet:
  *  "Winner takes the title" when the series is level at the brink (a 2-2 in a best-of-five), else
  *  "<club> can clinch" when one club leads and can end it. `winsNeeded` keeps it right if the
@@ -1257,10 +1248,11 @@ function SeasonRecapPreviewCard({ teams, games, devChampion }: {
         {...trackedLinkTo(WPBL_SEASON_PAGE, EVENTS.WPBL_SEASON_CARD_OPEN, { from: 'home' })}
         sx={{
           flex: 1, display: 'flex', flexDirection: 'column', gap: 1.25,
-          // Top-aligned for the two full-space bodies (the final in progress, and the champion with
-          // its series), so each fills from the top and its CTA pins to the bottom; centred for the
-          // off-season line or two.
-          justifyContent: finalInProgress || champTeam ? 'flex-start' : 'center',
+          // Top-aligned for the final in progress, so it fills from the top and its CTA pins to the
+          // bottom; centred for the off-season line or two. The champion body SPREADS its three
+          // blocks instead (see ChampionRecapBody): this card is stretched to the height of the one
+          // beside it, and pinning the CTA put all of that slack in one hole above it.
+          justifyContent: champTeam ? 'space-between' : finalInProgress ? 'flex-start' : 'center',
           textDecoration: 'none', color: 'inherit', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE,
         }}
       >
@@ -1355,7 +1347,7 @@ function ChampionshipInProgressBody({ series, teams, log }: {
 function SeriesGameLog({ log, teams }: { log: WpblGame[]; teams: Map<string, WpblTeam> }) {
   if (log.length === 0) return null
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1.5, rowGap: 0.35, mt: 0.25 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1.5, rowGap: 0.6, mt: 0.25 }}>
       {log.map((g, i) => {
         const a = teams.get(g.away_team_id), h = teams.get(g.home_team_id)
         const played = g.status === 'final' && g.home_score != null && g.away_score != null
@@ -1405,11 +1397,15 @@ function ChampionRecapBody({ champion, series, teams, log, isDark }: {
           right, so the one thing this card is now about spends the card's width instead of sitting on
           a bare line. A gold trophy and eyebrow mark the title; the club name carries the accent and
           the badge takes a gold ring rather than its own secondary. */}
+      {/* A ROW, NAMED EXPLICITLY. CLUB_BAND is a column (it stacks two club rows), and spreading it
+          here without overriding that stacked the badge over the text, centred, while everything
+          under the band reads left-aligned; the eyebrow also sat off-centre under the name, which is
+          wider. The gradient runs left to right for the same reason: it was drawn for this row. */}
       <Box sx={{
-        ...CLUB_BAND, px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5,
+        ...CLUB_BAND, flexDirection: 'row', alignItems: 'center', gap: 1.5, px: 2, py: 1.75,
         background: `linear-gradient(105deg, ${wpblSurface(champion.id, isDark)} 55%, ${alpha('#e0a100', isDark ? 0.22 : 0.15)})`,
       }}>
-        <TeamBadge team={champion} size={44} ring="var(--wpbl-medal-1)" />
+        <TeamBadge team={champion} size={52} ring="var(--wpbl-medal-1)" />
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
             <EmojiEventsOutlined sx={{ fontSize: ICON_SIZE.sm, color: 'var(--wpbl-medal-1)' }} />
@@ -1428,22 +1424,29 @@ function ChampionRecapBody({ champion, series, teams, log, isDark }: {
       {/* THE FINAL, real championship only: the runner-up it beat and the series score as the hero
           number. Absent for a dev-simulated champion, whose random club has no real series (the box
           scores below still carry the true finalists' games). */}
-      {series && series.runnerUp && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TeamBadge team={series.runnerUp} size={22} />
-          <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-            def. {wpblFullName(series.runnerUp)} in the final
-          </Typography>
-          <Typography sx={{
-            fontSize: TYPE_SCALE.heading, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
-            color: 'var(--wpbl-medal-1)', flexShrink: 0,
-          }}>{series.champWins}–{series.rivalWins}</Typography>
-        </Box>
-      )}
+      {/* The final and its games are ONE block, so the card's spread (see the body's
+          `space-between`) puts room around the pair rather than between a result and its own box
+          scores. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {series && series.runnerUp && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TeamBadge team={series.runnerUp} size={22} />
+            {/* Wraps rather than ellipsising: at Large text on a phone the runner-up's full name
+                does not fit one line, and a result cut to "def. San Francisco Firebell…" loses
+                the one word saying what this line is about. Sized to its text, not `flex: 1`, so
+                the score follows the sentence it finishes instead of sitting at the far edge. */}
+            <Typography sx={{ flex: '0 1 auto', minWidth: 0, fontSize: TYPE_SCALE.body, lineHeight: 1.3, color: 'text.secondary' }}>
+              def. {wpblFullName(series.runnerUp)} in the final
+            </Typography>
+            <Typography sx={{
+              fontSize: TYPE_SCALE.heading, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
+              color: 'var(--wpbl-medal-1)', flexShrink: 0,
+            }}>{series.champWins}–{series.rivalWins}</Typography>
+          </Box>
+        )}
+        <SeriesGameLog log={played} teams={teams} />
+      </Box>
 
-      <SeriesGameLog log={played} teams={teams} />
-
-      <Box sx={{ flex: 1 }} />
       <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-solid)' }}>
         Read the 2026 recap ›
       </Typography>
@@ -2949,6 +2952,59 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     />
   )
 
+  // ONCE THERE IS A CHAMPION THE TOP GRID DROPS TO THE TWO CARDS ABOUT HOW IT ENDED: the season
+  // card (the way into the recap) and the awards results. Last game is the final's last game,
+  // already on the champion banner, in the season card's game log and on the scoreboard strip, and
+  // it would sit frozen on that game until the next season. Compare is the one card here not about
+  // the season at all, and the Stats tab and every player page still reach it. Keyed on the
+  // champion rather than a date, and a dev-simulated champion counts, so the offseason preview
+  // shows the offseason Home.
+  const seasonDone = !!championView
+  const seasonCards = (!awardsResultsShowOnHome()
+    // Past the results window: the ballot's slot gives way, exactly as it does when there
+    // is no race to draw. Compare takes row 1 and an empty cell takes row 2, so the season
+    // column collapses to what Next game needs rather than holding a slot for a card that
+    // is not coming back.
+    ? [compareCard, <Box key="mvp-empty" />]
+    : mvpRaceIsWorthDrawing(race)
+    ? [
+      /* It spends whatever slack the row gives it on the chart, which is the one child
+         that gets better with height; see the note on RaceChart's `fill`. */
+      /* THE FAN BALLOT, not an MVP race card. The race is a number already on the Stats tab
+          and on the player pages it ranks, so here it only seeds the ballot's MVP and Pitcher
+          shortlists. The ballot asks something the section cannot answer on its own, and it
+          keeps working after the feed stops and everything else here freezes. */
+      /* Keyed `mvp`, the key the placeholder and the empty cell below also use, so the slot
+          keeps one identity across all three branches and the compare card beside it is never
+          remounted. */
+      <FanVoteCard key="mvp" players={players} teams={teams} games={games}
+        batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
+        onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
+        open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />,
+      compareCard,
+    ]
+    // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW. The play log is fetched last and on
+    // purpose (it is the one read allowed to be slow), so for the second or so after the page paints
+    // there is no race yet. Treating that like "no race" would put Compare in row 1 for that second
+    // and move it when the race arrives, sliding it down the screen under the reader. Holding the
+    // slot costs a placeholder and settles the layout once.
+    //
+    // THE PLACEHOLDER MUST NOT BE TALLER THAN Next game. On desktop this slot is row 1 of a subgrid
+    // whose other column is Next game (~16.4rem), so Next game already sets the row height; a taller
+    // placeholder inflates row 1 while the play log is in flight and lets it COLLAPSE the instant the
+    // ballot lands, which is the jump the slot exists to prevent. On a phone the two are stacked, so
+    // this matches the ballot's own ~16rem instead.
+    : !playsSettled
+      ? [<CardSkeleton key="mvp" minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />, compareCard]
+      // Answered, and there is genuinely no race to draw (a season too young). Compare takes row 1 and
+      // an empty grid cell takes row 2, so the row collapses to whatever Next game needs rather than
+      // reserving a slot for a card that is never coming.
+      : [compareCard, <Box key="mvp-empty" />])
+    .filter(c => !seasonDone || (c !== compareCard && c.key !== 'mvp-empty'))
+  // Once the awards results come off too (AWARDS_RESULTS_UNTIL), the right column is empty and the
+  // season card takes the full width rather than sitting in half a grid beside nothing.
+  const soloSeasonCard = seasonDone && seasonCards.length === 0
+
   return (
     <Box sx={homeWideSx}>
       {/* THE FAN AWARDS INVITATION, PHONES ONLY AND FIRST ON THE PAGE. See FanAwardsCta: the
@@ -3106,8 +3162,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           is dropped and each column falls back to its own two auto rows: degraded, not broken. */}
       <Box sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-        gridTemplateRows: { md: 'auto auto' },
+        gridTemplateColumns: { xs: '1fr', md: soloSeasonCard ? '1fr' : '1fr 1fr' },
+        // One row once the season is done: each column holds a single card, and a second auto row
+        // would still charge its 12px gap under them.
+        gridTemplateRows: { md: seasonDone ? 'auto' : 'auto auto' },
         // Its OWN top margin, rather than living off the scoreboard's bottom one. Every block in this
         // stack brings its own margin, and a block that depends on its neighbour for its spacing breaks
         // the next time something (the Discord invite) is inserted between them. Margins collapse, so a
@@ -3123,11 +3181,13 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         <Box sx={{
           minWidth: 0, gap: 1.5,
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+          gridRow: { md: seasonDone ? 'span 1' : 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
           <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame}
             devForceRecap={devForceRecap} devChampion={devChampTeam} />
-          <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
+          {!seasonDone && (
+            <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
+          )}
         </Box>
 
         {/* The season's cards.
@@ -3136,10 +3196,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             entire time, and a miniature copy spends a phone's screen on the one card every reader
             already knows where to find. Home still computes `computeStandings` for the bracket
             below. */}
-        <Box sx={{
+        {!soloSeasonCard && <Box sx={{
           minWidth: 0, gap: 1.5,
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+          gridRow: { md: seasonDone ? 'span 1' : 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
           {/* THE BALLOT LEADS THIS COLUMN, SO IT IS THE ONE SEASON CARD ABOVE THE FOLD on a
               desktop. Row 1 pairs it with Next game and row 2 pairs Compare with Last game.
@@ -3148,47 +3208,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               and the slot contents change when that lands, about a second after first paint.
               Without stable keys React reconciles by position and remounts the compare card, which
               holds a per-mount seed and would re-deal its pair mid-visit. */}
-          {(!awardsResultsShowOnHome()
-            // Past the results window: the ballot's slot gives way, exactly as it does when there
-            // is no race to draw. Compare takes row 1 and an empty cell takes row 2, so the season
-            // column collapses to what Next game needs rather than holding a slot for a card that
-            // is not coming back.
-            ? [compareCard, <Box key="mvp-empty" />]
-            : mvpRaceIsWorthDrawing(race)
-            ? [
-              /* It spends whatever slack the row gives it on the chart, which is the one child
-                 that gets better with height; see the note on RaceChart's `fill`. */
-              /* THE FAN BALLOT, not an MVP race card. The race is a number already on the Stats tab
-                  and on the player pages it ranks, so here it only seeds the ballot's MVP and Pitcher
-                  shortlists. The ballot asks something the section cannot answer on its own, and it
-                  keeps working after the feed stops and everything else here freezes. */
-              /* Keyed `mvp`, the key the placeholder and the empty cell below also use, so the slot
-                  keeps one identity across all three branches and the compare card beside it is never
-                  remounted. */
-              <FanVoteCard key="mvp" players={players} teams={teams} games={games}
-                batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
-                onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
-                open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />,
-              compareCard,
-            ]
-            // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW. The play log is fetched last and on
-            // purpose (it is the one read allowed to be slow), so for the second or so after the page paints
-            // there is no race yet. Treating that like "no race" would put Compare in row 1 for that second
-            // and move it when the race arrives, sliding it down the screen under the reader. Holding the
-            // slot costs a placeholder and settles the layout once.
-            //
-            // THE PLACEHOLDER MUST NOT BE TALLER THAN Next game. On desktop this slot is row 1 of a subgrid
-            // whose other column is Next game (~16.4rem), so Next game already sets the row height; a taller
-            // placeholder inflates row 1 while the play log is in flight and lets it COLLAPSE the instant the
-            // ballot lands, which is the jump the slot exists to prevent. On a phone the two are stacked, so
-            // this matches the ballot's own ~16rem instead.
-            : !playsSettled
-              ? [<CardSkeleton key="mvp" minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />, compareCard]
-              // Answered, and there is genuinely no race to draw (a season too young). Compare takes row 1 and
-              // an empty grid cell takes row 2, so the row collapses to whatever Next game needs rather than
-              // reserving a slot for a card that is never coming.
-              : [compareCard, <Box key="mvp-empty" />])}
-        </Box>
+          {seasonCards}
+        </Box>}
       </Box>
 
       {/* Its ordinary home, under the season's numbers. See bracketLeads. */}

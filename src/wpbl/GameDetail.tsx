@@ -1840,12 +1840,16 @@ function TeamSwitch({ away, home, value, onChange }: {
 }
 
 // ─── Modal root ────────────────────────────────────────────────────────────────
-export default function GameDetailModal({ game: seed, initialTab, teams, games = [], onClose, onOpenPlayer, onOpenTeam }: {
+export default function GameDetailModal({ game: seed, initialTab, initialSide, teams, games = [], onClose, onOpenPlayer, onOpenTeam }: {
   game: WpblGame
   /** The raw `?tab=` a shared link carried, captured by WpblApp at mount because `urlFor` has
    *  dropped it from the address bar by the time this mounts. Unvalidated on purpose: which
    *  boards exist depends on data only this component has. */
   initialTab?: string | null
+  /** The raw `?side=`, captured the same way: which club's box score a phone shows first. A link
+   *  to one player's line names their club, or a home-side player lands on the other club's
+   *  table and has to find the switch. Anything but 'home' is the default, away. */
+  initialSide?: string | null
   teams: WpblTeam[]
   games?: WpblGame[]
   onClose: () => void
@@ -1879,7 +1883,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     // and this is only ever inferring one.
     urlTab ?? (PLAY_HASH_RE.test(ENTRY_HASH) ? 'plays'
       : seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box'))
-  const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
+  const [boxTeam, setBoxTeam] = useState<'away' | 'home'>(() => (initialSide === 'home' ? 'home' : 'away'))
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblGamePlay[]>(() => cached?.plays ?? [])
@@ -2182,11 +2186,13 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
     if (!wpblGameSlugFromPath(window.location.pathname)) return
     const q = new URLSearchParams(window.location.search)
     if (tab === landingTab) q.delete('tab'); else q.set('tab', tab)
+    // `side` only while it says something: on the box score, and not the away default.
+    if (tab === 'box' && boxTeam === 'home') q.set('side', 'home'); else q.delete('side')
     const str = q.toString()
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [tab, landingTab])
+  }, [tab, landingTab, boxTeam])
 
   // A LINK NAMING A BOARD THIS GAME DOES NOT HAVE. The tab list is built from data that is not
   // there at mount, so `?tab=pitch` on a game with no TrackMan, or `?tab=recap` on one that has

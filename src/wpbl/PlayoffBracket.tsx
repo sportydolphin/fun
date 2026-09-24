@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, TAPPABLE, TYPE_SCALE } from './ui'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, TAPPABLE, TYPE_SCALE, CARD_BORDER } from './ui'
 import { wpblAccent, wpblSurface, wpblFullName } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
@@ -179,8 +179,10 @@ function seasonSeriesLine(series: BracketSeries, odds?: SeriesOdds): string | nu
  * series stacked as three rows of 12px type would say three unrelated things under two rows of
  * 16px type saying the thing the box is about.
  */
-function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children }: {
+function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, children }: {
   series: BracketSeries; odds?: SeriesOdds
+  /** No fill, card outline: see BracketDiagram's `bare`. */
+  bare?: boolean
   /** Open this series' overview. Absent where there is nowhere to open one, which is any
    *  surface drawing the diagram outside Home. */
   onOpen?: () => void
@@ -202,8 +204,14 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
   const isFinal = series.round === 'championship'
   // The most dramatic true thing about a live series is when one club is a loss from going home.
   const elim = odds?.eliminationFor ?? null
-  const dates = seriesDateLine(series.round, series.key)
-  const season = seasonSeriesLine(series, odds)
+  // The whole foot goes once a series is decided. The dates are no longer news (see the row
+  // below), and the season series is there to explain the odds, which a decided series no longer
+  // shows: under a result it is a regular-season record answering a question nobody is asking.
+  // Decided HERE rather than inside the row, because the row's presence hangs on both: with
+  // either left to the row, a decided box drew it anyway, a band under a top border at its foot.
+  const done = series.status === 'done'
+  const dates = done ? null : seriesDateLine(series.round, series.key)
+  const season = done ? null : seasonSeriesLine(series, odds)
   // No model to show once a series is decided: a finished series has a winner, not a chance.
   const showOdds = !!odds && !winner && !!home.team && !!away.team
 
@@ -213,8 +221,8 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
       aria-label={onOpen ? `${series.label} overview` : undefined}
       sx={{
         borderRadius: 2, overflow: 'hidden', flex: 1, minWidth: 0,
-        border: '1px solid', borderColor: isFinal ? 'var(--wpbl-medal-1)' : 'divider',
-        bgcolor: 'background.paper',
+        border: '1px solid', borderColor: isFinal ? 'var(--wpbl-medal-1)' : bare ? CARD_BORDER : 'divider',
+        bgcolor: bare ? 'transparent' : 'background.paper',
         cursor: onOpen ? 'pointer' : 'default',
         ...(onOpen ? TAPPABLE : null),
         ...(onOpen ? FOCUS_RING : null),
@@ -289,7 +297,7 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
           <Typography sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{series.status !== 'done' ? dates : ''}</Typography>
+          }}>{dates ?? ''}</Typography>
           <Box sx={{ flex: 1 }} />
           {season && (
             <Typography sx={{
@@ -350,8 +358,12 @@ function ConnectorPiece({ row }: { row: 1 | 2 | 3 }) {
   )
 }
 
-export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks }: {
+export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks, bare }: {
   bracket: WpblBracket; odds?: WpblPostseasonOdds | null
+  /** Drawn straight on a page rather than inside a card (the season recap): the boxes drop their
+   *  fill and take the card outline, matching the unfilled cards around them. Inside Home's card
+   *  the paper fill and the faint divider are right, since each box is a card within a card. */
+  bare?: boolean
   /** Only the title-odds list uses this now; a series box opens its overview instead. */
   onOpenTeam?: OpenTeam
   /** Open one series' overview. Omitted by any caller that has nowhere to open one. */
@@ -376,6 +388,9 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
    * reader who has asked for bigger type is exactly the reader an ellipsis fails.
    */
   const wide = useMediaQuery('(min-width:1000px)')
+  // No title odds once the title is won; see the championship column below.
+  const titleOdds = bracket.champion ? null : (odds ?? null)
+  const showTitleOdds = !!titleOdds
   return (
     /* ONE GRID AT sm+, NOT A ROW OF COLUMNS, AND THE MIDDLE ROW TAKES THE SLACK.
     The two halves of this diagram are different heights: the semifinals stack to their own
@@ -402,7 +417,7 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
         <Box key={s.label} sx={{ display: 'flex', minWidth: 0, gridColumn: 1, gridRow: i === 0 ? 1 : 3 }}>
           <SeriesBox series={s} odds={odds?.semifinals[i]}
             onOpen={onOpenSeries ? () => onOpenSeries(s, odds?.semifinals[i]) : undefined}
-            bracket={bracket} picks={picks} wide={wide} />
+            bracket={bracket} picks={picks} wide={wide} bare={bare} />
         </Box>
       ))}
       <ConnectorPiece row={1} />
@@ -428,12 +443,20 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
       the box that asks it splits one question in two.
 
       The elbow still lands, and needs no arithmetic to: a box that fills the column has its
-      centre at the column's centre, which is what the connector points at. */}
-      <Box sx={{ minWidth: 0, gridColumn: 3, gridRow: '1 / 4', display: 'flex', minHeight: 0 }}>
+      centre at the column's centre, which is what the connector points at.
+
+      ONCE THERE IS A CHAMPION THE ODDS GO, and so does the stretch. A decided title is one bar
+      at 100% and three at 0%, which restates the banner at the top of Home as a chart. Without
+      the strip a stretched box is a tall frame around empty space, so the box takes its own
+      height and is centred instead, which keeps its centre on the connector all the same. */}
+      <Box sx={{
+        minWidth: 0, gridColumn: 3, gridRow: '1 / 4', display: 'flex', minHeight: 0,
+        alignItems: showTitleOdds ? 'stretch' : 'center',
+      }}>
         <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined}
           onOpen={onOpenSeries ? () => onOpenSeries(bracket.championship, odds?.championship ?? undefined) : undefined}
-          bracket={bracket} picks={picks} fill wide={wide}>
-          {odds && <TitleOddsStrip odds={odds} bracket={bracket} picks={picks} onOpenTeam={onOpenTeam} />}
+          bracket={bracket} picks={picks} fill={showTitleOdds} wide={wide} bare={bare}>
+          {titleOdds && <TitleOddsStrip odds={titleOdds} bracket={bracket} picks={picks} onOpenTeam={onOpenTeam} />}
         </SeriesBox>
       </Box>
     </Box>
@@ -481,7 +504,7 @@ function useTitlePicks(bracket: WpblBracket, picks?: SeriesPickState) {
 /** The headline the bracket cannot draw: each club's chance to WIN IT ALL, ranked by that
  *  chance rather than by record. Ordered by probability, so a stronger lower seed can sit above
  *  a weaker higher one, which is the whole point of pricing it off run differential instead of
- *  reading the standings back. Champion crowned once the final is decided. */
+ *  reading the standings back. Never drawn once there is a champion (see BracketDiagram). */
 function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
   odds: WpblPostseasonOdds
   bracket: WpblBracket
@@ -492,7 +515,6 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
   const dark = useWpblDark()
   const fans = useTitlePicks(bracket, picks)
   if (odds.title.length === 0) return null
-  const decided = odds.title.some(t => t.p >= 1)
   return (
     // INSIDE THE CHAMPIONSHIP BOX, under its meta line, which is why it carries the box's own
     // padding and a top rule rather than a margin. `mt: auto` is what claims the slack: the box
@@ -515,8 +537,8 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
           flex: 1, minWidth: 0,
           fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
           color: 'text.disabled',
-        }}>{decided ? 'Champion' : 'Chance to win it all'}</Typography>
-        {fans && !decided && (
+        }}>Chance to win it all</Typography>
+        {fans && (
           <>
             <Typography sx={{
               width: '2.5rem', flexShrink: 0, textAlign: 'center',
@@ -571,14 +593,14 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
               <Typography sx={{
                 width: '2.5rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800,
                 fontVariantNumeric: 'tabular-nums', textAlign: 'center',
-                color: t.p >= 1 ? accent : 'text.primary',
+                color: 'text.primary',
               }}>{fmtOdds(t.p)}</Typography>
               {/* THE FANS' COLUMN IS A NUMBER AND NOT A SECOND BAR. One chart per strip: the
                   bar's length already means the model's probability, and a second bar in the
                   same row would put two lengths on one scale and invite the reader to compare
                   them as if they measured the same thing. Muted and lighter than the odds, so
                   the column reads as an annotation on the chart rather than a rival to it. */}
-              {fans && !decided && (
+              {fans && (
                 <Typography sx={{
                   width: '2.5rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 700,
                   fontVariantNumeric: 'tabular-nums', textAlign: 'center', color: 'text.secondary',
@@ -591,7 +613,7 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
       {/* THE COUNT, BECAUSE A PERCENTAGE OF 58 IS NOT A PERCENTAGE OF 58,000. A share with no
           denominator invites a reader to take it as the league's opinion rather than as this
           card's readers, and it is the one number that keeps the column honest. */}
-      {fans && !decided && (
+      {fans && (
         <Typography sx={{
           fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.75, textAlign: 'right',
         }}>{fans.total} {fans.total === 1 ? 'pick' : 'picks'} before the semifinals</Typography>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import GameDetailModal from './GameDetail'
 import { WpblLinkProvider } from './LinkContext'
 import { wpblPlayerPath, wpblTeamPath, findWpblGameBySlug } from './routes'
@@ -42,6 +42,12 @@ export default function WpblGameOverlayHost({ slug, onClose, onOpenPlayerNav }: 
     return () => { cancelled = true }
   }, [])
 
+  // The board the URL names, read once per game. The URL is this overlay's whole description (see
+  // App.tsx), so a link that opened it on the box score, and a Back that lands on an entry the
+  // modal rewrote to `?tab=plays`, both reopen on the board they name rather than on the Recap.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const query = useMemo(() => new URLSearchParams(window.location.search), [slug])
+
   const game = teams.length > 0 && games.length > 0 ? findWpblGameBySlug(slug, games, teams) : null
   // Nothing to draw until the schedule lands (or if the slug names no game, which the pages that
   // build these links never produce): the shell keeps the page beneath visible, so a blank frame
@@ -55,7 +61,8 @@ export default function WpblGameOverlayHost({ slug, onClose, onOpenPlayerNav }: 
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
       <GameDetailModal
         game={game}
-        initialTab={null}
+        initialTab={query.get('tab')}
+        initialSide={query.get('side')}
         teams={teams}
         games={games}
         onClose={onClose}

@@ -348,6 +348,15 @@ export function championResult(bracket: WpblBracket): ChampionResult | null {
   }
 }
 
+/** The championship series games in date order, for the game logs on Home and the season
+ *  recap. The two finalists meet only in the championship, so any postseason game between them is a title game. */
+export function championshipGames(games: WpblGame[], aId: string, bId: string): WpblGame[] {
+  return games
+    .filter(g => !countsInStandings(g)
+      && ((g.home_team_id === aId && g.away_team_id === bId) || (g.home_team_id === bId && g.away_team_id === aId)))
+    .sort((x, y) => (x.game_date < y.game_date ? -1 : x.game_date > y.game_date ? 1 : 0))
+}
+
 // ─── The postseason on the schedule ─────────────────────────────────────────
 
 /** One side of a postseason game before the feed has a row for it. */
