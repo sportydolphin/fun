@@ -9,7 +9,7 @@ import type { WpblFanPhoto, WpblPhotoSubject, WpblPhotoFigure } from '../types'
 
 const photo = (o: Partial<WpblFanPhoto> & { id: string }): WpblFanPhoto => ({
   card_url: `card/${o.id}`, full_url: `full/${o.id}`, width: 1200, height: 800,
-  caption: null, credit: 'A Fan', taken_on: null, game_id: null, sort_order: null, ...o,
+  caption: null, credit: 'A Fan', taken_on: null, game_id: null, sort_order: null, category_key: null, ...o,
 })
 
 const playerTag = (photo_id: string, player_id: string): WpblPhotoSubject =>
@@ -65,5 +65,15 @@ describe('buildFanPhotoIndex', () => {
     expect(idx.photos).toEqual([])
     expect(idx.byPlayer.size).toBe(0)
     expect(idx.figures.size).toBe(0)
+  })
+
+  it('files categorised photos by category and leaves ordinary ones out of every bucket', () => {
+    const signs = { key: 'fan-signs', name: 'Fan signs', blurb: null, sort_order: 0 }
+    const idx = buildFanPhotoIndex(
+      [photo({ id: 'a' }), photo({ id: 'b', category_key: 'fan-signs' }), photo({ id: 'c', category_key: 'fan-signs' })],
+      [], [], [], [signs])
+    expect(idx.byCategory.get('fan-signs')?.map(p => p.id)).toEqual(['b', 'c'])
+    expect([...idx.byCategory.keys()]).toEqual(['fan-signs'])
+    expect(idx.categories).toEqual([signs])
   })
 })

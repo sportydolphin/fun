@@ -141,7 +141,7 @@ const ROUTES: Record<string, Seo> = {
   '/wpbl/photos': {
     title: "WPBL fan photos | sportydolphin.fun",
     description:
-      "Fan photographs of the Women's Pro Baseball League's players this season, sent in with permission and tagged by who is in them. Filter by player, and open any one full size.",
+      "Photographs from the Women's Pro Baseball League's season: the players, the fans and their signs, every one credited. Filter by category or by player, and open any one full size.",
     // Owner-only for now (useFanPhotosVisible in FanPhotoViews.tsx), so a reader here sees an empty
     // page. Out of the index and the sitemap until it opens; take this off when it does.
     noindex: true,

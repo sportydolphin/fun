@@ -10,10 +10,10 @@ import type { WpblPlayer, WpblPhotoSubject, WpblTeam } from '../types'
 
 const photos: WpblFanPhotoRow[] = [
   { id: 'ph1', card_url: 'c1', full_url: 'f1', width: 800, height: 600, caption: null,
-    credit: 'Jamie Fan', taken_on: null, game_id: null, sort_order: null,
+    credit: 'Jamie Fan', taken_on: null, game_id: null, sort_order: null, category_key: null,
     approved: false, contributor_id: 'con1', created_at: '2026-09-01T00:00:00Z' },
   { id: 'ph2', card_url: 'c2', full_url: 'f2', width: 800, height: 600, caption: 'Already up',
-    credit: 'Alex', taken_on: null, game_id: null, sort_order: null,
+    credit: 'Alex', taken_on: null, game_id: null, sort_order: null, category_key: null,
     approved: true, contributor_id: 'con2', created_at: '2026-09-02T00:00:00Z' },
 ]
 const players: WpblPlayer[] = [{ id: 'plW', name: 'Kelsie Whitmore', team_id: 'SF' } as WpblPlayer]
@@ -25,9 +25,10 @@ const addFanPhotoSubject = vi.fn(async (..._a: unknown[]) => ({ id: 's1', photo_
 const removeFanPhotoSubject = vi.fn(async (..._a: unknown[]) => true)
 const updateFanPhoto = vi.fn(async (..._a: unknown[]) => true)
 const upsertFanPhotoFigure = vi.fn(async (..._a: unknown[]) => true)
+const upsertFanPhotoCategory = vi.fn(async (..._a: unknown[]) => true)
 
 vi.mock('../api', () => ({
-  fetchWpblFanPhotoQueue: vi.fn(async () => ({ photos, subjects, figures: [] })),
+  fetchWpblFanPhotoQueue: vi.fn(async () => ({ photos, subjects, figures: [], categories: [] })),
   fetchWpblAllPlayers: vi.fn(async () => players),
   fetchWpblTeams: vi.fn(async () => teams),
   fetchFanPhotoContributors: vi.fn(async () => []),
@@ -36,6 +37,7 @@ vi.mock('../api', () => ({
   removeFanPhotoSubject: (...a: unknown[]) => removeFanPhotoSubject(...a),
   updateFanPhoto: (...a: unknown[]) => updateFanPhoto(...a),
   upsertFanPhotoFigure: (...a: unknown[]) => upsertFanPhotoFigure(...a),
+  upsertFanPhotoCategory: (...a: unknown[]) => upsertFanPhotoCategory(...a),
 }))
 vi.mock('../../lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }))
 vi.mock('../fanPhotoUpload', () => ({ prepareForUpload: vi.fn(), uploadPreparedPhoto: vi.fn() }))
@@ -115,5 +117,13 @@ describe('AdminPhotos curation', () => {
     fireEvent.click(within(dialog).getByLabelText('Next photo'))
     fireEvent.click(await within(dialog).findByText('+ Kelsie Whitmore'))
     await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph2', { playerId: 'plW' }))
+  })
+
+  it('creates a category keyed on the slug of its name', async () => {
+    render(<AdminPhotos />)
+    fireEvent.change(await screen.findByPlaceholderText('New category (e.g. Fan signs)'), { target: { value: 'Fan signs' } })
+    fireEvent.click(screen.getByText('Add category'))
+    await waitFor(() => expect(upsertFanPhotoCategory).toHaveBeenCalledWith(
+      { key: 'fan-signs', name: 'Fan signs', blurb: null, sort_order: 0 }))
   })
 })

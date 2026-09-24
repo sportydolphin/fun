@@ -5,13 +5,13 @@ import { Section } from '../AdminPanel'
 import { supabase } from '../lib/supabase'
 import {
   fetchWpblFanPhotoQueue, fetchWpblAllPlayers, fetchWpblTeams,
-  setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject, upsertFanPhotoFigure,
+  setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject, upsertFanPhotoFigure, upsertFanPhotoCategory,
   fetchFanPhotoContributors, createFanPhotoContributor, findFanPhotoBySha, insertFanPhoto,
   type WpblFanPhotoRow,
 } from './api'
 import { prepareForUpload, uploadPreparedPhoto } from './fanPhotoUpload'
 import { fanPhotoTeamName } from './fanPhotos'
-import type { WpblPlayer, WpblPhotoSubject, WpblPhotoFigure, WpblPhotoContributor, WpblTeam } from './types'
+import type { WpblPlayer, WpblPhotoSubject, WpblPhotoFigure, WpblPhotoContributor, WpblTeam, WpblPhotoCategory } from './types'
 
 // The fan-photo curation tool. Bytes arrive by the ingest CLI (approved = false); this is where
 // they get their subjects, a caption and the approve toggle that makes them public. It never
@@ -111,6 +111,7 @@ type Lookups = {
   players: Map<string, WpblPlayer>
   figures: Map<string, WpblPhotoFigure>
   teams: WpblTeam[]
+  categories: WpblPhotoCategory[]
 }
 type Runner = { busy: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }
 
@@ -217,9 +218,29 @@ function TagFields({ photo, subjects, lookups, runner, recent, onPicked }: {
         </Box>
       )}
 
+      {lookups.categories.length > 0 && (
+        <CategorySelect categories={lookups.categories} value={photo.category_key}
+          onChange={v => run(() => updateFanPhoto(photo.id, { category_key: v }))} />
+      )}
+
       <SavingField value={photo.caption} placeholder="Caption (plain text)" multiline
         onSave={v => run(() => updateFanPhoto(photo.id, { caption: v }))} />
     </Box>
+  )
+}
+
+// A photo's category. Empty means an ordinary fan photo, which is what every photo was before
+// categories existed, so it is the default and needs no name of its own here.
+function CategorySelect({ categories, value, onChange, size = 'compact' }: {
+  categories: WpblPhotoCategory[]; value: string | null; onChange: (v: string | null) => void
+  size?: 'compact' | 'touch'
+}) {
+  return (
+    <Select value={value ?? ''} displayEmpty size="small" onChange={e => onChange(e.target.value === '' ? null : String(e.target.value))}
+      sx={{ fontSize: size === 'touch' ? '0.85rem' : '0.8rem', '& .MuiSelect-select': { py: size === 'touch' ? 1.25 : 0.5 } }}>
+      <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Fan photo (no category)</MenuItem>
+      {categories.map(c => <MenuItem key={c.key} value={c.key} sx={{ fontSize: '0.8rem' }}>{c.name}</MenuItem>)}
+    </Select>
   )
 }
 
@@ -446,6 +467,35 @@ function FigureAdder({ onAdded }: { onAdded: () => void }) {
   )
 }
 
+// Create a category (Fan signs, The ballpark) for photos that are not of anyone in particular.
+// The key is the name's slug, so saving the same name again renames nothing and duplicates nothing.
+function CategoryAdder({ count, onAdded }: { count: number; onAdded: () => void }) {
+  const [name, setName] = useState('')
+  const [blurb, setBlurb] = useState('')
+  const [busy, setBusy] = useState(false)
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const add = async () => {
+    if (!slug || busy) return
+    setBusy(true)
+    const ok = await upsertFanPhotoCategory({ key: slug, name: name.trim(), blurb: blurb.trim() || null, sort_order: count })
+    setBusy(false)
+    if (ok) { setName(''); setBlurb(''); onAdded() }
+  }
+  return (
+    <Box sx={{ display: 'flex', gap: 1, p: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+      <TextField value={name} onChange={e => setName(e.target.value)} placeholder="New category (e.g. Fan signs)"
+        size="small" InputProps={{ sx: { fontSize: '0.8rem' } }} sx={{ flex: 1, minWidth: 180 }} />
+      <TextField value={blurb} onChange={e => setBlurb(e.target.value)} placeholder="One-line description (optional)"
+        size="small" InputProps={{ sx: { fontSize: '0.8rem' } }} sx={{ flex: 2, minWidth: 180 }} />
+      <Box onClick={add} role="button" tabIndex={0} sx={{
+        px: 1.5, py: 0.6, borderRadius: 999, cursor: slug ? 'pointer' : 'default', userSelect: 'none',
+        fontSize: '0.74rem', fontWeight: 800, border: '1px solid',
+        borderColor: slug ? 'primary.main' : 'divider', color: slug ? 'primary.main' : 'text.disabled',
+      }}>Add category</Box>
+    </Box>
+  )
+}
+
 // Upload from the browser: pick a contributor (the permission record), then pick photos. Each
 // file is hashed, checked against the library so the same shot is never uploaded twice, rendered
 // to webp in a canvas (EXIF dropped), sent to R2 through the owner-gated endpoint, and inserted
@@ -460,7 +510,10 @@ const STATUS_LABEL: Record<UploadRow['status'], string> = {
   preparing: 'preparing…', uploading: 'uploading…', duplicate: 'already uploaded', done: 'uploaded', error: 'failed',
 }
 
-function UploadPanel({ onUploaded }: { onUploaded: () => void }) {
+function UploadPanel({ categories, onUploaded }: { categories: WpblPhotoCategory[]; onUploaded: () => void }) {
+  // Which category this batch goes into. Kept across batches, since a run of sign photos is
+  // usually uploaded in several goes.
+  const [category, setCategory] = useState<string | null>(null)
   const [contributors, setContributors] = useState<WpblPhotoContributor[]>([])
   const [selected, setSelected] = useState('')
   const [adding, setAdding] = useState(false)
@@ -511,6 +564,7 @@ function UploadPanel({ onUploaded }: { onUploaded: () => void }) {
         const id = await insertFanPhoto({
           sha256: prepared.sha256, storage_path: loc.storage_path, card_url: loc.card_url, full_url: loc.full_url,
           width: prepared.width, height: prepared.height, credit: contributor.display_name, contributor_id: contributor.id,
+          category_key: category,
         })
         set(i, id ? 'done' : 'error', id ? undefined : 'saved to R2 but the row insert failed')
       } catch (e) {
@@ -573,6 +627,10 @@ function UploadPanel({ onUploaded }: { onUploaded: () => void }) {
           </Box>
         )}
 
+        {categories.length > 0 && (
+          <CategorySelect categories={categories} value={category} onChange={setCategory} size="touch" />
+        )}
+
         {/* the file picker: disabled until a photographer is chosen, so every photo has a credit.
             Tall and two-line so it reads as the main action and is an easy tap on a phone. */}
         <Box component="label" sx={{
@@ -623,6 +681,9 @@ export default function AdminPhotos() {
   const [figures, setFigures] = useState<WpblPhotoFigure[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [teams, setTeams] = useState<WpblTeam[]>([])
+  const [categories, setCategories] = useState<WpblPhotoCategory[]>([])
+  // '*' is every category; '' is the uncategorised fan photos.
+  const [categoryFilter, setCategoryFilter] = useState<string>('*')
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('unapproved')
   const [tagging, setTagging] = useState<{ ids: string[]; start: number } | null>(null)
@@ -630,7 +691,7 @@ export default function AdminPhotos() {
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams()]).then(([q, pl, tm]) => {
-      setPhotos(q.photos); setSubjects(q.subjects); setFigures(q.figures); setPlayers(pl); setTeams(tm)
+      setPhotos(q.photos); setSubjects(q.subjects); setFigures(q.figures); setCategories(q.categories); setPlayers(pl); setTeams(tm)
       setLoading(false)
     })
   }, [])
@@ -651,9 +712,10 @@ export default function AdminPhotos() {
   }), [photos])
 
   const shown = photos.filter(p =>
-    filter === 'all' ? true : filter === 'approved' ? p.approved : !p.approved)
-  const lookups = useMemo<Lookups>(() => ({ players: playersById, figures: figuresByKey, teams }),
-    [playersById, figuresByKey, teams])
+    (filter === 'all' ? true : filter === 'approved' ? p.approved : !p.approved)
+    && (categoryFilter === '*' || (p.category_key ?? '') === categoryFilter))
+  const lookups = useMemo<Lookups>(() => ({ players: playersById, figures: figuresByKey, teams, categories }),
+    [playersById, figuresByKey, teams, categories])
   const openTagMode = (start: number) => setTagging({ ids: shown.map(p => p.id), start })
 
   return (
@@ -663,6 +725,14 @@ export default function AdminPhotos() {
           <Chip key={f.value} label={`${f.label} (${counts[f.value]})`}
             active={filter === f.value} onClick={() => setFilter(f.value)} />
         ))}
+        {categories.length > 0 && (
+          <Select value={categoryFilter} onChange={e => setCategoryFilter(String(e.target.value))} size="small"
+            sx={{ fontSize: '0.75rem', '& .MuiSelect-select': { py: 0.4 } }}>
+            <MenuItem value="*" sx={{ fontSize: '0.8rem' }}>Any category</MenuItem>
+            <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Fan photos</MenuItem>
+            {categories.map(c => <MenuItem key={c.key} value={c.key} sx={{ fontSize: '0.8rem' }}>{c.name}</MenuItem>)}
+          </Select>
+        )}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {loading && <CircularProgress size={14} />}
           {shown.length > 0 && (
@@ -674,7 +744,21 @@ export default function AdminPhotos() {
         </Box>
       </Box>
 
-      <UploadPanel onUploaded={load} />
+      <UploadPanel categories={categories} onUploaded={load} />
+
+      <Section title="Categories">
+        <CategoryAdder count={categories.length} onAdded={load} />
+        {categories.length > 0 && (
+          <Box sx={{ px: 1.5, pb: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+            {categories.map(c => (
+              <Box key={c.key} sx={{ px: 1, py: 0.3, borderRadius: 999, bgcolor: 'action.hover',
+                fontSize: '0.7rem', fontWeight: 600, color: 'text.secondary' }}>
+                {c.name} · {photos.filter(p => p.category_key === c.key).length}
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Section>
 
       <Section title="Figures (non-player subjects)">
         <FigureAdder onAdded={load} />

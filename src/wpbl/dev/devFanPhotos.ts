@@ -64,6 +64,7 @@ export function mockFanPhotos(
       taken_on: null,
       game_id: null,
       sort_order: i,
+      category_key: null,
       playerIds: player ? [player.id] : [],
       figureKeys: [],
       teamIds: [],

@@ -25,6 +25,7 @@ export default function PhotosGalleryPage() {
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<string>('all')
+  const [category, setCategory] = useState<string>('*')
 
   useEffect(() => {
     let live = true
@@ -43,27 +44,58 @@ export default function PhotosGalleryPage() {
     return names
   }, [nameById, index])
 
-  // The subjects that actually have photos, each with its set, sorted by name. Only these can be
-  // filtered to; a player nobody has photographed does not get an empty chip.
+  // Categories that actually hold a published photo, in the curator's order, plus the ordinary fan
+  // photos as their own chip once there is anything else to tell them apart from. '*' is all of
+  // them; '' is the uncategorised fan photos. With no categories in use the row does not draw.
+  const categoryChips = useMemo(() => {
+    if (!index) return []
+    const out: Array<{ key: string; label: string; count: number }> = []
+    const general = index.photos.filter(p => !p.category_key).length
+    if (general > 0) out.push({ key: '', label: 'Fan photos', count: general })
+    for (const c of index.categories) {
+      const n = index.byCategory.get(c.key)?.length ?? 0
+      if (n > 0) out.push({ key: c.key, label: c.name, count: n })
+    }
+    return out
+  }, [index])
+  const inCategory = useMemo(() => {
+    if (!index) return []
+    if (category === '*') return index.photos
+    return category === '' ? index.photos.filter(p => !p.category_key) : (index.byCategory.get(category) ?? [])
+  }, [index, category])
+
+  // The subjects that actually have photos in the chosen category, each with its set, sorted by
+  // name. Only these can be filtered to; a player nobody has photographed does not get an empty chip,
+  // and a category of signs (which tag nobody) shows no subject row at all.
   const subjects: SubjectFilter[] = useMemo(() => {
     if (!index) return []
-    const out: SubjectFilter[] = []
-    for (const [pid, photos] of index.byPlayer) out.push({ key: `p:${pid}`, label: nameById.get(pid) ?? 'Unknown', photos })
-    for (const [fkey, photos] of index.byFigure) out.push({ key: `f:${fkey}`, label: index.figures.get(fkey)?.name ?? fkey, photos })
-    for (const [tid, photos] of index.byTeam) out.push({ key: `t:${tid}`, label: fanPhotoTeamName(index.teams.get(tid)), photos })
-    return out.sort((a, b) => a.label.localeCompare(b.label))
-  }, [index, nameById])
+    const buckets = new Map<string, SubjectFilter>()
+    const add = (key: string, label: string, photo: FanPhotoWithSubjects) => {
+      const b = buckets.get(key)
+      if (b) b.photos.push(photo)
+      else buckets.set(key, { key, label, photos: [photo] })
+    }
+    for (const photo of inCategory) {
+      for (const pid of photo.playerIds) add(`p:${pid}`, nameById.get(pid) ?? 'Unknown', photo)
+      for (const fkey of photo.figureKeys) add(`f:${fkey}`, index.figures.get(fkey)?.name ?? fkey, photo)
+      for (const tid of photo.teamIds) add(`t:${tid}`, fanPhotoTeamName(index.teams.get(tid)), photo)
+    }
+    return [...buckets.values()].sort((a, b) => a.label.localeCompare(b.label))
+  }, [index, inCategory, nameById])
 
   const shown = useMemo(() => {
-    if (!index) return []
-    if (selected === 'all') return index.photos
-    return subjects.find(s => s.key === selected)?.photos ?? index.photos
-  }, [index, selected, subjects])
+    if (selected === 'all') return inCategory
+    return subjects.find(s => s.key === selected)?.photos ?? inCategory
+  }, [inCategory, selected, subjects])
 
+  const pickCategory = (key: string) => { setCategory(key); setSelected('all') }
+
+  // Not every photo is a fan's own any more (a category can hold broadcast stills), so the page
+  // promises only what is true of all of them: each one is credited.
   const total = visible ? (index?.photos.length ?? 0) : 0
   const standfirst = total > 0
-    ? `${total} photograph${total === 1 ? '' : 's'} of this season's players, sent in by fans with permission. Every one carries the photographer's credit.`
-    : "Photographs of this season's players, sent in by fans with permission."
+    ? `${total} photograph${total === 1 ? '' : 's'} from this season's games. Every one carries its credit.`
+    : "Photographs from this season's games."
 
   return (
     <WpblPage title="Fan photos" standfirst={standfirst}>
@@ -75,11 +107,21 @@ export default function PhotosGalleryPage() {
         </Box>
       ) : (
         <>
-          {/* Filter by subject. "All" plus one chip per person who appears in a photo; the count
-              rides on each so the reader can see who has the most before tapping. */}
+          {/* Category first (Fan photos, Fan signs, ...), then who is in them within it. */}
+          {categoryChips.length > 1 && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
+              <FilterChip label={`All (${total})`} active={category === '*'} onClick={() => pickCategory('*')} />
+              {categoryChips.map(c => (
+                <FilterChip key={c.key || 'general'} label={`${c.label} (${c.count})`}
+                  active={category === c.key} onClick={() => pickCategory(c.key)} />
+              ))}
+            </Box>
+          )}
+          {/* Filter by subject. "Everyone" plus one chip per person who appears in a photo; the
+              count rides on each so the reader can see who has the most before tapping. */}
           {subjects.length > 1 && (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2.5 }}>
-              <FilterChip label={`All (${total})`} active={selected === 'all'} onClick={() => setSelected('all')} />
+              <FilterChip label={`Everyone (${inCategory.length})`} active={selected === 'all'} onClick={() => setSelected('all')} />
               {subjects.map(s => (
                 <FilterChip key={s.key} label={`${s.label} (${s.photos.length})`}
                   active={selected === s.key} onClick={() => setSelected(s.key)} />

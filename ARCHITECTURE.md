@@ -230,7 +230,7 @@ flowchart TB
         t_recaplink["wpbl_recaps<br/>(This is Women's Baseball: LINKS only, one per game)"]
         t_site["wpbl_site_games<br/>(league WEBSITE calendar: postseason home/away, tickets)"]
         t_photo["wpbl_photos<br/>(Commons archive; approved-only reads)"]
-        t_fanphoto["wpbl_fan_photos + wpbl_photo_subjects<br/>+ wpbl_photo_figures + wpbl_photo_contributors<br/>(fan photos tagged by subject; approved-only; contributors owner-only)"]
+        t_fanphoto["wpbl_fan_photos + wpbl_photo_subjects<br/>+ wpbl_photo_figures + wpbl_photo_categories<br/>+ wpbl_photo_contributors<br/>(fan photos tagged by subject; approved-only; contributors owner-only)"]
         t_gdet["wpbl_game_details<br/>(RetroWPBL: first pitch, length, crew, weather)"]
         t_trackwatch["wpbl_tracking_watch<br/>(TrackMan watermark, one row)"]
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
@@ -391,8 +391,8 @@ gate on the photo, and `wpbl_photo_subjects` gates its own `select` on the paren
 approved, so an unreviewed photo leaks neither its existence nor who curation thinks is in it.
 `wpbl_photo_contributors` is owner-only with no public policy at all: the contact and permission
 record never reach the browser, and only the public `credit` is denormalized onto the photo row
-(RLS is row-level and cannot hide a column). `wpbl_photo_figures` is public-read (it supplies the
-gallery's subject filters). This is fan photography of the current league, tagged by subject and
+(RLS is row-level and cannot hide a column). `wpbl_photo_figures` and `wpbl_photo_categories` are public-read (they
+supply the gallery's subject and category filters). This is fan photography of the current league, tagged by subject and
 shown on player pages, and is NOT the Commons archive above. See
 [`docs/FAN_PHOTOS.md`](docs/FAN_PHOTOS.md).
 

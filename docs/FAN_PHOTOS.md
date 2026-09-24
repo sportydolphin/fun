@@ -190,6 +190,19 @@ cover places.** Every tag is therefore a person or a character, so `wpbl_photo_s
 exactly one question: who is in this photograph. A future "photos of the ballpark" wants its own
 column rather than a second meaning for this one.
 
+### `wpbl_photo_categories`
+
+That column, as of Sep 23, 2026: `wpbl_fan_photos.category_key` points at an owner-made category
+(`key`, `name`, `blurb`, `sort_order`), for photos that are not OF someone, a fan's sign being the
+first. One per photo and nullable; NULL is the ordinary fan photograph, so every earlier row and
+everything the CLI ingest writes is valid without a backfill. The foreign key is `on delete set
+null`: deleting a category returns its photos to the general pool and never deletes a photograph.
+Public-read (the gallery's category chips), owner-write, like the figures.
+
+A category can hold images that are not a fan's own work (broadcast stills), which is why the
+gallery's standfirst promises only that every photo is credited, not that fans sent it in. Give
+such a source its own contributor record so its credit reads truthfully.
+
 ## Traps, each inherited from something already in this repo
 
 1. **`wpbl_merge_players` hand-lists every table holding a `player_id`, and does not discover

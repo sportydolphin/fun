@@ -7,7 +7,7 @@ vi.mock('../../lib/analytics', () => ({ track: vi.fn(), EVENTS: new Proxy({}, { 
 
 const photo = (o: Partial<FanPhotoWithSubjects> & { id: string }): FanPhotoWithSubjects => ({
   card_url: `card/${o.id}`, full_url: `full/${o.id}`, width: 800, height: 600,
-  caption: null, credit: 'Jamie Fan', taken_on: null, game_id: null, sort_order: null,
+  caption: null, credit: 'Jamie Fan', taken_on: null, game_id: null, sort_order: null, category_key: null,
   playerIds: [], figureKeys: [], teamIds: [], ...o,
 })
 

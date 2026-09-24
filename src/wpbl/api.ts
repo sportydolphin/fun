@@ -12,7 +12,7 @@ import type {
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails, WpblGameRevision,
-  WpblFanPhoto, WpblPhotoFigure, WpblPhotoSubject, WpblPhotoContributor,
+  WpblFanPhoto, WpblPhotoFigure, WpblPhotoSubject, WpblPhotoContributor, WpblPhotoCategory,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -242,6 +242,7 @@ let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
 let fanPhotosCache:   { data: WpblFanPhoto[]; at: number } | null = null
 let fanPhotoSubjectsCache: { data: WpblPhotoSubject[]; at: number } | null = null
 let fanPhotoFiguresCache:  { data: WpblPhotoFigure[]; at: number } | null = null
+let fanPhotoCategoriesCache: { data: WpblPhotoCategory[]; at: number } | null = null
 let siteGamesCache:   { data: WpblSiteGame[]; at: number } | null = null
 
 // How long a bulk result is served straight from the cache without re-querying.
@@ -955,7 +956,7 @@ export function fetchWpblPhotos(): Promise<WpblPhoto[]> {
 
 // The card render, dims and caption drive the strip and gallery; game_id feeds Game Center.
 // Ordered by the curator's sequence, id breaking ties so the order is total.
-const FAN_PHOTO_COLUMNS = 'id,card_url,full_url,width,height,caption,credit,taken_on,game_id,sort_order'
+const FAN_PHOTO_COLUMNS = 'id,card_url,full_url,width,height,caption,credit,taken_on,game_id,sort_order,category_key'
 
 export function fetchWpblFanPhotos(): Promise<WpblFanPhoto[]> {
   if (isFresh(fanPhotosCache)) return Promise.resolve(fanPhotosCache!.data)
@@ -1003,17 +1004,34 @@ export function fetchWpblFanPhotoFigures(): Promise<WpblPhotoFigure[]> {
   })
 }
 
+const FAN_PHOTO_CATEGORY_COLUMNS = 'key,name,blurb,sort_order'
+
+// A handful of rows, so one read rather than paged; ordered by the curator's sequence, then name.
+export function fetchWpblFanPhotoCategories(): Promise<WpblPhotoCategory[]> {
+  if (isFresh(fanPhotoCategoriesCache)) return Promise.resolve(fanPhotoCategoriesCache!.data)
+  return once('fanPhotoCategories', async () => {
+    const data = await safe<WpblPhotoCategory[]>('fetchWpblFanPhotoCategories', () =>
+      supabase.from('wpbl_photo_categories').select(FAN_PHOTO_CATEGORY_COLUMNS)
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('name', { ascending: true }) as unknown as
+        PromiseLike<{ data: WpblPhotoCategory[] | null; error: unknown }>, [])
+    if (data.length > 0 || fanPhotoCategoriesCache == null) fanPhotoCategoriesCache = { data, at: Date.now() }
+    return data
+  })
+}
+
 // The one call a surface makes: all three reads in parallel, joined into the per-subject and
 // per-game lookups. Each read is cached and deduped on its own, so calling this from several
 // components in one load costs one round trip each, not one per caller.
 export async function fetchWpblFanPhotoIndex(): Promise<FanPhotoIndex> {
-  const [photos, subjects, figures, teams] = await Promise.all([
+  const [photos, subjects, figures, teams, categories] = await Promise.all([
     fetchWpblFanPhotos(),
     fetchWpblFanPhotoSubjects(),
     fetchWpblFanPhotoFigures(),
     fetchWpblTeams(),
+    fetchWpblFanPhotoCategories(),
   ])
-  return buildFanPhotoIndex(photos, subjects, figures, teams)
+  return buildFanPhotoIndex(photos, subjects, figures, teams, categories)
 }
 
 // ─── Fan photo curation (owner-only, writes through the is_site_owner() RLS policy) ──────
@@ -1037,11 +1055,11 @@ export interface WpblFanPhotoRow extends WpblFanPhoto {
 }
 
 export async function fetchWpblFanPhotoQueue(): Promise<{
-  photos: WpblFanPhotoRow[]; subjects: WpblPhotoSubject[]; figures: WpblPhotoFigure[]
+  photos: WpblFanPhotoRow[]; subjects: WpblPhotoSubject[]; figures: WpblPhotoFigure[]; categories: WpblPhotoCategory[]
 }> {
   // All three read FRESH, not through the cached public fetchers: an approve or a new tag has to
   // show on the next reload, and the bulk cache would serve the pre-edit set for its whole window.
-  const [photos, subjects, figures] = await Promise.all([
+  const [photos, subjects, figures, categories] = await Promise.all([
     safe<WpblFanPhotoRow[]>('fetchWpblFanPhotoQueue', () =>
       supabase.from('wpbl_fan_photos')
         // Unreviewed first (approved ascending puts false before true), then the curated order.
@@ -1056,8 +1074,12 @@ export async function fetchWpblFanPhotoQueue(): Promise<{
     safe<WpblPhotoFigure[]>('fetchWpblFanPhotoQueueFigures', () =>
       supabase.from('wpbl_photo_figures').select('key,name,kind,blurb,team_id').order('name') as unknown as
         PromiseLike<{ data: WpblPhotoFigure[] | null; error: unknown }>, []),
+    safe<WpblPhotoCategory[]>('fetchWpblFanPhotoQueueCategories', () =>
+      supabase.from('wpbl_photo_categories').select(FAN_PHOTO_CATEGORY_COLUMNS)
+        .order('sort_order', { ascending: true, nullsFirst: false }).order('name') as unknown as
+        PromiseLike<{ data: WpblPhotoCategory[] | null; error: unknown }>, []),
   ])
-  return { photos, subjects, figures }
+  return { photos, subjects, figures, categories }
 }
 
 /** True on success. Every one of these logs and returns false rather than throwing, so a
@@ -1082,6 +1104,7 @@ export function setFanPhotoApproved(id: string, approved: boolean): Promise<bool
  *  field it was not asked to touch. */
 export function updateFanPhoto(id: string, patch: {
   caption?: string | null; taken_on?: string | null; game_id?: string | null; sort_order?: number | null
+  category_key?: string | null
 }): Promise<boolean> {
   return ownerWrite('updateFanPhoto', () =>
     supabase.from('wpbl_fan_photos').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
@@ -1114,6 +1137,12 @@ export async function addFanPhotoSubject(
 export function removeFanPhotoSubject(id: string): Promise<boolean> {
   return ownerWrite('removeFanPhotoSubject', () =>
     supabase.from('wpbl_photo_subjects').delete().eq('id', id))
+}
+
+/** Create or update a category. Keyed on `key`, so a re-save renames rather than duplicates. */
+export function upsertFanPhotoCategory(cat: WpblPhotoCategory): Promise<boolean> {
+  return ownerWrite('upsertFanPhotoCategory', () =>
+    supabase.from('wpbl_photo_categories').upsert(cat, { onConflict: 'key' }))
 }
 
 /** Create or update a non-player figure (a mascot, manager, coach, ...). Keyed on `key`, so a
@@ -1152,6 +1181,7 @@ export async function findFanPhotoBySha(sha256: string): Promise<{ id: string; a
 export async function insertFanPhoto(row: {
   sha256: string; storage_path: string; card_url: string; full_url: string
   width: number | null; height: number | null; credit: string | null; contributor_id: string | null
+  category_key?: string | null
 }): Promise<string | null> {
   try {
     const { data, error } = await supabase.from('wpbl_fan_photos').insert(row).select('id').single()

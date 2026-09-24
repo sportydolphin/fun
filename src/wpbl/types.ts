@@ -283,6 +283,16 @@ export interface WpblFanPhoto {
   taken_on: string | null    // curated; EXIF seeds it and does not settle it
   game_id: string | null     // set when the photo is from a known game; drives Game Center
   sort_order: number | null
+  category_key: string | null // null is an ordinary fan photograph; see WpblPhotoCategory
+}
+
+/** A gallery category for photos that are not OF someone (a fan's sign, the ballpark), so they
+ *  need not pretend to have subjects. One per photo; a photo with none is an ordinary fan photo. */
+export interface WpblPhotoCategory {
+  key: string
+  name: string
+  blurb: string | null
+  sort_order: number | null
 }
 
 /** A non-player subject: a manager, coach, broadcaster, staff member, umpire or mascot

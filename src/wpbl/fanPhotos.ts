@@ -11,7 +11,7 @@
 // surface (trap: a traded player is absent from either club's current roster; build the name map
 // from the full player list, per CLAUDE.md), and from `figures` here for the non-players.
 
-import type { WpblFanPhoto, WpblPhotoSubject, WpblPhotoFigure, WpblTeam } from './types'
+import type { WpblFanPhoto, WpblPhotoSubject, WpblPhotoFigure, WpblTeam, WpblPhotoCategory } from './types'
 
 /** A photo with its subject tags folded in. `playerIds`, `figureKeys` and `teamIds` are disjoint
  *  by the table's check constraint (exactly one column set per tag row). */
@@ -43,6 +43,10 @@ export interface FanPhotoIndex {
   figures: Map<string, WpblPhotoFigure>
   /** The clubs, for turning a tagged `team_id` into a name. */
   teams: Map<string, WpblTeam>
+  /** Every photo filed under a category, keyed on its `key`. Uncategorised photos are in no bucket. */
+  byCategory: Map<string, FanPhotoWithSubjects[]>
+  /** The categories in the curator's order, for the gallery's chips. */
+  categories: WpblPhotoCategory[]
 }
 
 function push<K>(map: Map<K, FanPhotoWithSubjects[]>, key: K, photo: FanPhotoWithSubjects): void {
@@ -65,6 +69,7 @@ export function buildFanPhotoIndex(
   subjects: WpblPhotoSubject[],
   figures: WpblPhotoFigure[],
   teams: WpblTeam[] = [],
+  categories: WpblPhotoCategory[] = [],
 ): FanPhotoIndex {
   const figureMap = new Map<string, WpblPhotoFigure>()
   for (const f of figures) figureMap.set(f.key, f)
@@ -96,6 +101,7 @@ export function buildFanPhotoIndex(
   const byFigure = new Map<string, FanPhotoWithSubjects[]>()
   const byTeam = new Map<string, FanPhotoWithSubjects[]>()
   const byGame = new Map<string, FanPhotoWithSubjects[]>()
+  const byCategory = new Map<string, FanPhotoWithSubjects[]>()
 
   for (const p of photos) {
     const playerIds = playerTags.get(p.id) ?? []
@@ -107,7 +113,8 @@ export function buildFanPhotoIndex(
     for (const key of figureKeys) push(byFigure, key, photo)
     for (const tid of teamIds) push(byTeam, tid, photo)
     if (p.game_id) push(byGame, p.game_id, photo)
+    if (p.category_key) push(byCategory, p.category_key, photo)
   }
 
-  return { photos: withSubjects, byPlayer, byFigure, byTeam, byGame, figures: figureMap, teams: teamMap }
+  return { photos: withSubjects, byPlayer, byFigure, byTeam, byGame, figures: figureMap, teams: teamMap, byCategory, categories }
 }
