@@ -11,7 +11,7 @@ import { seriesPickCategory, parsePickChoice, championshipPickOpen } from './der
 import { useSeriesPicks, SeriesPickLine, PickemButton } from './SeriesPicks'
 import SeriesPreview from './SeriesPreview'
 import type { SeriesPickState } from './SeriesPicks'
-import { track, EVENTS } from '../lib/analytics'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblPlayer, WpblStandingRow, WpblTeam } from './types'
 
 /**
@@ -681,9 +681,9 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
   useEffect(() => {
     if (logged.current || !bracket) return
     logged.current = true
-    track(EVENTS.WPBL_BRACKET_SHOWN, {
+    trackImpression(EVENTS.WPBL_BRACKET_SHOWN, {
       settled: bracket.settled, started: bracket.started, gamesLeft: left, from,
-    })
+    }, from)
   }, [bracket, left, from])
 
   if (!bracket) return null

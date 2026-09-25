@@ -26,7 +26,7 @@ import {
 import type { AwardBallot, AwardResults } from './awardVotes'
 import { searchPlayers } from './playerSearch'
 import { fetchWpblAllFielding, getCachedWpblAllFielding } from './api'
-import { track, EVENTS } from '../lib/analytics'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { useAuth } from '../AuthContext'
 import { useIsTester } from '../lib/roles'
 import type { MvpRace } from './derive/mvpRace'
@@ -1538,7 +1538,7 @@ export default function FanVoteCard({
   const face = roomy ? 32 : 26
 
   useEffect(() => {
-    if (drawable && state.loaded) track(EVENTS.WPBL_AWARD_SHOWN, { answered, categories: entries.length })
+    if (drawable && state.loaded) trackImpression(EVENTS.WPBL_AWARD_SHOWN, { answered, categories: entries.length })
     // Once per load, not once per vote.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawable, state.loaded])

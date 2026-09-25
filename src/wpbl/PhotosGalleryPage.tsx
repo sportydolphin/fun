@@ -7,6 +7,7 @@ import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, fetchWpblPhotos, getCached
 import { ArchiveGrid } from './Photos'
 import { fanPhotoTeamName, type FanPhotoIndex, type FanPhotoWithSubjects } from './fanPhotos'
 import type { WpblPlayer, WpblPhoto } from './types'
+import { track, EVENTS } from '../lib/analytics'
 
 // The /wpbl/photos gallery: every published fan photograph, filterable by who is in it, plus the
 // Wikimedia Commons archive of women's baseball history as one more category. A sibling
@@ -99,7 +100,14 @@ export default function PhotosGalleryPage() {
     return subjects.find(s => s.key === selected)?.photos ?? inCategory
   }, [inCategory, selected, subjects])
 
-  const pickCategory = (key: string) => { setCategory(key); setSelected('all') }
+  const pickCategory = (key: string) => {
+    setCategory(key); setSelected('all')
+    track(EVENTS.WPBL_PAGE_CONTROL, { page: 'photos', control: 'category', value: key })
+  }
+  const pickSubject = (key: string) => {
+    setSelected(key)
+    track(EVENTS.WPBL_PAGE_CONTROL, { page: 'photos', control: 'subject', value: key })
+  }
 
   const total = index?.photos.length ?? 0
 
@@ -137,10 +145,10 @@ export default function PhotosGalleryPage() {
               count rides on each so the reader can see who has the most before tapping. */}
           {!showingArchive && subjects.length > 1 && (
             <ChipRow mb={2}>
-              <FilterChip label={`Everyone (${inCategory.length})`} active={selected === 'all'} onClick={() => setSelected('all')} />
+              <FilterChip label={`Everyone (${inCategory.length})`} active={selected === 'all'} onClick={() => pickSubject('all')} />
               {subjects.map(s => (
                 <FilterChip key={s.key} label={`${s.label} (${s.photos.length})`}
-                  active={selected === s.key} onClick={() => setSelected(s.key)} />
+                  active={selected === s.key} onClick={() => pickSubject(s.key)} />
               ))}
             </ChipRow>
           )}

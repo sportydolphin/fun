@@ -21,6 +21,7 @@ import { wpblGamePath } from './routes'
 import { TAPPABLE, FOCUS_RING } from './ui'
 import WpblPage from './WpblPage'
 import type { WpblGame, WpblTeam } from './types'
+import { track, EVENTS } from '../lib/analytics'
 
 const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
@@ -176,7 +177,10 @@ export default function WpblScorigami({ onOpenGame }: {
                       href={href}
                       title={label}
                       aria-label={label}
-                      onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpenGame(cell.first, { teams, games }) } }}
+                      onClick={e => {
+                        track(EVENTS.WPBL_PAGE_OPEN, { page: 'scorigami', section: 'grid', kind: 'game', value: `${w}-${l}` })
+                        if (!isModified(e)) { e.preventDefault(); onOpenGame(cell.first, { teams, games }) }
+                      }}
                       sx={{
                         ...FOCUS_RING,
                         width: 'var(--cell)', height: 'var(--cell)', borderRadius: 0.75,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, chromePx, pressable, FOCUS_RING, CARD_BORDER, useWpblDark, hoverOnly } from './ui'
 import { wpblAccent } from './constants'
@@ -343,9 +344,10 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
   // it starts. See SeasonShapeCard's note.
   const play = useCallback(() => {
     if (playingRef.current) { setPlaying(false); return }
+    track(EVENTS.WPBL_PAGE_CONTROL, { page: 'season', control: 'race_play', value: metricKey })
     setPlayCol(c => (c >= last ? 0 : c))
     setPlaying(true)
-  }, [last])
+  }, [last, metricKey])
 
   if (prepared.frameCount === 0 || prepared.ids.length === 0) return null
 
@@ -384,7 +386,10 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
         component="select"
         aria-label="Choose a stat"
         value={metricKey}
-        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMetricKey(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+          setMetricKey(e.target.value)
+          track(EVENTS.WPBL_PAGE_CONTROL, { page: 'season', control: 'race_metric', value: e.target.value })
+        }}
         sx={{
           ...FOCUS_RING, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
           appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
@@ -544,7 +549,10 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
           step={1}
           value={col}
           aria-label="Scrub through the season"
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setPlaying(false); setPlayCol(+e.target.value) }}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            setPlaying(false); setPlayCol(+e.target.value)
+            trackImpression(EVENTS.WPBL_PAGE_CONTROL, { page: 'season', control: 'race_scrub' }, 'season|race_scrub')
+          }}
           sx={{
             flex: 1, minWidth: chromePx(140), height: chromePx(6), borderRadius: 999, cursor: 'pointer',
             appearance: 'none', WebkitAppearance: 'none', bgcolor: 'action.selected', accentColor: 'var(--wpbl-accent-fg)',

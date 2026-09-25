@@ -722,7 +722,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
           table is what somebody came to /wpbl/standings for, and a chart above it would make
           them scroll to reach the thing they asked for. It renders nothing until a game has
           been played, so it cannot be an empty box on opening day. */}
-      <SeasonShapeCard shape={shape} onPreview={onPreview} />
+      <SeasonShapeCard shape={shape} onPreview={onPreview} page="standings" />
 
       {/* NO SEEDING CARD once the regular season is over. It existed to say what the
           remaining games were FOR, since all four clubs qualify and the order was the whole

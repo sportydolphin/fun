@@ -17,6 +17,7 @@
 // never about whether that was good. Blue and red with a grey midpoint because that pair stays
 // apart for colour-blind readers and the grey reads as "nothing", which a hue in the middle would not.
 import { useMemo, useState } from 'react'
+import { track, EVENTS } from '../lib/analytics'
 import { Box, Typography, useTheme } from '@mui/material'
 import {
   runsByInning, perHalf, leagueExtremes, EXTRAS_COLUMN,
@@ -70,6 +71,8 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
   const theme = useTheme()
   const [side, setSide] = useState<Side>('scored')
   const [scopePick, setScope] = useState<RunsScope>('regular')
+  const pickSide = (v: Side) => { setSide(v); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'season', control: 'innings_side', value: v }) }
+  const pickScope = (v: RunsScope) => { setScope(v); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'season', control: 'innings_scope', value: v }) }
 
   const regular = useMemo(() => runsByInning(games, teams, 'regular'), [games, teams])
   const postseason = useMemo(() => runsByInning(games, teams, 'postseason'), [games, teams])
@@ -164,13 +167,13 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Pill on={side === 'scored'} label="Scored" onClick={() => setSide('scored')} />
-          <Pill on={side === 'allowed'} label="Allowed" onClick={() => setSide('allowed')} />
+          <Pill on={side === 'scored'} label="Scored" onClick={() => pickSide('scored')} />
+          <Pill on={side === 'allowed'} label="Allowed" onClick={() => pickSide('allowed')} />
         </Box>
         {postseason.games > 0 && (
           <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <Pill on={scope === 'regular'} label="Regular season" onClick={() => setScope('regular')} />
-            <Pill on={scope === 'postseason'} label="Postseason" onClick={() => setScope('postseason')} />
+            <Pill on={scope === 'regular'} label="Regular season" onClick={() => pickScope('regular')} />
+            <Pill on={scope === 'postseason'} label="Postseason" onClick={() => pickScope('postseason')} />
           </Box>
         )}
       </Box>

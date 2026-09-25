@@ -7,7 +7,7 @@ import { FLAT_CARDS_DARK } from './ui'
 import { fetchWpblArticles, fetchWpblTeams, getCachedWpblArticles, getCachedWpblTeams } from './api'
 import { AUTHOR_NAME } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
-import { track, EVENTS } from '../lib/analytics'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 
 // /wpbl/reading: every post mary mustard has written about the league, newest first.
 //
@@ -27,6 +27,7 @@ export default function ReadingPage() {
   const [articles, setArticles] = useState<WpblArticle[] | null>(() => getCachedWpblArticles())
   const [teams, setTeams] = useState<WpblTeam[]>(() => getCachedWpblTeams() ?? [])
   const [club, setClub] = useState<string>('all')
+  const pickClub = (id: string) => { setClub(id); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'reading', control: 'club', value: id }) }
 
   useEffect(() => {
     let live = true
@@ -40,7 +41,7 @@ export default function ReadingPage() {
   useEffect(() => {
     if (shown.current || !articles || articles.length === 0) return
     shown.current = true
-    track(EVENTS.WPBL_READING_SHOWN, { count: articles.length, from: 'page' })
+    trackImpression(EVENTS.WPBL_READING_SHOWN, { count: articles.length, from: 'page' }, 'page')
   }, [articles])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -73,10 +74,10 @@ export default function ReadingPage() {
             <Box sx={{ mb: 2 }}><AuthorByline from="page" /></Box>
             {clubChips.length > 1 && (
               <ChipRow mb={1.75}>
-                <FilterChip label={`All (${articles.length})`} active={club === 'all'} onClick={() => setClub('all')} />
+                <FilterChip label={`All (${articles.length})`} active={club === 'all'} onClick={() => pickClub('all')} />
                 {clubChips.map(c => (
                   <FilterChip key={c.team.id} label={`${c.team.name} (${c.count})`}
-                    active={club === c.team.id} onClick={() => setClub(c.team.id)} />
+                    active={club === c.team.id} onClick={() => pickClub(c.team.id)} />
                 ))}
               </ChipRow>
             )}

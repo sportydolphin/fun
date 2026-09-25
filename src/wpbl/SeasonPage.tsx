@@ -47,6 +47,7 @@ import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
 import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
+import { track, EVENTS } from '../lib/analytics'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
   WpblSprayPlay, WpblStandingRow, WpblVideo,
@@ -316,6 +317,9 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   // is the season's last frame, which is the record this page is here to keep.
   const [preview, setPreview] = useState<SeasonPreview>({ live: null, settled: null })
   const onPreview = useCallback((view: SeasonPreview) => setPreview(view), [])
+  // Which part of the recap a reader left it from. `section` names the block, `kind` what it opened.
+  const opened = (section: string, kind: 'game' | 'player' | 'team') =>
+    track(EVENTS.WPBL_PAGE_OPEN, { page: 'season', section, kind })
   // Order from the settled column, figures from the live one: a row is its rank on one day and
   // its record on another for as long as a scrub lasts. See StandingsView for the reasoning.
   const stOrder = standingsAt(shape, preview.settled ?? lastCol)
@@ -464,7 +468,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               <SeasonChampionBlock champ={champion} />
               {finalGames.length > 0 && (
                 <FinalSeriesGames games={finalGames} teamById={teamById}
-                  href={gameHref} onOpen={g => onOpenGame(g, { teams, games })} />
+                  href={gameHref} onOpen={g => { opened('final_games', 'game'); onOpenGame(g, { teams, games }) }} />
               )}
             </Box>
           )}
@@ -478,7 +482,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               so the recap never carries a projection. */}
           {bracket?.started && (
             <>
-              <SectionHeading>Playoff bracket</SectionHeading>
+              <SectionHeading seen="season">Playoff bracket</SectionHeading>
               <BracketDiagram bracket={bracket} bare />
             </>
           )}
@@ -497,12 +501,12 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               return (
                 <PerformanceRow key={key} rank={rank} name={playerById.get(playerId)?.name ?? '—'} teamId={teamId}
                   context={`${playoffBest.round.get(gameId) ?? 'Postseason'}${opp ? ` vs ${opp.abbr}` : ''}`}
-                  stat={stat} href={href} onOpen={() => onNavigate(href)} />
+                  stat={stat} href={href} onOpen={() => { opened('playoff_best', 'game'); onNavigate(href) }} />
               )
             }
             return (
               <>
-                <SectionHeading>Best playoff performances</SectionHeading>
+                <SectionHeading seen="season">Best playoff performances</SectionHeading>
                 {/* minmax(0, ...) because a bare `1fr` track cannot shrink below its content's
                     min-content width, and a single-game line ("5-5, 1 HR, 4 RBI") is nowrap: on a
                     phone both boards ran off the right edge of the page instead of the name giving. */}
@@ -527,7 +531,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               looking back at the season is on this one. Each game page carries its own reel too. */}
           {videos.length > 0 && (
             <>
-              <SectionHeading>Highlights</SectionHeading>
+              <SectionHeading seen="season">Highlights</SectionHeading>
               <HighlightsStrip videos={videos} teams={teams} from="recap" />
             </>
           )}
@@ -540,10 +544,11 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               `standingsFinals`, which drops the postseason. */}
           {shape.games > 0 && (
             <>
-              <SectionHeading>Final standings</SectionHeading>
-              <FinalStandings rows={standingRows} orderIds={stOrderIds} cadence={preview.cadenceMs} teamHref={teamHref} onNavigate={onNavigate} />
+              <SectionHeading seen="season">Final standings</SectionHeading>
+              <FinalStandings rows={standingRows} orderIds={stOrderIds} cadence={preview.cadenceMs} teamHref={teamHref}
+                onNavigate={href => { opened('standings', 'team'); onNavigate(href) }} />
               <Box sx={{ mt: 1.5 }}>
-                <SeasonShapeCard shape={shape} onPreview={onPreview} />
+                <SeasonShapeCard shape={shape} onPreview={onPreview} page="season" />
               </Box>
             </>
           )}
@@ -551,13 +556,13 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           {/* The standings race above is the clubs; this is the players. Same idea one level down. */}
           {shape.games > 0 && (
             <>
-              <SectionHeading>Leaderboard race</SectionHeading>
+              <SectionHeading seen="season">Leaderboard race</SectionHeading>
               <LeaderboardRace players={players} teams={teams} games={games} batting={batting} plays={plays} />
             </>
           )}
 
           {/* ── Notable numbers ──────────────────────────────────────────────── */}
-          <SectionHeading>Notable numbers</SectionHeading>
+          <SectionHeading seen="season">Notable numbers</SectionHeading>
           <Box sx={{
             display: 'grid', gap: 1,
             gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr', md: 'repeat(4, 1fr)' },
@@ -592,7 +597,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           {/* ── Spray chart ──────────────────────────────────────────────────── */}
           {battedBalls.length > 0 && (
             <>
-              <SectionHeading>Where the ball goes</SectionHeading>
+              <SectionHeading seen="season">Where the ball goes</SectionHeading>
               <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem', mt: -0.75, mb: 1.5 }}>
                 Every batted ball the league placed, by the hitter&rsquo;s side of the plate.
                 Right-handers pull to left field; the left-handed view is the mirror of it.
@@ -602,7 +607,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                   at a time. The toggle is the whole point of the visual. */}
               <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
                 {(['R', 'L'] as const).map(h => (
-                  <Box key={h} {...pressable(() => setHand(h))} sx={{
+                  <Box key={h} {...pressable(() => { setHand(h); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'season', control: 'spray_hand', value: h }) })} sx={{
                     ...FOCUS_RING,
                     px: 1.5, py: 0.5, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
                     border: '1px solid', borderColor: hand === h ? 'transparent' : 'divider',
@@ -628,13 +633,13 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           {/* ── Runs by inning ───────────────────────────────────────────────── */}
           {inningsReady && (
             <>
-              <SectionHeading>Runs by inning</SectionHeading>
+              <SectionHeading seen="season">Runs by inning</SectionHeading>
               <RunsByInning games={games} teams={teams} />
             </>
           )}
 
           {/* ── Leaders ──────────────────────────────────────────────────────── */}
-          <SectionHeading>Batting leaders</SectionHeading>
+          <SectionHeading seen="season">Batting leaders</SectionHeading>
           <LeaderGrid>
             {BAT_BOARDS.map(board => {
               const rows = rankBatting(batSeasons, board, qual.minPa, qual.active)
@@ -649,7 +654,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                       teamId={s.player.team_id}
                       value={board.fmt(board.get(s.totals)!)}
                       href={playerHref(s.player)}
-                      onNavigate={onNavigate}
+                      onNavigate={href => { opened('batting_leaders', 'player'); onNavigate(href) }}
                     />
                   ))}
                 </LeaderBoard>
@@ -657,7 +662,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
             })}
           </LeaderGrid>
 
-          <SectionHeading>Pitching leaders</SectionHeading>
+          <SectionHeading seen="season">Pitching leaders</SectionHeading>
           <LeaderGrid>
             {PIT_BOARDS.map(board => {
               const rows = rankPitching(pitSeasons, board, qual.minOuts, qual.active)
@@ -672,7 +677,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                       teamId={s.player.team_id}
                       value={board.fmt(board.get(s.totals)!)}
                       href={playerHref(s.player)}
-                      onNavigate={onNavigate}
+                      onNavigate={href => { opened('pitching_leaders', 'player'); onNavigate(href) }}
                     />
                   ))}
                 </LeaderBoard>
@@ -683,11 +688,11 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           {/* ── The most improbable win ──────────────────────────────────────── */}
           {comeback && (
             <>
-              <SectionHeading>The most improbable win</SectionHeading>
+              <SectionHeading seen="season">The most improbable win</SectionHeading>
               <Box
                 component="a"
                 href={gameHref(comeback.game)}
-                onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpenGame(comeback.game, { teams, games }) } }}
+                onClick={e => { opened('improbable_win', 'game'); if (!isModified(e)) { e.preventDefault(); onOpenGame(comeback.game, { teams, games }) } }}
                 sx={{
                   display: 'block', textDecoration: 'none', color: 'inherit',
                   borderRadius: 2, p: 2, border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
@@ -710,14 +715,14 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           {/* ── Biggest plays ────────────────────────────────────────────────── */}
           {bigPlays.length > 0 && (
             <>
-              <SectionHeading>The plays that turned a game</SectionHeading>
+              <SectionHeading seen="season">The plays that turned a game</SectionHeading>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {bigPlays.map(bp => (
                   <Box
                     key={bp.game.id}
                     component="a"
                     href={gameHref(bp.game)}
-                    onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpenGame(bp.game, { teams, games }) } }}
+                    onClick={e => { opened('turning_plays', 'game'); if (!isModified(e)) { e.preventDefault(); onOpenGame(bp.game, { teams, games }) } }}
                     sx={{
                       display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
                       color: 'inherit', borderRadius: 2, p: 1.5,

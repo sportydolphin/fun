@@ -73,6 +73,187 @@ export interface Growth {
   game_reminder_users: number; game_reminder_rows: number
 }
 
+// The standalone pages (season recap, gallery, Scorigami, ...): what readers reach and use
+// there. See admin_wpbl_page_usage. `browsers` is the lead number for all three lists.
+export interface PageSection { page: string; section: string; events: number; browsers: number }
+export interface PageOpen    { page: string; section: string; kind: string; events: number; browsers: number }
+export interface PageControl { page: string; control: string; events: number; browsers: number }
+export interface PageUsage   { sections: PageSection[]; opens: PageOpen[]; controls: PageControl[] }
+export const EMPTY_PAGE_USAGE: PageUsage = { sections: [], opens: [], controls: [] }
+
+// ─── the event catalog, as the dashboard reads it ─────────────────────────────
+//
+// WHY THIS EXISTS. The Events card listed every name in `events` ranked by volume: 52 of them in
+// a week, headed by six impressions that fire on their own whenever Home draws, with retired
+// names and zeros in the tail. The actions worth reading sat under all of it. This says, per
+// name, what it is to a reader of /admin: a plain label, the area it belongs to, and whether it
+// is something a person DID ('action'), something a surface fired on its own ('impression'), or
+// a name nothing fires any more ('retired'). Impressions are read as the first half of a pair
+// (HOME_FUNNELS below) rather than as counts, and retired names only in the raw list.
+//
+// A name missing here still shows, under "Other", with its raw spelling: a new event is visible
+// the day it ships and gets a label when someone gets to it, rather than vanishing.
+
+export type EventKind = 'action' | 'impression' | 'retired'
+export interface EventInfo { label: string; group: string; kind: EventKind }
+
+const A = (label: string, group: string): EventInfo => ({ label, group, kind: 'action' })
+const I = (label: string, group: string): EventInfo => ({ label, group, kind: 'impression' })
+const R = (label: string, group: string): EventInfo => ({ label, group, kind: 'retired' })
+
+/** Area order on the card. */
+export const EVENT_GROUPS = [
+  'Games', 'Players & teams', 'Stats', 'Pages', 'Home', 'Search & sharing',
+  'Reading & photos', 'Awards & picks', 'Accounts', 'MLB', 'Other',
+] as const
+
+export const EVENT_INFO: Record<string, EventInfo> = {
+  game_center_opened:     A('Opened a game', 'Games'),
+  wpbl_game_tab:          A('Game Center tab shown', 'Games'),
+  wpbl_revisions_open:    A("Read a game's scoring changes", 'Games'),
+  wpbl_game_calendar:     A('Added a game to a calendar', 'Games'),
+  wpbl_game_reminder_on:  A('Turned a game reminder on', 'Games'),
+  wpbl_game_reminder_off: A('Turned a game reminder off', 'Games'),
+
+  wpbl_player_opened:     A('Opened a player', 'Players & teams'),
+  wpbl_team_opened:       A('Opened a team', 'Players & teams'),
+  wpbl_player_role:       A('Switched hitting / pitching on a player', 'Players & teams'),
+  wpbl_compare_opened:    A('Opened Compare', 'Players & teams'),
+  wpbl_compare_viewed:    A('Viewed a comparison', 'Players & teams'),
+
+  wpbl_tab_viewed:        A('Switched tab', 'Stats'),
+  wpbl_stats_board:       A('Stats board on screen', 'Stats'),
+  wpbl_stats_sorted:      A('Sorted a stats column', 'Stats'),
+  wpbl_stats_filtered:    A('Filtered stats', 'Stats'),
+
+  wpbl_page_section_seen: A('Reached a section of a page', 'Pages'),
+  wpbl_page_open:         A('Left a page for a game, player or team', 'Pages'),
+  wpbl_page_control:      A('Used a control on a page', 'Pages'),
+
+  wpbl_league_card_shown: I('League card shown', 'Home'),
+  wpbl_league_card_open:  A('Opened the league card', 'Home'),
+  wpbl_season_card_shown: I('Season card shown', 'Home'),
+  wpbl_season_card_open:  A('Opened the season recap from Home', 'Home'),
+  wpbl_bracket_shown:     I('Bracket shown', 'Home'),
+  wpbl_bracket_series:    A('Opened a series from the bracket', 'Home'),
+  wpbl_bracket_team:      A('Opened a club from the bracket', 'Home'),
+  wpbl_compare_shown:     I('Compare card shown', 'Home'),
+  discord_shown:          I('Discord invite shown', 'Home'),
+  discord_joined:         A('Joined the Discord', 'Home'),
+  discord_dismissed:      A('Dismissed the Discord invite', 'Home'),
+  new_badge_shown:        I('"New" dot shown', 'Home'),
+  new_badge_clicked:      A('Opened something with a "new" dot', 'Home'),
+
+  wpbl_searched:          A('Searched', 'Search & sharing'),
+  wpbl_search_picked:     A('Picked a search result', 'Search & sharing'),
+  wpbl_share_copied:      A('Copied a share link', 'Search & sharing'),
+  wpbl_share_opened:      A('Arrived from a share link', 'Search & sharing'),
+
+  wpbl_reading_shown:     I('Reading shown', 'Reading & photos'),
+  wpbl_reading_archive:   A('Opened all posts', 'Reading & photos'),
+  wpbl_article_opened:    A('Opened a post', 'Reading & photos'),
+  wpbl_recap_opened:      A('Opened an outside game recap', 'Reading & photos'),
+  wpbl_author_opened:     A("Opened the writer's site", 'Reading & photos'),
+  wpbl_fan_photo_opened:  A('Opened a fan photo', 'Reading & photos'),
+  wpbl_photo_opened:      A('Opened an archive photo', 'Reading & photos'),
+  wpbl_photo_source:      A("Opened a photo's source", 'Reading & photos'),
+  wpbl_highlight_played:  A('Played a highlight', 'Reading & photos'),
+  wpbl_highlight_youtube: A('Opened a highlight on YouTube', 'Reading & photos'),
+
+  wpbl_award_shown:       I('Fan awards shown', 'Awards & picks'),
+  wpbl_award_open:        A('Opened fan awards', 'Awards & picks'),
+  wpbl_award_vote:        A('Voted in fan awards', 'Awards & picks'),
+  wpbl_pickem_shown:      I("Pick'em shown", 'Awards & picks'),
+  wpbl_pickem_open:       A("Opened the pick'em", 'Awards & picks'),
+  wpbl_pickem_cast:       A('Made a series pick', 'Awards & picks'),
+  wpbl_pickem_clear:      A('Withdrew series picks', 'Awards & picks'),
+
+  login:                  A('Signed in', 'Accounts'),
+  signup:                 A('Created an account', 'Accounts'),
+
+  prediction_made:        A('Made a prediction', 'MLB'),
+  board_viewed:           A('Opened the predictions board', 'MLB'),
+
+  wpbl_reading_collapsed: R('Reading collapsed', 'Reading & photos'),
+  wpbl_photos_shown:      R('Archive shown on Home', 'Reading & photos'),
+  wpbl_photos_gallery:    R('Opened the archive gallery', 'Reading & photos'),
+  wpbl_shelf_segment:     R('Switched Home shelf segment', 'Home'),
+  wpbl_shelf_collapsed:   R('Collapsed Home shelf', 'Home'),
+  wpbl_highlights_shown:  R('Highlights shown on Home', 'Home'),
+  wpbl_seeding_shown:     R('Seeding race shown', 'Home'),
+  wpbl_seeding_team:      R('Opened a club from the seeding race', 'Home'),
+  wpbl_mvp_shown:         R('MVP race shown', 'Home'),
+  wpbl_mvp_player:        R('Opened a player from the MVP race', 'Home'),
+}
+
+export function eventInfo(name: string): EventInfo {
+  return EVENT_INFO[name] ?? { label: prettyEvent(name), group: 'Other', kind: 'action' }
+}
+
+export interface ActionRow { event: string; label: string; events: number; browsers: number; prev_browsers: number }
+export interface ActionGroup { group: string; rows: ActionRow[]; browsers: number }
+
+/**
+ * The "What people do" card: every ACTION with any activity in the window, grouped by area and
+ * ranked by browsers. Impressions and retired names are left out (they are in the raw list), and
+ * so are zero rows, which the RPC returns for events that only fired in the previous window.
+ */
+export function groupActions(events: EventCount[]): ActionGroup[] {
+  const by = new Map<string, ActionRow[]>()
+  for (const e of events) {
+    const info = eventInfo(e.event)
+    if (info.kind !== 'action' || e.events === 0) continue
+    const rows = by.get(info.group) ?? []
+    rows.push({ event: e.event, label: info.label, events: e.events, browsers: e.browsers, prev_browsers: e.prev_browsers })
+    by.set(info.group, rows)
+  }
+  return EVENT_GROUPS
+    .filter(g => by.has(g))
+    .map(g => {
+      const rows = by.get(g)!.sort((a, b) => b.browsers - a.browsers || b.events - a.events)
+      return { group: g, rows, browsers: Math.max(...rows.map(r => r.browsers)) }
+    })
+}
+
+/**
+ * Home's cards as "saw it, then used it", in browsers. Each impression is only half a number:
+ * 820 browsers seeing the bracket means nothing until you know how many opened a series from it.
+ * Browsers rather than events on both sides, because impressions fired once per MOUNT until
+ * Sep 25, 2026, so their event counts are inflated for any window reaching back past it, while a
+ * browser is a browser either way.
+ *
+ * `used` is the action that says the card worked. Where a card has two (the bracket opens a
+ * series or a club), the larger browser count stands in, since browsers cannot be summed.
+ */
+export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; verb: string }> = [
+  { label: 'Fan awards',   seen: 'wpbl_award_shown',       used: ['wpbl_award_open'],                             verb: 'opened it' },
+  { label: 'Bracket',      seen: 'wpbl_bracket_shown',     used: ['wpbl_bracket_series', 'wpbl_bracket_team'],    verb: 'opened a series or club' },
+  { label: 'Season card',  seen: 'wpbl_season_card_shown', used: ['wpbl_season_card_open'],                       verb: 'opened the recap' },
+  { label: 'League card',  seen: 'wpbl_league_card_shown', used: ['wpbl_league_card_open'],                       verb: 'opened it' },
+  { label: 'Compare card', seen: 'wpbl_compare_shown',     used: ['wpbl_compare_opened'],                         verb: 'opened Compare' },
+  { label: 'Latest post',  seen: 'wpbl_reading_shown',     used: ['wpbl_article_opened', 'wpbl_reading_archive'], verb: 'opened a post' },
+  { label: 'Discord',      seen: 'discord_shown',          used: ['discord_joined'],                              verb: 'joined' },
+]
+
+export interface FunnelRow { label: string; verb: string; seen: number; used: number }
+
+export function buildFunnels(events: EventCount[]): FunnelRow[] {
+  const br = new Map(events.map(e => [e.event, e.browsers]))
+  return HOME_FUNNELS
+    .map(f => ({ label: f.label, verb: f.verb, seen: br.get(f.seen) ?? 0, used: Math.max(0, ...f.used.map(u => br.get(u) ?? 0)) }))
+    .filter(r => r.seen > 0)
+}
+
+/** Readable names for the page ids and the snake_case section / control ids the pages send. */
+export const PAGE_LABELS: Record<string, string> = {
+  season: 'Season recap', photos: 'Photos', scorigami: 'Scorigami', league: 'About the league',
+  reading: 'Reading', players: 'All players', standings: 'Standings tab',
+}
+export function prettyId(id: string): string {
+  const s = id.replace(/_/g, ' ')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 // ─── pure helpers (unit-tested; keep them free of supabase and React) ─────────
 
 /**
@@ -259,6 +440,10 @@ export function fetchDiscordFunnel(days: number, tz: string): Promise<DiscordFun
     { impressions: 0, shown: 0, joined: 0, dismissed: 0 })
 }
 
+export function fetchPageUsage(days: number, tz: string): Promise<PageUsage> {
+  return callRpc('admin_wpbl_page_usage', { days_back: days, tz }, EMPTY_PAGE_USAGE)
+}
+
 export function fetchGrowth(days: number, tz: string): Promise<Growth> {
   return callRpc('admin_growth', { days_back: days, tz }, EMPTY_GROWTH)
 }
@@ -272,6 +457,7 @@ export interface AnalyticsBundle {
   search: SearchStats
   players: TopPlayer[]
   growth: Growth
+  pages: PageUsage
 }
 
 /**
@@ -292,7 +478,8 @@ export function fetchAnalytics(
     fetchSearchStats(days, tz),
     fetchTopPlayers(days, tz),
     fetchGrowth(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth]) => ({
-    overview, events, tabs, statsBoards, entryPoints, search, players, growth,
+    fetchPageUsage(days, tz),
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages,
   }))
 }

@@ -493,9 +493,15 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, i
   onClose:       () => void
   isSignedIn:    boolean
 }) {
+  // The view is logged on OPENING only. It shared an effect with the Escape listener, which also
+  // depends on `onClose`, and the parent passes a fresh `onClose` on every render, so the event
+  // fired again on each re-render while the board was open: 338 rows from 4 browsers over two
+  // weeks, nine in ten of them within five seconds of the last.
+  useEffect(() => {
+    if (open) track(EVENTS.BOARD_VIEWED, { league: 'mlb' })
+  }, [open])
   useEffect(() => {
     if (!open) return
-    track(EVENTS.BOARD_VIEWED, { league: 'mlb' })
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)

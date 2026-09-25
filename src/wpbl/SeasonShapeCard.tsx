@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { standingsAt, biggestRun, leadStory, type SeasonShape, type SeasonPreview } from './derive/seasonShape'
 import { useChartScrub } from './chartScrub'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { wpblAccent, wpblFullName } from './constants'
 import { SectionCard, chromePx, pressable, FOCUS_RING, useWpblDark, CARD_BORDER } from './ui'
 import { prefersReducedMotion } from '../lib/motion'
@@ -99,7 +100,7 @@ function useSettled<T>(value: T, delayMs: number): T {
   return delayMs <= 0 ? value : settled
 }
 
-export default function SeasonShapeCard({ shape, onPreview }: {
+export default function SeasonShapeCard({ shape, onPreview, page }: {
   /** Built by the page, not here, because the standings table above is drawn from the same
    *  object: one `seasonShape` call feeds both, so the table a reader scrubs to and the chart
    *  they scrubbed cannot come from two different reads of the season. */
@@ -108,6 +109,8 @@ export default function SeasonShapeCard({ shape, onPreview }: {
    *  follow the cursor exactly, the row order waits for them to hold still. Null on both means
    *  they are not pointing at anything and the table is the present. */
   onPreview: (view: SeasonPreview) => void
+  /** Where the card is drawn, for `wpbl_page_control` ('season', 'standings'). */
+  page?: string
 }) {
   const dark = useWpblDark()
   const last = shape.columns.length - 1
@@ -229,12 +232,18 @@ export default function SeasonShapeCard({ shape, onPreview }: {
   // state it leaves behind takes the page down with it. It only appears to work after touching
   // the chart, because the scrub has moved `playCol` off the end by then, so losing the reset no
   // longer matters.
+  // The first scrub of the page load is the signal: a drag fires hundreds of index changes, and
+  // "did anyone touch the chart at all" is the question.
+  useEffect(() => {
+    if (scrub.index != null && page) trackImpression(EVENTS.WPBL_PAGE_CONTROL, { page, control: 'standings_scrub' }, `${page}|standings_scrub`)
+  }, [scrub.index, page])
   const play = useCallback(() => {
     if (playingRef.current) { setPlaying(false); return }
+    if (page) track(EVENTS.WPBL_PAGE_CONTROL, { page, control: 'standings_play' })
     // Pressing play at the end means "again", which is the only thing it can mean there.
     setPlayCol(c => (c >= last ? 0 : c))
     setPlaying(true)
-  }, [last])
+  }, [last, page])
 
   const run = biggestRun(shape)
   const lead = leadStory(shape)

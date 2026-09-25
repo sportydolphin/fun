@@ -26,7 +26,7 @@ import {
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { useEraBasis } from './EraBasisContext'
-import { track, EVENTS } from '../lib/analytics'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
@@ -1254,7 +1254,7 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
   useEffect(() => {
     if (shown.current) return
     shown.current = true
-    track(EVENTS.WPBL_SEASON_CARD_SHOWN, { champion: champTeam?.id ?? null })
+    trackImpression(EVENTS.WPBL_SEASON_CARD_SHOWN, { champion: champTeam?.id ?? null })
   }, [champTeam])
 
   const recap = trackedLinkTo(WPBL_SEASON_PAGE, EVENTS.WPBL_SEASON_CARD_OPEN, { from: 'home' })
@@ -2184,7 +2184,7 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
   // Dismissal is remembered (localStorage) and owned by the parent, which only mounts this card
   // when it hasn't been dismissed, so once closed it stays gone and leaves no empty slot behind.
   // Count one impression per mount, i.e. only for users who actually see the card.
-  useEffect(() => { track(EVENTS.DISCORD_SHOWN) }, [])
+  useEffect(() => { trackImpression(EVENTS.DISCORD_SHOWN) }, [])
   const dismiss = () => {
     track(EVENTS.DISCORD_DISMISSED)
     try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota: non-fatal */ }
@@ -2287,7 +2287,7 @@ function LatestReadingCard() {
   useEffect(() => {
     if (shown.current || !latest) return
     shown.current = true
-    track(EVENTS.WPBL_READING_SHOWN, { count: articles.length, from: 'home' })
+    trackImpression(EVENTS.WPBL_READING_SHOWN, { count: articles.length, from: 'home' }, 'home')
   }, [latest, articles.length])
   if (!latest) return null
 
@@ -2339,7 +2339,7 @@ function LeagueCard() {
   useEffect(() => {
     if (shown.current) return
     shown.current = true
-    track(EVENTS.WPBL_LEAGUE_CARD_SHOWN)
+    trackImpression(EVENTS.WPBL_LEAGUE_CARD_SHOWN)
   }, [])
 
   // Modified clicks fall through untouched, so open-in-new-tab still works; the rest is the
@@ -2473,7 +2473,7 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
   useEffect(() => {
     if (shown.current || loading) return
     shown.current = true
-    track(EVENTS.WPBL_COMPARE_SHOWN, { hasPair: !!pair })
+    trackImpression(EVENTS.WPBL_COMPARE_SHOWN, { hasPair: !!pair })
   }, [loading, pair])
 
   const head = (s: WpblBatSeason) => {

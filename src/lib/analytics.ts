@@ -31,8 +31,8 @@ export const EVENTS = {
   // us whether the surfaces earn their space AND it is the number worth telling her.
   WPBL_ARTICLE_OPENED:    'wpbl_article_opened',    // clicked through to a post, props {postId, slug, from, minutes}
   WPBL_RECAP_OPENED:      'wpbl_recap_opened',      // clicked through to a This is Women's Baseball recap, props {gameId, url}
-  WPBL_READING_SHOWN:     'wpbl_reading_shown',     // Reading became the shelf's visible segment, props {count, collapsed}
-  WPBL_READING_ARCHIVE:   'wpbl_reading_archive',   // opened the full archive from the strip's "All N" link
+  WPBL_READING_SHOWN:     'wpbl_reading_shown',     // Home's latest-post line or /wpbl/reading drew posts, props {count, from}
+  WPBL_READING_ARCHIVE:   'wpbl_reading_archive',   // followed Home's "All N posts" link to /wpbl/reading, props {count, from}
   // RETIRED when the three rails folded into one shelf. Kept so the rows already in
   // `events` still have a name here; nothing fires it. Use WPBL_SHELF_COLLAPSED.
   WPBL_READING_COLLAPSED: 'wpbl_reading_collapsed', // retired
@@ -42,22 +42,26 @@ export const EVENTS = {
   // after the feed stops on Sep 6. Read them against the season, not within it.
   WPBL_PHOTO_OPENED:      'wpbl_photo_opened',      // opened a photo in the lightbox, props {pageId, from}
   WPBL_PHOTO_SOURCE:      'wpbl_photo_source',      // clicked through to the Commons file page, props {pageId}
-  WPBL_PHOTOS_SHOWN:      'wpbl_photos_shown',      // Archive became the shelf's visible segment, props {count, collapsed}
-  WPBL_PHOTOS_GALLERY:    'wpbl_photos_gallery',    // opened the full gallery from the strip's "All N" link
+  // RETIRED with Home's media shelf (Sep 24, 2026), whose Archive segment they measured; the
+  // Commons photos are a category of the fan gallery now. Kept so the rows already in `events`
+  // still have a name here. Nothing fires them.
+  WPBL_PHOTOS_SHOWN:      'wpbl_photos_shown',      // retired
+  WPBL_PHOTOS_GALLERY:    'wpbl_photos_gallery',    // retired
   WPBL_FAN_PHOTO_OPENED:  'wpbl_fan_photo_opened',  // opened a FAN photo (not the Commons archive), props {photoId, from}
   // Home's media shelf: Reading, Highlights and Archive share one card behind a segmented
   // control, so only the active segment is ever seen. The *_SHOWN events above now fire on
   // segment ACTIVATION rather than on render, which makes them a true impression for the first
   // time (the old rails counted a collapsed card as shown). WPBL_SHELF_SEGMENT is the one that
   // says whether folding three rails into one buried the other two.
-  WPBL_SHELF_SEGMENT:     'wpbl_shelf_segment',     // switched shelf segment, props {segment}
-  WPBL_SHELF_COLLAPSED:   'wpbl_shelf_collapsed',   // toggled the shelf shut or open, props {collapsed}
+  // RETIRED with the shelf itself (Sep 24, 2026), as above.
+  WPBL_SHELF_SEGMENT:     'wpbl_shelf_segment',     // retired
+  WPBL_SHELF_COLLAPSED:   'wpbl_shelf_collapsed',   // retired
   // The shelf moved to /wpbl/league on Aug 27 and Home keeps one line pointing at it. Both
   // halves are measured because the move is a bet, not a certainty: 575 browsers saw the shelf
   // on Home and 39 clicked it, so this asks whether a link converts better than the thing
   // itself did. If SHOWN is large and OPENED is tiny, the answer is that Home was never the
   // problem and the shelf should come back.
-  WPBL_LEAGUE_CARD_SHOWN: 'wpbl_league_card_shown', // Home's league card rendered, once per mount
+  WPBL_LEAGUE_CARD_SHOWN: 'wpbl_league_card_shown', // Home's league card rendered, once per page load (trackImpression)
   WPBL_LEAGUE_CARD_OPEN:  'wpbl_league_card_open',  // tapped through to /wpbl/league, props {from}
   // Home's season-recap card, which replaces the Next-game card once the season has no games
   // ahead: it is the offseason's one route from Home into /wpbl/season, so both halves are worth
@@ -69,6 +73,15 @@ export const EVENTS = {
   // Players/Teams, and Draft) never touch the URL, so Cloudflare cannot see them and the
   // "no page-view counters here" rule above doesn't reach them: `wpbl_tab_viewed` says a
   // reader arrived at Stats and nothing says which of six boards they actually read.
+  // The standalone pages, which is where the offseason's readers are: the season recap, the
+  // gallery, Scorigami, About the league, Reading and the players index. They carried almost no
+  // events, so a reader could spend ten minutes on the recap and leave nothing behind. These are
+  // NOT page views (Cloudflare has those, per the rule at the top); they say which PART of a
+  // page was reached and used, which no path count can. Three events with a `page` prop rather
+  // than a dozen page-specific ones, so a new page joins by passing its name.
+  WPBL_PAGE_SECTION_SEEN: 'wpbl_page_section_seen', // a section heading scrolled into view, once per load, props {page, section}
+  WPBL_PAGE_OPEN:         'wpbl_page_open',         // followed a game/player/team out of a page, props {page, section, kind}
+  WPBL_PAGE_CONTROL:      'wpbl_page_control',      // used a filter, toggle, sort, search or scrubber, props {page, control, value?}
   WPBL_STATS_BOARD:    'wpbl_stats_board',    // a Stats board is on screen, props {side, source, mode, via}
   WPBL_STATS_SORTED:   'wpbl_stats_sorted',   // tapped a column header, props {key, asc, side, mode}
   WPBL_STATS_FILTERED: 'wpbl_stats_filtered', // team chip or Qualified, props {filter, on, teamId?}
@@ -104,7 +117,8 @@ export const EVENTS = {
   // which made the one question the shelf exists to answer ("did folding three rails into one
   // bury the other two?") unanswerable: a segment with no denominator cannot be compared to
   // the two that have one. These are the missing third of that set.
-  WPBL_HIGHLIGHTS_SHOWN:  'wpbl_highlights_shown',  // Highlights became the shelf's visible segment, props {count, collapsed}
+  // RETIRED with the shelf (Sep 24, 2026); highlights now sit on the season recap and each game.
+  WPBL_HIGHLIGHTS_SHOWN:  'wpbl_highlights_shown',  // retired
   WPBL_HIGHLIGHT_PLAYED:  'wpbl_highlight_played',  // opened the lightbox on a video, props {videoId, kind, from}
   WPBL_HIGHLIGHT_YOUTUBE: 'wpbl_highlight_youtube', // clicked out to YouTube from the lightbox, props {videoId}
 
@@ -195,6 +209,27 @@ export function sessionId(): string {
 // user-action path and swallows every error, so analytics can never delay or break
 // a user action. Pass `userId` when the caller already has it (skips a session
 // lookup); omit it and the current session's user is resolved automatically.
+/** Event names already sent as impressions in this page load. Module state, so it lasts exactly
+ *  as long as the page does and a reload starts over. */
+const impressionsSent = new Set<string>()
+
+/**
+ * An IMPRESSION: "this card was on screen", sent once per page load rather than once per mount.
+ *
+ * Home remounts every time a reader comes back to it from a standalone page, so an impression
+ * fired from a mount effect counted one visit several times over. Measured over Sep 11 to 25,
+ * 2026, about half of every Home card's repeats landed within 30 minutes of the one before and
+ * some 600 within five seconds, which inflated exactly the denominator these events exist to be
+ * (the "shown" in shown-versus-opened). Keyed on the event name alone, or on `key` where one
+ * event legitimately describes different things on one page.
+ */
+export function trackImpression(event: EventName, props: Record<string, unknown> = {}, key = ''): void {
+  const id = `${event}|${key}`
+  if (impressionsSent.has(id)) return
+  impressionsSent.add(id)
+  track(event, props)
+}
+
 export function track(
   event: EventName,
   props: Record<string, unknown> = {},

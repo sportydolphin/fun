@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  groupActions, buildFunnels, eventInfo, EVENT_INFO,
   deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, prettyEvent, seriesPoints, shortDate,
 } from '../lib/analyticsAdmin'
@@ -128,5 +129,38 @@ describe('seriesPoints', () => {
   it('insets by the padding so a peak stroke is not clipped at the edge', () => {
     const { points } = seriesPoints([0, 10], 100, 50, 4)
     expect(points).toBe('0.0,46.0 100.0,4.0')
+  })
+})
+
+describe('the event catalog', () => {
+  const ev = (event: string, events: number, browsers: number) =>
+    ({ event, events, browsers, users: 0, prev_events: 0, prev_browsers: 0 })
+
+  it('labels every name the client can send', async () => {
+    // A name added to EVENTS and not to the catalog still shows (under Other), so this is a
+    // nudge rather than a guard: it fails the day someone forgets, while the page keeps working.
+    const { EVENTS } = await import('../lib/analytics')
+    const missing = Object.values(EVENTS).filter(n => !(n in EVENT_INFO))
+    expect(missing).toEqual([])
+  })
+
+  it('groups actions by area, busiest first, leaving out impressions, retired names and zeros', () => {
+    const groups = groupActions([
+      ev('wpbl_team_opened', 300, 80), ev('wpbl_player_opened', 700, 140),
+      ev('wpbl_bracket_shown', 3000, 820), ev('wpbl_mvp_shown', 7, 3), ev('wpbl_searched', 0, 0),
+      ev('something_new', 4, 2),
+    ])
+    expect(groups.map(g => g.group)).toEqual(['Players & teams', 'Other'])
+    expect(groups[0].rows.map(r => r.event)).toEqual(['wpbl_player_opened', 'wpbl_team_opened'])
+    expect(groups[1].rows[0].label).toBe(eventInfo('something_new').label)
+  })
+
+  it('reads each Home card as browsers that saw it against browsers that used it', () => {
+    const rows = buildFunnels([
+      ev('wpbl_bracket_shown', 3000, 820), ev('wpbl_bracket_series', 48, 29), ev('wpbl_bracket_team', 27, 22),
+      ev('discord_joined', 13, 13),
+    ])
+    // Two ways to use the bracket: the larger browser count stands in, never a sum.
+    expect(rows).toEqual([{ label: 'Bracket', verb: 'opened a series or club', seen: 820, used: 29 }])
   })
 })

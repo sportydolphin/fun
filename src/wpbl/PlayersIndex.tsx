@@ -23,6 +23,7 @@ import { TeamBadge, PlayerPortrait, SegNav, CARD_BORDER, TAPPABLE, FOCUS_RING, h
 import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
 import WpblPage from './WpblPage'
 import type { WpblTeam, WpblPlayer } from './types'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 
 type SortKey = 'club' | 'name' | 'number'
 
@@ -48,11 +49,14 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   // group). Default empty, so every group opens expanded: the roster is in the DOM on first
   // paint exactly as the crawl path this page exists for depends on. Only meaningful in Club sort.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const toggle = (key: string) => setCollapsed(prev => {
-    const next = new Set(prev)
-    if (next.has(key)) next.delete(key); else next.add(key)
-    return next
-  })
+  const toggle = (key: string) => {
+    track(EVENTS.WPBL_PAGE_CONTROL, { page: 'players', control: 'collapse', value: key })
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -135,7 +139,10 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
       <Box
         component="a"
         href={href}
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(href) } }}
+        onClick={e => {
+          track(EVENTS.WPBL_PAGE_OPEN, { page: 'players', section: query ? 'search' : sort, kind: 'player' })
+          if (!isModified(e)) { e.preventDefault(); onNavigate(href) }
+        }}
         sx={{
           textDecoration: 'none', color: 'text.primary',
           display: 'flex', alignItems: 'center', gap: 1,
@@ -179,7 +186,10 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
       <Box
         component="a"
         href={WPBL_COMPARE_BASE}
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_COMPARE_BASE) } }}
+        onClick={e => {
+          track(EVENTS.WPBL_COMPARE_OPENED, { from: 'players', pair: false })
+          if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_COMPARE_BASE) }
+        }}
         sx={{
           display: 'inline-block', mb: 2.5, fontSize: '0.85rem', fontWeight: 700,
           color: 'primary.main', textDecoration: 'none',
@@ -194,7 +204,12 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
         <Box
           component="input"
           value={query}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            setQuery(e.target.value)
+            // Once per load: every keystroke is a change, and "did anyone search" is the question.
+            // What they then opened is on wpbl_page_open, section 'search'.
+            if (e.target.value) trackImpression(EVENTS.WPBL_PAGE_CONTROL, { page: 'players', control: 'search' }, 'players|search')
+          }}
           type="search"
           placeholder="Search players, positions…"
           aria-label="Search players"
@@ -212,7 +227,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           <SegNav
             mb={0}
             value={sort}
-            onChange={v => setSort(v as SortKey)}
+            onChange={v => { setSort(v as SortKey); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'players', control: 'sort', value: v }) }}
             options={[
               { value: 'club', label: 'Club' },
               { value: 'name', label: 'Name' },

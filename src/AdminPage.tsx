@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, IconButton } from '@mui/material'
-import { Refresh } from '@mui/icons-material'
+import { Refresh, ExpandMore } from '@mui/icons-material'
 import { Section, StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
 import AdminPhotos from './wpbl/AdminPhotos'
 import { PlayerPortrait } from './wpbl/ui'
@@ -12,6 +12,7 @@ import {
   fetchAnalytics, localTz, deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,
   EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
+  EMPTY_PAGE_USAGE, groupActions, buildFunnels, eventInfo, PAGE_LABELS, prettyId,
 } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
 
@@ -47,6 +48,10 @@ const GROUPS: Array<{ value: Group; label: string }> = [
 // that exists to be checked occasionally, not scanned daily.
 const EVENT_HEAD = 12
 
+// "What people do" shows each area's top three and keeps the rest behind one tap: thirty-odd
+// rows open by default is the scroll this card was written to replace.
+const ACTIONS_PER_GROUP = 3
+
 // The stats-board list runs to seventeen rows and most of the bottom half is near-zero (the
 // Tracked boards sit at a single event), so it gets the same head-plus-"show all" treatment as
 // the events list rather than a long dribble of invisible bars. Ten mirrors the top-players
@@ -76,7 +81,7 @@ const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
 const EMPTY_BUNDLE: AnalyticsBundle = {
   overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS,
   entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, players: [],
-  growth: EMPTY_GROWTH,
+  growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE,
 }
 
 // The three destinations the entry-point card reports, in the order they are worth reading:
@@ -325,6 +330,74 @@ export function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }
   )
 }
 
+// ─── a card that folds ────────────────────────────────────────────────────────
+//
+// THE PAGE IS READ ON A PHONE, and nine cards stacked open was a scroll through every table to
+// reach the one wanted. Each card now has a header that says its answer in one line (the summary)
+// and opens on a tap, so the Audience group reads as a list of headlines first and a set of tables
+// second. The first few cards open by default because they are what the page is visited for.
+// The whole header is the button, not a chevron in a corner, since it is a thumb that presses it.
+function Fold({ title, summary, defaultOpen = false, children }: {
+  title: string
+  summary?: React.ReactNode
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <Box sx={{ mb: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+      <Box
+        component="button" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        sx={{
+          all: 'unset', boxSizing: 'border-box', width: '100%', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1.1,
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: '0.88rem', fontWeight: 800, lineHeight: 1.25 }}>{title}</Typography>
+          {summary != null && (
+            <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35, mt: 0.25 }}>
+              {summary}
+            </Typography>
+          )}
+        </Box>
+        <ExpandMore sx={{
+          fontSize: '1.2rem', color: 'text.disabled', flexShrink: 0,
+          transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms ease',
+        }} />
+      </Box>
+      {open && <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>{children}</Box>}
+    </Box>
+  )
+}
+
+/** A label on the left, the number that matters on the right, a quieter one under it. The one
+ *  row shape the new cards share, sized for a thumb and a phone's width. */
+function MetricRow({ label, value, sub, bar }: {
+  label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode; bar?: React.ReactNode
+}) {
+  return (
+    <Box sx={{ py: 0.8, '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' } }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, flex: 1, minWidth: 0 }}>{label}</Typography>
+        <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+      </Box>
+      {bar && <Box sx={{ mt: 0.5 }}>{bar}</Box>}
+      {sub && <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.35 }}>{sub}</Typography>}
+    </Box>
+  )
+}
+
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography sx={{
+      fontSize: '0.62rem', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase',
+      color: 'text.disabled', mt: 1.25, mb: 0.25,
+    }}>{children}</Typography>
+  )
+}
+
 // ─── the page ─────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -351,7 +424,7 @@ export default function AdminPage() {
 
   useEffect(() => load(), [load])
 
-  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth } = data
+  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages } = data
   const t = overview.totals, p = overview.prev
 
   // A range that reaches back before the first event would otherwise pad the chart with
@@ -387,6 +460,26 @@ export default function AdminPage() {
   }, [tabs])
   const maxTab = Math.max(1, ...tabTotals.values())
 
+  const funnels = useMemo(() => buildFunnels(events).sort((a, b) => b.seen - a.seen), [events])
+  // The card's headline is the card that CONVERTS best, not the one seen most: reach is mostly a
+  // function of where on Home a card sits, and the rate is what a change to a card can move.
+  const bestFunnel = useMemo(() => [...funnels].sort((a, b) => b.used / b.seen - a.used / a.seen)[0], [funnels])
+  const [allActions, setAllActions] = useState(false)
+  const actions = useMemo(() => groupActions(events), [events])
+  // The offseason pages card, one block per page, pages ordered by how many browsers reached any
+  // section of them. Built here so the card's own summary line can name the busiest page.
+  const pageBlocks = useMemo(() => {
+    const ids = new Set([...pages.sections, ...pages.opens, ...pages.controls].map(r => r.page))
+    return [...ids].map(page => {
+      const sections = pages.sections.filter(r => r.page === page)
+      const opens = pages.opens.filter(r => r.page === page)
+      const controls = pages.controls.filter(r => r.page === page)
+      const reach = Math.max(0, ...sections.map(r => r.browsers), ...opens.map(r => r.browsers), ...controls.map(r => r.browsers))
+      return { page, label: PAGE_LABELS[page] ?? prettyId(page), sections, opens, controls, reach }
+    }).sort((a, b) => b.reach - a.reach)
+  }, [pages])
+  const busiestTabs = useMemo(() => [...tabTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), [tabTotals])
+
   return (
     <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, pb: 4 }}>
       {/* ── header + filters ───────────────────────────────────────────── */}
@@ -420,7 +513,9 @@ export default function AdminPage() {
         {RANGES.map(r => (
           <Chip key={r.days} label={r.label} active={days === r.days} onClick={() => setDays(r.days)} />
         ))}
-        <Box sx={{ width: 10 }} />
+        {/* A full-width break on a phone puts the leagues on a row of their own, rather than
+            letting MLB wrap alone under the other six; side by side from sm up. */}
+        <Box sx={{ flexBasis: { xs: '100%', sm: 'auto' }, width: { sm: 10 }, height: 0 }} />
         {LEAGUES.map(l => (
           <Chip key={l.value} label={l.label} active={league === l.value} onClick={() => setLeague(l.value)} />
         ))}
@@ -471,64 +566,120 @@ export default function AdminPage() {
         {/* Fixed windows, deliberately: these are the only numbers on the page the range chips
             do not touch, so the sub-line names all three rather than letting the tile look like
             it moved when the reader changed the range. */}
+        <Box sx={{ gridColumn: { xs: 'span 2', sm: 'auto' }, display: 'grid' }}>
         <Tile label="Active browsers" value={formatCount(overview.active.today)}
           sub={`today · ${formatCount(overview.active.week)} in 7d · ${formatCount(overview.active.month)} in 30d`} />
+        </Box>
       </Box>
 
       {/* ── activity ───────────────────────────────────────────────────── */}
-      <Section title="Activity">
+      <Fold title="Activity" defaultOpen
+        summary={`${formatCount(t.browsers)} browsers, ${formatCount(t.events)} events ${rangeLabel(days)}`}>
         <ActivityChart series={overview.series} tz={overview.tz || tz} />
-      </Section>
+      </Fold>
 
-      {/* ── events ─────────────────────────────────────────────────────── */}
-      <Section title="Events">
-        {events.length === 0 ? (
-          <Box sx={{ px: 1.5, py: 2 }}>
-            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>No events in this range.</Typography>
-          </Box>
-        ) : (
-          <Box sx={{ px: 1.5, py: 0.5 }}>
-            {(allEvents ? events : events.slice(0, EVENT_HEAD)).map(e => (
-              <Box key={e.event} sx={{ py: 0.8, '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' } }}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
-                  <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, minWidth: 0, flex: 1 }}>
-                    {prettyEvent(e.event)}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.82rem', fontWeight: 800 }}>{e.events.toLocaleString()}</Typography>
-                  {comparable && (
-                    <Box sx={{ minWidth: 42, textAlign: 'right' }}>
-                      <Delta pct={deltaPct(e.events, e.prev_events)} />
-                    </Box>
-                  )}
-                </Box>
-                <Bar value={e.events} max={maxEvent} color="#60a5fa" />
-                <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.4 }}>
-                  {plural(e.browsers, 'browser')} · {plural(e.users, 'signed-in user')}
-                </Typography>
-              </Box>
-            ))}
-            {events.length > EVENT_HEAD && (
-              <Box
-                onClick={() => setAllEvents(v => !v)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setAllEvents(v => !v) } }}
-                sx={{
-                  py: 0.9, textAlign: 'center', cursor: 'pointer', userSelect: 'none',
-                  borderTop: '1px solid', borderColor: 'divider',
-                  fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
-                  '&:hover': { color: 'text.primary' },
-                }}
-              >
-                {allEvents ? 'Show fewer' : `Show all ${events.length}`}
-              </Box>
-            )}
-          </Box>
-        )}
-      </Section>
+      {/* ── Home cards: seen, then used ──────────────────────────────────── */}
+      {/* The six impressions that used to head the Events card, each read against the action
+          that says its card worked. See HOME_FUNNELS for why it is browsers on both sides. */}
+      <Fold title="Home cards: seen, then used" defaultOpen
+        summary={!bestFunnel ? 'Nothing shown in this range'
+          : `Best: ${bestFunnel.label}, ${formatShare(bestFunnel.used, bestFunnel.seen)} of those who saw it`}>
+        <Box sx={{ px: 1.5, py: 0.5 }}>
+          {funnels.length === 0 ? (
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1.5 }}>No Home cards shown in this range.</Typography>
+          ) : funnels.map(f => (
+            <MetricRow key={f.label} label={f.label}
+              value={formatShare(f.used, f.seen)}
+              bar={<Bar value={f.used} max={f.seen} color="#22c55e" />}
+              sub={`${f.used.toLocaleString()} of ${f.seen.toLocaleString()} browsers that saw it ${f.verb}`} />
+          ))}
+        </Box>
+      </Fold>
+
+      {/* ── what people do ───────────────────────────────────────────────── */}
+      <Fold title="What people do" defaultOpen
+        summary={actions.length === 0 ? 'No actions in this range'
+          : `${actions[0].rows[0].label}: ${formatCount(actions[0].rows[0].browsers)} browsers`}>
+        <Box sx={{ px: 1.5, pb: 1 }}>
+          {actions.length === 0 ? (
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1.5 }}>No actions in this range.</Typography>
+          ) : actions.map(g => (
+            <Box key={g.group}>
+              <GroupLabel>{g.group}</GroupLabel>
+              {(allActions ? g.rows : g.rows.slice(0, ACTIONS_PER_GROUP)).map(r => (
+                <MetricRow key={r.event} label={r.label}
+                  value={<>
+                    {formatCount(r.browsers)}
+                    {comparable && <Box component="span" sx={{ display: 'inline-block', minWidth: 42, textAlign: 'right' }}>
+                      <Delta pct={deltaPct(r.browsers, r.prev_browsers)} />
+                    </Box>}
+                  </>}
+                  sub={`${plural(r.browsers, 'browser')} · ${plural(r.events, 'time')}`} />
+              ))}
+            </Box>
+          ))}
+          {actions.some(g => g.rows.length > ACTIONS_PER_GROUP) && (
+            <Box
+              onClick={() => setAllActions(v => !v)}
+              role="button" tabIndex={0}
+              onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setAllActions(v => !v) } }}
+              sx={{
+                mt: 0.5, py: 0.9, textAlign: 'center', cursor: 'pointer', userSelect: 'none',
+                borderTop: '1px solid', borderColor: 'divider',
+                fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', '&:hover': { color: 'text.primary' },
+              }}
+            >
+              {allActions ? 'Top three per area' : `Show all ${actions.reduce((n, g) => n + g.rows.length, 0)} actions`}
+            </Box>
+          )}
+        </Box>
+      </Fold>
+
+      {/* ── offseason pages ──────────────────────────────────────────────── */}
+      {/* The standalone pages, where the offseason's readers are. Instrumented Sep 25, 2026. */}
+      <Fold title="Offseason pages" defaultOpen
+        summary={pageBlocks.length === 0 ? 'No page activity yet (tracked from Sep 25, 2026)'
+          : `${pageBlocks[0].label} leads, ${plural(pageBlocks[0].reach, 'browser')}`}>
+        <Box sx={{ px: 1.5, pb: 1 }}>
+          {pageBlocks.length === 0 && (
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1.5 }}>
+              Nothing yet. Sections reached, links followed and controls used on the season recap,
+              gallery, Scorigami, About the league, Reading and the players page show here.
+            </Typography>
+          )}
+          {pageBlocks.map(b => (
+            <Box key={b.page}>
+              <GroupLabel>{b.label}</GroupLabel>
+              {b.sections.length > 0 && (
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 0.5 }}>Reached</Typography>
+              )}
+              {b.sections.map(r => (
+                <MetricRow key={`s${r.section}`} label={r.section} value={formatCount(r.browsers)}
+                  bar={<Bar value={r.browsers} max={b.reach} color="#60a5fa" />} />
+              ))}
+              {b.opens.length > 0 && (
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 1 }}>Left for</Typography>
+              )}
+              {b.opens.map(r => (
+                <MetricRow key={`o${r.section}|${r.kind}`} label={`${prettyId(r.section)} → ${r.kind}`}
+                  value={formatCount(r.browsers)} sub={plural(r.events, 'time')} />
+              ))}
+              {b.controls.length > 0 && (
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 1 }}>Used</Typography>
+              )}
+              {b.controls.map(r => (
+                <MetricRow key={`c${r.control}`} label={prettyId(r.control)}
+                  value={formatCount(r.browsers)} sub={plural(r.events, 'time')} />
+              ))}
+            </Box>
+          ))}
+        </Box>
+      </Fold>
 
       {/* ── WPBL tabs ──────────────────────────────────────────────────── */}
-      <Section title="WPBL Tabs: how they're reached">
+      <Fold title="Tabs: how they're reached"
+        summary={busiestTabs.length === 0 ? 'No tab switches in this range'
+          : busiestTabs.map(([v, n]) => `${v} ${formatCount(n)}`).join(' · ')}>
         {tabs.length === 0 ? (
           <Box sx={{ px: 1.5, py: 2 }}>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>No tab views in this range.</Typography>
@@ -568,13 +719,15 @@ export default function AdminPage() {
             })}
           </Box>
         )}
-      </Section>
+      </Fold>
 
       {/* ── WPBL stats boards ──────────────────────────────────────────── */}
       {/* The tab above says people arrive at Stats; this says what they read once they're
           there. The axes are component state and never reach the URL, so this panel is the
           only place the answer exists. Cloudflare's path counts see one /wpbl either way. */}
-      <Section title="WPBL Stats: which board">
+      <Fold title="Stats: which board"
+        summary={statsBoards.boards.length === 0 ? 'No board views in this range'
+          : `${prettyBoard(statsBoards.boards[0].board)} leads, ${plural(statsBoards.boards[0].browsers, 'browser')}`}>
         {statsBoards.boards.length === 0 ? (
           <Box sx={{ px: 1.5, py: 2 }}>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
@@ -649,13 +802,15 @@ export default function AdminPage() {
             )}
           </Box>
         )}
-      </Section>
+      </Fold>
 
       {/* ── how readers reach a page ───────────────────────────────────── */}
       {/* Player opens are the retention event and team pages are the deepest surface in the
           section, and both used to be one flat number. This is the `from` breakdown: which
           surface actually feeds each destination, and which ones are decoration. */}
-      <Section title="WPBL: how readers get there">
+      <Fold title="How readers reach games, players and teams"
+        summary={entryPoints.sources.length === 0 ? 'No opens in this range'
+          : `Top route: ${entryPoints.sources[0].dest}s from ${entryPoints.sources[0].from} (${formatCount(entryPoints.sources[0].events)})`}>
         {entryPoints.sources.length === 0 ? (
           <Box sx={{ px: 1.5, py: 2 }}>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
@@ -715,14 +870,16 @@ export default function AdminPage() {
             )}
           </Box>
         )}
-      </Section>
+      </Fold>
 
       {/* ── header search ──────────────────────────────────────────────── */}
       {/* Search is in the header on every page in the section and produced no rows at all
           until Aug 25, 2026. The number that earns this card is `missed`: a query that found
           nothing is a reader who came for something specific and left without it, and it is
           the only list on this page that names a thing to go and fix. */}
-      <Section title="WPBL search">
+      <Fold title="Search"
+        summary={search.totals.searched === 0 ? 'No searches in this range'
+          : `${formatCount(search.totals.searched)} searches, ${search.totals.empty} found nothing`}>
         {search.totals.searched === 0 ? (
           <Box sx={{ px: 1.5, py: 2 }}>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
@@ -770,10 +927,11 @@ export default function AdminPage() {
             )}
           </Box>
         )}
-      </Section>
+      </Fold>
 
       {/* ── top players ────────────────────────────────────────────────── */}
-      <Section title="Most-opened players">
+      <Fold title="Most-opened players"
+        summary={players.length === 0 ? 'No player pages opened' : `${players[0].name} leads with ${players[0].opens}`}>
         {players.length === 0 ? (
           <Box sx={{ px: 1.5, py: 2 }}>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>No player pages opened in this range.</Typography>
@@ -799,7 +957,7 @@ export default function AdminPage() {
             ))}
           </Box>
         )}
-      </Section>
+      </Fold>
 
       {/* The Discord invite funnel card lived here until Aug 25, 2026. The promo card it
           measured was retired from Home on Aug 19: impressions and dismissals froze that day
@@ -811,7 +969,8 @@ export default function AdminPage() {
           on every load of this page. */}
 
       {/* ── growth & notifications ─────────────────────────────────────── */}
-      <Section title="Accounts & notifications">
+      <Fold title="Accounts & notifications"
+        summary={`${growth.total_users} users · ${growth.signups_window} signups ${rangeLabel(days)} · ${growth.push_users} on push`}>
         <Box sx={{ px: 1.5, py: 0.5 }}>
           <StatRow label="Total users" sub={growth.deleted_users > 0 ? `${growth.deleted_users} deactivated` : undefined}
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.total_users}</Typography>} />
@@ -830,7 +989,50 @@ export default function AdminPage() {
               {health.predictions?.toLocaleString() ?? '—'}
             </Typography>} />
         </Box>
-      </Section>
+      </Fold>
+
+      {/* ── every event, raw ─────────────────────────────────────────────── */}
+      {/* Everything the table holds, impressions and retired names included, for when a number
+          above needs checking against its source. Closed by default: it is the long tail. */}
+      <Fold title="All events" summary={`${events.length} names, including impressions and retired ones`}>
+        <Box sx={{ px: 1.5, py: 0.5 }}>
+          {events.length === 0 ? (
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1.5 }}>No events in this range.</Typography>
+          ) : (allEvents ? events : events.slice(0, EVENT_HEAD)).map(e => {
+            const info = eventInfo(e.event)
+            return (
+              <MetricRow key={e.event}
+                label={<>{info.label}{info.kind !== 'action' && (
+                  <Box component="span" sx={{ ml: 0.75, fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase' }}>
+                    {info.kind}
+                  </Box>
+                )}</>}
+                value={<>{e.events.toLocaleString()}{comparable && (
+                  <Box component="span" sx={{ display: 'inline-block', minWidth: 42, textAlign: 'right' }}>
+                    <Delta pct={deltaPct(e.events, e.prev_events)} />
+                  </Box>
+                )}</>}
+                sub={`${e.event} · ${plural(e.browsers, 'browser')} · ${plural(e.users, 'signed-in user')}`} />
+            )
+          })}
+          {events.length > EVENT_HEAD && (
+            <Box
+              onClick={() => setAllEvents(v => !v)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setAllEvents(v => !v) } }}
+              sx={{
+                py: 0.9, textAlign: 'center', cursor: 'pointer', userSelect: 'none',
+                borderTop: '1px solid', borderColor: 'divider',
+                fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
+                '&:hover': { color: 'text.primary' },
+              }}
+            >
+              {allEvents ? 'Show fewer' : `Show all ${events.length}`}
+            </Box>
+          )}
+        </Box>
+      </Fold>
 
       <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', mt: 2 }}>
         "Browsers" counts distinct localStorage ids, not people — one person on a phone and a

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PAGE_USAGE,
   type AnalyticsBundle,
 } from '../lib/analyticsAdmin'
 
@@ -20,6 +20,7 @@ const bundle = (over: Partial<AnalyticsBundle> = {}): AnalyticsBundle => ({
   search: EMPTY_SEARCH,
   players: [],
   growth: EMPTY_GROWTH,
+  pages: EMPTY_PAGE_USAGE,
   ...over,
 })
 
@@ -103,16 +104,65 @@ describe('AdminPage events list', () => {
     event: `event_${i}`, events: 100 - i, browsers: 5, users: 1, prev_events: 0, prev_browsers: 0,
   }))
 
-  it('shows a head of the long tail and keeps the rest one tap away', async () => {
+  // The raw list lives in the closed "All events" card at the foot of the page; the cards above
+  // it read the same rows through the catalog. Scoped to that card, since an unlabelled name also
+  // appears under "Other" in What people do.
+  it('keeps the raw list folded, with a head of the long tail and the rest one tap away', async () => {
     fetchAnalytics.mockResolvedValueOnce(bundle({ events: manyEvents }))
     renderPage()
 
-    expect(await screen.findByText('Event 0')).toBeInTheDocument()
-    expect(screen.queryByText('Event 15')).not.toBeInTheDocument()
+    const header = await screen.findByRole('button', { name: /All events/ })
+    expect(header).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(header)
+    const card = header.parentElement!
+    expect(within(card).getByText('Event 0')).toBeInTheDocument()
+    expect(within(card).queryByText('Event 15')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByText('Show all 20'))
-    expect(screen.getByText('Event 15')).toBeInTheDocument()
-    expect(screen.getByText('Show fewer')).toBeInTheDocument()
+    await userEvent.click(within(card).getByText('Show all 20'))
+    expect(within(card).getByText('Event 15')).toBeInTheDocument()
+    expect(within(card).getByText('Show fewer')).toBeInTheDocument()
+  })
+})
+
+describe('AdminPage readable cards', () => {
+  const ev = (event: string, events: number, browsers: number) =>
+    ({ event, events, browsers, users: 0, prev_events: 0, prev_browsers: 0 })
+
+  it('reads a Home impression against the action that says its card worked', async () => {
+    fetchAnalytics.mockResolvedValueOnce(bundle({ events: [
+      ev('wpbl_league_card_shown', 3000, 800), ev('wpbl_league_card_open', 30, 26),
+    ] }))
+    renderPage()
+    expect(await screen.findByText('League card')).toBeInTheDocument()
+    expect(screen.getByText('26 of 800 browsers that saw it opened it')).toBeInTheDocument()
+    expect(screen.getByText('3.3%')).toBeInTheDocument()
+  })
+
+  it('lists what people did in plain words, without impressions or retired names', async () => {
+    fetchAnalytics.mockResolvedValueOnce(bundle({ events: [
+      ev('wpbl_player_opened', 700, 140), ev('wpbl_bracket_shown', 3000, 820), ev('wpbl_mvp_shown', 7, 3),
+    ] }))
+    renderPage()
+    const header = await screen.findByRole('button', { name: /What people do/ })
+    const card = header.parentElement!
+    expect(within(card).getByText('Opened a player')).toBeInTheDocument()
+    expect(within(card).queryByText('Bracket shown')).not.toBeInTheDocument()
+    expect(within(card).queryByText('MVP race shown')).not.toBeInTheDocument()
+  })
+
+  it('shows the offseason pages by page, in their own words', async () => {
+    fetchAnalytics.mockResolvedValueOnce(bundle({ pages: {
+      sections: [{ page: 'season', section: 'Final standings', events: 40, browsers: 30 }],
+      opens: [{ page: 'season', section: 'batting_leaders', kind: 'player', events: 9, browsers: 7 }],
+      controls: [{ page: 'photos', control: 'category', events: 5, browsers: 4 }],
+    } }))
+    renderPage()
+    const card = (await screen.findByRole('button', { name: /Offseason pages/ })).parentElement!
+    expect(await within(card).findByText('Season recap')).toBeInTheDocument()
+    expect(within(card).getByText('Final standings')).toBeInTheDocument()
+    expect(within(card).getByText('Batting leaders → player')).toBeInTheDocument()
+    expect(within(card).getByText('Photos')).toBeInTheDocument()
+    expect(within(card).getByText('Category')).toBeInTheDocument()
   })
 })
 

@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react'
 // that it stops arriving once it has been accepted: a reader who has opened the ballot or voted
 // in it already has the ballot card on the same page, and the strip is only taking the first
 // line of the screen to repeat itself. See markFanAwardsEngaged in FanVote.tsx.
-vi.mock('../../lib/analytics', () => ({ track: vi.fn(), EVENTS: new Proxy({}, { get: (_t, k) => String(k) }) }))
+vi.mock('../../lib/analytics', () => ({ track: vi.fn(), trackImpression: vi.fn(), EVENTS: new Proxy({}, { get: (_t, k) => String(k) }) }))
 
 import { FanAwardsCta, markFanAwardsEngaged } from '../FanVote'
 

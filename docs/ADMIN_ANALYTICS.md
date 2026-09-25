@@ -13,6 +13,7 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | Piece | File |
 |---|---|
 | SQL: nine `security definer` RPCs | [`20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) + [`20260820064501_add_admin_wpbl_stats_board_rpc.sql`](../scripts/migrations/20260820064501_add_admin_wpbl_stats_board_rpc.sql) + [`20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql`](../scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql) |
+| SQL: the offseason pages card | [`20260925013201_admin_wpbl_page_usage_rpc.sql`](../scripts/migrations/20260925013201_admin_wpbl_page_usage_rpc.sql) |
 | Typed RPC wrappers + pure helpers | [`src/lib/analyticsAdmin.ts`](../src/lib/analyticsAdmin.ts) |
 | SQL: the roster + roles | [`20260910004500_add_admin_user_roster_rpc.sql`](../scripts/migrations/20260910004500_add_admin_user_roster_rpc.sql) |
 | The Users panel + its roster wrapper | [`src/AdminUsers.tsx`](../src/AdminUsers.tsx), [`src/lib/adminUsers.ts`](../src/lib/adminUsers.ts) |
@@ -81,6 +82,17 @@ Because /admin is behind the owner gate, it is the one page that cannot be check
 a browser. `adminPage.test.tsx` is the substitute and is worth keeping honest.
 
 ---
+
+**The Audience group reads as headlines first** (Sep 25, 2026). Every card folds, with a one-line
+answer in its header, because the page is mostly read on a phone and nine open tables was a scroll
+through all of them to reach one. The raw event list became the last, closed card ("All events");
+above it, `EVENT_INFO` in `analyticsAdmin.ts` labels every event name, files it under an area, and
+marks it an action, an impression or retired. Impressions are read in "Home cards: seen, then
+used" as the first half of a pair (`HOME_FUNNELS`, browsers on both sides), actions in "What
+people do", and retired names only in the raw list. **Add a new event to `EVENT_INFO` when you add
+it to `EVENTS`**: an unlabelled one still shows under "Other" with its raw name, and
+`analyticsAdmin.test.ts` fails until it has a label. "Offseason pages" reads the three
+`wpbl_page_*` events through `admin_wpbl_page_usage`.
 
 ## 2. The security model: read this before changing any of it
 

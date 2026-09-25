@@ -28,6 +28,7 @@ import { buildBracket, championResult } from './derive/bracket'
 import { wpblPlayerPath, wpblTeamPath, WPBL_GLOSSARY_PAGE, WPBL_SEASON_PAGE } from './routes'
 import WpblPage, { SectionHeading } from './WpblPage'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
+import { track, EVENTS } from '../lib/analytics'
 
 const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
@@ -74,7 +75,14 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
 
   const link = (href: string) => ({
     component: 'a' as const, href,
-    onClick: (e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); onNavigate(href) } },
+    onClick: (e: React.MouseEvent) => {
+      // Players are only linked from the hometowns list and clubs only from the club cards (and the
+      // champion line); anything else is one of the page's links onward to another page.
+      const kind = href.includes('/players/') ? 'player' : href.includes('/teams/') ? 'team' : 'page'
+      const section = kind === 'player' ? 'hometowns' : kind === 'team' ? 'clubs' : 'onward'
+      track(EVENTS.WPBL_PAGE_OPEN, { page: 'league', section, kind, ...(kind === 'page' ? { value: href } : {}) })
+      if (!isModified(e)) { e.preventDefault(); onNavigate(href) }
+    },
   })
   const recordOf = (id: string) => {
     const r = standings.find(x => x.team.id === id)
@@ -109,7 +117,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
       </>}
     >
       <Box sx={FLAT_CARDS_DARK}>
-        <SectionHeading>How it works</SectionHeading>
+        <SectionHeading seen="league">How it works</SectionHeading>
         <Box component="ul" sx={{ m: 0, pl: 2.25, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           {facts.map((f, i) => (
             <Typography key={i} component="li" sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.55 }}>{f}</Typography>
@@ -129,7 +137,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
 
         {teams.length > 0 && (
           <>
-            <SectionHeading>The clubs</SectionHeading>
+            <SectionHeading seen="league">The clubs</SectionHeading>
             <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
               {[...teams].sort((a, b) => a.city.localeCompare(b.city)).map(t => {
                 const record = recordOf(t.id)
@@ -162,7 +170,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
 
         {countries.length > 0 && (
           <>
-            <SectionHeading>Where the players are from</SectionHeading>
+            <SectionHeading seen="league">Where the players are from</SectionHeading>
             {/* ONE COUNTRY AT A TIME, PICKED FROM CHIPS. The old page opened every country at once,
                 which put 64 American names between the top of the page and the ten other countries,
                 a wall nobody scrolled past. The chips are the summary (every country and its count,
@@ -175,7 +183,10 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                 const active = country === c.country
                 return (
                   <Box key={c.country}
-                    {...pressable(() => setCountry(active ? null : c.country))}
+                    {...pressable(() => {
+                      setCountry(active ? null : c.country)
+                      track(EVENTS.WPBL_PAGE_CONTROL, { page: 'league', control: 'country', value: active ? null : c.country })
+                    })}
                     aria-pressed={active}
                     sx={{
                       ...FOCUS_RING,
