@@ -23,11 +23,11 @@ describe('the WPBL source list', () => {
     }
   })
 
-  // Three of these are somebody's own work used by permission, and none of them had to say
+  // Four of these are somebody's own work used by permission, and none of them had to say
   // yes, so the page carries the word and the year rather than a vague "with thanks".
-  it('names the permission, with a year, for the three sources that rest on one', () => {
+  it('names the permission, with a year, for the four sources that rest on one', () => {
     const byName = (n: string) => WPBL_SOURCES.find(s => s.name.includes(n))!
-    for (const name of ['RetroWPBL', 'This is Women', 'towards a more perfect game']) {
+    for (const name of ['RetroWPBL', 'This is Women', 'towards a more perfect game', 'The Rising Fastball']) {
       const s = byName(name)
       expect(s, `${name} is missing from the list`).toBeTruthy()
       expect(s.basis).toMatch(/permission/i)

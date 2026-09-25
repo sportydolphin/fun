@@ -1,5 +1,11 @@
-// Turning one writer's Substack into rows the section can render: which posts are about
-// this league, and which players, clubs and games each one is actually about.
+// Turning independent writers' Substacks into rows the section can render: which posts are
+// about this league, and which players, clubs and games each one is actually about.
+//
+// TWO WRITERS since Sep 25, 2026: mary mustard's *towards a more perfect game* and D.A.
+// Espinoza's *The Rising Fastball*, each featured with their permission. Everything that differs
+// between them (host, credit, and above all which posts count) lives in SOURCES below; the
+// matching rules further down are shared, because a player named in a post is named the same
+// way whoever wrote it.
 //
 // Pure and testable on purpose. Everything here is a judgement call about someone else's
 // prose, and every one of those calls is wrong occasionally: a name that is also a common
@@ -14,7 +20,7 @@ import type { WpblGame, WpblPlayer, WpblTeam } from '../types.ts'
 
 /** Her publication. Note this is the PUBLICATION subdomain, not the author handle: the
  *  handle (dijondarling) resolves to a Substack profile page with no feed on it. */
-export const SUBSTACK_HOST = 'towardsamoreperfectgame.substack.com'
+export const SUBSTACK_HOST = 'towardsamoreperfectgame.substack.com'  // == SOURCES[0].host
 /** Substack rejects a `limit` above 50, so both endpoints below are read a page at a time.
  *  She is under fifty posts today, but the job should not quietly start losing her back
  *  catalogue on the day she passes it. */
@@ -64,6 +70,132 @@ export const authorPhoto = (px: number) =>
   `https://substackcdn.com/image/fetch/w_${px},h_${px},c_fill,f_auto,q_auto:good/` +
   encodeURIComponent(AUTHOR_PHOTO_SOURCE)
 
+// ─── Publications ───────────────────────────────────────────────────────────────
+
+/** A mirrored post as the list endpoints describe it, reduced to what an inclusion rule reads. */
+export interface ListedPost {
+  title: string
+  subtitle?: string | null
+  tags: readonly string[]
+}
+
+export interface SubstackSource {
+  /** Stored on every row (`wpbl_articles.source`), and what a card looks its credit up by. */
+  key: 'towards' | 'rising-fastball'
+  /** The PUBLICATION subdomain, not the author handle. */
+  host: string
+  /** The author on substack.com, for the profile endpoint that lists their whole history
+   *  outside Cloudflare's challenge. Optional: the publication archive is the fallback. */
+  authorUserId?: number
+  authorName: string
+  publicationName: string
+  /** One line about the writer. QUOTED on the credit card only when it is in the first person
+   *  (mary's is), because an unquoted "I" inside our card reads as us. See AuthorByline. */
+  bio: string
+  bioIsQuote: boolean
+  photoSource: string
+  /** Which of this writer's posts are about the league. The rules differ because the writers
+   *  file differently; see each one. `players` is the roster, for a rule that keys on names. */
+  includes: (post: ListedPost, players: readonly WpblPlayer[]) => boolean
+}
+
+export const SOURCES: readonly SubstackSource[] = [
+  {
+    key: 'towards',
+    host: 'towardsamoreperfectgame.substack.com',
+    authorUserId: 5865502,
+    // Her own styling of both, lowercase. Left as she writes them rather than title-cased to
+    // match our headings: it is her name and her masthead, not a field in our design system.
+    authorName: 'mary mustard',
+    publicationName: 'towards a more perfect game',
+    // Her self-description, first sentence, verbatim. The rest goes on to mention the World
+    // Cup, which this section deliberately does not carry.
+    bio: 'I am a writer and amateur baseball player from Albany.',
+    bioIsQuote: true,
+    photoSource: 'https://substack-post-media.s3.amazonaws.com/public/images/de58ebf7-12be-47cf-af91-33dd25fa92ac_2848x2846.jpeg',
+    includes: post => isWpblPost(post.tags),
+  },
+  {
+    key: 'rising-fastball',
+    host: 'therisingfastball.substack.com',
+    authorUserId: 318677984,
+    authorName: 'D.A. Espinoza',
+    publicationName: 'The Rising Fastball',
+    // The byline bio is third person and carries an em dash, so it is summarised here rather
+    // than quoted: no "I" to misattribute, and our copy keeps to the house punctuation.
+    bio: "Covers women's baseball worldwide: the WPBL, Japan's Venus League and beyond.",
+    bioIsQuote: false,
+    photoSource: 'https://substack-post-media.s3.amazonaws.com/public/images/3651b34a-e12f-451d-a9c7-fee394cd9e37_1024x1024.jpeg',
+    includes: (post, players) => isRisingFastballWpblPost(post, players),
+  },
+]
+
+export const DEFAULT_SOURCE = SOURCES[0]
+
+/** The publication a stored row came from. Rows written before the column existed carry the
+ *  migration's default, which is mary's, so an unknown key falls back the same way. */
+export function sourceOf(key: string | null | undefined): SubstackSource {
+  return SOURCES.find(s => s.key === key) ?? DEFAULT_SOURCE
+}
+
+export const archiveUrlFor = (host: string, offset: number) =>
+  `https://${host}/api/v1/archive?sort=new&limit=${ARCHIVE_PAGE_SIZE}&offset=${offset}`
+export const profilePostsUrlFor = (userId: number, cursor?: string) =>
+  `https://substack.com/api/v1/profile/posts?profile_user_id=${userId}` +
+  `&limit=${ARCHIVE_PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
+/** One post, body included. For a post outside the RSS window that has never been read: its
+ *  body is where the players, clubs and clips come from, and the feed only carries the latest 20. */
+export const postUrlFor = (host: string, slug: string) => `https://${host}/api/v1/posts/${encodeURIComponent(slug)}`
+
+/** A writer's photo through Substack's CDN at `px` square. See authorPhoto for why the size is
+ *  worth caring about. */
+export const sourcePhoto = (src: SubstackSource, px: number) =>
+  `https://substackcdn.com/image/fetch/w_${px},h_${px},c_fill,f_auto,q_auto:good/` +
+  encodeURIComponent(src.photoSource)
+
+/**
+ * A post's cover at the width a card actually draws, or null.
+ *
+ * The list endpoints hand back each cover through Substack's CDN at FULL size: a typical one is
+ * 202 KB, for a 96px thumbnail. The CDN resizes on request, the same way the writer photos are
+ * asked for, so the original is pulled back out of the URL and fetched at `px` wide: 7.6 KB for
+ * the same card. Across the Reading page's fifty-odd rows that is megabytes on a phone.
+ *
+ * A URL that is not a CDN fetch passes through unchanged, which is the safe direction: a large
+ * image still renders, a guessed rewrite might not.
+ */
+export function coverAt(url: string | null | undefined, px: number): string | null {
+  if (!url) return null
+  const m = url.match(/^https:\/\/substackcdn\.com\/image\/fetch\/[^/]+\/(https?%3A.+)$/)
+  return m ? `https://substackcdn.com/image/fetch/w_${px},c_limit,f_auto,q_auto:good/${m[1]}` : url
+}
+
+/** A cover URL an <img> can draw. The Rising Fastball sets an uploaded VIDEO as the cover on some
+ *  posts, and the archive API returns it in `cover_image` like any picture; stored as-is it drew a
+ *  blank tile. None is better than a broken one. */
+export function imageCover(url: string | null | undefined): string | null {
+  if (!url) return null
+  return /substack-video\.s3|\/video_upload\/|\.(mp4|mov|webm)(\?|$)/i.test(url) ? null : url
+}
+
+/**
+ * The posts about one player, the ones ABOUT them first.
+ *
+ * A player's "written about" list shows five, and "names her anywhere" is a wide net: Rakyung Kim
+ * is named in 24 posts across both writers, most of them league round-ups, while the six that are
+ * actually about her (a three-part profile series among them) name her in the HEADLINE. Newest
+ * first alone put the round-ups on top and the profiles below the cut. So a headline that names
+ * the player sorts ahead, and each group stays newest first.
+ */
+export function aboutPlayerFirst<T extends { title: string; subtitle?: string | null; published_at: string }>(
+  posts: readonly T[], playerName: string,
+): T[] {
+  const name = normalize(playerName)
+  const titled = (p: T) => containsPhrase(normalize(`${p.title} ${p.subtitle ?? ''}`), name)
+  return [...posts].sort((a, b) =>
+    Number(titled(b)) - Number(titled(a)) || b.published_at.localeCompare(a.published_at))
+}
+
 // ─── Topic ──────────────────────────────────────────────────────────────────────
 
 // Roughly half of what she writes is about the Women's Baseball World Cup, which this
@@ -91,6 +223,62 @@ export function isWpblPost(tags: readonly string[]): boolean {
   const lower = tags.map(t => t.trim().toLowerCase())
   if (lower.includes(WORLD_CUP_TAG)) return false
   return lower.some(t => WPBL_TAGS.has(t))
+}
+
+/**
+ * Is this Rising Fastball post about the league?
+ *
+ * NOT BY TAG, which is the rule for mary and the wrong one here. These tags are broad reach tags
+ * applied in bulk (a typical post carries fifteen), so the WPBL tag sits on Venus League pieces
+ * and on "The Rising Fastball Turns 1!", while the interview with Ayami Sato carries no tag at
+ * all. Measured on all 124 posts on Sep 25, 2026, tags would have let in five posts that are not
+ * about the league and missed six that are.
+ *
+ * What the newsletter does consistently is TITLE its league coverage: "WPBL: Week 4 Check In", "WPBL Plants
+ * Its Flag in Springfield". That prefix is the first rule. The second is the profiles of the
+ * league's players, many of them written before the league played a game ("Rakyung Kim - Part
+ * 1: The First"), which name a rostered player in the title or dek by full name. Those are the
+ * pieces a player's page most wants, so they count.
+ *
+ * Translations are handled separately (see dropTranslations), since whether a post is a
+ * duplicate depends on the other posts, not on this one.
+ */
+export function isRisingFastballWpblPost(post: ListedPost, players: readonly WpblPlayer[]): boolean {
+  if (/^\s*WPBL\b/i.test(post.title)) return true
+  return matchPlayers(`${post.title} ${post.subtitle ?? ''}`, players).length > 0
+}
+
+// Japanese script anywhere in a title or dek: the Japanese-language editions of English posts.
+const CJK = /[\u3040-\u30ff\u3400-\u9fff]/
+// Function words that separate a Spanish dek from an English one. Only consulted to break a tie
+// between two posts with the same title, so a crude count is enough.
+const SPANISH_WORDS = /\b(una|con|del|el|los|las|que|está|como|por|para|entrevista)\b/gi
+
+/**
+ * Drop the translated editions of a post, keeping the English one.
+ *
+ * The Rising Fastball publishes some pieces two or three times, in English and in Japanese or Spanish. The
+ * Japanese edition has a Japanese title and goes on sight. The Spanish one is harder: "Rosi Del
+ * Castillo: La Nena" is the title of BOTH editions, and Substack labels both `es`. What differs
+ * is the dek ("An Interview With Mexico's Baseball Revolutionary" against "Una entrevista con la
+ * revolucionaria del béisbol de México"), so among posts sharing a title the one with the most
+ * English dek is kept and the rest go.
+ */
+export function dropTranslations<T extends { title: string; subtitle?: string | null }>(posts: readonly T[]): T[] {
+  const kept = posts.filter(p => !CJK.test(p.title) && !CJK.test(p.subtitle ?? ''))
+  const byTitle = new Map<string, T[]>()
+  for (const p of kept) {
+    const k = normalize(p.title).trim()
+    byTitle.set(k, [...(byTitle.get(k) ?? []), p])
+  }
+  const spanishness = (p: T) => (p.subtitle ?? '').match(SPANISH_WORDS)?.length ?? 0
+  const drop = new Set<T>()
+  for (const group of byTitle.values()) {
+    if (group.length < 2) continue
+    const keep = [...group].sort((a, b) => spanishness(a) - spanishness(b))[0]
+    for (const p of group) if (p !== keep) drop.add(p)
+  }
+  return kept.filter(p => !drop.has(p))
 }
 
 // ─── Read time ──────────────────────────────────────────────────────────────────
@@ -370,12 +558,12 @@ export function parseTitleScore(title: string): [number, number] | null {
  * a recap headlined without the score simply doesn't link, which is the intended failure.
  */
 export function matchGame(
-  opts: { title: string; publishedAt: string; teamIds: readonly string[] },
+  opts: { title: string; publishedAt: string; teamIds: readonly string[]; titleTeamIds?: readonly string[] },
   games: readonly WpblGame[],
 ): string | null {
-  if (opts.teamIds.length !== 2) return null
   const score = parseTitleScore(opts.title)
-  if (!score) return null
+  if (!score) return matchRecapTitle(opts, games)
+  if (opts.teamIds.length !== 2) return null
   const at = Date.parse(opts.publishedAt)
   if (Number.isNaN(at)) return null
   const pair = new Set(opts.teamIds)
@@ -398,4 +586,50 @@ export function matchGame(
   // Two candidates means a doubleheader or an identical score in the same window, and we
   // cannot tell which she wrote about. Say nothing.
   return hits.length === 1 ? hits[0].id : null
+}
+
+/** How long after a game a recap WITHOUT a score in its headline may still be linked to it.
+ *  Wider than RECAP_WINDOW_MS because The Rising Fastball's recaps landed up to three days after
+ *  opening weekend; what keeps it safe is requiring exactly one final between the two clubs
+ *  inside it, rather than the score. */
+const TITLED_RECAP_WINDOW_MS = 4 * 24 * 60 * 60 * 1000
+
+/**
+ * The game a scoreless recap headline names, or null.
+ *
+ * The Rising Fastball titles its recaps "Boston Hunters VS Los Angeles Queens Game 3 Recap": the
+ * two clubs and the word, but no score, so matchGame's three-signal rule could never link one.
+ * The replacement signals are strict in their own way: the headline itself must say "recap" and
+ * name EXACTLY two clubs (not the body, which names everyone), and there must be exactly one
+ * final between those two clubs from that morning back through the window. A pair that met twice
+ * inside it is ambiguous and links nothing, which is the failure this whole file prefers.
+ */
+function matchRecapTitle(
+  opts: { title: string; publishedAt: string; titleTeamIds?: readonly string[] },
+  games: readonly WpblGame[],
+): string | null {
+  if (!/\brecap\b/i.test(opts.title)) return null
+  const pairIds = opts.titleTeamIds ?? []
+  if (pairIds.length !== 2) return null
+  const at = Date.parse(opts.publishedAt)
+  if (Number.isNaN(at)) return null
+  const pair = new Set(pairIds)
+  const hits = games.filter(g => {
+    if (g.status !== 'final' || g.home_team_id === g.away_team_id) return false
+    if (!pair.has(g.home_team_id) || !pair.has(g.away_team_id)) return false
+    const start = Date.parse(`${g.game_date}T00:00:00Z`)
+    return !Number.isNaN(start) && at >= start && at - start <= TITLED_RECAP_WINDOW_MS
+  })
+  return hits.length === 1 ? hits[0].id : null
+}
+
+/** The clubs a headline names by nickname or full name, and nothing else: no body counts and no
+ *  featured players. What the scoreless recap route needs to know "which two clubs is this". */
+export function teamsInTitle(title: string, teams: readonly WpblTeam[]): string[] {
+  const head = normalize(title)
+  return teams.filter(t => {
+    const nickname = normalize(t.name ?? '')
+    const full = normalize(`${t.city ?? ''} ${t.name ?? ''}`.trim())
+    return !!nickname && (containsPhrase(head, full) || containsPhrase(head, nickname))
+  }).map(t => t.id)
 }

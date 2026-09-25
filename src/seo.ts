@@ -147,9 +147,9 @@ const ROUTES: Record<string, Seo> = {
   // league together, since a reader searching for either should land here, and plain that the
   // writing is theirs: the posts open on their Substack, not here.
   '/wpbl/reading': {
-    title: "WPBL reading: every post by mary mustard | sportydolphin.fun",
+    title: "WPBL reading: mary mustard and D.A. Espinoza on the league | sportydolphin.fun",
     description:
-      "Every piece mary mustard has written about the Women's Pro Baseball League on their Substack, towards a more perfect game, newest first and filterable by club.",
+      "Everything two independent writers have published about the Women's Pro Baseball League: mary mustard's towards a more perfect game and D.A. Espinoza's The Rising Fastball, newest first and filterable by writer and club.",
   },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",

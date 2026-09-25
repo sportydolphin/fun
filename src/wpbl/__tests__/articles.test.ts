@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   TEAM_BODY_MENTIONS, countVideos, isWpblPost, matchGame, matchPlayers, matchTeams,
   parseFeed, parseTitleScore, readMinutes,
+  isRisingFastballWpblPost, dropTranslations, teamsInTitle, sourceOf, SOURCES, coverAt, imageCover, aboutPlayerFirst,
 } from '../derive/articles'
 import type { WpblGame, WpblPlayer, WpblTeam } from '../types'
 
@@ -253,5 +254,96 @@ describe('parseFeed', () => {
   it('finds a name that markup had split in two', () => {
     const [post] = parseFeed(xml)
     expect(matchPlayers(post.text, [player('p1', 'Denae Benites')])).toEqual(['p1'])
+  })
+})
+
+// The Rising Fastball (D.A. Espinoza), the second writer, from Sep 25, 2026. Every case is a real
+// post from that archive, because the rules were written against it.
+describe('The Rising Fastball', () => {
+  const roster = [player('rk', 'Rakyung Kim'), player('as', 'Ayami Sato'), player('rd', 'Rosi del Castillo')]
+  const post = (title: string, subtitle: string | null = null, tags: string[] = []) => ({ title, subtitle, tags })
+
+  it('takes the league coverage by its title, whatever the tags say', () => {
+    expect(isRisingFastballWpblPost(post('WPBL: Week 4 Check In'), roster)).toBe(true)
+    expect(isRisingFastballWpblPost(post('WPBL Plants Its Flag in Springfield, Illinois'), roster)).toBe(true)
+    // Tagged WPBL, about something else: the tags are bulk reach tags, not filing.
+    expect(isRisingFastballWpblPost(post('The Rising Fastball Turns 1!', null, ['WPBL', 'npb']), roster)).toBe(false)
+    expect(isRisingFastballWpblPost(post('Venus League: The Return Of The Regular Season', null, ['WPBL']), roster)).toBe(false)
+  })
+
+  it("takes a profile of one of the league's players, even from before the season", () => {
+    expect(isRisingFastballWpblPost(post('Rakyung Kim - Part 1: "The First"'), roster)).toBe(true)
+    // Case differs from the roster's "del"; names match case-insensitively.
+    expect(isRisingFastballWpblPost(post('Rosi Del Castillo: La Nena'), roster)).toBe(true)
+    expect(isRisingFastballWpblPost(post('Micaela Kanagusku: The Star of the South'), roster)).toBe(false)
+  })
+
+  it('keeps the English edition of a translated post', () => {
+    const kept = dropTranslations([
+      post('Nene Masago: Don’t just play to win, “Enjoy Baseball”'),
+      post('真砂寧々：勝つことだけじゃない、“Enjoy Baseball”の精神'),
+      post('Rosi Del Castillo: La Nena', 'Una entrevista con la revolucionaria del béisbol de México'),
+      post('Rosi Del Castillo: La Nena', "An Interview With Mexico's Baseball Revolutionary"),
+    ])
+    expect(kept.map(p => p.subtitle)).toEqual([null, "An Interview With Mexico's Baseball Revolutionary"])
+  })
+
+  it('credits every row by its source, and an unknown one to the original writer', () => {
+    expect(sourceOf('rising-fastball').authorName).toBe('D.A. Espinoza')
+    expect(sourceOf('towards').authorName).toBe('mary mustard')
+    expect(sourceOf(null)).toBe(SOURCES[0])
+    // Only a first-person bio is quoted; see AuthorByline.
+    expect(sourceOf('rising-fastball').bioIsQuote).toBe(false)
+    expect(sourceOf('towards').bioIsQuote).toBe(true)
+  })
+})
+
+describe('matchGame, a recap headline with no score', () => {
+  const opening: WpblGame = {
+    id: 'op', game_date: '2026-08-01', status: 'final',
+    home_team_id: 'NY', away_team_id: 'LA', home_score: 8, away_score: 10,
+  } as WpblGame
+  const title = 'WPBL: Los Angeles Queens VS New York Heights Game 1 Recap'
+  const opts = (publishedAt: string, t = title) =>
+    ({ title: t, publishedAt, teamIds: ['NY', 'LA', 'BOS'], titleTeamIds: teamsInTitle(t, TEAMS) })
+
+  it('links it when the headline names two clubs and says recap, and they met once in the window', () => {
+    expect(teamsInTitle(title, TEAMS).sort()).toEqual(['LA', 'NY'])
+    expect(matchGame(opts('2026-08-02T15:00:00Z'), [opening])).toBe('op')
+  })
+
+  it('links nothing when the pair met twice in the window, or the headline is not a recap', () => {
+    const rematch = { ...opening, id: 'op2', game_date: '2026-08-02' }
+    expect(matchGame(opts('2026-08-03T15:00:00Z'), [opening, rematch])).toBeNull()
+    expect(matchGame(opts('2026-08-02T15:00:00Z', 'WPBL: Los Angeles Queens VS New York Heights Preview'), [opening])).toBeNull()
+  })
+})
+
+describe('covers', () => {
+  const full = 'https://substackcdn.com/image/fetch/$s_!KeXd!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fabc.png'
+  it('asks the CDN for the drawn width instead of the full-size original', () => {
+    expect(coverAt(full, 240)).toBe('https://substackcdn.com/image/fetch/w_240,c_limit,f_auto,q_auto:good/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fabc.png')
+    expect(coverAt('https://example.com/a.jpg', 240)).toBe('https://example.com/a.jpg')
+    expect(coverAt(null, 240)).toBeNull()
+  })
+  it('stores no cover for a post whose cover is a video', () => {
+    expect(imageCover('https://substack-video.s3.amazonaws.com/video_upload/post/210317804/a.mp4')).toBeNull()
+    expect(imageCover(full)).toBe(full)
+  })
+})
+
+describe('aboutPlayerFirst', () => {
+  it('puts the posts about a player ahead of the ones that only mention the player, each newest first', () => {
+    const p = (title: string, published_at: string) => ({ title, subtitle: null, published_at })
+    const out = aboutPlayerFirst([
+      p('O, For An Encore', '2026-09-23'),
+      p('Rakyung Kim - Part 1: "The First"', '2025-10-09'),
+      p('WPBL: Playoff Preview', '2026-09-09'),
+      p('Rakyung Kim: Destiny Awaits In Springfield', '2026-07-20'),
+    ], 'Rakyung Kim')
+    expect(out.map(x => x.title)).toEqual([
+      'Rakyung Kim: Destiny Awaits In Springfield', 'Rakyung Kim - Part 1: "The First"',
+      'O, For An Encore', 'WPBL: Playoff Preview',
+    ])
   })
 })

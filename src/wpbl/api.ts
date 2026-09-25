@@ -915,7 +915,7 @@ export function fetchWpblSiteGames(): Promise<WpblSiteGame[]> {
   })
 }
 
-// The reading feed (wpbl_articles): a mirror of an independent writer's WPBL coverage.
+// The reading feed (wpbl_articles): a mirror of two independent writers' WPBL coverage.
 // Tiny table, read once app-wide and shared by the Home rail, the game card, and the player
 // and team pages, exactly like the videos read above it.
 export function fetchWpblArticles(): Promise<WpblArticle[]> {
@@ -923,7 +923,7 @@ export function fetchWpblArticles(): Promise<WpblArticle[]> {
   return once('allArticles', async () => {
     const data = await safe<WpblArticle[]>('fetchWpblArticles', () =>
       supabase.from('wpbl_articles')
-        .select('post_id,slug,url,title,subtitle,cover_url,published_at,word_count,video_count,tags,game_id,team_ids,player_ids')
+        .select('post_id,source,slug,url,title,subtitle,cover_url,published_at,word_count,video_count,tags,game_id,team_ids,player_ids')
         .order('published_at', { ascending: false }) as unknown as
         PromiseLike<{ data: WpblArticle[] | null; error: unknown }>,
       [])

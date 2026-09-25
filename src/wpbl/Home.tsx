@@ -13,7 +13,7 @@ import {
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
-import { AUTHOR_NAME, PUBLICATION_NAME, readMinutes } from './derive/articles'
+import { readMinutes, sourceOf } from './derive/articles'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
@@ -2266,7 +2266,9 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
 
 
 /**
- * The latest post from the writer the section mirrors, as one line, and a door to all of them.
+ * The latest post from either writer the section mirrors, as one line, and a door to all of them.
+ * The eyebrow names whichever writer it is, looked up from the row, so a new post from one is never
+ * credited to the other.
  *
  * ONE LINE, NOT A RAIL. A shelf of her work sat on Home once and was seen far more than it was
  * opened (575 browsers, 39 click-throughs), so what comes back is the smallest thing that still
@@ -2303,7 +2305,7 @@ function LatestReadingCard() {
         <Typography sx={{
           flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
           textTransform: 'uppercase', color: 'text.secondary',
-        }}>Latest from {AUTHOR_NAME}</Typography>
+        }}>Latest from {sourceOf(latest.source).authorName}</Typography>
         <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
           sx={{
             flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-solid)',
@@ -2319,7 +2321,7 @@ function LatestReadingCard() {
         </Typography>
       </Box>
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
-        {[when, `${readMinutes(latest.word_count, latest.video_count)} min read`, `on ${PUBLICATION_NAME}`].filter(Boolean).join(' · ')}
+        {[when, `${readMinutes(latest.word_count, latest.video_count)} min read`, `on ${sourceOf(latest.source).publicationName}`].filter(Boolean).join(' · ')}
       </Typography>
     </Box>
   )

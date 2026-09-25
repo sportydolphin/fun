@@ -1,11 +1,11 @@
 import { Box, Typography } from '@mui/material'
 import { TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly } from './ui'
-import { readMinutes, authorPhoto, AUTHOR_BIO, AUTHOR_NAME, PUBLICATION_NAME, PUBLICATION_URL } from './derive/articles'
+import { readMinutes, sourceOf, sourcePhoto, coverAt, type SubstackSource } from './derive/articles'
 import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/recaps'
 import type { WpblArticle, WpblGameRecap, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 
-// The WPBL reading surface: a mirror of an independent writer's coverage of the league,
+// The WPBL reading surface: a mirror of two independent writers' coverage of the league,
 // read from the wpbl_articles table (populated by scripts/sync-wpbl-substack.ts). Four
 // consumers share this file: the /wpbl/reading page (ReadingPage.tsx), Home's latest-post line,
 // the story card on a finished game, and the "written about" lists on a player and a team page.
@@ -16,6 +16,10 @@ import { track, EVENTS } from '../lib/analytics'
 // no equivalent win for prose, and rendering someone's article inside our own chrome is the
 // copyright problem wearing a hat. The whole point of the feature is to send readers to the
 // writer.
+//
+// EVERY CARD NAMES ITS WRITER, looked up from the row's `source` (SOURCES in derive/articles.ts).
+// With two writers that stopped being optional: a headline with no name on it is credited to
+// whichever writer the reader met first, or to us.
 
 /** Where every card points, and how it points there. `noopener` is not optional on a
  *  target=_blank link: without it the opened page gets a handle on ours through
@@ -36,6 +40,7 @@ export type ReadingSource = 'page' | 'home' | 'game' | 'player'
 function trackOpen(article: WpblArticle, from: ReadingSource): void {
   track(EVENTS.WPBL_ARTICLE_OPENED, {
     postId: article.post_id,
+    source: article.source,
     slug: article.slug,
     from,
     minutes: readMinutes(article.word_count, article.video_count),
@@ -106,15 +111,15 @@ function TeamBadges({ article, teamById }: { article: WpblArticle; teamById: Map
  * Cloudinary's face gravity disabled (`g_face` 404s), leaving only a centred fill of the whole
  * frame. A portrait would let this go smaller and read better for it.
  */
-export function AuthorByline({ compact, from }: { compact?: boolean; from: ReadingSource }) {
+export function AuthorByline({ source, compact, from }: { source: SubstackSource; compact?: boolean; from: ReadingSource }) {
   const size = compact ? 34 : 40
   return (
     <Box
       component="a"
-      href={PUBLICATION_URL}
+      href={`https://${source.host}`}
       {...linkProps}
-      onClick={() => track(EVENTS.WPBL_AUTHOR_OPENED, { from })}
-      aria-label={`Written by ${AUTHOR_NAME} for their Substack, ${PUBLICATION_NAME}, opens in a new tab`}
+      onClick={() => track(EVENTS.WPBL_AUTHOR_OPENED, { from, source: source.key })}
+      aria-label={`Written by ${source.authorName} for their Substack, ${source.publicationName}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
         p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
@@ -134,22 +139,23 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
       starts them off-screen. */}
       <Box
         component="img"
-        src={authorPhoto(size * 2)}
+        src={sourcePhoto(source, size * 2)}
         alt=""
         sx={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', bgcolor: 'action.hover' }}
       />
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', lineHeight: 1.3 }}>
           Written by{' '}
-          <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{AUTHOR_NAME}</Box>
+          <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{source.authorName}</Box>
         </Typography>
-        {/* HER words, in quotation marks. The quotes are the whole point: the sentence is
-            first person, and unquoted under our heading it reads as ours. */}
-        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', lineHeight: 1.35, fontStyle: 'italic' }}>
-          “{AUTHOR_BIO}”
+        {/* A first-person bio goes in quotation marks, which is the whole point: unquoted under
+            our heading, "I am a writer..." reads as ours. A third-person one reads as a
+            description and needs none. See `bioIsQuote`. */}
+        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', lineHeight: 1.35, fontStyle: source.bioIsQuote ? 'italic' : 'normal' }}>
+          {source.bioIsQuote ? `“${source.bio}”` : source.bio}
         </Typography>
         <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled', mt: 0.2 }}>
-          {PUBLICATION_NAME} · their Substack ↗
+          {source.publicationName} · their Substack ↗
         </Typography>
       </Box>
     </Box>
@@ -193,8 +199,9 @@ export function ReadingRow({ article, teamById, from }: {
         position: 'relative', width: chromePx(96), flexShrink: 0, minHeight: chromePx(62),
         borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
       }}>
+        {/* At twice the drawn width for a 2x screen, and no more: see coverAt. */}
         {article.cover_url && (
-          <Box component="img" src={article.cover_url} alt="" loading="lazy"
+          <Box component="img" src={coverAt(article.cover_url, 240) ?? undefined} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
       </Box>
@@ -208,10 +215,10 @@ export function ReadingRow({ article, teamById, from }: {
             {article.subtitle}
           </Typography>
         )}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, minWidth: 0 }}>
           <TeamBadges article={article} teamById={teamById} />
-          <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled' }}>
-            {dateLabel(article.published_at)} · {readLabel(article)}
+          <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled', minWidth: 0 }}>
+            {sourceOf(article.source).authorName} · {dateLabel(article.published_at)} · {readLabel(article)}
           </Typography>
           <ExternalMark />
         </Box>
@@ -232,7 +239,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
       href={article.url}
       {...linkProps}
       onClick={() => trackOpen(article, 'game')}
-      aria-label={`Read the story: ${article.title}, opens in a new tab`}
+      aria-label={`Read the story by ${sourceOf(article.source).authorName}: ${article.title}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
         // Borderless in Game Center: this sits directly above the win-probability card, and two
@@ -248,7 +255,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
     >
       <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
         {article.cover_url && (
-          <Box component="img" src={article.cover_url} alt="" loading="lazy"
+          <Box component="img" src={coverAt(article.cover_url, 280) ?? undefined} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
       </Box>
@@ -263,7 +270,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
           {article.title}
         </Typography>
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.25 }}>
-          {AUTHOR_NAME} · {readLabel(article)} ↗
+          {sourceOf(article.source).authorName} · {readLabel(article)} ↗
         </Typography>
       </Box>
     </Box>
@@ -402,7 +409,7 @@ export function WrittenAbout({ articles, title, limit = 5, from = 'player', wide
               {a.title}
             </Typography>
             <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.35 }}>
-              {AUTHOR_NAME} · {dateLabel(a.published_at)} · {readLabel(a)} ↗
+              {sourceOf(a.source).authorName} · {dateLabel(a.published_at)} · {readLabel(a)} ↗
             </Typography>
           </Box>
         ))}

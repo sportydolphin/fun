@@ -45,7 +45,7 @@ export interface WpblSource {
    * THREE of these are somebody's own work, used by permission with a date: two writers and a
    * transcriber, none of whom had to say yes. That is the sort of fact that decays into folklore
    * unless it is written where it renders, so every entry has to say something here and the
-   * tests assert it, with the three permissions checked for the word and the year.
+   * tests assert it, with the permissions checked for the word and the year.
    */
   basis: string
 }
@@ -99,8 +99,17 @@ export const WPBL_SOURCES: readonly WpblSource[] = [
     kind: 'writing',
     who: 'mary mustard, a writer and amateur ballplayer from Albany, covering women’s baseball on their own Substack.',
     uses: 'A headline, a dek, a cover image and a date. The article itself is never stored or shown here.',
-    seenOn: 'The Reading shelf on the league page, the story card on a game, and the “written about” lists on players and clubs.',
+    seenOn: 'The Reading page, the latest post on Home, the story card on a game, and the “written about” lists on players.',
     basis: 'Mirrored with explicit permission, granted August 17, 2026. Every card links straight to the post, with a byline on all of them. The writing is theirs.',
+  },
+  {
+    name: 'The Rising Fastball',
+    url: 'https://therisingfastball.substack.com',
+    kind: 'writing',
+    who: 'D.A. Espinoza, covering women’s baseball worldwide on their own Substack: the WPBL, Japan’s Venus League and beyond.',
+    uses: 'For the posts about the WPBL and its players: a headline, a dek, a cover image and a date. The article itself is never stored or shown here.',
+    seenOn: 'The Reading page, the latest post on Home, the story card on a game, and the “written about” lists on players.',
+    basis: 'Mirrored with explicit permission, granted September 2026. Every card links straight to the post, with a byline on all of them. The writing is theirs.',
   },
   {
     name: 'RetroWPBL',

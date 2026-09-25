@@ -5,11 +5,18 @@ import { ChipRow, FilterChip } from './FilterChips'
 import { AuthorByline, ReadingRow } from './Reading'
 import { FLAT_CARDS_DARK } from './ui'
 import { fetchWpblArticles, fetchWpblTeams, getCachedWpblArticles, getCachedWpblTeams } from './api'
-import { AUTHOR_NAME } from './derive/articles'
+import { SOURCES, sourceOf } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 
-// /wpbl/reading: every post mary mustard has written about the league, newest first.
+// /wpbl/reading: everything two independent writers have written about the league, newest first:
+// mary mustard's towards a more perfect game and D.A. Espinoza's The Rising Fastball, both featured
+// with permission.
+//
+// ONE FEED WITH A WRITER FILTER, not a section per writer. A reader comes here for the league, and
+// the newest post is the answer to "anything new" whoever wrote it; the writer chips are for the
+// reader who has a favourite. Every row names its writer (ReadingRow), so the merge never blurs
+// whose words are whose.
 //
 // WHY A PAGE AND NOT A SHELF. The writing used to be one of three segments in a collapsible card
 // on the league page, itself one entry in the More menu, behind a rail that stopped at twelve with
@@ -18,7 +25,7 @@ import { track, trackImpression, EVENTS } from '../lib/analytics'
 // which is the one way a reader actually narrows 27 headlines.
 //
 // JUST READING. Highlights live on the season recap and on each game, and the Commons archive is a
-// category of the gallery: this page is one writer's work and nothing else, which is also what
+// category of the gallery: this page is the writers' work and nothing else, which is also what
 // keeps it from reading as this site's own editorial.
 //
 // EVERY ROW LEAVES THE SITE. See the note at the top of Reading.tsx: no in-app reader, by design.
@@ -27,6 +34,8 @@ export default function ReadingPage() {
   const [articles, setArticles] = useState<WpblArticle[] | null>(() => getCachedWpblArticles())
   const [teams, setTeams] = useState<WpblTeam[]>(() => getCachedWpblTeams() ?? [])
   const [club, setClub] = useState<string>('all')
+  const [writer, setWriter] = useState<string>('all')
+  const pickWriter = (key: string) => { setWriter(key); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'reading', control: 'writer', value: key }) }
   const pickClub = (id: string) => { setClub(id); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'reading', control: 'club', value: id }) }
 
   useEffect(() => {
@@ -47,21 +56,34 @@ export default function ReadingPage() {
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   // Only clubs somebody has written about, in the order the feed lists the clubs, each with its
   // count. A post can be about two clubs (a series preview), so the counts can sum past the total.
-  const clubChips = useMemo(() => {
+  // The writers with anything here, in SOURCES order, each with a count.
+  const writers = useMemo(() => {
     const list = articles ?? []
+    return SOURCES
+      .map(src => ({ src, count: list.filter(a => sourceOf(a.source).key === src.key).length }))
+      .filter(w => w.count > 0)
+  }, [articles])
+  // The writer filter applies first, so the club chips count what is left to narrow.
+  const byWriter = useMemo(() => {
+    const list = articles ?? []
+    return writer === 'all' ? list : list.filter(a => sourceOf(a.source).key === writer)
+  }, [articles, writer])
+  const clubChips = useMemo(() => {
+    const list = byWriter
     return teams
       .map(t => ({ team: t, count: list.filter(a => a.team_ids.includes(t.id)).length }))
       .filter(c => c.count > 0)
-  }, [articles, teams])
-  const rows = useMemo(() => {
-    const list = articles ?? []
-    return club === 'all' ? list : list.filter(a => a.team_ids.includes(club))
-  }, [articles, club])
+  }, [byWriter, teams])
+  const rows = useMemo(
+    () => club === 'all' ? byWriter : byWriter.filter(a => a.team_ids.includes(club)),
+    [byWriter, club])
 
   return (
     <WpblPage title="Reading" standfirst={<>
-      Everything {AUTHOR_NAME} has written about the league, newest first. Each post opens on their
-      Substack.
+      Everything two independent writers have written about the league, newest first:{' '}
+      {SOURCES.map((src, i) => (
+        <span key={src.key}>{i > 0 && ' and '}{src.authorName}&rsquo;s <em>{src.publicationName}</em></span>
+      ))}. Each post opens on the writer&rsquo;s own Substack.
     </>}>
       <Box sx={FLAT_CARDS_DARK}>
         {articles == null ? (
@@ -70,11 +92,23 @@ export default function ReadingPage() {
           <Typography sx={{ color: 'text.secondary', py: 4 }}>No posts yet.</Typography>
         ) : (
           <>
-            {/* The credit leads: on this page she is the point, not a footnote under a rail. */}
-            <Box sx={{ mb: 2 }}><AuthorByline from="page" /></Box>
+            {/* The credits lead: on this page the writers are the point, not a footnote under a
+                rail. Side by side where there is room, stacked on a phone. */}
+            <Box sx={{ mb: 2, display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: `repeat(${writers.length}, 1fr)` } }}>
+              {writers.map(w => <AuthorByline key={w.src.key} source={w.src} from="page" compact />)}
+            </Box>
+            {writers.length > 1 && (
+              <ChipRow mb={1}>
+                <FilterChip label={`Both writers (${articles.length})`} active={writer === 'all'} onClick={() => pickWriter('all')} />
+                {writers.map(w => (
+                  <FilterChip key={w.src.key} label={`${w.src.authorName} (${w.count})`}
+                    active={writer === w.src.key} onClick={() => pickWriter(w.src.key)} />
+                ))}
+              </ChipRow>
+            )}
             {clubChips.length > 1 && (
               <ChipRow mb={1.75}>
-                <FilterChip label={`All (${articles.length})`} active={club === 'all'} onClick={() => pickClub('all')} />
+                <FilterChip label={`All clubs (${byWriter.length})`} active={club === 'all'} onClick={() => pickClub('all')} />
                 {clubChips.map(c => (
                   <FilterChip key={c.team.id} label={`${c.team.name} (${c.count})`}
                     active={club === c.team.id} onClick={() => pickClub(c.team.id)} />

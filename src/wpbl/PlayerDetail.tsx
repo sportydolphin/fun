@@ -11,6 +11,7 @@ import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, AccentPanel
 import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
+import { aboutPlayerFirst } from './derive/articles'
 import { FanPhotoPlayerStrip } from './FanPhotoViews'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
@@ -1291,10 +1292,11 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       : newestFirst(battingLog).slice(0, FORM_GAMES).reverse()
         .map(l => ({ opp: oppLabel(l.game_id, l.team_id).short, value: `${l.h}-${l.ab}` }))
 
-  // Posts naming this player, newest first (the query already orders that way).
+  // Posts naming this player: the ones whose headline names them first (the profiles), then the
+  // rest, each newest first. See aboutPlayerFirst.
   const writtenAbout = useMemo(
-    () => articles.filter(a => a.player_ids.includes(player.id)),
-    [articles, player.id])
+    () => aboutPlayerFirst(articles.filter(a => a.player_ids.includes(player.id)), player.name ?? ''),
+    [articles, player.id, player.name])
 
   // The position she has actually been playing, which is not always the one on the roster.
   // `overridden` puts the filed one alongside rather than dropping it: a reader who knows her

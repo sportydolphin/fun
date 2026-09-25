@@ -1905,11 +1905,14 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
   const [video, setVideo] = useState<WpblVideo | null>(() =>
     getCachedWpblVideos()?.find(v => v.game_id === seed.id) ?? null)
-  // The written recap of this game, when someone has written one and the sync was confident
-  // enough to link it (see matchGame in derive/articles.ts). Same shared-cache treatment as
-  // the video above.
-  const [story, setStory] = useState<WpblArticle | null>(() =>
-    getCachedWpblArticles()?.find(a => a.game_id === seed.id) ?? null)
+  // The written recaps of this game, when somebody has written one and the sync was confident
+  // enough to link it (see matchGame in derive/articles.ts). EVERY one, oldest first: two writers
+  // now cover the league, and opening day's LA at New York has a post from each. Same shared-cache
+  // treatment as the video above.
+  const storiesFor = (as: readonly WpblArticle[] | null | undefined) =>
+    (as ?? []).filter(a => a.game_id === seed.id)
+      .sort((a, b) => a.published_at.localeCompare(b.published_at))
+  const [stories, setStories] = useState<WpblArticle[]>(() => storiesFor(getCachedWpblArticles()))
   // And the outlet's recap of the same game. A second, independent write-up: see the note
   // where the two cards render for why they stay two cards.
   const [recap, setRecap] = useState<WpblGameRecap | null>(() =>
@@ -2041,7 +2044,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   useEffect(() => {
     let cancelled = false
     fetchWpblArticles()
-      .then(as => { if (!cancelled) setStory(as.find(a => a.game_id === seed.id) ?? null) })
+      .then(as => { if (!cancelled) setStories(storiesFor(as)) })
       .catch(() => { /* keep last-good */ })
     return () => { cancelled = true }
   }, [seed.id])
@@ -2429,9 +2432,9 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
                         header above the tabs (see the note there). Borderless now, so it can ride
                         up close under the tab switcher; `pb: 1.5` plus GameRecapView's own `pt: 0.5`
                         keeps a 16px gap below so it stays clear of the win-probability chart. */}
-                    {(story || recap) && (
+                    {(stories.length > 0 || recap) && (
                       <Box sx={{ px: 2, pt: 0.25, pb: 1.5, display: 'grid', gap: 1 }}>
-                        {story && <GameStoryCard article={story} />}
+                        {stories.map(st => <GameStoryCard key={st.post_id} article={st} />)}
                         {recap && <GameRecapLinkCard recap={recap} />}
                       </Box>
                     )}

@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.95.0',
+    date:    '2026-09-25',
+    title:   'A second writer on the league',
+    changes: [
+      {
+        short: 'The Rising Fastball joins Reading',
+        full:  'D.A. Espinoza’s The Rising Fastball now sits beside mary mustard’s towards a more perfect game on the Reading page, with the writer’s permission: game recaps, weekly check-ins, the playoff preview and the profiles of the league’s players. Filter by writer or by club, and every post opens on the writer’s own Substack.',
+      },
+      {
+        short: 'Player pages lead with the profiles',
+        full:  'A player’s “Written about” list now puts the posts about that player first, ahead of the round-ups that only mention them, so Rakyung Kim’s page opens on a three-part profile series rather than on league round-ups.',
+      },
+      {
+        short: 'A game shows every story written about it',
+        full:  'Opening day at New York was written up by both writers, and the game page now shows both, each with its byline.',
+      },
+      {
+        short: 'Lighter thumbnails on Reading',
+        full:  'Post covers load at the size they are drawn instead of full size, about a thirtieth of the download for each one.',
+      },
+    ],
+  },
+  {
     version: '1.94.0',
     date:    '2026-09-24',
     title:   'A faster Home',

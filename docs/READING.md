@@ -1,7 +1,13 @@
 # Reading: the WPBL writing feed
 
-Mirroring an independent writer's WPBL coverage into the section, so a reader who has just
+Mirroring independent writers' WPBL coverage into the section, so a reader who has just
 looked at a box score can go read what someone thought about that game.
+
+**Two writers since Sep 25, 2026.** Everything below was written for the first, and all of it
+holds for both; section 10 is what is different about the second. Each publication is one entry
+in `SOURCES` ([`derive/articles.ts`](../src/wpbl/derive/articles.ts)): host, credit, photo and
+its own rule for which posts count. Every row in `wpbl_articles` carries its `source`, and every
+card looks its byline up from it.
 
 **Source:** [*towards a more perfect game: women's baseball & the wpbl*](https://towardsamoreperfectgame.substack.com)
 by **mary mustard** ([@dijondarling](https://substack.com/@dijondarling)), a writer and
@@ -317,3 +323,50 @@ Rejected alternatives, for the record:
   asking for a portrait in the same note that asks permission at all.
 - **Paywalled posts.** All 23 are `audience: everyone` today. When one isn't, the card
   should say so rather than sending a reader into a wall unannounced.
+
+## 10. The second writer: The Rising Fastball
+
+[*The Rising Fastball*](https://therisingfastball.substack.com) by **D.A. Espinoza**, covering
+women's baseball worldwide: the WPBL, Japan's Venus League, NPB and beyond. **Permission granted
+September 2026**, on the same terms as above: headline, dek, cover, date and a link, never the
+text. `source = 'rising-fastball'`.
+
+**Which posts count is a different rule, and it has to be.** mary's tags are her own filing, so
+they are the filter. These tags are reach tags applied in bulk (fifteen on a typical post): the
+WPBL tag sits on Venus League pieces and on "The Rising Fastball Turns 1!", while the interview
+with Ayami Sato has no tag at all. What the newsletter does consistently is title its league
+coverage "WPBL: ...", so the rule is:
+
+- a title starting with **WPBL**, or
+- a title or dek naming a **rostered player** by full name. These are the profiles (Rakyung Kim's
+  three-part series, Ayami Sato, Rosi Del Castillo), many from before the league played a game,
+  and they are the best thing on a player's page.
+
+That was 34 of 151 posts on Sep 25, 2026, checked by hand. See `isRisingFastballWpblPost`.
+
+**Translations are dropped** (`dropTranslations`). Some posts are published two or three times.
+A Japanese edition goes on its Japanese title. A Spanish one can share the English title exactly
+("Rosi Del Castillo: La Nena", both labelled `es` by Substack), so among posts with one title the
+one with the English dek is kept.
+
+**Recaps without a score** link to their game by a second route in `matchGame`. The headlines
+are "Boston Hunters VS Los Angeles Queens Game 3 Recap": two clubs and the word, no score. The
+headline must say "recap" and name exactly two clubs, and exactly one final between them must
+fall within four days before the post. Opening day's LA at New York has a post from each writer,
+which is why a game now shows every linked story rather than one.
+
+**Two list endpoints, merged.** Neither is complete alone: substack.com's author profile returns
+only the newest 46 of this archive, and the publication archive (which had looked capped at 23
+for mary) turns out to answer its first page with 23 posts whatever the limit and full pages after
+that. The old loop stopped at the first short page, so it always stopped at 23. It now pages by
+what came back and the two lists are unioned by post id.
+
+**Older posts get their body fetched once.** The RSS window holds the latest 20, and a never-read
+post outside it is fetched through the single-post API (up to 30 a run) so its players and clubs
+are matched on the text, not just the headline. The body is used for matching and dropped, as
+everywhere else here.
+
+**The credit.** Every card names the writer. The byline bio for this writer is third person, so
+it is summarised in our words rather than quoted (`bioIsQuote: false`): the quotation marks on
+mary's exist to keep a first-person "I" from reading as ours, and there is no "I" here.
+

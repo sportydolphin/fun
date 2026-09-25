@@ -218,6 +218,9 @@ export interface WpblSiteGame {
  *  reader to the writer's post rather than standing in for it. */
 export interface WpblArticle {
   post_id: number            // Substack's stable numeric post id
+  /** Which publication: a key of SOURCES in derive/articles.ts, which is where the credit on
+   *  every card comes from. */
+  source: string
   slug: string
   url: string                // what every card opens, in a new tab
   title: string
