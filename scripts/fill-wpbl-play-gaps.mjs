@@ -461,7 +461,7 @@ export function planCorrections({ ourPlays, theirGame, roster, existing }) {
       }
       const line = roster.get([...unique][0])
       const reason = `The league's own box score gives ${row.batter_name} no plate appearance in this game, so this play `
-        + `cannot be hers. ${line.name} has the at-bats and no plays at all, the event matches, and RetroWPBL names her `
+        + `cannot be theirs. ${line.name} has the at-bats and no plays at all, the event matches, and RetroWPBL names ${line.name} `
         + `(${theirGame.id}, ${half}). The play is unchanged: only the batter on it. Not a second opinion on the league's `
         + `scoring, an internal contradiction in it.`
       push(row, 'batter_name', row.batter_name, line.name, reason, 'league')

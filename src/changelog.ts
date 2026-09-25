@@ -262,7 +262,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'It says what happened the times the two of them faced each other',
-        full:  'Four clubs means a hitter sees the same pitcher ten or fifteen times in a season, which is a real record rather than the four at-bats the same thing gives you in the majors. A hitter and a pitcher compared here get their own line: how many times she has come up against her, and what she did. Kelsie Whitmore is 2-for-5 against Ayami Sato with two home runs.',
+        full:  'Four clubs means a hitter sees the same pitcher ten or fifteen times in a season, which is a real record rather than the four at-bats the same thing gives you in the majors. A hitter and a pitcher compared here get their own line: how many times the hitter has come up against that pitcher, and what happened. Kelsie Whitmore is 2-for-5 against Ayami Sato with two home runs.',
       },
       {
         short: 'A possible game 3 shows on the scoreboard',
@@ -270,7 +270,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'It will not tell you who won',
-        full:  'There is no overall score and no verdict. Each line says who is ahead on that one number, how much each of them has played is the first thing on every card rather than buried under the rates, and where somebody has not played enough for a rate to mean much the page says so instead of quietly leaving her out.',
+        full:  'There is no overall score and no verdict. Each line says who is ahead on that one number, how much each of them has played is the first thing on every card rather than buried under the rates, and where somebody has not played enough for a rate to mean much the page says so instead of quietly leaving that player out.',
       },
     ],
   },
@@ -347,7 +347,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'The play-by-play says when a play did not come from the league',
-        full:  'A reader counted two Katherine Murphy singles in the Aug 20 play-by-play against a box score crediting her one, and the page gave them no way to tell why. The league published the whole of New York’s sixth and seventh that night as rows carrying a pitcher and a pitch sequence and nothing else, so those at-bats were filled in from RetroWPBL, an independent transcription of the same game. Those plays now carry a small mark, and a line at the foot of the play-by-play says how many there are and where they came from. Both readings disagree about that one at-bat and neither can settle it; what was wrong was showing them as one account that did not add up. Two games in the season have any of these.',
+        full:  'A reader counted two Katherine Murphy singles in the Aug 20 play-by-play against a box score crediting one, and the page gave them no way to tell why. The league published the whole of New York’s sixth and seventh that night as rows carrying a pitcher and a pitch sequence and nothing else, so those at-bats were filled in from RetroWPBL, an independent transcription of the same game. Those plays now carry a small mark, and a line at the foot of the play-by-play says how many there are and where they came from. Both readings disagree about that one at-bat and neither can settle it; what was wrong was showing them as one account that did not add up. Two games in the season have any of these.',
       },
       {
         short: 'Claire O’Sullivan’s postseason opener is back under the right name',
@@ -523,7 +523,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Every change names the player it is about',
-        full:  'Corrections are matched to a player through every id the league has ever issued her, so somebody who changed clubs mid-season is still one person here rather than a line vanishing from one page and appearing on another. An entry the league published without an id is reported as exactly that and is never guessed at by name.',
+        full:  'Corrections are matched to a player through every id the league has ever issued them, so somebody who changed clubs mid-season is still one person here rather than a line vanishing from one page and appearing on another. An entry the league published without an id is reported as exactly that and is never guessed at by name.',
       },
       {
         short: 'The list only ever fills going forward',
@@ -625,7 +625,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Substitutions stopped being printed as if they were plays',
-        full:  'A line reading "Jamie Mackay to lf" between two at-bats looks like something she did at the plate. It is a defensive change, and 109 of them were being given a play’s weight because the league writes them without the "for So-and-so" the old rule looked for. Another 29 arrived as a bare slash where the incoming player’s name should be, and printed as "/ for Ayami Sato", which looks like the page is broken. Both now sit in the quiet substitution style, the second named as what it is.',
+        full:  'A line reading "Jamie Mackay to lf" between two at-bats looks like something the batter did at the plate. It is a defensive change, and 109 of them were being given a play’s weight because the league writes them without the "for So-and-so" the old rule looked for. Another 29 arrived as a bare slash where the incoming player’s name should be, and printed as "/ for Ayami Sato", which looks like the page is broken. Both now sit in the quiet substitution style, the second named as what it is.',
       },
       {
         short: 'Who made the play is named on a runner being thrown out, not just on the batter',
@@ -633,7 +633,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Three more lines where the name shown was not the one who did it',
-        full:  'From the 8th inning on, the league writes the batter due up and the runner placed on second as two names in a row, so the line read as the batter having placed her there; it now names the runner and says what it is. A dropped foul ball was printed under the batter’s name with the league’s scoring shorthand, "Dropped foul ball, E3", when it is the first baseman who dropped it; it now says so in the same words the rest of the list uses for a fielder. And a pinch hitter being announced is a roster move, not a plate appearance, so it sits with the other substitutions rather than in a play’s weight.',
+        full:  'From the 8th inning on, the league writes the batter due up and the runner placed on second as two names in a row, so the line read as the batter having placed the runner there; it now names the runner and says what it is. A dropped foul ball was printed under the batter’s name with the league’s scoring shorthand, "Dropped foul ball, E3", when it is the first baseman who dropped it; it now says so in the same words the rest of the list uses for a fielder. And a pinch hitter being announced is a roster move, not a plate appearance, so it sits with the other substitutions rather than in a play’s weight.',
       },
       {
         short: 'A fielder is named one way, and "singled to 3rd base" is gone',
@@ -761,7 +761,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'One thing the Live tab cannot do, and will not pretend to',
-        full:  'A batter’s line under her name is her line in that game so far. The pitch-by-pitch tracking is a different matter: the league publishes it days after a game rather than during one, so there is no pitch plot on this tab and there cannot be. Between half-innings the tab says which break it is and shows nothing else, because everything the feed is holding at that moment belongs to the at-bat that just finished.',
+        full:  'A batter’s line under their name is their line in that game so far. The pitch-by-pitch tracking is a different matter: the league publishes it days after a game rather than during one, so there is no pitch plot on this tab and there cannot be. Between half-innings the tab says which break it is and shows nothing else, because everything the feed is holding at that moment belongs to the at-bat that just finished.',
       },
     ],
   },
@@ -926,7 +926,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Its leaderboard is a list again, not two columns with a gap',
-        full:  'That board sits in a wide frame because the board beside it in the tabs is a stats table that needs every pixel. Its own content is one leaderboard, and it was being stretched to fill all of it: a player’s name sat at one end and her number at the other, about 1,200 pixels apart, which reads as two columns that happen to share a border rather than as a row. The list now keeps a sensible column width, the same one the schedule and standings pages use, and the board is centred on the page instead of pinned to its left edge with a third of the width empty beside it. Nothing changes on a phone, which was never wide enough for this to happen.',
+        full:  'That board sits in a wide frame because the board beside it in the tabs is a stats table that needs every pixel. Its own content is one leaderboard, and it was being stretched to fill all of it: a player’s name sat at one end and their number at the other, about 1,200 pixels apart, which reads as two columns that happen to share a border rather than as a row. The list now keeps a sensible column width, the same one the schedule and standings pages use, and the board is centred on the page instead of pinned to its left edge with a third of the width empty beside it. Nothing changes on a phone, which was never wide enough for this to happen.',
       },
     ],
   },
@@ -972,7 +972,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Players who have not qualified yet get a league ranking',
-        full:  'Rate stats like batting average need a minimum number of plate appearances before they mean anything, which is why a player short of that bar got no rankings at all: the part of her card that places her against the league simply vanished, for exactly the player you are least able to place yourself. Counting stats have no such problem. Five stolen bases is five stolen bases whether they came in nine games or forty. Cards now rank those, so Dumais’s page can say she is 3rd in the WPBL in steals, which it had no way to tell you before.',
+        full:  'Rate stats like batting average need a minimum number of plate appearances before they mean anything, which is why a player short of that bar got no rankings at all: the part of their card that places them against the league simply vanished, for exactly the player you are least able to place yourself. Counting stats have no such problem. Five stolen bases is five stolen bases whether they came in nine games or forty. Cards now rank those, so Dumais’s page can say Dumais is 3rd in the WPBL in steals, which it had no way to tell you before.',
       },
       {
         short: 'The stat boxes are the same size on every player’s card',
@@ -987,7 +987,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'A fielding line covers every position a player has taken, and there is no way to split it: the league’s data does not record which position each play came at. On a two-way player that made the pitching tab misleading, since Whitmore’s 21 putouts are catches in centre field and a pitcher does not make 21 putouts in five relief appearances. The line now ends with the positions those numbers came from.',
       },
       {
-        short: 'How close she is to qualifying, rather than the bar itself',
+        short: 'How close a player is to qualifying, rather than the bar itself',
         full:  'Under the headline number a card said “29 PA to qualify” while a meter further down said “1 more PA”. Both were true and they were different numbers for one fact, and the bigger of the two sat under the biggest type on the card, where it reads as something still owed. It now names the gap, so a player one plate appearance from the leaderboards is told so.',
       },
       {
@@ -1176,7 +1176,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'The play-value card now shows its working, on a real play',
-        full:  'The Findings board prices sixteen kinds of play in runs, and said nothing about where any of those numbers came from. Open \u201cHow this is worked out\u2019 under it and there is a real play from this season taken through the arithmetic: the inning it happened in, what the batter came up to, what she left behind, and the runs it put on the board, adding up to what that play was worth. The example is picked rather than written: it is always the play closest to the average for its kind, so the sum lands on the number in the row above it. Every figure on the card is measured from this league\u2019s own games.',
+        full:  'The Findings board prices sixteen kinds of play in runs, and said nothing about where any of those numbers came from. Open \u201cHow this is worked out\u2019 under it and there is a real play from this season taken through the arithmetic: the inning it happened in, what the batter came up to, what was left behind, and the runs it put on the board, adding up to what that play was worth. The example is picked rather than written: it is always the play closest to the average for its kind, so the sum lands on the number in the row above it. Every figure on the card is measured from this league\u2019s own games.',
       },
       {
         short: 'The watch parties for all eleven postseason games are up on Discord',
@@ -1262,7 +1262,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Player names are real links',
-        full:  'Tapping a player name has always opened her page, but it was not a link: there was no address behind it, so you could not open one in a new tab, copy its link, or reach it with a keyboard, and a search engine could not follow it at all. Every player name on the section is now a proper link to her page. Same tap, same page, but middle-click and cmd-click work, Tab reaches them, and the pages can finally be found.',
+        full:  'Tapping a player name has always opened that player’s page, but it was not a link: there was no address behind it, so you could not open one in a new tab, copy its link, or reach it with a keyboard, and a search engine could not follow it at all. Every player name on the section is now a proper link to that player’s page. Same tap, same page, but middle-click and cmd-click work, Tab reaches them, and the pages can finally be found.',
       },
       {
         short: 'Games have their own page',
@@ -1312,15 +1312,15 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'A player page uses the whole screen on a desktop',
-        full:  'The player page was built for a phone and a desktop got that same narrow column: about a third of it visible at a time in a 640px panel, with most of a screen empty either side. On a wide screen it now opens wider and reads as two columns, her season on the left and the games it came out of on the right, with the headline pair moved onto the band that carries her name and club colours. Same numbers, roughly half the scrolling, and nothing about the phone layout changed.',
+        full:  'The player page was built for a phone and a desktop got that same narrow column: about a third of it visible at a time in a 640px panel, with most of a screen empty either side. On a wide screen it now opens wider and reads as two columns, the season on the left and the games it came out of on the right, with the headline pair moved onto the band that carries the player’s name and club colours. Same numbers, roughly half the scrolling, and nothing about the phone layout changed.',
       },
       {
         short: 'Any game in a player\u2019s log opens from the log',
-        full:  'The game log lists every game she has played and, until now, was the one place on the site that named a game you could not open. Tap a row and that game opens on its Game Center, and going back returns you to her page. The log also leads with the most recent game rather than the oldest, which matters more the longer the season gets, and on a wide screen it keeps to a fixed height and scrolls itself with the column headings pinned.',
+        full:  'The game log lists every game the player has played and, until now, was the one place on the site that named a game you could not open. Tap a row and that game opens on its Game Center, and going back returns you to the player’s page. The log also leads with the most recent game rather than the oldest, which matters more the longer the season gets, and on a wide screen it keeps to a fixed height and scrolls itself with the column headings pinned.',
       },
       {
-        short: 'The game log says where she played, and marks her best game in each column',
-        full:  'A new POS column gives the position she actually played that day, taken from that game\u2019s box score rather than from her roster listing. Kylee Lahners is filed at third base and the column is what shows she has DH\u2019d six times, played first twice, and moved from one to the other in the opener. The best value in each column is picked out in her club\u2019s colour, for the columns where more is genuinely better: runs, hits, doubles, triples, home runs, RBI, steals and total bases, or innings and strikeouts for a pitcher. Strikeouts at the plate and the hits a pitcher gave up are never marked, and neither is a column where nothing stands out.',
+        short: 'The game log says where each game was played in the field, and marks the best game in each column',
+        full:  'A new POS column gives the position actually played that day, taken from that game\u2019s box score rather than from the roster listing. Kylee Lahners is filed at third base and the column is what shows six games at DH, two at first, and a move from one to the other in the opener. The best value in each column is picked out in the club\u2019s colour, for the columns where more is genuinely better: runs, hits, doubles, triples, home runs, RBI, steals and total bases, or innings and strikeouts for a pitcher. Strikeouts at the plate and the hits a pitcher gave up are never marked, and neither is a column where nothing stands out.',
       },
       {
         short: 'Team names open the club, everywhere a game is shown',
@@ -1366,7 +1366,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Stats is a ranked list on a phone, not a sixteen-column table',
-        full:  'The stats table is sixteen columns wide, and on a phone four of them fit at a time, so the one thing anyone comes to a stats page to do, rank the league by a stat, meant scrolling sideways to find the column and tapping its header. On a phone it is now a list: one row per player, with the stat it is ranked by large on the right and three more under her name. A Sort control at the top says which stat that is and offers every one of them, each with its name written out, so you no longer have to know what SLG stands for to use it. The team filter and the qualified toggle moved into a Filters sheet beside it, which also explains what qualified means, since the bar moves as the season goes on. The list stops at ten with a tap for the rest, and the full table is one tap below that. Nothing changed on a desktop, where the table fits and comparing across columns is what a table is for.',
+        full:  'The stats table is sixteen columns wide, and on a phone four of them fit at a time, so the one thing anyone comes to a stats page to do, rank the league by a stat, meant scrolling sideways to find the column and tapping its header. On a phone it is now a list: one row per player, with the stat it is ranked by large on the right and three more under the name. A Sort control at the top says which stat that is and offers every one of them, each with its name written out, so you no longer have to know what SLG stands for to use it. The team filter and the qualified toggle moved into a Filters sheet beside it, which also explains what qualified means, since the bar moves as the season goes on. The list stops at ten with a tap for the rest, and the full table is one tap below that. Nothing changed on a desktop, where the table fits and comparing across columns is what a table is for.',
       },
       {
         short: 'The Stats boards are one row of tabs',
@@ -1389,11 +1389,11 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'A traded player keeps one page, one season and one set of numbers',
-        full:  'The league’s stats feed gives a player a brand new id when she changes club, and says nothing that connects it to the old one. When Diana Ibarra moved from New York to Los Angeles she arrived here as a second, separate player: eight games under one name and one game under the other, neither of them her real season, and her own page answering “not found” because two people appeared to be claiming it. She is one player again, with all nine games, and the site now recognises a trade for what it is instead of meeting a stranger.',
+        full:  'The league’s stats feed gives a player a brand new id on changing clubs, and says nothing that connects it to the old one. When Diana Ibarra moved from New York to Los Angeles, the move arrived here as a second, separate player: eight games under one name and one game under the other, neither of them the real season, and Ibarra’s own page answering “not found” because two people appeared to be claiming it. Ibarra is one player again, with all nine games, and the site now recognises a trade for what it is instead of meeting a stranger.',
       },
       {
-        short: 'Her old club keeps the games she played there',
-        full:  'A player who leaves does not take her first half of the season with her. Her game log names the right opponent for the games she played before the trade, her old club’s page still counts what she did for it, and the Hall of Firsts credits each milestone to the club she was actually playing for on the day. The only thing that changes when someone is traded is where she plays next.',
+        short: 'A traded player’s old club keeps their games there',
+        full:  'A player who leaves does not take the first half of the season along. The game log names the right opponent for the games played before the trade, the old club’s page still counts what the player did for it, and the Hall of Firsts credits each milestone to the club they were actually playing for on the day. The only thing that changes when someone is traded is where they play next.',
       },
     ],
   },
@@ -1415,7 +1415,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'A new Pitch by pitch board on the Stats tab',
-        full:  'The league’s feed records what every single pitch did, one letter at a time, and nothing here had ever read it. A new board on the Stats tab does. On the pitching side: how often a pitcher draws a swing and a miss, how often she throws a strike, and how often she finishes a hitter off once she has two strikes on her. On the hitting side: who makes the most contact, who makes a pitcher work the longest, and who survives with two strikes against her. Every board says what the league as a whole does too, so a number has something to be read against. It covers every pitch of every game played, which is the whole point of it: the Tracked board has radar for two games, this has all of them. At the top there is a breakdown of what those pitches actually did, from balls and called strikes through fouls and swings and misses to balls put in play, split by whether the batter offered at all.',
+        full:  'The league’s feed records what every single pitch did, one letter at a time, and nothing here had ever read it. A new board on the Stats tab does. On the pitching side: how often a pitcher draws a swing and a miss, how often they throw a strike, and how often they finish a hitter off once they have two strikes on them. On the hitting side: who makes the most contact, who makes a pitcher work the longest, and who survives with two strikes against them. Every board says what the league as a whole does too, so a number has something to be read against. It covers every pitch of every game played, which is the whole point of it: the Tracked board has radar for two games, this has all of them. At the top there is a breakdown of what those pitches actually did, from balls and called strikes through fouls and swings and misses to balls put in play, split by whether the batter offered at all.',
       },
       {
         short: 'The Tracked board is resting until the league posts more of it',
@@ -1575,7 +1575,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Team stats show runners left on base',
-        full:  'The team hitting table has a Left On Base column. It uses the league\u2019s own per-game totals rather than adding up the individual batting lines, because a batter\u2019s left-on-base counts every runner who happened to be aboard when she came up, and adding those together counts the same stranded runner several times over. Worth reading alongside the rest of the row rather than on its own: a club that puts fewer runners on base has fewer runners to leave there, so a low number is not automatically a good one.',
+        full:  'The team hitting table has a Left On Base column. It uses the league\u2019s own per-game totals rather than adding up the individual batting lines, because a batter\u2019s left-on-base counts every runner who happened to be aboard when they came up, and adding those together counts the same stranded runner several times over. Worth reading alongside the rest of the row rather than on its own: a club that puts fewer runners on base has fewer runners to leave there, so a low number is not automatically a good one.',
       },
     ],
   },
@@ -1644,7 +1644,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Wording no longer assumes a player\u2019s pronouns',
-        full:  'Text across the site referred to players as she or her. It now says they or their throughout.',
+        full:  'Text across the site used gendered pronouns for players. It now says they or their throughout.',
       },
       {
         short: 'The notifications panel fits the screen on a phone',

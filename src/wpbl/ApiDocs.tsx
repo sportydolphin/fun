@@ -171,7 +171,7 @@ export default function WpblApiDocs() {
       />
       <EndpointCard
         path="/teams/{id}/players"
-        purpose="A club's roster. The only place the feed publishes biographical detail: birth date, hometown, height, weight, headshot, uniform number, position, and whether she is a listed starter."
+        purpose="A club's roster. The only place the feed publishes biographical detail: birth date, hometown, height, weight, headshot, uniform number, position, and whether the player is a listed starter."
         returns={`{
   "count",
   "players": [
