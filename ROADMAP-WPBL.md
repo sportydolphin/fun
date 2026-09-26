@@ -4,10 +4,12 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last checked against production: **Sep 5, 2026** (28 of 30 regular-season games final, 2 left,
-> and the feed still carries no postseason row; the clock below is counted from the live schedule,
-> not from memory).
-> Last realigned: **Sep 1, 2026**, when the desktop rebuild (#0) finished and shipped as v1.58.0,
+> Last checked against production: **Sep 24, 2026**. The season is over (40 finals, the last on
+> Sep 22), the feed has gone quiet, and every surface below is in its offseason shape.
+> Last realigned: **Sep 24, 2026**, for the offseason (see the realignment log). The experiments
+> flag now hides exactly one thing, the steal card on Run value; the mobile bottom nav shipped to
+> every phone on Sep 14, so the flag notes that follow are history.
+> Before that **Sep 1, 2026**, when the desktop rebuild (#0) finished and shipped as v1.58.0,
 > which empties the top of the list five days before the regular season ends. Before that
 > **Aug 20, 2026**, against traffic data for the first time (see "What the traffic says"), revised
 > again later the same day when 1b turned out not to be blocked (see its entry). The bracket and
@@ -24,59 +26,49 @@
 
 ## The clock: read this before prioritizing anything
 
-**2 games left: tonight and Sep 6. The last regular-season game is Sep 6, 2026, tomorrow, and
-the postseason runs Sep 9 to Sep 22** (schedule in Background, below). Then the league's feed
-goes quiet and this section has no new data until spring 2027.
+**The 2026 season is over.** The regular season ended Sep 6, the final on Sep 22, and the league's
+feed has nothing new until spring 2027 (no date announced). The ingest has dropped to its
+off-season cadence and turns itself back on as a published 2027 schedule approaches
+(`wpbl_ingest_due()`), so nobody has to remember to reschedule it. The whole season is exported
+to the archive in git as of the final game (40 finals, 6,983 rows).
 
-**As of Sep 5 the mirror holds 30 rows and every one of them reads `game_type: regular`,
-`counts_in_standings: true`.** No postseason game exists in the feed yet, so the one dependency
-#1 and #1b both isolate is still unanswered, and it stays unanswered until the semifinals appear
-(the dates were published, the seeds are not set until Sep 6). Two things follow. Anything that
-must behave differently in the postseason cannot be verified before it runs live, so it should
-fail toward the regular-season reading rather than toward blank (`season.ts` already does; new
-code has to be written the same way). And **the day the first semifinal row lands is a
-scheduled task, not a surprise**: read `game_type` and `counts_in_standings` on it before
-trusting any season total on the site.
+That changes how every item is graded. The September test was **season-locked vs durable**;
+season-locked work has now missed its window and waits for 2027, and it should be built in the
+spring against the new feed rather than now against a guess of it. **Everything built this winter
+is durable or it is nothing**: the question for each item is whether it is a reason to open
+`/wpbl` in November.
 
-So the real deadline is Sep 22, not Sep 6, and the last two weeks of it are the highest-stakes
-baseball the league will play. A season-locked feature that only just misses Sep 6 may still be
-worth finishing; one that misses Sep 22 is a year late.
+Dated things left:
 
-That single fact should grade every item below:
+- **Oct 1, 2026**: the fan-award results come off Home and the season card goes full width.
+- **Spring 2027, before the first game**: re-verify every feed assumption in CLAUDE.md's Traps
+  before trusting a season total. The league minted new team and player ids for the postseason,
+  changed the ERA basis mid-season and caps `/games` silently; any of those can change again over
+  a winter. `wpbl-postseason-check` still only warns when its secrets are missing, and should fail
+  the way the archive and sitemap jobs now do before it is relied on again.
 
-- **Season-locked**: needs live games to be worth building, and has three weeks to earn its
-  keep, of which only two days still have regular-season baseball in them. Build it now or
-  lose a year.
-- **Durable**: still worth something on Oct 1. Safe to build late, but the *data* some of
-  it needs must be captured while the season is running.
-
-The section has spent the season accumulating features that only work when games are being
-played. Nothing yet exists that makes `/wpbl` worth opening in November.
+*(The September clock, which counted down to Sep 6 and Sep 22 and graded the list through the
+season, is retired; it is in git history.)*
 
 ---
 
 ## Where the section stands
 
-**Live surfaces:** Home (scoreboard strip, last-game recap card, next-game card + countdown,
-standings, leaders, MVP race, bracket, Discord invite) ·
-Standings is the table alone from Sep 8, 2026: the seeding card under it was removed the day
-after the last regular-season game, and the bracket on Home carries the postseason (see #1c) ·
-Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats, one row of board tabs
-(Players, a ranked list on a phone and the full table on a desktop, with a Sort sheet, a
-Filters sheet and a team cut · Teams · Pitch by pitch · Run value · Tracked,
-hidden until the league publishes radar again · Draft) · Teams (ranked club cards with
-record, form, run differential and next game, plus a head-to-head grid) → team pages (record,
-results, opponent splits, season totals, leaders, roster with inline stats, lineup-history
-and pitching-usage grids, all under a pinned club switcher) · Game Center (recap, with a win
-probability graph any moment of the game can be read off, box score, play-by-play, pitch data) ·
-Player pages at `/wpbl/players/<slug>` (batting/pitching/fielding cards, game log,
-pitch-location maps, shareable links that unfurl) ·
-two standalone pages off the footer rather than the nav: `/wpbl/league` (the primer, where the
-118 players come from, the media shelf) and `/wpbl/glossary` (the rules and the stat
-definitions) ·
-search · live polling · push reminders · a fan Discord integration
-(board, final-score box scores, YouTube highlight reels and Shorts, `/player` slash command,
-giveaway draw, shop restock and auction-lot watchers).
+**Live surfaces, in their offseason shape (Sep 24, 2026):** Home (the champion banner, the season
+card, fan-award results until Oct 1, a fan-photo gallery card, the latest post from either writer,
+the bracket without its odds, leaders, standings) · Schedule · Standings · Stats, one row of board
+tabs (Players, Teams, Pitch by pitch, Run value, Tracked, Draft) · Teams and team pages · Game
+Center (recap with a win probability graph, box score, play-by-play with the situation after every
+play, pitch data, story and recap links from outside writers) · Player pages at
+`/wpbl/players/<slug>` with a regular / playoffs / both scope and a fan-photo strip, opening as an
+overlay over whatever page they were tapped on · standalone pages off the More menu and the footer
+(one list, [`morePages.ts`](src/wpbl/morePages.ts)): `/wpbl/season` (the recap: final standings,
+the standings race, runs by inning, the postseason and its best performances, highlights),
+`/wpbl/reading` (both writers' posts, see [docs/READING.md](docs/READING.md)), `/wpbl/photos`
+(fans' photos and the Commons archive), `/wpbl/league` (the primer only), Scorigami, Compare, the
+players index, the glossary, and Data sources · search · short share links (`/p`, `/g`) · push
+reminders · a fan Discord integration (board, final-score box scores, highlight reels and Shorts,
+`/player` with postseason stats) · Bluesky recaps and game-start posts.
 
 **Data:** the `wpbl-ingest` edge function mirrors the league's public feed
 (`stats.womensprobaseballleague.com/v1`) into Supabase on a 2-minute cron: games,
@@ -87,13 +79,12 @@ the league is not reachable to fix them at source, so a nightly job checks the p
 against the rules of baseball and our own corrections are applied as a read-time overlay
 (`wpbl_play_corrections`), never written into the mirror.
 
-**What it does NOT have:** predictions/pick'em on the site itself (the Discord game is not the
-same thing), a season WPA leaderboard or any ranking of games by how much they moved (the win
-model that would feed both is live, and `excitement` is computed on every game and drawn
-nowhere), any credit for baserunning in a player's season value (the MVP race prices the plate
-and the mound and a steal is neither), daily standouts, a league primer or stat glossary, series records anywhere but the
-bracket, and almost nothing that survives Sep 22 (the Commons archive gallery and the Run value
-board are the two exceptions, and neither is a reason to visit twice).
+**What it does NOT have:** a season WPA leaderboard or any ranking of games by how much they
+moved (the win model that would feed both is live, and `excitement` is computed on every game and
+drawn nowhere), any credit for baserunning in a player's season value (the MVP race prices the
+plate and the mound and a steal is neither), and a reason to come back more than once a month
+between now and spring. Reading and the photo gallery are the only surfaces that still change in
+the offseason, and both change only when somebody else publishes.
 
 ---
 
@@ -140,6 +131,12 @@ Home's one player name currently opens a box score.)* The primer (#4) and SEO (#
 ---
 
 ## Next: in priority order
+
+**Sep 24, offseason.** Every season-locked item below has shipped or missed its window, and #5b
+shipped (the star on Home opens the player). What is left to order is durable work: #2 the
+archive's winter build, SEO links (#3, not code), and anything from the data-mining backlog that
+is a reason to visit in November. The September ordering is kept below as the record of how the
+season was worked.
 
 **Read this first, Sep 1.** #0 shipped, which empties the top of the list with five regular-season
 days left. The numbers below are stable references and are not renumbered; the order to work them
@@ -969,6 +966,66 @@ subway map, because all three are cheap, survive Sep 22 and make a share image.
   after final, from `wpbl_game_revisions`. Read-only by nature, and the only record of those edits.
 - **Hear the game** 🎮. A game's win probability as a rising and falling tone, a click on each run.
 
+## Offseason visuals (Sep 24, 2026)
+
+A share series for Bluesky and Reddit, posted as "Offseason Visual #N" once or twice a week
+through the winter. **This is a menu, not a schedule: the owner picks which one is next, every
+time**, and nothing here is committed to or in order. Posted so far: #1 the hits bar chart race
+(screen-recorded from the season page). Road to Springfield (the map on the league page and its
+share videos) is built and set aside in a git stash, not shipped.
+
+**How one gets made.** `npm run visual -- <slug> --n <number>` renders a visual from
+[`scripts/visuals/`](scripts/visuals/) into `share/visuals/<slug>/` (gitignored) at three sizes:
+1200x630 (Bluesky, link previews), 1080x1350 (Instagram feed, Discord, Reddit), 1080x1920
+(stories). An animated one gets an .mp4 and a .png of its last frame, a static one the .png
+alone. The series frame (the "Offseason Visual #N" tag, the title block, the footer, the three
+layouts) lives in [`scripts/visuals/kit.ts`](scripts/visuals/kit.ts), so a new visual draws only
+its own chart. **Re-check every number against the full season before it goes on an image**: the
+figures below come from roadmap audits made with about 30 games in the mirror, and the season
+finished at 40 finals plus the postseason.
+
+**Where to post.** r/dataisbeautiful wants an [OC] tag and a comment naming the source and the
+tool; r/sabermetrics suits the run-value ones; r/baseball the history and player ones. Link each
+post to the site page it comes from, which is also the backlink work in docs/BACKLINKS.md.
+
+**Ideas**, tagged 🎞️ animated or 🖼️ static:
+
+- 🎞️ **Every home run of 2026.** Each homer drops onto a drawn field toward the side the play text
+  names ("homered to left"), in date order, with a counter and the hitter's name.
+- 🎞️ **Strikeout bar chart race.** The pitching twin of #1.
+- 🎞️ **Scorigami fills in.** The grid lights up game by game in date order and ends mostly dark.
+- 🎞️ **Every pitch in 30 seconds.** Each pitch of the season falls into a ball, called strike,
+  whiff, foul or in-play pile.
+- 🎞️ **Game quilt.** All 40 win-probability lines as tiles, dullest to wildest (`excitement`),
+  then the wildest drawn out in full.
+- 🎞️ **Longest at-bat, replayed** pitch by pitch with count bulbs, foul after foul.
+- 🎞️ **Standings as a horse race.** The standings-by-date chart on `/wpbl/season`, recorded.
+- 🎞️ **The stolen-base economy.** Runner dots sprint from first to second, the safe and the caught,
+  then this league's break-even rate.
+- 🎞️ **Tug of war** for each game of the final, a rope that moves on every lead change.
+- 🎞️ **Hear the game.** The final's win probability as a rising and falling tone, a click on each
+  run. A video with sound.
+- 🖼️ **What every play is worth.** The league's own linear weights; the sacrifice bunt was worth
+  -0.00 runs across 14 attempts (August figure).
+- 🖼️ **Hall of Firsts timeline.** First hit, home run, win, save, walk-off, as one poster.
+- 🖼️ **Run expectancy diamond.** The 24 base-out states as diamonds; bases empty with nobody out
+  is worth about 1.1 runs here against about 0.5 in MLB.
+- 🖼️ **The count as a subway map.** On base 48% after 1-0 and 37% after 0-1 (August figures).
+- 🖼️ **Anatomy of the championship.** Game 5's win-probability line annotated with its swings.
+- 🖼️ **Pitcher barcodes.** Each pitcher's season as a strip of ticks, one per pitch.
+- 🖼️ **The chaos index.** Balks, wild pitches, passed balls and hit batters per game against MLB
+  rates. Affectionate, not mocking.
+- 🖼️ **Where the runs came from.** Every run by how it scored, and the share that never came off
+  the bat.
+- 🖼️ **Groundball vs flyball pitchers**, a named scatter from the batted-ball type in the play text.
+- 🖼️ **Who owns whom.** The batter-vs-pitcher duels as a web.
+- 🖼️ **Age curve**, 18 to 40, against OPS.
+- 🖼️ **The data All-WPBL team**, drawn on a diamond.
+- 🖼️ **The league's edit history.** What changed on box scores after final, as a diff
+  (`wpbl_game_revisions`, which only we hold).
+- 🖼️ **The season calendar**, a heatmap of every game day.
+- 🖼️ **Home was not an advantage.** One ballpark all season, so "home" only meant batting last.
+
 ## Parked, with reasons
 
 - **Game predictions / pick'em (+ bots)** 🎮: *demoted from "the marquee open item",
@@ -1134,6 +1191,45 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 24, 2026: the Reading page lays out for the screen it is on
+
+`/wpbl/reading` was one column of 80px rows at every width: most of a desktop screen empty beside
+61 headlines, and on a phone a meta line squeezed beside three club badges into three lines. Now
+the newest post leads as a large card (`ReadingLead`) and the rest sit under a heading per month,
+as a grid of cover-on-top cards from `sm` up and compact rows on a phone, from one component
+(`ReadingCard`) so the two layouts cannot disagree about a post. Club badges moved onto the cover.
+The page runs at `72rem`. Covers come through a `srcset`, the lead eagerly at high priority. A club
+filter with nothing under a newly picked writer falls back to all clubs instead of an empty list.
+The read drops `tags`, which only the sync uses, and orders on `post_id` after `published_at`.
+Details in [docs/READING.md](docs/READING.md) §3.
+
+### Sep 16 to 24, 2026: the section turns to the offseason (v1.87.0 to v1.95.0)
+
+One entry, because the changelog ([`src/changelog.ts`](src/changelog.ts)) carries each version in
+full. What matters for planning:
+
+- **Fan awards closed and published** (v1.87.0): a results view, winners on Home, a share card.
+  The results leave Home on Oct 1.
+- **Short share links** `/p/<id>` and `/g/<id>` for everyone, and `#wpbl` on every Bluesky post
+  (v1.88.0).
+- **The season recap grew the whole season** (v1.89.0, v1.93.0): final standings, the standings
+  race, and the postseason (the final's five games, the bracket without odds, best playoff
+  performances).
+- **Standalone pages share one shell** and the More menu is grouped (v1.90.0); the players index
+  became a visual browser; players open as an overlay over any standalone page, stacking so Back
+  walks card by card (v1.91.0).
+- **Player pages split regular season from playoffs** (v1.92.0).
+- **Fan photos** (Sep 21 to 24): schema, a two-pass ingest, an `/admin` curation and tagging tool,
+  upload from the browser, `/wpbl/photos`, a Home card and a strip on player pages; open to
+  everyone as of v1.93.0.
+- **Home stepped back from the season** (v1.93.0) and got a third lighter (v1.94.0): no title odds
+  once there is a champion, player faces loaded on demand, Home's data in one wave.
+- **Reading got its own page** (v1.93.0), the league page became the primer alone, and **The
+  Rising Fastball joined** as a second writer, with permission (v1.95.0).
+- **Ops**: an off-season ingest cadence that turns itself back on; the season archive exported as
+  of the final game; the archive and sitemap jobs now fail rather than skip when their secrets are
+  missing.
 
 ### Sep 15, 2026: a "starting soon" reminder on Bluesky
 
@@ -6796,6 +6892,11 @@ that aligning things creates.
 ---
 
 ## Realignment log
+
+**Sep 24, 2026: realigned for the offseason.** The clock now says the season is over and grades
+by durability alone; "Where the section stands" describes the offseason surfaces; the shipped log
+is caught up from Sep 15 in one summary entry, since the changelog holds the detail; #5b is marked
+shipped; the flag notes are corrected (it hides only the Run value steal card).
 
 **Aug 16, 2026: split out of `ROADMAP.md`; reprioritized around the season clock.**
 The WPBL section had outgrown living as an appendix to the MLB roadmap, and that doc's WPBL

@@ -452,8 +452,10 @@ units):
 - **WPBL** (`/wpbl`, the default): Women's Pro Baseball League. Scoreboard, schedule,
   standings, stats, TrackMan, Game Center, auto recaps, Hall of Firsts, push reminders.
   Run value (the league's own run-expectancy table, built from our own plays).
+  Offseason surfaces: the season recap, Reading (two outside writers, linked out, see
+  `docs/READING.md`) and a fan-photo gallery.
   Mirrored from the league feed into Supabase by the `wpbl-ingest` edge function. The feed
-  stops Sep 22, 2026 (regular season ends Sep 6; the postseason runs Sep 9 to Sep 22).
+  went quiet on Sep 22, 2026 when the season ended, and returns in spring 2027.
 - **MLB** (`/mlb`): deeper and StatsAPI-driven. Game Center, personalized home feed, a
   predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone
   watch, streak report cards, Streak Survivor.
