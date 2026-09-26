@@ -1012,21 +1012,39 @@ export function RailArrow({ dir, show, onClick, label }: {
  * The scroller itself: hidden scrollbar, snap points, and `data-swipe-ignore` so a sideways
  * drag here never reaches SwipeableViews and changes tab underneath the reader.
  */
-export function RailScroller({ onScroll, scrollRef, children, snap = true }: {
+export function RailScroller({ onScroll, scrollRef, children, snap = true, phoneInset = 0 }: {
   onScroll: () => void
   scrollRef: React.RefObject<HTMLDivElement | null>
   children: React.ReactNode
   /** Off while something drives the scroll itself: a snap point re-snaps every programmatic
    *  nudge, so a slow auto-scroll would never get off the tile it started on. */
   snap?: boolean
+  /** For a rail its card bleeds to the card's edges on a phone (a negative margin the size of the
+   *  card's padding): the same amount of room, in spacing units, put back INSIDE the scroller. The
+   *  tiles then start and end in line with the rest of the card and still use the full width
+   *  while scrolling. Without it the first photo sat flush against the card's border and every
+   *  snap parked a photo there too. */
+  phoneInset?: number
 }) {
   return (
-    <Box ref={scrollRef} onScroll={onScroll} data-swipe-ignore="true" sx={{
+    <Box ref={scrollRef} onScroll={onScroll} data-swipe-ignore="true" sx={theme => ({
       display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,
       scrollSnapType: snap ? 'x proximity' : 'none',
       '&::-webkit-scrollbar': { display: 'none' },
       msOverflowStyle: 'none', scrollbarWidth: 'none',
-    }}>
+      ...(phoneInset > 0 && {
+        [theme.breakpoints.down('sm')]: {
+          pl: phoneInset,
+          // Snapping measures from the scroll padding, not the padding, so a snapped tile rests
+          // in the same place the first one starts.
+          scrollPaddingInline: theme.spacing(phoneInset),
+          // The trailing room as a spacer rather than `padding-right`, which Safari leaves out of
+          // a flex scroller's scrollable width: the last photo would stop flush at the border
+          // again. The rail's own gap already stands before it, so it is the inset minus the gap.
+          '&::after': { content: '""', flexShrink: 0, width: `calc(${theme.spacing(phoneInset)} - ${theme.spacing(1.25)})` },
+        },
+      }),
+    })}>
       {children}
     </Box>
   )
@@ -1920,8 +1938,13 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
         // wrapper viewport units don't shrink, so `92vh` overflows the screen.
-        maxHeight: sheet ? { xs: '88%', sm: '100%' } : '100%',
-        ...(sheet && sheetFill ? { height: { xs: '88%', sm: 'auto' } } : {}),
+        // 96% for a FILLED sheet (the player page and Game Center), 88% for the rest. Those two are
+        // long documents read on a phone, where 88% left a 95px strip of page above the sheet on top
+        // of the sheet's own pinned header. 96% still leaves a sliver of the page showing, which is
+        // what says "this is a sheet, pull it down" rather than "this is a new page". The short
+        // pickers keep 88%: they are short, so the cap never binds, and a tall one would look odd.
+        maxHeight: sheet ? { xs: sheetFill ? '96%' : '88%', sm: '100%' } : '100%',
+        ...(sheet && sheetFill ? { height: { xs: '96%', sm: 'auto' } } : {}),
         ...(fillHeight ? { height: '100%' } : {}),
         display: 'flex', flexDirection: 'column',
         // It comes up from the edge it is anchored to. Without this a "bottom sheet" simply

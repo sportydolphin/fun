@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, type Theme } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getCachedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, plateAppearances, hasPlateAppearance, fmtRate, fmtTwo } from './stats'
@@ -15,10 +15,14 @@ import { aboutPlayerFirst } from './derive/articles'
 import { FanPhotoPlayerStrip } from './FanPhotoViews'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
+import PitchProfileBlock from './PitchProfile'
 import { fetchWpblBattedBalls, getCachedWpblBattedBalls } from './api'
 import type { WpblSprayPlay } from './types'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
-import { wpblPlayerShortPath, wpblCompareStartPath } from './routes'
+import { wpblPlayerShortPath, wpblCompareStartPath, WPBL_AWARDS_PATH } from './routes'
+import { fetchWpblAwardResults, fanAwardsWon } from './awardVotes'
+import type { WpblAward } from './awards'
+import { EmojiEvents } from '@mui/icons-material'
 import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
@@ -572,8 +576,13 @@ const nbsp = (value: string | number, label: string): string => `${value}\u00a0$
  * percentage is almost entirely noise, and setting it as large as a batting average would tell
  * a reader it means as much as the slash line above it. It is all still here, one tap away.
  */
-function FieldingLine({ ft, color, positions }: {
+function FieldingLine({ ft, color, positions, plain }: {
   ft: ReturnType<typeof sumFielding>; color: string
+  /** A pitcher's page: one quiet line, no disclosure. A pitcher's fielding is almost always a
+   *  single clean number, and a bordered box that opens onto putouts and assists was a whole block
+   *  of chrome on the busiest card in the section for a figure nobody reads a pitcher's page for.
+   *  Position players keep the panel, where the breakdown (and a catcher's PB and SBA) matters. */
+  plain?: boolean
   /** Where these numbers came from, most-played first, or empty to say nothing.
    *
    *  ONLY PASSED ON A CARD WITH ROLE TABS, which is the only place the block can be misread.
@@ -594,6 +603,17 @@ function FieldingLine({ ft, color, positions }: {
     ...(ft.pb ? [['PB', ft.pb] as [string, number]] : []),
     ...(ft.sba ? [['SBA', ft.sba] as [string, number]] : []),
   ]
+  if (plain) {
+    return (
+      <Typography sx={{ mt: 2, fontSize: TYPE_SCALE.caption, color: 'text.secondary' }}>
+        <Box component="span" sx={{ fontWeight: 900, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mr: 1 }}>
+          Fielding
+        </Box>
+        {nbsp(fmtRate(ft.fpct), 'FPCT')}{'\u00a0· '}{nbsp(ft.e, ft.e === 1 ? 'error' : 'errors')}
+        {ft.dp ? `\u00a0· ${nbsp(ft.dp, 'DP')}` : ''}
+      </Typography>
+    )
+  }
   return (
     <AccentPanel
       label="Fielding"
@@ -950,6 +970,17 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 }) {
   const isDark = useWpblDark()
 
+  // The fan awards this player won, for the ribbon under their name. The tally read is shared and
+  // cached app-wide (Home reads it for the results card), and it fails to empty, so a player page
+  // never waits on it or breaks for it: the ribbon simply arrives, or does not.
+  const [awards, setAwards] = useState<WpblAward[]>([])
+  useEffect(() => {
+    let cancelled = false
+    setAwards([])
+    fetchWpblAwardResults().then(r => { if (!cancelled) setAwards(fanAwardsWon(r, player.id)) })
+    return () => { cancelled = true }
+  }, [player.id])
+
   /**
    * Every batted ball of the season, for the spray chart, seeded from the app-wide cache.
    *
@@ -985,6 +1016,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    * disagreement would show a phone control over a desktop layout. 900px is MUI's `md`.
    */
   const wide = useMediaQuery('(min-width:900px)')
+  // Each phone pane's copy of the band, and which of them are on screen. The header takes the
+  // player's name when the ACTIVE pane's band has scrolled out, so a reader deep in a game log
+  // still sees whose it is. IntersectionObserver with the viewport as root honours the pane
+  // scroller's clipping, so "out" means scrolled out of the sheet, not merely off the page.
+  const bandEls = useRef<(HTMLDivElement | null)[]>([])
+  const [bandHidden, setBandHidden] = useState<Record<number, boolean>>({})
   const { basis: eraBasis, fmtEra, fmtK, kLabel } = useEraBasis()
   const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
 
@@ -1032,6 +1069,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // plotting them: the card sits beside a pitching line that follows the same scope, and its own
   // caption counts `pt.g` games from that same total.
   const seasonPitchLocs = useMemo(() => scopedLines(pitchLocs, games, scope), [pitchLocs, games, scope])
+  const trackedPitchGames = useMemo(() => new Set(seasonPitchLocs.map(r => r.game_id)).size, [seasonPitchLocs])
   // Every batting and pitching line in the league, for the percentile strip. Deliberately a
   // separate piece of state from the player's own lines: this one is allowed to never arrive.
   // `fetchWpblAllLines` is cached, deduped and already prefetched when the section lands on
@@ -1360,7 +1398,29 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    *  BOTH HALVES SHOW AT EVERY WIDTH. On the desktop card this is the only place that says how
    *  much of a season these numbers are, and the season label is the only place the card says
    *  WHICH season these are. */
-  const lineCaption = (r: Role) => (
+  const lineCaption = (r: Role, scopeControl?: React.ReactNode) => scopeControl ? (
+    // THE DESKTOP CAPTION WITH THE SCOPE TOGGLE AT ITS END. The toggle used to take a centred row
+    // of its own above the card, a whole row of chrome for three words, directly over the line it
+    // governs. Here it sits on that line's caption, so the control and the numbers it re-slices
+    // are one reading unit, and the sample moves in beside the season label to make room.
+    // A phone keeps the pinned row: at 375px the caption has no room to share.
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 0.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
+        <Typography sx={{ ...sectionSx, mb: 0 }}>
+          {(() => {
+            const noun = scope === 'postseason' ? 'postseason' : 'season'
+            return seasonYear ? `${seasonYear} ${noun}` : noun.charAt(0).toUpperCase() + noun.slice(1)
+          })()}
+        </Typography>
+        <Typography sx={{ ...TYPE.micro, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+          {r === 'pitching'
+            ? `${pitchingMeta} · ${pt.w}-${pt.l}${pt.s > 0 ? ` · ${pt.s} SV` : ''}`
+            : battingMeta}
+        </Typography>
+      </Box>
+      <Box sx={{ flexShrink: 0 }}>{scopeControl}</Box>
+    </Box>
+  ) : (
     <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
       {/* "2026 postseason" in the playoff slice, so the caption says WHICH games these totals
           are, not just which year. Regular and Both both read "season". */}
@@ -1386,10 +1446,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // narrower they simply stack in this order and nothing about the reading changes.
   const battingPane = {
     hasLog: battingLog.length > 0,
+    /** Between the season line and the log: how the season was hit, from every pitch seen. */
+    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} scope={scope} accent={color} />,
     head: paneHead('batting'),
-    line: (merged: boolean) => (
+    line: (merged: boolean, scopeControl?: React.ReactNode) => (
       <>
-        {lineCaption('batting')}
+        {lineCaption('batting', scopeControl)}
         {/* THE ORDER IS THE BOX SCORE'S, and that is most of what makes a table worth having: R H
             2B 3B HR RBI SB CS BB SO is the order every fan has read a batting line in since
             childhood, so the header row becomes a thing you check rather than a thing you read.
@@ -1478,10 +1540,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 
   const pitchingPane = {
     hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
+    /** Between the season line and the log: how the season was pitched, from every pitch thrown. */
+    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} scope={scope} accent={color} />,
     head: paneHead('pitching'),
-    line: (merged: boolean) => (
+    line: (merged: boolean, scopeControl?: React.ReactNode) => (
       <>
-        {lineCaption('pitching')}
+        {lineCaption('pitching', scopeControl)}
         {/* THE ORDER IS THE BOX SCORE'S, as on the batting line: H R ER HR BB SO, with the home
             runs beside the other things the pitcher gave up rather than stranded after the
             strikeouts.
@@ -1550,10 +1614,30 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         />
       </>
     ),
-    extras: seasonPitchLocs.length > 0
+    // ONLY WITH HALF THE PITCHER'S GAMES TRACKED. The league's radar reached the first couple of
+    // games of the season and stopped, so for nearly every pitcher this plot was a handful of
+    // pitches from one outing (13 pitches, 1 of 9 games), collapsed because it could not be
+    // trusted and still taking a row to say so. The pitch profile above reads every game.
+    extras: trackedPitchGames > 0 && pt.g > 0 && trackedPitchGames * 2 >= pt.g
       ? <Box sx={{ mt: 2 }}><PitchLocationCard rows={seasonPitchLocs} accent={color} gamesPitched={pt.g} /></Box>
       : null,
   }
+
+  // One control, drawn in one of two places: pinned above the pager on a phone, on the first
+  // season line's caption on a desktop (see lineCaption).
+  const scopeNav = (
+    <SegNav
+      options={[
+        { value: 'regular', label: 'Regular' },
+        { value: 'postseason', label: 'Playoffs' },
+        { value: 'all', label: 'Both' },
+      ]}
+      value={scope}
+      onChange={v => setScope(v as SeasonScope)}
+      accent={color}
+      mb={0}
+    />
+  )
 
   const showTabs = twoWay
   // The band only takes the hero once there is a hero to take: not while the lines are still
@@ -1595,7 +1679,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    * The phone keeps the pager, the pills and the four-across rate strip, which is what a 375px
    * column can hold.
    */
-  const desktopRoleBlock = (r: Role, last: boolean) => {
+  const desktopRoleBlock = (r: Role, first: boolean, last: boolean) => {
     const pane = r === 'pitching' ? pitchingPane : battingPane
     return (
       <Box key={r} sx={{ mb: last ? 0 : 3.5 }}>
@@ -1619,12 +1703,13 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             rates and the counts in one row under one header; the only liberty here is that the
             rates come FIRST, because on this card they are the headline rather than the summary.
             See SeasonLine's `lead`. */}
-        {pane.line(true)}
+        {pane.line(true, first && hasPostseason ? scopeNav : undefined)}
         {/* THE CAMEO AND THE QUALIFYING METER: without them a desktop reader of a below-the-bar
             player meets four unranked rates and no word about why, and a two-way cameo loses the
             one line saying the player also pitched. Capped to a reading measure, because both are
             sentences and a sentence set across 1050px is not read. */}
         <Box sx={{ maxWidth: chromePx(SENTENCE_W) }}>{pane.season}</Box>
+        {pane.profile}
         {pane.log}
         {/* Fielding belongs to the PLAYER, not to a role, so it is drawn once, after the last
             role's log. On a two-way card it would otherwise appear twice, and its totals are the
@@ -1632,7 +1717,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             pitch plot: that data reaches few games and its endpoints are key-gated, so it is the
             one block on the card that is genuinely stale. */}
         {last && hasFielding && (
-          <FieldingLine ft={ft} color={color} positions={twoWay ? fieldedPositions : undefined} />
+          <FieldingLine ft={ft} color={color} positions={twoWay ? fieldedPositions : undefined} plain={!twoWay && pitcherFirst} />
         )}
         {pane.extras}
       </Box>
@@ -1645,109 +1730,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    * cannot render, and an unreachable layout is the first thing the next reader finds when they
    * go looking for how the desktop works.
    */
-  const panels = roles.map(r => {
-    const pane = r === 'pitching' ? pitchingPane : battingPane
-    return (
-      // `pt` answers to the role pills, because what sits directly under them is the rate strip:
-      // full pane padding plus the optical space a large numeral carries above its digits would put
-      // the widest gap on the card between the control and the numbers it controls.
-      <Box key={r} sx={{ px: 2, pt: showTabs ? 1 : 2, pb: 2 }}>
-        {pane.head}
-        {pane.line(false)}
-        {pane.season}
-        {pane.log}
-        {/* UNDER THE LOG. Over nine games a fielding percentage is almost entirely noise, and above
-            a complete record of every appearance a reader would meet the least reliable number on
-            the card before the most reliable block. It still has to be somewhere a catcher's line
-            can be found, which is why it is here rather than at the foot of the pane, and it stays
-            ABOVE the pitch plot: that data reaches few games and its endpoints are key-gated, so it
-            is the one block on the card that is genuinely stale. */}
-        {hasFielding && <FieldingLine ft={ft} color={color} positions={showTabs ? fieldedPositions : undefined} />}
-        {pane.extras}
-        {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
-            who has been written about but has not logged a game is exactly the case where this
-            is the most interesting thing on the page. Renders nothing when nobody has written
-            about the player, which is most of the roster. */}
-        <FanPhotoPlayerStrip playerId={player.id} players={players} />
-        <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} wide />
-      </Box>
-    )
-  })
-
-  return (
-    <ModalShell
-      // Full club name where it fits, the nickname on a phone. The header row also carries the
-      // Compare and Copy-link chips and the close button, and "New York Heights" plus those two
-      // chips overran a 360px header and ellipsised the club to "New York Heig…". The nickname
-      // ("Heights") is the same fact, shorter, and clears the row; both are the club, so this
-      // reads as a compact label rather than a truncation.
-      eyebrow={team ? (
-        <>
-          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{wpblFullName(team)}</Box>
-          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{team.name}</Box>
-        </>
-      ) : 'Player'}
-      onClose={onClose}
-      // A fixed pair rather than a value derived from the content, so the dialog cannot resize under
-      // the reader as the season totals land. The widest block on the card is the batting season
-      // line (about 666px), then the batting game log (about 600), both comfortably inside the md
-      // width; what the extra room buys is a fourteen-column log not read at its own minimum.
-      // Re-measure against the SEASON LINE if a column is ever added to it. Through `chromePx`
-      // because it is structure: spent raw against the desktop type scale it would wrap a long name
-      // onto two lines.
-      maxWidth={{ xs: chromePx(640), md: chromePx(880) }}
-      zIndex={1600}
-      actions={<>
-        <CompareChip player={player} roster={players} />
-        <CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`}
-          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', playerId: player.id })} />
-      </>}
-      // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a Home
-      // chip and a shared link, and a close button in the far top corner is the furthest point on a
-      // phone from the thumb holding it. So it comes up from the bottom edge with a handle and
-      // swipes back down. Above sm a centred dialog is right.
-      sheet
-      // Constant height while it is a sheet, so it does not leap up the screen when the season
-      // totals and game logs finish loading under the reader's thumb. Same reason as the game
-      // card, whose box score lands the same way.
-      sheetFill
-    >
-      {/* Two sizings, because the sheet and the dialog are shaped differently, and the same
-          arrangement the game card uses for the same reason.
-          On a phone the sheet holds a definite height, so this fills it (`flex: 1`) and every
-          percentage below resolves, which is what lets each role pane scroll itself and what
-          gives the pager a slot to live in at all.
-          Above sm the modal is content-height on purpose, so a short player sizes it down
-          instead of forcing full height, and this is clamped rather than filled. `flex: 1`
-          there would collapse the pane to nothing, since a flex item with a zero basis
-          contributes nothing to an auto-height parent. */}
-      <Box sx={{
-        display: 'flex', flexDirection: 'column', minHeight: 0,
-        flex: { xs: '1 1 0%', sm: '0 1 auto' },
-        maxHeight: { xs: 'none', sm: '100%' },
-      }}>
-      {/* Identity, on the club's own colours.
-          The band takes the club's PRIMARY as its background: all four WPBL primaries are
-          near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), so white text clears 12:1
-          on every one of them and the wash of secondary across the right stays well under the
-          point where it would stop being readable. The stripe along the bottom is the secondary
-          at full strength, which is where each club's actual hue lives: orange, gold, sky, red.
-          It carries the same 2px as the ring around the portrait sitting on it, deliberately, so
-          the band reads as one object drawn in one weight rather than as a photo with a heavier
-          rule under it.
-          Deliberately NOT `wpblAccent`: that is the foreground-safe variant, built to be read
-          as text on the page background. Here the colour IS the background. */}
-      {/* `data-sheet-drag` makes this band the sheet's grab surface on a phone, and it is not
-          decoration: this page is taller than the sheet, so its body is a real scroller, and a
-          scroller takes ownership of a touch before the drag handler can. That would leave the
-          small handle and the eyebrow bar as the only places a reader could pull the card back
-          down. The band is the obvious thing to grab and the one block here nobody scrolls to
-          READ, which is exactly the trade the attribute is for. See useSheetDrag. */}
-      {/* Pinned, not scrolled away with the stats, and that is what the swipe cost: the pager
-          below needs a definite height, so the band had to come out of the scroller. It pays
-          for itself twice over. Whose numbers these are stays on screen at any depth, and the
-          sheet's grab surface never scrolls out of reach. */}
-      <Box data-sheet-drag sx={{
+  /** The club band. Drawn once, pinned, on a desktop; once per pane, scrolled, on a phone. */
+  const bandBlock = (ref?: (el: HTMLDivElement | null) => void) => (
+      <Box ref={ref} data-sheet-drag sx={{
         position: 'relative', flexShrink: 0,
         // The secondary washes OVER an opaque primary rather than being the last stop of a gradient
         // that runs out of colour. As a plain gradient the right-hand end would be `secondary` at low
@@ -1809,6 +1794,34 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
                 Round {player.draft_round}, Pick {player.draft_pick}
               </Typography>
             )}
+            {/* THE FAN AWARDS THIS PLAYER WON, as a seal under the facts rather than a card further down:
+                it is a fact about the player, it outlasts the season, and a card would put it below
+                the fold on a phone. A real link, so it is crawlable and opens in a new tab. Gold
+                trophy on a light wash, the one mark the results sheet itself spends on a winner. */}
+            {awards.length > 0 && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.6 }}>
+                {awards.map(a => (
+                  <Box key={a.id} {...linkTo(WPBL_AWARDS_PATH)}
+                    onClickCapture={() => track(EVENTS.WPBL_AWARD_OPEN, { from: 'player', category: a.id })}
+                    aria-label={`2026 fan award: ${a.title}. See the results`}
+                    sx={{
+                      display: 'inline-flex', alignItems: 'center', gap: 0.4, textDecoration: 'none',
+                      // A LIGHT wash with a hairline, the Two-way badge's treatment, not a dark one:
+                      // the band runs near-black on its left side on desktop, where a dark pill
+                      // vanished, and a translucent white reads over both the dark end and the
+                      // club colour at the other.
+                      px: 0.9, py: 0.3, borderRadius: 999, color: '#fff',
+                      bgcolor: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.32)',
+                      fontSize: '0.66rem', fontWeight: 800, lineHeight: 1.2,
+                      ...hoverOnly({ bgcolor: 'rgba(255,255,255,0.26)' }),
+                      '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
+                    }}>
+                    <EmojiEvents aria-hidden sx={{ fontSize: '0.85rem', color: '#eab308' }} />
+                    Fan vote · {a.title}
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Box>
           {/* Fills the band's own slack, and takes the role the hero is showing so a two-way
               player's form line follows her tab rather than contradicting the numbers beside
@@ -1828,6 +1841,163 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
               See desktopRoleBlock. */}
         </Box>
       </Box>
+  )
+  const band = bandBlock()
+
+  // Where the band and the scope toggle live, and whether the header shows the player's name.
+  // Pinned on a desktop (a dialog is not short of height), and pinned while there is nothing to
+  // scroll (loading, or a player with no stats), since a scroller around a spinner buys nothing.
+  const noStats = !loading && !hasBatting && !hasPitching && !hasFielding
+  const bandPinned = wide || loading || noStats
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return
+    const els = bandEls.current.filter((e): e is HTMLDivElement => !!e)
+    if (els.length === 0) { setBandHidden({}); return }
+    const io = new IntersectionObserver(entries => {
+      setBandHidden(prev => {
+        let next = prev
+        for (const e of entries) {
+          const i = bandEls.current.indexOf(e.target as HTMLDivElement)
+          // "Out" once less than a sliver shows: the name belongs in the header as soon as the
+          // band stops saying it, not only once the last pixel of it has gone.
+          const out = e.intersectionRatio < 0.15
+          // Only a real change makes a new object, or every callback would re-render the page.
+          if (i >= 0 && prev[i] !== out) next = { ...next, [i]: out }
+        }
+        return next
+      })
+    }, { threshold: [0, 0.15, 0.5, 1] })
+    els.forEach(e => io.observe(e))
+    return () => io.disconnect()
+    // Re-observed when the set of panes changes; the elements themselves are stable between.
+  }, [bandPinned, player.id, twoWay, pitcherFirst, loading])
+
+  const panels = roles.map((r, i) => {
+    const pane = r === 'pitching' ? pitchingPane : battingPane
+    return (
+      // `pt` answers to the role pills, because what sits directly under them is the rate strip:
+      // full pane padding plus the optical space a large numeral carries above its digits would put
+      // the widest gap on the card between the control and the numbers it controls.
+      <Box key={r} sx={{ px: 2, pt: showTabs ? 1 : 2, pb: 2 }}>
+        {/* The band bleeds to the pane's edges (it was full-width when pinned), and the scope
+            toggle follows it into the scroll: it changes rarely, and pinned it held 45px of a
+            phone still for the whole page. */}
+        {!bandPinned && (
+          <Box sx={{ mx: -2, mt: showTabs ? -1 : -2, mb: hasPostseason ? 1.25 : 2 }}>
+            {bandBlock(el => { bandEls.current[i] = el })}
+          </Box>
+        )}
+        {!bandPinned && hasPostseason && <Box sx={{ mb: 1.5 }}>{scopeNav}</Box>}
+        {pane.head}
+        {pane.line(false)}
+        {pane.season}
+        {pane.profile}
+        {pane.log}
+        {/* UNDER THE LOG. Over nine games a fielding percentage is almost entirely noise, and above
+            a complete record of every appearance a reader would meet the least reliable number on
+            the card before the most reliable block. It still has to be somewhere a catcher's line
+            can be found, which is why it is here rather than at the foot of the pane, and it stays
+            ABOVE the pitch plot: that data reaches few games and its endpoints are key-gated, so it
+            is the one block on the card that is genuinely stale. */}
+        {hasFielding && <FieldingLine ft={ft} color={color} positions={showTabs ? fieldedPositions : undefined} plain={!twoWay && pitcherFirst} />}
+        {pane.extras}
+        {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
+            who has been written about but has not logged a game is exactly the case where this
+            is the most interesting thing on the page. Renders nothing when nobody has written
+            about the player, which is most of the roster. */}
+        <FanPhotoPlayerStrip playerId={player.id} players={players} />
+        <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} wide />
+      </Box>
+    )
+  })
+
+
+  return (
+    <ModalShell
+      // Full club name where it fits, the nickname on a phone. The header row also carries the
+      // Compare and Copy-link chips and the close button, and "New York Heights" plus those two
+      // chips overran a 360px header and ellipsised the club to "New York Heig…". The nickname
+      // ("Heights") is the same fact, shorter, and clears the row; both are the club, so this
+      // reads as a compact label rather than a truncation.
+      eyebrow={!bandPinned && bandHidden[roleIndex] ? (
+        // The band has scrolled off: the header carries whose page this is instead. The NAME ALONE, in
+        // ordinary case: the header's small caps and letter-spacing are set for a club nickname, and
+        // "Denae Benites · Heights" in them truncated to "DENAE BENITE…" beside Compare and Copy link.
+        <Box component="span" sx={{
+          display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', fontWeight: 800, color: 'text.primary',
+        }}>
+          {player.name}
+        </Box>
+      ) : team ? (
+        <>
+          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{wpblFullName(team)}</Box>
+          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{team.name}</Box>
+        </>
+      ) : 'Player'}
+      onClose={onClose}
+      // A fixed pair rather than a value derived from the content, so the dialog cannot resize under
+      // the reader as the season totals land. The widest block on the card is the batting season
+      // line (about 666px), then the batting game log (about 600), both comfortably inside the md
+      // width; what the extra room buys is a fourteen-column log not read at its own minimum.
+      // Re-measure against the SEASON LINE if a column is ever added to it. Through `chromePx`
+      // because it is structure: spent raw against the desktop type scale it would wrap a long name
+      // onto two lines.
+      maxWidth={{ xs: chromePx(640), md: chromePx(880) }}
+      zIndex={1600}
+      actions={<>
+        <CompareChip player={player} roster={players} />
+        <CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`}
+          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', playerId: player.id })} />
+      </>}
+      // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a Home
+      // chip and a shared link, and a close button in the far top corner is the furthest point on a
+      // phone from the thumb holding it. So it comes up from the bottom edge with a handle and
+      // swipes back down. Above sm a centred dialog is right.
+      sheet
+      // Constant height while it is a sheet, so it does not leap up the screen when the season
+      // totals and game logs finish loading under the reader's thumb. Same reason as the game
+      // card, whose box score lands the same way.
+      sheetFill
+    >
+      {/* Two sizings, because the sheet and the dialog are shaped differently, and the same
+          arrangement the game card uses for the same reason.
+          On a phone the sheet holds a definite height, so this fills it (`flex: 1`) and every
+          percentage below resolves, which is what lets each role pane scroll itself and what
+          gives the pager a slot to live in at all.
+          Above sm the modal is content-height on purpose, so a short player sizes it down
+          instead of forcing full height, and this is clamped rather than filled. `flex: 1`
+          there would collapse the pane to nothing, since a flex item with a zero basis
+          contributes nothing to an auto-height parent. */}
+      <Box sx={{
+        display: 'flex', flexDirection: 'column', minHeight: 0,
+        flex: { xs: '1 1 0%', sm: '0 1 auto' },
+        maxHeight: { xs: 'none', sm: '100%' },
+      }}>
+      {/* Identity, on the club's own colours.
+          The band takes the club's PRIMARY as its background: all four WPBL primaries are
+          near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), so white text clears 12:1
+          on every one of them and the wash of secondary across the right stays well under the
+          point where it would stop being readable. The stripe along the bottom is the secondary
+          at full strength, which is where each club's actual hue lives: orange, gold, sky, red.
+          It carries the same 2px as the ring around the portrait sitting on it, deliberately, so
+          the band reads as one object drawn in one weight rather than as a photo with a heavier
+          rule under it.
+          Deliberately NOT `wpblAccent`: that is the foreground-safe variant, built to be read
+          as text on the page background. Here the colour IS the background. */}
+      {/* `data-sheet-drag` makes this band the sheet's grab surface on a phone, and it is not
+          decoration: this page is taller than the sheet, so its body is a real scroller, and a
+          scroller takes ownership of a touch before the drag handler can. That would leave the
+          small handle and the eyebrow bar as the only places a reader could pull the card back
+          down. The band is the obvious thing to grab and the one block here nobody scrolls to
+          READ, which is exactly the trade the attribute is for. See useSheetDrag. */}
+      {/* PINNED ON A DESKTOP, SCROLLED ON A PHONE. It used to be pinned everywhere, which a phone could
+          not afford: with the sheet's header and the scope toggle it held about 240px of an 812px
+          screen still while the stats scrolled in what was left. On a phone it is now the first thing
+          in each pane's scroller (see `panels`), and the sheet header takes the player's name once
+          it has scrolled away (see `bandOut`), so whose numbers these are is never off screen. It
+          stays a drag surface: at the top of the pane, where it is, a pull down closes the sheet. */}
+      {bandPinned && band}
 
       {loading ? (
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
@@ -1846,21 +2016,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
               card-level control, above the role pills and outside the pager's scroller, because it
               re-slices every number on the card (both roles) rather than switching between them.
               Pinned so it does not scroll away under the totals it governs. */}
-          {hasPostseason && (
-            <Box sx={{ flexShrink: 0, px: 2, pt: 1, pb: wide ? 0 : showTabs ? 0.5 : 1 }}>
-              <SegNav
-                options={[
-                  { value: 'regular', label: 'Regular' },
-                  { value: 'postseason', label: 'Playoffs' },
-                  { value: 'all', label: 'Both' },
-                ]}
-                value={scope}
-                onChange={v => setScope(v as SeasonScope)}
-                accent={color}
-                mb={0}
-              />
-            </Box>
-          )}
+
           {showTabs && !wide && (
             /* The pinned strip the role pills live in, and its padding is not arbitrary: it matches
                 Game Center's tab bar, which is the same control doing the same job over the same kind
@@ -1893,8 +2049,8 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             /* THE DESKTOP PAGE. One scroller holding every role in full, rather than a pager
                holding one of them. See desktopRoleBlock for what each role is made of and why
                the tabs come off up here. */
-            <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: hasPostseason ? 1 : 2, pb: 2 }}>
-              {roles.map((r, i) => desktopRoleBlock(r, i === roles.length - 1))}
+            <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 2 }}>
+              {roles.map((r, i) => desktopRoleBlock(r, i === 0, i === roles.length - 1))}
               {/* Under everything, spanning, for the reason it always did: it is the one block
                   here that is neither a season fact nor a game, and a well-covered player put
                   346px of article cards against a rail with nothing like that much to say. */}

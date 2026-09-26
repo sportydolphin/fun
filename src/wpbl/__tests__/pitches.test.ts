@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readSequence, aggregatePitchCodes, pitchQualifiers, rankBy, PITCH_CODES } from '../derive/pitches'
+import { readSequence, aggregatePitchCodes, pitchQualifiers, rankBy, battedOutKind, PITCH_CODES } from '../derive/pitches'
 import type { WpblPitchPlay, WpblPlayer } from '../types'
 import type { PitchProfile } from '../derive/pitches'
 import { trackingWorthShowing } from '../tracking'
@@ -151,10 +151,10 @@ describe('rankBy', () => {
   // pitches / swings / twoStrikePa are the three denominators the boards divide by.
   const prof = (over: Partial<PitchProfile>): PitchProfile => ({
     player: null, name: 'x', teamId: null,
-    pitches: 100, pa: 25, swings: 40, strikeouts: 0, twoStrikePa: 10,
+    pitches: 100, pa: 25, swings: 40, strikeouts: 0, twoStrikePa: 10, walks: 0, groundOuts: 0, airOuts: 0,
     counts: { ball: 0, called: 0, swinging: 0, foul: 0, inplay: 0, hbp: 0, unknown: 0 },
     strikePct: null, swStrPct: null, whiffPct: null, contactPct: null, swingPct: null,
-    calledPct: null, pitchesPerPa: null, firstStrikePct: null, putawayPct: null,
+    calledPct: null, pitchesPerPa: null, firstStrikePct: null, putawayPct: null, groundOutPct: null, kPct: null, bbPct: null,
     ...over,
   })
 
@@ -234,5 +234,55 @@ describe('trackingWorthShowing', () => {
 
   it('drops back out if the season outruns the tracking', () => {
     expect(trackingWorthShowing(4, 30)).toBe(false)
+  })
+})
+
+describe('outs in play on the ground', () => {
+  it('sorts the outs the event type can tell apart, and leaves the rest out', () => {
+    expect(battedOutKind('groundout')).toBe('ground')
+    expect(battedOutKind('fielders_choice')).toBe('ground')
+    for (const e of ['flyout', 'popup', 'lineout', 'foul_out']) expect(battedOutKind(e)).toBe('air')
+    // Not measurable from the event type: how the out was made, or whether a sacrifice was a bunt.
+    for (const e of ['out', 'sacrifice', 'single', 'strikeout', null]) expect(battedOutKind(e)).toBeNull()
+  })
+
+  it('rates a pitcher over the outs of a known kind only', () => {
+    const board = aggregatePitchCodes([
+      play({ event_type: 'groundout' }), play({ event_type: 'groundout' }),
+      play({ event_type: 'flyout' }), play({ event_type: 'single' }), play({ event_type: 'out' }),
+    ], [], regular)
+    const p = board.pitchers[0]
+    expect([p.groundOuts, p.airOuts]).toEqual([2, 1])
+    expect(p.groundOutPct).toBeCloseTo(2 / 3)
+  })
+})
+
+describe('the season scope', () => {
+  const games: SeasonGame[] = [
+    { id: 'g1', game_type: 'regular', counts_in_standings: true },
+    { id: 'p1', game_type: 'semifinal', counts_in_standings: true },
+  ]
+  const plays = [play({ game_id: 'g1' }), play({ game_id: 'p1' }), play({ game_id: 'p1' })]
+
+  it('stays on the regular season by default, as the Stats boards need', () => {
+    expect(aggregatePitchCodes(plays, [], games).pa).toBe(1)
+  })
+  it('reads the playoffs alone, or both, when a player page asks', () => {
+    expect(aggregatePitchCodes(plays, [], games, 'postseason').pa).toBe(2)
+    expect(aggregatePitchCodes(plays, [], games, 'all').pa).toBe(3)
+  })
+})
+
+describe('walk and strikeout rates', () => {
+  it('are per plate appearance, and a hit by pitch is not a walk', () => {
+    const board = aggregatePitchCodes([
+      play({ event_type: 'walk', pitch_sequence: 'BBBB' }),
+      play({ event_type: 'strikeout', pitch_sequence: 'KSS' }),
+      play({ event_type: 'hit_by_pitch', pitch_sequence: 'H' }),
+      play({ event_type: 'groundout' }),
+    ], [], regular)
+    const p = board.pitchers[0]
+    expect(p.bbPct).toBeCloseTo(1 / 4)
+    expect(p.kPct).toBeCloseTo(1 / 4)
   })
 })

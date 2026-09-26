@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { fanVoteAwards, type WpblAward } from './awards'
 
 /**
  * Reading and writing the fan awards ballot.
@@ -177,4 +178,26 @@ export function awardStandings(results: AwardResults, category: string): [string
   const bucket = results[category]
   if (!bucket) return []
   return Object.entries(bucket).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+}
+
+/**
+ * The fan awards a player won, for the ribbon on their page: the player categories whose voting
+ * has CLOSED and whose top vote-getter is this player.
+ *
+ * THE SAME RANKING AS THE RESULTS SHEET: most votes, ties broken by choice key, which is the
+ * order `withWriteIns` sorts a closed category into and the order `awardStandings` returns. The
+ * sheet also drops a write-in that did not clear its bar (see MIN_WRITE_IN_VOTES), but a name at
+ * the TOP of a category has cleared any bar there is, so the first entry here is the name the
+ * sheet crowns without needing the shortlist that builds it, which would cost this page the
+ * season's stat reads just to draw a ribbon.
+ *
+ * Only once a category has closed: a running leader is not a winner, and a ribbon that later
+ * moves to someone else is worse than none.
+ */
+export function fanAwardsWon(results: AwardResults, playerId: string, now: number = Date.now()): WpblAward[] {
+  return fanVoteAwards().filter(a => {
+    if (a.pick !== 'player' || now < Date.parse(a.closesAt)) return false
+    const [top] = awardStandings(results, a.id)
+    return !!top && top[1] > 0 && top[0] === playerId
+  })
 }

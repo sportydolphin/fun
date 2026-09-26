@@ -28,6 +28,23 @@ describe('fanPhotoCaption', () => {
   it('names the category when nobody is tagged', () => {
     expect(fanPhotoCaption(photo({ id: 'a', categoryName: 'Fan signs' }), [])).toBe('Fan signs')
   })
+  it('falls back to the page subject rather than the bare label', () => {
+    expect(fanPhotoCaption(photo({ id: 'a' }), [], 'Denae Benites')).toBe('Denae Benites')
+  })
+})
+
+describe('a photo of only the page subject', () => {
+  it('shows its credit without a caption line, and still names the subject for screen readers', () => {
+    render(<FanPhotoStrip photos={[photo({ id: 'a', credit: 'Aaron Johnson' })]} resolveNames={() => []} from="player" subject="Denae Benites" />)
+    expect(screen.queryByText('Photo')).toBeNull()
+    expect(screen.queryByText('Denae Benites')).toBeNull()
+    expect(screen.getByText('Aaron Johnson')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'View photograph: Denae Benites' })).toBeTruthy()
+  })
+  it('keeps the caption when someone else is in the photo too', () => {
+    render(<FanPhotoStrip photos={[photo({ id: 'a' })]} resolveNames={() => ['Caitlin Eynon']} from="player" subject="Denae Benites" />)
+    expect(screen.getByText('Caitlin Eynon')).toBeTruthy()
+  })
 })
 
 describe('FanPhotoStrip', () => {

@@ -358,6 +358,10 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
             ))}
           </Box>
         )}
+        {/* Beside the field only. Below `md` the list stacks directly under the chart and repeats,
+            zone for zone, the percentages already printed on it, one scroll away from the picture
+            it duplicates. The Pull tiles and the count stay: neither is on the field. */}
+        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
         {profile.zones
           .filter(z => valueOf(z, mode) > 0)
           .sort((a, b) => valueOf(b, mode) - valueOf(a, mode))
@@ -377,6 +381,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
               </Box>
             )
           })}
+        </Box>
         {/* THE DENOMINATOR, because the field shows shares and a share with no count behind it
             cannot be judged: 100% of one ball and 44% of thirty-two look equally confident. */}
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.75, display: 'block' }}>

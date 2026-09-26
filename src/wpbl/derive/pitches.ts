@@ -1,4 +1,4 @@
-import { regularSeasonLines, type WpblSeasonGame } from '../season'
+import { scopedLines, type SeasonScope, type WpblSeasonGame } from '../season'
 import type { WpblPitchPlay, WpblPlayer } from '../types'
 
 /**
@@ -79,6 +79,16 @@ export interface PitchRates {
   /** Strikeouts over the plate appearances that reached two strikes: the finishing rate,
    *  with the at-bats that never got there taken out of the denominator. */
   putawayPct: number | null
+  /** Outs in play that were on the ground, over outs in play of a known kind. OUTS ONLY, and
+   *  the label on any surface has to say so: the play text says "grounded out" and "flied out"
+   *  reliably, but a hit reads "singled to center field" whatever it was, so a groundball rate
+   *  over all balls in play cannot be measured here and this is not one. See battedOutKind. */
+  groundOutPct: number | null
+  /** Strikeouts and walks over plate appearances: the two discipline rates every fan already
+   *  reads, measured over the same plate appearances as everything else here so a player page
+   *  can rank them against the same pool. */
+  kPct: number | null
+  bbPct: number | null
 }
 
 /** One player's line on the boards, from whichever side they were on. */
@@ -95,6 +105,10 @@ export interface PitchProfile extends PitchRates {
   swings: number
   strikeouts: number
   twoStrikePa: number
+  walks: number
+  /** Outs in play by kind, the counts behind groundOutPct. */
+  groundOuts: number
+  airOuts: number
   /** Per-pitch counts, for anything that wants the mix rather than the rates. */
   counts: PitchCounts
 }
@@ -158,6 +172,25 @@ interface Tally {
   strikeouts: number
   firstStrikes: number
   twoStrikePa: number
+  walks: number
+  groundOuts: number
+  airOuts: number
+}
+
+/**
+ * Whether a play's out was on the ground or in the air, from the feed's own event type, or null
+ * when it was not an out in play or its kind cannot be told.
+ *
+ * A fielder's choice is a ground ball: the batter reached because a fielder took the force on a
+ * grounder. LEFT OUT: the generic `out` (the scorer did not say how) and `sacrifice`, which is a
+ * bunt on the ground or a fly in the air and the event type does not say which.
+ */
+export function battedOutKind(eventType: string | null | undefined): 'ground' | 'air' | null {
+  switch (eventType) {
+    case 'groundout': case 'fielders_choice': return 'ground'
+    case 'flyout': case 'popup': case 'lineout': case 'foul_out': return 'air'
+    default: return null
+  }
 }
 
 const emptyCounts = (): PitchCounts => ({ ball: 0, called: 0, swinging: 0, foul: 0, inplay: 0, hbp: 0, unknown: 0 })
@@ -181,6 +214,9 @@ function ratesOf(t: Tally): PitchRates {
     pitchesPerPa: rate(t.pitches, t.pa),
     firstStrikePct: rate(t.firstStrikes, t.pa),
     putawayPct: rate(t.strikeouts, t.twoStrikePa),
+    groundOutPct: rate(t.groundOuts, t.groundOuts + t.airOuts),
+    kPct: rate(t.strikeouts, t.pa),
+    bbPct: rate(t.walks, t.pa),
   }
 }
 
@@ -188,6 +224,7 @@ const profileOf = (t: Tally): PitchProfile => ({
   player: t.player, name: t.name, teamId: t.teamId,
   pitches: t.pitches, pa: t.pa, swings: swingsOf(t.counts),
   strikeouts: t.strikeouts, twoStrikePa: t.twoStrikePa,
+  walks: t.walks, groundOuts: t.groundOuts, airOuts: t.airOuts,
   counts: t.counts, ...ratesOf(t),
 })
 
@@ -229,12 +266,15 @@ export function aggregatePitchCodes(
   plays: WpblPitchPlay[],
   players: WpblPlayer[],
   games: WpblSeasonGame[],
+  /** Which games to read. The Stats boards stay on the regular season; a player page follows its
+   *  own Regular / Playoffs / Both control. Same filter as every other season total (scopedLines). */
+  scope: SeasonScope = 'regular',
 ): PitchBoard {
   const byId = new Map(players.map(p => [p.id, p]))
   const pitchers = new Map<string, Tally>()
   const batters = new Map<string, Tally>()
   const gameIds = new Set<string>()
-  const league: Tally = { player: null, name: 'League', teamId: null, counts: emptyCounts(), pitches: 0, pa: 0, strikeouts: 0, firstStrikes: 0, twoStrikePa: 0 }
+  const league: Tally = { player: null, name: 'League', teamId: null, counts: emptyCounts(), pitches: 0, pa: 0, strikeouts: 0, firstStrikes: 0, twoStrikePa: 0, walks: 0, groundOuts: 0, airOuts: 0 }
 
   const take = (
     map: Map<string, Tally>, id: string | null, name: string | null, fallbackTeam: string | null,
@@ -254,31 +294,37 @@ export function aggregatePitchCodes(
       // the game's other team would need the schedule for a badge.
       teamId: player?.team_id ?? fallbackTeam,
       counts: emptyCounts(), pitches: 0, pa: 0, strikeouts: 0, firstStrikes: 0, twoStrikePa: 0,
+      walks: 0, groundOuts: 0, airOuts: 0,
     }
     map.set(key, t)
     return t
   }
 
-  const add = (t: Tally, read: ReturnType<typeof readSequence>, strikeout: boolean) => {
+  const add = (t: Tally, read: ReturnType<typeof readSequence>, strikeout: boolean, out: 'ground' | 'air' | null, walk: boolean) => {
     for (const k of Object.keys(read.counts) as (keyof PitchCounts)[]) t.counts[k] += read.counts[k]
     t.pitches += read.pitches
     t.pa++
     if (strikeout) t.strikeouts++
     if (read.firstPitchStrike) t.firstStrikes++
     if (read.reachedTwoStrikes) t.twoStrikePa++
+    if (walk) t.walks++
+    if (out === 'ground') t.groundOuts++
+    else if (out === 'air') t.airOuts++
   }
 
-  for (const play of regularSeasonLines(plays, games)) {
+  for (const play of scopedLines(plays, games, scope)) {
     const seq = play.pitch_sequence
     if (!seq) continue
     const read = readSequence(seq)
     const strikeout = play.event_type === 'strikeout'
+    const out = battedOutKind(play.event_type)
+    const walk = play.event_type === 'walk'
     gameIds.add(play.game_id)
-    add(league, read, strikeout)
+    add(league, read, strikeout, out, walk)
     const p = take(pitchers, play.pitcher_id, play.pitcher_name, null)
-    if (p) add(p, read, strikeout)
+    if (p) add(p, read, strikeout, out, walk)
     const b = take(batters, play.batter_id, play.batter_name, play.team_id)
-    if (b) add(b, read, strikeout)
+    if (b) add(b, read, strikeout, out, walk)
   }
 
   return {
@@ -304,6 +350,9 @@ const DENOMINATOR: Record<keyof PitchRates, (p: PitchProfile) => number> = {
   pitchesPerPa: p => p.pa,
   firstStrikePct: p => p.pa,
   putawayPct: p => p.twoStrikePa,
+  groundOutPct: p => p.groundOuts + p.airOuts,
+  kPct: p => p.pa,
+  bbPct: p => p.pa,
 }
 
 /**

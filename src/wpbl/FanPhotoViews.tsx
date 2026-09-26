@@ -54,9 +54,16 @@ export type ResolveNames = (photo: FanPhotoWithSubjects) => string[]
 /** What a card and the lightbox show as the line under the image: the curator's caption where
  *  there is one, else who is in it (a team photo names the club), else its category ("Fan
  *  signs"), else a bare label so a screen reader is not handed a URL. */
-export function fanPhotoCaption(photo: FanPhotoWithSubjects, names: string[]): string {
-  return photo.caption ?? (names.length > 0 ? names.join(', ') : (photo.categoryName ?? 'Photo'))
+export function fanPhotoCaption(photo: FanPhotoWithSubjects, names: string[], fallback = 'Photo'): string {
+  return photo.caption ?? (names.length > 0 ? names.join(', ') : (photo.categoryName ?? fallback))
 }
+
+/** Whether a caption would only repeat the page's own subject: nothing written, nobody else
+ *  tagged, no category. A player page leaves that player's name out of `names` because every
+ *  photo there is of them, and the tile then fell back to the bare word "Photo", which read as a
+ *  missing caption. Such a tile shows its credit alone. */
+const captionIsOnlySubject = (photo: FanPhotoWithSubjects, names: string[], subject?: string) =>
+  !!subject && !photo.caption && names.length === 0 && !photo.categoryName
 
 function Credit({ credit }: { credit: string | null }) {
   if (!credit) return null
@@ -125,12 +132,15 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
 
 /** One photograph at full size. `contain` inside a height cap, so a tall portrait phone photo is
  *  shown whole rather than cropped, and the caption and credit stay above the fold. */
-export function FanPhotoLightbox({ photo, names, onClose, onEdit }: {
+export function FanPhotoLightbox({ photo, names, onClose, onEdit, subject }: {
   photo: FanPhotoWithSubjects; names: string[]; onClose: () => void
   /** The owner's Edit button; absent for everyone else. */
   onEdit?: () => void
+  /** The page's own subject, named when nothing else would be (see captionIsOnlySubject). Out
+   *  here the photo is the whole view, so the name is wanted rather than repeated. */
+  subject?: string
 }) {
-  const caption = fanPhotoCaption(photo, names)
+  const caption = fanPhotoCaption(photo, names, subject)
   return (
     <ModalShell eyebrow="Gallery" onClose={onClose} maxWidth={900} zIndex={1700}>
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
@@ -182,8 +192,10 @@ const RAIL_ASPECT_MAX = 2
 /** The rail's one fixed dimension. Structure, so it scales with the chrome (see chromePx). */
 const RAIL_TILE_H = { xs: 168, sm: 184 } as const
 
-function PhotoCard({ photo, names, onOpen, frame, focusable = true }: {
+function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject }: {
   photo: FanPhotoWithSubjects; names: string[]; onOpen: () => void
+  /** The page's own subject (a player's name on their page), named nowhere in `names`. */
+  subject?: string
   /** 'rail': fixed height, width follows the photo. 'natural': full width of its column, height
    *  follows the photo (the gallery's masonry). */
   frame: 'rail' | 'natural'
@@ -191,7 +203,10 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true }: {
    *  tab order in a browser too old to know `inert`. */
   focusable?: boolean
 }) {
-  const caption = fanPhotoCaption(photo, names)
+  // The subject stands in for the fallback so the photo's alt text and button name still say
+  // who it is; only the VISIBLE line is dropped when it would just repeat the page's heading.
+  const caption = fanPhotoCaption(photo, names, subject)
+  const showCaption = !captionIsOnlySubject(photo, names, subject)
   const size = frame === 'rail'
     ? { width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }
     : { width: '100%', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '4 / 3' }
@@ -213,10 +228,12 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true }: {
         <Box component="img" src={photo.card_url} alt={caption} loading="lazy"
           sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
       </Box>
-      <Typography sx={{
-        fontSize: '0.74rem', fontWeight: 600, lineHeight: 1.3, mt: 0.6,
-        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-      }}>{caption}</Typography>
+      {showCaption && (
+        <Typography sx={{
+          fontSize: '0.74rem', fontWeight: 600, lineHeight: 1.3, mt: 0.6,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>{caption}</Typography>
+      )}
       <Credit credit={photo.credit} />
     </Box>
   )
@@ -228,7 +245,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true }: {
 // edit (which refetches the index) the lightbox shows the edited photo rather than a stale copy.
 // Edit swaps the lightbox for the full-screen editor and puts the lightbox back on close; the two
 // are never stacked, since the editor is a plain MUI dialog under the lightbox's z-index.
-function useFanPhotoViewer(photos: FanPhotoWithSubjects[], resolveNames: ResolveNames, from: string) {
+function useFanPhotoViewer(photos: FanPhotoWithSubjects[], resolveNames: ResolveNames, from: string, subject?: string) {
   const canEdit = useCanEditFanPhotos()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -241,7 +258,7 @@ function useFanPhotoViewer(photos: FanPhotoWithSubjects[], resolveNames: Resolve
   const node = (
     <>
       {active && (
-        <FanPhotoLightbox photo={active} names={resolveNames(active)} onClose={() => setActiveId(null)}
+        <FanPhotoLightbox photo={active} names={resolveNames(active)} subject={subject} onClose={() => setActiveId(null)}
           onEdit={canEdit ? () => { setEditingId(active.id); setActiveId(null) } : undefined} />
       )}
       {editingId && (
@@ -398,12 +415,15 @@ function useRailAutoScroll(
 
 /** A horizontal rail of a subject's or a game's photos, opening the lightbox. `from` labels the
  *  open event so a player-page strip and a Game Center strip can be judged separately.
- *  `autoScroll` makes it drift on its own (Home only; see useRailAutoScroll). */
-export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false }: {
-  photos: FanPhotoWithSubjects[]; resolveNames: ResolveNames; from: string; autoScroll?: boolean
+ *  `autoScroll` makes it drift on its own (Home only; see useRailAutoScroll). `phoneInset` is for
+ *  a rail bled to its card's edges on a phone (see RailScroller). */
+export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, phoneInset = 0, subject }: {
+  photos: FanPhotoWithSubjects[]; resolveNames: ResolveNames; from: string; autoScroll?: boolean; phoneInset?: number
+  /** The page's own subject, left out of `resolveNames` because every photo here is of them. */
+  subject?: string
 }) {
   const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(photos.length)
-  const { open, node, viewing } = useFanPhotoViewer(photos, resolveNames, from)
+  const { open, node, viewing } = useFanPhotoViewer(photos, resolveNames, from, subject)
   const areaRef = useRef<HTMLDivElement>(null)
   const { drifting, looping } = useRailAutoScroll(scrollRef, areaRef, autoScroll && photos.length > 0, viewing)
 
@@ -420,14 +440,20 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false }
         // rail is not holding a compositor layer per tile for nothing.
         ...(drifting ? { transform: `translateX(calc(var(${DRIFT_VAR}, 0) * -1px))`, willChange: 'transform' } : {}),
       }}>
-        <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" focusable={!copy} />
+        <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" focusable={!copy} subject={subject} />
       </Box>
     )
   })
   return (
     <>
       <Box ref={areaRef} sx={{ position: 'relative' }}>
-        <RailScroller scrollRef={scrollRef} onScroll={syncEdges} snap={!drifting}>
+        {/* NO SNAPPING ON A DRIFTING RAIL, EVER, not only while it drifts. Snap had to be off
+            during the drift (it re-snaps every nudge), which left exactly one moment it came on:
+            the instant a finger drag stopped the drift, with the rail still gliding from the
+            flick. Switching snap on mid-glide makes the browser yank the nearest photo into place,
+            and that was the only snap the Home rail ever did. A photo rail of mixed widths reads
+            fine scrolling freely; the arrows still page it on a desktop. */}
+        <RailScroller scrollRef={scrollRef} onScroll={syncEdges} snap={!autoScroll} phoneInset={phoneInset}>
           {tiles(false)}
           {/* The loop's second copy (see useRailAutoScroll). `display: contents` so its tiles are
               flex items of the rail like the originals, with the same gap at the seam. `inert`
@@ -506,12 +532,13 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
 
   const photos = index?.byPlayer.get(playerId) ?? []
   if (photos.length === 0) return null
+  const subjectName = nameById.get(playerId)
   return (
     <Box sx={{ mt: 2 }}>
       <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', mb: 1 }}>
         Gallery
       </Typography>
-      <FanPhotoStrip photos={photos} resolveNames={resolveNames} from="player" />
+      <FanPhotoStrip photos={photos} resolveNames={resolveNames} from="player" subject={subjectName} />
     </Box>
   )
 }
@@ -624,9 +651,11 @@ export function FanPhotoHomeCard({ reserve = false }: {
       >
         {/* Edge to edge on a phone: the card's side padding is 2 of a ~340px body, and the rail
             is the one thing on the card that gains from every pixel of width. The negative margin
-            matches the card body's `px: 2`; the card's own overflow clips the tiles at its border. */}
+            matches the card body's `px: 2`; the card's own overflow clips the tiles at its border.
+            `phoneInset` puts the same 2 back inside the scroller, so at rest the photos line up
+            with the title and the note, and only a scrolling photo runs to the edge. */}
         <Box sx={{ mx: { xs: -2, sm: 0 } }}>
-          <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll />
+          <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll phoneInset={2} />
         </Box>
         <FanPhotoSubmitNote variant="line" />
       </SectionCard>
