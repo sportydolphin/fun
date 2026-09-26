@@ -356,16 +356,8 @@ const DERIVED_SORTS: Record<Side, Record<string, boolean>> = {
 function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
   if (key && Object.prototype.hasOwnProperty.call(DERIVED_SORTS[side], key)) return { key, asc: DERIVED_SORTS[side][key] }
   const cols: Col<never>[] = (side === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
-  // The columns spliced in at render time, because they need the league or the reader's basis,
-  // are not in the static lists. Without this a link sorted by any of them (OPS+, wRC+, FIP)
-  // quietly landed on AVG or ERA. The value is `lowerBetter`.
-  if (key && key in RENDER_TIME_COLS[side]) return { key, asc: RENDER_TIME_COLS[side][key] }
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
   return { key: col.key, asc: !!col.lowerBetter }
-}
-const RENDER_TIME_COLS: Record<Side, Record<string, boolean>> = {
-  hitting: { opsPlus: false, woba: false, wrcPlus: false },
-  pitching: { eraPlus: false, fip: true, k9: false, hr9: true },
 }
 
 // What each abbreviation stands for, for the stat picker. A sheet that offers "SLG, OPS, OPS+"
