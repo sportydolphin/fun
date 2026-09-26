@@ -36,3 +36,6 @@ giveaway-data/
 # bound for R2, not the repo. prepare-fan-photos.py writes the staging folder.
 scripts/fan-photos-drop/
 scripts/fan-photos-staging/
+
+# Share files rendered by npm run road-video (and anything like it): large, regenerable.
+share/

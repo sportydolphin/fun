@@ -40,6 +40,7 @@ npm run check-functions               # bundle the Cloudflare Pages functions as
 npm run validate-pbp -- --baseline scripts/wpbl-pbp-baseline.json  # WPBL scoring check (needs SUPABASE_DB_URL)
 npm run restock-watch -- --status     # WPBL shop watcher: snapshot size, shortlist, last successful run
 npm run sitemap                       # regenerate public/sitemap.xml from the roster (one URL per player)
+npm run visual -- <slug> --n 3        # render an Offseason Visual (scripts/visuals/) into share/visuals/; --list, --stills
 npm run substack-sync -- --dry-run    # the Substack mirror, without writing
 npm run commons-sync -- --dry-run     # the Wikimedia Commons photo sync (rows land unapproved)
 npm run retro-sync -- --dry-run       # RetroWPBL per-game facts (first pitch, length, crew, weather)
