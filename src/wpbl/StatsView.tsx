@@ -4,7 +4,10 @@ import { alpha } from '@mui/material/styles'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameCount,
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
+  fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
 } from './api'
+import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
+import { wobaWeights, fipWeights, wobaContext, woba, wrcPlus } from './derive/linearWeights'
 import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import {
@@ -14,7 +17,7 @@ import {
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, plateAppearances,
-  kRateLabel, scaleToBasis, fmtRate, fmtTwo,
+  kRateLabel, scaleToBasis, fmtRate, fmtTwo, fmtPct, fip, fipConstant,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
@@ -117,6 +120,10 @@ const HIT_COLS: Col<WpblBattingTotals>[] = [
   { key: 'obp', label: 'OBP', value: t => t.obp, display: t => fmtRate(t.obp), rate: true },
   { key: 'slg', label: 'SLG', value: t => t.slg, display: t => fmtRate(t.slg), rate: true },
   { key: 'ops', label: 'OPS', value: t => t.ops, display: t => fmtRate(t.ops), rate: true },
+  // OPS+ is spliced in after OPS at render time, so these two land right behind it: power on
+  // its own, then the luck check on the average.
+  { key: 'iso', label: 'ISO', value: t => t.iso, display: t => fmtRate(t.iso), rate: true },
+  { key: 'babip', label: 'BABIP', value: t => t.babip, display: t => fmtRate(t.babip), rate: true },
   { key: 'hr',  label: 'HR',  value: t => t.hr },
   { key: 'rbi', label: 'RBI', value: t => t.rbi },
   { key: 'r',   label: 'R',   value: t => t.r },
@@ -125,11 +132,16 @@ const HIT_COLS: Col<WpblBattingTotals>[] = [
   // CS beside SB, because a steal total on its own cannot say whether the running was any
   // good, and this league runs constantly. Same reason the steal card on Run value prices it.
   { key: 'cs',  label: 'CS',  value: t => t.cs },
+  { key: 'sbPct', label: 'SB%', value: t => t.sbPct, display: t => fmtPct(t.sbPct), rate: true },
   { key: '2b',  label: '2B',  value: t => t.doubles },
   { key: '3b',  label: '3B',  value: t => t.triples },
+  { key: 'xbh', label: 'XBH', value: t => t.xbh },
   { key: 'tb',  label: 'TB',  value: t => t.tb },
   { key: 'bb',  label: 'BB',  value: t => t.bb },
   { key: 'so',  label: 'SO',  value: t => t.so },
+  { key: 'bbPct', label: 'BB%', value: t => t.bbPct, display: t => fmtPct(t.bbPct), rate: true },
+  { key: 'kPct', label: 'K%', value: t => t.kPct, display: t => fmtPct(t.kPct), rate: true, lowerBetter: true },
+  { key: 'ibb', label: 'IBB', value: t => t.ibb },
   // The rest of the trips to the plate that AB does not count. All four arrive on every line
   // and were shown nowhere: HBP is 54 of them this season, GDP 28, and the two sacrifices
   // are how a bunt or a fly ball shows up at all.
@@ -163,8 +175,13 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
   // feed's line, and without them the board could say a pitcher allowed two runs but not that they
   // faced nine batters or threw ninety pitches.
   { key: 'kbb',  label: 'K/BB', value: t => t.kbb, display: t => fmtTwo(t.kbb), rate: true },
+  // Per batter faced rather than per inning; see `kPct` in stats.ts.
+  { key: 'kPct', label: 'K%', value: t => t.kPct, display: t => fmtPct(t.kPct), rate: true },
+  { key: 'bbPct', label: 'BB%', value: t => t.bbPct, display: t => fmtPct(t.bbPct), rate: true, lowerBetter: true },
+  { key: 'kbbPct', label: 'K-BB%', value: t => t.kbbPct, display: t => fmtPct(t.kbbPct), rate: true },
   { key: 'strikePct', label: 'STR%', value: t => t.strikePct,
     display: t => (t.strikePct == null ? '—' : `${Math.round(t.strikePct * 100)}%`), rate: true },
+  { key: 'babip', label: 'BABIP', value: t => t.babip, display: t => fmtRate(t.babip), rate: true, lowerBetter: true },
   { key: 'bf',   label: 'BF',   value: t => t.bf },
   { key: 'p',    label: 'P',    value: t => t.pitches },
   { key: 'gs',   label: 'GS',   value: t => t.gs },
@@ -295,8 +312,11 @@ function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
 // right that reads as carelessness to anyone who follows the sport.
 const HIT_NAMES: Record<string, string> = {
   avg: 'Batting average', obp: 'On-base', slg: 'Slugging', ops: 'On-base plus slugging',
-  opsPlus: 'OPS vs the league', hr: 'Home runs', rbi: 'Runs batted in', r: 'Runs', h: 'Hits',
-  sb: 'Stolen bases', cs: 'Caught stealing', '2b': 'Doubles', '3b': 'Triples',
+  opsPlus: 'OPS vs the league', woba: 'Weighted on-base average',
+  wrcPlus: 'Runs created vs the league', iso: 'Isolated power', babip: 'Average on balls in play',
+  sbPct: 'Stolen base success rate', bbPct: 'Walks per plate appearance',
+  kPct: 'Strikeouts per plate appearance', ibb: 'Intentional walks', hr: 'Home runs', rbi: 'Runs batted in', r: 'Runs', h: 'Hits',
+  sb: 'Stolen bases', cs: 'Caught stealing', '2b': 'Doubles', '3b': 'Triples', xbh: 'Extra-base hits',
   tb: 'Total bases', bb: 'Walks', so: 'Strikeouts', hbp: 'Hit by pitch',
   gdp: 'Grounded into a double play', sf: 'Sacrifice flies', sh: 'Sacrifice bunts',
   pa: 'Plate appearances', ab: 'At-bats', g: 'Games',
@@ -306,7 +326,9 @@ const PIT_NAMES: Record<string, string> = {
   w: 'Wins', l: 'Losses', sv: 'Saves', so: 'Strikeouts', ip: 'Innings pitched',
   h: 'Hits allowed', r: 'Runs allowed', er: 'Earned runs', bb: 'Walks',
   hr: 'Home runs allowed', hbp: 'Batters hit by a pitch', wp: 'Wild pitches', bk: 'Balks',
-  kbb: 'Strikeouts per walk', strikePct: 'Share of pitches thrown for strikes',
+  kbb: 'Strikeouts per walk', kPct: 'Strikeouts per batter faced', bbPct: 'Walks per batter faced',
+  kbbPct: 'Strikeout rate minus walk rate', babip: 'Average allowed on balls in play',
+  fip: 'Fielding independent pitching', strikePct: 'Share of pitches thrown for strikes',
   bf: 'Batters faced', p: 'Pitches thrown', gs: 'Games started', g: 'Games',
 }
 
@@ -787,6 +809,27 @@ export default function WpblStatsView({
     return () => { cancelled = true }
   }, [])
 
+  // wOBA's weights come from the play log, which this board otherwise never reads. Fetched on its
+  // own and never awaited by the table: it is the section's slowest read, and gating the most-read
+  // tab's first paint on two columns would make every visit slower for them. Until it lands those
+  // two columns read as a dash. The Run value board shares the cache, so a reader who has been
+  // there pays nothing.
+  const [rvPlays, setRvPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblAllRunValuePlays().then(p => { if (!cancelled) setRvPlays(p) }).catch(() => { /* columns stay dashed */ })
+    return () => { cancelled = true }
+  }, [])
+  // FIP's weights come from the same pass, and so dash until it lands, rather than falling back
+  // to MLB's: a column whose numbers change under the reader once the plays arrive would be
+  // worse than one that fills in.
+  const rvValues = useMemo(() => {
+    if (!rvPlays || rvPlays.length === 0) return null
+    return playRunValues(rvPlays, games, buildRunExpectancy(rvPlays, games))
+  }, [rvPlays, games])
+  const wWeights = useMemo(() => (rvValues ? wobaWeights(rvValues) : null), [rvValues])
+  const fWeights = useMemo(() => (rvValues ? fipWeights(rvValues) : null), [rvValues])
+
   // OPS+ normalizes a hitter's OBP+SLG to the league (100 = league average, 150 = 50%
   // better). It needs league-wide rate context, so build the hitting columns in-component
   // with the league OBP/SLG closed over — computed from every batting line regardless of the
@@ -802,6 +845,7 @@ export default function WpblStatsView({
       t.obp != null && t.slg != null && lgObp != null && lgObp > 0 && lgSlg != null && lgSlg > 0
         ? 100 * (t.obp / lgObp + t.slg / lgSlg - 1)
         : null
+    const wCtx = wobaContext(lg, wWeights)
     const cols = [...HIT_COLS]
     // Team rows only. Player LOB isn't reported by the feed, so on the player board this
     // column would be a solid stripe of dashes pretending to be a stat.
@@ -820,16 +864,31 @@ export default function WpblStatsView({
       value: opsPlus,
       display: t => { const v = opsPlus(t); return v == null ? '—' : String(Math.round(v)) },
       rate: true,
+    }, {
+      // After OPS+ because they answer the same question better: OPS adds two rates with different
+      // denominators and weighs a point of OBP the same as a point of SLG, which undersells walks.
+      // Weighted by this league's own run values; see derive/woba.ts.
+      key: 'woba', label: 'wOBA',
+      value: t => woba(t, wWeights, wCtx),
+      display: t => fmtRate(woba(t, wWeights, wCtx)),
+      rate: true,
+    }, {
+      key: 'wrcPlus', label: 'wRC+',
+      value: t => wrcPlus(t, wWeights, wCtx),
+      display: t => { const v = wrcPlus(t, wWeights, wCtx); return v == null ? '—' : String(Math.round(v)) },
+      rate: true,
     })
     return cols
-  }, [lines.batting, mode, games, scope])
+  }, [lines.batting, mode, games, scope, wWeights])
 
   // ERA+ mirrors OPS+ for pitchers: league ERA over the pitcher's ERA, ×100 (100 = league
   // average, higher is better; it inverts ERA, so unlike ERA it sorts descending). No
   // park factor, same reasoning as OPS+. A 0.00 ERA has no finite ratio, so it reads "∞" and
   // sorts to the top rather than dashing to the bottom. Sits right after ERA.
   const pitCols = useMemo<Col<WpblPitchingTotals>[]>(() => {
-    const lgEra = sumPitching(lines.pitching, games, scope).era
+    const lgTotals = sumPitching(lines.pitching, games, scope)
+    const lgEra = lgTotals.era
+    const fipC = fipConstant(lgTotals, fWeights)
     const eraPlus = (t: WpblPitchingTotals): number | null => {
       if (t.era == null || lgEra == null || lgEra <= 0) return null
       return t.era === 0 ? Infinity : 100 * lgEra / t.era
@@ -853,15 +912,30 @@ export default function WpblStatsView({
       value: t => t.k9,
       display: t => fmtTwo(scaleToBasis(t.k9, eraBasis)),
       rate: true,
+    }, {
+      // Same arrangement as the K rate: stored on the canonical basis, labelled and scaled for
+      // the reader's.
+      key: 'hr9', label: `HR/${eraBasis}`,
+      value: t => t.hr9,
+      display: t => fmtTwo(scaleToBasis(t.hr9, eraBasis)),
+      rate: true, lowerBetter: true,
     })
     cols.splice(eraIdx + 1, 0, {
       key: 'eraPlus', label: 'ERA+',
       value: eraPlus,
       display: t => { const v = eraPlus(t); return v == null ? '—' : !isFinite(v) ? '∞' : String(Math.round(v)) },
       rate: true,
+    }, {
+      // Beside ERA+ so the gap between what a pitcher allowed and what they controlled reads in
+      // one glance. Centred on the same slice's ERA, so the league line reads the same in both.
+      // `fmtEra` rescales it with ERA, which is correct because FIP is linear in the basis.
+      key: 'fip', label: 'FIP',
+      value: t => fip(t, fWeights, fipC),
+      display: t => fmtEra(fip(t, fWeights, fipC)),
+      rate: true, lowerBetter: true,
     })
     return cols
-  }, [lines.pitching, fmtEra, eraBasis, games, scope])
+  }, [lines.pitching, fmtEra, eraBasis, games, scope, fWeights])
 
   const cols = (side === 'hitting' ? hitCols : pitCols) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
@@ -2071,9 +2145,12 @@ function OptionTile({ label, hint, on, onClick }: {
         color: on ? 'var(--wpbl-accent-fg)' : 'text.primary',
       }}>{label}</Typography>
       {hint && (
+        // Wraps to a second line rather than truncating: the hint is the whole point of the
+        // picker, and "Strikeouts per…" does not say which denominator. Clamped at two so a
+        // long one cannot make its row of tiles tower over the rest.
         <Typography sx={{
-          fontSize: '0.66rem', lineHeight: 1.25, color: 'text.disabled',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          fontSize: '0.66rem', lineHeight: 1.25, color: 'text.disabled', overflowWrap: 'anywhere',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{hint}</Typography>
       )}
     </Box>
@@ -2228,13 +2305,17 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
       // entry in PIT_NAMES could not carry the denominator and a lookup on the key would find
       // nothing, leaving "K/7" unexplained in the one place a reader is asking what a column means.
       k9: `Strikeouts per ${eraBasis} innings`,
+      hr9: `Home runs allowed per ${eraBasis} innings`,
     }
     : HIT_NAMES
   const groups: [string, Col<WpblBattingTotals | WpblPitchingTotals>[]][] = [
     ['Rate stats', cols.filter(c => c.rate)],
     ['Counting stats', cols.filter(c => !c.rate)],
   ]
-  const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 } as const
+  // minmax(0, 1fr), never bare 1fr: a bare fr track will not shrink below its content's
+  // min-content width, so one long hint ("Strikeouts per plate appearance") widened both columns
+  // past the sheet and the whole picker scrolled sideways on a phone.
+  const grid = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 } as const
   return (
     <ModalShell sheet eyebrow={side === 'pitching' ? 'Rank pitchers by' : 'Rank hitters by'}
       onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>

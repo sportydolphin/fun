@@ -71,6 +71,19 @@ export const STAT_TERMS: Record<string, GlossaryTerm> = {
   'K/9': { full: 'Strikeouts per nine innings' },
   'K/7': { full: 'Strikeouts per seven innings, a full WPBL game' },
   'K/BB': { full: 'Strikeouts per walk' },
+  'HR/7': { full: 'Home runs allowed per seven innings' },
+  'HR/9': { full: 'Home runs allowed per nine innings' },
+  wOBA: { full: 'Weighted on-base average', plain: 'On-base percentage that gives each way of reaching base its real worth, so a home run counts for more than a walk. Weighted by what each one is worth in this league, from our own play-by-play, and scaled so the league average matches league OBP.' },
+  'wRC+': { full: 'Weighted runs created plus', plain: 'How many runs a hitter creates compared with the league: 100 is average, 150 is half as many again. The best single number for comparing hitters.' },
+  ISO: { full: 'Isolated power', plain: 'Slugging minus batting average: extra bases per at-bat, so it measures power without counting singles. Over .200 is a lot of power.' },
+  BABIP: { full: 'Batting average on balls in play', plain: 'How often a ball put in play falls for a hit. Much of it is luck, so a number far from the league average usually drifts back toward it.' },
+  'K%': { full: 'Strikeout rate', plain: 'Strikeouts per plate appearance for a hitter, per batter faced for a pitcher.' },
+  'BB%': { full: 'Walk rate', plain: 'Walks per plate appearance for a hitter, per batter faced for a pitcher.' },
+  'K-BB%': { full: 'Strikeout rate minus walk rate', plain: 'The quickest single read on how much a pitcher controls the at-bat. Higher is better.' },
+  'SB%': { full: 'Stolen base success rate', plain: 'Steals divided by attempts. A caught stealing costs more than a steal gains, so a low rate can mean the running is hurting the team.' },
+  IBB: { full: 'Intentional walks' },
+  XBH: { full: 'Extra-base hits', plain: 'Doubles, triples and home runs together.' },
+  FIP: { full: 'Fielding independent pitching', plain: 'An ERA rebuilt from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches, each weighted by what it is worth in this league. Scaled so the league average matches league ERA; a FIP well below a pitcher’s ERA suggests bad luck or poor defence behind them.' },
 }
 
 /**

@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.97.0',
+    date:    '2026-09-26',
+    title:   'Advanced stats on the leaderboards',
+    changes: [
+      {
+        short: 'wOBA and wRC+ for hitters, weighted by this league',
+        full:  'The hitting board now has wOBA and wRC+. Each way of reaching base is weighted by what it is worth in the WPBL, measured from the season’s own play-by-play rather than borrowed from the majors, where runs are scarcer. wOBA reads like on-base percentage; wRC+ puts 100 at league average.',
+      },
+      {
+        short: 'FIP for pitchers, on the same league weights',
+        full:  'The pitching board now has FIP, an ERA built from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches. Its weights also come from this league: a strikeout is worth about twice as much here as in the majors, so FIP on the usual weights would have undersold the league’s strikeout pitchers.',
+      },
+      {
+        short: 'Strikeout and walk rates, BABIP, ISO and more',
+        full:  'Hitters gain ISO, BABIP, walk and strikeout rates, stolen base success rate, extra-base hits and intentional walks. Pitchers gain strikeout, walk and K-BB rates per batter faced, home runs per game and BABIP allowed. Every new stat is explained in the glossary and in the Rank by menu.',
+      },
+      {
+        short: 'The Rank by menu fits on a phone',
+        full:  'Long stat descriptions no longer push the Rank by menu wider than the screen; they wrap onto a second line instead.',
+      },
+    ],
+  },
+  {
     version: '1.96.0',
     date:    '2026-09-25',
     title:   'How every player pitched and hit, pitch by pitch',

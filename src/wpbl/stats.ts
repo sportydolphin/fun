@@ -72,7 +72,22 @@ export interface WpblBattingTotals {
   /** Grounded into a double play. */
   gdp: number
   tb: number
+  /** Extra-base hits: doubles, triples and home runs. */
+  xbh: number
+  /** Intentional walks. Already counted inside `bb`; carried so the board can say how many. */
+  ibb: number
   avg: number | null; obp: number | null; slg: number | null; ops: number | null
+  /** Isolated power, SLG minus AVG: extra bases per at-bat, so a singles hitter reads near zero. */
+  iso: number | null
+  /** Batting average on balls in play. Mostly luck and speed over a season this short, which is
+   *  the point of showing it: a .450 BABIP says the average above it will not hold. */
+  babip: number | null
+  /** Strikeouts and walks per PLATE APPEARANCE, via `plateAppearances`, the same denominator
+   *  the percentile strip's K% uses so the two cannot disagree. */
+  kPct: number | null
+  bbPct: number | null
+  /** Steals over attempts. Null with no attempt, rather than 0%, which would read as a failure. */
+  sbPct: number | null
   /**
    * Runners left on base, **team rows only**, filled in by the caller from the game row.
    * Always null here; see the note in `sumBatting`.
@@ -87,11 +102,11 @@ export function sumBatting(lines: WpblBattingLine[], games: WpblSeasonGame[], sc
 /** The arithmetic alone, on lines already known to be in scope. Internal, so the grouping
  *  helpers below can filter once for the whole league instead of once per player. */
 function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
-  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0, sh: 0, gdp: 0 }
+  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0, sh: 0, gdp: 0, ibb: 0 }
   for (const l of lines) {
     t.ab += l.ab; t.r += l.r; t.h += l.h; t.doubles += l.doubles; t.triples += l.triples; t.hr += l.hr
     t.rbi += l.rbi; t.bb += l.bb; t.so += l.so; t.sb += l.sb; t.hbp += l.hbp; t.cs += l.cs
-    t.sf += l.sf; t.sh += l.sh; t.gdp += l.gdp ?? 0
+    t.sf += l.sf; t.sh += l.sh; t.gdp += l.gdp ?? 0; t.ibb += l.ibb ?? 0
   }
   const singles = t.h - t.doubles - t.triples - t.hr
   const tb = singles + 2 * t.doubles + 3 * t.triples + 4 * t.hr
@@ -100,12 +115,21 @@ function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
   const obp = obDen > 0 ? (t.h + t.bb + t.hbp) / obDen : null
   const slg = t.ab > 0 ? tb / t.ab : null
   const ops = obp != null && slg != null ? obp + slg : null
+  const iso = avg != null && slg != null ? slg - avg : null
+  // SF stays in the denominator (a fly ball caught is a ball in play) and SH stays out, the
+  // standard definition; a bunt is a sacrifice rather than an attempt to reach.
+  const bip = t.ab - t.so - t.hr + t.sf
+  const babip = bip > 0 ? (t.h - t.hr) / bip : null
+  const pa = plateAppearances(t)
+  const kPct = pa > 0 ? t.so / pa : null
+  const bbPct = pa > 0 ? t.bb / pa : null
+  const sbPct = t.sb + t.cs > 0 ? t.sb / (t.sb + t.cs) : null
   // LOB is deliberately null and never summed from the lines. Two reasons: the feed sends a
   // per-player `lob` but has never populated it (every row in the table is 0), and even a
   // populated one wouldn't add up to the team's LOB: individual LOB charges the same stranded
   // runner to every batter who came up while that runner was aboard, so the sum overcounts.
   // The team number lives on wpbl_games (home_lob/away_lob); StatsView fills it in there.
-  return { ...t, tb, avg, obp, slg, ops, lob: null }
+  return { ...t, tb, xbh: t.doubles + t.triples + t.hr, avg, obp, slg, ops, iso, babip, kPct, bbPct, sbPct, lob: null }
 }
 
 // ─── Fielding ──────────────────────────────────────────────────────────────────
@@ -152,6 +176,19 @@ export interface WpblPitchingTotals {
   k9: number | null
   /** Strikeout-to-walk ratio. Null when nobody has walked, since the ratio has no value. */
   kbb: number | null
+  /** Per batter faced, not per inning: a pitcher behind a poor defence faces more batters per
+   *  inning, which inflates K/7 without the pitcher doing anything better. */
+  kPct: number | null
+  bbPct: number | null
+  kbbPct: number | null
+  /** Home runs per `ERA_BASIS_CANONICAL` innings, stored like `k9` and for the same reason: the
+   *  display scales it to the reader's basis. There is deliberately no walks-per-inning twin:
+   *  `bbPct` measures the same thing without charging a pitcher for the extra batters that hits
+   *  allowed bring to the plate. */
+  hr9: number | null
+  /** BABIP against. Slightly low: the pitching line has no SF or SH, so those sit in the
+   *  denominator as if they were balls in play that became outs. */
+  babip: number | null
 }
 
 export function sumPitching(lines: WpblPitchingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblPitchingTotals {
@@ -181,7 +218,46 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
   // exist, and fmtTwo renders null as the no-value dash rather than a nonsense number.
   const kbb = t.bb > 0 ? t.so / t.bb : null
   const strikePct = t.pitches > 0 ? t.strikes / t.pitches : null
-  return { ...t, era, whip, k9, kbb, strikePct }
+  const kPct = t.bf > 0 ? t.so / t.bf : null
+  const bbPct = t.bf > 0 ? t.bb / t.bf : null
+  const kbbPct = kPct != null && bbPct != null ? kPct - bbPct : null
+  const hr9 = ip > 0 ? (t.hr * ERA_BASIS_CANONICAL) / ip : null
+  const bip = t.bf - t.bb - t.hbp - t.so - t.hr
+  const babip = bip > 0 ? (t.h - t.hr) / bip : null
+  return { ...t, era, whip, k9, kbb, strikePct, kPct, bbPct, kbbPct, hr9, babip }
+}
+
+// ─── FIP ───────────────────────────────────────────────────────────────────────
+// Fielding independent pitching: ERA rebuilt from the three outcomes no fielder touches, so it
+// separates a pitcher from the defence and the luck behind them.
+
+/** Runs each fielding-independent outcome is worth against an average ball in play. Weighted
+ *  in RUNS PER EVENT, not the familiar 13/3/2: those are MLB's run values multiplied by nine
+ *  so the formula reads per nine innings, which is both the wrong run environment and the
+ *  wrong basis here. `fipWeights` in derive/linearWeights.ts measures these from the league's
+ *  own plays. MLB's, for comparison, are 13/9, 3/9 and -2/9. */
+export interface FipWeights { hr: number; bb: number; k: number }
+
+// Multiplying by the canonical basis puts FIP on the same basis as the stored ERA and keeps it
+// linear in the basis, which is what lets `scaleToBasis` rescale it for display exactly as it
+// does ERA.
+function fipCore(t: Pick<WpblPitchingTotals, 'hr' | 'bb' | 'hbp' | 'so' | 'outs'>, w: FipWeights): number | null {
+  const ip = t.outs / 3
+  return ip > 0 ? ((w.hr * t.hr + w.bb * (t.bb + t.hbp) + w.k * t.so) / ip) * ERA_BASIS_CANONICAL : null
+}
+
+/** The constant that makes the league's FIP equal the league's ERA. Built from the same slice
+ *  as the rows it is applied to, or a playoff FIP is centred on a regular season it is not
+ *  being compared with. Null before an inning is pitched or before the weights exist. */
+export function fipConstant(league: WpblPitchingTotals, w: FipWeights | null): number | null {
+  const core = w ? fipCore(league, w) : null
+  return core != null && league.era != null ? league.era - core : null
+}
+
+/** FIP on the canonical basis. Null without innings, weights, or a league to centre it on. */
+export function fip(t: WpblPitchingTotals, w: FipWeights | null, constant: number | null): number | null {
+  const core = w ? fipCore(t, w) : null
+  return core != null && constant != null ? core + constant : null
 }
 
 /** Trips to the plate: the honest measure of how much someone has played, and the unit
@@ -286,6 +362,10 @@ export function qualifiersActive(teams: WpblTeam[], games: WpblGame[]): boolean 
 export const fmtRate = (v: number | null): string => (v == null ? '—' : v.toFixed(3).replace(/^0(?=\.)/, ''))
 // "3.24" for ERA/WHIP; dash when null.
 export const fmtTwo = (v: number | null): string => (v == null ? '—' : v.toFixed(2))
+/** A share as a percent to one place, the precision K% and BB% are conventionally quoted at. */
+export const fmtPct = (v: number | null): string =>
+  // A true minus, as `fmtSigned` uses: K-BB% goes negative for a pitcher who walks more than they strike out.
+  v == null ? '—' : `${(v * 100).toFixed(1)}%`.replace(/^-/, '−')
 
 /** A signed run differential: "+26", "\u221217", "0".
  *

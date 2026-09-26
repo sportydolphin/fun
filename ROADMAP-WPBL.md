@@ -1192,6 +1192,18 @@ is retired.
 
 ## Shipped log
 
+### Sep 26, 2026: advanced stats on the boards (v1.97.0)
+
+Hitting gains wOBA, wRC+, ISO, BABIP, BB%, K%, SB%, XBH and IBB; pitching gains FIP, K%, BB%,
+K-BB%, HR/7 and BABIP against. wOBA's and FIP's weights are measured from our own run values
+([`derive/linearWeights.ts`](src/wpbl/derive/linearWeights.ts), off the same `playRunValues` pass
+as the Run value board), not MLB's: on 2026 FIP came out near 14.8 / 4.4 / -4.2 against 13 / 3 /
+-2. The play log loads in the background, so those three columns dash until it lands. BB/7 was
+tried and dropped as a worse copy of BB%. Holds, CG/SHO, quality starts and catcher CS% were
+checked and left out: no holds in the feed, one complete game all season, a QS threshold that
+assumes nine innings, and no caught-stealing on the fielding line. The boards now overflow a
+desktop, which is the next item: Standard and Advanced views per side.
+
 ### Sep 24, 2026: the Reading page lays out for the screen it is on
 
 `/wpbl/reading` was one column of 80px rows at every width: most of a desktop screen empty beside

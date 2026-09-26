@@ -39,13 +39,13 @@ const SOURCE_BADGE: Record<RuleSource, string | null> = {
 const GROUPS: { key: string; label: string; keys: string[] }[] = [
   {
     key: 'batting', label: 'Batting',
-    keys: ['AVG', 'OBP', 'SLG', 'OPS', 'PA', 'AB', 'H', '2B', '3B', 'HR', 'R', 'RBI', 'BB',
-      'SO', 'SB', 'CS', 'TB', 'HBP', 'GDP', 'SF', 'SH'],
+    keys: ['AVG', 'OBP', 'SLG', 'OPS', 'wOBA', 'wRC+', 'ISO', 'BABIP', 'PA', 'AB', 'H', '2B', '3B', 'XBH', 'HR', 'R',
+      'RBI', 'BB', 'IBB', 'SO', 'K%', 'BB%', 'SB', 'CS', 'SB%', 'TB', 'HBP', 'GDP', 'SF', 'SH'],
   },
   {
     key: 'pitching', label: 'Pitching',
-    keys: ['ERA', 'WHIP', 'W-L', 'SV', 'IP', 'ER', 'BF', 'GS', 'K/7', 'K/9', 'K/BB', 'WP',
-      'BK', 'P', 'DEC'],
+    keys: ['ERA', 'FIP', 'WHIP', 'W-L', 'SV', 'IP', 'ER', 'BF', 'GS', 'K/7', 'K/9', 'HR/7',
+      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'BABIP', 'WP', 'BK', 'P', 'DEC'],
   },
   {
     key: 'fielding', label: 'Fielding',
