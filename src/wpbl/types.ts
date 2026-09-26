@@ -231,7 +231,9 @@ export interface WpblArticle {
   /** Baseball clips embedded in the post. Null means "not counted", not "none": only posts
    *  still inside the RSS window have a body for the sync to count embeds in. */
   video_count: number | null
-  tags: string[]
+  /** Stored for the sync's own filter, and deliberately not read by the browser (see
+   *  fetchWpblArticles), so absent on every row the app holds. */
+  tags?: string[]
   game_id: string | null     // the game this post recaps, when all the signals agreed
   team_ids: string[]         // clubs the post is ABOUT, not merely mentions
   player_ids: string[]       // rostered players named by full name

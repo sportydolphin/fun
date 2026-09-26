@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
-import { AuthorByline, ReadingRow } from './Reading'
+import { AuthorByline, ReadingCard, ReadingLead } from './Reading'
 import { FLAT_CARDS_DARK } from './ui'
 import { fetchWpblArticles, fetchWpblTeams, getCachedWpblArticles, getCachedWpblTeams } from './api'
 import { SOURCES, sourceOf } from './derive/articles'
@@ -15,7 +15,7 @@ import { track, trackImpression, EVENTS } from '../lib/analytics'
 //
 // ONE FEED WITH A WRITER FILTER, not a section per writer. A reader comes here for the league, and
 // the newest post is the answer to "anything new" whoever wrote it; the writer chips are for the
-// reader who has a favourite. Every row names its writer (ReadingRow), so the merge never blurs
+// reader who has a favourite. Every card names its writer (ReadingCard), so the merge never blurs
 // whose words are whose.
 //
 // WHY A PAGE AND NOT A SHELF. The writing used to be one of three segments in a collapsible card
@@ -74,12 +74,32 @@ export default function ReadingPage() {
       .map(t => ({ team: t, count: list.filter(a => a.team_ids.includes(t.id)).length }))
       .filter(c => c.count > 0)
   }, [byWriter, teams])
+  // A club picked under one writer may have nothing under the next, and then its chip is gone
+  // and the list is empty with no way to see why. Fall back to every club rather than show that.
+  const activeClub = club !== 'all' && clubChips.some(c => c.team.id === club) ? club : 'all'
   const rows = useMemo(
-    () => club === 'all' ? byWriter : byWriter.filter(a => a.team_ids.includes(club)),
-    [byWriter, club])
+    () => activeClub === 'all' ? byWriter : byWriter.filter(a => a.team_ids.includes(activeClub)),
+    [byWriter, activeClub])
+  // The newest post leads, drawn large; the rest fall under a heading per month. Sixty-odd
+  // headlines in one undivided run gave a reader nothing to find their place by.
+  const lead = rows[0]
+  const months = useMemo(() => {
+    const out: { key: string; label: string; items: WpblArticle[] }[] = []
+    for (const a of rows.slice(1)) {
+      const d = new Date(a.published_at)
+      const key = Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${d.getMonth()}`
+      if (out.length === 0 || out[out.length - 1].key !== key) {
+        out.push({ key, label: key ? d.toLocaleDateString([], { month: 'long', year: 'numeric' }) : 'Undated', items: [] })
+      }
+      out[out.length - 1].items.push(a)
+    }
+    return out
+  }, [rows])
 
   return (
-    <WpblPage title="Reading" standfirst={<>
+    // Wider than the section's reading column: the posts lay out as a grid of cards on a
+    // desktop, and at 56rem that grid is two narrow columns with the covers shrunk to stamps.
+    <WpblPage title="Reading" maxWidth="72rem" standfirst={<>
       Everything two independent writers have written about the league, newest first:{' '}
       {SOURCES.map((src, i) => (
         <span key={src.key}>{i > 0 && ' and '}{src.authorName}&rsquo;s <em>{src.publicationName}</em></span>
@@ -108,16 +128,30 @@ export default function ReadingPage() {
             )}
             {clubChips.length > 1 && (
               <ChipRow mb={1.75}>
-                <FilterChip label={`All clubs (${byWriter.length})`} active={club === 'all'} onClick={() => pickClub('all')} />
+                <FilterChip label={`All clubs (${byWriter.length})`} active={activeClub === 'all'} onClick={() => pickClub('all')} />
                 {clubChips.map(c => (
                   <FilterChip key={c.team.id} label={`${c.team.name} (${c.count})`}
-                    active={club === c.team.id} onClick={() => pickClub(c.team.id)} />
+                    active={activeClub === c.team.id} onClick={() => pickClub(c.team.id)} />
                 ))}
               </ChipRow>
             )}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {rows.map(a => <ReadingRow key={a.post_id} article={a} teamById={teamById} from="page" />)}
-            </Box>
+            {lead && <ReadingLead article={lead} teamById={teamById} from="page" />}
+            {months.map(m => (
+              <Box component="section" key={m.key} sx={{ mt: 2.5 }}>
+                <Typography component="h2" sx={{
+                  fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+                  color: 'text.secondary', mb: 1,
+                }}>
+                  {m.label}
+                </Typography>
+                <Box sx={{
+                  display: 'grid', gap: { xs: 1, sm: 1.5 },
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
+                }}>
+                  {m.items.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="page" />)}
+                </Box>
+              </Box>
+            ))}
           </>
         )}
       </Box>

@@ -923,8 +923,14 @@ export function fetchWpblArticles(): Promise<WpblArticle[]> {
   return once('allArticles', async () => {
     const data = await safe<WpblArticle[]>('fetchWpblArticles', () =>
       supabase.from('wpbl_articles')
-        .select('post_id,source,slug,url,title,subtitle,cover_url,published_at,word_count,video_count,tags,game_id,team_ids,player_ids')
-        .order('published_at', { ascending: false }) as unknown as
+        // No `tags`: the sync reads them to decide which posts count, and nothing in the browser
+        // does. They are Substack's reach tags, often a dozen per post, and were the bulk of the
+        // payload after the headlines.
+        .select('post_id,source,slug,url,title,subtitle,cover_url,published_at,word_count,video_count,game_id,team_ids,player_ids')
+        .order('published_at', { ascending: false })
+        // Two posts can share a publish minute, and without a tiebreak Postgres may return them in
+        // either order, so the Reading page's lead story could swap between visits.
+        .order('post_id', { ascending: false }) as unknown as
         PromiseLike<{ data: WpblArticle[] | null; error: unknown }>,
       [])
     if (data.length > 0 || allArticlesCache == null) allArticlesCache = { data, at: Date.now() }

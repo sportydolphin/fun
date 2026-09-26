@@ -80,7 +80,7 @@ These Two Guys Race to Eat a Hot Dog, Slowly."* The surface is called **Reading*
 
 | Surface | Component | Shows when |
 |---|---|---|
-| `/wpbl/reading`, every post with a club filter | `ReadingPage` + `ReadingRow` | any posts exist |
+| `/wpbl/reading`, every post with writer and club filters | `ReadingPage` + `ReadingLead` / `ReadingCard` | any posts exist |
 | Home, one line: the latest headline and "All N posts" | `LatestReadingCard` (Home.tsx) | any posts exist |
 | Game center, under the highlight reel | `GameStoryCard` | a final has a matched post |
 | Player page, under the stat blocks | `WrittenAbout` | a post names that player |
@@ -90,6 +90,17 @@ when it has nothing, so an empty feed leaves no empty shells.
 
 *(Sep 24, 2026: the Home rail and its modal archive, later a segment of the league page's shelf,
 were replaced by the `/wpbl/reading` page, which has a URL, shows every post, and filters by club.)*
+
+**The page's layout (Sep 24, 2026).** The newest post in view leads as a large card
+(`ReadingLead`); the rest fall under a heading per month, as a grid of cover-on-top cards from
+`sm` up (two across, three at `lg`) and as compact rows on a phone. Both layouts are one
+component (`ReadingCard`) so they cannot disagree about a post. The clubs a post is about sit on
+the cover's corner rather than in the meta line, which on a phone left the byline, date and cost
+too little width and wrapped them across three lines. The page runs at `72rem` rather than the
+section's `56.25rem` reading column, because the grid needs the width. Covers are served through
+a `srcset` so a phone row fetches ~240px and a desktop card ~480px (see `coverAt`); the lead is
+loaded eagerly at high priority, everything else lazily. If a club is chosen and then a writer
+with no posts about it, the club filter falls back to all clubs rather than leaving an empty list.
 
 `AuthorByline` sits at the head of the Reading page: her photo, her name, her
 own one-line description of herself, and a link to the publication. It is the only link here
@@ -162,9 +173,9 @@ headlined without its score simply doesn't link, which is the intended failure.
 |---|---|
 | Matching rules (pure, tested) | [`src/wpbl/derive/articles.ts`](../src/wpbl/derive/articles.ts) |
 | Sync job | [`scripts/sync-wpbl-substack.ts`](../scripts/sync-wpbl-substack.ts), `npm run substack-sync` |
-| Schedule | [`.github/workflows/wpbl-substack-sync.yml`](../.github/workflows/wpbl-substack-sync.yml), hourly, 12:00–23:00 UTC |
+| Schedule | the `wpbl-substack-sync` edge function on pg_cron, hourly at :17 (migration `20260819030000_schedule_wpbl_substack_sync.sql`). Not GitHub Actions: Substack challenges Actions runners |
 | Table | `wpbl_articles`, migration `20260818012000_add_wpbl_articles.sql` |
-| Read | `fetchWpblArticles()` in [`src/wpbl/api.ts`](../src/wpbl/api.ts) |
+| Read | `fetchWpblArticles()` in [`src/wpbl/api.ts`](../src/wpbl/api.ts). Every column except `tags`, which only the sync's filter reads; ordered by `published_at` then `post_id`, so two posts sharing a minute keep one order |
 | UI | [`src/wpbl/Reading.tsx`](../src/wpbl/Reading.tsx) |
 
 Two sources, because they carry different things. The **archive API**
