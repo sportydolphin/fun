@@ -296,7 +296,17 @@ function axesFromQuery(): {
 // the column itself (`lowerBetter` → ascending, so ERA/WHIP lead with the best), which is why a
 // link only has to name a column and never a direction. An unknown or absent key falls back to
 // the group's headline column, the first in each list.
+//
+// The columns spliced in at render time (they need the league's own weights, or the reader's
+// ERA basis) are not in HIT_COLS / PIT_COLS, so without this list a shared `?sort=fip` link was
+// "unknown" and landed on ERA. Each maps to its `lowerBetter`. A key added to hitCols / pitCols
+// and not here still renders and sorts on click, it just cannot be linked to.
+const DERIVED_SORTS: Record<Side, Record<string, boolean>> = {
+  hitting: { lob: false, opsPlus: false, woba: false, wrcPlus: false },
+  pitching: { eraPlus: false, fip: true, k9: false, hr9: true },
+}
 function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
+  if (key && Object.prototype.hasOwnProperty.call(DERIVED_SORTS[side], key)) return { key, asc: DERIVED_SORTS[side][key] }
   const cols: Col<never>[] = (side === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
   return { key: col.key, asc: !!col.lowerBetter }
