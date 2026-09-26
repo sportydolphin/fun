@@ -17,7 +17,7 @@
 // NO NAV PILL, like the league, glossary and sources pages beside it: a real path linked from the
 // footer, which is the crawl path that has actually worked. See WPBL_SEASON_PAGE in routes.ts.
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines,
   fetchWpblAllRunValuePlays, fetchWpblBattedBalls, computeStandings, fetchWpblVideos, getCachedWpblVideos,
@@ -35,9 +35,12 @@ import LeaderboardRace from './LeaderboardRace'
 import RunsByInning from './RunsByInning'
 import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
 import { battedHalves } from './derive/runsByInning'
+import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
+import { fipWeights } from './derive/linearWeights'
+import { eraFipGaps, type EraFipRow } from './derive/eraFip'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances,
-  sumBatting, sumPitching, fmtRate, fmtTwo,
+  sumBatting, sumPitching, fmtRate, fmtTwo, fmtPct, ERA_BASIS_CANONICAL,
   type WpblBatSeason, type WpblPitSeason,
 } from './stats'
 import { countsInStandings } from './season'
@@ -47,6 +50,7 @@ import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
 import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
+import { ChipRow, FilterChip } from './FilterChips'
 import { track, EVENTS } from '../lib/analytics'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
@@ -65,26 +69,27 @@ const isModified = (e: React.MouseEvent) =>
 // One accessor per category. `null` from the accessor drops the row (no denominator), which is
 // what keeps a pitcher with no innings off the ERA board rather than sorting them to the top.
 
-type BatKey = { label: string; get: (t: WpblBatSeason['totals']) => number | null; fmt: (v: number) => string; asc?: boolean; rate?: boolean }
-type PitKey = { label: string; get: (t: WpblPitSeason['totals']) => number | null; fmt: (v: number) => string; asc?: boolean; rate?: boolean }
+// `chip` is the short name on a phone's stat chips, where six full labels would not fit a row.
+type BatKey = { label: string; chip: string; get: (t: WpblBatSeason['totals']) => number | null; fmt: (v: number) => string; asc?: boolean; rate?: boolean }
+type PitKey = { label: string; chip: string; get: (t: WpblPitSeason['totals']) => number | null; fmt: (v: number) => string; asc?: boolean; rate?: boolean }
 
 const asInt = (v: number) => String(v)
 
 const BAT_BOARDS: BatKey[] = [
-  { label: 'AVG', get: t => t.avg, fmt: fmtRate, rate: true },
-  { label: 'OPS', get: t => t.ops, fmt: fmtRate, rate: true },
-  { label: 'Home runs', get: t => t.hr, fmt: asInt },
-  { label: 'RBI', get: t => t.rbi, fmt: asInt },
-  { label: 'Hits', get: t => t.h, fmt: asInt },
-  { label: 'Stolen bases', get: t => t.sb, fmt: asInt },
+  { label: 'AVG', chip: 'AVG', get: t => t.avg, fmt: fmtRate, rate: true },
+  { label: 'OPS', chip: 'OPS', get: t => t.ops, fmt: fmtRate, rate: true },
+  { label: 'Home runs', chip: 'HR', get: t => t.hr, fmt: asInt },
+  { label: 'RBI', chip: 'RBI', get: t => t.rbi, fmt: asInt },
+  { label: 'Hits', chip: 'H', get: t => t.h, fmt: asInt },
+  { label: 'Stolen bases', chip: 'SB', get: t => t.sb, fmt: asInt },
 ]
 
 const PIT_BOARDS: PitKey[] = [
-  { label: 'Wins', get: t => t.w, fmt: asInt },
-  { label: 'ERA', get: t => t.era, fmt: fmtTwo, asc: true, rate: true },
-  { label: 'Strikeouts', get: t => t.so, fmt: asInt },
-  { label: 'WHIP', get: t => t.whip, fmt: fmtTwo, asc: true, rate: true },
-  { label: 'Saves', get: t => t.s, fmt: asInt },
+  { label: 'Wins', chip: 'W', get: t => t.w, fmt: asInt },
+  { label: 'ERA', chip: 'ERA', get: t => t.era, fmt: fmtTwo, asc: true, rate: true },
+  { label: 'Strikeouts', chip: 'K', get: t => t.so, fmt: asInt },
+  { label: 'WHIP', chip: 'WHIP', get: t => t.whip, fmt: fmtTwo, asc: true, rate: true },
+  { label: 'Saves', chip: 'SV', get: t => t.s, fmt: asInt },
 ]
 
 const TOP_N = 3
@@ -187,6 +192,10 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   // The league channel's highlight reels, which moved here off the league page's media shelf.
   const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
   const [hand, setHand] = useState<'R' | 'L'>('R')
+  // Phone only: the recap ran to nearly twelve screens at 375px, most of it boards stacked one
+  // under another that sit side by side on a desktop. See `BoardSet` and the jump row.
+  const isPhone = useMediaQuery('(max-width:600px)')
+  const [allPlays, setAllPlays] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -342,6 +351,14 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   const leagueBat = useMemo(() => sumBatting(batting, games), [batting, games])
   const leaguePit = useMemo(() => sumPitching(pitching, games), [pitching, games])
 
+  // ERA against FIP. FIP's weights come off the play log, so this block waits on it the way the
+  // biggest-plays block does and is simply absent until it lands.
+  const eraFip = useMemo(() => {
+    if (plays.length === 0) return null
+    const w = fipWeights(playRunValues(plays, games, buildRunExpectancy(plays, games)))
+    return eraFipGaps(pitSeasons, leaguePit, w, qual.minOuts)
+  }, [plays, games, pitSeasons, leaguePit, qual.minOuts])
+
   const regFinals = useMemo(
     () => games.filter(g => g.status === 'final' && countsInStandings(g)),
     [games],
@@ -473,6 +490,18 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
             </Box>
           )}
 
+          {/* ── Jump row ─────────────────────────────────────────────────────────
+              Phone only. Only the sections that rendered, so no link points at nothing. */}
+          {isPhone && (
+            <JumpRow links={[
+              bracket?.started ? ['season-bracket', 'Bracket'] : null,
+              shape.games > 0 ? ['season-standings', 'Standings'] : null,
+              ['season-batting', 'Batting'],
+              ['season-pitching', 'Pitching'],
+              bigPlays.length > 0 ? ['season-plays', 'Plays'] : null,
+            ]} />
+          )}
+
           {/* ── Playoff bracket ──────────────────────────────────────────────────
               How the champion got there: both semifinals and the final, as a record. Home's
               diagram without its extras: no odds (every series is decided, and a decided series
@@ -482,7 +511,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               so the recap never carries a projection. */}
           {bracket?.started && (
             <>
-              <SectionHeading seen="season">Playoff bracket</SectionHeading>
+              <SectionHeading seen="season" id="season-bracket">Playoff bracket</SectionHeading>
               <BracketDiagram bracket={bracket} bare />
             </>
           )}
@@ -510,18 +539,24 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                 {/* minmax(0, ...) because a bare `1fr` track cannot shrink below its content's
                     min-content width, and a single-game line ("5-5, 1 HR, 4 RBI") is nowrap: on a
                     phone both boards ran off the right edge of the page instead of the name giving. */}
-                <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
-                  {playoffBest.bats.length > 0 && (
-                    <LeaderBoard title="Hitting">
-                      {playoffBest.bats.map((b, i) => row(b.id, i + 1, b.player_id, b.team_id, b.game_id, battingStatline(b)))}
-                    </LeaderBoard>
-                  )}
-                  {playoffBest.arms.length > 0 && (
-                    <LeaderBoard title="Pitching">
-                      {playoffBest.arms.map((p, i) => row(p.id, i + 1, p.player_id, p.team_id, p.game_id, pitchingStatline(p)))}
-                    </LeaderBoard>
-                  )}
-                </Box>
+                <BoardSet phone={isPhone} columns={{ xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }} boards={[
+                  playoffBest.bats.length > 0 ? {
+                    key: 'hitting', chip: 'Hitting',
+                    node: (
+                      <LeaderBoard title="Hitting">
+                        {playoffBest.bats.map((b, i) => row(b.id, i + 1, b.player_id, b.team_id, b.game_id, battingStatline(b)))}
+                      </LeaderBoard>
+                    ),
+                  } : null,
+                  playoffBest.arms.length > 0 ? {
+                    key: 'pitching', chip: 'Pitching',
+                    node: (
+                      <LeaderBoard title="Pitching">
+                        {playoffBest.arms.map((p, i) => row(p.id, i + 1, p.player_id, p.team_id, p.game_id, pitchingStatline(p)))}
+                      </LeaderBoard>
+                    ),
+                  } : null,
+                ]} />
               </>
             )
           })()}
@@ -544,7 +579,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               `standingsFinals`, which drops the postseason. */}
           {shape.games > 0 && (
             <>
-              <SectionHeading seen="season">Final standings</SectionHeading>
+              <SectionHeading seen="season" id="season-standings">Final standings</SectionHeading>
               <FinalStandings rows={standingRows} orderIds={stOrderIds} cadence={preview.cadenceMs} teamHref={teamHref}
                 onNavigate={href => { opened('standings', 'team'); onNavigate(href) }} />
               <Box sx={{ mt: 1.5 }}>
@@ -639,12 +674,11 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           )}
 
           {/* ── Leaders ──────────────────────────────────────────────────────── */}
-          <SectionHeading seen="season">Batting leaders</SectionHeading>
-          <LeaderGrid>
-            {BAT_BOARDS.map(board => {
+          <SectionHeading seen="season" id="season-batting">Batting leaders</SectionHeading>
+          <BoardSet phone={isPhone} boards={BAT_BOARDS.map(board => {
               const rows = rankBatting(batSeasons, board, qual.minPa, qual.active)
               if (rows.length === 0) return null
-              return (
+              return { key: board.label, chip: board.chip, node: (
                 <LeaderBoard key={board.label} title={board.label}>
                   {rows.map((s, i) => (
                     <LeaderRow
@@ -658,16 +692,14 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                     />
                   ))}
                 </LeaderBoard>
-              )
-            })}
-          </LeaderGrid>
+              ) }
+            })} />
 
-          <SectionHeading seen="season">Pitching leaders</SectionHeading>
-          <LeaderGrid>
-            {PIT_BOARDS.map(board => {
+          <SectionHeading seen="season" id="season-pitching">Pitching leaders</SectionHeading>
+          <BoardSet phone={isPhone} boards={PIT_BOARDS.map(board => {
               const rows = rankPitching(pitSeasons, board, qual.minOuts, qual.active)
               if (rows.length === 0) return null
-              return (
+              return { key: board.label, chip: board.chip, node: (
                 <LeaderBoard key={board.label} title={board.label}>
                   {rows.map((s, i) => (
                     <LeaderRow
@@ -681,9 +713,46 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                     />
                   ))}
                 </LeaderBoard>
-              )
-            })}
-          </LeaderGrid>
+              ) }
+            })} />
+
+          {/* ── ERA vs FIP ───────────────────────────────────────────────────────
+              Label headings and a stated fact per row, no verdict: see derive/eraFip.ts for why
+              the row says which number moved rather than calling it luck. */}
+          {eraFip && (eraFip.eraLower.length > 0 || eraFip.eraHigher.length > 0) && (
+            <>
+              <SectionHeading seen="season">ERA vs FIP</SectionHeading>
+              <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, maxWidth: '44rem' }}>
+                FIP is an ERA built only from strikeouts, walks, hit batters and home runs, the
+                outcomes no fielder touches. Qualified pitchers, regular season, per {ERA_BASIS_CANONICAL} innings.
+                {leaguePit.babip != null && ` League average on balls in play: ${fmtRate(leaguePit.babip)}.`}
+              </Typography>
+              <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+                {([['ERA lower than FIP', eraFip.eraLower], ['ERA higher than FIP', eraFip.eraHigher]] as const)
+                  .filter(([, rows]) => rows.length > 0)
+                  .map(([title, rows]) => (
+                    <LeaderBoard key={title} title={title}>
+                      {rows.map((r, i) => {
+                        const href = playerHref(r.season.player)
+                        return (
+                          <PerformanceRow
+                            key={r.season.player.id}
+                            rank={i + 1}
+                            name={r.season.player.name}
+                            teamId={r.season.player.team_id}
+                            stat={`ERA ${fmtTwo(r.era)}`}
+                            context={eraFipContext(r)}
+                            wrapContext
+                            href={href}
+                            onOpen={() => { opened('era_fip', 'player'); onNavigate(href) }}
+                          />
+                        )
+                      })}
+                    </LeaderBoard>
+                  ))}
+              </Box>
+            </>
+          )}
 
           {/* ── The most improbable win ──────────────────────────────────────── */}
           {comeback && (
@@ -715,9 +784,9 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           {/* ── Biggest plays ────────────────────────────────────────────────── */}
           {bigPlays.length > 0 && (
             <>
-              <SectionHeading seen="season">The plays that turned a game</SectionHeading>
+              <SectionHeading seen="season" id="season-plays">The plays that turned a game</SectionHeading>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {bigPlays.map(bp => (
+                {(isPhone && !allPlays ? bigPlays.slice(0, PHONE_PLAYS) : bigPlays).map(bp => (
                   <Box
                     key={bp.game.id}
                     component="a"
@@ -744,6 +813,15 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                     </Typography>
                   </Box>
                 ))}
+                {isPhone && bigPlays.length > PHONE_PLAYS && (
+                  <Box {...pressable(() => setAllPlays(v => !v))} sx={{
+                    ...FOCUS_RING, alignSelf: 'center', cursor: 'pointer', userSelect: 'none',
+                    px: 1.5, py: 0.75, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
+                    fontSize: '0.8rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+                  }}>
+                    {allPlays ? 'Show fewer' : `Show all ${bigPlays.length}`}
+                  </Box>
+                )}
               </Box>
             </>
           )}
@@ -1001,6 +1079,79 @@ function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }: {
 
 // ─── Leader board pieces ──────────────────────────────────────────────────────────
 
+/** The row's second line: the FIP, then the one fact that accounts for most of the gap. */
+function eraFipContext(r: EraFipRow): string {
+  const reason = r.reason.kind === 'unearned'
+    ? `${r.reason.unearned} of ${r.reason.runs} runs unearned`
+    : r.reason.kind === 'babip'
+      ? `${fmtRate(r.reason.babip)} on balls in play`
+      // Label then value, like "FIP 5.20" beside it. Written out ("16.1% strikeouts, 12.5% walks")
+      // it ran past a phone's row and cut the walk rate off mid-word.
+      : `K ${fmtPct(r.reason.kPct)} · BB ${fmtPct(r.reason.bbPct)}`
+  return `FIP ${fmtTwo(r.fip)} · ${reason}`
+}
+
+/** Plays shown on a phone before "Show all". Each is a paragraph of narrative, about 240px. */
+const PHONE_PLAYS = 3
+
+type Board = { key: string; chip: string; node: React.ReactNode }
+
+/** A set of boards: side by side in a grid from `sm` up, and on a phone ONE board with a chip
+ *  per board above it. Stacked, the six batting boards alone were 1,100px at 375 wide, and a
+ *  reader comparing leaders wants one stat at a time anyway. Nulls are boards with no rows,
+ *  dropped so no chip opens an empty card. */
+function BoardSet({ boards, phone, columns }: {
+  boards: (Board | null)[]
+  phone: boolean
+  columns?: Record<string, string>
+}) {
+  const shown = boards.filter((b): b is Board => b != null)
+  const [picked, setPicked] = useState<string | null>(null)
+  if (shown.length === 0) return null
+  if (!phone || shown.length === 1) {
+    const cells = shown.map(b => <Box key={b.key} sx={{ minWidth: 0 }}>{b.node}</Box>)
+    return columns
+      ? <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: columns }}>{cells}</Box>
+      : <LeaderGrid>{cells}</LeaderGrid>
+  }
+  const current = shown.find(b => b.key === picked) ?? shown[0]
+  return (
+    <>
+      <ChipRow mb={1}>
+        {shown.map(b => (
+          <FilterChip key={b.key} label={b.chip} active={b.key === current.key} onClick={() => setPicked(b.key)} />
+        ))}
+      </ChipRow>
+      {current.node}
+    </>
+  )
+}
+
+/** Phone only: links to the page's main sections, so a twelve-screen page reads as a document
+ *  with parts rather than one chain. Real anchors, so they work without the handler; the handler
+ *  scrolls smoothly and keeps the hash out of the address bar, which the section's routing owns. */
+function JumpRow({ links }: { links: ([string, string] | null)[] }) {
+  return (
+    <ChipRow mb={0}>
+      {links.filter((l): l is [string, string] => l != null).map(([id, label]) => (
+        <Box key={id} component="a" href={`#${id}`}
+          onClick={(e: React.MouseEvent) => {
+            if (isModified(e)) return
+            e.preventDefault()
+            document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+          sx={{
+            ...FOCUS_RING, px: 1.3, py: 0.5, borderRadius: 999, textDecoration: 'none',
+            fontSize: '0.76rem', fontWeight: 700, lineHeight: 1.5, border: '1px solid',
+            borderColor: 'divider', bgcolor: 'background.paper', color: 'text.secondary',
+          }}>
+          {label}
+        </Box>
+      ))}
+    </ChipRow>
+  )
+}
+
 function LeaderGrid({ children }: { children: React.ReactNode }) {
   return (
     <Box sx={{
@@ -1059,9 +1210,12 @@ function LeaderRow({ rank, name, teamId, value, href, onNavigate }: {
 /** One single-game line on the playoff boards: the leader row's shape with a second line saying
  *  which game, and the whole row a link to that game rather than to the player, because the game
  *  is what it is ranking. */
-function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen }: {
+function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen, wrapContext = false }: {
   rank: number; name: string; teamId: string | null; context: string; stat: string
   href: string; onOpen: () => void
+  /** Let the second line wrap instead of cutting it off. For a line that is a fact the row is
+   *  there to state (ERA vs FIP's "10 of 17 runs unearned"), not a pointer to where it happened. */
+  wrapContext?: boolean
 }) {
   // "A. Lansdell" on a phone, the section's answer everywhere a name shares a row with a stat.
   const shortName = useWpblName()
@@ -1093,7 +1247,10 @@ function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen }: {
             {stat}
           </Typography>
         </Box>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Typography sx={{
+          fontSize: '0.72rem', color: 'text.disabled',
+          ...(wrapContext ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+        }}>
           {context}
         </Typography>
       </Box>

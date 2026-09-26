@@ -29,6 +29,8 @@ vi.mock('../api', async (importOriginal) => ({
   getCachedWpblAllPlayers: () => [],
   getCachedWpblAllLines: () => ({ batting: [], pitching: [] }),
   wpblStatsCacheAgeMs: () => 0,
+  fetchWpblAllRunValuePlays: () => Promise.resolve([]),
+  getCachedWpblAllRunValuePlays: () => null,
 }))
 
 const { default: StatsView, STATS_URL_PARAMS, carryStatsParams } = await import('../StatsView')
@@ -78,6 +80,31 @@ describe('the stats view in the address bar', () => {
     // exactly what the nonsense case below asserts. Both params still standing means the state
     // behind them is pitching, sorted by WHIP.
     expect(url()).toBe('/wpbl/stats?side=pitching&sort=whip')
+  })
+
+  // The columns spliced in at render time (they need the league or the reader's basis) are not
+  // in the static lists, and a link naming one used to be tidied away as if it were nonsense.
+  it('opens on a column that is only built at render time', async () => {
+    at('/wpbl/stats?sort=wrcPlus')
+    draw()
+    await screen.findByText('Hitting')
+    expect(url()).toBe('/wpbl/stats?sort=wrcPlus')
+  })
+
+  it('keeps a lower-is-better render-time column ascending without saying so', async () => {
+    at('/wpbl/stats?side=pitching&sort=fip')
+    draw()
+    await screen.findByText('Hitting')
+    expect(url()).toBe('/wpbl/stats?side=pitching&sort=fip')
+  })
+
+  // wRC+ is only in Advanced. Leaving the board sorted by a column the reader can no longer see
+  // would rank it by an invisible number, so Standard re-sorts on the headline stat instead.
+  it('re-sorts when the view no longer has the sorted column', async () => {
+    at('/wpbl/stats?sort=wrcPlus')
+    draw()
+    fireEvent.click(await screen.findByText('Standard'))
+    expect(url()).toBe('/wpbl/stats?sort=ops')
   })
 
   // A hand-edited or stale link is the case that must not render a blank board.

@@ -1201,8 +1201,11 @@ as the Run value board), not MLB's: on 2026 FIP came out near 14.8 / 4.4 / -4.2 
 -2. The play log loads in the background, so those three columns dash until it lands. BB/7 was
 tried and dropped as a worse copy of BB%. Holds, CG/SHO, quality starts and catcher CS% were
 checked and left out: no holds in the feed, one complete game all season, a QS threshold that
-assumes nine innings, and no caught-stealing on the fielding line. The boards now overflow a
-desktop, which is the next item: Standard and Advanced views per side.
+assumes nine innings, and no caught-stealing on the fielding line.
+
+v1.98.0 split each side into Standard and Advanced (`VIEW_ORDER` in StatsView, in Baseball-Reference and FanGraphs column order), because the full
+hitting table had reached 1,833px against a 1,239px column at 1280. Standard hitting is still
+about 60px over at 1280 and fits from roughly 1366 up; the other three views fit at 1280.
 
 ### Sep 24, 2026: the Reading page lays out for the screen it is on
 

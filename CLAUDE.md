@@ -337,10 +337,14 @@ Each of these has already cost someone a debugging session, and none of them fai
   Both are spent as a sticky `top`. Use the **rect**, never `offsetHeight`: it rounds to a whole
   pixel, and a bar 43.67px tall publishing itself as 44 leaves a sub-pixel crack under it that
   the page scrolls through, one device pixel of a stats row at a time. Consumers add them and
-  spend the sum (`PINNED_CHROME` in [`StatsView.tsx`](src/wpbl/StatsView.tsx)); exactly one is
-  non-zero at a time, since the toolbar is sticky only on desktop and the section nav only on
-  mobile. This has regressed three times, once in each direction, every time by a scale being
-  applied at one end of the sum and not the other.
+  spend the sum (`PINNED_CHROME` in [`StatsView.tsx`](src/wpbl/StatsView.tsx)); at most one is
+  non-zero, and **on a phone both are 0**: the toolbar is sticky only on desktop, and since Sep
+  14, 2026 the phone's section nav is the fixed BOTTOM bar, which pins nothing at the top. What
+  the bottom bar takes is reserved as padding under the page (`BOTTOM_NAV_SPACE` plus the
+  safe-area inset), and anything sized to fit the screen has to subtract that itself: the stats
+  table's cap did not, and for twelve days its column headers slid behind the control bar at the
+  bottom of the page. This has regressed three times, once in each direction, every time by a
+  scale being applied at one end of the sum and not the other.
 
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))

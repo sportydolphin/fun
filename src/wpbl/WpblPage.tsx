@@ -71,8 +71,11 @@ export default function WpblPage({ title, standfirst, maxWidth = '56.25rem', chi
  * league works" and the rest read the same everywhere; it snaps to TYPE_SCALE.heading, which is
  * what that token names. Was a local copy in SeasonPage set a step too large by hand.
  */
-export function SectionHeading({ children, seen }: {
+export function SectionHeading({ children, seen, id }: {
   children: React.ReactNode
+  /** An anchor for in-page jump links. The heading keeps a small margin above it when scrolled
+   *  to, so it does not land flush against the top edge. */
+  id?: string
   /** The page's name for `wpbl_page_section_seen`: report, once per page load, that the reader
    *  scrolled this far. Opt-in, so a long reference page (the glossary) does not send forty. The
    *  section is the heading's own text, so renaming a heading renames its series; that is the
@@ -93,7 +96,7 @@ export function SectionHeading({ children, seen }: {
     return () => io.disconnect()
   }, [seen])
   return (
-    <Typography ref={ref} component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, mt: 4, mb: 1.5 }}>
+    <Typography ref={ref} id={id} component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, mt: 4, mb: 1.5, scrollMarginTop: 12 }}>
       {children}
     </Typography>
   )

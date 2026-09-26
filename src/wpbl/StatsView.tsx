@@ -32,6 +32,7 @@ import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 import { useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
+import { BOTTOM_NAV_SPACE } from './BottomNav'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
 // its own layout, not reachable without a deliberate tap. The draft-value model lives on
@@ -111,10 +112,8 @@ interface Col<T> {
   lowerBetter?: boolean               // ERA/WHIP sort ascending by default
 }
 
-// Columns are ordered headline → secondary (not raw box-score order), so the stats a fan
-// actually scans sit up front. With the sort column pinned on mobile, this is also the
-// left-to-right scroll order right after it: slash line, then power/production, then the
-// peripheral/volume tail (AB, G) last.
+// Headline → secondary. Since the Standard/Advanced split this order is only the Rank by sheet's
+// and the fallback headline's; the table's left-to-right order is `VIEW_ORDER` below.
 const HIT_COLS: Col<WpblBattingTotals>[] = [
   { key: 'avg', label: 'AVG', value: t => t.avg, display: t => fmtRate(t.avg), rate: true },
   { key: 'obp', label: 'OBP', value: t => t.obp, display: t => fmtRate(t.obp), rate: true },
@@ -187,6 +186,55 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
   { key: 'gs',   label: 'GS',   value: t => t.gs },
   { key: 'g',    label: 'G',    value: t => t.g },
 ]
+
+// ─── Standard and Advanced ─────────────────────────────────────────────────────
+// Two views of each board, the split FanGraphs and Baseball-Reference use. With the advanced
+// stats added in v1.97.0 the full hitting table reached 1,833px, which scrolled sideways on
+// every desktop; each view alone fits. A column can be in both (the slash line, ERA, WHIP, IP),
+// because a rate stat read with no context beside it is a number with nothing to compare it to.
+//
+// THE ORDER IS THE ONE READERS ALREADY KNOW, and each list is left to right. Standard follows
+// Baseball-Reference and MLB.com: playing time, the counting line in box-score order, the slash
+// line, then the tail B-Ref ends on (TB, GDP, HBP, SH, SF, IBB). Advanced follows FanGraphs:
+// discipline rates first, the slash line, then the one-number answer last (wOBA and wRC+ for
+// hitters, ERA and FIP for pitchers), with B-Ref's OPS+ and ERA+ where FanGraphs puts its own
+// indexes. A fan who reads those sites finds each column where their eye already goes.
+//
+// A key in NEITHER list is appended to Standard, so a column added later shows up somewhere
+// rather than silently nowhere.
+type View = 'standard' | 'advanced'
+const VIEW_ORDER: Record<Side, Record<View, readonly string[]>> = {
+  hitting: {
+    standard: ['g', 'pa', 'ab', 'r', 'h', '2b', '3b', 'hr', 'rbi', 'sb', 'cs', 'bb', 'so',
+      'avg', 'obp', 'slg', 'ops', 'tb', 'gdp', 'hbp', 'sh', 'sf', 'ibb', 'lob'],
+    advanced: ['pa', 'bbPct', 'kPct', 'avg', 'obp', 'slg', 'ops', 'opsPlus', 'iso', 'xbh', 'babip',
+      'sbPct', 'woba', 'wrcPlus'],
+  },
+  pitching: {
+    standard: ['w', 'l', 'era', 'g', 'gs', 'sv', 'ip', 'h', 'r', 'er', 'hr', 'bb', 'so', 'hbp',
+      'bk', 'wp', 'bf', 'p', 'whip', 'k9'],
+    advanced: ['ip', 'bf', 'k9', 'kbb', 'hr9', 'kPct', 'bbPct', 'kbbPct', 'strikePct', 'whip',
+      'babip', 'eraPlus', 'era', 'fip'],
+  },
+}
+const VIEW_OPTIONS = [{ value: 'standard', label: 'Standard' }, { value: 'advanced', label: 'Advanced' }]
+function inView(side: Side, view: View, key: string): boolean {
+  const order = VIEW_ORDER[side]
+  if (!order.standard.includes(key) && !order.advanced.includes(key)) return view === 'standard'
+  return order[view].includes(key)
+}
+/** A view's columns in its own order, plus (on Standard) anything neither list names. */
+function orderForView<C extends { key: string }>(side: Side, view: View, cols: C[]): C[] {
+  const byKey = new Map(cols.map(c => [c.key, c]))
+  const named = VIEW_ORDER[side][view].map(k => byKey.get(k)).filter((c): c is C => !!c)
+  if (view === 'advanced') return named
+  const known = new Set([...VIEW_ORDER[side].standard, ...VIEW_ORDER[side].advanced])
+  return [...named, ...cols.filter(c => !known.has(c.key))]
+}
+/** The view a sort column lives in, preferring the one already showing. */
+function viewFor(side: Side, key: string, current: View): View {
+  return inView(side, current, key) ? current : current === 'standard' ? 'advanced' : 'standard'
+}
 
 // ─── the view in the address bar ──────────────────────────────────────────────
 
@@ -298,8 +346,16 @@ function axesFromQuery(): {
 // the group's headline column, the first in each list.
 function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
   const cols: Col<never>[] = (side === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
+  // The columns spliced in at render time, because they need the league or the reader's basis,
+  // are not in the static lists. Without this a link sorted by any of them (OPS+, wRC+, FIP)
+  // quietly landed on AVG or ERA. The value is `lowerBetter`.
+  if (key && key in RENDER_TIME_COLS[side]) return { key, asc: RENDER_TIME_COLS[side][key] }
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
   return { key: col.key, asc: !!col.lowerBetter }
+}
+const RENDER_TIME_COLS: Record<Side, Record<string, boolean>> = {
+  hitting: { opsPlus: false, woba: false, wrcPlus: false },
+  pitching: { eraPlus: false, fip: true, k9: false, hr9: true },
 }
 
 // What each abbreviation stands for, for the stat picker. A sheet that offers "SLG, OPS, OPS+"
@@ -405,9 +461,9 @@ const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 
 // The chrome pinned above this view.
 //
-// Exactly one of the two terms is non-zero at a time: the toolbar is sticky only on desktop,
-// the section nav only on mobile, so the sum lands just below the chrome on both without
-// either breakpoint being special-cased at the call sites.
+// At most one of the two terms is non-zero: the toolbar is sticky only on desktop. On a phone
+// both are 0, because the section nav there is the fixed bottom bar and pins nothing at the top;
+// what it takes at the BOTTOM is `BOTTOM_NAV_SPACE`, which the board's cap subtracts on its own.
 const PINNED_CHROME = 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))'
 const fullBleedSx = {
   width: FULL_BLEED_W,
@@ -443,20 +499,27 @@ const BAR_W = `min(${1540 + 2 * FULL_BLEED_GUTTER}px, calc(100vw))`
  *  from one can at worst pin a few pixels high or low. */
 const BOARD_TOP = `calc(${PINNED_CHROME} + var(--wpbl-stats-bar-h, 0px))`
 
-/** Everything between the last visible row and the top of the site footer: the line that names
- *  the population ("31 players · qualified only"), the card's own two borders, and the page's
- *  bottom gutter under it.
+/** What is left under the board once everything that can change size is measured: the card's
+ *  own two borders and the page's gutters above and below the site footer, plus two pixels of
+ *  slack so a rounding error cannot tip the board past the point where it stays pinned.
  *
- *  A CONSTANT, BECAUSE IT IS FURNITURE. None of it moves with the data, the board or the
- *  viewport, which is what separates it from the footer above: that one wraps to more rows as
- *  the window narrows and has to be measured. Deriving this one instead would mean reading the
- *  document's height, which on a phone includes the swipe pager's floor and any blank the board
- *  is itself leaving, so the board's height would feed back into its own cap and iterate away to
- *  nothing. */
-const BOARD_TAIL_PX = 104
+ *  THE BOARD'S OWN FOOTER IS NOT IN HERE ANY MORE. It was, as a constant, until v1.98.0 gave the
+ *  phone's full table a second row (the Standard/Advanced switch) and the constant came up 25px
+ *  short. Its height depends on the text size and on whether the count wraps, not on the board,
+ *  so it is measured and published as `--wpbl-board-foot-h` beside the site footer's.
+ *
+ *  STILL A CONSTANT FOR THE REST, BECAUSE IT IS FURNITURE. Deriving it from the document's
+ *  height would mean reading the swipe pager's floor and any blank the board is itself leaving,
+ *  so the board's height would feed back into its own cap and iterate away to nothing. */
+const BOARD_TAIL_PX = 52
 
-/** A header and about five rows: the least that is still a table. */
-const MIN_BOARD_PX = 320
+/** The header (27px) and five rows (43px each): the least that is still a table.
+ *
+ *  THE FLOOR BEATS THE FIT, so where it binds the headers can slide behind the bar at the bottom
+ *  of the page again. It was 320 until the bottom nav was counted, which left a 667px phone (an
+ *  iPhone SE) needing 271 and getting 320, headers gone. At 240 the fit wins on any phone from
+ *  about 636px tall. */
+const MIN_BOARD_PX = 240
 
 /** Full-bleed for a box that ALSO has to stick. Centred with a margin rather than
  *  `left: 50%` + a transform, because sticky spends `left` on its own threshold: given the
@@ -738,6 +801,23 @@ export default function WpblStatsView({
     () => defaultSort(fromUrl.side ?? seedAxes.side ?? 'hitting', fromUrl.sortKey ?? focus?.sortKey).key)
   const [sortAsc, setSortAsc] = useState(
     () => fromUrl.sortAsc ?? defaultSort(fromUrl.side ?? seedAxes.side ?? 'hitting', fromUrl.sortKey ?? focus?.sortKey).asc)
+  // Not in the address bar: it follows the sort, which is. A link sorted by wRC+ opens on
+  // Advanced because that is the only view with wRC+ in it.
+  const [view, setView] = useState<View>(() => viewFor(side, sortKey, 'standard'))
+  // Whatever moved the sort (the Rank by sheet, a link, a side switch), the sorted column has to
+  // be on screen, or the board is ranked by a number nobody can see.
+  useEffect(() => { setView(v => viewFor(side, sortKey, v)) }, [side, sortKey])
+  // The other direction: a reader choosing a view whose columns do not include the sort. Re-sort
+  // on that side's headline stat, which both views carry, rather than bouncing them back.
+  const switchView = (v: View) => {
+    if (v === view) return
+    setView(v)
+    if (!inView(side, v, sortKey)) {
+      // The same headline switchSide lands on, so the two switches beside each other agree.
+      if (side === 'hitting') { setSortKey('ops'); setSortAsc(false) }
+      else { setSortKey('era'); setSortAsc(true) }
+    }
+  }
 
   // ── What board is being read ─────────────────────────────────────────────────
   // Stats is the most-opened tab in the section, and a path count cannot tell its boards apart,
@@ -949,7 +1029,8 @@ export default function WpblStatsView({
   const teamsNarrow = pinActive && mode === 'teams'
   const nameW = teamsNarrow ? TEAM_NAME_W : NAME_W
   const nameInnerMax = teamsNarrow ? TEAM_NAME_INNER_MAX : NAME_INNER_MAX
-  const scrollCols = pinActive ? cols.filter(c => c.key !== activeCol.key) : cols
+  const viewCols = orderForView(side, view, cols)
+  const scrollCols = pinActive ? viewCols.filter(c => c.key !== activeCol.key) : viewCols
 
   // Flipping sides re-sorts on that side's headline stat. Safe to do even while the tracked
   // boards are showing: it leaves the table sorted sensibly for when the reader switches back.
@@ -1254,12 +1335,18 @@ export default function WpblStatsView({
     teamId ? (() => { const t = teamById.get(teamId); return t ? wpblFullName(t) : null })() : null,
     mode === 'players' && qualified ? 'qualified only' : null,
   ].filter(Boolean) as string[]
+  // On a phone's full table the footer carries two controls, which left the count a column of
+  // single words beside them; it takes its own line there and the controls sit under it.
+  const footerStacked = isNarrow && source === 'season' && !listView
   const boardFooter = (
-    <Box sx={{
+    <Box data-board-foot="" sx={{
       px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider',
-      display: 'flex', alignItems: 'center', gap: 1,
+      display: 'flex', alignItems: 'center', gap: 1, flexWrap: footerStacked ? 'wrap' : undefined,
     }}>
-      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0 }}>
+      <Typography sx={{
+        fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0,
+        flexBasis: footerStacked ? '100%' : undefined,
+      }}>
         {[
           capped ? `${LIST_CAP} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
           ...filterWords,
@@ -1285,6 +1372,11 @@ export default function WpblStatsView({
           The row above it adds PLAYERS and this one adds COLUMNS. The label names what it
           switches to, a table, rather than what it gets you, so a reader does not have to
           press it to find out what it does. */}
+      {footerStacked && (
+        <Box sx={{ flexShrink: 0 }}>
+          <PillGroup options={VIEW_OPTIONS} value={view} onChange={v => switchView(v as View)} />
+        </Box>
+      )}
       {isNarrow && source === 'season' && (
         <Box {...pressable(toggleFullTable)} sx={{
           ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -1301,6 +1393,13 @@ export default function WpblStatsView({
   // where the table scrolls horizontally. Bring the highlighted column into view on load and
   // when switching sides, but only if it isn't already visible, so a wide desktop
   // table (all columns shown) or a user who's scrolled elsewhere is left alone.
+  // A new view or side is a different set of columns, so an old sideways offset lands the reader
+  // partway through a table they have not seen the start of. Back to the first column; the effect
+  // below then brings the sorted one into view where it needs to. Declared first so it runs first.
+  useLayoutEffect(() => {
+    const c = scrollRef.current
+    if (c) c.scrollLeft = 0
+  }, [view, side])
   useLayoutEffect(() => {
     if (loading || pinActive) return // pinned: the sorted column is always in view (frozen)
     const c = scrollRef.current
@@ -1313,7 +1412,7 @@ export default function WpblStatsView({
     const leftInView = tRect.left - cRect.left
     if (rightInView > c.clientWidth) c.scrollLeft += rightInView - c.clientWidth + 12
     else if (leftInView < 0) c.scrollLeft += leftInView - 12
-  }, [loading, side, sortKey, rows.length, pinActive])
+  }, [loading, side, view, sortKey, rows.length, pinActive])
 
   // Track horizontal scroll position to toggle the edge affordances.
   useEffect(() => {
@@ -1350,6 +1449,8 @@ export default function WpblStatsView({
     // (`minHeight` in SwipeableViews, which keeps a short tab a full-screen swipe target) and
     // any blank the board itself is leaving; feeding that back into the board's height is a
     // loop that runs the table down to nothing. The footer's height cannot depend on the board's.
+    // Declared before `publish` so it can watch the two footers it finds (see below).
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => publish()) : null
     const publish = () => {
       // THE ONE THAT IS LAID OUT, and looked up every time rather than held from the first pass.
       // `/wpbl` keeps its swipe pager's visited tabs mounted, so the page can hold several
@@ -1361,6 +1462,18 @@ export default function WpblStatsView({
         .find(f => f.getBoundingClientRect().height > 0)
       root.style.setProperty('--wpbl-stats-bar-h', `${el.getBoundingClientRect().height}px`)
       root.style.setProperty('--wpbl-foot-h', `${foot?.getBoundingClientRect().height ?? 0}px`)
+      // The board's own footer, on the same terms: the laid-out one, since the ranked list and
+      // the table each render it, and its height does not depend on the board's.
+      const boardFoot = Array.from(document.querySelectorAll('[data-board-foot]'))
+        .find(f => f.getBoundingClientRect().height > 0)
+      root.style.setProperty('--wpbl-board-foot-h', `${boardFoot?.getBoundingClientRect().height ?? 0}px`)
+      // WATCH THE FOOTERS THEMSELVES, not only the body. Switching to Large text grows both of
+      // them without resizing the body in a way the observer reports, so the published heights
+      // went stale and the board was sized for the old text: headers behind the bar at the
+      // bottom of the page for anyone who changed the setting with this tab mounted, which the
+      // pager keeps it. Observing an element twice is a no-op, so this is safe on every pass.
+      if (foot) ro?.observe(foot)
+      if (boardFoot) ro?.observe(boardFoot)
     }
     publish()
     // jsdom has no ResizeObserver in every environment this runs in; the values published above
@@ -1370,12 +1483,12 @@ export default function WpblStatsView({
     // a row as the window narrows. It cannot feed back on itself: what gets published is the
     // FOOTER's height, and the footer does not care how tall the board is, so a republish on a
     // board resize writes the same value and stops there.
-    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(publish) : null
     if (ro) { ro.observe(el); ro.observe(document.body) }
     return () => {
       ro?.disconnect()
       root.style.removeProperty('--wpbl-stats-bar-h')
       root.style.removeProperty('--wpbl-foot-h')
+      root.style.removeProperty('--wpbl-board-foot-h')
     }
   }, [loading])
 
@@ -1579,6 +1692,13 @@ export default function WpblStatsView({
             onChange={v => switchSide(v as Side)}
           />
         </Box>
+        {/* Desktop only. A phone's ranked list shows one stat, so there is nothing to switch; its
+            full table carries the same switch in the footer, where the bar has no room left. */}
+        {source === 'season' && !isNarrow && (
+          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <PillGroup options={VIEW_OPTIONS} value={view} onChange={v => switchView(v as View)} />
+          </Box>
+        )}
 
         {/* Phones: the two controls that do the work, stating what they are set to. Desktop
             keeps the chips inline, where there is room for the whole filter set at once and
@@ -1825,8 +1945,8 @@ export default function WpblStatsView({
               the cap becomes what fits in the gap the PINNED chrome leaves.
 
               That gap is asked for rather than assumed. The shell publishes whichever of its
-              bars is actually holding a position (--app-header-h on desktop, --wpbl-nav-h on
-              mobile, both 0 when the bar is static), so subtracting the sum is right at every
+              bars is actually holding a position at the top (--app-header-h on desktop, 0 on a
+              phone, whose section nav is the bottom bar), so subtracting the sum is right at every
               width without naming a breakpoint here. 100px is this page's OWN control bar,
               which pins under them and is the one height the shell cannot report (about 91px,
               the rest slack).
@@ -1868,8 +1988,15 @@ export default function WpblStatsView({
             // shown it measures a zero rect and renders no board at all. The floor is what
             // stops any of that reaching the screen.
             maxHeight: 'calc(100dvh - 260px)',
+            // THE BOTTOM NAV IS BELOW EVERYTHING ELSE, as padding the shell reserves so the footer
+            // clears it (`BOTTOM_NAV_SPACE` plus the home-indicator inset, in WpblApp). It is not
+            // pinned at the TOP, so `--wpbl-nav-h` reads 0 on a phone and says nothing about it.
+            // Leaving it out made the board 76px too tall (about 110px on an iPhone), and at the
+            // bottom of the page the column headers slid up behind the control bar.
             '@media (max-width:600px)': {
-              maxHeight: `max(${MIN_BOARD_PX}px, calc(100dvh - ${BOARD_TOP} - var(--wpbl-foot-h, 0px) - ${BOARD_TAIL_PX}px))`,
+              maxHeight: `max(${MIN_BOARD_PX}px, calc(100dvh - ${BOARD_TOP} - var(--wpbl-foot-h, 0px)`
+                + ` - var(--wpbl-board-foot-h, 0px) - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px)`
+                + ` - ${BOARD_TAIL_PX}px))`,
             },
             '@media (max-height: 560px)': {
               maxHeight: `calc(100dvh - ${PINNED_CHROME} - 100px)`,

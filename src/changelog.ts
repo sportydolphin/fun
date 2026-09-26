@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.98.0',
+    date:    '2026-09-26',
+    title:   'Standard and Advanced stat views',
+    changes: [
+      {
+        short: 'ERA vs FIP on the season recap',
+        full:  'The 2026 season page lists the qualified pitchers whose ERA sits furthest from their FIP, three on each side, with the box-score fact behind each gap: how many of the runs were unearned, how often balls in play fell for hits, or the strikeout and walk rates.',
+      },
+      {
+        short: 'A shorter season recap on a phone',
+        full:  'On a phone the season page shows one leaderboard at a time with a chip for each stat instead of stacking every board, lists three of the plays that turned a game with a button for the rest, and opens with links to jump to the bracket, standings, batting, pitching and plays. It is about a quarter shorter.',
+      },
+      {
+        short: 'The stats board splits into Standard and Advanced',
+        full:  'The hitting and pitching boards each have a Standard view, the box-score numbers, and an Advanced view with the rate stats, wOBA, wRC+ and FIP, so each fits on a desktop screen instead of scrolling sideways. Sorting by a stat from the Rank by menu or a shared link opens the view that has it.',
+      },
+      {
+        short: 'Links to OPS+, wRC+ and FIP keep their sort',
+        full:  'A link to the stats board sorted by OPS+, ERA+, the strikeout rate or any of the new advanced stats used to open sorted by batting average instead. It now opens on the stat it names.',
+      },
+      {
+        short: 'Column headings stay put on a phone',
+        full:  'On a phone, the full stats table was sized as if the bottom navigation bar were not there, so scrolling to the foot of the page carried the column headings up out of sight. The table now fits the screen, the headings stay visible with Large text too, and the Standard and Advanced switch sits above the navigation bar instead of behind it.',
+      },
+    ],
+  },
+  {
     version: '1.97.0',
     date:    '2026-09-26',
     title:   'Advanced stats on the leaderboards',
