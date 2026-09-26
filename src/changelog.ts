@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.99.0',
+    date:    '2026-09-26',
+    title:   'A stats table that fits a phone',
+    changes: [
+      {
+        short: 'Almost three times as many players on a phone',
+        full:  'The full stats table on a phone shows about fourteen players at once instead of five. Rows are shorter, the league averages sit under each column heading, the player count moved into the first heading, and the site footer steps aside while the table is open. Scrolling the table now scrolls the page first, so its last rows no longer hide behind the navigation bar.',
+      },
+      {
+        short: 'A league average line on every stats board',
+        full:  'The hitting and pitching boards show the league average for every rate stat, so a .400 on-base percentage has something to be read against, and OPS+, wRC+ and ERA+ show what 100 means.',
+      },
+      {
+        short: 'Ties are marked, and short samples are faded',
+        full:  'Players who share a place are ranked T-3, T-3 instead of 3 and 4. With Everyone showing, players under the qualifying bar are faded, and the Filters menu says what the bar is.',
+      },
+      {
+        short: 'The hitting board opens on OPS',
+        full:  'The hitting board opened sorted by batting average but came back from the pitching side sorted by OPS. It now opens on OPS every time.',
+      },
+      {
+        short: 'Sortable headings from the keyboard',
+        full:  'Column headings can be reached with Tab and sorted with Enter or Space, announce their sort order to screen readers, and show what each abbreviation stands for on hover. wOBA and wRC+ keep their lowercase w.',
+      },
+    ],
+  },
+  {
     version: '1.98.0',
     date:    '2026-09-26',
     title:   'Standard and Advanced stat views',

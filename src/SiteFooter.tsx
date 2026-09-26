@@ -33,6 +33,9 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
       sx={{
         borderTop: '1px solid', borderColor: 'divider',
         mt: 4, px: 2, py: 2,
+        // Out of the way of the WPBL stats board's full table on a phone, which needs the height to
+        // stay pinned; the attribute's owner (StatsView) explains why that is safe for crawling.
+        '@media (max-width:600px)': { 'html[data-wpbl-stats-table] &': { display: 'none' } },
       }}
     >
       {/* THREE ROWS, NOT ONE LIST, and the audit that produced them is worth keeping because the

@@ -104,7 +104,8 @@ describe('the stats view in the address bar', () => {
     at('/wpbl/stats?sort=wrcPlus')
     draw()
     fireEvent.click(await screen.findByText('Standard'))
-    expect(url()).toBe('/wpbl/stats?sort=ops')
+    // OPS is the default, so the query tidies away entirely.
+    expect(url()).toBe('/wpbl/stats')
   })
 
   // A hand-edited or stale link is the case that must not render a blank board.

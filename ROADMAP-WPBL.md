@@ -1192,6 +1192,19 @@ is retired.
 
 ## Shipped log
 
+### Sep 26, 2026: the stats table fits a phone (v1.99.0)
+
+The phone's full table showed four or five players at 390x664. Most of the screen went to a 191px
+reservation for the site footer, a 35px league row and 75px of board footer, and every row carried
+9px of line-box strut from an inline name link. Rows are now 29px (link set to block, position
+line dropped on the phone), the league sits under each heading, the count is in the first heading,
+and the footer hides for the player table only (`data-wpbl-stats-table`, safe for crawling because
+the full table is off by default and lives in localStorage). Fourteen rows at 390x664. The page
+scrolls before the table does (`boardPinned`), since the taller table rests behind the bottom nav
+until pinned. Also: OPS as the one hitting headline (`HEADLINE`), T-3 ties judged on the shown
+number, a league-average row on desktop, faded non-qualifiers, keyboard-sortable headings, and the
+expired ERA-basis note removed.
+
 ### Sep 26, 2026: advanced stats on the boards (v1.97.0)
 
 Hitting gains wOBA, wRC+, ISO, BABIP, BB%, K%, SB%, XBH and IBB; pitching gains FIP, K%, BB%,

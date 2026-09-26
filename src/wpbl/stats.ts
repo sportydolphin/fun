@@ -164,7 +164,7 @@ export interface WpblPitchingTotals {
   /** Share of pitches thrown for strikes. The one rate the pitch counts make possible, and
    *  the closest thing to a command number the box score can give. Null before a pitch. */
   strikePct: number | null
-  /** Earned runs per NINE innings, always, whatever the reader has the site set to. See
+  /** Earned runs per `ERA_BASIS_CANONICAL` innings, always, whatever the reader has the site set to. See
    *  `ERA_BASIS_CANONICAL`: everything downstream scales this one number, so there is exactly
    *  one place a per-7 figure can come from and no way for two surfaces to disagree. */
   era: number | null
@@ -209,8 +209,7 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
     else if (l.decision === 'S') t.s++
   }
   const ip = t.outs / 3
-  // Per NINE, which is not the length of a WPBL game. See ERA_BASIS_CANONICAL for why the
-  // stored number is the league's basis rather than the honest one.
+  // On ERA_BASIS_CANONICAL, the league's own basis; see there for why it is not a setting.
   const era = ip > 0 ? (t.er * ERA_BASIS_CANONICAL) / ip : null
   const whip = ip > 0 ? (t.bb + t.h) / ip : null
   const k9 = ip > 0 ? (t.so * ERA_BASIS_CANONICAL) / ip : null

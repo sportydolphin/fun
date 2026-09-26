@@ -48,12 +48,6 @@ const BADGES = {
   'stats-tab-v184': new Date('2026-10-31T23:59:59Z'),
   'bests-v184': new Date('2026-10-31T23:59:59Z'),
   'find-v184': new Date('2026-10-31T23:59:59Z'),
-  // Not a dot: this one gates a one-line notice above the WPBL pitching board saying ERA
-  // moved from per 7 to per 9. It is here rather than in its own store because the question
-  // is identical ("has this reader been told yet") and the expiry matters more here than
-  // anywhere else. Only a reader who saw the old numbers needs telling, and by the end of the
-  // feed nobody arriving has. After that date the notice and this entry can both be deleted.
-  'era-per-9': new Date('2026-09-22T23:59:59Z'),
 } as const
 
 export type BadgeKey = keyof typeof BADGES
