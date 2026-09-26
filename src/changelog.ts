@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.96.0',
+    date:    '2026-09-25',
+    title:   'How every player pitched and hit, pitch by pitch',
+    changes: [
+      {
+        short: 'Player pages show a pitch profile and plate discipline',
+        full:  'Every pitcher now has a pitch profile and every hitter a plate discipline card, from every pitch of the season: strikeout and walk rates ranked against the league, first-pitch strikes and swinging strikes for pitchers, swing and contact rates for hitters, and each outcome (balls, called strikes, whiffs, fouls, balls in play) set against the league average, blue where it is better and amber where it is worse.',
+      },
+      {
+        short: 'More room for the numbers on a phone',
+        full:  'On a phone a player page now opens taller, and the header with the photo scrolls away with the stats instead of staying pinned, so there is about half again as much room to read. The player’s name moves into the top bar once the header is out of sight. Game Center opens taller too.',
+      },
+      {
+        short: 'Fan award winners are marked on their pages',
+        full:  'A player who won a fan award now carries it under their name, such as “Fan vote · Most Valuable Player”, linking to the full results.',
+      },
+      {
+        short: 'A tidier player page',
+        full:  'Articles about a player are now a short list rather than a grid of boxes, a pitcher’s fielding is a single line, the regular season and playoffs switch sits beside the season line on a desktop, the zone bars under a spray chart no longer repeat the chart on a phone, and the pitch location plot only appears when tracking covered most of that pitcher’s games.',
+      },
+      {
+        short: 'Reading lays out for your screen',
+        full:  'The Reading page now leads with the newest post drawn large, then groups the rest by month: a grid of cards on a desktop and compact rows on a phone. Picking a club no longer leaves an empty list when you switch writers.',
+      },
+      {
+        short: 'The Home gallery lines up on a phone',
+        full:  'Photos in the Home gallery no longer sit flush against the edge of the card on a phone, and the strip no longer jumps to a photo when you let go of it.',
+      },
+    ],
+  },
+  {
     version: '1.95.0',
     date:    '2026-09-25',
     title:   'A second writer on the league',
