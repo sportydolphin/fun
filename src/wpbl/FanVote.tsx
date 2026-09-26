@@ -14,6 +14,7 @@ import AwardsWinnersExport from './AwardsWinnersExport'
 import { wpblManagerPortraitSet, wpblPortrait, wpblManagerPortrait } from './portraits'
 import { wpblAccent, wpblLogo, wpblFullName } from './constants'
 import { useEraBasis } from './EraBasisContext'
+import { useReducedMotion } from '../AccessibilityContext'
 import { fanVoteAwards, FAN_VOTE_IDS, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
 import { WPBL_AWARDS_PATH } from './routes'
 import type { WpblAward } from './awards'
@@ -732,8 +733,8 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
 const WINNER_CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de']
 
 function WinnerConfetti({ x, y, r }: { x: number; y: number; r: number }) {
-  const reduce = typeof window !== 'undefined'
-    && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  // The Settings toggle as well as the OS: the media query alone ignored a reader who asked here.
+  const reduce = useReducedMotion()
   // Each piece LAUNCHES FROM THE RIM (radius `r`, the measured portrait) rather than the centre,
   // so the burst reads as coming off the edge of the circle.
   const pieces = useMemo(() => Array.from({ length: 26 }, (_, i) => {

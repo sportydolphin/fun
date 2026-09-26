@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.99.1',
+    date:    '2026-09-26',
+    title:   'No more blank screen after an update',
+    changes: [
+      {
+        short: 'No more blank screen after an update',
+        full:  'A page left open while the site updated could go blank on the next tap until it was reloaded by hand. It now reloads itself onto the new version, keeping your place, and if anything else goes wrong it says so and offers a Reload button instead of showing nothing.',
+      },
+      {
+        short: 'Reduce motion stops the photo rail straight away',
+        full:  'Turning on Reduce motion in Settings now stops the drifting photo rail on the home page immediately, rather than after the next reload. The team chart morph and the fan-award confetti follow the setting too, not only the device setting.',
+      },
+    ],
+  },
+  {
     version: '1.99.0',
     date:    '2026-09-26',
     title:   'A stats table that fits a phone',

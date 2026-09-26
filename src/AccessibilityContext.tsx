@@ -136,6 +136,35 @@ export function useSwipeNav(): boolean {
   return useContext(AccessibilityContext)?.swipeNav ?? true
 }
 
+/**
+ * Should JS-driven motion run, answered LIVE: true when the reader has asked for less motion in
+ * Settings OR in their OS, and it re-renders the moment either changes.
+ *
+ * `prefersReducedMotion()` in lib/motion.ts answers once, which is right for a one-off smooth
+ * scroll and wrong for anything that keeps moving: the Home photo rail read it at mount, so a
+ * reader who turned Reduce motion on in Settings, with the rail drifting behind the dialog, closed
+ * it to find the rail still drifting. CSS animations stop on their own (the `data-reduce-motion`
+ * rule in styles.css); a requestAnimationFrame loop has to be told.
+ *
+ * Outside a provider it falls back to the stored choice, like `useSwipeNav`.
+ */
+export function useReducedMotion(): boolean {
+  const ctx = useContext(AccessibilityContext)
+  const forced = ctx ? ctx.reduceMotion : readReduceMotion()
+  const [os, setOs] = useState(() => {
+    try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches } catch { return false }
+  })
+  useEffect(() => {
+    let mq: MediaQueryList | undefined
+    try { mq = window.matchMedia?.('(prefers-reduced-motion: reduce)') } catch { return }
+    if (!mq) return
+    const onChange = () => setOs(mq!.matches)
+    mq.addEventListener?.('change', onChange)
+    return () => mq!.removeEventListener?.('change', onChange)
+  }, [])
+  return forced || os
+}
+
 export function useAccessibilitySettings(): AccessibilityContextValue {
   const ctx = useContext(AccessibilityContext)
   if (!ctx) throw new Error('useAccessibilitySettings must be used within an AccessibilityProvider')

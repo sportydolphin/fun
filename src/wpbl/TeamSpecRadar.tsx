@@ -1,5 +1,6 @@
 import { useId, useMemo, useState, useRef, useEffect } from 'react'
-import { Box, Typography, useMediaQuery } from '@mui/material'
+import { Box, Typography } from '@mui/material'
+import { useReducedMotion } from '../AccessibilityContext'
 import { wpblAccent } from './constants'
 import { useWpblDark, CARD_BORDER, INNER_BORDER } from './ui'
 import {
@@ -211,7 +212,8 @@ export function TeamSpecRadar({
 
   // Only the single-club chart morphs. The Teams grid draws four polygons that never change,
   // and a reader who has asked for less motion gets the cut.
-  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+  // The Settings toggle as well as the OS: the media query alone ignored a reader who asked here.
+  const reduceMotion = useReducedMotion()
   const focusTarget = useMemo(
     () => (focusId && ordered.length === 1 ? TEAM_SPEC_AXES.map(a => ordered[0].score[a.key]) : null),
     [focusId, ordered])

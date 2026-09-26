@@ -10,7 +10,7 @@ import { linkTo } from '../nav'
 import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
 import { track, EVENTS } from '../lib/analytics'
 import { CONTACT_EMAIL } from '../lib/contact'
-import { prefersReducedMotion } from '../lib/motion'
+import { useReducedMotion } from '../AccessibilityContext'
 
 // How many published photos before the Home card earns its slot, and the most it shows in the
 // rail. The threshold is deliberately not small: a card on the front page has to look like a
@@ -308,7 +308,9 @@ function useRailAutoScroll(
   enabled: boolean,
   held: boolean,
 ): { drifting: boolean; looping: boolean } {
-  const [reduced] = useState(prefersReducedMotion)
+  // Live, not read once at mount: switching Reduce motion on in Settings has to stop a rail that
+  // is already drifting. See useReducedMotion.
+  const reduced = useReducedMotion()
   const [stopped, setStopped] = useState(false)
   const looping = enabled && !reduced
   const active = looping && !stopped

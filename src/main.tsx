@@ -3,7 +3,13 @@ import { createRoot } from 'react-dom/client'
 import CssBaseline from '@mui/material/CssBaseline'
 import App from './App'
 import { AppThemeProvider } from './ThemeContext'
+import { AppErrorBoundary } from './AppErrorBoundary'
+import { installStaleBuildRecovery } from './lib/staleBuild'
 import './styles.css'
+
+// Before anything can lazy-load: a page left open across a deploy asks for chunks that no longer
+// exist, and this reloads it onto the current build instead of blanking. See lib/staleBuild.ts.
+installStaleBuildRecovery()
 
 // DEV-ONLY poster preview: `?awardsPreview` renders the fan-awards export harness in isolation, so
 // the html2canvas capture can be eyeballed without a closed ballot or vote data. Dead in prod.
@@ -26,7 +32,9 @@ if (rootEl) {
     root.render(
       <AppThemeProvider>
         <CssBaseline />
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </AppThemeProvider>
     )
   }
