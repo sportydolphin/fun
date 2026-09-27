@@ -631,8 +631,9 @@ const FROZEN_EDGE = {
 //
 // IN REM, because the column is reserving room for a name: a box sized in px around type sized
 // in rem holds what it held while the text inside it grows (see CLAUDE.md on px in /wpbl). The
-// stats table shortens names in JS before the CSS cap is reached, so nothing here ellipsizes at
-// either text scale; the unit is what keeps it that way.
+// stats table shortens names to "F. Last" in JS, and the few surnames still too long for it
+// (Leguizamon, Geldenhuis) ellipsize ON PURPOSE: every rem added here is a stat column pushed
+// off a phone screen, and the full name is one tap away.
 //
 // The same rem on `left` as on the width, and that is load-bearing rather than tidy. These two
 // numbers are the same number by construction (see the note above on the frozen columns' seam:
@@ -652,9 +653,6 @@ const NAME_W = '9.375rem'
 const NAME_INNER_MAX = '5.125rem'
 /** The table's rank column. In rem, since it reserves room for a number (see NAME_W). */
 const RANK_W = '1.25rem'
-/** The rule under the league row, heavier than the row rules so it reads as a line the board
- *  starts below rather than as its first entry. */
-const LEAGUE_EDGE = { borderBottom: '2px solid', borderBottomColor: 'divider' } as const
 /** The focus ring for a column heading, drawn INSIDE the cell: the headings sit at the top of a
  *  scroll box, which would clip the usual ring that sits outside. */
 const HEAD_FOCUS = {
@@ -1319,8 +1317,8 @@ export default function WpblStatsView({
     return out
   }, [rows, activeCol])
 
-  // The league as one row, so a rate has something to be read against: a .400 OBP means little
-  // until the row above it says the league is at .352, and it is the only honest explanation of
+  // The league average, so a rate has something to be read against: a .400 OBP means little
+  // until the header under OBP says the league is at .352, and it is the only honest explanation of
   // what 100 means for OPS+, wRC+ and ERA+. The same slice as the boards (`scope`), and the
   // whole league whatever the team filter says, the same baseline those three indexes use.
   const leagueTotals = useMemo(
@@ -1678,7 +1676,7 @@ export default function WpblStatsView({
     fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4,
     color: 'text.disabled', py: 0.75, px: 0.5, whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   }
-  // The three body cells, shared by the league row and the player rows so the two cannot drift.
+  // The body cells, shared by every player row.
   const nameCellSx = {
     position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper',
     textAlign: 'left', fontWeight: 400, py: 0.5, px: 1,
@@ -1706,17 +1704,18 @@ export default function WpblStatsView({
     backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)` : undefined,
     whiteSpace: 'nowrap',
   } as const)
-  // THE LEAGUE ROW, FOLDED INTO THE HEADER ON A PHONE. There the board is capped to the screen, a
-  // row of its own cost 35px of it, and the header is already the one line that never scrolls away,
-  // so the averages stay in view down the whole board for about a third of the height. Desktop keeps
-  // the row: it has the room, and a row reads as a row. Every cell gets the second line, blank or
-  // not, or a table's middle alignment would put the labels at two different heights.
-  const headLeague = (text: string) => pinActive ? (
+  // THE LEAGUE AVERAGE, FOLDED INTO THE HEADER, on every screen. As a row of its own it cost 35px
+  // of a phone's capped board, and on a desktop it was a tall two-line label over a row that is
+  // mostly blank, since only the rates have a league figure. The header is also the one line that
+  // never scrolls away, so the averages stay beside the column labels down the whole board. Every
+  // cell gets the second line, blank or not, or a table's middle alignment would put the labels at
+  // two different heights.
+  const headLeague = (text: string, align?: 'right') => (
     <Box data-league-head="" sx={{
       fontSize: '0.58rem', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, minHeight: '1.1em',
-      mt: 0.25, color: 'text.secondary', textTransform: 'none',
+      mt: 0.25, color: 'text.secondary', textTransform: 'none', textAlign: align,
     }}>{text}</Box>
-  ) : null
+  )
 
   /* ROW ONE: WHICH BOARD. One row of underline tabs, because that is what they are:
       tapping one replaces the screen. Drawn differently from the team filter and the
@@ -2100,13 +2099,13 @@ export default function WpblStatsView({
             }}>{mode === 'teams' ? 'Team' : 'Player'}</Typography>
             {/* The league's figure for the stat being ranked, in the header line rather than a
                 row of its own: it cost 33px of the first screen as a row, and here it costs
-                nothing. A rate only, for the reason the table's league row leaves its counting
+                nothing. A rate only, for the reason the table's league headers leave their counting
                 cells empty. */}
             {activeCol.rate && (
               <Typography data-league-head="" sx={{
                 flexShrink: 0, fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary',
                 fontVariantNumeric: 'tabular-nums',
-              }}>League {leagueCell(activeCol)}</Typography>
+              }}>League avg {leagueCell(activeCol)}</Typography>
             )}
             <Typography sx={{
               // Not uppercased: see thBase on wOBA and wRC+.
@@ -2226,11 +2225,15 @@ export default function WpblStatsView({
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
                 <Box component="tr">
-                  <Box component="th" data-swipe-handle="" sx={{ ...thBase, textTransform: 'uppercase', left: 0, zIndex: 4, textAlign: 'left', width: pinActive ? nameW : undefined, minWidth: nameW, maxWidth: pinActive ? nameW : undefined, borderRight: '1px solid', borderColor: 'divider', pl: 1, touchAction: pinActive ? 'pan-y' : undefined }}>
+                  {/* "League avg" RIGHT-ALIGNED, because it is a row label for the figures to its
+                      right: flush left it sat a column-width away from the number it names. On a
+                      phone the count above it follows, since a lone left-aligned line over a
+                      right-aligned one read as a mistake in a cell that narrow. */}
+                  <Box component="th" data-swipe-handle="" sx={{ ...thBase, textTransform: 'uppercase', left: 0, zIndex: 4, textAlign: pinActive ? 'right' : 'left', width: pinActive ? nameW : undefined, minWidth: nameW, maxWidth: pinActive ? nameW : undefined, borderRight: '1px solid', borderColor: 'divider', px: 1, touchAction: pinActive ? 'pan-y' : undefined }}>
                     {/* On a phone the count lives here, since the board's footer gave up its line
                         of words for the height; see boardFooter. */}
                     {pinActive ? `${rows.length} ${noun}` : mode === 'teams' ? 'Team' : 'Player'}
-                    {headLeague('League')}
+                    {headLeague('League avg', 'right')}
                   </Box>
                   {pinActive && (
                     <Box component="th" data-swipe-handle="" {...headProps(activeCol)} sx={{
@@ -2277,40 +2280,6 @@ export default function WpblStatsView({
                 </Box>
               </Box>
               <Box component="tbody">
-                {/* THE LEAGUE, ABOVE EVERY ROW WHATEVER THE SORT. It is the line the others are
-                    read against rather than a competitor on the board, so it takes no rank and no
-                    place in the order. See leagueTotals. */}
-                {!pinActive && (
-                <Box component="tr" data-league-row="">
-                  <Box component="th" data-swipe-handle="" sx={{ ...nameCellSx, ...LEAGUE_EDGE }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      {!teamsNarrow && <Box sx={{ width: RANK_W, flexShrink: 0 }} />}
-                      {/* Where every other row has its badge, so the names line up. */}
-                      <Box sx={{ width: chromePx(20), flexShrink: 0 }} />
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.15, color: 'text.secondary' }}>League</Typography>
-                        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>average</Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                  {pinActive && (
-                    <Box component="td" data-swipe-handle="" sx={{ ...pinnedCellSx, ...LEAGUE_EDGE, fontWeight: 700 }}>
-                      {leagueCell(activeCol)}
-                    </Box>
-                  )}
-                  {scrollCols.map(c => {
-                    const active = c.key === sortKey
-                    return (
-                      <Box component="td" key={c.key} sx={{
-                        ...cellSx(active), ...LEAGUE_EDGE,
-                        fontWeight: 600, color: active ? 'var(--wpbl-accent-fg)' : 'text.secondary',
-                      }}>
-                        {leagueCell(c)}
-                      </Box>
-                    )
-                  })}
-                </Box>
-                )}
                 {rows.map((r, i) => {
                   // Under the qualifying bar, on a board showing everyone. Faded rather than
                   // hidden, which is the whole point of choosing Everyone, and rather than

@@ -68,7 +68,7 @@ const LINES = [
 const draw = () => render(
   <StatsView teams={TEAMS} games={GAMES} focus={{ group: 'hitting', token: 0 }} onOpenPlayer={() => {}} />
 )
-const bodyRows = () => Array.from(document.querySelectorAll('tbody tr:not([data-league-row])'))
+const bodyRows = () => Array.from(document.querySelectorAll('tbody tr'))
 
 describe('the season board rows', () => {
   it('opens the hitting board on OPS', async () => {
@@ -93,15 +93,14 @@ describe('the season board rows', () => {
 
   // AVG .444: 12 hits in 27 at-bats, counting the hitter the qualified filter hides, since the
   // baseline is the whole league whatever the board is showing.
-  it('draws the league above the rows, rates only', async () => {
+  it('carries the league in the headers, rates only', async () => {
     draw()
     await screen.findByText('Hitting')
-    const league = document.querySelector('tbody tr[data-league-row]')
-    expect(league).not.toBeNull()
-    expect(league?.textContent).toContain('.444')
-    const heads = Array.from(document.querySelectorAll('thead th')).map(t => t.textContent ?? '')
-    const hrAt = heads.findIndex(h => h.startsWith('HR'))
-    expect(league?.children[hrAt]?.textContent).toBe('')
+    expect(document.querySelector('tbody tr[data-league-row]')).toBeNull()
+    const ths = Array.from(document.querySelectorAll('thead th'))
+    const league = (label: string) => ths.find(t => t.textContent?.startsWith(label))?.querySelector('[data-league-head]')?.textContent
+    expect(league('AVG')).toBe('.444')
+    expect(league('HR')).toBe('')
   })
 
   it('fades a hitter under the bar when showing everyone, and says what the bar is', async () => {
@@ -134,7 +133,7 @@ describe('the season board on a phone, as a full table', () => {
     await screen.findByText('Hitting')
     expect(document.querySelector('tbody tr[data-league-row]')).toBeNull()
     const heads = Array.from(document.querySelectorAll('thead [data-league-head]')).map(e => e.textContent)
-    expect(heads[0]).toBe('League')
+    expect(heads[0]).toBe('League avg')
     expect(heads).toContain('.444')
   })
 
@@ -164,7 +163,7 @@ describe('the column headings as controls', () => {
   it('sort from the keyboard, say what they stand for, and announce the sort', async () => {
     draw()
     await screen.findByText('Hitting')
-    const avg = Array.from(document.querySelectorAll('thead th')).find(h => h.textContent === 'AVG') as HTMLElement
+    const avg = Array.from(document.querySelectorAll('thead th')).find(h => h.textContent?.startsWith('AVG')) as HTMLElement
     expect(avg.tabIndex).toBe(0)
     expect(avg.title).toBe('Batting average')
     fireEvent.keyDown(avg, { key: 'Enter' })
