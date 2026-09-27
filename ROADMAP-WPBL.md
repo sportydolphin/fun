@@ -141,11 +141,35 @@ Home's one player name currently opens a box score.)* The primer (#4) and SEO (#
 
 ## Next: in priority order
 
-**Sep 24, offseason.** Every season-locked item below has shipped or missed its window, and #5b
-shipped (the star on Home opens the player). What is left to order is durable work: #2 the
-archive's winter build, SEO links (#3, not code), and anything from the data-mining backlog that
-is a reason to visit in November. The September ordering is kept below as the record of how the
-season was worked.
+**The winter order, set Sep 27, 2026.** Every season-locked item below has shipped or missed its
+window. The one problem left is the one "Where the section stands" names: nothing gives a reader a
+reason to come back more than once a month until spring. So the order is by that, and by cost:
+
+1. **Call the Play, on the site** (data-mining list). The engine, [`derive/trivia.ts`](src/wpbl/derive/trivia.ts),
+   is written, pure and tested, and nothing calls it: not the site, and not Discord either, despite
+   what its header says. A date-seeded daily question with a shareable result is the only item on
+   this page that gives a reason to come back TOMORROW, and about 980 usable plate appearances is
+   years of them. Aimed straight at the gap.
+2. **The wildest games of 2026** (#6's open half, and the Game quilt under Visuals). `excitement`
+   is computed on every game and read only by the awards shortlist. A ranked list, or the quilt, on
+   `/wpbl/season`, every entry a link into Game Center, which is the other half of the retention
+   gradient. Cheap, and it doubles as an Offseason Visual.
+3. **Who owns whom, league-wide, and the six season-series pages** (data-mining list). Indexable
+   pages from data already held, for a section whose constraint is search. `featuredMatchups` was
+   written for the first and nothing draws it.
+4. **Decide Road to Springfield.** Built and sitting in `git stash` since Sep 25 (the map on
+   `/wpbl/league` and its share videos). Ship it or drop it; a stash is where work goes to be
+   forgotten.
+5. **Fielding columns in the Stats tab** (#7). Computed in `stats.ts`, surfaced only on player and
+   team pages. Small, and the boards were just rebuilt, so it is the cheapest it will ever be.
+
+**Not this winter, on purpose.** "This day in the inaugural season" has nothing to replay from
+October to July, since every game was played Aug 1 to Sep 22: park it until August 2027. Rolling
+form ("Hot Hands", stashed) answers "who is hot right now", which has no answer without games.
+The pick'em is parked for 2027 Opening Day (see Parked). **Spring work** is on the clock above:
+the feed re-verification and the Bluesky rethink.
+
+The September ordering is kept below as the record of how the season was worked.
 
 **Read this first, Sep 1.** #0 shipped, which empties the top of the list with five regular-season
 days left. The numbers below are stable references and are not renumbered; the order to work them
@@ -850,14 +874,15 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   games are being played, and the permanent top-10 in the archive (#2).
   The `batter_id` worry in the original entry is gone: 18 of 1,725 plays are missing one and
   every one of those is a pickoff or reached-on-error row rather than a plate appearance.
-- **Spray charts on player pages** 🎯🔬. A fan diagram per hitter from asset 2, with
+- **Spray charts on player pages** 🎯🔬. ✅ *shipped Sep 10, 2026, on player pages and
+  `/wpbl/season` ([`SprayChart.tsx`](src/wpbl/SprayChart.tsx), from the play text)*. A fan diagram per hitter from asset 2, with
   pull/middle/oppo percentages, and the inverse for a pitcher. Lands on the surface that
   correlates with return visits.
 - **Daily "Call the Play" puzzle on the site** 🎮. [`derive/trivia.ts`](src/wpbl/derive/trivia.ts)
   is already written, pure and seeded, and only Discord can reach it. Seed it from the date so
   everyone gets the same play, add a shareable result grid. ~980 usable plate appearances is
   about three years of daily puzzles, and it needs no live feed. **The strongest durable item
-  on this page after the archive.**
+  on this page after the archive.** *First on the winter order (Sep 27): see Next.*
 - **This day in the inaugural season** 🎯. A dated card replaying that day's recap, box,
   highlight reel and article. Everything is already mirrored (75 videos, 20 articles). Turns
   the archive from a static page into a daily surface.
@@ -900,12 +925,14 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   #7, restated here because the data audit reached it independently.)
 - **Errors behind the pitcher** 🔬. Unearned runs and errors charged while each pitcher was on,
   from fielding lines plus narratives. Nobody else covering this league will have it.
-- **What every kind of play is worth** 🔬. The league's own linear weights, already computed by
+- **What every kind of play is worth** 🔬. ✅ *shipped Sep 11, 2026 on the Run value board
+  ([`PlayValue.tsx`](src/wpbl/PlayValue.tsx))*. The league's own linear weights, already computed by
   `playRunValues` and never shown: home run +1.55, double +0.82, single +0.54, walk +0.34,
   groundout -0.43, strikeout -0.52, double play -0.97, and the sacrifice bunt at **-0.00 runs
   across 14 attempts**. One small table settles "should they bunt" and "is a strikeout worse
   than a groundout" for this league rather than by analogy to the majors. (Data audit, Aug 27.)
-- **What a single pitch is worth** 🔬🎯. Counts reconstruct cleanly from `pitch_sequence`, 5,657
+- **What a single pitch is worth** 🔬🎯. ✅ *shipped Sep 10, 2026 as the count board on Run
+  value*. Counts reconstruct cleanly from `pitch_sequence`, 5,657
   pitches, and nothing uses them: after 1-0 a hitter reaches base 48.4% of the time, after 0-1
   37.2%. **Eleven points of on-base on one pitch.** League first-pitch strike rate is 53.6%,
   and per-pitcher it separates (Kelsie Whitmore 72.0%, Gigi Schiano 43.2%), though only nine
@@ -1201,6 +1228,16 @@ is retired.
 
 ## Shipped log
 
+### Sep 27, 2026: housekeeping, and the league average folds into the headers on desktop
+
+The stats table's league average now sits under each column heading on desktop as well as on a
+phone: the separate "League / average" row was a tall label over cells that are mostly blank,
+since only the rates have a league figure. "League avg" is right-aligned, beside the numbers it
+labels. The Google Tasks pull is paused (schedule removed, `docs/feature-requests.md` deleted as
+stale; `npm run tasks` still works). The mention watcher reports only posts naming sportydolphin
+(`LEAGUE_LEADS = false`) and runs hourly all year rather than every 15 minutes from March to
+October, since a mention of the site is not seasonal.
+
 ### Sep 26, 2026: the stats table fits a phone (v1.99.0)
 
 The phone's full table showed four or five players at 390x664. Most of the screen went to a 191px
@@ -1212,7 +1249,7 @@ the full table is off by default and lives in localStorage). Fourteen rows at 39
 scrolls before the table does (`boardPinned`), since the taller table rests behind the bottom nav
 until pinned. Also: OPS as the one hitting headline (`HEADLINE`), T-3 ties judged on the shown
 number, a league-average row on desktop, faded non-qualifiers, keyboard-sortable headings, and the
-expired ERA-basis note removed.
+expired ERA-basis note removed. *(The desktop league row folded into the headers on Sep 27.)*
 
 ### Sep 26, 2026: advanced stats on the boards (v1.97.0)
 
