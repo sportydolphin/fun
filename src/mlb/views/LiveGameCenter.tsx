@@ -4,6 +4,7 @@ import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
 import { useScrollLock } from '../lib/useScrollLock'
 import { FinalGameSummary } from './FinalGames'
+import { useForegroundInterval } from '../../lib/foregroundInterval'
 import {
   BoxScore, parseBoxScoreData,
   LogoBubble, LiveDot, SectionLabel, LineScoreTable, TeamBoxSection,
@@ -653,12 +654,8 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
 
   useEffect(() => { setLoading(true); load() }, [load])
 
-  // Poll while the game is live
-  useEffect(() => {
-    if (data?.state !== 'live') return
-    const id = setInterval(load, 15000)
-    return () => clearInterval(id)
-  }, [data?.state, load])
+  // Poll while the game is live. Paused while the tab is hidden and pulled at once on return: see useForegroundInterval.
+  useForegroundInterval(load, data?.state === 'live' ? 15000 : null)
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }

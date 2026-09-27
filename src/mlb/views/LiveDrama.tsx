@@ -8,6 +8,7 @@ import { TeamLogo } from '../components/leaderboards'
 import { FinalGameSummary } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
 import { stampOverlay, clearOverlayIf } from '../state/homeOverlay'
+import { useForegroundInterval } from '../../lib/foregroundInterval'
 
 // ─── "Happening Now" — live drama card ────────────────────────────────────────
 // Appears on Home only while something dramatic is live (no-hitter, walk-off
@@ -108,11 +109,11 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
   useEffect(() => {
     if (simActive) return
     let alive = true
-    const poll = () => fetchLiveDrama().then(e => { if (alive) setEvents(e) })
-    poll()
-    const t = setInterval(poll, POLL_MS)
-    return () => { alive = false; clearInterval(t) }
+    fetchLiveDrama().then(e => { if (alive) setEvents(e) })
+    return () => { alive = false }
   }, [simActive])
+  // Paused while the tab is hidden and pulled at once on return: see useForegroundInterval.
+  useForegroundInterval(() => { fetchLiveDrama().then(setEvents) }, simActive ? null : POLL_MS)
 
   const shown = (simActive ? devDrama.events : events).slice(0, MAX_ROWS)
   if (shown.length === 0) return null

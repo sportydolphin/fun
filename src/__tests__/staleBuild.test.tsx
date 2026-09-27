@@ -62,3 +62,24 @@ describe('AppErrorBoundary', () => {
     expect(screen.getByText('Something went wrong')).toBeTruthy()
   })
 })
+
+// A crash in one board must cost that board, not the page: the toolbar and nav live outside the
+// inline boundary, and moving to another path clears it.
+describe('AppErrorBoundary, inline', () => {
+  beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}) })
+
+  function Page({ broken }: { broken: boolean }) {
+    if (broken) throw new Error('boom')
+    return <p>the other page</p>
+  }
+
+  it('keeps what is outside it, and clears when the key moves on', () => {
+    const { rerender } = render(
+      <div><nav>toolbar</nav><AppErrorBoundary inline resetKey="/wpbl/stats"><Page broken /></AppErrorBoundary></div>)
+    expect(screen.getByText('toolbar')).toBeTruthy()
+    expect(screen.getByText('Something went wrong')).toBeTruthy()
+    rerender(<div><nav>toolbar</nav><AppErrorBoundary inline resetKey="/wpbl/schedule"><Page broken={false} /></AppErrorBoundary></div>)
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByText('the other page')).toBeTruthy()
+  })
+})

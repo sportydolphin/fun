@@ -28,6 +28,7 @@ import type { WpblGame, WpblTeam } from './wpbl/types'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { defaultSectionPath } from './lib/defaultSection'
 import { track, EVENTS } from './lib/analytics'
+import { AppErrorBoundary } from './AppErrorBoundary'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 
@@ -1403,6 +1404,9 @@ function AppInner() {
             the ordinary 16px, and the sides keep ordinary spacing too, since nothing lines up
             across the switch horizontally and so nothing there can jump. */}
         <Box sx={{ px: 2, py: { xs: 2, md: 'calc(20px / var(--app-zoom, 1))' } }}>
+          {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
+              its section switch working, and moving to another path clears it. */}
+          <AppErrorBoundary inline resetKey={path}>
           {path === '/mlb' && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <MlbStats />
@@ -1523,6 +1527,7 @@ function AppInner() {
               </Suspense>
             </Box>
           )}
+          </AppErrorBoundary>
         </Box>
 
         {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's

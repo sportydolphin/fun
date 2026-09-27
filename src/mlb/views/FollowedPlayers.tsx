@@ -10,6 +10,7 @@ import { MOVE_STYLE } from './RosterMoves'
 import { parseIP } from '../lib/utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
 import { useIsDark, defaultBorder } from '../lib/colorUtils'
+import { useForegroundInterval } from '../../lib/foregroundInterval'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -568,23 +569,18 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   }, [followedPlayerIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // While a followed player's team is playing, their line is today's box score — so
-  // refresh just those players on a slow poll. Read through a ref so new data doesn't
-  // restart the timer.
-  const playerDataRef = useRef(playerData)
-  playerDataRef.current = playerData
-  useEffect(() => {
-    if (!liveTeamIds || liveTeamIds.size === 0) return
-    const t = setInterval(() => {
-      for (const id of followedPlayerIds) {
-        const d = playerDataRef.current[id]
-        if (!d || !liveTeamIds.has(d.teamId)) continue
-        fetchFollowedPlayerData(id, true).then(next => {
-          if (next) setPlayerData(prev => ({ ...prev, [id]: next }))
-        }).catch(() => {})
-      }
-    }, 60_000)
-    return () => clearInterval(t)
-  }, [liveTeamIds, followedPlayerIds])
+  // refresh just those players on a slow poll. The hook re-reads the callback every render,
+  // so new data never restarts the timer. Paused while the tab is hidden and pulled at once on return: see useForegroundInterval.
+  useForegroundInterval(() => {
+    if (!liveTeamIds) return
+    for (const id of followedPlayerIds) {
+      const d = playerData[id]
+      if (!d || !liveTeamIds.has(d.teamId)) continue
+      fetchFollowedPlayerData(id, true).then(next => {
+        if (next) setPlayerData(prev => ({ ...prev, [id]: next }))
+      }).catch(() => {})
+    }
+  }, liveTeamIds && liveTeamIds.size > 0 ? 60_000 : null)
 
   useEffect(() => {
     if (!adding || !teamId) return

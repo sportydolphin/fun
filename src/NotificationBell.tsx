@@ -22,6 +22,7 @@ import { gameStartSource } from './mlb/notifications/gameStart'
 import { milestoneSource } from './mlb/notifications/milestones'
 import { wpblGameStartSource } from './wpbl/notifications/gameStart'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
+import { useForegroundInterval } from './lib/foregroundInterval'
 
 // Registered at module load so the set of sources is declared in one place.
 registerNotificationSource(picksReadySource)
@@ -67,17 +68,12 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // Re-evaluate sources on mount, when the signed-in user changes, on a timer,
-  // and whenever the tab regains focus (the slate may have moved on since).
-  useEffect(() => {
-    const ctx = { userId: user?.id ?? null }
-    const run = () => { refreshNotifications(ctx) }
-    run()
-    const timer = setInterval(run, REFRESH_MS)
-    const onFocus = () => run()
-    window.addEventListener('focus', onFocus)
-    return () => { clearInterval(timer); window.removeEventListener('focus', onFocus) }
-  }, [user?.id])
+  // Re-evaluate sources on mount, when the signed-in user changes, on a timer, and whenever
+  // the tab comes back (the slate may have moved on since). The timer and the return are
+  // useForegroundInterval's: it pauses in a hidden tab, and pulls on focus, visibility and a
+  // back/forward-cache restore.
+  useEffect(() => { refreshNotifications({ userId: user?.id ?? null }) }, [user?.id])
+  useForegroundInterval(() => { refreshNotifications({ userId: user?.id ?? null }) }, REFRESH_MS)
 
   // A push that arrives while the tab is open is shown by the OS *and* recorded
   // here, so the bell reflects it too. sw.js forwards the payload.

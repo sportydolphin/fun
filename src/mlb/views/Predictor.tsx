@@ -10,6 +10,7 @@ import { ensureActiveUser } from '../../lib/userActive'
 import { PredictionStatsModal } from './PredictionStats'
 import { useDevSim } from '../dev/devSim'
 import { useDeepLink } from '../state/deepLink'
+import { useForegroundInterval } from '../../lib/foregroundInterval'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -700,18 +701,18 @@ export function PredictorWidget({ onPicksSettled }: {
     if (simActive) return  // don't let the real schedule/votes clobber the sim slate
     // Fetch votes immediately when modal opens
     fetchVotesByGame(slateDate).then(setAllVotes)
-    const id = setInterval(() => {
-      fetchTodayGames(slateDate).then(updated =>
-        setGames(prev => updated.map(u => ({
-          ...u,
-          home: { ...u.home, pitcher: u.home.pitcher ?? prev.find(p => p.gamePk === u.gamePk)?.home.pitcher ?? null },
-          away: { ...u.away, pitcher: u.away.pitcher ?? prev.find(p => p.gamePk === u.gamePk)?.away.pitcher ?? null },
-        })))
-      )
-      fetchVotesByGame(slateDate).then(setAllVotes)
-    }, 3 * 60_000)
-    return () => clearInterval(id)
   }, [modalOpen, slateDate, simActive])
+  // Paused while the tab is hidden and pulled at once on return: see useForegroundInterval.
+  useForegroundInterval(() => {
+    fetchTodayGames(slateDate).then(updated =>
+      setGames(prev => updated.map(u => ({
+        ...u,
+        home: { ...u.home, pitcher: u.home.pitcher ?? prev.find(p => p.gamePk === u.gamePk)?.home.pitcher ?? null },
+        away: { ...u.away, pitcher: u.away.pitcher ?? prev.find(p => p.gamePk === u.gamePk)?.away.pitcher ?? null },
+      })))
+    )
+    fetchVotesByGame(slateDate).then(setAllVotes)
+  }, modalOpen && !simActive ? 3 * 60_000 : null)
 
   const handlePick = useCallback((gamePk: number, teamId: number) => {
     const g = games.find(g => g.gamePk === gamePk)

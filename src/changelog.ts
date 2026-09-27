@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.99.2',
+    date:    '2026-09-26',
+    title:   'Lighter on the battery, and one crash stays in its box',
+    changes: [
+      {
+        short: 'MLB live scores stop refreshing in a hidden tab',
+        full:  'Live scores, Game Center, followed players, the predictions slate and the notification bell used to keep refreshing while the tab was in the background or the phone was locked. They now pause until you come back, and refresh the moment you do.',
+      },
+      {
+        short: 'A problem in one tab no longer blanks the whole site',
+        full:  'If one board or page hits an error, the message now appears in that spot only. The toolbar, the navigation and every other tab keep working.',
+      },
+    ],
+  },
+  {
     version: '1.99.1',
     date:    '2026-09-26',
     title:   'No more blank screen after an update',

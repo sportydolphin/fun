@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, act, cleanup } from '@testing-library/react'
-import { useForegroundInterval } from '../refresh'
+import { useForegroundInterval } from '../../lib/foregroundInterval'
 
 // The section's polling policy, pinned. Every one of these is a failure that shows up as a
 // page quietly serving old data rather than as an error, which is why they are worth a test:

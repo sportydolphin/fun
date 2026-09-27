@@ -44,10 +44,11 @@ import { linkTo } from '../nav'
 import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
 import { WPBL_MORE_PAGES } from './morePages'
-import { useForegroundInterval } from './refresh'
+import { useForegroundInterval } from '../lib/foregroundInterval'
 import { WpblHeadingOwnerProvider, WpblNavAtBottomProvider, useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
+import { AppErrorBoundary } from '../AppErrorBoundary'
 
 // The two detail modals, split out of the section's chunk.
 //
@@ -1930,7 +1931,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             stickyNavRef={navRef}
             padX={isMobileView ? 16 : 0}
             panels={NAV.map(n => {
-              const content = (() => {
+              // EACH TAB HOLDS ITS OWN ERRORS. The pager keeps every visited tab mounted, so without
+              // this a crash in one board took the bottom nav and the other four tabs down with it.
+              const content = <AppErrorBoundary inline>{(() => {
                 switch (n.key) {
                   case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeTop} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} onOpenTeam={selectTeamFromSchedule} onOpenPlayer={openPlayer} active={view === 'schedule'} />
@@ -1938,7 +1941,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoards={newBoards} onBoardSeen={markBoardSeen} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} onOpenGame={openGame} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
-              })()
+              })()}</AppErrorBoundary>
               // On mobile the footer lives at the bottom of each tab pane rather than as one shared element
               // below the swipe area, so it slides with its page. Swiping lands on the new tab's top (its
               // footer off-screen) and a partial swipe that springs back moves nothing; no shared footer

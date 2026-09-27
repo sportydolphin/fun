@@ -18,7 +18,7 @@ import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
-import { useForegroundInterval } from './refresh'
+import { useForegroundInterval } from '../lib/foregroundInterval'
 import PlayoffBracket from './PlayoffBracket'
 import { POSTSEASON_SCHEDULE, postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, championBannerUntil, championshipGames, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
 import {

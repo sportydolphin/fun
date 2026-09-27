@@ -16,6 +16,7 @@ import {
   ScheduleGame, ProbablePitcher, GamePreviewData, GameFinalDetails, LiveGameData,
 } from './scheduleData'
 import { scrollBehavior } from '../../lib/motion'
+import { useForegroundInterval } from '../../lib/foregroundInterval'
 
 // ─── GameChip ─────────────────────────────────────────────────────────────────
 
@@ -887,18 +888,13 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
     }
   }, [liveGame, liveGamePk])
 
-  useEffect(() => {
-    if (!liveGamePk) return
-    const pollLive = setInterval(() => {
-      fetchLiveGameData(liveGamePk).then(data => { if (data) setLiveInfo(data) })
-    }, 10_000)
-    // Refresh the schedule too: it's what flips the live game to final (and, on a
-    // doubleheader, hands the live slot over to the nightcap).
-    const pollSchedule = setInterval(() => {
-      fetchTeamSchedule(teamId).then(setGames)
-    }, 90_000)
-    return () => { clearInterval(pollLive); clearInterval(pollSchedule) }
-  }, [liveGamePk, teamId])
+  // Paused while the tab is hidden and pulled at once on return: see useForegroundInterval.
+  useForegroundInterval(() => {
+    if (liveGamePk) fetchLiveGameData(liveGamePk).then(data => { if (data) setLiveInfo(data) })
+  }, liveGamePk ? 10_000 : null)
+  // Refresh the schedule too: it's what flips the live game to final (and, on a
+  // doubleheader, hands the live slot over to the nightcap).
+  useForegroundInterval(() => { fetchTeamSchedule(teamId).then(setGames) }, liveGamePk ? 90_000 : null)
 
   if (loading) return (
     <Box sx={{ py: 2, textAlign: 'center' }}>

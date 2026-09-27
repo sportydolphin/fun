@@ -11,14 +11,33 @@ import { isChunkLoadError, reloadForNewBuild } from './lib/staleBuild'
 //
 // Deliberately plain: no lazy imports, no context beyond the theme, nothing that could itself be
 // the thing that failed.
+//
+// TWO LAYERS. The one in main.tsx holds the whole app. `inline` ones sit around the page area
+// (App.tsx) and each WPBL tab (WpblApp.tsx), so a bug in one board costs that board and nothing
+// else: the toolbar, the nav and every other tab keep working, and the reader can simply go
+// somewhere else. `resetKey` clears the error when it changes (App.tsx passes the path), so
+// navigating away from a broken page is a way out, not a dead end.
 
+interface Props {
+  children: React.ReactNode
+  /** Draw the message in place, at content size, rather than filling the screen. */
+  inline?: boolean
+  /** A change here clears a caught error and tries the children again. */
+  resetKey?: unknown
+}
 interface State { error: unknown; reloading: boolean }
 
-export class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, State> {
+export class AppErrorBoundary extends React.Component<Props, State> {
   state: State = { error: null, reloading: false }
 
   static getDerivedStateFromError(error: unknown): Partial<State> {
     return { error }
+  }
+
+  componentDidUpdate(prev: Props) {
+    if (this.state.error && !this.state.reloading && prev.resetKey !== this.props.resetKey) {
+      this.setState({ error: null })
+    }
   }
 
   componentDidCatch(error: unknown) {
@@ -30,10 +49,13 @@ export class AppErrorBoundary extends React.Component<{ children: React.ReactNod
     const { error, reloading } = this.state
     if (!error) return this.props.children
     const stale = isChunkLoadError(error)
+    const inline = !!this.props.inline
     return (
       <Box role="alert" sx={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', gap: 1.5, px: 3, textAlign: 'center', bgcolor: 'background.default',
+        minHeight: inline ? undefined : '100vh', py: inline ? 8 : 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', gap: 1.5, px: 3, textAlign: 'center',
+        bgcolor: inline ? undefined : 'background.default',
       }}>
         <Typography sx={{ fontSize: '1.05rem', fontWeight: 800 }}>
           {reloading ? 'Loading the latest version…' : stale ? 'The site was just updated' : 'Something went wrong'}
@@ -43,7 +65,9 @@ export class AppErrorBoundary extends React.Component<{ children: React.ReactNod
             <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', maxWidth: 360 }}>
               {stale
                 ? 'This page was opened before the update. Reloading brings it up to date.'
-                : 'Reloading the page usually fixes it.'}
+                : inline
+                  ? 'This part of the page could not be shown. Reloading usually fixes it, or pick somewhere else to go.'
+                  : 'Reloading the page usually fixes it.'}
             </Typography>
             <Box component="button" type="button" onClick={() => window.location.reload()} sx={{
               mt: 0.5, px: 2.5, py: 1, border: 0, borderRadius: 999, cursor: 'pointer',

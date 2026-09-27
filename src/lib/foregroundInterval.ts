@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * The section's one polling policy: tick only while the page is actually in front, and pull
+ * The site's one polling policy: tick only while the page is actually in front, and pull
  * once, immediately, whenever it comes back.
+ *
+ * IN src/lib, SHARED BY BOTH SECTIONS, since Sep 26, 2026. It was born in src/wpbl (as
+ * refresh.ts), and the MLB section, which was never told about it, kept six timers of its own
+ * running flat out against hidden tabs: the Game Center every 15s and the schedule strip's live
+ * score every 10s, all afternoon on a phone in a pocket. Every recurring fetch goes through this.
  *
  * WHY IT IS A SHARED HOOK AND NOT FOUR EFFECTS. It was four. The schedule poll in WpblApp
  * stopped its timer while the tab was hidden and refreshed on the way back (a phone throttles
