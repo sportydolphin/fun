@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { isChunkLoadError, reloadForNewBuild } from './lib/staleBuild'
+import { track, EVENTS } from './lib/analytics'
 
 // The last line under the whole app. Before this there was none, so ANY render error, most often
 // a lazy chunk a new deploy had removed (see lib/staleBuild.ts), unmounted the tree and left a
@@ -24,6 +25,8 @@ interface Props {
   inline?: boolean
   /** A change here clears a caught error and tries the children again. */
   resetKey?: unknown
+  /** Which layer this is, for the report: the whole app, the page area, or one WPBL tab. */
+  where?: 'app' | 'page' | 'tab'
 }
 interface State { error: unknown; reloading: boolean }
 
@@ -41,8 +44,20 @@ export class AppErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: unknown) {
-    if (isChunkLoadError(error) && reloadForNewBuild()) this.setState({ reloading: true })
-    else console.error(error)
+    const stale = isChunkLoadError(error)
+    if (stale && reloadForNewBuild()) { this.setState({ reloading: true }); return }
+    console.error(error)
+    // REPORTED, because otherwise nobody would know: the screen is drawn on a reader's device and
+    // nowhere else. It lands on /admin under "Site health". The message is the error's own text,
+    // query strings cut and capped, so a URL carrying a parameter cannot ride along.
+    try {
+      const raw = error instanceof Error ? error.message : String(error)
+      track(EVENTS.APP_ERROR, {
+        kind: stale ? 'stale' : 'crash',
+        where: this.props.where ?? 'app',
+        message: raw.replace(/\?[^\s)"']*/g, '').slice(0, 120),
+      })
+    } catch { /* never let the report be the second failure */ }
   }
 
   render() {

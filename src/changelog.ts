@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.99.3',
+    date:    '2026-09-26',
+    title:   'Updates arrive on your next tap',
+    changes: [
+      {
+        short: 'Updates arrive on your next tap',
+        full:  'When the site has been updated since you opened it, it now notices when you come back to the tab and picks up the new version on your next tap, instead of waiting for something to go wrong first.',
+      },
+    ],
+  },
+  {
     version: '1.99.2',
     date:    '2026-09-26',
     title:   'Lighter on the battery, and one crash stays in its box',

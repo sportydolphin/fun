@@ -1406,7 +1406,7 @@ function AppInner() {
         <Box sx={{ px: 2, py: { xs: 2, md: 'calc(20px / var(--app-zoom, 1))' } }}>
           {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
               its section switch working, and moving to another path clears it. */}
-          <AppErrorBoundary inline resetKey={path}>
+          <AppErrorBoundary inline where="page" resetKey={path}>
           {path === '/mlb' && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <MlbStats />

@@ -1933,7 +1933,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             panels={NAV.map(n => {
               // EACH TAB HOLDS ITS OWN ERRORS. The pager keeps every visited tab mounted, so without
               // this a crash in one board took the bottom nav and the other four tabs down with it.
-              const content = <AppErrorBoundary inline>{(() => {
+              const content = <AppErrorBoundary inline where="tab">{(() => {
                 switch (n.key) {
                   case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeTop} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} onOpenTeam={selectTeamFromSchedule} onOpenPlayer={openPlayer} active={view === 'schedule'} />

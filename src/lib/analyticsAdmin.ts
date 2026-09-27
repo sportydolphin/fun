@@ -104,7 +104,7 @@ const R = (label: string, group: string): EventInfo => ({ label, group, kind: 'r
 /** Area order on the card. */
 export const EVENT_GROUPS = [
   'Games', 'Players & teams', 'Stats', 'Pages', 'Home', 'Search & sharing',
-  'Reading & photos', 'Awards & picks', 'Accounts', 'MLB', 'Other',
+  'Reading & photos', 'Awards & picks', 'Accounts', 'MLB', 'Site health', 'Other',
 ] as const
 
 export const EVENT_INFO: Record<string, EventInfo> = {
@@ -173,6 +173,11 @@ export const EVENT_INFO: Record<string, EventInfo> = {
 
   prediction_made:        A('Made a prediction', 'MLB'),
   board_viewed:           A('Opened the predictions board', 'MLB'),
+
+  // Not things anyone chose to do, but filed as actions so they surface in "What people do", which
+  // is the card that is read. The area only appears when one of them has happened.
+  app_error:              A('Saw an error screen', 'Site health'),
+  app_updated:            A('Moved onto a new version of the site', 'Site health'),
 
   wpbl_reading_collapsed: R('Reading collapsed', 'Reading & photos'),
   wpbl_photos_shown:      R('Archive shown on Home', 'Reading & photos'),

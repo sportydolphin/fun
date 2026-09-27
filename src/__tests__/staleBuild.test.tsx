@@ -1,16 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { isChunkLoadError, reloadForNewBuild } from '../lib/staleBuild'
+import { isChunkLoadError, reloadForNewBuild, entryScriptIn, loadFullyOnNextNavigation, installStaleBuildRecovery } from '../lib/staleBuild'
 import { AppErrorBoundary } from '../AppErrorBoundary'
+
+const track = vi.hoisted(() => vi.fn())
+vi.mock('../lib/analytics', () => ({ track, EVENTS: { APP_ERROR: 'app_error', APP_UPDATED: 'app_updated' } }))
 
 // A page left open across a deploy asks for lazy chunks the new build no longer has. Before this,
 // the rejected import unmounted the whole app: a blank screen until the reader reloaded by hand.
 
 const reload = vi.fn()
+const assign = vi.fn()
 beforeEach(() => {
   sessionStorage.clear()
   reload.mockReset()
-  vi.stubGlobal('location', { ...window.location, reload })
+  assign.mockReset()
+  track.mockReset()
+  vi.stubGlobal('location', { ...window.location, href: 'http://x.test/wpbl', reload, assign })
 })
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -81,5 +87,42 @@ describe('AppErrorBoundary, inline', () => {
     rerender(<div><nav>toolbar</nav><AppErrorBoundary inline resetKey="/wpbl/schedule"><Page broken={false} /></AppErrorBoundary></div>)
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByText('the other page')).toBeTruthy()
+  })
+})
+
+// Seeing the deploy before the click: the page re-reads index.html when the tab comes back, and a
+// changed entry script turns the next in-app navigation into a full load.
+describe('seeing a new build coming', () => {
+  it('reads the entry script out of an index.html', () => {
+    expect(entryScriptIn('<head><script type="module" crossorigin src="/assets/index-8qwnzGSV.js"></script>')).toBe('/assets/index-8qwnzGSV.js')
+    expect(entryScriptIn('<p>no script</p>')).toBeNull()
+  })
+
+  it('turns the next navigation into a page load, and says so after it lands', () => {
+    const original = window.history.pushState
+    try {
+      loadFullyOnNextNavigation()
+      window.history.pushState({}, '', '/wpbl/stats')
+      expect(assign).toHaveBeenCalledWith('http://x.test/wpbl/stats')
+      // After the load, the arrival is reported once.
+      installStaleBuildRecovery()
+      expect(track).toHaveBeenCalledWith('app_updated', { via: 'navigation' })
+    } finally {
+      window.history.pushState = original
+    }
+  })
+})
+
+describe('reporting an error screen', () => {
+  beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}) })
+
+  it('says which layer drew it and drops query strings from the message', () => {
+    render(<AppErrorBoundary inline where="tab"><Throws error={new Error('bad /api/x?token=abc123 here')} /></AppErrorBoundary>)
+    expect(track).toHaveBeenCalledWith('app_error', { kind: 'crash', where: 'tab', message: 'bad /api/x here' })
+  })
+
+  it('does not report a stale chunk it could reload', () => {
+    render(<AppErrorBoundary><Throws error={new TypeError('Failed to fetch dynamically imported module: /assets/x.js')} /></AppErrorBoundary>)
+    expect(track).not.toHaveBeenCalledWith('app_error', expect.anything())
   })
 })

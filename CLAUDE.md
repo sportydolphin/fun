@@ -386,6 +386,15 @@ Each of these has already cost someone a debugging session, and none of them fai
   into a shell cache and the failure is invisible by construction: the app renders fine, it
   is just an old build, for anyone who does not close every tab. Navigations stay
   network-first with nothing written back.
+- **A page open across a deploy is on a build that no longer exists, and
+  [`lib/staleBuild.ts`](src/lib/staleBuild.ts) is what carries it over.** Cloudflare serves only
+  the current `/assets/`, so the old page's next lazy chunk 404s; until Sep 26, 2026 that
+  blanked the whole app. Now the page re-reads `index.html` when the tab comes back and, if the
+  entry script changed, **patches `history.pushState`** so the next in-app navigation is a full
+  load. If you are ever debugging a pushState that reloads the page, that is why. A chunk that
+  fails anyway reloads once (`vite:preloadError`, 10s loop guard), and `AppErrorBoundary` catches
+  the rest at three layers (app, page area, each WPBL tab), reporting `app_error` / `app_updated`
+  to `/admin` under "Site health".
 - **`public/icon.svg` is generated**, along with every other published icon, by
   [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py) from `public/logo.png`. A
   hand-edit is lost on the next run. Change the art, rerun the script, commit the lot.

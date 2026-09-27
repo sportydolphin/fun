@@ -179,6 +179,10 @@ export const EVENTS = {
   // never the crawler fetches that unfurl the card.
   WPBL_SHARE_COPIED:   'wpbl_share_copied',   // copied a short share link, props {kind}
   WPBL_SHARE_OPENED:   'wpbl_share_opened',   // arrived via a short share link, props {kind}
+  // The site's own health, which nothing else here can see: an error screen is drawn only on
+  // someone else's device. See lib/staleBuild.ts and AppErrorBoundary.tsx.
+  APP_ERROR:           'app_error',           // an error screen was drawn, props {kind: stale|crash, where: app|page|tab, message}
+  APP_UPDATED:         'app_updated',         // the page moved itself onto a new deploy, props {via: chunk_reload|navigation}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the
