@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.99.5',
+    date:    '2026-09-27',
+    title:   'A faster first load on phones',
+    changes: [
+      {
+        short: 'A faster first load on phones',
+        full:  'On a phone the site now draws its toolbar the instant the page arrives, loads the photos you can see first, and waits until you start reading before preparing the other tabs and the fan-awards data. The first load moves about a third less data and does far less work before the page responds.',
+      },
+    ],
+  },
+  {
     version: '1.99.4',
     date:    '2026-09-27',
     title:   'A lighter first load',

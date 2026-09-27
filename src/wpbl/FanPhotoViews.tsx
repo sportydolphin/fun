@@ -192,7 +192,7 @@ const RAIL_ASPECT_MAX = 2
 /** The rail's one fixed dimension. Structure, so it scales with the chrome (see chromePx). */
 const RAIL_TILE_H = { xs: 168, sm: 184 } as const
 
-function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject }: {
+function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, priority }: {
   photo: FanPhotoWithSubjects; names: string[]; onOpen: () => void
   /** The page's own subject (a player's name on their page), named nowhere in `names`. */
   subject?: string
@@ -202,6 +202,9 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject }: {
   /** False on the Home rail's loop copy, which `inert` already hides; this keeps it out of the
    *  tab order in a browser too old to know `inert`. */
   focusable?: boolean
+  /** How soon to fetch the image. Lazy by default. 'eager' for a tile that is on screen when the
+   *  page opens, 'high' for the one that is the page's largest image as well (see the rail). */
+  priority?: 'eager' | 'high'
 }) {
   // The subject stands in for the fallback so the photo's alt text and button name still say
   // who it is; only the VISIBLE line is dropped when it would just repeat the page's heading.
@@ -225,7 +228,8 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject }: {
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
         }}
       >
-        <Box component="img" src={photo.card_url} alt={caption} loading="lazy"
+        <Box component="img" src={photo.card_url} alt={caption} loading={priority ? 'eager' : 'lazy'}
+          {...(priority === 'high' ? { fetchpriority: 'high' } : {})}
           sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
       </Box>
       {showCaption && (
@@ -432,7 +436,13 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, 
   if (photos.length === 0) return null
   // Each tile as wide as its photo is at the rail's height, so a portrait and a landscape shot sit
   // side by side at their own shapes.
-  const tiles = (copy: boolean) => photos.map(p => {
+  //
+  // THE FIRST TILES ARE NOT LAZY. On Home the rail's first photo is the page's largest image, and
+  // marked `loading="lazy"` it waited for layout before its request even began: five seconds into
+  // Lighthouse's mobile run, which made it an eleven-second largest paint. Three tiles fill the
+  // rail on any screen; the rest (and the whole loop copy) stay lazy. `fetchpriority` lowercase,
+  // as React 18 passes it through only spelled that way (see Reading.tsx).
+  const tiles = (copy: boolean) => photos.map((p, i) => {
     const a = railTileAspect(p.width, p.height)
     return (
       <Box key={p.id} sx={{
@@ -442,7 +452,8 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, 
         // rail is not holding a compositor layer per tile for nothing.
         ...(drifting ? { transform: `translateX(calc(var(${DRIFT_VAR}, 0) * -1px))`, willChange: 'transform' } : {}),
       }}>
-        <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" focusable={!copy} subject={subject} />
+        <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" focusable={!copy} subject={subject}
+          priority={copy || i >= 3 ? undefined : i === 0 && autoScroll ? 'high' : 'eager'} />
       </Box>
     )
   })

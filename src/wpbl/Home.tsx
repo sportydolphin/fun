@@ -3066,13 +3066,35 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // NOT FETCHED AT ALL once the ballot's results have come off Home: the race then feeds nothing
   // on this page (see `seasonCards`, which keys on the same predicate), and the play log is four
   // pages plus a corrections read that every offseason visitor would pay for an unused number.
+  //
+  // ON A PHONE, NOT UNTIL THE READER MOVES. There the ballot is stacked two screens down, and this
+  // read is the heaviest on the page (about 260KB of play log, then the run-value arithmetic on
+  // top), so fetching it on arrival spent a phone's first seconds on a card nobody could see yet:
+  // Lighthouse's mobile run had it racing the page's largest image. The first scroll or touch
+  // starts it, which is long before anyone scrolls two screens. Desktop, where the ballot sits in
+  // the first row and is on screen at once, still fetches on arrival. 900px is `md`, where Home's
+  // two columns stack.
   useEffect(() => {
     if (!awardsResultsShowOnHome()) return
     let cancelled = false
-    fetchWpblAllRunValuePlays()
+    const load = () => fetchWpblAllRunValuePlays()
       .then(p => { if (!cancelled) { setPlays(p); setPlaysSettled(true) } })
       .catch(() => { if (!cancelled) setPlaysSettled(true) /* no card, no error state: see above */ })
-    return () => { cancelled = true }
+    const stacked = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 899.95px)').matches
+    if (!stacked || getCachedWpblAllRunValuePlays()) {
+      load()
+      return () => { cancelled = true }
+    }
+    const evs = ['scroll', 'wheel', 'touchstart', 'pointerdown', 'keydown'] as const
+    let started = false
+    const start = () => {
+      if (started) return
+      started = true
+      evs.forEach(e => window.removeEventListener(e, start))
+      load()
+    }
+    evs.forEach(e => window.addEventListener(e, start, { passive: true }))
+    return () => { cancelled = true; evs.forEach(e => window.removeEventListener(e, start)) }
   }, [])
 
   // While a game is live, refresh only the box-score lines, and on a gentle cadence. Deliberately

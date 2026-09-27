@@ -250,6 +250,25 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   const [slideTarget, setSlideTarget] = useState<number | null>(null)
   const [slideMs, setSlideMs] = useState(ANIM_MS)
   const [, bumpWarm] = useState(0)               // re-render trigger when a neighbour is pre-warmed
+  // Set by the reader's first touch, scroll or key, once the page has loaded. See the warm-up below.
+  const [warmUnlocked, setWarmUnlocked] = useState(false)
+  useEffect(() => {
+    if (!pagerOn || warmUnlocked) return
+    const evs = ['pointerdown', 'touchstart', 'scroll', 'wheel', 'keydown'] as const
+    let done = false
+    const go = () => setWarmUnlocked(true)
+    const unlock = () => {
+      if (done) return
+      done = true
+      if (document.readyState === 'complete') go()
+      else window.addEventListener('load', go, { once: true })
+    }
+    evs.forEach(e => window.addEventListener(e, unlock, { passive: true }))
+    return () => {
+      evs.forEach(e => window.removeEventListener(e, unlock))
+      window.removeEventListener('load', go)
+    }
+  }, [pagerOn, warmUnlocked])
 
   // Pre-warm EVERY other tab during idle time, nearest-first and one per idle tick, once the
   // active tab settles: each is added to the keep-alive set so it mounts hidden now, paying a
@@ -261,8 +280,16 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // means the likeliest next tab is ready first. Cheap on the network: Home preloads the shared
   // caches every tab reads, so a warmed tab's fetch-on-mount finds a fresh cache and no-ops.
   // Only ever grows `visited`.
+  //
+  // NOT UNTIL THE READER HAS DONE SOMETHING, and never before the page has finished loading.
+  // Started on the first idle tick, this built four hidden tabs (2,000+ elements, and the Teams
+  // tab's whole pitch-by-pitch log) while Home was still loading on the same phone CPU, and the
+  // idle callback's timeout forced it whether the phone was idle or not. Lighthouse's mobile run
+  // traced the home page's largest photo waiting four seconds AFTER it had downloaded, behind that
+  // work. A reader who touches, scrolls or types is reading, which is the moment warm tabs start to
+  // pay; one who never does never taps another tab, and was paying for four for nothing.
   useEffect(() => {
-    if (!pagerOn) return
+    if (!pagerOn || !warmUnlocked) return
     let cancelled = false
     const order = [...panels.keys()]
       .filter(j => j !== activeIndex)
@@ -276,11 +303,11 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       if (k >= order.length) return
       visited.current.add(order[k]); k++
       bumpWarm(n => n + 1)
-      id = hasRIC ? window.requestIdleCallback(step, { timeout: 1500 }) : window.setTimeout(step, 200) as unknown as number
+      id = hasRIC ? window.requestIdleCallback(step, { timeout: 4000 }) : window.setTimeout(step, 200) as unknown as number
     }
-    id = hasRIC ? window.requestIdleCallback(step, { timeout: 1500 }) : window.setTimeout(step, 500) as unknown as number
+    id = hasRIC ? window.requestIdleCallback(step, { timeout: 4000 }) : window.setTimeout(step, 500) as unknown as number
     return () => { cancelled = true; if (hasRIC) window.cancelIdleCallback(id); else window.clearTimeout(id) }
-  }, [activeIndex, pagerOn, panels.length])
+  }, [activeIndex, pagerOn, panels.length, warmUnlocked])
 
   // Mirrors for the native (non-React) touch handlers, which close over stale state otherwise.
   const animRef = useRef(false); animRef.current = anim
