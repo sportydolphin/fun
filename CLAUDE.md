@@ -498,7 +498,7 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   its security section is the only thing keeping site analytics from being readable by
   every signed-in user), `PLAY_VALIDATION.md`, `COMMONS_PHOTOS.md` (**read before approving an archive
   photo**: what the sync will not do, and why the approval gate is in RLS rather than in the
-  query), `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`,
+  query), `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md` (paused, manual only),
   `BACKLINKS.md` (the SEO work that is not code: who to contact and the drafts to send;
   the site's own markup is done, links are the remaining constraint),
   `ANDROID.md` (shipping this on Google Play as a Trusted Web Activity. A signed build

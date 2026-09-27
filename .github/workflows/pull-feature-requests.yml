@@ -1,16 +1,17 @@
 name: Pull feature requests
 
-# Refreshes docs/feature-requests.md from Google Tasks once a day and commits it
-# if anything changed, so the site's wish list stays current in the repo without a
-# manual `npm run tasks`.
+# Refreshes docs/feature-requests.md from Google Tasks and commits it if anything
+# changed.
+#
+# MANUAL ONLY since Sep 27, 2026. The owner stopped keeping the task list, so the
+# daily pull was committing a backlog that no longer matched the work. Put the
+# `schedule:` block back (cron '0 5 * * *') to resume it.
 #
 # Dormant until configured: add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and
 # GOOGLE_REFRESH_TOKEN as repository secrets (see docs/GOOGLE_TASKS.md). Until then
 # every run skips cleanly instead of failing, so there are no red-X emails.
 on:
-  schedule:
-    - cron: '0 5 * * *'   # 05:00 UTC daily
-  workflow_dispatch:        # also triggerable manually from the Actions UI
+  workflow_dispatch:        # run from the Actions UI
 
 # The job commits the regenerated file back to the repo.
 permissions:

@@ -1,5 +1,10 @@
 # Google Tasks → feature requests
 
+> **Paused since Sep 27, 2026.** The task list stopped being kept, so the daily
+> workflow no longer runs on a schedule and `feature-requests.md` was deleted as
+> stale. Everything below still works: `npm run tasks` regenerates the file, and
+> restoring the `schedule:` block in the workflow resumes the daily pull.
+
 The site's feature backlog lives in Google Tasks. `npm run tasks` reads those
 lists (read-only) and writes them into [feature-requests.md](feature-requests.md),
 so the current wish list travels with the repo.
@@ -68,7 +73,7 @@ set `GOOGLE_TASKS_LIST` to its exact title in `.env`.
 Re-run it whenever you want the file refreshed, then commit the file if you want
 the updated backlog on the repo.
 
-## Keeping it fresh automatically
+## Keeping it fresh automatically (paused)
 
 `.github/workflows/pull-feature-requests.yml` runs `pull-tasks.mjs` once a day
 (05:00 UTC) and commits `feature-requests.md` when it changes. It stays dormant

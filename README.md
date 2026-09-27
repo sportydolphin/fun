@@ -109,4 +109,4 @@ files are the already-applied baseline.
 - [docs/COMMONS_PHOTOS.md](docs/COMMONS_PHOTOS.md): the Wikimedia Commons archive gallery, and why the approval gate lives in RLS rather than in the query
 - [docs/READING.md](docs/READING.md): mirroring an independent writer's WPBL coverage, headlines only, never the article body
 - [docs/BACKLINKS.md](docs/BACKLINKS.md): the SEO work that is not code. The markup is done; links are the remaining brake
-- [docs/GOOGLE_TASKS.md](docs/GOOGLE_TASKS.md), [docs/feature-requests.md](docs/feature-requests.md)
+- [docs/GOOGLE_TASKS.md](docs/GOOGLE_TASKS.md): pulling the Google Tasks backlog into the repo (paused, manual only)
