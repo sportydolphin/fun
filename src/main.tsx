@@ -5,11 +5,14 @@ import App from './App'
 import { AppThemeProvider } from './ThemeContext'
 import { AppErrorBoundary } from './AppErrorBoundary'
 import { installStaleBuildRecovery } from './lib/staleBuild'
+import { startWebVitals } from './lib/webVitals'
 import './styles.css'
 
 // Before anything can lazy-load: a page left open across a deploy asks for chunks that no longer
 // exist, and this reloads it onto the current build instead of blanking. See lib/staleBuild.ts.
 installStaleBuildRecovery()
+// Real readers' page-load timings, reported to /admin. See lib/webVitals.ts.
+startWebVitals()
 
 // DEV-ONLY poster preview: `?awardsPreview` renders the fan-awards export harness in isolation, so
 // the html2canvas capture can be eyeballed without a closed ballot or vote data. Dead in prod.
@@ -29,7 +32,7 @@ if (rootEl) {
       )
     })
   } else {
-    root.render(
+    const boot = () => root.render(
       <AppThemeProvider>
         <CssBaseline />
         <AppErrorBoundary>
@@ -37,6 +40,20 @@ if (rootEl) {
         </AppErrorBoundary>
       </AppThemeProvider>
     )
+    // ONE FRAME FIRST, so index.html's toolbar shell is on screen before React's first render
+    // takes the main thread. That render is a long uninterrupted task on a phone, and started at
+    // once it ran through the frame the shell was due in: production's first paint landed at 2.4s,
+    // the moment the app itself drew, with the shell already in the DOM the whole time.
+    // `setTimeout` inside the rAF runs after that frame is painted. The 200ms fallback is for a tab
+    // opened in the background, where frames do not run at all and rAF alone would never boot it.
+    if (document.visibilityState === 'visible' && typeof requestAnimationFrame === 'function') {
+      let booted = false
+      const go = () => { if (!booted) { booted = true; boot() } }
+      requestAnimationFrame(() => setTimeout(go, 0))
+      setTimeout(go, 200)
+    } else {
+      boot()
+    }
   }
 }
 

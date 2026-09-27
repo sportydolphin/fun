@@ -183,6 +183,9 @@ export const EVENTS = {
   // someone else's device. See lib/staleBuild.ts and AppErrorBoundary.tsx.
   APP_ERROR:           'app_error',           // an error screen was drawn, props {kind: stale|crash, where: app|page|tab, message}
   APP_UPDATED:         'app_updated',         // the page moved itself onto a new deploy, props {via: chunk_reload|navigation}
+  // What a real reader's page load felt like, once per load, sent as the page is left or hidden.
+  // See lib/webVitals.ts.
+  WEB_VITALS:          'web_vitals',          // props {lcp, fcp, ttfb, inp (ms), cls, device, section, conn}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the
@@ -232,6 +235,39 @@ export function trackImpression(event: EventName, props: Record<string, unknown>
   if (impressionsSent.has(id)) return
   impressionsSent.add(id)
   track(event, props)
+}
+
+/**
+ * `track` for the moment a page is being left, when an ordinary request is cancelled with it.
+ *
+ * A `keepalive` fetch straight to the REST endpoint, because that is the one kind the browser
+ * lets outlive the page and supabase-js has no way to ask for it per call. Signed-out on purpose
+ * (`user_id` null, the anon key as the bearer): reading the session is async, and there is no
+ * time left to wait for it, and what this carries (see webVitals.ts) is about the page, not the
+ * person. The insert policy on `events` accepts exactly that shape. Best effort: a report the
+ * browser drops is one missing sample.
+ */
+export function trackOnExit(event: EventName, props: Record<string, unknown> = {}): void {
+  if (import.meta.env.MODE === 'test') return
+  try {
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+    if (!url || !key) return
+    fetch(`${url}/rest/v1/events`, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        apikey: key, Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json', Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        event: String(event).slice(0, 64), props, path: window.location.pathname,
+        user_id: null, session_id: sessionId(),
+      }),
+    }).catch(() => {})
+  } catch {
+    /* analytics must never throw */
+  }
 }
 
 export function track(

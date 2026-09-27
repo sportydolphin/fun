@@ -43,6 +43,13 @@
       [data-theme="dark"] .sd-shell { border-bottom-color: rgba(255,255,255,0.08); }
       .sd-shell img { display: block; height: 32px; width: auto; }
       [data-theme="dark"] .sd-shell img { filter: invert(1); }
+      /* THE NAME AS TEXT, not only the logo. Text paints on the first frame after this stylesheet,
+         with nothing to download; the logo is an image the browser must fetch and decode first, and
+         on production the app's code arrived in that window and ran for two seconds before the next
+         frame, so the logo alone did not paint until the app did. System font on purpose: waiting
+         on Inter here would put the wait straight back. */
+      .sd-shell span { margin-left: 10px; font: 800 1.05rem/1 system-ui, -apple-system, 'Segoe UI', sans-serif;
+        letter-spacing: -0.3px; color: var(--text-color, #111); }
     </style>
     <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
@@ -140,7 +147,7 @@
          its name, with no login required — this is what Google's OAuth homepage
          verification reads. React replaces this content once it mounts. -->
     <div id="app">
-      <div class="sd-shell" aria-hidden="true"><img src="/logo-mark.png" alt="" /></div>
+      <div class="sd-shell" aria-hidden="true"><img src="/logo-mark.png" alt="" /><span>sportydolphin</span></div>
       <main style="max-width:640px;margin:72px auto;padding:0 24px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
         <h1 style="font-size:1.9rem;font-weight:800;margin:0 0 12px;color:var(--text-color,#111);">sportydolphin.fun</h1>
         <p style="font-size:1.05rem;line-height:1.6;color:var(--text-color,#374151);opacity:0.85;margin:0 0 16px;">

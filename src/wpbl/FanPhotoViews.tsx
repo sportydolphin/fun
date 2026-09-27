@@ -316,8 +316,22 @@ function useRailAutoScroll(
   // is already drifting. See useReducedMotion.
   const reduced = useReducedMotion()
   const [stopped, setStopped] = useState(false)
+  // NOT DURING THE PAGE'S LOAD. Every drift frame moves the rail and sets a property every tile
+  // reads, so the browser restyles the rail sixty times a second; Lighthouse's mobile run on Home
+  // measured 1.9s of style and layout, against 0.35s with the drift off, all of it competing with
+  // the page's first render on a phone. Nobody is watching a rail drift in the first seconds of a
+  // load anyway, so it starts once the page has loaded and a few seconds more have passed.
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    if (!enabled || settled) return
+    let t: ReturnType<typeof setTimeout> | undefined
+    const later = () => { t = setTimeout(() => setSettled(true), 3000) }
+    if (document.readyState === 'complete') later()
+    else window.addEventListener('load', later, { once: true })
+    return () => { window.removeEventListener('load', later); if (t) clearTimeout(t) }
+  }, [enabled, settled])
   const looping = enabled && !reduced
-  const active = looping && !stopped
+  const active = looping && !stopped && settled
   const heldRef = useRef(held)
   heldRef.current = held
   const syncRef = useRef<(() => void) | null>(null)

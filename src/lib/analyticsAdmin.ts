@@ -178,6 +178,9 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   // is the card that is read. The area only appears when one of them has happened.
   app_error:              A('Saw an error screen', 'Site health'),
   app_updated:            A('Moved onto a new version of the site', 'Site health'),
+  // One per page load, carrying timings rather than a choice. Read by the Page speed card through
+  // admin_web_vitals, never as a count.
+  web_vitals:             I('Page speed report', 'Site health'),
 
   wpbl_reading_collapsed: R('Reading collapsed', 'Reading & photos'),
   wpbl_photos_shown:      R('Archive shown on Home', 'Reading & photos'),
@@ -449,6 +452,43 @@ export function fetchPageUsage(days: number, tz: string): Promise<PageUsage> {
   return callRpc('admin_wpbl_page_usage', { days_back: days, tz }, EMPTY_PAGE_USAGE)
 }
 
+// ─── Page speed (admin_web_vitals) ─────────────────────────────────────────────
+// Real readers' page loads, one `web_vitals` event each (src/lib/webVitals.ts). A null device or
+// section is the rollup over all of them, computed server-side because percentiles do not add.
+
+export type VitalKey = 'lcp' | 'inp' | 'cls' | 'fcp' | 'ttfb'
+export interface WebVitalsRow {
+  device: string | null
+  section: string | null
+  loads: number
+  lcp_p75: number | null; inp_p75: number | null; cls_p75: number | null; fcp_p75: number | null; ttfb_p75: number | null
+  lcp_good: number | null; inp_good: number | null; cls_good: number | null; fcp_good: number | null; ttfb_good: number | null
+}
+export interface WebVitals { rows: WebVitalsRow[] }
+export const EMPTY_WEB_VITALS: WebVitals = { rows: [] }
+
+/** Google's own lines: at or under the first is "good", over the second is "poor". The same ones
+ *  Search Console grades on, so this card and that report can be read side by side. */
+export const VITAL_LINES: Record<VitalKey, [number, number]> = {
+  lcp: [2500, 4000], inp: [200, 500], cls: [0.1, 0.25], fcp: [1800, 3000], ttfb: [800, 1800],
+}
+export type VitalRating = 'good' | 'needs work' | 'poor'
+export function vitalRating(key: VitalKey, v: number | null): VitalRating | null {
+  if (v == null) return null
+  const [good, poor] = VITAL_LINES[key]
+  return v <= good ? 'good' : v > poor ? 'poor' : 'needs work'
+}
+/** "2.4s", "180ms", "0.04". */
+export function formatVital(key: VitalKey, v: number | null): string {
+  if (v == null) return '—'
+  if (key === 'cls') return v.toFixed(2)
+  return v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${Math.round(v)}ms`
+}
+
+export function fetchWebVitals(days: number, tz: string): Promise<WebVitals> {
+  return callRpc('admin_web_vitals', { days_back: days, tz }, EMPTY_WEB_VITALS)
+}
+
 export function fetchGrowth(days: number, tz: string): Promise<Growth> {
   return callRpc('admin_growth', { days_back: days, tz }, EMPTY_GROWTH)
 }
@@ -463,6 +503,7 @@ export interface AnalyticsBundle {
   players: TopPlayer[]
   growth: Growth
   pages: PageUsage
+  vitals: WebVitals
 }
 
 /**
@@ -484,7 +525,8 @@ export function fetchAnalytics(
     fetchTopPlayers(days, tz),
     fetchGrowth(days, tz),
     fetchPageUsage(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages]) => ({
-    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages,
+    fetchWebVitals(days, tz),
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals,
   }))
 }

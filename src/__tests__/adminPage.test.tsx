@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PAGE_USAGE,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PAGE_USAGE, EMPTY_WEB_VITALS,
   type AnalyticsBundle,
 } from '../lib/analyticsAdmin'
 
@@ -21,6 +21,7 @@ const bundle = (over: Partial<AnalyticsBundle> = {}): AnalyticsBundle => ({
   players: [],
   growth: EMPTY_GROWTH,
   pages: EMPTY_PAGE_USAGE,
+  vitals: EMPTY_WEB_VITALS,
   ...over,
 })
 
@@ -148,6 +149,27 @@ describe('AdminPage readable cards', () => {
     expect(within(card).getByText('Opened a player')).toBeInTheDocument()
     expect(within(card).queryByText('Bracket shown')).not.toBeInTheDocument()
     expect(within(card).queryByText('MVP race shown')).not.toBeInTheDocument()
+  })
+
+  // Real readers' page loads, graded the way Search Console grades them. Phones lead, since that is
+  // where the site is slow when it is slow.
+  it('leads Page speed with the phone, graded on Google’s lines', async () => {
+    const row = (device: string | null, lcp: number, loads: number) => ({
+      device, section: null, loads, lcp_p75: lcp, inp_p75: 120, cls_p75: 0.02, fcp_p75: 1500, ttfb_p75: 300,
+      lcp_good: 0.6, inp_good: 0.9, cls_good: 1, fcp_good: 0.8, ttfb_good: 1,
+    })
+    fetchAnalytics.mockResolvedValueOnce(bundle({ vitals: { rows: [
+      row(null, 3100, 50), row('desktop', 1900, 20), row('phone', 4400, 30),
+    ] } }))
+    renderPage()
+    const head = await screen.findByRole('button', { name: /Page speed/ })
+    expect(head.textContent).toContain('Phones: largest paint 4.4s (poor), 30 loads')
+  })
+
+  it('says Page speed has nothing yet rather than drawing empty numbers', async () => {
+    renderPage()
+    const head = await screen.findByRole('button', { name: /Page speed/ })
+    expect(head.textContent).toContain('No reports yet')
   })
 
   it('shows the offseason pages by page, in their own words', async () => {

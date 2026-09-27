@@ -13,7 +13,9 @@ import {
   trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,
   EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
   EMPTY_PAGE_USAGE, groupActions, buildFunnels, eventInfo, PAGE_LABELS, prettyId,
+  EMPTY_WEB_VITALS, vitalRating, formatVital,
 } from './lib/analyticsAdmin'
+import type { VitalKey, VitalRating, WebVitalsRow } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
 
 /** "1 browser" / "2 browsers" — the counts here are small enough that "1 browsers" shows. */
@@ -81,7 +83,7 @@ const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
 const EMPTY_BUNDLE: AnalyticsBundle = {
   overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS,
   entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, players: [],
-  growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE,
+  growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE, vitals: EMPTY_WEB_VITALS,
 }
 
 // The three destinations the entry-point card reports, in the order they are worth reading:
@@ -330,6 +332,72 @@ export function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }
   )
 }
 
+// ─── page speed ──────────────────────────────────────────────────────────────
+//
+// Real readers' page loads (src/lib/webVitals.ts, admin_web_vitals), graded on Google's own lines
+// at the 75th percentile, the way Search Console grades them. Led by the phone, because that is
+// where the site is slow when it is slow and where three quarters of the traffic is; the desktop
+// and tablet rows follow, then each section. LCP carries the colour because it is the one that
+// moved the most in every lab run; the rest are the line under it.
+
+const RATING_COLOR: Record<VitalRating, string> = { good: '#22c55e', 'needs work': '#f59e0b', poor: '#ef4444' }
+const DEVICE_ORDER = ['phone', 'tablet', 'desktop']
+
+function VitalValue({ k, v }: { k: VitalKey; v: number | null }) {
+  const r = vitalRating(k, v)
+  return <Box component="span" sx={{ color: r ? RATING_COLOR[r] : 'text.disabled', fontWeight: 800 }}>{formatVital(k, v)}</Box>
+}
+
+function vitalsLine(r: WebVitalsRow) {
+  return (
+    <>
+      INP <VitalValue k="inp" v={r.inp_p75} /> · CLS <VitalValue k="cls" v={r.cls_p75} /> ·
+      First paint <VitalValue k="fcp" v={r.fcp_p75} /> · Server <VitalValue k="ttfb" v={r.ttfb_p75} />
+      {' · '}{plural(r.loads, 'load')}
+    </>
+  )
+}
+
+function PageSpeedCard({ rows }: { rows: WebVitalsRow[] }) {
+  const all = rows.find(r => r.device == null && r.section == null)
+  const devices = rows.filter(r => r.device != null && r.section == null)
+    .sort((a, b) => DEVICE_ORDER.indexOf(a.device ?? '') - DEVICE_ORDER.indexOf(b.device ?? ''))
+  const bySection = rows.filter(r => r.device != null && r.section != null && r.loads >= 5)
+    .sort((a, b) => DEVICE_ORDER.indexOf(a.device ?? '') - DEVICE_ORDER.indexOf(b.device ?? '') || b.loads - a.loads)
+  const lead = devices.find(r => r.device === 'phone') ?? all
+  const summary = !lead || lead.loads === 0
+    ? 'No reports yet (measured from Sep 27, 2026)'
+    : `${lead.device === 'phone' ? 'Phones' : 'All loads'}: largest paint ${formatVital('lcp', lead.lcp_p75)} (${vitalRating('lcp', lead.lcp_p75) ?? 'no data'}), ${plural(lead.loads, 'load')}`
+  return (
+    <Fold title="Page speed" summary={summary}>
+      <Box sx={{ px: 1.5, pb: 1 }}>
+        {!all || all.loads === 0 ? (
+          <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1.5 }}>
+            Nothing yet. Every production page load reports its timings when the reader leaves it,
+            so this fills in as people visit.
+          </Typography>
+        ) : (
+          <>
+            <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', pt: 1, lineHeight: 1.45 }}>
+              The 75th percentile of real page loads, the figure Google grades on. Largest paint is
+              the big number: green under 2.5s, red over 4s.
+            </Typography>
+            {[...devices, all].map(r => (
+              <MetricRow key={`d${r.device ?? 'all'}`} label={r.device == null ? 'All devices' : prettyId(r.device)}
+                value={<VitalValue k="lcp" v={r.lcp_p75} />} sub={vitalsLine(r)} />
+            ))}
+            {bySection.length > 0 && <GroupLabel>By section</GroupLabel>}
+            {bySection.map(r => (
+              <MetricRow key={`s${r.device}|${r.section}`} label={`${prettyId(r.device ?? '')}, ${(r.section ?? '').toUpperCase()}`}
+                value={<VitalValue k="lcp" v={r.lcp_p75} />} sub={vitalsLine(r)} />
+            ))}
+          </>
+        )}
+      </Box>
+    </Fold>
+  )
+}
+
 // ─── a card that folds ────────────────────────────────────────────────────────
 //
 // THE PAGE IS READ ON A PHONE, and nine cards stacked open was a scroll through every table to
@@ -424,7 +492,7 @@ export default function AdminPage() {
 
   useEffect(() => load(), [load])
 
-  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages } = data
+  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals } = data
   const t = overview.totals, p = overview.prev
 
   // A range that reaches back before the first event would otherwise pad the chart with
@@ -595,6 +663,9 @@ export default function AdminPage() {
           ))}
         </Box>
       </Fold>
+
+      {/* ── page speed ──────────────────────────────────────────────────── */}
+      <PageSpeedCard rows={vitals.rows} />
 
       {/* ── what people do ───────────────────────────────────────────────── */}
       <Fold title="What people do" defaultOpen

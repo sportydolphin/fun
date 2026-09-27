@@ -14,6 +14,8 @@ tab?" doesn't mean opening the Supabase SQL editor.
 |---|---|
 | SQL: nine `security definer` RPCs | [`20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) + [`20260820064501_add_admin_wpbl_stats_board_rpc.sql`](../scripts/migrations/20260820064501_add_admin_wpbl_stats_board_rpc.sql) + [`20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql`](../scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql) |
 | SQL: the offseason pages card | [`20260925013201_admin_wpbl_page_usage_rpc.sql`](../scripts/migrations/20260925013201_admin_wpbl_page_usage_rpc.sql) |
+| SQL: the Page speed card | [`20260927074721_add_admin_web_vitals_rpc.sql`](../scripts/migrations/20260927074721_add_admin_web_vitals_rpc.sql) |
+| Real-user timing capture | [`src/lib/webVitals.ts`](../src/lib/webVitals.ts), `trackOnExit` in [`src/lib/analytics.ts`](../src/lib/analytics.ts) |
 | Typed RPC wrappers + pure helpers | [`src/lib/analyticsAdmin.ts`](../src/lib/analyticsAdmin.ts) |
 | SQL: the roster + roles | [`20260910004500_add_admin_user_roster_rpc.sql`](../scripts/migrations/20260910004500_add_admin_user_roster_rpc.sql) |
 | The Users panel + its roster wrapper | [`src/AdminUsers.tsx`](../src/AdminUsers.tsx), [`src/lib/adminUsers.ts`](../src/lib/adminUsers.ts) |
@@ -156,6 +158,7 @@ last two rows, which say what they take instead.
 | `admin_top_players(days_back, lim, tz)` | `props->>'playerId'` joined to `wpbl_players` |
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
+| `admin_web_vitals(days_back, tz)` | real page loads: p75 LCP / INP / CLS / FCP / TTFB and the share under Google's "good" line, by device and section with rollups (null = all) |
 | `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favourite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
 | `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
 | `admin_wpbl_award_votes()` | one row per fan-award and pick'em vote: category, choice, a stable HASH of the voter key, and when it was cast. **Takes no arguments and returns rows rather than `jsonb`**, unlike everything above it: it is a poll, not a window, and the table is one row per person per question. **It never returns the voter key.** Since Sep 10, 2026 a key is a user id, and knowing one is the whole of what lets a caller rewrite that person's ballot through `wpbl_cast_award_vote`, so a panel holding them would make every screenshot a set of credentials |
@@ -188,6 +191,14 @@ it is one card and one question.
 ---
 
 ## 4. Counting rules the numbers depend on
+
+- **`web_vitals` is one row per production page LOAD, sent as the page is hidden or left**
+  (Sep 27, 2026). It is written by `trackOnExit`, a `keepalive` fetch with `user_id` null,
+  because an ordinary request is cancelled with the page and there is no time to read the
+  session. So it never carries a user, and it is read only as percentiles through
+  `admin_web_vitals`, never counted as activity (`EVENT_INFO` files it as an impression). A load
+  that never painted (opened in a background tab) sends nothing, and INP is absent from a load
+  nobody interacted with, which is why each `*_good` share is over the loads that reported it.
 
 Break one of these and the dashboard keeps rendering. It just lies.
 
