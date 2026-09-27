@@ -325,9 +325,23 @@ export function isCompetitor(r, competitors = COMPETITORS) {
   return competitors.some(c => fields.some(f => f.includes(c)))
 }
 
+/**
+ * Whether league talk is reported at all, or only posts naming the site.
+ *
+ * OFF SINCE SEP 27, 2026. The owner wants the channel to fire only when sportydolphin itself is
+ * named: the general WPBL questions and mentions were not being answered, and a channel of
+ * leads nobody works is one that gets muted, taking the site mentions down with it. Everything
+ * that finds league talk is left in place, so turning this back on is this one line. With it
+ * off the searches ask for the site by name, and anything else still arriving (a Reddit comment
+ * sweep, a row queued before the switch) is dropped rather than announced.
+ */
+export const LEAGUE_LEADS = false
+
 /** The searches each source runs. Deliberately broad: the narrowing is `classify`, locally,
  *  where it can be tested and changed without learning two query syntaxes. */
-export const QUERIES = ['WPBL', '"women\'s pro baseball"', 'sportydolphin']
+export const QUERIES = LEAGUE_LEADS
+  ? ['WPBL', '"women\'s pro baseball"', 'sportydolphin']
+  : ['sportydolphin']
 
 const excerptOf = (text, max = 280) => {
   const flat = String(text ?? '').replace(/\s+/g, ' ').trim()
@@ -707,7 +721,7 @@ const SOURCES = [
  * Pure and tested. `known` is passed rather than read here so the tests can exercise the
  * dedupe without a database.
  */
-export function toHits(results, known, { now = Date.now(), lookbackDays = LOOKBACK_DAYS } = {}) {
+export function toHits(results, known, { now = Date.now(), lookbackDays = LOOKBACK_DAYS, leagueLeads = LEAGUE_LEADS } = {}) {
   const cutoff = now - lookbackDays * 86_400_000
   const seen = new Set(known)
   const hits = []
@@ -725,6 +739,7 @@ export function toHits(results, known, { now = Date.now(), lookbackDays = LOOKBA
       ? classifyComment(r.text, r.parent_title)
       : classify(`${r.title ?? ''}\n${r.text ?? ''}`)
     if (!verdict) continue
+    if (!leagueLeads && verdict.kind !== 'link') continue
     // A missing timestamp is kept rather than dropped: an undated result is far more likely a
     // shape we did not expect than a decade-old post, and dropping it silently would hide it.
     if (r.posted_at && new Date(r.posted_at).getTime() < cutoff) continue
@@ -1058,7 +1073,11 @@ async function main() {
   // other order costs a lost thread, and a repeated digest for everything else.
   await saveHits(hits)
 
-  const pending = (await loadPending()).sort(byUrgency)
+  // Rows queued while league leads were on would otherwise still be announced after the
+  // switch. Marked announced unposted, the same way stale ones are.
+  const queued = await loadPending()
+  const offTopic = LEAGUE_LEADS ? [] : queued.filter(h => h.kind !== 'link')
+  const pending = queued.filter(h => !offTopic.includes(h)).sort(byUrgency)
 
   // Anything that waited too long leaves the queue without being posted. Somebody else has
   // answered by now, and a fortnight-long drip is a muted channel.
@@ -1082,8 +1101,9 @@ async function main() {
     console.log(`Announced ${due.length}.`)
   }
   if (stale.length) console.log(`Dropped ${stale.length} that went stale before their turn.`)
+  if (offTopic.length) console.log(`Dropped ${offTopic.length} league leads queued before they were switched off.`)
 
-  await markAnnounced([...due, ...stale].map(h => h.external_id))
+  await markAnnounced([...due, ...stale, ...offTopic].map(h => h.external_id))
   await recordRun({
     ok: true,
     seen: results.length,

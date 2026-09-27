@@ -394,6 +394,12 @@ feed without needing a row at all.
 `wpbl-mention-watch` runs every 15 minutes, searches Reddit posts, Reddit comments and Bluesky
 for people talking about the WPBL, and digests the ones worth answering into a private channel.
 
+**Site mentions only, since Sep 27, 2026.** `LEAGUE_LEADS` in the script is `false`: the searches
+ask for "sportydolphin" alone and only a post naming the site is reported, so the questions and
+plain league talk described below are found by nothing. The matching for them is intact and
+tested; flipping the constant back restores it. Rethinking this is on the roadmap before the
+2027 season (ROADMAP-WPBL.md, the clock).
+
 **It finds threads. It does not answer them.** The only place it ever posts is our own webhook.
 Do not give it a credential that would let it reply anywhere else: an automated reply in
 somebody else's community is spam, it gets the account banned from exactly the communities

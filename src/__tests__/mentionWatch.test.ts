@@ -78,33 +78,48 @@ describe('classify: what it must refuse', () => {
   })
 })
 
+// League leads are switched off (LEAGUE_LEADS), so by default only a post naming the site is
+// kept. The tests below opt back in, because the matching they pin is still what runs the day
+// the switch goes back on.
+describe('toHits, as it runs today', () => {
+  it('keeps a post naming the site', () => {
+    expect(toHits([result({ title: 'sportydolphin has WPBL box scores' })], [], { now: NOW })).toHaveLength(1)
+  })
+
+  it('drops league talk that does not name the site, question or not', () => {
+    const question = result({ external_id: 'reddit:t3_q', title: 'Where can I find WPBL standings?' })
+    const mention = result({ external_id: 'reddit:t3_m', title: 'WPBL final tonight' })
+    expect(toHits([question, mention], [], { now: NOW })).toHaveLength(0)
+  })
+})
+
 describe('toHits', () => {
   it('drops what we have already seen', () => {
     const results = [result({ external_id: 'reddit:t3_seen', title: 'WPBL live scores?' })]
-    expect(toHits(results, ['reddit:t3_seen'], { now: NOW })).toHaveLength(0)
+    expect(toHits(results, ['reddit:t3_seen'], { now: NOW, leagueLeads: true })).toHaveLength(0)
   })
 
   it('dedupes within a single run, since two queries can return the same post', () => {
     // Both "WPBL" and "sportydolphin" match a post naming both, and the same id twice is a
     // primary key violation that fails the whole insert rather than skipping one row.
     const dupe = result({ title: 'WPBL scores on sportydolphin?' })
-    expect(toHits([dupe, { ...dupe }], [], { now: NOW })).toHaveLength(1)
+    expect(toHits([dupe, { ...dupe }], [], { now: NOW, leagueLeads: true })).toHaveLength(1)
   })
 
   it('drops anything older than the lookback window', () => {
     const old = result({ title: 'Where can I find WPBL standings?', posted_at: hoursAgo(24 * 30) })
-    expect(toHits([old], [], { now: NOW })).toHaveLength(0)
+    expect(toHits([old], [], { now: NOW, leagueLeads: true })).toHaveLength(0)
   })
 
   it('keeps a result with no timestamp rather than silently discarding it', () => {
     // An undated result is far likelier a payload shape we did not expect than a decade-old
     // post, and dropping it would hide the change instead of surfacing it.
     const undated = result({ title: 'Where can I find WPBL standings?', posted_at: null })
-    expect(toHits([undated], [], { now: NOW })).toHaveLength(1)
+    expect(toHits([undated], [], { now: NOW, leagueLeads: true })).toHaveLength(1)
   })
 
   it('carries the subreddit into the author line, so a hit says where it is', () => {
-    const hit = toHits([result({ title: 'WPBL live updates?' })], [], { now: NOW })[0]
+    const hit = toHits([result({ title: 'WPBL live updates?' })], [], { now: NOW, leagueLeads: true })[0]
     expect(hit.author).toBe('u/someone in r/baseball')
   })
 })
@@ -193,13 +208,13 @@ describe('toHits: comments', () => {
   it('classifies a comment against its parent rather than its own title', () => {
     // The `re: ` heading is display text. Feeding it to `classify` would let the parent supply
     // the intent as well as the subject, which is the flood this whole design avoids.
-    const [hit] = toHits([comment()], [], { now: NOW })
+    const [hit] = toHits([comment()], [], { now: NOW, leagueLeads: true })
     expect(hit.kind).toBe('question')
     expect(hit.excerpt).toBe('where can I watch this?')
   })
 
   it('drops the ordinary chatter under a thread the search already found', () => {
-    expect(toHits([comment({ text: 'what a swing' })], [], { now: NOW })).toHaveLength(0)
+    expect(toHits([comment({ text: 'what a swing' })], [], { now: NOW, leagueLeads: true })).toHaveLength(0)
   })
 })
 
@@ -219,7 +234,7 @@ describe('our own posts', () => {
       author: '@sportydolphin.bsky.social', source: 'bluesky', context: null,
       text: 'Hunters 7, Queens 3 (F) sportydolphin.fun/wpbl?game=g1',
     })
-    expect(toHits([mine], [], { now: NOW })).toHaveLength(0)
+    expect(toHits([mine], [], { now: NOW, leagueLeads: true })).toHaveLength(0)
   })
 
   it('KEEPS a stranger submitting our own site, which is a backlink', () => {
@@ -231,7 +246,7 @@ describe('our own posts', () => {
       title: 'Found a free WPBL stats site with a page for every player',
     })
     expect(isOwnPost(backlink)).toBe(false)
-    expect(toHits([backlink], [], { now: NOW })).toHaveLength(1)
+    expect(toHits([backlink], [], { now: NOW, leagueLeads: true })).toHaveLength(1)
   })
 
   it('KEEPS a reply under one of our own posts', () => {
@@ -271,7 +286,7 @@ describe('competitors', () => {
     const hit = toHits([result({
       author: 'u/fan',
       title: 'dubsports is down, anywhere else to follow WPBL scores?',
-    })], [], { now: NOW })
+    })], [], { now: NOW, leagueLeads: true })
     expect(hit).toHaveLength(1)
     expect(hit[0].kind).toBe('question')
   })

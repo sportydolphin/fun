@@ -3,6 +3,9 @@ name: WPBL Mention Watch
 # Finds the public posts where somebody is asking where to follow a WPBL game, and puts them
 # in one private Discord channel for a human to answer.
 #
+# SITE MENTIONS ONLY since Sep 27, 2026: LEAGUE_LEADS in the script is false, so it reports
+# posts naming sportydolphin and nothing else. See the constant for why and how to undo it.
+#
 # THE JOB FINDS THREADS. IT DOES NOT ANSWER THEM. The only place it ever posts is our own
 # webhook. Do not add a credential that would let it reply anywhere else: an automated reply in
 # somebody else's community is spam, it gets the account banned from exactly the communities

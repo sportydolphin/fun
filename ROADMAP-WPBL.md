@@ -41,6 +41,15 @@ is durable or it is nothing**: the question for each item is whether it is a rea
 Dated things left:
 
 - **Oct 1, 2026**: the fan-award results come off Home and the season card goes full width.
+- **Spring 2027, before the first game: rethink the Bluesky integrations.** What runs today is
+  two posters (a recap with a box-score image for every final, a "starting soon" reminder before
+  each first pitch) and the mention watcher's search, which since Sep 27, 2026 reports only posts
+  naming sportydolphin (`LEAGUE_LEADS` in `scripts/watch-wpbl-mentions.mjs`). Decide what the
+  account is for before the posters wake up with the season: whether league talk should come
+  back into the watcher, and what beyond recaps and reminders is worth posting (the offseason
+  visuals, player share cards, milestone posts, a custom feed of WPBL posts, replying by hand to
+  what the watcher finds). Nothing measures the account yet, so start by reading what the season's
+  posts actually drew.
 - **Spring 2027, before the first game**: re-verify every feed assumption in CLAUDE.md's Traps
   before trusting a season total. The league minted new team and player ids for the postseason,
   changed the ERA basis mid-season and caps `/games` silently; any of those can change again over
