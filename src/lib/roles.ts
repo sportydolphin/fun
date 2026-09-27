@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../AuthContext'
 import { supabase } from './supabase'
-import { SITE_ROLES } from './adminUsers'
-import type { SiteRole } from './adminUsers'
+
+/** The roles the panel can grant. Mirrored by the CHECK constraint on `user_roles.role`.
+ *
+ *  DEFINED HERE, not in adminUsers.ts, which re-exports it. This module runs for every visitor;
+ *  that one imports the admin dashboard's whole event catalog (analyticsAdmin.ts), so reaching
+ *  into it for one three-item list put the catalog in every first page load. */
+export const SITE_ROLES = ['collaborator', 'moderator', 'tester'] as const
+export type SiteRole = typeof SITE_ROLES[number]
 
 // The reader's own capability grants, for deciding what to draw.
 //

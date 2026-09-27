@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.99.4',
+    date:    '2026-09-27',
+    title:   'A lighter first load',
+    changes: [
+      {
+        short: 'A lighter first load',
+        full:  'The sign-in forms now load the first time you open one rather than with every page, and a piece of the admin dashboard that was reaching every visitor no longer does. The first download is about a tenth smaller.',
+      },
+    ],
+  },
+  {
     version: '1.99.3',
     date:    '2026-09-26',
     title:   'Updates arrive on your next tap',

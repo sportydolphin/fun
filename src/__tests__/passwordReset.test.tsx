@@ -3,6 +3,9 @@ import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { AuthProvider, useAuth } from '../AuthContext'
+// The dialogs are a lazy chunk (see AuthDialogs.tsx). Loaded here so the first test does not spend
+// its wait compiling them; they still arrive a tick after opening, hence the findBy/waitFor below.
+import '../AuthDialogs'
 
 // Passwords: resetting one you have lost, and changing one you still have.
 //
@@ -104,6 +107,7 @@ describe('requesting a reset', () => {
     const user = userEvent.setup({ delay: null })
     mount()
     await user.click(screen.getByText('open auth'))
+    await screen.findByLabelText('Email')
 
     await user.type(screen.getByLabelText('Email'), 'fan@example.com')
     await user.click(screen.getByText('Forgot password?'))
@@ -120,6 +124,7 @@ describe('requesting a reset', () => {
     const user = userEvent.setup({ delay: null })
     mount()
     await user.click(screen.getByText('open auth'))
+    await screen.findByLabelText('Email')
     await user.type(screen.getByLabelText('Email'), 'stranger@example.com')
     await user.click(screen.getByText('Forgot password?'))
     await user.click(screen.getByRole('button', { name: /send reset link/i }))

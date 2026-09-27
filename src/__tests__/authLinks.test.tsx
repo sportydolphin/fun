@@ -67,6 +67,9 @@ const SIGNUP = '#access_token=tok&refresh_token=r&expires_in=3600&token_type=bea
 beforeAll(async () => {
   vi.resetModules()
   await import('../AuthContext')
+  // The dialogs are their own lazy chunk (AuthDialogs.tsx): warm it too, or the first test's wait
+  // is spent compiling it.
+  await import('../AuthDialogs')
 }, 60_000)
 
 afterEach(cleanup)

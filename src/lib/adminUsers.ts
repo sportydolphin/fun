@@ -15,9 +15,9 @@ import { localTz } from './analyticsAdmin'
 // and no browser read can reach them. That is the point of the function, and the reason it
 // must never become a view.
 
-/** The roles the panel can grant. Mirrored by the CHECK constraint on `user_roles.role`. */
-export const SITE_ROLES = ['collaborator', 'moderator', 'tester'] as const
-export type SiteRole = typeof SITE_ROLES[number]
+// The roles the panel can grant live in roles.ts, which every visitor loads; see there for why.
+import { SITE_ROLES, type SiteRole } from './roles'
+export { SITE_ROLES, type SiteRole }
 
 export interface RoleGrant { role: SiteRole; note: string | null }
 
