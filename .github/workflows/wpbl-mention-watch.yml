@@ -27,22 +27,23 @@ name: WPBL Mention Watch
 # log and never fails the run, so this workflow can ship before the secrets do; with neither
 # set it searches nothing and says so.
 #
-# EVERY 15 MINUTES, WITH EYES OPEN. GitHub's cron is best-effort and slips under load. That is
-# fine here: fifteen minutes against a question that stays open for hours. Note that scheduled
+# HOURLY, ALL YEAR, WITH EYES OPEN. It was every 15 minutes from March to October while it
+# hunted game-day questions, which nobody asks with no game to follow. Since Sep 27, 2026 it
+# reports only posts naming the site, which can happen in any month, and an hour is quick enough
+# for a mention that stays up for days. GitHub's cron is best-effort and slips under load (hours,
+# in this repo), which the lookback windows in the script absorb. Note that scheduled
 # workflows are disabled automatically after 60 days without repository activity, which is the
 # likeliest way this dies, and the job's own outage notice does NOT cover it: a job that never
 # starts cannot report on itself.
 #
 # A SOURCE FAILING IS NOT A FAILED JOB. One source down leaves the other reporting; both down
 # is recorded in wpbl_mention_watch_runs and, after six hours blind, said out loud once. A red
-# X every quarter hour is a job everybody learns to ignore.
+# X every hour is a job everybody learns to ignore.
 
 on:
   schedule:
-    # March to October, like the other game-dependent jobs. It looks for people asking where to
-    # follow a game, which nobody asks with no game to follow, and ungated it woke a runner 96
-    # times a day all winter. workflow_dispatch still covers an off-season look.
-    - cron: '*/15 * * 3-10 *'
+    # Year-round: see the header for why this stopped being gated to the season.
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:

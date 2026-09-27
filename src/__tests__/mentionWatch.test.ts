@@ -8,7 +8,7 @@ import {
   fitDigest, DISCORD_LIMIT,
 } from '../../scripts/watch-wpbl-mentions.mjs'
 
-// The mention watcher runs every 15 minutes over two public search APIs and has exactly two
+// The mention watcher runs hourly over two public search APIs and has exactly two
 // ways to be useless. Too loose and the channel is a firehose that gets muted inside a day, so
 // the real question ("where can I follow tonight's game?") arrives somewhere nobody is looking.
 // Too tight and it never arrives at all. `classify` decides both, from post text alone.

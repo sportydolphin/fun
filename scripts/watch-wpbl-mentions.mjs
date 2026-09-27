@@ -109,7 +109,7 @@ const FETCH_TIMEOUT_MS = 20_000
 const ERROR_QUIET_HOURS = 6
 
 // The per-run announcement budget. A Discord message caps at 2000 characters and nobody reads
-// a 40-item list anyway; the rest waits for the next run fifteen minutes later.
+// a 40-item list anyway; the rest waits for the next run an hour later.
 const MAX_PER_RUN = 8
 
 // A pending hit older than this leaves the queue unannounced. Somebody else has answered the
@@ -449,13 +449,14 @@ export async function searchReddit(queries = QUERIES, fetchImpl = fetch) {
  */
 export const COMMENT_SUBREDDITS = ['baseball', 'womenssports', 'womensbaseball', 'wpbl']
 
-// Three pages, 100 at a time. Enough that r/baseball is covered between runs on an ordinary
-// evening, bounded so a sub having a moment cannot spend the whole run on itself.
-const MAX_COMMENT_PAGES = 3
+// Ten pages, 100 at a time, which is also as deep as Reddit's listing goes. Raised from three
+// when the job went hourly: three pages of r/baseball on a game night cover well under the
+// window below, and the warning further down would have said so every run.
+const MAX_COMMENT_PAGES = 10
 
-// How far back the comment sweep tries to reach. Three times the 15-minute cadence, so one
-// skipped or slow run is caught up by the next rather than leaving a hole.
-const COMMENT_WINDOW_MINUTES = 45
+// How far back the comment sweep tries to reach. Three times the hourly cadence, so one skipped
+// or slow run is caught up by the next rather than leaving a hole.
+const COMMENT_WINDOW_MINUTES = 180
 
 /**
  * Reddit's comment listing, flattened to the same shape as a post.
@@ -553,7 +554,7 @@ export async function searchRedditComments(subs = COMMENT_SUBREDDITS, fetchImpl 
     //
     // A leftover cursor is what distinguishes this from a QUIET sub, which also spans very
     // little and is fine: that one runs out of comments and Reddit returns no `after`, so it
-    // must not raise an alarm every fifteen minutes forever.
+    // must not raise an alarm every hour forever.
     if (after != null && span != null && span < COMMENT_WINDOW_MINUTES) {
       console.warn(`⚠️   r/${sub}: ${rows.length} comments reach back only ${Math.round(span)} min of the ${COMMENT_WINDOW_MINUTES} min window, and there is more to read. Anything asked before that was missed.`)
     }
@@ -1009,7 +1010,7 @@ async function main() {
   }
 
   // Each source is allowed to fail on its own. One platform blocking us must not cost the
-  // other's results, and one flaky source must not turn the job red every quarter hour.
+  // other's results, and one flaky source must not turn the job red every hour.
   const errors = []
   const results = []
   let asked = 0
@@ -1048,7 +1049,7 @@ async function main() {
       }
       await recordRun({ ok: false, error: errors.join(' | ').slice(0, 500) })
     }
-    // Exit 0: expected and self-healing, and a red X every fifteen minutes teaches everyone to
+    // Exit 0: expected and self-healing, and a red X every hour teaches everyone to
     // ignore the job.
     return
   }

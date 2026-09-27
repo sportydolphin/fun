@@ -391,7 +391,7 @@ feed without needing a row at all.
 
 ### The mention watcher
 
-`wpbl-mention-watch` runs every 15 minutes, searches Reddit posts, Reddit comments and Bluesky
+`wpbl-mention-watch` runs hourly all year (every 15 minutes, March to October, until Sep 27, 2026), searches Reddit posts, Reddit comments and Bluesky
 for people talking about the WPBL, and digests the ones worth answering into a private channel.
 
 **Site mentions only, since Sep 27, 2026.** `LEAGUE_LEADS` in the script is `false`: the searches
