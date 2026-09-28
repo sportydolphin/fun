@@ -174,7 +174,8 @@ export default function WpblMatchupsPage({ onNavigate }: {
   /** A name in the matchup cell. Plain text: the whole cell is the link (see the row). */
   const name = (text: string, strong: boolean) => (
     <Typography component="span" className={strong ? LEAD_NAME : undefined} sx={{
-      fontSize: strong ? TYPE_SCALE.body : TYPE_SCALE.meta,
+      // On desktop the second name has a column of its own and reads at full size beside the first.
+      fontSize: strong ? TYPE_SCALE.body : { xs: TYPE_SCALE.meta, md: TYPE_SCALE.body },
       fontWeight: strong ? 700 : 600,
       color: strong ? 'text.primary' : 'text.secondary',
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -256,17 +257,25 @@ export default function WpblMatchupsPage({ onNavigate }: {
           ) : (
             // Edge to edge on a phone, with the first and last cells taking the gutter back, as the
             // player card's tables do (see bleedSx in PlayerDetail.tsx). `-2` is the shell's px:
-            // WpblPage has none of its own on a phone.
+            // WpblPage has none of its own on a phone. The matchup cell takes the left gutter by
+            // name (`matchupCellSx`) rather than as `:first-of-type`, because on desktop the rank
+            // column comes first and is not drawn on a phone.
             <Box sx={{
               overflowX: 'auto', mx: { xs: -2, sm: 0 },
-              '& th:first-of-type, & td:first-of-type': { pl: { xs: 2, sm: 0.5 } },
               '& th:last-of-type, & td:last-of-type': { pr: { xs: 2, sm: 0.5 } },
             }}>
               <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
                 <Box component="thead">
                   <Box component="tr">
-                    <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>{pitcherFirst ? 'Pitcher vs batter' : 'Batter vs pitcher'}</Box>
-                    {HEADS.map(h => <Box component="th" key={h} sx={h === 'AVG' ? { ...thSx, textAlign: 'right' } : thSx}>{h}</Box>)}
+                    <Box component="th" sx={{ ...thSx, ...rankSx }}>#</Box>
+                    <Box component="th" sx={{ ...thSx, ...matchupCellSx }}>
+                      <Box sx={{ display: { xs: 'block', md: 'none' } }}>{pitcherFirst ? 'Pitcher vs batter' : 'Batter vs pitcher'}</Box>
+                      <Box sx={{ display: { xs: 'none', md: 'grid' }, ...pairGridSx }}>
+                        <span>{pitcherFirst ? 'Pitcher' : 'Batter'}</span>
+                        <span>{pitcherFirst ? 'Batter' : 'Pitcher'}</span>
+                      </Box>
+                    </Box>
+                    {HEADS.map(h => <Box component="th" key={h} sx={{ ...thSx, ...statColSx(h), ...(h === 'AVG' ? { textAlign: 'right' } : {}) }}>{h}</Box>)}
                   </Box>
                 </Box>
                 <Box component="tbody">
@@ -311,7 +320,8 @@ export default function WpblMatchupsPage({ onNavigate }: {
                             chevron for the pair did not fit a phone: the chevron's column alone
                             pushed the table 27px past a 343px column. On this page the row IS the
                             matchup, so that is what a tap on it opens. */}
-                        <Box component="td" sx={{ ...tdSx, textAlign: 'left' }}>
+                        <Box component="td" sx={{ ...tdSx, ...rankSx, color: 'text.disabled', fontSize: TYPE_SCALE.meta }}>{i + 1}</Box>
+                        <Box component="td" sx={{ ...tdSx, ...matchupCellSx }}>
                           <Box
                             component={pairHref ? 'a' : 'div'}
                             {...(pairHref ? {
@@ -320,7 +330,11 @@ export default function WpblMatchupsPage({ onNavigate }: {
                               onClick: open,
                             } : {})}
                             sx={{
-                              display: 'block', textDecoration: 'none', color: 'inherit', borderRadius: 1,
+                              // One matchup per line on desktop, the two names in columns of their
+                              // own: stacked, each row spent two lines of height on a 900px table
+                              // whose figures sat in 100px columns of air.
+                              display: { xs: 'block', md: 'grid' }, ...pairGridSx,
+                              textDecoration: 'none', color: 'inherit', borderRadius: 1,
                               ...(pairHref ? FOCUS_RING : {}),
                             }}
                           >
@@ -331,9 +345,10 @@ export default function WpblMatchupsPage({ onNavigate }: {
                               {badge(pitcherFirst ? l.pitcherTeamIds : l.batterTeamIds)}
                               {name(pitcherFirst ? l.pitcherName : l.batterName, true)}
                             </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: 0.25 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, md: 0 } }}>
                               {badge(pitcherFirst ? l.batterTeamIds : l.pitcherTeamIds)}
-                              <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
+                              {/* The column header says it on desktop. */}
+                              <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { md: 'none' } }}>vs</Typography>
                               {name(pitcherFirst ? l.batterName : l.pitcherName, false)}
                             </Box>
                           </Box>
@@ -343,6 +358,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
                           return (
                             <Box component="td" key={HEADS[j]} sx={{
                               ...tdSx,
+                              ...statColSx(HEADS[j]),
                               // Right-aligned, so the decimal points stack: centred, "1.000" sat
                               // half a digit left of the ".800" under it.
                               ...(isAvg ? { textAlign: 'right' } : {}),
@@ -399,6 +415,20 @@ const thSx = {
   color: 'text.disabled', py: 0.6, px: { xs: 0.3, sm: 0.85 }, textAlign: 'center', whiteSpace: 'nowrap',
   borderBottom: '1px solid', borderColor: 'divider',
 } as const
+/** The rank, desktop only: on a phone the row has no width to spare, and the order is the list's. */
+const rankSx = { display: { xs: 'none', md: 'table-cell' }, width: '2.25rem', textAlign: 'right', pl: 0.5, pr: 1.25 } as const
+/** The matchup cell, which takes the phone's left gutter back (see the table wrapper). */
+const matchupCellSx = { textAlign: 'left', pl: { xs: 2, sm: 0.5, md: 0 } } as const
+/** The two names as two equal columns on desktop, shared by the header so the labels sit over them. */
+const pairGridSx = { gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: 2, alignItems: 'center' } as const
+/**
+ * A fixed width for each figure on desktop, sized to its widest value plus air, so the name columns
+ * take the slack. Left to the table's auto layout, the spare width of a 900px table was shared
+ * evenly and a one-digit count sat centred in a 100px column, far from the names it belongs to.
+ * `rem`, because each box reserves room for a number (see "A fixed px size" in CLAUDE.md).
+ */
+const statColSx = (h: string) =>
+  ({ width: { md: h === 'AVG' ? '4.25rem' : h === 'H-AB' ? '3.75rem' : '3rem' } }) as const
 const tdSx = {
   fontSize: TYPE_SCALE.body, fontWeight: 600, py: 0.75, px: { xs: 0.3, sm: 0.85 }, textAlign: 'center',
   borderTop: '1px solid', borderColor: 'divider', whiteSpace: 'nowrap', verticalAlign: 'middle',

@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.104.1',
+    date:    '2026-09-28',
+    title:   'A roomier matchups board on desktop',
+    changes: [
+      {
+        short: 'Batter vs pitcher fits twice as many rows on desktop',
+        full:  'On a wider screen each matchup is now one line, with the batter and the pitcher in columns of their own, a rank number, and the figures sitting right beside the names.',
+      },
+    ],
+  },
+  {
     version: '1.104.0',
     date:    '2026-09-28',
     title:   'Every WPBL batter vs pitcher matchup',
