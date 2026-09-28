@@ -87,9 +87,14 @@ async function getOrCreateBotUser(email, displayName) {
 
 // ─── MLB API ──────────────────────────────────────────────────────────────────
 
+// Regular season plus every postseason round. `gameType=R` alone would have silenced this job for all of
+// October; see SCHEDULE_GAME_TYPES in src/mlb/gameStatus.ts, which this copies (Node cannot
+// import the TypeScript).
+const SCHEDULE_GAME_TYPES = 'R,F,D,L,W'
+
 async function fetchGamesForDate(date) {
   const res = await fetch(
-    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=R` +
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=${SCHEDULE_GAME_TYPES}` +
     `&fields=dates,games,gamePk,status,abstractGameState,teams,home,away,team,id`
   )
   const d = await res.json()
@@ -192,7 +197,7 @@ async function computeAndUpsertStats(userId, displayName) {
   try {
     const res = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1` +
-      `&startDate=${minDate}&endDate=${maxDate}&gameType=R` +
+      `&startDate=${minDate}&endDate=${maxDate}&gameType=${SCHEDULE_GAME_TYPES}` +
       `&fields=dates,date,games,gamePk,status,abstractGameState,teams,home,away,team,id,isWinner`
     )
     const d = await res.json()
@@ -281,29 +286,33 @@ async function main() {
   if (preview.length > 0) {
     console.log('\n🎯 Making picks…')
     const standings = await fetchStandings()
+    // A postseason game whose series is undecided has a stand-in club ("HOU/CWS", id 5528) that
+    // has no standings row and never wins: a pick on it can never resolve. It comes back on its
+    // own once the matchup is set. The standings hold exactly the 30 real clubs.
+    const pickable = preview.filter(g => standings[g.homeId] && standings[g.awayId])
 
-    const coinFlipRows = preview.map(g => ({
+    const coinFlipRows = pickable.map(g => ({
       user_id:           coinFlipId,
       game_date:         date,
       game_pk:           g.gamePk,
       predicted_team_id: coinFlipPick(g),
     }))
 
-    const betterRecordRows = preview.map(g => ({
+    const betterRecordRows = pickable.map(g => ({
       user_id:           betterRecordId,
       game_date:         date,
       game_pk:           g.gamePk,
       predicted_team_id: betterRecordPick(g, standings),
     }))
 
-    const homerRows = preview.map(g => ({
+    const homerRows = pickable.map(g => ({
       user_id:           homerId,
       game_date:         date,
       game_pk:           g.gamePk,
       predicted_team_id: homeTeamPick(g),
     }))
 
-    const pythagRows = preview.map(g => ({
+    const pythagRows = pickable.map(g => ({
       user_id:           pythagId,
       game_date:         date,
       game_pk:           g.gamePk,

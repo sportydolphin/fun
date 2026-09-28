@@ -59,6 +59,11 @@ function chunk(arr, n) {
   return out
 }
 
+// Regular season plus every postseason round. `gameType=R` alone would have silenced this job for all of
+// October; see SCHEDULE_GAME_TYPES in src/mlb/gameStatus.ts, which this copies (Node cannot
+// import the TypeScript).
+const SCHEDULE_GAME_TYPES = 'R,F,D,L,W'
+
 async function fetchJson(url) {
   const r = await fetch(url)
   if (!r.ok) throw new Error(`${r.status} ${url}`)
@@ -68,7 +73,7 @@ async function fetchJson(url) {
 // gamePk → winnerId (finalized games only) across the whole span, one call.
 async function fetchResults(startDate, endDate) {
   const d = await fetchJson(
-    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}&gameType=R` +
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}&gameType=${SCHEDULE_GAME_TYPES}` +
     `&fields=dates,date,games,gamePk,status,abstractGameState,teams,home,away,team,id,isWinner`
   )
   const out = new Map()

@@ -1,4 +1,5 @@
 import { TEAM_ABBR } from '../constants'
+import { SCHEDULE_GAME_TYPES, isUnplayed, unplayedLabel, hasStartTime } from '../gameStatus'
 import { PreviewGame } from './GamePreview'
 
 // Data layer for the team schedule strip: types, StatsAPI fetches, and the small
@@ -57,6 +58,8 @@ export interface ScheduleGame {
   opponentId:    number
   opponentAbbr:  string
   state:         'final' | 'live' | 'preview' | 'postponed'
+  /** Why a 'postponed' game was not played: postponed (to be made up) or cancelled for good. */
+  unplayed?:     'Postponed' | 'Cancelled'
   teamScore:     number | null
   opponentScore: number | null
   isWin:         boolean | null
@@ -112,7 +115,7 @@ export function scheduleGameToPreview(g: ScheduleGame, myTeamId: number): Previe
   const opp  = { teamId: g.opponentId, abbr: g.opponentAbbr }
   return {
     gamePk:     g.gamePk,
-    statusText: g.state === 'postponed' ? 'Postponed' : `${chipDate(g.date)} · ${g.gameTime}`,
+    statusText: g.state === 'postponed' ? (g.unplayed ?? 'Postponed') : `${chipDate(g.date)} · ${g.gameTime}`,
     away: g.isHome ? opp : mine,
     home: g.isHome ? mine : opp,
   }
@@ -128,8 +131,8 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
 
   const r = await fetch(
     `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
-    `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=R` +
-    `&fields=dates,date,games,gamePk,gameDate,gameNumber,status,abstractGameState,detailedState,teams,home,away,team,id,score,isWinner`
+    `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=${SCHEDULE_GAME_TYPES}` +
+    `&fields=dates,date,games,gamePk,gameDate,gameNumber,status,abstractGameState,codedGameState,detailedState,startTimeTBD,teams,home,away,team,id,name,score,isWinner`
   )
   const d = await r.json()
 
@@ -143,19 +146,23 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
       const detailed = game.status?.detailedState ?? ''
       // StatsAPI flips abstractGameState to "Live" during warmup (~20 min before
       // first pitch); only "In Progress" is really live.
-      const state    = detailed === 'Postponed' ? 'postponed'
+      const state    = isUnplayed(game.status) ? 'postponed'
                      : raw === 'Final'          ? 'final'
                      : raw === 'Live' && detailed !== 'Warmup' ? 'live'
                      : 'preview'
+      const timeSet = hasStartTime(game.status)
       games.push({
         gamePk:        game.gamePk,
         date:          dateObj.date,
-        gameTime:      game.gameDate ? new Date(game.gameDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '',
-        gameDateISO:   game.gameDate ?? null,
+        gameTime:      !game.gameDate ? '' : !timeSet ? 'TBD' : new Date(game.gameDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        // Null while the time is a placeholder, so nothing counts down to it.
+        gameDateISO:   timeSet ? game.gameDate ?? null : null,
         isHome,
         opponentId:    Number(opp?.team?.id ?? 0),
-        opponentAbbr:  TEAM_ABBR[Number(opp?.team?.id ?? 0)] ?? '???',
+        // A postseason stand-in ("HOU/CWS") has no abbreviation, and its name is already one.
+        opponentAbbr:  TEAM_ABBR[Number(opp?.team?.id ?? 0)] ?? opp?.team?.name ?? '???',
         state:         state as ScheduleGame['state'],
+        unplayed:      state === 'postponed' ? unplayedLabel(game.status) : undefined,
         teamScore:     state !== 'preview' ? Number(mine?.score ?? 0) : null,
         opponentScore: state !== 'preview' ? Number(opp?.score  ?? 0) : null,
         isWin:         state === 'final' ? Boolean(mine?.isWinner) : null,

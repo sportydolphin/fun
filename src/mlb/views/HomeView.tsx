@@ -28,6 +28,7 @@ import {
   buildStreakRows, buildPitchPaRows, buildSalaryRows,
 } from '../components/reportCardRows'
 import { getHomeOverlay, clearOverlayIf } from '../state/homeOverlay'
+import { SCHEDULE_GAME_TYPES } from '../gameStatus'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ async function fetchLiveTeamIds(): Promise<Set<number>> {
   try {
     const today = new Date().toISOString().split('T')[0]
     const r = await fetch(
-      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gameType=R&date=${today}` +
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gameType=${SCHEDULE_GAME_TYPES}&date=${today}` +
       `&fields=dates,games,status,abstractGameState,detailedState,teams,home,away,team,id`
     )
     const d = await r.json()

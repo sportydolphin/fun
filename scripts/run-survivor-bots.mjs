@@ -73,10 +73,15 @@ async function getOrCreateBotUser(email, displayName) {
 
 // ─── Candidate data ───────────────────────────────────────────────────────────
 
+// Regular season plus every postseason round. `gameType=R` alone would have silenced this job for all of
+// October; see SCHEDULE_GAME_TYPES in src/mlb/gameStatus.ts, which this copies (Node cannot
+// import the TypeScript).
+const SCHEDULE_GAME_TYPES = 'R,F,D,L,W'
+
 // Teams whose game today hasn't started yet — the only valid teams to pick from.
 async function fetchPreviewTeams(date) {
   const res = await fetch(
-    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=R` +
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=${SCHEDULE_GAME_TYPES}` +
     `&fields=dates,games,gamePk,status,abstractGameState,teams,home,away,team,id`
   )
   const d = await res.json()

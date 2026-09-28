@@ -10,6 +10,7 @@ import { useScrollLock } from '../lib/useScrollLock'
 import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
+import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -68,9 +69,6 @@ function dateLabel(iso: string): string {
   return fromISO(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-// Game types we treat as "real" games on the scoreboard: regular + postseason.
-const SCORED_GAME_TYPES = new Set(['R', 'F', 'D', 'L', 'W'])
-
 // ─── API ────────────────────────────────────────────────────────────────────
 
 // In-memory cache of resolved games per date. Past/future dates are static
@@ -86,11 +84,10 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
     if (!SCORED_GAME_TYPES.has(game.gameType)) continue
     const abs      = game.status?.abstractGameState
     const detState = game.status?.detailedState ?? ''
-    const coded    = game.status?.codedGameState
-    // Postponed games report abstractGameState "Final" (codedGameState "D") even
-    // though they never happened — check them first or they'd show as a 0-0 Final.
+    // Postponed and cancelled games report abstractGameState "Final" though they never
+    // happened: check them first or they'd show as a 0-0 Final (see gameStatus.ts).
     // "Live" during Warmup (~20 min pre-first-pitch) isn't really live yet.
-    const state: GameState = coded === 'D' || detState === 'Postponed' ? 'postponed'
+    const state: GameState = isUnplayed(game.status) ? 'postponed'
       : abs === 'Final' ? 'final'
       : abs === 'Live' && detState !== 'Warmup' ? 'live'
       : 'preview'
@@ -103,7 +100,8 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       const rec = t?.leagueRecord
       return {
         teamId:   id,
-        abbr:     TEAM_ABBR[id] ?? t?.team?.abbreviation ?? '???',
+        // A postseason stand-in ("HOU/CWS") has no abbreviation, and its name is already one.
+        abbr:     TEAM_ABBR[id] ?? t?.team?.abbreviation ?? t?.team?.name ?? '???',
         name:     t?.team?.name ?? '???',
         runs:     lst.runs   ?? t?.score ?? 0,
         hits:     lst.hits   ?? 0,
@@ -119,7 +117,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
 
     let statusText: string
     if (state === 'postponed') {
-      statusText = 'Postponed'
+      statusText = unplayedLabel(game.status)
     } else if (state === 'final') {
       // Extra innings → "Final/10". scheduledInnings defaults to 9.
       const scheduled = ls.scheduledInnings ?? 9
@@ -140,7 +138,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       if (detailed && !['Scheduled', 'Pre-Game', 'Warmup'].includes(detailed)) {
         statusText = detailed
       } else {
-        const dt = game.gameDate ? new Date(game.gameDate) : null
+        const dt = game.gameDate && hasStartTime(game.status) ? new Date(game.gameDate) : null
         statusText = dt ? dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD'
       }
     }

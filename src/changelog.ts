@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.100.0',
+    date:    '2026-09-28',
+    title:   'MLB is ready for the postseason',
+    changes: [
+      {
+        short: 'MLB predictions, reminders and schedules cover the postseason',
+        full:  'Predictions, game-start reminders, the daily pick reminder, your team\'s schedule and Streak Survivor only knew about regular-season games, so they would have gone quiet from the first Wild Card game on. They now follow every postseason round, and season stats still count the regular season only.',
+      },
+      {
+        short: 'Postseason games the league has not settled yet say so',
+        full:  'A game whose matchup is not decided yet shows both possible teams and cannot be picked until it is. A start time the league has not set shows as TBD instead of a made-up time, and a game the series may never reach is marked if necessary.',
+      },
+      {
+        short: 'A cancelled MLB game no longer shows as a 0-0 final',
+        full:  'A game called off for good, like a rainout that is never made up, now reads Cancelled on the scoreboard and your team card instead of Final 0-0.',
+      },
+      {
+        short: 'The predictions board shows the right date',
+        full:  'Once the day\'s games have started the board moves on to tomorrow\'s, but its title kept naming today. It now names the day you are picking.',
+      },
+    ],
+  },
+  {
     version: '1.99.6',
     date:    '2026-09-27',
     title:   'The site appears sooner',

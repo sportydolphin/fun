@@ -59,6 +59,11 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Regular season plus every postseason round. `gameType=R` alone would have silenced this job for all of
+// October; see SCHEDULE_GAME_TYPES in src/mlb/gameStatus.ts, which this copies (Node cannot
+// import the TypeScript).
+const SCHEDULE_GAME_TYPES = 'R,F,D,L,W'
+
 function todayStr() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -67,7 +72,7 @@ function todayStr() {
 /** gamePks of today's not-yet-started games (the ones still pickable). */
 async function fetchPreviewGamePks(date) {
   const res = await fetch(
-    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=R` +
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=${SCHEDULE_GAME_TYPES}` +
     `&fields=dates,games,gamePk,status,abstractGameState`
   )
   const d = await res.json()

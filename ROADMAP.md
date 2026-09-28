@@ -5,16 +5,100 @@
 > calendar: see **[ROADMAP-WPBL.md](ROADMAP-WPBL.md)**. (The two lived in this file until
 > Aug 16, 2026; the WPBL section had outgrown being an appendix.)
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last realigned: **Aug 10, 2026**: the cross-cutting auth return-to-page fix landed with
-> that day's WPBL work. Nothing in the MLB list below has moved since; treat the "Suggested
-> next three" as the live front.
+> Last realigned: **Sep 27, 2026**, around bringing the section up to the WPBL standard (see
+> "Aligning with WPBL" below, which is now the live front). Before that Aug 10, 2026.
 >
-> **Status note, Aug 22, 2026: this section is dormant on purpose, and the measurement says
-> keep it that way.** Over the 14 days to Aug 19, `/mlb` drew 768 events across 33 browsers
-> against `/wpbl`'s 18,213 across 2,036 (see "What the traffic says" in
-> [ROADMAP-WPBL.md](ROADMAP-WPBL.md)). WPBL's feed stops Sep 22 and its work is deadlined;
-> nothing here is. The MLB cron jobs all still run and the section still works: it is
-> unattended, not broken. Revisit when the WPBL season is over.
+> *Status note, Aug 22, 2026, now history: the section was dormant on purpose while the WPBL
+> season ran. Over the 14 days to Aug 19, `/mlb` drew 768 events across 33 browsers against
+> `/wpbl`'s 18,213 across 2,036. The WPBL season is over, which is what reopens this file.*
+
+## Aligning with WPBL (Sep 27, 2026) 🎯⚙️
+
+MLB was built first; WPBL was built second, under a season clock, and came out ahead on the
+phone, on navigation, on URLs and on load cost. The aim is to bring `/mlb` up to what WPBL
+learned **without losing what MLB still does better** (listed at the end of this section).
+Audited against the code and a 375px walk of both sections on Sep 27.
+
+**The clock.** The MLB postseason starts Sep 29 (Wild Card) and runs to Oct 31; the offseason
+starts Nov 1. October is the only MLB traffic window until spring, so what makes October work
+goes first and the rest is winter work.
+
+### What the audit found
+
+| Area | `/mlb` | WPBL pattern to copy |
+|---|---|---|
+| Phone nav | 6 pills in a sideways scroller; at 375px Stats and Search are off screen, no swipe, and the player page lights no tab | Bottom bar + More sheet, swipe pager, visited tabs kept mounted |
+| Overlays | 10 hand-rolled `position: fixed` boxes: centred, 26px close, `backdropFilter` blur (the cost WPBL removed), not portalled | `ModalShell`: portalled, a bottom sheet on a phone with drag to dismiss |
+| Back | Back with Game Center open leaves the section entirely (lands on `/wpbl`), because no MLB modal is a history entry | Every modal is a history entry; Back closes it |
+| URLs, SEO | One URL, `/mlb?view=&pid=`, so one title and nothing indexable; 8 `href`s against 201 `onClick`s (the scoreboard's "Box →" is a plain div); no `<h1>` | A path per tab, player, game and team; `linkTo()`; `PageHeading` |
+| Requests | **107 on Home mount**, 60 of them per-team stats (`fetchTeamRankings`, 30 clubs x 2 groups) that `/teams/stats?sportIds=1` answers in 2 | 24 on Home |
+| Loading | No skeletons, "Loading…" text; all six views ship in one chunk | Skeletons, lazy modals, last-good seeds |
+| Stats on a phone | A wide spreadsheet in a nested scroller (`maxHeight: calc(100vh - 280px)`); sorted by OPS with the OPS column off screen | Ranked list with a sort sheet |
+| Desktop | Still under `zoom: 1.4`. All 553 MLB font sizes are already rem, so the type half of the ramp is free | `--app-type` / `--app-chrome`, `chromePx()` |
+| Measurement | 3 events | 71 |
+| Tests | 0 | 119 |
+| House rules | 525 em dashes in 62 files; a Yankees example in `HomeView.tsx`; BOM and mojibake in `MlbStats.tsx` | |
+| Polling | ✅ *Fixed in v1.99.2*: `useForegroundInterval` moved to `src/lib` and every MLB poll uses it | |
+
+### The plan, in order
+
+0. ✅ **Survive the postseason** (Sep 28, `src/mlb/gameStatus.ts`). Every schedule read filtered
+   on `gameType=R`, so from Sep 29 the predictor, the game-start bell and push, the pick
+   reminder, the team schedule strip, the live-team check, the bots, Survivor and the prediction
+   resolvers would all have seen no games for a month. Schedule reads now take `R,F,D,L,W`;
+   season totals (streaks, leaderboards, playoff odds, report cards) stay `R`, and
+   `__tests__/gameStatus.test.ts` fails on any new schedule read that filters to `R` without a
+   listed reason. Four postseason shapes came with it:
+   - **Cancelled is not final.** Sep 27's BAL@NYY (rain, `codedGameState` "C") rendered as
+     "FINAL 0–0"; only a postponement was recognised.
+   - **Stand-in clubs** ("HOU/CWS", id 5528) are shown but cannot be picked, by people or bots,
+     since a pick against the stand-in's id can never resolve.
+   - **Placeholder start times** (`startTimeTBD`, published as 07:33Z) print "TBD" and are never
+     counted down to or pushed against.
+   - **"If necessary" games** say so on the pick card (`Gm 3 if nec.`). Survivor grades
+     postseason at-bats, since a bare gameLog is regular season only.
+
+   Not changed, and why: Spotlight and the On Fire / Ice Cold cards stay regular season, because
+   `stats=byDateRange` returns nothing for a postseason date. Postseason standouts need box
+   scores. Also fixed on the way: the pick board's title named today's date over tomorrow's
+   slate every evening.
+1. **Instrument** (this week). Tab viewed, player opened, and an impression per Home card.
+   "Keep what MLB does better" is a guess until October says what gets used.
+2. **Lift the section-agnostic WPBL pieces into shared code**: `BottomNav` (accent as a prop),
+   `SwipeableViews`, `ModalShell` and its scroll lock, `chromePx`. A pure move with the WPBL
+   tests unchanged, since `src/wpbl` must stay free of MLB coupling and MLB must not import it.
+3. **Phone shell** (October). Five tabs, Home · Scores · Standings · Stats · Teams, plus More.
+   Leaderboard and Visualize become boards inside Stats, Search lives only in the toolbar, and
+   More holds Predictions, Survivor, Milestones, Roster Moves, Odds and Payroll.
+4. **Overlays and URLs** (October). All ten overlays onto `ModalShell` sheets, each a history
+   entry. Paths `/mlb/standings`, `/mlb/players/<name>-<id>` (the id always, since MLB has real
+   namesakes), `/mlb/games/<pk>`, `/mlb/teams/<abbr>`, each with its `_redirects` lines,
+   `seo.ts` entry and routes test; old `?view=` links 301 at the edge, and the notification
+   URLs in `shared/notifications.js` (`/mlb?view=home&open=predictor`) keep working. The
+   969-line `useMlbState` becomes route-driven.
+5. **Load cost.** The bulk team-stats call (60 requests to 2), lazy Game Center and player
+   page, skeletons, last-good seeds.
+6. **Offseason shape, by Nov 1.** Six daily MLB crons run all winter (only game-start is gated
+   by month); give them a due-gate like `wpbl_ingest_due()`. The predictor's empty
+   "TOMORROW / No upcoming games" card needs an offseason state.
+7. **Winter.** MLB off the zoom onto the desktop ramp (then `DESKTOP_ZOOM`, `--app-shell` and
+   the compensation sites go); Stats as a phone ranked list; real `<a href>`s and headings; the
+   em-dash sweep; the first MLB tests.
+
+### What MLB does better, and keeps
+
+- **Follow a team and players**, synced to `user_preferences` across devices, with Home built
+  around it. WPBL's favourite team is still parked.
+- **Recent searches synced across devices**, and toolbar suggestions (Recent, Your Team,
+  Trending). WPBL's recents are localStorage only.
+- **Stat card to leaderboard with the player highlighted** (`handleStatCardClick`): the next
+  step after WPBL's `?sort=`, and worth porting back.
+- Per-stat leaderboard cards, the scoreboard's date stepper and fullscreen, the rolling trend
+  chart with a league-average line, the Live Drama ticker, `InfoTip` explainers.
+- The predictions engine (bots, Wilson-ranked board) and the MLB-only content: Milestones,
+  Roster Moves, contracts, payroll.
+- **Back restores the exact screen you left** (self-describing history snapshots). WPBL does
+  the same thing another way; keep the behaviour, the implementation can change.
 
 ## Where the app stands
 

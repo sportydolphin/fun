@@ -38,7 +38,7 @@ interface GamePreviewData {
 export interface PreviewGame {
   gamePk:     number
   statusText: string
-  reason?:    string          // postponement reason ("Rain"/...) when statusText is "Postponed"
+  reason?:    string          // why it was not played ("Rain"/...) when statusText is "Postponed" or "Cancelled"
   away: { teamId: number; abbr: string }
   home: { teamId: number; abbr: string }
 }
@@ -494,8 +494,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
             flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
             textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
           }}>
-            {game.statusText === 'Postponed'
-              ? (game.reason ? `Postponed · ${game.reason}` : 'Postponed')
+            {game.statusText === 'Postponed' || game.statusText === 'Cancelled'
+              ? (game.reason ? `${game.statusText} · ${game.reason}` : game.statusText)
               : `Preview · ${game.statusText}`}
           </Typography>
           <Box

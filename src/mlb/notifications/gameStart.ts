@@ -18,6 +18,7 @@ import { buildGameStart } from '../../../shared/notifications'
 import type { NotificationPayload } from '../../../shared/notifications'
 import type { NotificationContext, NotificationSource } from '../../lib/notifications'
 import { getLocalFollowedTeamId, getLocalGameStartPref } from '../storage/prefs'
+import { SCHEDULE_GAME_TYPES } from '../gameStatus'
 
 // How long the reminder lingers past scheduled first pitch, so a user who opens
 // the app right around game time still sees it before it retracts.
@@ -41,7 +42,7 @@ export const gameStartSource: NotificationSource = {
     // One team, one day — a tiny response, so no field filtering needed.
     const res = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${todayStr()}` +
-      `&teamId=${teamId}&gameType=R`
+      `&teamId=${teamId}&gameType=${SCHEDULE_GAME_TYPES}`
     )
     const data = await res.json()
 
@@ -54,7 +55,8 @@ export const gameStartSource: NotificationSource = {
 
     const now = Date.now()
     for (const g of games) {
-      if (!g.gameDate) continue
+      // A placeholder time (startTimeTBD) is not a first pitch to count down to.
+      if (!g.gameDate || g.status?.startTimeTBD) continue
       const state = g.status?.abstractGameState ?? 'Preview'
       if (state === 'Final') continue
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN, isRealClub } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
 import { useScrollLock } from '../lib/useScrollLock'
 import { useAuth } from '../../AuthContext'
@@ -11,6 +11,7 @@ import { PredictionStatsModal } from './PredictionStats'
 import { useDevSim } from '../dev/devSim'
 import { useDeepLink } from '../state/deepLink'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
+import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,9 @@ export interface TodayGame {
   gamePk:   number
   gameTime: string
   state:    'preview' | 'live' | 'final' | 'postponed'
+  /** Postseason only: "Gm 3", plus "if nec." for a game the series may never reach. A pick on
+   *  that game simply never resolves if it is not played, so the reader should know. */
+  note?:    string
   home: { teamId: number; abbr: string; name: string; pitcher: TodayPitcher | null }
   away: { teamId: number; abbr: string; name: string; pitcher: TodayPitcher | null }
   winnerId: number | null
@@ -37,7 +41,7 @@ export async function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
   try {
     const r = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${dateStr}` +
-      `&gameType=R&hydrate=probablePitcher`
+      `&gameType=${SCHEDULE_GAME_TYPES}&hydrate=probablePitcher`
     )
     const d = await r.json()
     const rawGames: TodayGame[] = []
@@ -49,16 +53,18 @@ export async function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
         const at      = g.teams?.away
         const rawSt   = g.status?.abstractGameState ?? 'Preview'
         const detSt   = g.status?.detailedState ?? ''
-        const coded   = g.status?.codedGameState
-        // Postponed games report abstractGameState "Final" — catch them first so they
-        // aren't scored as a real (winner-less) final that dings everyone's record.
-        // Warmup reports "Live" ~20 min early — keep it pickable until first pitch.
-        const state   = coded === 'D' || detSt === 'Postponed' ? 'postponed'
+        // Postponed and cancelled games report abstractGameState "Final": catch them first so
+        // they aren't scored as a real (winner-less) final that dings everyone's record.
+        // Warmup reports "Live" ~20 min early; keep it pickable until first pitch.
+        const state   = isUnplayed(g.status) ? 'postponed'
           : rawSt === 'Final' ? 'final'
           : rawSt === 'Live' && detSt !== 'Warmup' ? 'live'
           : 'preview' as TodayGame['state']
         const homeId  = Number(ht?.team?.id ?? 0)
         const awayId  = Number(at?.team?.id ?? 0)
+        // A postseason game whose series is not decided yet ("HOU/CWS" at CLE) cannot be picked:
+        // see isRealClub. It comes back on its own the day the matchup is set.
+        if (!isRealClub(homeId) || !isRealClub(awayId)) continue
         const homePId = ht?.probablePitcher?.id ? Number(ht.probablePitcher.id) : null
         const awayPId = at?.probablePitcher?.id ? Number(at.probablePitcher.id) : null
         if (homePId && !pitcherIds.includes(homePId)) pitcherIds.push(homePId)
@@ -72,10 +78,13 @@ export async function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
 
         rawGames.push({
           gamePk:   g.gamePk,
-          gameTime: g.gameDate
+          gameTime: g.gameDate && hasStartTime(g.status)
             ? new Date(g.gameDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
             : 'TBD',
           state: state as TodayGame['state'],
+          note: g.gameType !== 'R' && g.seriesGameNumber
+            ? `Gm ${g.seriesGameNumber}${g.ifNecessary === 'Y' ? ' if nec.' : ''}`
+            : undefined,
           home: { teamId: homeId, abbr: TEAM_ABBR[homeId] ?? '???', name: ht?.team?.name ?? '???',
             pitcher: homePId ? { id: homePId, name: ht.probablePitcher.fullName ?? '—', hand: '?', era: '—', ip: '—' } : null },
           away: { teamId: awayId, abbr: TEAM_ABBR[awayId] ?? '???', name: at?.team?.name ?? '???',
@@ -296,7 +305,7 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
           color: game.state === 'live' ? '#ef4444' : game.state === 'postponed' ? '#f59e0b' : 'text.secondary',
           textTransform: 'uppercase',
         }}>
-          {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.state === 'postponed' ? 'PPD' : game.gameTime}
+          {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.state === 'postponed' ? 'PPD' : game.note ? `${game.note} · ${game.gameTime}` : game.gameTime}
         </Typography>
         {game.state === 'live' && (
           <Typography sx={{ fontSize: '0.56rem', color: 'text.disabled' }}>🔒</Typography>
@@ -485,8 +494,10 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
 
 // ─── PredictorModal ───────────────────────────────────────────────────────────
 
-function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, isSignedIn }: {
+function PredictorModal({ open, slateDate, games, predictions, allVotes, onPick, onClose, isSignedIn }: {
   open:          boolean
+  /** YYYY-MM-DD of the slate on screen, which is tomorrow's once today has nothing left to pick. */
+  slateDate:     string
   games:         TodayGame[]
   predictions:   Record<number, number>
   allVotes:      Record<number, Record<number, number>>
@@ -516,7 +527,10 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, i
   const finalized    = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
   const correctCount = finalized.filter(g => predictions[g.gamePk] === g.winnerId).length
   const pct          = finalized.length ? Math.round(correctCount / finalized.length * 100) : null
-  const dateLabel    = new Date().toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  // The SLATE's date, not today's: once today has nothing left to pick the board rolls to
+  // tomorrow, and the title went on naming today over tomorrow's games every evening.
+  const [sy, sm, sd] = slateDate.split('-').map(Number)
+  const dateLabel    = new Date(sy, sm - 1, sd).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 
   return (
     <Box
@@ -926,6 +940,7 @@ export function PredictorWidget({ onPicksSettled }: {
 
       <PredictorModal
         open={modalOpen}
+        slateDate={slateDate}
         games={games}
         predictions={predictions}
         allVotes={displayVotes}

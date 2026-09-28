@@ -75,10 +75,15 @@ function toPushPayload(n) {
   return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id }
 }
 
+// Regular season plus every postseason round. `gameType=R` alone would have silenced this job for all of
+// October; see SCHEDULE_GAME_TYPES in src/mlb/gameStatus.ts, which this copies (Node cannot
+// import the TypeScript).
+const SCHEDULE_GAME_TYPES = 'R,F,D,L,W'
+
 /** teamId → that team's games today, each with { gamePk, startMs, state, matchup, teamName }. */
 async function fetchTeamGames(date) {
   const res = await fetch(
-    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=R`
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=${SCHEDULE_GAME_TYPES}`
   )
   const d = await res.json()
   const byTeam = new Map()
@@ -88,7 +93,9 @@ async function fetchTeamGames(date) {
   }
   for (const dateObj of d.dates ?? []) {
     for (const g of dateObj.games ?? []) {
-      if (!g.gameDate) continue
+      // A postseason game whose time is not set yet carries a placeholder gameDate
+      // (07:33Z); startTimeTBD is the only thing that says so. Never push against it.
+      if (!g.gameDate || g.status?.startTimeTBD) continue
       const home = g.teams?.home?.team
       const away = g.teams?.away?.team
       const base = {

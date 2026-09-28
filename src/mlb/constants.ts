@@ -153,6 +153,17 @@ export const TEAM_ABBR: Record<number, string> = {
   [ATL]: 'ATL', [CWS]: 'CWS', [MIA]: 'MIA', [NYY]: 'NYY', [MIL]: 'MIL',
 }
 
+// ─── Placeholder clubs ────────────────────────────────────────────────────────
+//
+// Before a postseason series is decided, StatsAPI publishes its games with a stand-in team
+// ("HOU/CWS", id 5528) that exists nowhere else: no logo, no colours, no standings row. It is
+// fine to SHOW (it says exactly what is known), and wrong to let anyone PICK: the pick is stored
+// against the stand-in's id, the winner is recorded against a real club's, and the two never
+// match, so the pick can never resolve.
+
+/** One of the 30 clubs, as opposed to a postseason stand-in. */
+export const isRealClub = (teamId: number): boolean => teamId in TEAM_ABBR
+
 // Team nickname only (no city/location) — e.g. "Yankees", not "New York Yankees".
 export const TEAM_NICKNAME: Record<number, string> = {
   [LAA]: 'Angels',      [ARI]: 'Diamondbacks', [BAL]: 'Orioles',    [BOS]: 'Red Sox',   [CHC]: 'Cubs',

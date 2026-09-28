@@ -6,6 +6,7 @@ import { useScrollLock } from '../lib/useScrollLock'
 import { supabase } from '../../lib/supabase'
 import { fetchDeactivatedUserIds } from '../../lib/usernames'
 import { ensureActiveUser } from '../../lib/userActive'
+import { SCHEDULE_GAME_TYPES } from '../gameStatus'
 
 // ─── Supabase table setup (run once in Supabase SQL editor) ──────────────────
 //
@@ -66,7 +67,7 @@ async function fetchPersonalStats(userId: string): Promise<PersonalStats | null>
   try {
     const res = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1` +
-      `&startDate=${minDate}&endDate=${maxDate}&gameType=R` +
+      `&startDate=${minDate}&endDate=${maxDate}&gameType=${SCHEDULE_GAME_TYPES}` +
       `&fields=dates,date,games,gamePk,status,abstractGameState,teams,home,away,team,id,isWinner`
     ).then(r => r.json())
 

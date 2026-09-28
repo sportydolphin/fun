@@ -51,10 +51,14 @@ function utcToday() {
 // Player's hitting game log for a season, as { 'YYYY-MM-DD': {hits, atBats} }
 // summed across any games that date (doubleheaders count as one day: a hit in
 // either game is a hit).
+//
+// The postseason is asked for by name: a bare gameLog is the regular season only, so an October
+// pick would find no line on its date and be graded 'void', every day, for every player. The picker
+// offers postseason games (it reads the same slate as the predictor), so the grader has to see them.
 async function fetchGameLogByDate(playerId, season) {
   const r = await fetch(
     `https://statsapi.mlb.com/api/v1/people/${playerId}/stats` +
-    `?stats=gameLog&group=hitting&season=${season}`
+    `?stats=gameLog&group=hitting&season=${season}&gameType=R,F,D,L,W`
   )
   const d = await r.json()
   const splits = d.stats?.[0]?.splits ?? []

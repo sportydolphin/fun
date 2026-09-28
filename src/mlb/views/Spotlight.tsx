@@ -318,6 +318,10 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
     const season = now.getFullYear()
 
     const lookback = localDate(new Date(now.getTime() - 7 * 86400000))
+    // REGULAR SEASON ONLY, AND NOT BY CHOICE: `stats=byDateRange`, which the pool below is built
+    // from, returns nothing at all for a postseason date, with or without a gameType. A postseason
+    // day in this lookback would burn a slot and yield no performers. So in October this keeps
+    // showing the last regular-season days; postseason standouts need box scores instead.
     const schedRes = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${lookback}&endDate=${today}&gameType=R` +
       `&fields=dates,date,games,status,abstractGameState,detailedState`

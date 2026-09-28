@@ -31,6 +31,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
   const isFinal     = game.state === 'final'
   const isLive      = game.state === 'live'
   const isPostponed = game.state === 'postponed'
+  const unplayedTag = game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD'
   const isWin       = game.isWin === true
   const isDark      = useIsDark()
 
@@ -69,7 +70,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
             fontSize: '0.44rem', fontWeight: 900, letterSpacing: 1.5,
             color: '#fff', textTransform: 'uppercase', lineHeight: 1,
           }}>
-            {isLive ? '● LIVE' : isPostponed ? 'PPD' : isActualToday ? 'TODAY' : 'NEXT'}
+            {isLive ? '● LIVE' : isPostponed ? unplayedTag : isActualToday ? 'TODAY' : 'NEXT'}
           </Typography>
         </Box>
       )}
@@ -120,7 +121,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         </Typography>
       ) : isPostponed ? (
         <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: 0.5 }}>
-          PPD
+          {unplayedTag}
         </Typography>
       ) : (
         <Typography sx={{ fontSize: '0.54rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1, textAlign: 'center' }}>
@@ -331,7 +332,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
           // Preview / postponed: game time (+ live countdown) — team logos live in CompactPitcherRow below
           <>
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: game.state === 'postponed' ? 'text.disabled' : 'text.primary', lineHeight: 1 }}>
-              {game.state === 'postponed' ? 'PPD' : game.gameTime}
+              {game.state === 'postponed' ? (game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD') : game.gameTime}
             </Typography>
             {game.state === 'preview' && game.gameDateISO && (
               <GameCountdown iso={game.gameDateISO} />
