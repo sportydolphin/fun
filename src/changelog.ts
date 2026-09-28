@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.102.0',
+    date:    '2026-09-28',
+    title:   'An MLB postseason bracket',
+    changes: [
+      {
+        short: 'Follow the MLB postseason round by round',
+        full:  'MLB Home and Standings now show the postseason bracket: every series with its seeds and wins, the next game and when it starts, live games as they happen, and a tap on any series to see it game by game. Clubs still to be decided show as the two that could get there, like HOU/CWS.',
+      },
+    ],
+  },
+  {
     version: '1.101.0',
     date:    '2026-09-28',
     title:   'MLB gets the WPBL layout on phones',

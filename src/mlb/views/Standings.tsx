@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, TEAM_NICKNAME } from '../constants'
 import { fmtGB, useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, highlightColor } from '../lib/colorUtils'
@@ -7,6 +7,10 @@ import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { SegControl } from '../components'
 import { PlayoffOddsBoard } from './PlayoffOddsBoard'
 import { useDeepLink } from '../state/deepLink'
+import { PlayoffBracketCard } from './PlayoffBracket'
+import { fetchBracket, fieldIsSet } from '../postseason'
+
+type Mode = 'bracket' | 'divisions' | 'playoffs' | 'odds'
 
 // Dev-only icon tuner — lazy so it's stripped from production builds.
 const IconStudio = import.meta.env.DEV ? lazy(() => import('../dev/IconStudio')) : null
@@ -407,9 +411,25 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
 }) {
-  const [mode, setMode] = useState<'divisions' | 'playoffs' | 'odds'>('divisions')
-  // The More sheet's Playoff odds row.
+  const [mode, setModeState] = useState<Mode>('divisions')
+  // Once the reader picks a mode, a late-arriving bracket does not take the tab over from them.
+  const picked = useRef(false)
+  const setMode = (m: Mode) => { picked.current = true; setModeState(m) }
+  // The More sheet's Playoff odds and bracket rows.
   useDeepLink('odds', () => setMode('odds'))
+  useDeepLink('bracket', () => setMode('bracket'))
+  // THE BRACKET IS A MODE ONLY WHILE THERE IS ONE, and the default mode while it is being played:
+  // in October "who plays whom" is the standings question, and the regular-season table is final.
+  const [hasBracket, setHasBracket] = useState(false)
+  useEffect(() => {
+    let alive = true
+    fetchBracket(season).then(b => {
+      if (!alive || !b || !fieldIsSet(b)) return
+      setHasBracket(true)
+      if (!b.over && !picked.current) setModeState('bracket')
+    })
+    return () => { alive = false }
+  }, [season])
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -451,15 +471,20 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
 
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <SegControl
-          options={[{ value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }, { value: 'odds', label: 'Odds' }]}
+          options={[
+            ...(hasBracket ? [{ value: 'bracket', label: 'Bracket' }] : []),
+            { value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }, { value: 'odds', label: 'Odds' },
+          ]}
           value={mode}
-          onChange={v => setMode(v as 'divisions' | 'playoffs' | 'odds')}
+          onChange={v => setMode(v as Mode)}
         />
       </Box>
 
       {/* Odds mode fetches its own precomputed data, so it renders independent of
           the live standings load/error above. */}
-      {mode === 'odds' ? (
+      {mode === 'bracket' ? (
+        <PlayoffBracketCard heading="Bracket" onTeamClick={onTeamClick} />
+      ) : mode === 'odds' ? (
         <PlayoffOddsBoard season={season} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
       ) : (
         <>

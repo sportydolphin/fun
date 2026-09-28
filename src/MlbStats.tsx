@@ -60,6 +60,7 @@ const MORE: MoreItem[] = [
   { key: 'survivor',    label: 'Streak Survivor',  hint: 'One hitter a day: the leaderboard',              view: 'home',      link: { kind: 'survivor' } },
   { key: 'milestones',  label: 'Milestone Watch',  hint: 'Who is closing in on a round number',            view: 'home',      link: { kind: 'milestones' } },
   { key: 'moves',       label: 'Roster moves',     hint: 'Trades, signings, call-ups and DFAs',            view: 'home',      link: { kind: 'rosterMoves' } },
+  { key: 'bracket',     label: 'Postseason bracket', hint: 'Every series, game by game',                 view: 'standings', link: { kind: 'bracket' } },
   { key: 'odds',        label: 'Playoff odds',     hint: 'Every club, simulated nightly',                  view: 'standings', link: { kind: 'odds' } },
   { key: 'charts',      label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs wins',  view: 'viz',       charts: true },
 ]

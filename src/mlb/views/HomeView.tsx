@@ -30,6 +30,7 @@ import {
 import { getHomeOverlay, clearOverlayIf } from '../state/homeOverlay'
 import { SCHEDULE_GAME_TYPES } from '../gameStatus'
 import { TrackedCard } from '../components/TrackedCard'
+import { PlayoffBracketCard } from './PlayoffBracket'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -408,6 +409,12 @@ export function HomeView({
       {/* Every card on this page is a TrackedCard: seen, then used. See TrackedCard.tsx. */}
       <TrackedCard card="scoreboard" sx={{ mb: 2 }}>
         <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+      </TrackedCard>
+
+      {/* The postseason bracket, straight under the scores while one is being played. It draws
+          nothing outside a postseason, and TrackedCard hides its own box when it is empty. */}
+      <TrackedCard card="bracket" sx={{ mb: 2 }}>
+        <PlayoffBracketCard compact onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
       </TrackedCard>
 
       {/* ── Happening Now — only renders while live drama is brewing ───────────── */}

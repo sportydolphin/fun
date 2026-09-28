@@ -95,6 +95,15 @@ goes first and the rest is winter work.
 5. 🟡 **Load cost.** *Done Sep 28:* one `/teams/stats` read per group replaces the 60 per-club
    reads behind a team's league ranks and the Visualize charts. *Open:* lazy views, skeletons,
    last-good seeds.
+5b. ✅ **A postseason bracket** (Sep 28, `postseason.ts`, `views/PlayoffBracket.tsx`). Not in the
+   original plan: MLB had no postseason surface at all, and October is the window. One read of
+   `/schedule/postseason/series` gives all eleven series; the series ids fix the shape and every
+   seed (checked against 2022 to 2026, pinned against recorded 2025 and 2026 feeds in
+   `__tests__/postseason.test.ts`), and a feed of any other shape draws nothing. One round at a
+   time, the current one by default, compact on Home and full as Standings' default mode while a
+   postseason is on; each series opens game by game, with Game Center or the preview behind each
+   game. Draws nothing until the Wild Card field is set. *Open:* bracket picks, which WPBL has
+   and MLB's predictions engine could drive.
 6. **Offseason shape, by Nov 1.** Six daily MLB crons run all winter (only game-start is gated
    by month); give them a due-gate like `wpbl_ingest_due()`. The predictor's empty
    "TOMORROW / No upcoming games" card needs an offseason state.

@@ -35,6 +35,7 @@ export type DeepLink =
   | { kind: 'survivor' }                   // open the Streak Survivor leaderboard
   | { kind: 'rosterMoves' }                // open the full Roster Moves list
   | { kind: 'odds' }                       // open Standings on its playoff Odds
+  | { kind: 'bracket' }                    // open Standings on the postseason bracket
 
 /** Query string → intent. Accepts a full url or a bare search string. */
 export function parseDeepLink(url: string): DeepLink | null {
@@ -53,7 +54,8 @@ export function parseDeepLink(url: string): DeepLink | null {
       case 'survivor':
       case 'rosterMoves':
       case 'odds':
-        return { kind: params.get('open') as 'survivor' | 'rosterMoves' | 'odds' }
+      case 'bracket':
+        return { kind: params.get('open') as 'survivor' | 'rosterMoves' | 'odds' | 'bracket' }
       default:
         return null
     }

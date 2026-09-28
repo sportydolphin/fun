@@ -95,6 +95,7 @@ export const MLB_CARD_LABELS: Record<string, string> = {
   team_picker: 'Pick your team', followed_players: 'Your players', predictions: 'Predictions',
   standings: 'Standings snapshot', survivor: 'Streak Survivor', standouts: 'Single-game standout',
   roster_moves: 'Roster moves', milestones: 'Milestone watch', on_fire: 'On fire', ice_cold: 'Ice cold',
+  bracket: 'Postseason bracket',
 }
 export function mlbCardLabel(card: string): string {
   if (MLB_CARD_LABELS[card]) return MLB_CARD_LABELS[card]
