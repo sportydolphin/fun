@@ -20,6 +20,15 @@ const NON_AB_EVENTS = new Set(['walk', 'hit_by_pitch', 'sacrifice']) // a PA, bu
 // PAs ("reached first on an error"); match that phrasing so they count as an at-bat out.
 const REACHED_ON_ERROR = /reached\b.*\b(error|fielder'?s choice)\b/i
 
+/**
+ * Every event type `classifyPa` can turn into a plate appearance, `unknown` included for the
+ * reached-on-error rows. For a READ that wants to drop the steals, pickoffs and substitution notes
+ * at the database: built from the same three sets `classifyPa` reads, so the filter cannot drift
+ * away from the classifier and quietly lose a kind of out. Dropping any OUT here is the failure
+ * the note on `WpblMatchupPlay` describes, every hitter batting .650.
+ */
+export const PA_EVENT_TYPES: readonly string[] = [...HIT_EVENTS, ...OUT_EVENTS, ...NON_AB_EVENTS, 'unknown']
+
 export function classifyPa(play: Pick<WpblMatchupPlay, 'event_type' | 'narrative'>): PaOutcome | null {
   const et = play.event_type ?? ''
   if (HIT_EVENTS.has(et))    return { ab: 1, h: 1, hr: et === 'home_run' ? 1 : 0, xbh: et === 'single' ? 0 : 1, bb: 0, so: 0 }
@@ -43,9 +52,13 @@ export function classifyPa(play: Pick<WpblMatchupPlay, 'event_type' | 'narrative
  * something other than the wrong read's own type is what the type CAN do.
  */
 export type WpblMatchupPlay = Pick<WpblGamePlay,
-  | 'game_id' | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
+  | 'game_id' | 'team_id' | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
   | 'event_type' | 'narrative'
 >
+
+/** What a matchup needs to know about a game: whether it counts (for the scope), and, when the
+ *  caller has them, the two clubs, so a line can say which club each side played for. */
+export type WpblMatchupGame = WpblSeasonGame & Partial<Pick<WpblGame, 'home_team_id' | 'away_team_id'>>
 
 /**
  * Every id a player can appear under on a play.
@@ -63,6 +76,10 @@ export function playerPlayIds(p: Pick<WpblPlayer, 'id' | 'api_id' | 'api_ids'>):
 export interface WpblMatchupLine {
   batterId: string; batterName: string
   pitcherId: string; pitcherName: string
+  /** The clubs each side played for IN THESE PLATE APPEARANCES, off the play and the game, never
+   *  the roster, which says where a traded player is now rather than where she was then. Usually
+   *  one each; empty when the caller's games carry no clubs. */
+  batterTeamIds: string[]; pitcherTeamIds: string[]
   pa: number; ab: number; h: number; hr: number; xbh: number; bb: number; so: number
   avg: number | null                  // null when ab === 0 (all walks / HBP)
   edge: 'pitcher' | 'batter' | null   // lopsided flag, for a badge
@@ -90,10 +107,12 @@ export interface WpblMatchupLine {
 // minPa is 3, not 4, on purpose: at 4+ the pool collapses to the one or two pitchers with the
 // most innings, so the board reads as "everyone vs Pitcher X." Three widens it to ~10 pitchers.
 export function batterPitcherMatchups(
-  plays: WpblMatchupPlay[], games: WpblSeasonGame[],
+  plays: WpblMatchupPlay[], games: WpblMatchupGame[],
   { minPa = 3, scope = 'regular' }: { minPa?: number; scope?: SeasonScope } = {},
 ): WpblMatchupLine[] {
   const acc = new Map<string, WpblMatchupLine>()
+  const gameById = new Map(games.map(g => [g.id, g]))
+  const add = (xs: string[], x: string | null | undefined) => { if (x && !xs.includes(x)) xs.push(x) }
   for (const p of scopedLines(plays, games, scope)) {
     if (!p.batter_id || !p.pitcher_id) continue
     const o = classifyPa(p)
@@ -102,8 +121,15 @@ export function batterPitcherMatchups(
     let r = acc.get(key)
     if (!r) {
       r = { batterId: p.batter_id, batterName: p.batter_name ?? '', pitcherId: p.pitcher_id, pitcherName: p.pitcher_name ?? '',
+            batterTeamIds: [], pitcherTeamIds: [],
             pa: 0, ab: 0, h: 0, hr: 0, xbh: 0, bb: 0, so: 0, avg: null, edge: null, score: 0 }
       acc.set(key, r)
+    }
+    // The batting side is on the play; the pitching side is the game's other club.
+    const g = gameById.get(p.game_id)
+    add(r.batterTeamIds, p.team_id)
+    if (p.team_id && g?.home_team_id && g.away_team_id) {
+      add(r.pitcherTeamIds, p.team_id === g.home_team_id ? g.away_team_id : g.home_team_id)
     }
     r.pa++; r.ab += o.ab; r.h += o.h; r.hr += o.hr; r.xbh += o.xbh; r.bb += o.bb; r.so += o.so
     if (!r.batterName && p.batter_name) r.batterName = p.batter_name
@@ -113,10 +139,7 @@ export function batterPitcherMatchups(
   for (const r of acc.values()) {
     if (r.pa < minPa) continue
     r.avg = r.ab > 0 ? r.h / r.ab : null
-    // A homer alone marks the batter's edge; otherwise a lopsided split needs a few at-bats.
-    if (r.hr >= 1) r.edge = 'batter'
-    else if (r.ab >= 3 && (r.h === 0 || (r.avg != null && r.avg <= 0.15))) r.edge = 'pitcher'
-    else if (r.ab >= 3 && r.avg != null && r.avg >= 0.5) r.edge = 'batter'
+    r.edge = edgeOf(r)
     // Interestingness: lopsided edge + homers + how far the average strays from league-ish
     // .250 (weighted by the at-bat sample) + strikeouts, with familiarity as a faint tiebreak.
     const dev = r.avg == null ? 0 : Math.abs(r.avg - 0.25) * Math.min(r.ab, 8)
@@ -125,6 +148,52 @@ export function batterPitcherMatchups(
   }
   out.sort((a, b) => b.score - a.score || b.pa - a.pa)
   return out
+}
+
+/**
+ * Who has had the better of a duel, or null when neither clearly has.
+ *
+ * A HOME RUN ALONE IS NOT AN EDGE. Until Sep 28, 2026 any homer handed the hitter the edge, which
+ * put a 1-for-7 with one home run on a board headed "the hitter's edge" beside a .143 average.
+ * The hitter now needs to be hitting: .500 over three at-bats, two home runs, or a homer inside a
+ * .333 line. The pitcher needs three at-bats at .150 or under with nothing leaving the park.
+ * Deliberately generous at these sample sizes, since the board prints the counts beside every
+ * line and a reader can see "3-for-4" for what it is; what it must never do is print a verdict
+ * the counts beside it contradict.
+ */
+export function edgeOf(r: Pick<WpblMatchupLine, 'ab' | 'h' | 'hr' | 'avg'>): 'pitcher' | 'batter' | null {
+  if (r.hr >= 2) return 'batter'
+  if (r.avg != null && r.ab >= 3 && r.avg >= 0.5) return 'batter'
+  if (r.hr >= 1 && r.avg != null && r.avg >= 0.333) return 'batter'
+  if (r.hr === 0 && r.ab >= 3 && r.avg != null && r.avg <= 0.15) return 'pitcher'
+  return null
+}
+
+/** The three ways the league board reads the same lines. */
+export type MatchupBoardView = 'pitcher' | 'batter' | 'faced'
+
+/**
+ * One board, sorted for what it is asking.
+ *
+ * THE EDGE BOARDS RANK BY MARGIN, NOT AVERAGE. Sorted by average, a 2-for-2 led the hitter's board
+ * over a 4-for-5, because at these sample sizes the highest averages are simply the smallest
+ * samples. The margin is hits against what a league-average hitter would have had in the same
+ * at-bats, `h - avg * ab`, with the league average taken from the lines themselves, so a longer
+ * run of success counts for more than a short one. `batter` sorts that margin high to low, then
+ * home runs; `pitcher` low to high, then strikeouts. `faced` is every pair, most plate
+ * appearances first, the duels the league kept staging rather than the loudest ones.
+ */
+export function matchupBoard(lines: WpblMatchupLine[], view: MatchupBoardView): WpblMatchupLine[] {
+  const tie = (a: WpblMatchupLine, b: WpblMatchupLine) =>
+    b.pa - a.pa || a.batterName.localeCompare(b.batterName) || a.pitcherName.localeCompare(b.pitcherName)
+  if (view === 'faced') return [...lines].sort(tie)
+  const ab = lines.reduce((n, l) => n + l.ab, 0)
+  const leagueAvg = ab > 0 ? lines.reduce((n, l) => n + l.h, 0) / ab : 0.25
+  const margin = (l: WpblMatchupLine) => l.h - leagueAvg * l.ab
+  if (view === 'pitcher') {
+    return lines.filter(l => l.edge === 'pitcher').sort((a, b) => margin(a) - margin(b) || b.so - a.so || tie(a, b))
+  }
+  return lines.filter(l => l.edge === 'batter').sort((a, b) => margin(b) - margin(a) || b.hr - a.hr || tie(a, b))
 }
 
 // One player's duels from both sides of the plate, most-faced first, for the player page.
@@ -158,21 +227,6 @@ export function playerMatchups(
     vsPitchers: all.filter(l => playerIds.has(l.batterId)).sort(byEvidence),
     vsBatters: all.filter(l => playerIds.has(l.pitcherId)).sort(byEvidence),
   }
-}
-
-// Trim a ranked matchup list to a compact, varied board: most compelling first, but no more
-// than `maxPerPitcher` rows featuring the same pitcher, so one workhorse can't monopolize it.
-export function featuredMatchups(lines: WpblMatchupLine[], limit = 6, maxPerPitcher = 1): WpblMatchupLine[] {
-  const perPitcher = new Map<string, number>()
-  const out: WpblMatchupLine[] = []
-  for (const l of lines) {
-    const n = perPitcher.get(l.pitcherId) ?? 0
-    if (n >= maxPerPitcher) continue
-    perPitcher.set(l.pitcherId, n + 1)
-    out.push(l)
-    if (out.length >= limit) break
-  }
-  return out
 }
 
 // ─── Team head-to-head ──────────────────────────────────────────────────────────

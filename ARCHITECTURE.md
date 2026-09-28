@@ -108,6 +108,7 @@ flowchart LR
         wsrc["/wpbl/sources<br/>SourcesPage.tsx + sources.ts"]
         wseason["/wpbl/season<br/>SeasonPage.tsx (recap)"]
         wscori["/wpbl/scorigami<br/>Scorigami.tsx + derive/scorigami.ts"]
+        wmatch["/wpbl/matchups<br/>MatchupsPage.tsx + derive/matchups.ts"]
         wcmp["/wpbl/compare<br/>+ /wpbl/compare/&lt;a&gt;-vs-&lt;b&gt;"]
         wgames["/wpbl/games/&lt;date&gt;-&lt;away&gt;-at-&lt;home&gt;"]
         api["/wpbl/api<br/>wpbl/ApiDocs.tsx"]
@@ -186,7 +187,16 @@ flowchart LR
   ONLY: the play id columns are typed uuid, and a feed id in the list makes Postgres reject the
   whole query, which `safe` turns into an empty table. It also pulls in any play a correction
   moves onto her, since a filter on the mirror's ids cannot see those.
-  `featuredMatchups` is written for a league-wide board and nothing draws it yet
+  The league-wide board is `/wpbl/matchups` ([`MatchupsPage.tsx`](src/wpbl/MatchupsPage.tsx)):
+  three views from `matchupBoard` (batter edge, pitcher edge, most faced), a club filter on the
+  clubs each side played for IN those at-bats, and the scope toggle. Its own read,
+  `fetchWpblAllMatchupPlays`, takes eight columns and only plate-appearance rows (`PA_EVENT_TYPES`,
+  built from the sets `classifyPa` reads, so it cannot drop an out), and fetches by key any row a
+  correction turns into a plate appearance. Edges come from `edgeOf`, which will not call a duel
+  the counts beside it contradict; the edge boards rank by margin over a league-average line, not
+  by average, which put the smallest samples first. Each row links to the pair's compare page,
+  which is how those out-of-sitemap pages are found. The season recap draws the top duel each way
+  as a door into it.
 - **The WPBL derive layer** ([`src/wpbl/derive/`](src/wpbl/derive)) is pure: arrays in, plain
   shapes out, no supabase and no React, so the same code serves the site, the Discord posters
   and the Deno ingest. `playByPlay` (parse a play, `runsOnPlay`), `runExpectancy` (the league's

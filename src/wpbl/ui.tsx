@@ -655,7 +655,7 @@ const SEG_DOT_SX = { position: 'absolute' as const, top: 5, right: 6 }
 
 // Pill segmented control: the section nav "menu". Mirrors MLB's SegControl, wrapped
 // in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
-export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }, size = 'md' }: {
+export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }, size = 'md', fill = false }: {
   /** `badge` draws a NewDot on that option. Opt-in per item because this control is shared
    *  with the MLB section, which has nothing to announce.
    *
@@ -673,6 +673,11 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
    *  case: at full size, under the Pitching / Batting pills, the top of the card read as two
    *  navigation bars. */
   size?: 'md' | 'sm'
+  /** On a phone, stretch to the full width of the row with the options sharing it evenly; natural
+   *  width from `sm` up. For a page that stacks several of these, so they line up as one column
+   *  of equal-width controls instead of three pills of three widths under each other. It never
+   *  scrolls, so only for option sets short enough to fit a 343px column. */
+  fill?: boolean
 }) {
   const sm = size === 'sm'
   // When the strip is wider than the screen (many tabs on mobile), keep the selected
@@ -704,7 +709,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
       // off the left edge and makes it unreachable. `safe` centres when it fits and falls back to
       // flex-start when it does not. A browser that does not know the keyword drops the
       // declaration and lands on flex-start.
-      justifyContent: sm ? 'flex-end' : { xs: 'safe center', sm: 'center' },
+      justifyContent: fill ? 'flex-start' : sm ? 'flex-end' : { xs: 'safe center', sm: 'center' },
       // Desktop keeps its gap before content; on mobile the breathing gap lives on the
       // sticky wrapper (as transparent margin) so this strip hugs the bar's hairline.
       // Callers can override (e.g. the game-center tabs want it flush to the team switch).
@@ -713,11 +718,11 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
       // The sticky wrapper full-bleeds to the screen edge; this scroll strip sits flush
       // and re-adds the resting inset as scroll padding (px:2), so overflow content runs
       // right to the edge while the first pill still looks inset at rest.
-      px: sm ? 0 : { xs: 2, sm: 0 },
+      px: sm || fill ? 0 : { xs: 2, sm: 0 },
       '&::-webkit-scrollbar': { display: 'none' },
       msOverflowStyle: 'none', scrollbarWidth: 'none',
     }}>
-      <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', gap: 0 }}>
+      <Box sx={{ display: fill ? { xs: 'flex', sm: 'inline-flex' } : 'inline-flex', flex: fill ? { xs: 1, sm: 'none' } : undefined, bgcolor: 'action.hover', borderRadius: 999, p: '3px', gap: 0 }}>
         {options.map(opt => (
           <Box
             key={opt.value}
@@ -752,6 +757,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
               fontSize: sm ? '0.68rem' : '0.75rem',
               lineHeight: 1.4,
               whiteSpace: 'nowrap',
+              ...(fill ? { flex: { xs: 1, sm: 'none' }, textAlign: 'center' } : {}),
               transition: 'all 0.15s',
               userSelect: 'none',
               // Raised neutral pill (iOS-style): the active tab is a surface-colored chip with

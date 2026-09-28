@@ -135,6 +135,14 @@ const ROUTES: Record<string, Seo> = {
     description:
       "A grid of every final score the Women's Pro Baseball League has produced, winning runs down the side and losing runs across the top. Each lit square opens the game it came from.",
   },
+  // Every batter-versus-pitcher matchup in the league. Written for "WPBL batter vs pitcher", which
+  // no other site covering this league answers; the per-pair compare
+  // pages stay out of the sitemap and are reached from here.
+  '/wpbl/matchups': {
+    title: "WPBL batter vs pitcher matchups | sportydolphin.fun",
+    description:
+      "Every Women's Pro Baseball League batter's record against each pitcher faced at least three times, with the most lopsided matchups for batters and for pitchers.",
+  },
   // Fan photographs of this season's players, tagged by who is in them. Written for the reader
   // who wants to see the league, not read about it: photos, not a stat line. Every one carries
   // the photographer's credit, and the same photos also sit on each player's own page.

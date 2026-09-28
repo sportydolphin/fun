@@ -23,7 +23,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblPhotosPage, isWpblReadingPage, isWpblComparePage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblReadingPage, isWpblComparePage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
 import type { WpblGame, WpblTeam } from './wpbl/types'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { defaultSectionPath } from './lib/defaultSection'
@@ -74,6 +74,7 @@ const WpblGlossaryPage = lazy(() => import('./wpbl/GlossaryPage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
 const WpblSeasonPage = lazy(() => import('./wpbl/SeasonPage'))
 const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
+const WpblMatchupsPage = lazy(() => import('./wpbl/MatchupsPage'))
 const WpblPhotosGallery = lazy(() => import('./wpbl/PhotosGalleryPage'))
 const WpblReadingPage = lazy(() => import('./wpbl/ReadingPage'))
 // The game modal, hovering over a standalone page (see GameOverlayHost). Lazy so GameDetail's
@@ -137,7 +138,7 @@ const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
-  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblPhotosPage(p) || isWpblReadingPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p)
+  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblReadingPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p)
 
 // Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
 // two read as one unit, and the wordmark is held back until the viewport can show it
@@ -1449,6 +1450,11 @@ function AppInner() {
           {isWpblScorigamiPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblScorigami onOpenGame={openOverlayGame} />
+            </Suspense>
+          )}
+          {isWpblMatchupsPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblMatchupsPage onNavigate={navigateFromStandalone} />
             </Suspense>
           )}
           {isWpblPhotosPage(path) && (

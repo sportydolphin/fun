@@ -37,6 +37,7 @@ import {
   isWpblSourcesPage,
   isWpblSeasonPage,
   isWpblScorigamiPage,
+  isWpblMatchupsPage,
   isWpblReadingPage,
   isWpblPhotosPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
@@ -778,6 +779,34 @@ describe('/wpbl/scorigami, the final-scores grid', () => {
   })
 })
 
+describe('/wpbl/matchups, the batter-vs-pitcher board', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/matchups\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/matchups\/\s+\/wpbl\/matchups\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toMatch(/'\/wpbl\/matchups':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/matchups</loc>')
+  })
+
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblMatchupsPage('/wpbl/matchups')).toBe(true)
+    expect(isWpblMatchupsPage('/wpbl/matchups/')).toBe(true)
+    expect(isWpblMatchupsPage('/wpbl/matchup')).toBe(false)
+    expect(isWpblMatchupsPage('/wpbl/matchups/extra')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/matchups')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/matchups')).toBe(false)
+  })
+
+  it('is linked from the site footer', () => {
+    expectInFooter('WPBL_MATCHUPS_PAGE')
+  })
+})
+
 describe('/wpbl/reading, the writing', () => {
   it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
     expect(redirects).toMatch(/^\/wpbl\/reading\s+\/\s+200\s*$/m)
@@ -850,7 +879,7 @@ describe('the More menu surfaces every non-tab WPBL page', () => {
 
   const expected = [
     'WPBL_SEASON_PAGE', 'WPBL_READING_PAGE', 'WPBL_PHOTOS_PAGE', 'WPBL_LEAGUE_PAGE',
-    'WPBL_SCORIGAMI_PAGE', 'WPBL_COMPARE_BASE', 'WPBL_PLAYERS_INDEX', 'WPBL_GLOSSARY_PAGE',
+    'WPBL_SCORIGAMI_PAGE', 'WPBL_MATCHUPS_PAGE', 'WPBL_COMPARE_BASE', 'WPBL_PLAYERS_INDEX', 'WPBL_GLOSSARY_PAGE',
   ]
   for (const c of expected) {
     it(`lists ${c}`, () => {

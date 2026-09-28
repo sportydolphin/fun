@@ -32,7 +32,13 @@ export default function WpblPage({ title, standfirst, maxWidth = '56.25rem', chi
 }) {
   const headingTag = useWpblHeadingTag()
   return (
-    <Box sx={{ maxWidth, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
+    // NO SIDE PADDING OF ITS OWN ON A PHONE. The shell already pads every page 16px a side (App.tsx),
+    // and this added another 16, so the standalone pages read in a 311px column on a 375px phone
+    // while the tabs beside them had 343: a fifth of the screen spent on gutters, on the pages with
+    // the widest tables. On a phone the shell's 16 is the gutter, the same one the tabs use; a block
+    // that wants the screen's full width bleeds with `mx: { xs: -2 }` (the shell's padding) and insets
+    // its own content, as Scorigami's grid and the matchups table do.
+    <Box sx={{ maxWidth, mx: 'auto', px: { xs: 0, sm: 3 }, pb: 6 }}>
       {/* Back to the section, not to a fixed /wpbl: `navBack` returns the reader to wherever they
           opened this from (a tab, a player), and only falls back to the section root when they
           arrived cold. A real <a href> so a crawler follows it and cmd-click opens a new tab. */}

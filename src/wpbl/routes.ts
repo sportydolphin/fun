@@ -599,6 +599,17 @@ export const WPBL_SCORIGAMI_PAGE = `${WPBL_BASE}/scorigami`
 export const isWpblScorigamiPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_SCORIGAMI_PAGE
 
+// ─── The batter-vs-pitcher board ────────────────────────────────────────────────
+//
+// A sibling on the same footing as scorigami: a real path in the More menu and the footer, absent
+// from WPBL_NAV. ONE URL for the whole league's duels, indexable, which is the honest way to put
+// this data in front of search: the per-pair pages under /wpbl/compare stay out of the sitemap as
+// machine-made near-duplicates, and are reached from here by link. See MatchupsPage.tsx.
+export const WPBL_MATCHUPS_PAGE = `${WPBL_BASE}/matchups`
+
+export const isWpblMatchupsPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_MATCHUPS_PAGE
+
 // ─── The fan photos gallery ─────────────────────────────────────────────────────
 //
 // A sixth sibling, on the same footing as the league, glossary, sources, season and scorigami

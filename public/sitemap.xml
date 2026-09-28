@@ -63,6 +63,12 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://sportydolphin.fun/wpbl/matchups</loc>
+    <lastmod>2026-09-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://sportydolphin.fun/wpbl/photos</loc>
     <lastmod>2026-09-28</lastmod>
     <changefreq>weekly</changefreq>

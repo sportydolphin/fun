@@ -26,6 +26,7 @@ const ADOPTED = [
   'src/wpbl/BestsView.tsx',
   'src/wpbl/GameLineRow.tsx',
   'src/wpbl/FindView.tsx',
+  'src/wpbl/MatchupsPage.tsx',
 ]
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')

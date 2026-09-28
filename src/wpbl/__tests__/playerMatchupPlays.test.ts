@@ -28,7 +28,7 @@ const db: { plays: Row[]; corrections: { game_id: string; sequence: number; fiel
 const queries: string[] = []
 
 function builder(table: string) {
-  const q: { or?: string; eq?: [string, string]; in?: [string, number[]]; range?: [number, number] } = {}
+  const q: { or?: string; eq?: [string, string]; in?: [string, (string | number)[]]; range?: [number, number] } = {}
   const run = () => {
     if (table === 'wpbl_play_corrections') return db.corrections
     if (q.or) {
@@ -36,6 +36,12 @@ function builder(table: string) {
       const ids = new Set(/batter_id\.in\.\(([^)]*)\)/.exec(q.or)![1].split(','))
       if ([...ids].some(id => !UUID.test(id))) throw new Error('22P02: invalid input syntax for type uuid')
       const hit = db.plays.filter(p => ids.has(p.batter_id ?? '') || ids.has(p.pitcher_id ?? ''))
+      return q.range ? hit.slice(q.range[0], q.range[1] + 1) : hit
+    }
+    // The league read: filtered on event type, paged.
+    if (q.in && q.in[0] === 'event_type') {
+      queries.push('league')
+      const hit = db.plays.filter(p => q.in![1].includes(p.event_type ?? ''))
       return q.range ? hit.slice(q.range[0], q.range[1] + 1) : hit
     }
     queries.push(`eq:${q.eq![1]}:${q.in![1].join(',')}`)
@@ -46,7 +52,7 @@ function builder(table: string) {
     order: () => b,
     or: (f: string) => { q.or = f; return b },
     eq: (c: string, v: string) => { q.eq = [c, v]; return b },
-    in: (c: string, v: number[]) => { q.in = [c, v]; return b },
+    in: (c: string, v: (string | number)[]) => { q.in = [c, v]; return b },
     range: (from: number, to: number) => { q.range = [from, to]; return b },
     then: (res: (v: { data: unknown; error: null }) => unknown, rej?: (e: unknown) => unknown) =>
       Promise.resolve({ data: run(), error: null }).then(res, rej),
@@ -56,7 +62,7 @@ function builder(table: string) {
 
 vi.mock('../../lib/supabase', () => ({ supabase: { from: (t: string) => builder(t) } }))
 
-const { fetchWpblPlayerMatchupPlays } = await import('../api')
+const { fetchWpblPlayerMatchupPlays, fetchWpblAllMatchupPlays } = await import('../api')
 
 describe('fetchWpblPlayerMatchupPlays', () => {
   it('pulls in an at-bat a correction moved onto her, and drops one it moved off', async () => {
@@ -90,5 +96,25 @@ describe('fetchWpblPlayerMatchupPlays', () => {
     const got = await fetchWpblPlayerMatchupPlays({ id: TRADED, api_id: 'new-feed-id', api_ids: ['old-feed-id', 'new-feed-id'] })
     expect(got.map(p => p.sequence)).toEqual([1])
     expect(queries[0]).toBe(`or:batter_id.in.(${TRADED}),pitcher_id.in.(${TRADED})`)
+  })
+})
+
+describe('fetchWpblAllMatchupPlays', () => {
+  // The read drops non-plate-appearance rows at the database, and a correction is applied after,
+  // so a row the correction turns INTO a plate appearance has to be fetched by its key.
+  it('keeps plate appearances, drops the rest, and fetches a row a correction makes one', async () => {
+    db.plays = [
+      row(1, HER, 'p1', 'single'),
+      row(2, HER, 'p1', 'stolen_base'),  // corrected to a double
+      row(3, HER, 'p1', 'pickoff'),      // stays out
+      row(4, HER, 'p1', 'groundout'),
+    ]
+    db.corrections = [{ game_id: 'g1', sequence: 2, field: 'event_type', new_value: 'double', source: null }]
+    queries.length = 0
+    const got = await fetchWpblAllMatchupPlays()
+    expect(got.map(p => [p.sequence, p.event_type]).sort()).toEqual([
+      [1, 'single'], [2, 'double'], [4, 'groundout'],
+    ])
+    expect(queries).toContain('eq:g1:2')
   })
 })

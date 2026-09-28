@@ -4,13 +4,36 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.104.0',
+    date:    '2026-09-28',
+    title:   'Every WPBL batter vs pitcher matchup',
+    changes: [
+      {
+        short: 'Batter vs pitcher, league-wide',
+        full:  'A new page lists every WPBL batter\'s record against each pitcher faced at least three times, as three boards: batter edge, pitcher edge and most faced. Filter by club, or by regular season and playoffs, and tap any row for the full head-to-head. It is in the More menu.',
+      },
+      {
+        short: 'The season recap shows its most lopsided matchups',
+        full:  'The 2026 season page has a new section with the most lopsided matchup each way. Tap either one for the full head-to-head, or follow the link to the whole board.',
+      },
+      {
+        short: 'Back returns you to the same board',
+        full:  'The board, club and season you picked are kept in the address, so coming back from a matchup, or opening a shared link, lands on the same list at the same place.',
+      },
+      {
+        short: 'Pages outside the tabs use the full width on phones',
+        full:  'The season recap, scorigami, the league page, compare and the other standalone WPBL pages had a wider margin on phones than the tabs did. They now use the same width.',
+      },
+    ],
+  },
+  {
     version: '1.103.0',
     date:    '2026-09-28',
     title:   'Batter vs pitcher, and a calmer player page',
     changes: [
       {
         short: 'See who every WPBL player has faced',
-        full:  'Player pages now list a hitter\'s line against every pitcher she has faced, and a pitcher\'s against every batter, most-faced first. Tap a name for the full head-to-head. It follows the Regular, Playoffs and Both switch.',
+        full:  'Player pages now list a batter\'s line against every pitcher faced, and a pitcher\'s against every batter, most-faced first. Tap a name for the full head-to-head. It follows the Regular, Playoffs and Both switch.',
       },
       {
         short: 'Comparisons lead with the head-to-head',

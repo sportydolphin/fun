@@ -1,5 +1,5 @@
 import {
-  WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PHOTOS_PAGE, WPBL_LEAGUE_PAGE, WPBL_SCORIGAMI_PAGE,
+  WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PHOTOS_PAGE, WPBL_LEAGUE_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_MATCHUPS_PAGE,
   WPBL_COMPARE_BASE, WPBL_PLAYERS_INDEX, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
 } from './routes'
 import { EVENTS } from '../lib/analytics'
@@ -34,6 +34,7 @@ export const WPBL_MORE_PAGES: MorePage[] = [
   { href: WPBL_PHOTOS_PAGE,    label: 'Photos',            hint: "Fans' photos from 2026, and women's baseball history", footerLabel: 'WPBL photos' },
   { href: WPBL_LEAGUE_PAGE,    label: 'About the league',  hint: 'How it works, the four clubs, and where the players are from' },
   { href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',         hint: 'Every final score the league has produced' },
+  { href: WPBL_MATCHUPS_PAGE,  label: 'Batter vs pitcher', hint: "Every batter's record against every pitcher", footerLabel: 'WPBL batter vs pitcher' },
   // The picker with nobody chosen. `from: 'more'` joins the same funnel the Home card and the
   // player-modal chip report into (WPBL_COMPARE_OPENED).
   { href: WPBL_COMPARE_BASE,   label: 'Compare players',   hint: 'Any two players, side by side',

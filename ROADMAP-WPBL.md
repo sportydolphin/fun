@@ -154,10 +154,9 @@ reason to come back more than once a month until spring. So the order is by that
    is computed on every game and read only by the awards shortlist. A ranked list, or the quilt, on
    `/wpbl/season`, every entry a link into Game Center, which is the other half of the retention
    gradient. Cheap, and it doubles as an Offseason Visual.
-3. **Who owns whom, league-wide, and the six season-series pages** (data-mining list). Indexable
-   pages from data already held, for a section whose constraint is search. The player card's
-   matchup tables shipped Sep 28 (see the log); the league board (`/wpbl/matchups`, one indexed
-   URL) is what `featuredMatchups` was written for and nothing draws it yet.
+3. **The six season-series pages** (data-mining list). Indexable pages from data already held, for
+   a section whose constraint is search. Who owns whom shipped Sep 28 as `/wpbl/matchups` (see the
+   log).
 4. **Decide Road to Springfield.** Built and sitting in `git stash` since Sep 25 (the map on
    `/wpbl/league` and its share videos). Ship it or drop it; a stash is where work goes to be
    forgotten.
@@ -909,12 +908,12 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   hitter and pitcher meet again and again, but the samples are smaller than this entry used to
   claim: across the 2026 regular season the most any pair met is 10 times, 85 pairs met 5+ times
   and 314 met 3+. Anything drawing a duel should lead with PA and the counts, not an average.
-  **Two surfaces shipped**: the comparison page draws ONE pair (Sep 12) and the player card lists
-  every opponent from both sides of the plate (Sep 28). Still missing is the league-wide "biggest
-  edges" board at `/wpbl/matchups` (pitcher's edge, batter's edge, most faced; a club filter and
-  the scope toggle), which is what `featuredMatchups` was written for and what would surface a
-  duel nobody thought to go looking for. After that, a "vs this pitcher" line on Game Center's
-  Live tab for spring 2027, which first has to decide whether it means this season or a career.
+  ✅ **Shipped, three surfaces**: the comparison page draws ONE pair (Sep 12), the player card lists
+  every opponent from both sides of the plate (Sep 28), and `/wpbl/matchups` is the league-wide
+  board (Sep 28). Next is a "vs this pitcher" line on Game Center's Live tab for spring 2027, which
+  first has to decide whether it means this season or a career, and that decision belongs to the
+  multi-season work (#2), since these tables will mix 2026 and 2027 the day the first 2027 play
+  lands.
 - **Season series pages** 🎯. Six rivalry pages: running series record, the H2H grid, the
   matchup edges, every game log. Six durable indexable pages from data already held.
 - **Where they come from** 🎯. `hometown` on 118 players and `birth_date` on 65: a league map,
@@ -1232,6 +1231,41 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 28, 2026: batter vs pitcher, league-wide (`/wpbl/matchups`)
+
+**One page for every batter-versus-pitcher matchup in the league**, the part no one else covering
+it can show. Three boards (batter edge, pitcher edge, most faced), a club filter on the clubs each side
+played for in those at-bats rather than their roster club, and Regular / Playoffs / Both. Each row
+is a link to the pair's compare page, which leads with the duel; that is how those pages, kept out
+of the sitemap, get found. One indexed URL in the sitemap, the More menu and the footer. The season
+recap now has a "Lopsided matchups" section with the top matchup each way.
+
+**The edge rule was wrong in the way that matters most on a board titled with it**: any home run
+gave the hitter the edge, so a 1-for-7 with a homer could head "the hitter's edge". `edgeOf` now
+wants .500 over three at-bats, two home runs, or a homer in a .333 line; the pitcher, .150 or under
+over three at-bats with nothing leaving the park. **And sorting by average put the smallest samples
+first** (a 2-for-2 led a 4-for-5), so the edge boards rank by hits against a league-average line
+over the same at-bats.
+
+**Fitting a phone took three passes.** The first table needed 370px of a 343px column: the board
+labels shortened to "Batter edge / Pitcher edge / Most faced", H and AB became one "H-AB" column
+("4-5"), and the row's two name links plus a chevron became one link, led by whoever has the
+edge. The whole row opens it: on a phone the figures are most of the row, and a tap on "4-5" that
+did nothing read as a dead table. `featuredMatchups`, written for this board in August and never drawn,
+is gone: the page shows the full lists, and no pitcher holds more than eight rows of either.
+
+**The board, club and slice live in the address bar** (`?board=pitcher&club=ny&scope=all`,
+replaceState, the stats board's pattern), and "Show more" on the history entry. A row opens the
+compare page as a new page, so Back remounts this one, and held in state it came back on "Batter
+edge" with the scroll restored to where the reader had been on "Pitcher edge": the right depth of
+the wrong list. The three controls are one toolbar: a column of full-width pills on a phone
+(`SegNav`'s new `fill`), one row on the title's and the table's edges above it.
+
+**Every standalone page gets the phone's full width.** `WpblPage` padded 16px a side inside the
+shell's own 16, so the league, season, scorigami, glossary, compare and the rest read in a 311px
+column on a 375px phone while the tabs had 343. It has no side padding of its own on a phone now;
+the shell's 16 is the gutter everywhere, and a block that wants the full screen bleeds through it.
 
 ### Sep 28, 2026: the player card, one format per kind of fact
 

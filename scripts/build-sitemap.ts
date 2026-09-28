@@ -52,6 +52,9 @@ const STATIC: Entry[] = [
   // The scorigami grid. Weekly while games are still going final (each new final can light a new
   // square), and durable after: it is a season-over-season artifact that only grows.
   { loc: '/wpbl/scorigami', changefreq: 'weekly', priority: '0.7' },
+  // The batter-vs-pitcher board. Weekly while games are played (every game adds to the duels),
+  // durable after. The pair pages under /wpbl/compare stay out: see the note there.
+  { loc: '/wpbl/matchups', changefreq: 'weekly', priority: '0.7' },
   // Fan photos. Weekly: the gallery grows as photos are sent in and approved.
   { loc: '/wpbl/photos', changefreq: 'weekly', priority: '0.6' },
   // Reading. Weekly: the writer files about twice a week in season.

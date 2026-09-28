@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { headToHead, batterPitcherMatchups, featuredMatchups, playerMatchups, type WpblMatchupPlay } from '../derive/matchups'
+import { headToHead, batterPitcherMatchups, playerMatchups, edgeOf, matchupBoard, type WpblMatchupPlay } from '../derive/matchups'
 import type { WpblGame } from '../types'
 
 // `headToHead` backs the four-by-four grid on the Teams tab. It is asymmetric by design,
@@ -83,8 +83,8 @@ describe('headToHead', () => {
 })
 
 function pa(gameId: string, batter: [string | null, string], pitcher: [string | null, string],
-            event_type: string): WpblMatchupPlay {
-  return { game_id: gameId, batter_id: batter[0], batter_name: batter[1],
+            event_type: string, team_id: string | null = null): WpblMatchupPlay {
+  return { game_id: gameId, team_id, batter_id: batter[0], batter_name: batter[1],
            pitcher_id: pitcher[0], pitcher_name: pitcher[1], event_type, narrative: null }
 }
 
@@ -119,12 +119,12 @@ describe('batterPitcherMatchups', () => {
       .toEqual([['a1', 3, 0, 0], ['a2', 0, 3, 0]])
   })
 
-  it('caps the featured board by pitcher id, so two namesake pitchers are two pitchers', () => {
-    const plays = [
-      ...[1, 2, 3].map(() => pa('r1', kw, ['p1', 'Jo Kim'], 'home_run')),
-      ...[1, 2, 3].map(() => pa('r1', kw, ['p2', 'Jo Kim'], 'strikeout')),
-    ]
-    expect(featuredMatchups(batterPitcherMatchups(plays, [reg]))).toHaveLength(2)
+  // The clubs come off the play and the game, which is what keeps a traded player's July on the
+  // club she played it for. The roster only says where she is now.
+  it('names the club each side played for, off the play and the game', () => {
+    const g = { id: 'r1', game_type: 'regularSeason', counts_in_standings: true, home_team_id: 'SF', away_team_id: 'LA' } as WpblGame
+    const plays = [1, 2, 3].map(() => pa('r1', kw, as, 'single', 'SF'))
+    expect(batterPitcherMatchups(plays, [g])[0]).toMatchObject({ batterTeamIds: ['SF'], pitcherTeamIds: ['LA'] })
   })
 
   // The player page's Regular / Playoffs / Both control reaches this, so each slice must be its
@@ -175,5 +175,63 @@ describe('playerMatchups', () => {
     const plays = [pa('r1', two, p1, 'single'), pa('p1', two, p1, 'single'), pa('p1', two, p2, 'walk')]
     expect(playerMatchups(new Set(['tw']), plays, [reg, semi]).vsPitchers).toHaveLength(1)
     expect(playerMatchups(new Set(['tw']), plays, [reg, semi], 'all').vsPitchers.map(l => l.pa)).toEqual([2, 1])
+  })
+})
+
+describe('edgeOf', () => {
+  const line = (h: number, ab: number, hr = 0) => ({ h, ab, hr, avg: ab > 0 ? h / ab : null })
+
+  // Found Sep 28, 2026 sizing the league board: any home run used to hand the hitter the edge,
+  // which put a .143 line on a board headed "the hitter's edge".
+  it('does not give the hitter the edge for one home run in a poor line', () => {
+    expect(edgeOf(line(1, 7, 1))).toBeNull()
+    expect(edgeOf(line(1, 3, 1))).toBe('batter')
+    expect(edgeOf(line(2, 9, 2))).toBe('batter')
+  })
+
+  it('needs three at-bats either way', () => {
+    expect(edgeOf(line(2, 2))).toBeNull()
+    expect(edgeOf(line(0, 2))).toBeNull()
+    expect(edgeOf(line(0, 3))).toBe('pitcher')
+    expect(edgeOf(line(2, 4))).toBe('batter')
+  })
+
+  it('never gives the pitcher the edge over a hitter who took her deep', () => {
+    expect(edgeOf(line(1, 8, 1))).toBeNull()
+  })
+})
+
+describe('matchupBoard', () => {
+  const reg = { id: 'r1', game_type: 'regularSeason', counts_in_standings: true } as WpblGame
+  const many = (b: [string, string], p: [string, string], events: string[]) => events.map(e => pa('r1', b, p, e))
+  const lines = batterPitcherMatchups([
+    ...many(['b1', 'Amy'], ['p1', 'Pia'], ['groundout', 'flyout', 'strikeout', 'strikeout', 'popup', 'lineout']), // 0-for-6
+    ...many(['b2', 'Bea'], ['p1', 'Pia'], ['groundout', 'flyout', 'strikeout']),                                 // 0-for-3
+    ...many(['b3', 'Cat'], ['p2', 'Quin'], ['single', 'double', 'groundout']),                                     // 2-for-3
+    ...many(['b4', 'Dot'], ['p2', 'Quin'], ['home_run', 'home_run', 'groundout', 'flyout', 'walk']),              // 2-for-4, 2 HR
+    ...many(['b5', 'Eve'], ['p2', 'Quin'], ['single', 'groundout', 'flyout', 'walk', 'walk', 'strikeout', 'groundout']), // 1-for-5, 7 PA
+  ], [reg])
+
+  it("leads the pitcher's board with the bigger shutout", () => {
+    expect(matchupBoard(lines, 'pitcher').map(l => l.batterId)).toEqual(['b1', 'b2'])
+  })
+
+  it("leads the hitter's board by margin over a league-average line", () => {
+    expect(matchupBoard(lines, 'batter').map(l => l.batterId)).toEqual(['b3', 'b4'])
+  })
+
+  // Found building the board: by average, the smallest perfect lines led it. A 3-for-3 and a
+  // 4-for-5 are both on it; the longer run of hits is the stronger claim.
+  it('does not let the smallest sample lead just by being small', () => {
+    const board = matchupBoard(batterPitcherMatchups([
+      ...many(['s1', 'Sam'], ['p9', 'Zed'], ['single', 'single', 'single']),                                  // 3-for-3
+      ...many(['s2', 'Tia'], ['p9', 'Zed'], ['single', 'single', 'double', 'single', 'groundout']),           // 4-for-5
+      ...many(['s3', 'Uma'], ['p8', 'Yan'], Array(20).fill('groundout')),                                      // league filler
+    ], [reg]), 'batter')
+    expect(board.map(l => l.batterId)).toEqual(['s2', 's1'])
+  })
+
+  it('orders the most-faced board by plate appearances and keeps every pair', () => {
+    expect(matchupBoard(lines, 'faced').map(l => l.batterId)).toEqual(['b5', 'b1', 'b4', 'b2', 'b3'])
   })
 })

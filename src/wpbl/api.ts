@@ -3,7 +3,7 @@ import { FIRSTS_EVENT_TYPES } from './firsts'
 import { countsInStandings, standingsFinals } from './season'
 import { settleGames } from './gameOver'
 import { buildFanPhotoIndex, type FanPhotoIndex } from './fanPhotos'
-import { playerPlayIds, type WpblMatchupPlay } from './derive/matchups'
+import { playerPlayIds, PA_EVENT_TYPES, type WpblMatchupPlay } from './derive/matchups'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
@@ -581,7 +581,7 @@ export function fetchWpblAllRunValuePlays(): Promise<WpblRunValuePlay[]> {
 /** A matchup play plus its `sequence`, which the corrections overlay keys on. */
 export type WpblPlayerMatchupPlay = WpblMatchupPlay & Pick<WpblGamePlay, 'sequence'>
 
-const MATCHUP_PLAY_SELECT = 'game_id,sequence,batter_id,batter_name,pitcher_id,pitcher_name,event_type,narrative'
+const MATCHUP_PLAY_SELECT = 'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,event_type,narrative'
 
 const playerMatchupCache = new Map<string, { data: WpblPlayerMatchupPlay[]; at: number }>()
 
@@ -591,6 +591,18 @@ const playerMatchupCache = new Map<string, { data: WpblPlayerMatchupPlay[]; at: 
  *  turns that into an empty array, and the tables silently draw nothing for every player who has
  *  a feed id, which is all of them. The in-memory filters still take the full id set. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Plays by (game_id, sequence), for the ones a correction brings INTO a filtered read. A
+ *  database filter sees the mirror row, which is the feed's; the correction is applied after, so
+ *  a play it moves into the filter's reach has to be fetched by its key. Tiny: one request per game
+ *  holding such a correction, and the corrections table is usually empty. */
+async function fetchMatchupPlaysByKey(keys: Map<string, number[]>): Promise<WpblPlayerMatchupPlay[]> {
+  return (await Promise.all([...keys].map(([gameId, seqs]) =>
+    safe<WpblPlayerMatchupPlay[]>('fetchMatchupPlaysByKey', () =>
+      supabase.from('wpbl_game_plays').select(MATCHUP_PLAY_SELECT)
+        .eq('game_id', gameId).in('sequence', seqs) as unknown as
+        PromiseLike<{ data: WpblPlayerMatchupPlay[] | null; error: unknown }>, [])))).flat()
+}
 
 const involves = (ids: Set<string>) => (p: WpblMatchupPlay) =>
   (p.batter_id != null && ids.has(p.batter_id)) || (p.pitcher_id != null && ids.has(p.pitcher_id))
@@ -654,14 +666,63 @@ export function fetchWpblPlayerMatchupPlays(
       const seqs = movedOn.get(c.game_id)
       if (seqs) seqs.push(c.sequence); else movedOn.set(c.game_id, [c.sequence])
     }
-    const extra = (await Promise.all([...movedOn].map(([gameId, seqs]) =>
-      safe<WpblPlayerMatchupPlay[]>('fetchWpblPlayerMatchupPlays:corrected', () =>
-        supabase.from('wpbl_game_plays').select(MATCHUP_PLAY_SELECT)
-          .eq('game_id', gameId).in('sequence', seqs) as unknown as
-          PromiseLike<{ data: WpblPlayerMatchupPlay[] | null; error: unknown }>, [])))).flat()
+    const extra = await fetchMatchupPlaysByKey(movedOn)
     const corrected = applyPlayCorrections([...mine, ...extra], corrections).filter(involves(ids))
     if (corrected.length > 0 || !playerMatchupCache.has(player.id)) {
       playerMatchupCache.set(player.id, { data: corrected, at: Date.now() })
+    }
+    return corrected
+  })
+}
+
+let allMatchupPlaysCache: { data: WpblPlayerMatchupPlay[]; at: number } | null = null
+
+/** The league board's plays, for a synchronous first paint: its own read, or the full play log if
+ *  another page has already loaded it (every column the board reads is in that one too). */
+export function getCachedWpblAllMatchupPlays(): WpblPlayerMatchupPlay[] | null {
+  return allMatchupPlaysCache?.data ?? allRunValuePlaysCache?.data ?? null
+}
+
+/**
+ * Every plate appearance in the league, for the batter-vs-pitcher board at /wpbl/matchups.
+ *
+ * NARROWER THAN THE RUN-VALUE LOG IT COULD HAVE REUSED. That read carries the base-out state and
+ * every pitch sequence, about 280KB, because run expectancy walks every row; a matchup needs eight
+ * columns and only the rows that are plate appearances. The filter is `PA_EVENT_TYPES`, built from
+ * the same sets `classifyPa` reads, so it drops steals, pickoffs and substitution notes and cannot
+ * drop an out. When the run-value log is already fresh in memory it is used as is, at no cost.
+ *
+ * Paged and ordered for the reason on fetchWpblAllPlays, and corrected on the way out: a
+ * correction that rewrites a batter or an outcome moves a plate appearance between two lines.
+ */
+export function fetchWpblAllMatchupPlays(): Promise<WpblPlayerMatchupPlay[]> {
+  if (isFresh(allRunValuePlaysCache)) return Promise.resolve(allRunValuePlaysCache!.data)
+  if (isFresh(allMatchupPlaysCache)) return Promise.resolve(allMatchupPlaysCache!.data)
+  return once('allMatchupPlays', async () => {
+    const [out, corrections] = await Promise.all([
+      fetchAllPaged<WpblPlayerMatchupPlay>('fetchWpblAllMatchupPlays', (from, to) =>
+        supabase.from('wpbl_game_plays')
+          .select(MATCHUP_PLAY_SELECT)
+          .in('event_type', PA_EVENT_TYPES as string[])
+          .order('game_id', { ascending: true })
+          .order('sequence', { ascending: true })
+          .range(from, to) as unknown as
+          PromiseLike<{ data: WpblPlayerMatchupPlay[] | null; error: unknown }>, PLAY_LOG_WAVE),
+      fetchAllPlayCorrections(),
+    ])
+    // A correction that turns a filtered-out row (a note, a pickoff) into a plate appearance.
+    const have = new Set(out.map(p => `${p.game_id}:${p.sequence}`))
+    const becomesPa = new Map<string, number[]>()
+    for (const c of corrections) {
+      if (c.field !== 'event_type' || !c.new_value || !PA_EVENT_TYPES.includes(c.new_value)) continue
+      if (have.has(`${c.game_id}:${c.sequence}`)) continue
+      const seqs = becomesPa.get(c.game_id)
+      if (seqs) seqs.push(c.sequence); else becomesPa.set(c.game_id, [c.sequence])
+    }
+    const extra = await fetchMatchupPlaysByKey(becomesPa)
+    const corrected = applyPlayCorrections([...out, ...extra], corrections)
+    if (corrected.length > 0 || allMatchupPlaysCache == null) {
+      allMatchupPlaysCache = { data: corrected, at: Date.now() }
     }
     return corrected
   })

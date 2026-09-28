@@ -111,7 +111,8 @@ export default function WpblScorigami({ onOpenGame }: {
 
       {hasData && (
         // A grid can be wider than a phone, so it gets its own horizontal scroll rather than pushing
-        // the page body sideways. `--cell` is the square size; the label track is `auto`.
+        // the page body sideways. `mx: -2` reaches through the shell's padding to the screen edge
+        // (WpblPage has none of its own on a phone) and `px: 2` puts the grid back on the gutter. `--cell` is the square size; the label track is `auto`.
         <Box sx={{ overflowX: 'auto', pb: 1, mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 } }}>
           <Box
             role="group"

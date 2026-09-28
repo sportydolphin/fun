@@ -46,7 +46,8 @@ import {
 import { countsInStandings } from './season'
 import { useRowFlip, useRowDividers } from './rowFlip'
 import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
-import { wpblPlayerPath, wpblGamePath, wpblTeamPath } from './routes'
+import { wpblPlayerPath, wpblGamePath, wpblTeamPath, wpblComparePath, WPBL_MATCHUPS_PAGE } from './routes'
+import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './derive/matchups'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
 import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
@@ -157,13 +158,33 @@ const winnerProb = (homeSide: number, homeWon: boolean) => (homeWon ? homeSide :
 // the stronger CARD_BORDER is what draws each card. The champion banner is the one exception: it
 // is the headline, and its tint is the point of it.
 
-function StatTile({ value, label, sub, highlight }: { value: string; label: string; sub?: string; highlight?: boolean }) {
+/** "4-for-5", the line a matchup tile leads with. */
+const matchupLine = (l: WpblMatchupLine) => `${l.h}-for-${l.ab}`
+/** What else the counts say, ahead of the verdict: home runs, walks and strikeouts that happened. */
+const matchupExtra = (l: WpblMatchupLine) =>
+  [l.hr ? `${l.hr} HR` : null, l.bb ? `${l.bb} BB` : null, l.so ? `${l.so} SO` : null]
+    .filter(Boolean).map(x => `${x} · `).join('')
+
+function StatTile({ value, label, sub, highlight, href, onNavigate }: {
+  value: string; label: string; sub?: string; highlight?: boolean
+  /** Makes the tile a real link, for a tile that names one thing with a page of its own (a
+   *  matchup). A plain click goes through `onNavigate`, a modified one opens a new tab. */
+  href?: string; onNavigate?: (to: string) => void
+}) {
   return (
-    <Box sx={{
-      borderRadius: 2, p: { xs: 1.5, sm: 2 },
-      border: '1px solid', borderColor: highlight ? 'var(--wpbl-accent-solid)' : CARD_BORDER,
-      display: 'flex', flexDirection: 'column', gap: 0.25,
-    }}>
+    <Box
+      {...(href ? {
+        component: 'a' as const,
+        href,
+        onClick: (e: React.MouseEvent) => { if (onNavigate && !isModified(e)) { e.preventDefault(); onNavigate(href) } },
+      } : {})}
+      sx={{
+        borderRadius: 2, p: { xs: 1.5, sm: 2 },
+        border: '1px solid', borderColor: highlight ? 'var(--wpbl-accent-solid)' : CARD_BORDER,
+        display: 'flex', flexDirection: 'column', gap: 0.25,
+        ...(href ? { textDecoration: 'none', color: 'inherit', ...FOCUS_RING, ...TAPPABLE } : {}),
+      }}
+    >
       <Typography sx={{
         fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 800, lineHeight: 1.05,
         color: highlight ? 'var(--wpbl-accent-fg)' : 'text.primary',
@@ -349,7 +370,22 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   // League totals, regular season, for the fun facts. sumBatting/sumPitching default to the
   // regular scope, so the postseason is already out.
   const leagueBat = useMemo(() => sumBatting(batting, games), [batting, games])
+  // The most lopsided matchup each way, for the "Lopsided matchups" teaser. The boards' own order,
+  // so the tile and the top row of /wpbl/matchups are the same matchup.
+  const topMatchups = useMemo(() => {
+    if (plays.length === 0) return null
+    const lines = batterPitcherMatchups(plays, games)
+    const batter = matchupBoard(lines, 'batter')[0] ?? null
+    const pitcher = matchupBoard(lines, 'pitcher')[0] ?? null
+    return batter || pitcher ? { batter, pitcher } : null
+  }, [plays, games])
   const leaguePit = useMemo(() => sumPitching(pitching, games), [pitching, games])
+  /** The pair's compare page, batter first as the tile reads, or nothing until the roster can
+   *  spell both slugs. The same page a row on /wpbl/matchups opens. */
+  const matchupHref = (l: WpblMatchupLine) => {
+    const b = playerById.get(l.batterId), p = playerById.get(l.pitcherId)
+    return b && p ? wpblComparePath(b, p, players) : undefined
+  }
 
   // ERA against FIP. FIP's weights come off the play log, so this block waits on it the way the
   // biggest-plays block does and is simply absent until it lands.
@@ -628,6 +664,38 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               sub="batting last, one venue"
             />
           </Box>
+
+          {/* ── Lopsided matchups ───────────────────────────────────────────── */}
+          {/* The two most lopsided matchups of the regular season, one each way, as a door into the
+              full board at /wpbl/matchups. This page is where offseason readers arrive, and the
+              board is the part of the season no one else covering the league can show. */}
+          {topMatchups && (
+            <>
+              <SectionHeading seen="season">Lopsided matchups</SectionHeading>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem', mt: -0.75, mb: 1.5 }}>
+                With four clubs, the same batters and pitchers meet all season. The most lopsided
+                matchups of the regular season:
+              </Typography>
+              <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+                {/* BATTER FIRST ON BOTH, because the big number is always the batter's line: led by
+                    the pitcher, "0-for-5" above "Jaida Lee vs ..." read as the pitcher going hitless. */}
+                {topMatchups.batter && <StatTile value={matchupLine(topMatchups.batter)} label={`${topMatchups.batter.batterName} against ${topMatchups.batter.pitcherName}`} sub={`${matchupExtra(topMatchups.batter)}batter's edge`} href={matchupHref(topMatchups.batter)} onNavigate={onNavigate} />}
+                {topMatchups.pitcher && <StatTile value={matchupLine(topMatchups.pitcher)} label={`${topMatchups.pitcher.batterName} against ${topMatchups.pitcher.pitcherName}`} sub={`${matchupExtra(topMatchups.pitcher)}pitcher's edge`} href={matchupHref(topMatchups.pitcher)} onNavigate={onNavigate} />}
+              </Box>
+              <Box
+                component="a"
+                href={WPBL_MATCHUPS_PAGE}
+                onClick={(e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_MATCHUPS_PAGE) } }}
+                sx={{
+                  display: 'inline-block', mt: 1.25, fontSize: '0.8rem', fontWeight: 700,
+                  color: 'var(--wpbl-accent-fg)', textDecoration: 'none', ...FOCUS_RING,
+                  '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
+                }}
+              >
+                All batter vs pitcher matchups ›
+              </Box>
+            </>
+          )}
 
           {/* ── Spray chart ──────────────────────────────────────────────────── */}
           {battedBalls.length > 0 && (
