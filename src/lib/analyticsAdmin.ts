@@ -81,6 +81,26 @@ export interface PageControl { page: string; control: string; events: number; br
 export interface PageUsage   { sections: PageSection[]; opens: PageOpen[]; controls: PageControl[] }
 export const EMPTY_PAGE_USAGE: PageUsage = { sections: [], opens: [], controls: [] }
 
+// The MLB section: which Home cards are seen and used, how tabs are reached, where players and
+// teams are opened from. See admin_mlb_usage. Card numbers are browsers on both sides.
+export interface MlbCardUse { card: string; seen: number; used: number }
+export interface MlbTabUse  { view: string; via: string; events: number; browsers: number }
+export interface MlbOpenUse { kind: 'player' | 'team'; from: string; events: number; browsers: number }
+export interface MlbUsage   { cards: MlbCardUse[]; tabs: MlbTabUse[]; opens: MlbOpenUse[] }
+export const EMPTY_MLB_USAGE: MlbUsage = { cards: [], tabs: [], opens: [] }
+
+/** Readable names for the MLB Home card ids TrackedCard sends. A report board reads as its id. */
+export const MLB_CARD_LABELS: Record<string, string> = {
+  scoreboard: 'Scoreboard', live_drama: 'Happening now', team_card: 'Your team',
+  team_picker: 'Pick your team', followed_players: 'Your players', predictions: 'Predictions',
+  standings: 'Standings snapshot', survivor: 'Streak Survivor', standouts: 'Single-game standout',
+  roster_moves: 'Roster moves', milestones: 'Milestone watch', on_fire: 'On fire', ice_cold: 'Ice cold',
+}
+export function mlbCardLabel(card: string): string {
+  if (MLB_CARD_LABELS[card]) return MLB_CARD_LABELS[card]
+  return card.startsWith('report_') ? `Report: ${prettyId(card.slice('report_'.length))}` : prettyId(card)
+}
+
 // ─── the event catalog, as the dashboard reads it ─────────────────────────────
 //
 // WHY THIS EXISTS. The Events card listed every name in `events` ranked by volume: 52 of them in
@@ -173,6 +193,12 @@ export const EVENT_INFO: Record<string, EventInfo> = {
 
   prediction_made:        A('Made a prediction', 'MLB'),
   board_viewed:           A('Opened the predictions board', 'MLB'),
+  mlb_tab_viewed:         A('Switched MLB tab', 'MLB'),
+  mlb_player_opened:      A('Opened an MLB player', 'MLB'),
+  mlb_team_opened:        A('Opened an MLB team', 'MLB'),
+  mlb_card_used:          A('Used an MLB Home card', 'MLB'),
+  // Read per card, against mlb_card_used, by the "MLB: what gets used" card (admin_mlb_usage).
+  mlb_card_seen:          I('MLB Home card seen', 'MLB'),
 
   // Not things anyone chose to do, but filed as actions so they surface in "What people do", which
   // is the card that is read. The area only appears when one of them has happened.
@@ -452,6 +478,10 @@ export function fetchPageUsage(days: number, tz: string): Promise<PageUsage> {
   return callRpc('admin_wpbl_page_usage', { days_back: days, tz }, EMPTY_PAGE_USAGE)
 }
 
+export function fetchMlbUsage(days: number, tz: string): Promise<MlbUsage> {
+  return callRpc('admin_mlb_usage', { days_back: days, tz }, EMPTY_MLB_USAGE)
+}
+
 // ─── Page speed (admin_web_vitals) ─────────────────────────────────────────────
 // Real readers' page loads, one `web_vitals` event each (src/lib/webVitals.ts). A null device or
 // section is the rollup over all of them, computed server-side because percentiles do not add.
@@ -504,6 +534,7 @@ export interface AnalyticsBundle {
   growth: Growth
   pages: PageUsage
   vitals: WebVitals
+  mlb: MlbUsage
 }
 
 /**
@@ -526,7 +557,8 @@ export function fetchAnalytics(
     fetchGrowth(days, tz),
     fetchPageUsage(days, tz),
     fetchWebVitals(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals]) => ({
-    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals,
+    fetchMlbUsage(days, tz),
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb,
   }))
 }

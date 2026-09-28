@@ -62,8 +62,11 @@ goes first and the rest is winter work.
    `stats=byDateRange` returns nothing for a postseason date. Postseason standouts need box
    scores. Also fixed on the way: the pick board's title named today's date over tomorrow's
    slate every evening.
-1. **Instrument** (this week). Tab viewed, player opened, and an impression per Home card.
-   "Keep what MLB does better" is a guess until October says what gets used.
+1. ✅ **Instrument** (Sep 28). Five `mlb_*` events: each Home card as seen (scrolled into view)
+   and used (first click inside), tab changes with how they happened, and player and team opens
+   with where from. Read on /admin under "MLB: what gets used" (`admin_mlb_usage`). "Keep what
+   MLB does better" is a guess until October says what gets used, so read it before phase 3
+   decides what moves into More.
 2. **Lift the section-agnostic WPBL pieces into shared code**: `BottomNav` (accent as a prop),
    `SwipeableViews`, `ModalShell` and its scroll lock, `chromePx`. A pure move with the WPBL
    tests unchanged, since `src/wpbl` must stay free of MLB coupling and MLB must not import it.

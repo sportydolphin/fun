@@ -20,6 +20,7 @@ import { TeamRoster } from '../components/TeamRoster'
 import { CareerStatsTable } from '../components/CareerStatsTable'
 import { ContractPanel } from '../components/ContractPanel'
 import { fetchPlayerDetails } from '../api'
+import { track, EVENTS } from '../../lib/analytics'
 
 export interface SearchViewProps {
   // Search
@@ -180,6 +181,7 @@ export function SearchView({
   // browser Back button returns to this team (mirrors the Team Leaders cards below).
   const openPlayerFromTeam = React.useCallback((playerId: number) => {
     if (!team) return
+    track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: 'team_page' })
     window.history.pushState({}, '', `/mlb?tid=${team.id}`)
     fetchPlayerDetails(playerId)
       .then(details => { if (details) selectPlayer(details) })
@@ -771,6 +773,7 @@ export function SearchView({
                         awardLabel={p.awardLabel}
                         highlightStat={p.highlightStat}
                         onClick={() => {
+                          track(EVENTS.MLB_PLAYER_OPENED, { playerId: p.playerId, from: 'team_page' })
                           const params = new URLSearchParams()
                           params.set('tid', String(team.id))
                           window.history.pushState({}, '', `/mlb?${params.toString()}`)

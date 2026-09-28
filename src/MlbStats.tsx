@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useCallback } from 'react'
+﻿import React, { useEffect, useCallback, useRef } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import { SegControl } from './mlb/components/ui'
@@ -11,6 +11,7 @@ import { HomeView } from './mlb/views/HomeView'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
+import { track, EVENTS } from './lib/analytics'
 
 export default function MlbStats() {
   const state = useMlbState()
@@ -37,8 +38,14 @@ export default function MlbStats() {
       playerResults: state.playerResults,
       teamResults: state.teamResults,
       searching: state.searching,
-      handleSelectPlayer: p => handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true }), { view: 'search', playerId: (p as any).id }),
-      handleSelectTeam: t => handleBridgeSelect(() => state.selectTeam(t as any, { recordRecent: true }), { view: 'search', teamId: (t as any).id }),
+      handleSelectPlayer: p => {
+        track(EVENTS.MLB_PLAYER_OPENED, { playerId: (p as any).id, from: 'header_search' })
+        handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true }), { view: 'search', playerId: (p as any).id })
+      },
+      handleSelectTeam: t => {
+        track(EVENTS.MLB_TEAM_OPENED, { teamId: (t as any).id, from: 'header_search' })
+        handleBridgeSelect(() => state.selectTeam(t as any, { recordRecent: true }), { view: 'search', teamId: (t as any).id })
+      },
       isRegistered: true,
     })
   }, [state.playerResults, state.teamResults, state.searching, handleBridgeSelect]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -56,8 +63,8 @@ export default function MlbStats() {
       recentSearches: state.recentSearches,
       handleSelectRecent: (item) => {
         setSearchQuery('')
-        if (item.type === 'team') state.handleTeamSearchClick(item.id)
-        else state.handleFollowedPlayerClick(item.id)
+        if (item.type === 'team') state.handleTeamSearchClick(item.id, 'recent')
+        else state.handleFollowedPlayerClick(item.id, 'recent')
       },
       clearRecentSearches: state.clearRecentSearches,
     })
@@ -70,6 +77,33 @@ export default function MlbStats() {
       setSearchQuery('')
     }
   }, [])
+
+  // Tab changes, with how they happened. A pill tap marks itself; every other change of view is a
+  // card or stat link doing its job, EXCEPT Back and Forward, which restore a view rather than
+  // choose one and are not counted (the same rule as wpbl_tab_viewed). Landing on the section is
+  // not a tab change either. And a link into 'search' is a player or team opening, already
+  // counted with its source by mlb_player_opened / mlb_team_opened, so it is not counted twice.
+  const tabVia = useRef<'pill' | 'back' | null>(null)
+  const prevView = useRef(state.view)
+  useEffect(() => {
+    // Cleared once the pop has settled: a Back that lands on the same view (player to player)
+    // never runs the effect below, and a flag left standing would swallow the next real change.
+    const onPop = () => {
+      tabVia.current = 'back'
+      setTimeout(() => { if (tabVia.current === 'back') tabVia.current = null }, 0)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  useEffect(() => {
+    const from = prevView.current
+    const via = tabVia.current ?? 'link'
+    prevView.current = state.view
+    tabVia.current = null
+    if (from === state.view || via === 'back') return
+    if (via === 'link' && state.view === 'search') return
+    track(EVENTS.MLB_TAB_VIEWED, { view: state.view, via, from })
+  }, [state.view])
 
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
@@ -105,6 +139,7 @@ export default function MlbStats() {
             // A deliberate tab navigation is a fresh start â€” never let a stale
             // Home modal reopen from a prior Back-restore path (see homeOverlay).
             clearHomeOverlay()
+            tabVia.current = 'pill'
             state.stampCurrentEntry()
             window.history.pushState({ view: v }, '', window.location.href)
             state.setView(v as any)

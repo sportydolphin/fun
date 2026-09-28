@@ -179,6 +179,24 @@ export const EVENTS = {
   // never the crawler fetches that unfurl the card.
   WPBL_SHARE_COPIED:   'wpbl_share_copied',   // copied a short share link, props {kind}
   WPBL_SHARE_OPENED:   'wpbl_share_opened',   // arrived via a short share link, props {kind}
+  // The MLB section, which until Sep 28, 2026 carried three events (a pick, the pick board, a game
+  // opened) and so could not say which of its six tabs or fourteen Home cards anyone used. That
+  // is the question the WPBL alignment has to answer before it decides what MLB keeps (see
+  // "Aligning with WPBL" in ROADMAP.md). Read through admin_mlb_usage.
+  //
+  // THE TAB EVENT IS NOT A PAGE VIEW, for a reason the WPBL one is not either, and a stronger one:
+  // every MLB tab is the same path, `/mlb`, with the view in the query string, so Cloudflare
+  // cannot tell them apart at all. `via` says how: a pill tap, or a link from a card.
+  MLB_TAB_VIEWED:      'mlb_tab_viewed',      // switched MLB tab, props {view, via: pill|link, from}
+  MLB_PLAYER_OPENED:   'mlb_player_opened',   // opened an MLB player, props {playerId, from}
+  MLB_TEAM_OPENED:     'mlb_team_opened',     // opened an MLB team, props {teamId, from}
+  // A Home card as a pair. SEEN is an impression when the card scrolls into view, not when it
+  // renders: MLB Home is one long column on a phone, so "rendered" would be every card on every
+  // visit and say nothing about the ones below the fold. USED is the first click anywhere inside
+  // the card, once per page load, whatever it opened: one uniform "did anyone touch it" across
+  // fourteen cards whose controls have nothing else in common.
+  MLB_CARD_SEEN:       'mlb_card_seen',       // a Home card scrolled into view, once per load, props {card}
+  MLB_CARD_USED:       'mlb_card_used',       // first click inside a Home card, once per load, props {card}
   // The site's own health, which nothing else here can see: an error screen is drawn only on
   // someone else's device. See lib/staleBuild.ts and AppErrorBoundary.tsx.
   APP_ERROR:           'app_error',           // an error screen was drawn, props {kind: stale|crash, where: app|page|tab, message}

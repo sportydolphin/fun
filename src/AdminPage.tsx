@@ -13,7 +13,7 @@ import {
   trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,
   EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
   EMPTY_PAGE_USAGE, groupActions, buildFunnels, eventInfo, PAGE_LABELS, prettyId,
-  EMPTY_WEB_VITALS, vitalRating, formatVital,
+  EMPTY_WEB_VITALS, vitalRating, formatVital, EMPTY_MLB_USAGE, mlbCardLabel,
 } from './lib/analyticsAdmin'
 import type { VitalKey, VitalRating, WebVitalsRow } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
@@ -83,7 +83,7 @@ const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
 const EMPTY_BUNDLE: AnalyticsBundle = {
   overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS,
   entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, players: [],
-  growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE, vitals: EMPTY_WEB_VITALS,
+  growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE, vitals: EMPTY_WEB_VITALS, mlb: EMPTY_MLB_USAGE,
 }
 
 // The three destinations the entry-point card reports, in the order they are worth reading:
@@ -492,7 +492,7 @@ export default function AdminPage() {
 
   useEffect(() => load(), [load])
 
-  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals } = data
+  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb } = data
   const t = overview.totals, p = overview.prev
 
   // A range that reaches back before the first event would otherwise pad the chart with
@@ -546,6 +546,17 @@ export default function AdminPage() {
       return { page, label: PAGE_LABELS[page] ?? prettyId(page), sections, opens, controls, reach }
     }).sort((a, b) => b.reach - a.reach)
   }, [pages])
+  // MLB cards ordered by how many browsers USED them: reach is mostly where a card sits on Home,
+  // and the question the alignment asks is which ones earn their place.
+  const mlbCards = useMemo(() => [...mlb.cards].sort((a, b) => b.used - a.used || b.seen - a.seen), [mlb.cards])
+  const mlbTabViews = useMemo(() => {
+    const m = new Map<string, { total: number; rows: typeof mlb.tabs }>()
+    for (const r of mlb.tabs) {
+      const cur = m.get(r.view) ?? { total: 0, rows: [] }
+      m.set(r.view, { total: cur.total + r.events, rows: [...cur.rows, r] })
+    }
+    return [...m.entries()].sort((a, b) => b[1].total - a[1].total)
+  }, [mlb.tabs])
   const busiestTabs = useMemo(() => [...tabTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), [tabTotals])
 
   return (
@@ -743,6 +754,40 @@ export default function AdminPage() {
                   value={formatCount(r.browsers)} sub={plural(r.events, 'time')} />
               ))}
             </Box>
+          ))}
+        </Box>
+      </Fold>
+
+      {/* ── MLB ──────────────────────────────────────────────────────────── */}
+      {/* What the MLB section's readers use, instrumented Sep 28, 2026 to decide what MLB keeps as
+          it is aligned with WPBL (ROADMAP.md). Ignores the league chips: it is MLB by definition. */}
+      <Fold title="MLB: what gets used"
+        summary={mlbCards.length === 0 && mlbTabViews.length === 0 ? 'Nothing yet (tracked from Sep 28, 2026)'
+          : mlbCards.length > 0 ? `${mlbCardLabel(mlbCards[0].card)} is the most used card, ${plural(mlbCards[0].used, 'browser')}`
+          : `${mlbTabViews[0][0]} is the most visited tab`}>
+        <Box sx={{ px: 1.5, pb: 1 }}>
+          {mlbCards.length === 0 && mlbTabViews.length === 0 && mlb.opens.length === 0 && (
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1.5 }}>
+              Nothing yet. Home cards seen and used, how tabs are reached, and where players and teams
+              are opened from show here.
+            </Typography>
+          )}
+          {mlbCards.length > 0 && <GroupLabel>Home cards: used / seen, in browsers</GroupLabel>}
+          {mlbCards.map(r => (
+            <MetricRow key={r.card} label={mlbCardLabel(r.card)}
+              value={`${formatCount(r.used)} / ${formatCount(r.seen)}`}
+              sub={r.seen > 0 ? `${Math.round((r.used / r.seen) * 100)}% of those who saw it` : 'used without a recorded view'}
+              bar={<Bar value={r.used} max={Math.max(1, r.seen)} color="#22c55e" />} />
+          ))}
+          {mlbTabViews.length > 0 && <GroupLabel>Tabs: how they're reached</GroupLabel>}
+          {mlbTabViews.map(([view, v]) => (
+            <MetricRow key={view} label={view} value={formatCount(v.total)}
+              sub={v.rows.map(r => `${r.via} ${r.events}`).join(' · ')} />
+          ))}
+          {mlb.opens.length > 0 && <GroupLabel>Players and teams: opened from</GroupLabel>}
+          {mlb.opens.map(r => (
+            <MetricRow key={`${r.kind}|${r.from}`} label={`${r.kind === 'player' ? 'Player' : 'Team'} from ${r.from}`}
+              value={formatCount(r.browsers)} sub={plural(r.events, 'time')} />
           ))}
         </Box>
       </Fold>

@@ -31,8 +31,15 @@ import {
 } from '../api'
 import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
 import { careerSpan } from '../lib/utils'
+import { track, EVENTS } from '../../lib/analytics'
 import type { CardInnerProps } from '../components/cards'
 import type { TeamCardInnerProps } from '../components/cards'
+
+/** Where an open came from when it is not simply the tab on screen. See `openFrom`. The
+ *  default is the view, and the player and team pages are the view called 'search', so the header
+ *  search needs a name of its own. */
+export type MlbOpenSource = 'header_search' | 'recent' | 'team_page'
+const OPEN_SOURCES = new Set<string>(['header_search', 'recent', 'team_page'])
 
 export function useMlbState() {
   const { user, openAuthDialog } = useAuth()
@@ -488,6 +495,17 @@ export function useMlbState() {
     await loadTeamStats(t, CURRENT_SEASON)
   }, [loadTeamStats, addRecentSearch])
 
+  // ─── Open tracking ────────────────────────────────────────────────────────────
+  // Every deliberate player or team open reports where it came from: the tab the reader is on,
+  // unless the caller knows better (the header search and the recent-searches list sit above
+  // every tab, so left to the default they would report whichever tab happened to be behind
+  // them). A popstate or a deep link restoring a player is NOT an open and never reaches these.
+  //
+  // `from` is checked against the known values rather than trusted: several of these handlers
+  // are passed straight through as `onSelectPlayer` / `onTeamClick` props, and a component that
+  // calls one with a second argument of its own must not have it land in the event.
+  const openFrom = (from: unknown): string => typeof from === 'string' && OPEN_SOURCES.has(from) ? from : view
+
   // ─── History snapshots ────────────────────────────────────────────────────────
   // Each history entry stores a self-describing snapshot of the view it represents.
   // This is deliberate: popstate delivers the state of the entry you navigate TO, not
@@ -508,13 +526,14 @@ export function useMlbState() {
     window.history.replaceState(currentHistoryState(), '', window.location.href)
   }, [currentHistoryState])
 
-  const handleLbPlayerClick = useCallback((playerId: number) => {
+  const handleLbPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
+    track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
     stampCurrentEntry()
     window.history.pushState({ view: 'search', playerId }, '', window.location.href)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer, stampCurrentEntry])
+  }, [selectPlayer, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSeasonChange = useCallback((s: number) => {
     setHighlightedGameDate(null)
@@ -551,29 +570,32 @@ export function useMlbState() {
     setStatsHighlightStatKey(statKey)
   }, [player, season, statsView, stampCurrentEntry])
 
-  const handleFollowedPlayerClick = useCallback((playerId: number) => {
+  const handleFollowedPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
+    track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
     stampCurrentEntry()
     window.history.pushState({ view: 'search', playerId }, '', window.location.href)
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
-  }, [selectPlayer, stampCurrentEntry])
+  }, [selectPlayer, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleTeamSearchClick = useCallback((teamId: number) => {
+  const handleTeamSearchClick = useCallback((teamId: number, from?: MlbOpenSource) => {
     const t = allTeams.find(t => t.id === teamId)
     if (!t) return
+    track(EVENTS.MLB_TEAM_OPENED, { teamId, from: openFrom(from) })
     stampCurrentEntry()
     window.history.pushState({ view: 'search', teamId }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, stampCurrentEntry])
+  }, [allTeams, selectTeam, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleVizNavigate = useCallback((id: number) => {
+  const handleVizNavigate = useCallback((id: number, from?: MlbOpenSource) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
+    track(EVENTS.MLB_TEAM_OPENED, { teamId: id, from: openFrom(from) })
     stampCurrentEntry()
     window.history.pushState({ view: 'search', teamId: id }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, stampCurrentEntry])
+  }, [allTeams, selectTeam, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Effects: player-level data ───────────────────────────────────────────────
 

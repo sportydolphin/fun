@@ -14,6 +14,8 @@ tab?" doesn't mean opening the Supabase SQL editor.
 |---|---|
 | SQL: nine `security definer` RPCs | [`20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) + [`20260820064501_add_admin_wpbl_stats_board_rpc.sql`](../scripts/migrations/20260820064501_add_admin_wpbl_stats_board_rpc.sql) + [`20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql`](../scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql) |
 | SQL: the offseason pages card | [`20260925013201_admin_wpbl_page_usage_rpc.sql`](../scripts/migrations/20260925013201_admin_wpbl_page_usage_rpc.sql) |
+| SQL: the MLB card | [`20260928073655_admin_mlb_usage_rpc.sql`](../scripts/migrations/20260928073655_admin_mlb_usage_rpc.sql) |
+| MLB Home card seen / used | [`src/mlb/components/TrackedCard.tsx`](../src/mlb/components/TrackedCard.tsx) |
 | SQL: the Page speed card | [`20260927074721_add_admin_web_vitals_rpc.sql`](../scripts/migrations/20260927074721_add_admin_web_vitals_rpc.sql) |
 | Real-user timing capture | [`src/lib/webVitals.ts`](../src/lib/webVitals.ts), `trackOnExit` in [`src/lib/analytics.ts`](../src/lib/analytics.ts) |
 | Typed RPC wrappers + pure helpers | [`src/lib/analyticsAdmin.ts`](../src/lib/analyticsAdmin.ts) |
@@ -94,7 +96,10 @@ used" as the first half of a pair (`HOME_FUNNELS`, browsers on both sides), acti
 people do", and retired names only in the raw list. **Add a new event to `EVENT_INFO` when you add
 it to `EVENTS`**: an unlabelled one still shows under "Other" with its raw name, and
 `analyticsAdmin.test.ts` fails until it has a label. "Offseason pages" reads the three
-`wpbl_page_*` events through `admin_wpbl_page_usage`.
+`wpbl_page_*` events through `admin_wpbl_page_usage`. "MLB: what gets used" reads the five `mlb_*`
+events through `admin_mlb_usage` (Sep 28, 2026): each Home card as used over seen, how tabs are
+reached, and where players and teams are opened from. It ignores the league chips, since it is MLB
+by definition, and it exists to decide what MLB keeps as it is aligned with WPBL (ROADMAP.md).
 
 ## 2. The security model: read this before changing any of it
 
@@ -158,6 +163,7 @@ last two rows, which say what they take instead.
 | `admin_top_players(days_back, lim, tz)` | `props->>'playerId'` joined to `wpbl_players` |
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
+| `admin_mlb_usage(days_back, tz)` | MLB Home cards (`props->>'card'`, seen and used in browsers), tabs (`view` × `via`), and player / team opens by `from` |
 | `admin_web_vitals(days_back, tz)` | real page loads: p75 LCP / INP / CLS / FCP / TTFB and the share under Google's "good" line, by device and section with rollups (null = all) |
 | `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favourite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
 | `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
@@ -202,6 +208,16 @@ it is one card and one question.
 
 Break one of these and the dashboard keeps rendering. It just lies.
 
+- **An MLB card is "seen" when it reaches the top three-quarters of the screen, not when it
+  renders, and "used" is the first click anywhere inside it.** Both are once per page load per
+  card (`trackImpression`), so the card is browsers over browsers. A click inside a modal the
+  card opened counts for the card. Report boards are keyed by board (`report_lowest_payroll`),
+  not by slot, because the two slots rotate through fifteen boards day to day.
+- **`mlb_tab_viewed` leaves out Back/Forward and every link into the player and team pages.**
+  Those pages are the view called `search`; reaching one by a link is already an
+  `mlb_player_opened` / `mlb_team_opened` with its source, so the tab card's `search` row is pill
+  taps only. The open's `from` is the tab the reader was on, except `header_search`, `recent` and
+  `team_page`, which name themselves.
 - **"Browsers", never "visitors".** `session_id` is a random per-browser id in
   localStorage. One person on a phone and a laptop is two; clearing site data starts a new
   one. The UI says "browsers" everywhere on purpose.

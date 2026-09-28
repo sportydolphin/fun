@@ -29,6 +29,7 @@ import {
 } from '../components/reportCardRows'
 import { getHomeOverlay, clearOverlayIf } from '../state/homeOverlay'
 import { SCHEDULE_GAME_TYPES } from '../gameStatus'
+import { TrackedCard } from '../components/TrackedCard'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -404,12 +405,15 @@ export function HomeView({
   return (
     <Box>
       {/* ── Scoreboard — full-width header, always visible ─────────────────────── */}
-      <Box sx={{ mb: 2 }}>
+      {/* Every card on this page is a TrackedCard: seen, then used. See TrackedCard.tsx. */}
+      <TrackedCard card="scoreboard" sx={{ mb: 2 }}>
         <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
-      </Box>
+      </TrackedCard>
 
       {/* ── Happening Now — only renders while live drama is brewing ───────────── */}
-      <LiveDramaCard onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+      <TrackedCard card="live_drama">
+        <LiveDramaCard onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+      </TrackedCard>
 
       {/* ── Merged feed ────────────────────────────────────────────────────────
           One scroll: "My Feed" (personal, wider) then "Around the League".
@@ -429,81 +433,82 @@ export function HomeView({
           {followedTeamId ? (
             <>
               {/* Team card */}
-              <Box sx={{
-                order: ORDER.teamCard,
-                borderRadius: 3, overflow: 'hidden',
-                border: '1px solid', borderColor: borderAlpha(bg, isDark),
-                borderLeft: `4px solid ${bg}`,
-                bgcolor: 'background.paper',
-                background: cardGradient135(bg, isDark),
-                display: 'flex', flexDirection: 'column',
-              }}>
-                {/* Team header — name+standing | buttons. px matches the schedule
-                    strip's 2.5 below so the name/record align with the game text. */}
-                <Box sx={{ px: 2.5, pt: 1.25, pb: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{
-                        fontSize: { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,
-                        letterSpacing: '-0.5px', lineHeight: 1.25,
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      }}>
-                        {teamLabel}
-                      </Typography>
-                      {standingLine && (
-                        <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.74rem' }, color: 'text.secondary', mt: 0.35, lineHeight: 1.3 }}>
-                          {standingLine}
+              <TrackedCard card="team_card" sx={{ order: ORDER.teamCard, minWidth: 0 }}>
+                <Box sx={{
+                  borderRadius: 3, overflow: 'hidden',
+                  border: '1px solid', borderColor: borderAlpha(bg, isDark),
+                  borderLeft: `4px solid ${bg}`,
+                  bgcolor: 'background.paper',
+                  background: cardGradient135(bg, isDark),
+                  display: 'flex', flexDirection: 'column',
+                }}>
+                  {/* Team header — name+standing | buttons. px matches the schedule
+                      strip's 2.5 below so the name/record align with the game text. */}
+                  <Box sx={{ px: 2.5, pt: 1.25, pb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{
+                          fontSize: { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,
+                          letterSpacing: '-0.5px', lineHeight: 1.25,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {teamLabel}
                         </Typography>
-                      )}
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
-                      <Box
-                        onClick={() => setShowTeamSchedule(true)}
-                        sx={{
-                          fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
-                          cursor: 'pointer', px: 0.9, py: 0.3,
-                          borderRadius: 999, border: '1px solid', borderColor: 'divider',
-                          whiteSpace: 'nowrap',
-                          transition: 'color 0.12s, border-color 0.12s',
-                          '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
-                        }}
-                      >
-                        Schedule →
+                        {standingLine && (
+                          <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.74rem' }, color: 'text.secondary', mt: 0.35, lineHeight: 1.3 }}>
+                            {standingLine}
+                          </Typography>
+                        )}
                       </Box>
-                      <Box
-                        onClick={onUnfollowTeam}
-                        sx={{
-                          fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
-                          cursor: 'pointer', px: 0.9, py: 0.3,
-                          borderRadius: 999, border: '1px solid', borderColor: 'divider',
-                          whiteSpace: 'nowrap',
-                          transition: 'color 0.12s, border-color 0.12s',
-                          '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
-                        }}
-                      >
-                        Change
+                      <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
+                        <Box
+                          onClick={() => setShowTeamSchedule(true)}
+                          sx={{
+                            fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                            cursor: 'pointer', px: 0.9, py: 0.3,
+                            borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                            whiteSpace: 'nowrap',
+                            transition: 'color 0.12s, border-color 0.12s',
+                            '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+                          }}
+                        >
+                          Schedule →
+                        </Box>
+                        <Box
+                          onClick={onUnfollowTeam}
+                          sx={{
+                            fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                            cursor: 'pointer', px: 0.9, py: 0.3,
+                            borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                            whiteSpace: 'nowrap',
+                            transition: 'color 0.12s, border-color 0.12s',
+                            '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+                          }}
+                        >
+                          Change
+                        </Box>
                       </Box>
                     </Box>
                   </Box>
+  
+                  {/* Schedule strip */}
+                  <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+                    <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
+                      <TeamScheduleStrip
+                        teamId={followedTeamId}
+                        teamColor={bg}
+                        showSchedule={showTeamSchedule}
+                        onScheduleClose={() => { setShowTeamSchedule(false); clearOverlayIf('teamSchedule') }}
+                        onPlayerClick={onPlayerClick}
+                        onTeamClick={onTeamClick}
+                      />
+                    </Suspense>
+                  </Box>
                 </Box>
-
-                {/* Schedule strip */}
-                <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                  <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
-                    <TeamScheduleStrip
-                      teamId={followedTeamId}
-                      teamColor={bg}
-                      showSchedule={showTeamSchedule}
-                      onScheduleClose={() => { setShowTeamSchedule(false); clearOverlayIf('teamSchedule') }}
-                      onPlayerClick={onPlayerClick}
-                      onTeamClick={onTeamClick}
-                    />
-                  </Suspense>
-                </Box>
-              </Box>
+              </TrackedCard>
 
               {/* Your players — capped so a long list doesn't dominate; scrolls internally */}
-              <Box sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: 460 } }}>
+              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: 460 } }}>
                 <FollowedPlayersSection
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}
@@ -513,30 +518,30 @@ export function HomeView({
                   teamId={followedTeamId}
                   compact
                 />
-              </Box>
+              </TrackedCard>
 
               {/* Predictor — under the team card while picks are open, else last */}
-              <Box sx={{ order: predictorOrder, minWidth: 0 }}>
+              <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
                 <PredictorWidget onPicksSettled={handlePicksSettled} />
-              </Box>
+              </TrackedCard>
 
               {/* Standings snapshot — division race if in the hunt, else the wild card */}
-              <Box sx={{ order: ORDER.standings, minWidth: 0 }}>
+              <TrackedCard card="standings" sx={{ order: ORDER.standings, minWidth: 0 }}>
                 <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
-              </Box>
+              </TrackedCard>
 
               {/* Streak Survivor — daily hitter-streak game */}
-              <Box sx={{ order: ORDER.survivor, minWidth: 0 }}>
+              <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
                 <StreakSurvivorWidget />
-              </Box>
+              </TrackedCard>
             </>
           ) : (
             /* No team followed: picker leads, so the feed always nudges the core action */
             <>
-              <Box sx={{ order: ORDER.teamCard, minWidth: 0 }}>
+              <TrackedCard card="team_picker" sx={{ order: ORDER.teamCard, minWidth: 0 }}>
                 <TeamPicker allTeams={allTeams} onSelect={onFollowTeam} />
-              </Box>
-              <Box sx={{ order: ORDER.followedPlayers, minWidth: 0 }}>
+              </TrackedCard>
+              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, minWidth: 0 }}>
                 <FollowedPlayersSection
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}
@@ -544,20 +549,20 @@ export function HomeView({
                   onFollow={onFollowPlayer}
                   liveTeamIds={liveTeamIds}
                 />
-              </Box>
-              <Box sx={{ order: predictorOrder, minWidth: 0 }}>
+              </TrackedCard>
+              <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
                 <PredictorWidget onPicksSettled={handlePicksSettled} />
-              </Box>
+              </TrackedCard>
 
               {/* Standings snapshot — no team followed, so a rotating division */}
-              <Box sx={{ order: ORDER.standings, minWidth: 0 }}>
+              <TrackedCard card="standings" sx={{ order: ORDER.standings, minWidth: 0 }}>
                 <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
-              </Box>
+              </TrackedCard>
 
               {/* Streak Survivor — daily hitter-streak game */}
-              <Box sx={{ order: ORDER.survivor, minWidth: 0 }}>
+              <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
                 <StreakSurvivorWidget />
-              </Box>
+              </TrackedCard>
             </>
           )}
         </Box>
@@ -566,13 +571,19 @@ export function HomeView({
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
           {/* Standout performances */}
-          <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+          <TrackedCard card="standouts">
+            <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+          </TrackedCard>
 
           {/* Roster moves — trades, DFAs, claims, signings; deadline countdown in July */}
-          <RosterMovesCard followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+          <TrackedCard card="roster_moves">
+            <RosterMovesCard followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+          </TrackedCard>
 
           {/* Milestone Watch — players closing in on career/season/record marks */}
-          <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} onPlayerClick={onPlayerClick} />
+          <TrackedCard card="milestones">
+            <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} onPlayerClick={onPlayerClick} />
+          </TrackedCard>
 
 
           {/* Featured spotlight — hot / cold. No floating section title; the
@@ -585,10 +596,14 @@ export function HomeView({
             )}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {hotGuy && (
-                <SpotlightCard data={hotGuy} mode="hot" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+                <TrackedCard card="on_fire">
+                  <SpotlightCard data={hotGuy} mode="hot" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+                </TrackedCard>
               )}
               {coldGuy && (
-                <SpotlightCard data={coldGuy} mode="cold" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+                <TrackedCard card="ice_cold">
+                  <SpotlightCard data={coldGuy} mode="cold" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+                </TrackedCard>
               )}
             </Box>
           </Box>
@@ -597,26 +612,30 @@ export function HomeView({
               boards), rotating day to day. Each carries its own heading. */}
           {selectedMetas.map(m => {
             const { rows, loading } = rowsForBoard(m)
-            return m.kind === 'player' ? (
-              <PlayerLeaderboardCard
-                key={m.id}
-                icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
-                tooltipText={m.tooltipText}
-                rows={rows as PlayerLbRow[]}
-                loading={loading}
-                onExpand={onViz ?? (() => {})}
-                onSelectPlayer={onPlayerClick}
-              />
-            ) : (
-              <LeaderboardCard
-                key={m.id}
-                icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
-                rows={rows as LbRow[]}
-                loading={loading}
-                onExpand={onViz ?? (() => {})}
-                expandLabel="View All →"
-                onSelectTeam={onTeamClick}
-              />
+            // Keyed by board, not by slot: the two slots rotate through fifteen boards day to
+            // day, and "does anyone open the payroll board" is the question, not "the top slot".
+            return (
+              <TrackedCard key={m.id} card={`report_${m.id.replace(/-/g, '_')}`}>
+                {m.kind === 'player' ? (
+                  <PlayerLeaderboardCard
+                    icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
+                    tooltipText={m.tooltipText}
+                    rows={rows as PlayerLbRow[]}
+                    loading={loading}
+                    onExpand={onViz ?? (() => {})}
+                    onSelectPlayer={onPlayerClick}
+                  />
+                ) : (
+                  <LeaderboardCard
+                    icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
+                    rows={rows as LbRow[]}
+                    loading={loading}
+                    onExpand={onViz ?? (() => {})}
+                    expandLabel="View All →"
+                    onSelectTeam={onTeamClick}
+                  />
+                )}
+              </TrackedCard>
             )
           })}
         </Box>

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PAGE_USAGE, EMPTY_WEB_VITALS,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PAGE_USAGE, EMPTY_WEB_VITALS, EMPTY_MLB_USAGE,
   type AnalyticsBundle,
 } from '../lib/analyticsAdmin'
 
@@ -22,6 +22,7 @@ const bundle = (over: Partial<AnalyticsBundle> = {}): AnalyticsBundle => ({
   growth: EMPTY_GROWTH,
   pages: EMPTY_PAGE_USAGE,
   vitals: EMPTY_WEB_VITALS,
+  mlb: EMPTY_MLB_USAGE,
   ...over,
 })
 
@@ -185,6 +186,27 @@ describe('AdminPage readable cards', () => {
     expect(within(card).getByText('Batting leaders → player')).toBeInTheDocument()
     expect(within(card).getByText('Photos')).toBeInTheDocument()
     expect(within(card).getByText('Category')).toBeInTheDocument()
+  })
+  // The MLB card is read to decide what the section keeps, so it leads with the card most USED,
+  // not the one most seen, and names cards in words rather than their ids.
+  it('ranks MLB Home cards by use, in their own words', async () => {
+    fetchAnalytics.mockResolvedValueOnce(bundle({ mlb: {
+      cards: [
+        { card: 'scoreboard', seen: 40, used: 5 },
+        { card: 'milestones', seen: 20, used: 9 },
+        { card: 'report_lowest_payroll', seen: 10, used: 1 },
+      ],
+      tabs: [{ view: 'stats', via: 'pill', events: 7, browsers: 5 }],
+      opens: [{ kind: 'player', from: 'home', events: 12, browsers: 8 }],
+    } }))
+    renderPage()
+    const head = await screen.findByRole('button', { name: /MLB: what gets used/ })
+    await waitFor(() => expect(head.textContent).toContain('Milestone watch is the most used card, 9 browsers'))
+    fireEvent.click(head)
+    const card = head.parentElement!
+    expect(within(card).getByText('Report: Lowest payroll')).toBeInTheDocument()
+    expect(within(card).getByText('45% of those who saw it')).toBeInTheDocument()
+    expect(within(card).getByText('Player from home')).toBeInTheDocument()
   })
 })
 
