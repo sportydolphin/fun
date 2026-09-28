@@ -155,8 +155,9 @@ reason to come back more than once a month until spring. So the order is by that
    `/wpbl/season`, every entry a link into Game Center, which is the other half of the retention
    gradient. Cheap, and it doubles as an Offseason Visual.
 3. **Who owns whom, league-wide, and the six season-series pages** (data-mining list). Indexable
-   pages from data already held, for a section whose constraint is search. `featuredMatchups` was
-   written for the first and nothing draws it.
+   pages from data already held, for a section whose constraint is search. The player card's
+   matchup tables shipped Sep 28 (see the log); the league board (`/wpbl/matchups`, one indexed
+   URL) is what `featuredMatchups` was written for and nothing draws it yet.
 4. **Decide Road to Springfield.** Built and sitting in `git stash` since Sep 25 (the map on
    `/wpbl/league` and its share videos). Ship it or drop it; a stash is where work goes to be
    forgotten.
@@ -904,12 +905,16 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   One vote per browser (the analytics localStorage id), opening the day after the last
   regular-season game and closing Sep 23, except "Build Around Her", which stays open until
   spring and is the only thing on the section that still takes an answer in January.
-- **Who owns whom: the batter-vs-pitcher board** 🔬. Four teams and six pairings means a
-  hitter faces the same pitcher 10 to 15 times in one season, a sample a 30-team league never
-  produces. **Half shipped Sep 12, 2026**: a comparison page draws the line for ONE pair
-  (`/wpbl/compare`, see the log). What is still missing is the league-wide "biggest edges"
-  board, which is what `featuredMatchups` was written for and what would surface a duel
-  nobody thought to go looking for.
+- **Who owns whom: the batter-vs-pitcher board** 🔬. Four teams and six pairings means the same
+  hitter and pitcher meet again and again, but the samples are smaller than this entry used to
+  claim: across the 2026 regular season the most any pair met is 10 times, 85 pairs met 5+ times
+  and 314 met 3+. Anything drawing a duel should lead with PA and the counts, not an average.
+  **Two surfaces shipped**: the comparison page draws ONE pair (Sep 12) and the player card lists
+  every opponent from both sides of the plate (Sep 28). Still missing is the league-wide "biggest
+  edges" board at `/wpbl/matchups` (pitcher's edge, batter's edge, most faced; a club filter and
+  the scope toggle), which is what `featuredMatchups` was written for and what would surface a
+  duel nobody thought to go looking for. After that, a "vs this pitcher" line on Game Center's
+  Live tab for spring 2027, which first has to decide whether it means this season or a career.
 - **Season series pages** 🎯. Six rivalry pages: running series record, the H2H grid, the
   matchup edges, every game log. Six durable indexable pages from data already held.
 - **Where they come from** 🎯. `hometown` on 118 players and `birth_date` on 65: a league map,
@@ -1227,6 +1232,81 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 28, 2026: the player card, one format per kind of fact
+
+An audit of the player card found the same question ("how good is this number") answered four
+ways on one pitching screen, three heading styles, three frame styles and two show-more buttons.
+Each block was reasonable alone. The fixes, all in one pass:
+
+- **One colour for a good number.** Top-five ranks, best games and better-than-league are now the
+  section blue and bold (`useRankInk` in `cardParts.tsx`). They used to be the club's colour, which
+  on the Firebells is red, directly above a legend saying warm colours mean worse. The club's
+  colour is now the band, the portrait and the controls only.
+- **One rank format and one field.** Every rate rank reads "9th of 16" at every width (the phone
+  printed a bare "9th"), and the pitch profile ranks against the season line's qualified field
+  (`batFieldIds` / `pitFieldIds` on the ranks) instead of the Pitches board's pitch-count bar,
+  which had the same pitcher "9th of 16" and "11th of 21" on one card. No more "fewest": 1st is
+  always the best, as it is for ERA. The Pitches board keeps its own bar.
+- **What she did, then how.** Season, game log, vs table, pitch profile, charts, fielding,
+  gallery, reading. The profile was second and about 420px tall on a phone; it now shows its four
+  headline rates and puts the pitch mix and the extra figures (now tiles, not a sentence of
+  numbers) behind "Show pitch mix".
+- **One control at the top of a phone.** Regular / Playoffs / Both moved onto the season caption
+  in a compact size (`SegNav size="sm"`), so it reads as a setting on that section rather than a
+  second navigation bar under Pitching / Batting.
+- **One heading, one button, one frame.** `SectionHead` and `ShowMoreButton` everywhere on the
+  card, including the reading list and the gallery. Fielding and the cameo lines are plain
+  sections now, not bordered panels with a club-coloured rule; fielding shows its whole line
+  (PO, A and DP were hidden behind a tap), which retired the stat-chip grid.
+
+- **Tables edge to edge on a phone.** The season line, game log and vs table bleed through the
+  pane's 16px gutter (`bleedSx`), which was 32px taken from the one element short of width; the
+  first and last cells take the gutter back so their text stays in line with the headings.
+  Desktop keeps its inset.
+
+The spray chart still shades in the club's colour: it shows where the ball went, not whether that
+was good, so it is not a verdict and was left alone.
+
+### Sep 28, 2026: batter vs pitcher on the player card, and two playoff leaks closed
+
+**The player card now lists every opponent.** "Vs pitchers" on a hitter, "Vs batters" on a
+pitcher, both on a two-way player, between the pitch profile and the game log and drawn in the
+log's own table styles. PA AB H HR BB SO AVG, most-faced first, five rows and a "Show N more".
+Each name is a real anchor to that pair's compare page. It follows the card's Regular / Playoffs
+/ Both toggle and defaults to Regular like every other number on the card; Both is the reader's
+choice of a bigger sample (Kelsie Whitmore against Ayami Sato goes from 5 plate appearances to
+11). No "owns" badge: the largest pair in the regular season met 10 times, so the counts carry
+the story and an average over three at-bats would not.
+
+**`batterPitcherMatchups` counted playoff at-bats and keyed on names.** Nothing drew it yet, so
+nothing was wrong on screen, but the playoffs are 717 of the 2,820 stored plate appearances and
+the first surface to call it would have folded them into every season line. It now takes the
+schedule as a required argument plus a `SeasonScope`, and keys on the ids the ingest resolved:
+the ingest leaves an id null exactly when a name is ambiguous, so a name key would merge two
+namesakes precisely where the ingest refused to guess. Every stored plate appearance carries
+both ids, so this drops nothing.
+
+**Then a review pass on the player card, four fixes.** The tables read the whole league play log,
+about 280KB over four requests, which nothing else loads on a cold visit in the offseason; they
+now read one player's plays, 10 to 16KB (`fetchWpblPlayerMatchupPlays`). The first cut of that
+read sent her feed ids beside her uuid and Postgres refused the whole query, so the tables drew
+nothing for everyone; it sends the uuid alone now, and the test's fake database refuses a non-uuid
+the same way. Each name linked to a compare page that opened on two season tables with the duel
+1,000px below, under "Regular season only": the head-to-head now leads that page, with the
+playoffs as their own labelled line, so Whitmore against Sato reads 5 PA and 6 PA where the card
+set to Both reads 11. The expanded table lost its column headings on a phone after the fifth of
+36 rows; it now caps and pins its header the way the game log does. And a caption says how many
+opponents, which slice, and that a name opens the matchup, since a phone has no hover to hint it. Both long tables on the card, the
+game log and the matchup tables, now fold back up with "Show fewer". The log had deliberately
+refused to since it would yank the page from under a reader, but an expanded table is a capped
+scroller now, so the most a collapse takes back is that cap; it also resets the inner scroll to
+the top and scrolls the section back into view if it had slid above the screen.
+
+**The team page's "vs" chips counted playoff games.** `TeamPage` had its own head-to-head loop
+that tested only for a final, the same leak `headToHead` had on Sep 9, one component over. San
+Francisco's chips read their 10-5 regular season again (NY 2-3, LA 3-2, BOS 5-0). It calls the
+shared `headToHead` now.
 
 ### Sep 27, 2026: housekeeping, and the league average folds into the headers on desktop
 
@@ -1672,8 +1752,10 @@ is; the pairs are indexable and are found by being linked, which is how a page s
 A test fails if a pair ever reaches the file.
 
 **THE HEAD-TO-HEAD IS THE PART NOBODY ELSE COVERING THIS LEAGUE CAN SHOW.** Four clubs and six
-pairings means a hitter sees the same pitcher ten to fifteen times in a season, a sample a
-thirty-club league never produces; in the majors the same line is four at-bats and means nothing.
+pairings means a hitter sees the same pitcher again and again, a sample a thirty-club league
+never produces; in the majors the same line is four at-bats and means nothing. (This entry first
+said ten to fifteen times a season. Measured on Sep 28, the most any pair met in the regular
+season is 10.)
 Kelsie Whitmore is 2-for-5 against Ayami Sato with two home runs. `batterPitcherMatchups` has
 computed this since August and nothing had ever drawn it.
 

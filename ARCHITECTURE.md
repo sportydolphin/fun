@@ -156,17 +156,37 @@ flowchart LR
   them together because three of the four failures are invisible under `npm run dev`.
 - **Comparison pages** (`/wpbl/compare`, [`src/wpbl/Compare.tsx`](src/wpbl/Compare.tsx) +
   [`src/wpbl/derive/compare.ts`](src/wpbl/derive/compare.ts)): any two players side by side,
-  with the pair in the PATH (`/wpbl/compare/denae-benites-vs-molly-paddison`) and the two
-  slugs forced into alphabetical order, the reverse spelling 301'd at the edge, so a
-  comparison is one URL rather than two near-duplicates. The head-to-head card is the part
-  no one else covering this league can show: four clubs means a hitter sees the same pitcher
-  ten to fifteen times a season. **Deliberately out of the sitemap** — 118 players is 6,903
-  pairs, and submitting those would bury the ~125 URLs somebody actually wrote under
+  with the pair in the PATH (`/wpbl/compare/denae-benites-vs-molly-paddison`). The path keeps
+  the order the reader built it in, so the player they started from stays on the left; a pair
+  still has ONE indexed spelling, the alphabetical one, declared as rel=canonical by
+  `wpblCompareCanonicalPath` in [`routes.ts`](src/wpbl/routes.ts) rather than enforced with a
+  301. The head-to-head card is the part no one else covering this league can show, since four
+  clubs means the same hitter and pitcher meet repeatedly. **Repeatedly is still small**: the
+  2026 regular season has 893 batter/pitcher pairs over 2,103 plate appearances, 85 of them met
+  5+ times and the most any pair met is 10. **Deliberately out of the sitemap**: 118 players is
+  6,903 pairs, and submitting those would bury the ~125 URLs somebody actually wrote under
   machine-made pages, which is what a doorway page is. Found by being linked instead: the
-  players index and the chip on each player's own card, both real anchors. Three route
-  shapes, one component: the picker, the picker with one slot filled (`noindex`, a state
-  rather than a page), and the pair. Reuses every read the section already caches, so it
-  costs a reader arriving from anywhere in the section nothing
+  players index, the chip on each player's own card, and every opponent's name in the player
+  card's matchup tables, all real anchors. Three route shapes, one component: the picker, the
+  picker with one slot filled (`noindex`, a state rather than a page), and the pair. Reuses
+  every read the section already caches, so it costs a reader arriving from anywhere in the
+  section nothing
+- **Batter vs pitcher** ([`src/wpbl/derive/matchups.ts`](src/wpbl/derive/matchups.ts)): one
+  derivation, `batterPitcherMatchups`, behind every surface that shows a duel. It reads the
+  UNFILTERED play read (`fetchWpblAllRunValuePlays`), never the firsts read, which drops routine
+  outs at the database and would make every hitter bat about .650. It takes the schedule as a
+  required argument and a `SeasonScope`, because the playoffs are 717 of the 2,820 stored plate
+  appearances and a play cannot say which game type it came from. It keys on the player ids the
+  ingest resolved, never the name: the ingest leaves an id null exactly when a name is ambiguous.
+  Drawn on the player card as "Vs pitchers" / "Vs batters" (`playerMatchups`, most-faced first,
+  following the card's Regular / Playoffs / Both toggle), and first on the compare page for one
+  pair, regular season and playoffs as separate lines. **Both read `fetchWpblPlayerMatchupPlays`**,
+  one player's plays (10 to 16KB) rather than the league log (about 280KB), falling back to her
+  slice of the league log when another page has it fresh. It filters the database on her uuid
+  ONLY: the play id columns are typed uuid, and a feed id in the list makes Postgres reject the
+  whole query, which `safe` turns into an empty table. It also pulls in any play a correction
+  moves onto her, since a filter on the mirror's ids cannot see those.
+  `featuredMatchups` is written for a league-wide board and nothing draws it yet
 - **The WPBL derive layer** ([`src/wpbl/derive/`](src/wpbl/derive)) is pure: arrays in, plain
   shapes out, no supabase and no React, so the same code serves the site, the Discord posters
   and the Deno ingest. `playByPlay` (parse a play, `runsOnPlay`), `runExpectancy` (the league's

@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly } from './ui'
+import { SectionHead, ShowMoreButton, useRankInk } from './cardParts'
 import { readMinutes, sourceOf, sourcePhoto, coverAt, type SubstackSource } from './derive/articles'
 import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/recaps'
 import type { WpblArticle, WpblGameRecap, WpblTeam } from './types'
@@ -445,7 +446,7 @@ const WRITTEN_ABOUT_INITIAL = 3
  *
  *  Renders nothing when nobody has written about this player, which is the common case and
  *  should stay silent rather than showing an empty shell. */
-export function WrittenAbout({ articles, title, limit = 8, from = 'player' }: {
+export function WrittenAbout({ articles, title, limit = 8, from = 'player', accent }: {
   articles: WpblArticle[]
   /** e.g. "Written about Denae Benites". */
   title?: string
@@ -456,7 +457,10 @@ export function WrittenAbout({ articles, title, limit = 8, from = 'player' }: {
   /** Accepted and ignored: the list is one column at every width now. Kept so a caller from the
    *  two-across card layout does not have to change in the same commit. */
   wide?: boolean
+  /** The page's control colour, for "Show more". Omitted, the section blue. */
+  accent?: string
 }) {
+  const ink = useRankInk()
   const [open, setOpen] = useState(false)
   const all = articles.slice(0, limit)
   if (all.length === 0) return null
@@ -464,11 +468,9 @@ export function WrittenAbout({ articles, title, limit = 8, from = 'player' }: {
   const hidden = all.length - shown.length
   return (
     <Box sx={{ mt: title ? 2 : 0 }}>
-      {title && (
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', mb: 0.5 }}>
-          {title}
-        </Typography>
-      )}
+      {/* The player card's heading and show-more button (cardParts), so the last block on the
+          card is drawn in the same hand as every block above it. */}
+      {title && <SectionHead title={title} sx={{ mb: 0.5 }} />}
       <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
         {shown.map(a => (
           <Box component="li" key={a.post_id} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -497,15 +499,9 @@ export function WrittenAbout({ articles, title, limit = 8, from = 'player' }: {
         ))}
       </Box>
       {hidden > 0 && (
-        <Box component="button" type="button" onClick={() => setOpen(true)}
-          sx={{
-            mt: 0.75, p: 0, border: 0, bgcolor: 'transparent', cursor: 'pointer', font: 'inherit',
-            fontSize: '0.72rem', fontWeight: 800, color: 'text.secondary',
-            ...hoverOnly({ color: 'text.primary' }),
-            '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 1 },
-          }}>
+        <ShowMoreButton onClick={() => setOpen(true)} accent={accent ?? ink}>
           Show {hidden} more
-        </Box>
+        </ShowMoreButton>
       )}
     </Box>
   )

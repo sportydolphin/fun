@@ -208,6 +208,12 @@ export interface WpblPlayerRanks {
   /** Qualified population sizes, for the "vs N qualified batters" line. */
   batOf: number
   pitOf: number
+  /** WHO is in each qualified field, so another block on the card can rank against the same
+   *  players. The pitch profile does: ranked against its own pitch-count bar it printed "11th of
+   *  21" two inches under a season line reading "9th of 16", for the same pitcher, and a reader
+   *  has no way to know the two denominators are different bars. */
+  batFieldIds: string[]
+  pitFieldIds: string[]
   /** The population the counting ranks were taken against: the qualified field when she is in
    *  it, everyone who has played when she is not. Equal to `batOf` in the first case, which is
    *  what lets the merged strip print one population line. */
@@ -221,7 +227,7 @@ export interface WpblPlayerRanks {
 
 const EMPTY: Omit<WpblPlayerRanks, 'qualifiers'> = {
   batting: [], pitching: [], battingCounts: [], pitchingCounts: [],
-  batOf: 0, pitOf: 0, batCountOf: 0, pitCountOf: 0,
+  batOf: 0, pitOf: 0, batFieldIds: [], pitFieldIds: [], batCountOf: 0, pitCountOf: 0,
   batReason: 'no-data', pitReason: 'no-data',
 }
 
@@ -340,6 +346,7 @@ export function computeWpblPlayerRanks(
   return {
     batting, pitching, battingCounts, pitchingCounts,
     batOf: batField.length, pitOf: pitField.length,
+    batFieldIds: batField.map(s => s.player.id), pitFieldIds: pitField.map(s => s.player.id),
     batCountOf: batCountField.length, pitCountOf: pitCountField.length,
     batReason: inBatField ? 'ok' : playedBat ? 'below-bar' : 'no-data',
     pitReason: inPitField ? 'ok' : playedPit ? 'below-bar' : 'no-data',

@@ -22,13 +22,14 @@ import { Box, Typography, CircularProgress, TextField, InputAdornment } from '@m
 import SearchIcon from '@mui/icons-material/Search'
 import {
   fetchWpblTeams, fetchWpblAllPlayers, fetchWpblSchedule, fetchWpblAllLines,
-  fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
+  fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays,
   getCachedWpblAllPlayers, getCachedWpblAllLines,
 } from './api'
 import {
   buildWpblComparison, rankCompareCandidates,
-  type WpblCompareGroup, type WpblCompareRow, type WpblCompareSide, type WpblCompareCandidate,
+  type WpblCompareGroup, type WpblCompareRow, type WpblCompareSide, type WpblCompareCandidate, type WpblMatchupCounts,
 } from './derive/compare'
+import type { WpblMatchupPlay } from './derive/matchups'
 import {
   CARD_BORDER, SectionCard, TYPE_SCALE, TeamBadge, PlayerPortrait, chromePx, hoverOnly,
   MICRO_TEXT, FOCUS_RING, useWpblDark,
@@ -323,9 +324,9 @@ function CompareGroupCard({ group }: { group: WpblCompareGroup }) {
  * What happened when they actually faced each other.
  *
  * THE REASON THIS PAGE IS WORTH BUILDING FOR THIS LEAGUE IN PARTICULAR. Four clubs and six
- * pairings means a hitter sees the same pitcher ten to fifteen times in a season, a sample a
- * thirty-club league never produces; in the majors the equivalent line is four at-bats and
- * means nothing. It is still a small number, so the card prints the raw line and no rate
+ * pairings means a hitter sees the same pitcher again and again, a sample a thirty-club league
+ * never produces. It is still a small number (the most any pair met in the 2026 regular season
+ * is 10), so the card prints the raw line and no rate
  * commentary: 3-for-11 is a fact, "has their number" is not.
  */
 function MatchupCard({ comparison, a, b }: {
@@ -335,22 +336,36 @@ function MatchupCard({ comparison, a, b }: {
 }) {
   if (comparison.matchups.length === 0) return null
   const name = (side: WpblCompareSide) => (side === 'a' ? a.name : b.name)
+  const line = (m: WpblMatchupCounts) => [
+    `${m.h}-for-${m.ab}${m.avg != null ? ` (${m.avg.toFixed(3).replace(/^0(?=\.)/, '')})` : ''}`,
+    `${m.pa} PA`,
+    m.hr > 0 ? `${m.hr} HR` : null,
+    m.bb > 0 ? `${m.bb} BB` : null,
+    m.so > 0 ? `${m.so} SO` : null,
+  ].filter(Boolean).join(' · ')
   return (
-    <CompareCard title="Head to head" subtitle="Regular season only">
+    <CompareCard title="Head to head">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, textAlign: 'center' }}>
         {comparison.matchups.map(m => (
           <Box key={m.batter}>
             <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, mb: 0.25 }}>
               {name(m.batter)} batting against {name(m.batter === 'a' ? 'b' : 'a')}
             </Typography>
-            <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-              {m.h}-for-{m.ab}
-              {m.avg != null ? ` (${m.avg.toFixed(3).replace(/^0(?=\.)/, '')})` : ''}
-              {' · '}{m.pa} PA
-              {m.hr > 0 ? ` · ${m.hr} HR` : ''}
-              {m.bb > 0 ? ` · ${m.bb} BB` : ''}
-              {m.so > 0 ? ` · ${m.so} SO` : ''}
-            </Typography>
+            {/* One line per slice, each labelled, and the playoffs NEVER summed into the season:
+                a reader who set the player card to "Both" can add them, and one who did not is
+                not handed a total the standings would not recognise. */}
+            {/* The label sits ABOVE its line rather than leading it: inline, "Regular season"
+                pushed a phone's line past the width and wrapped it mid-list, stranding "· 1 SO". */}
+            {([['Regular season', m.regular], ['Playoffs', m.postseason]] as const).map(([label, c]) => c && (
+              <Box key={label} sx={{ mt: 0.75 }}>
+                <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', lineHeight: 1.3 }}>
+                  {label}
+                </Typography>
+                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                  {line(c)}
+                </Typography>
+              </Box>
+            ))}
           </Box>
         ))}
       </Box>
@@ -482,9 +497,12 @@ export default function WpblComparePage({ path, onNavigate }: {
   const [games, setGames] = useState<WpblGame[]>([])
   const [lines, setLines] = useState(() => getCachedWpblAllLines())
   const [loading, setLoading] = useState(players.length === 0)
-  // The play log, for the head-to-head alone. Allowed never to arrive; the card simply does
-  // not render, exactly as the percentile strip is allowed to be absent on a player page.
-  const [plays, setPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  // The first player's own plays, for the head-to-head alone: they hold every plate appearance
+  // she had against anybody, so every duel with the second player is in there, and they cost a
+  // few KB where the league log costs about 280. Tagged with whose they are, so a pair changed
+  // in place never draws the last pair's duel for a frame. Allowed never to arrive; the card
+  // simply does not render, as the percentile strip is allowed to be absent on a player page.
+  const [plays, setPlays] = useState<{ id: string; data: WpblMatchupPlay[] } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -495,9 +513,6 @@ export default function WpblComparePage({ path, onNavigate }: {
       })
       .catch(() => { /* the empty state below is the whole error path */ })
       .finally(() => { if (!cancelled) setLoading(false) })
-    fetchWpblAllRunValuePlays()
-      .then(pl => { if (!cancelled) setPlays(pl) })
-      .catch(() => { /* no head-to-head card; the page is what it was without it */ })
     return () => { cancelled = true }
   }, [])
 
@@ -512,6 +527,18 @@ export default function WpblComparePage({ path, onNavigate }: {
   const single = useMemo(
     () => (slug && !pair && players.length > 0 ? findWpblPlayerBySlug(slug, players) : null),
     [slug, pair, players])
+
+  const lead = pair?.[0] ?? null
+  useEffect(() => {
+    if (!lead) return
+    let cancelled = false
+    const seed = getCachedWpblPlayerMatchupPlays(lead)
+    if (seed) setPlays({ id: lead.id, data: seed })
+    fetchWpblPlayerMatchupPlays(lead)
+      .then(data => { if (!cancelled) setPlays({ id: lead.id, data }) })
+      .catch(() => { /* no head-to-head card; the page is what it was without it */ })
+    return () => { cancelled = true }
+  }, [lead])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -540,7 +567,7 @@ export default function WpblComparePage({ path, onNavigate }: {
     if (!pair || !lines) return null
     return buildWpblComparison(pair[0], pair[1], {
       teams, games, batting: lines.batting, pitching: lines.pitching,
-      plays: plays ?? undefined, basis,
+      plays: plays && plays.id === pair[0].id ? plays.data : undefined, basis,
     })
   }, [pair, lines, teams, games, plays, basis])
 
@@ -658,6 +685,10 @@ export default function WpblComparePage({ path, onNavigate }: {
 
       {pair && comparison && (
         <>
+          {/* THE DUEL LEADS when there is one. It is the one card here nobody else can draw, and
+              it is what every name in a player card's matchup table promises: those links used to
+              land a reader on two season tables with the head-to-head a thousand pixels below. */}
+          <MatchupCard comparison={comparison} a={pair[0]} b={pair[1]} />
           {comparison.groups.map(g => (
             <CompareGroupCard key={g.key} group={g} />
           ))}
@@ -666,7 +697,6 @@ export default function WpblComparePage({ path, onNavigate }: {
               Neither has a box-score line this season, so there is nothing to compare yet.
             </Typography>
           )}
-          <MatchupCard comparison={comparison} a={pair[0]} b={pair[1]} />
           {/* A WAY OUT THAT IS NOT THE BACK BUTTON. Somebody who has just read one comparison
               usually wants another, and without this the only route to one is retyping a URL. */}
           <Box

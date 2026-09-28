@@ -276,7 +276,7 @@ describe('the head to head', () => {
         play({ event_type: 'home_run' }),
       ],
     })
-    const m = c.matchups.find(x => x.batter === 'a')!
+    const m = c.matchups.find(x => x.batter === 'a')!.regular!
     expect(m.pa).toBe(5)
     expect(m.ab).toBe(4)       // the walk is a PA and not an at-bat
     expect(m.h).toBe(2)
@@ -285,13 +285,22 @@ describe('the head to head', () => {
     expect(m.avg).toBeCloseTo(0.5)
   })
 
-  it('leaves a postseason at-bat out, like every other season total here', () => {
+  it('keeps a postseason at-bat out of the regular season, as its own line', () => {
     const c = build({
       teams, games, batting: [], pitching: [],
       plays: [play({ event_type: 'single' }), play({ game_id: 'post', event_type: 'home_run' })],
     })
-    expect(c.matchups[0].pa).toBe(1)
-    expect(c.matchups[0].hr).toBe(0)
+    expect(c.matchups[0].regular).toMatchObject({ pa: 1, hr: 0 })
+    expect(c.matchups[0].postseason).toMatchObject({ pa: 1, hr: 1 })
+  })
+
+  // A pair that met only in the bracket still has a head-to-head; before the slices it had none.
+  it('draws a duel that happened only in the playoffs', () => {
+    const c = build({
+      teams, games, batting: [], pitching: [],
+      plays: [play({ game_id: 'post', event_type: 'double' })],
+    })
+    expect(c.matchups).toEqual([{ batter: 'a', regular: null, postseason: expect.objectContaining({ pa: 1, h: 1 }) }])
   })
 
   it('says nothing when they have never met', () => {
@@ -310,7 +319,7 @@ describe('the head to head', () => {
       teams, games, batting: [], pitching: [],
       plays: [play({ batter_id: 'old-id', event_type: 'double' })],
     })
-    expect(c.matchups[0]?.h).toBe(1)
+    expect(c.matchups[0]?.regular?.h).toBe(1)
   })
 
   it('is absent, rather than empty, when the play log has not arrived', () => {

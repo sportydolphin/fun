@@ -28,8 +28,8 @@ import {
 } from '../stats'
 import { leadsWithPitching } from '../positions'
 import { outsToIp } from '../innings'
-import { regularSeasonLines } from '../season'
-import { classifyPa, type WpblMatchupPlay } from './matchups'
+import { scopedLines } from '../season'
+import { classifyPa, playerPlayIds, type WpblMatchupPlay } from './matchups'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine,
 } from '../types'
@@ -70,13 +70,23 @@ export interface WpblCompareGroup {
   counting: WpblCompareRow[]
 }
 
+/** One slice of a duel: every plate appearance between the two in that part of the year. */
+export interface WpblMatchupCounts {
+  pa: number; ab: number; h: number; hr: number; xbh: number; bb: number; so: number
+  avg: number | null
+}
+
 /** What the two of them have done to each other, when they have met. Only ever present for a
- *  hitter and a pitcher, and only when at least one plate appearance is on the record. */
+ *  hitter and a pitcher, and only when at least one plate appearance is on the record.
+ *
+ *  THE PLAYOFFS ARE THEIR OWN SLICE, never folded in. A reader arriving from a player card set to
+ *  "Both" saw 11 plate appearances there and 5 here under "Regular season only", with nothing to
+ *  say where the other six went. Each slice is null when they did not meet in it. */
 export interface WpblCompareMatchup {
   /** Which side was batting. The other one was pitching. */
   batter: WpblCompareSide
-  pa: number; ab: number; h: number; hr: number; xbh: number; bb: number; so: number
-  avg: number | null
+  regular: WpblMatchupCounts | null
+  postseason: WpblMatchupCounts | null
 }
 
 export interface WpblComparison {
@@ -200,8 +210,9 @@ function pitchingRows(a: WpblPitchingTotals, b: WpblPitchingTotals, basis: EraBa
 /**
  * Every plate appearance one of them took against the other.
  *
- * `plays` MUST be the unfiltered league play log (`fetchWpblAllRunValuePlays`). The firsts
- * read next door to it in api.ts drops routine outs at the database, which is right for what
+ * `plays` MUST be unfiltered by event: the league play log (`fetchWpblAllRunValuePlays`) or one
+ * of the pair's own plays (`fetchWpblPlayerMatchupPlays`), which hold every duel with anybody.
+ * The firsts read in api.ts drops routine outs at the database, which is right for what
  * it is for and would make this read a .650 average for everybody: the outs are most of the
  * denominator and none of them would arrive. The parameter type is the narrow structural one
  * from matchups.ts rather than either read's own, so this cannot be enforced by the compiler
@@ -209,18 +220,19 @@ function pitchingRows(a: WpblPitchingTotals, b: WpblPitchingTotals, basis: EraBa
  *
  * `games` is required for the reason every aggregate in this section requires it: a play
  * carries a game_id and nothing else, so it cannot say for itself whether it was a postseason
- * game, and a postseason at-bat must not reach a season line.
+ * game. `scope` is one slice, never both: the card prints the regular season and the playoffs
+ * as separate lines.
  */
 function matchupBetween(
   batter: WpblPlayer, pitcher: WpblPlayer,
-  plays: WpblMatchupPlay[], games: WpblGame[],
-): Omit<WpblCompareMatchup, 'batter'> | null {
+  plays: WpblMatchupPlay[], games: WpblGame[], scope: 'regular' | 'postseason',
+): WpblMatchupCounts | null {
   // Every feed id each of them has held, because the league mints a new player_id on a trade
   // and a matchup played in July is keyed on the id she held then.
-  const batterIds = new Set([...(batter.api_ids ?? []), batter.api_id, batter.id].filter(Boolean))
-  const pitcherIds = new Set([...(pitcher.api_ids ?? []), pitcher.api_id, pitcher.id].filter(Boolean))
+  const batterIds = new Set(playerPlayIds(batter))
+  const pitcherIds = new Set(playerPlayIds(pitcher))
   const t = { pa: 0, ab: 0, h: 0, hr: 0, xbh: 0, bb: 0, so: 0 }
-  for (const p of regularSeasonLines(plays, games)) {
+  for (const p of scopedLines(plays, games, scope)) {
     if (!p.batter_id || !p.pitcher_id) continue
     if (!batterIds.has(p.batter_id) || !pitcherIds.has(p.pitcher_id)) continue
     const o = classifyPa(p)
@@ -252,8 +264,9 @@ export function buildWpblComparison(
     games: WpblGame[]
     batting: WpblBattingLine[]
     pitching: WpblPitchingLine[]
-    /** The unfiltered league play log, for the head-to-head. Omitted where it has not
-     *  arrived: the rest of the page does not wait on it. */
+    /** Unfiltered plays covering at least every plate appearance between the two (the league
+     *  log, or either one's own plays), for the head-to-head. Omitted where it has not arrived:
+     *  the rest of the page does not wait on it. */
     plays?: WpblMatchupPlay[]
     basis?: EraBasis
   },
@@ -326,10 +339,11 @@ export function buildWpblComparison(
   // way, and a four-club league is exactly where that happens.
   const matchups: WpblCompareMatchup[] = []
   if (plays && plays.length > 0) {
-    const ab = matchupBetween(a, b, plays, games)
-    if (ab) matchups.push({ batter: 'a', ...ab })
-    const ba = matchupBetween(b, a, plays, games)
-    if (ba) matchups.push({ batter: 'b', ...ba })
+    for (const [batter, x, y] of [['a', a, b], ['b', b, a]] as const) {
+      const regular = matchupBetween(x, y, plays, games, 'regular')
+      const postseason = matchupBetween(x, y, plays, games, 'postseason')
+      if (regular || postseason) matchups.push({ batter, regular, postseason })
+    }
   }
 
   return { groups, matchups }

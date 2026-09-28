@@ -1,5 +1,5 @@
-import { countsInStandings } from '../season.ts'
-import type { WpblGamePlay, WpblGame } from '../types'
+import { countsInStandings, scopedLines, type SeasonScope, type WpblSeasonGame } from '../season.ts'
+import type { WpblGamePlay, WpblGame, WpblPlayer } from '../types'
 
 // Matchup derivations: batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
 // arrays in, plain shapes out (no supabase / React), mirroring stats.ts and firsts.ts.
@@ -47,9 +47,22 @@ export type WpblMatchupPlay = Pick<WpblGamePlay,
   | 'event_type' | 'narrative'
 >
 
+/**
+ * Every id a player can appear under on a play.
+ *
+ * A play's ids are our own player uuids (the ingest resolves by name, and the columns are typed
+ * uuid), so against stored plays this matches on `id` alone. The feed ids ride along for callers
+ * holding plays from anywhere else, since the league mints a new one on a trade; a DATABASE
+ * filter must drop them, see `fetchWpblPlayerMatchupPlays`. ONE definition, shared by the player card, the
+ * compare page and the per-player read, so the three cannot disagree about who she is.
+ */
+export function playerPlayIds(p: Pick<WpblPlayer, 'id' | 'api_id' | 'api_ids'>): string[] {
+  return [...new Set([p.id, p.api_id, ...(p.api_ids ?? [])].filter((x): x is string => !!x))]
+}
+
 export interface WpblMatchupLine {
-  batterId: string | null; batterName: string
-  pitcherId: string | null; pitcherName: string
+  batterId: string; batterName: string
+  pitcherId: string; pitcherName: string
   pa: number; ab: number; h: number; hr: number; xbh: number; bb: number; so: number
   avg: number | null                  // null when ab === 0 (all walks / HBP)
   edge: 'pitcher' | 'batter' | null   // lopsided flag, for a badge
@@ -59,27 +72,42 @@ export interface WpblMatchupLine {
 // One line per batter/pitcher pair with at least `minPa` plate appearances, ranked by how
 // compelling the duel is (lopsided splits, homers, and extreme averages float up; raw
 // familiarity barely counts) rather than by who's simply been faced the most, which would let
-// the early-season workhorse pitcher fill the whole list. Keyed by name (ids can be null
-// when the feed name didn't resolve to a roster player); ids carry through so the UI can link.
+// the early-season workhorse pitcher fill the whole list.
+//
+// KEYED ON THE PLAYER ID, NOT THE NAME. The ingest resolves a play's batter and pitcher by name
+// and leaves the id null when the name is ambiguous, so a name key would fold two namesakes into
+// one duel exactly where the ingest refused to guess. A play with no id is skipped: it is
+// evidence of nothing about who was at the plate. As of Sep 28, 2026 every one of the 2,820
+// plate appearances carries both ids, so this costs nothing today.
+//
+// `games` is REQUIRED for the reason every aggregate in stats.ts requires it: a play carries a
+// game_id and nothing else, so it cannot say whether it was a playoff at-bat. Without it a
+// batter's semifinal homer lands in her season line against that pitcher. `scope` is the player
+// page's Regular / Playoffs / Both control and defaults to the regular season like every other
+// caller of `scopedLines`; the playoffs are a quarter of all plate appearances, so "Both" is a
+// real difference in sample and the reader's to choose, not ours.
 //
 // minPa is 3, not 4, on purpose: at 4+ the pool collapses to the one or two pitchers with the
 // most innings, so the board reads as "everyone vs Pitcher X." Three widens it to ~10 pitchers.
-export function batterPitcherMatchups(plays: WpblMatchupPlay[], minPa = 3): WpblMatchupLine[] {
+export function batterPitcherMatchups(
+  plays: WpblMatchupPlay[], games: WpblSeasonGame[],
+  { minPa = 3, scope = 'regular' }: { minPa?: number; scope?: SeasonScope } = {},
+): WpblMatchupLine[] {
   const acc = new Map<string, WpblMatchupLine>()
-  for (const p of plays) {
-    if (!p.batter_name || !p.pitcher_name) continue
+  for (const p of scopedLines(plays, games, scope)) {
+    if (!p.batter_id || !p.pitcher_id) continue
     const o = classifyPa(p)
     if (!o) continue
-    const key = `${p.batter_name}|${p.pitcher_name}`
+    const key = `${p.batter_id}|${p.pitcher_id}`
     let r = acc.get(key)
     if (!r) {
-      r = { batterId: p.batter_id, batterName: p.batter_name, pitcherId: p.pitcher_id, pitcherName: p.pitcher_name,
+      r = { batterId: p.batter_id, batterName: p.batter_name ?? '', pitcherId: p.pitcher_id, pitcherName: p.pitcher_name ?? '',
             pa: 0, ab: 0, h: 0, hr: 0, xbh: 0, bb: 0, so: 0, avg: null, edge: null, score: 0 }
       acc.set(key, r)
     }
     r.pa++; r.ab += o.ab; r.h += o.h; r.hr += o.hr; r.xbh += o.xbh; r.bb += o.bb; r.so += o.so
-    if (!r.batterId && p.batter_id) r.batterId = p.batter_id
-    if (!r.pitcherId && p.pitcher_id) r.pitcherId = p.pitcher_id
+    if (!r.batterName && p.batter_name) r.batterName = p.batter_name
+    if (!r.pitcherName && p.pitcher_name) r.pitcherName = p.pitcher_name
   }
   const out: WpblMatchupLine[] = []
   for (const r of acc.values()) {
@@ -99,15 +127,48 @@ export function batterPitcherMatchups(plays: WpblMatchupPlay[], minPa = 3): Wpbl
   return out
 }
 
+// One player's duels from both sides of the plate, most-faced first, for the player page.
+//
+// EVERY PAIR, NOT JUST THE COMPELLING ONES. The league board ranks by `score` to surface a duel
+// nobody went looking for; a reader on her page is asking "how has she done against whom", and
+// the honest answer to that is the whole list in order of how much evidence each line carries.
+// Only three pairs in the 2026 regular season met more than seven times, so a ranking by average
+// would put a 1-for-1 at the top of every card.
+//
+// `playerIds` is every id the player could appear under. A play's ids are our own player uuids
+// (the ingest resolves by name), so this is normally one id, but it is a set so a caller can
+// pass the same set compare.ts builds and the two surfaces cannot disagree about who she is.
+export interface WpblPlayerMatchups {
+  /** Her at the plate: one line per pitcher she has faced. */
+  vsPitchers: WpblMatchupLine[]
+  /** Her on the mound: one line per batter she has faced. */
+  vsBatters: WpblMatchupLine[]
+}
+
+export function playerMatchups(
+  playerIds: ReadonlySet<string>, plays: WpblMatchupPlay[], games: WpblSeasonGame[],
+  scope: SeasonScope = 'regular',
+): WpblPlayerMatchups {
+  const mine = plays.filter(p =>
+    (p.batter_id != null && playerIds.has(p.batter_id)) || (p.pitcher_id != null && playerIds.has(p.pitcher_id)))
+  const all = batterPitcherMatchups(mine, games, { minPa: 1, scope })
+  const byEvidence = (a: WpblMatchupLine, b: WpblMatchupLine) =>
+    b.pa - a.pa || b.h - a.h || b.hr - a.hr || a.batterName.localeCompare(b.batterName) || a.pitcherName.localeCompare(b.pitcherName)
+  return {
+    vsPitchers: all.filter(l => playerIds.has(l.batterId)).sort(byEvidence),
+    vsBatters: all.filter(l => playerIds.has(l.pitcherId)).sort(byEvidence),
+  }
+}
+
 // Trim a ranked matchup list to a compact, varied board: most compelling first, but no more
 // than `maxPerPitcher` rows featuring the same pitcher, so one workhorse can't monopolize it.
 export function featuredMatchups(lines: WpblMatchupLine[], limit = 6, maxPerPitcher = 1): WpblMatchupLine[] {
   const perPitcher = new Map<string, number>()
   const out: WpblMatchupLine[] = []
   for (const l of lines) {
-    const n = perPitcher.get(l.pitcherName) ?? 0
+    const n = perPitcher.get(l.pitcherId) ?? 0
     if (n >= maxPerPitcher) continue
-    perPitcher.set(l.pitcherName, n + 1)
+    perPitcher.set(l.pitcherId, n + 1)
     out.push(l)
     if (out.length >= limit) break
   }

@@ -10,7 +10,7 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 //     roster is not asked to tap past a pill that does nothing,
 //   - a cameo does not earn a tab, it folds into the primary pane as a line,
 //   - only the active role is mounted, which is the whole point of the change,
-//   - fielding is a collapsed line and not a hero card.
+//   - fielding is one small line under a heading, last among the stats, not a hero card.
 //
 // The ranking maths is covered in percentiles.test.ts. Layout is not tested here and cannot
 // be: jsdom does no layout, so the clipping this replaced was measured in a real browser.
@@ -77,7 +77,7 @@ vi.mock('../api', async (importOriginal) => {
   }
 })
 
-const { default: PlayerDetailModal, gridColumns } = await import('../PlayerDetail')
+const { default: PlayerDetailModal } = await import('../PlayerDetail')
 
 /**
  * `container` here is the DOCUMENT BODY, not the render root, and that is not a shortcut.
@@ -275,19 +275,31 @@ describe('PlayerDetail: what the tabs actually do', () => {
 })
 
 describe('PlayerDetail: fielding', () => {
-  it('collapses to a line and opens on tap', async () => {
+  // One line, shown whole, since Sep 28, 2026. It used to be a bordered panel that hid PO, A and
+  // DP behind a tap, a third frame style on the card to conceal four small figures.
+  it('shows the whole line under a heading, with nothing to open', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     lines.fielding = [field({ po: 9, a: 10, e: 1, dp: 2 })]
     show(player())
 
     await waitFor(() => expect(battingShown()).toBe(true))
-    const row = screen.getByRole('button', { expanded: false })
-    expect(row.textContent).toContain('FPCT')
-    // Closed, the detail is genuinely absent rather than hidden.
-    expect(screen.queryByText('DP')).not.toBeInTheDocument()
+    expect(screen.getByText('Fielding')).toBeInTheDocument()
+    const line = screen.getByText(/FPCT/)
+    expect(line.textContent).toMatch(/1\u00a0error/)
+    expect(line.textContent).toMatch(/9\u00a0PO/)
+    expect(line.textContent).toMatch(/2\u00a0DP/)
+    expect(screen.queryByRole('button', { name: /fielding/i })).not.toBeInTheDocument()
+  })
 
-    fireEvent.click(row)
-    await waitFor(() => expect(screen.getByText('DP')).toBeInTheDocument())
+  // What she did, then how, then the least reliable number: the game log leads the blocks
+  // under the season line and fielding closes them. See desktopRoleBlock.
+  it('comes after the game log', async () => {
+    lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
+    lines.fielding = [field({ po: 9, a: 10 })]
+    show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    const log = screen.getByText('Game log'), fielding = screen.getByText('Fielding')
+    expect(log.compareDocumentPosition(fielding) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('renders nothing at all for a player with no defensive record', async () => {
@@ -313,8 +325,9 @@ describe('PlayerDetail: league ranks', () => {
     show(player())
     // A field of one, so she is 1st in all four. The rank sits in the cell now rather than in
     // a strip 200px further down, and OBP and SLG are on the card in their own right instead
-    // of only inside that strip.
-    await waitFor(() => expect(screen.getAllByText('1st').length).toBeGreaterThanOrEqual(4))
+    // of only inside that strip. WITH its population, at every width: the phone used to print a
+    // bare "1st" where the desktop printed "1st of 1".
+    await waitFor(() => expect(screen.getAllByText('1st of 1').length).toBeGreaterThanOrEqual(4))
     expect(screen.getByText('OBP')).toBeInTheDocument()
     expect(screen.getByText('SLG')).toBeInTheDocument()
   })
@@ -537,6 +550,22 @@ describe('PlayerDetail: the game log', () => {
     expect(screen.queryByRole('button', { name: /show \d+ more/i })).not.toBeInTheDocument()
   })
 
+  // Folding back up was deliberately missing until Sep 28, 2026, on the grounds that it would
+  // yank the page out from under a reader; the expanded log is a capped scroller now, so the
+  // most it can take back is that cap, and a reader who has looked should be able to put it away.
+  it('folds back to five games', async () => {
+    lines.batting = GAMES.map(g => bat({ game_id: g.id, ab: 2, h: 1, tb: 1 }))
+    const { container } = show(player())
+    await waitFor(() => expect(logRows(container)).toHaveLength(5))
+
+    fireEvent.click(screen.getByRole('button', { name: /show 5 more games/i }))
+    const fewer = screen.getByRole('button', { name: /show fewer/i })
+    expect(fewer).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(fewer)
+    expect(logRows(container)).toHaveLength(5)
+    expect(screen.getByRole('button', { name: /show 5 more games/i })).toHaveAttribute('aria-expanded', 'false')
+  })
+
   // A log that fits gets no control at all: a button that expands nothing is worse than no
   // button, and most pitching logs are shorter than the preview.
   it('draws no control for a log that already fits', async () => {
@@ -629,50 +658,3 @@ describe('PlayerDetail: the game log', () => {
   })
 })
 
-// jsdom does no layout, so the grid itself cannot be measured here (the widths in the comments
-// on StatGrid were taken on a real phone). What CAN be pinned is the property those widths
-// exist to protect, and it is no longer "a stat grid never ends in dead cells". It is that the
-// TILE IS THE SAME SIZE on every card, which means the column count has to stop moving.
-describe('gridColumns', () => {
-  // The tile count varies by player, because the grid drops stats that have never happened.
-  // Every count the real roster produces has to come back the same, or the geometry is a
-  // function of whether she has ever been hit by a pitch.
-  it('gives the same column count to every tile count the roster produces', () => {
-    // 8 to 13 covers every batting and pitching grid in the league as of Sep 2, 2026.
-    const cols = [8, 9, 10, 11, 12].map(n => gridColumns(n, 6))
-    expect(cols).toEqual([6, 6, 6, 6, 6])
-  })
-
-  // The regression this replaced, kept as a named case because it is the one a reader saw:
-  // Whitmore's two panes, one tap apart, at 60px and 94px tiles in the same rail.
-  it('does not change shape between a player\'s two panes', () => {
-    expect(gridColumns(12, 6)).toBe(gridColumns(11, 6)) // her batting grid and her pitching grid
-  })
-
-  // The single exception, and the only raggedness still worth avoiding. A last row holding one
-  // tile reads as a mistake; a last row holding three reads as a margin.
-  it('steps down only to avoid a last row of one', () => {
-    expect(gridColumns(13, 6)).toBe(5)   // 6 + 6 + 1 would orphan a tile; 5 + 5 + 3 does not
-    expect(13 % 5).not.toBe(1)
-  })
-
-  // Never orphans a tile, far past any size this grid reaches, which is why the implementation
-  // searches rather than stepping once. Stepping once is not sufficient: `n % 6` and `n % 5`
-  // are both 1 at 31, 61 and every 30 after. Searching down to four holds to 60; at 61 every
-  // count in range leaves a remainder of 1 at once, because 61 is one more than a multiple of
-  // 60. A stat grid cannot reach either bound, and this pins the real one so the next person
-  // does not re-derive it from a comment that sounded right.
-  it('never orphans a tile, well past any size it will meet', () => {
-    for (let n = 7; n <= 60; n++) {
-      const c = gridColumns(n, 6)
-      expect(c).toBeLessThanOrEqual(6)
-      expect(c).toBeGreaterThanOrEqual(4)
-      expect(n % c).not.toBe(1)
-    }
-  })
-
-  it('gives a small grid a single row', () => {
-    expect(gridColumns(4, 6)).toBe(4)   // fielding, collapsed
-    expect(gridColumns(6, 6)).toBe(6)
-  })
-})

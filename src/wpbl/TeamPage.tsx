@@ -15,6 +15,7 @@ import { useEraBasis } from './EraBasisContext'
 import { TeamSpecRadar, TeamSpecReadout, TeamSpecDetail, TeamSpecPlaceholder } from './TeamSpecRadar'
 import { teamSpecs, specLeagueGames, formatSpecStat, TEAM_SPEC_AXES, type TeamSpecKey } from './derive/teamSpec'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
+import { headToHead as headToHeadGrid } from './derive/matchups'
 import { useWpblHeadingTag } from './PageHeading'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
@@ -565,26 +566,23 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // Head-to-head. In a four-team league every club plays every other constantly, so a bare
   // "4–3 · 2nd" hides the shape of the record: a team can be unbeaten against two opponents
   // and swept by the third, and that is the thing worth knowing before the next meeting.
-  // Derived from the `games` already passed in: no extra read.
+  //
+  // The shared `headToHead`, NOT a loop of its own. This page had one until Sep 28, 2026 that
+  // tested only for a final, so every playoff game landed in these chips as one more
+  // regular-season meeting, beside a record line that correctly left them out. Same leak the
+  // standings grid had on Sep 9, one component over.
   const headToHead = useMemo(() => {
-    const rec = new Map<string, { w: number; l: number; t: number }>()
-    for (const g of games) {
-      if (g.status !== 'final' || g.home_score == null || g.away_score == null) continue
-      const home = g.home_team_id === team.id
-      if (!home && g.away_team_id !== team.id) continue
-      const oppId = home ? g.away_team_id : g.home_team_id
-      const us = home ? g.home_score : g.away_score
-      const them = home ? g.away_score : g.home_score
-      const r = rec.get(oppId) ?? { w: 0, l: 0, t: 0 }
-      if (us > them) r.w++; else if (us < them) r.l++; else r.t++
-      rec.set(oppId, r)
-    }
-    return [...rec.entries()]
-      .map(([id, r]) => ({ opp: teamById.get(id), ...r }))
-      .filter(x => x.opp)
+    const grid = headToHeadGrid(games)
+    return teams
+      .filter(t => t.id !== team.id)
+      .map(opp => {
+        const c = grid.get(team.id, opp.id)
+        return c ? { opp, w: c.wins, l: c.losses } : null
+      })
+      .filter((x): x is { opp: WpblTeam; w: number; l: number } => x != null)
       // Worst matchup first: the opponent a team can't beat is the interesting one.
       .sort((a, b) => (a.w - a.l) - (b.w - b.l))
-  }, [games, team.id, teamById])
+  }, [games, team.id, teams])
 
   // The full schedule grows all season, and as the top card on a phone it is most of a
   // screenful before you reach anything else. Default to a window around now (see
@@ -669,7 +667,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
             const worse = h.w < h.l
             return (
               <Box
-                key={h.opp!.id}
+                key={h.opp.id}
                 sx={{
                   display: 'flex', alignItems: 'center', gap: 0.6,
                   px: 0.9, py: 0.4, borderRadius: 999,
@@ -677,15 +675,15 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                   bgcolor: CARD_FILL,
                 }}
               >
-                <TeamBadge team={h.opp!} size={16} />
+                <TeamBadge team={h.opp} size={16} />
                 <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary' }}>
-                  {h.opp!.abbr}
+                  {h.opp.abbr}
                 </Typography>
                 <Typography sx={{
                   fontSize: '0.72rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
                   color: better ? 'success.main' : worse ? 'error.main' : 'text.secondary',
                 }}>
-                  {h.w}–{h.l}{h.t ? `–${h.t}` : ''}
+                  {h.w}–{h.l}
                 </Typography>
               </Box>
             )

@@ -655,7 +655,7 @@ const SEG_DOT_SX = { position: 'absolute' as const, top: 5, right: 6 }
 
 // Pill segmented control: the section nav "menu". Mirrors MLB's SegControl, wrapped
 // in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
-export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 } }: {
+export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }, size = 'md' }: {
   /** `badge` draws a NewDot on that option. Opt-in per item because this control is shared
    *  with the MLB section, which has nothing to announce.
    *
@@ -668,7 +668,13 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
   onChange: (v: string) => void
   accent?: string
   mb?: number | { xs?: number; sm?: number }
+  /** `sm` is a SETTING on a section rather than navigation: smaller pills, no edge inset, and
+   *  right-aligned in whatever row it sits in. The player card's Regular / Playoffs / Both is the
+   *  case: at full size, under the Pitching / Batting pills, the top of the card read as two
+   *  navigation bars. */
+  size?: 'md' | 'sm'
 }) {
+  const sm = size === 'sm'
   // When the strip is wider than the screen (many tabs on mobile), keep the selected
   // pill in view: on every selection change (a tap or a swipe between tabs) scroll it
   // to the container's centre, clamped at the ends. We nudge only the strip's own
@@ -698,7 +704,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
       // off the left edge and makes it unreachable. `safe` centres when it fits and falls back to
       // flex-start when it does not. A browser that does not know the keyword drops the
       // declaration and lands on flex-start.
-      justifyContent: { xs: 'safe center', sm: 'center' },
+      justifyContent: sm ? 'flex-end' : { xs: 'safe center', sm: 'center' },
       // Desktop keeps its gap before content; on mobile the breathing gap lives on the
       // sticky wrapper (as transparent margin) so this strip hugs the bar's hairline.
       // Callers can override (e.g. the game-center tabs want it flush to the team switch).
@@ -707,7 +713,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
       // The sticky wrapper full-bleeds to the screen edge; this scroll strip sits flush
       // and re-adds the resting inset as scroll padding (px:2), so overflow content runs
       // right to the edge while the first pill still looks inset at rest.
-      px: { xs: 2, sm: 0 },
+      px: sm ? 0 : { xs: 2, sm: 0 },
       '&::-webkit-scrollbar': { display: 'none' },
       msOverflowStyle: 'none', scrollbarWidth: 'none',
     }}>
@@ -740,10 +746,10 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
               ...FOCUS_RING,
               textDecoration: 'none',
               position: 'relative',
-              px: 1.75, py: 0.5,
+              px: sm ? 1 : 1.75, py: sm ? 0.3 : 0.5,
               borderRadius: 999,
               cursor: 'pointer',
-              fontSize: '0.75rem',
+              fontSize: sm ? '0.68rem' : '0.75rem',
               lineHeight: 1.4,
               whiteSpace: 'nowrap',
               transition: 'all 0.15s',

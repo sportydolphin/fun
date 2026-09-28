@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Box, Typography, Skeleton } from '@mui/material'
 import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx } from './ui'
 import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
+import { SectionHead } from './cardParts'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
 import type { WpblPlayer } from './types'
 import { WPBL_PHOTOS_PAGE } from './routes'
@@ -562,9 +563,7 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
   const subjectName = nameById.get(playerId)
   return (
     <Box sx={{ mt: 2 }}>
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', mb: 1 }}>
-        Gallery
-      </Typography>
+      <SectionHead title="Gallery" />
       <FanPhotoStrip photos={photos} resolveNames={resolveNames} from="player" subject={subjectName} />
     </Box>
   )

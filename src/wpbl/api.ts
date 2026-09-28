@@ -3,6 +3,7 @@ import { FIRSTS_EVENT_TYPES } from './firsts'
 import { countsInStandings, standingsFinals } from './season'
 import { settleGames } from './gameOver'
 import { buildFanPhotoIndex, type FanPhotoIndex } from './fanPhotos'
+import { playerPlayIds, type WpblMatchupPlay } from './derive/matchups'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
@@ -572,6 +573,95 @@ export function fetchWpblAllRunValuePlays(): Promise<WpblRunValuePlay[]> {
     const corrected = applyPlayCorrections(out, corrections)
     if (corrected.length > 0 || allRunValuePlaysCache == null) {
       allRunValuePlaysCache = { data: corrected, at: Date.now() }
+    }
+    return corrected
+  })
+}
+
+/** A matchup play plus its `sequence`, which the corrections overlay keys on. */
+export type WpblPlayerMatchupPlay = WpblMatchupPlay & Pick<WpblGamePlay, 'sequence'>
+
+const MATCHUP_PLAY_SELECT = 'game_id,sequence,batter_id,batter_name,pitcher_id,pitcher_name,event_type,narrative'
+
+const playerMatchupCache = new Map<string, { data: WpblPlayerMatchupPlay[]; at: number }>()
+
+/** Only uuids go into the database filter. `batter_id` / `pitcher_id` are uuid columns holding
+ *  our own player ids, so a feed id can never be on a play, and one in the `in.(...)` list is not
+ *  ignored: Postgres rejects the WHOLE query (22P02, invalid input syntax for type uuid), `safe`
+ *  turns that into an empty array, and the tables silently draw nothing for every player who has
+ *  a feed id, which is all of them. The in-memory filters still take the full id set. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const involves = (ids: Set<string>) => (p: WpblMatchupPlay) =>
+  (p.batter_id != null && ids.has(p.batter_id)) || (p.pitcher_id != null && ids.has(p.pitcher_id))
+
+/** What is already in memory for this player, for a synchronous first paint: her own read if one
+ *  has landed, else her slice of the league log if another page loaded it. */
+export function getCachedWpblPlayerMatchupPlays(
+  player: Pick<WpblPlayer, 'id' | 'api_id' | 'api_ids'>,
+): WpblPlayerMatchupPlay[] | null {
+  const own = playerMatchupCache.get(player.id)
+  if (own) return own.data
+  const league = allRunValuePlaysCache?.data
+  return league ? league.filter(involves(new Set(playerPlayIds(player)))) : null
+}
+
+/**
+ * Every plate appearance one player took part in, from either side, corrected.
+ *
+ * EXISTS SO A PLAYER PAGE DOES NOT PAY FOR THE LEAGUE. The matchup tables used to read the whole
+ * play log, about 280KB compressed over four requests, and since the season ended nothing else on
+ * a cold visit loads it: every reader arriving at a player page from search or Discord paid all
+ * of it for one table. Her own plays are a few hundred rows of eight narrow columns. The compare
+ * page reads the same thing for its first player, since her plays already hold every duel with
+ * the second.
+ *
+ * THE LEAGUE LOG IS STILL PREFERRED WHEN IT IS FRESH, because then this costs nothing at all.
+ *
+ * A CORRECTION CAN MOVE AN AT-BAT ONTO HER, and a filter on the mirror's ids cannot see it: the
+ * mirror row still names the batter the feed wrote. So every correction that rewrites a batter or
+ * pitcher to one of her ids pulls that play in by (game_id, sequence), the overlay runs over the
+ * lot, and the result is filtered again, which also drops a play a correction moved OFF her.
+ * The corrections table is tiny and the league read already fetches all of it beside the pages.
+ */
+export function fetchWpblPlayerMatchupPlays(
+  player: Pick<WpblPlayer, 'id' | 'api_id' | 'api_ids'>,
+): Promise<WpblPlayerMatchupPlay[]> {
+  const idList = playerPlayIds(player)
+  const ids = new Set(idList)
+  if (isFresh(allRunValuePlaysCache)) return Promise.resolve(allRunValuePlaysCache!.data.filter(involves(ids)))
+  const own = playerMatchupCache.get(player.id)
+  if (isFresh(own ?? null)) return Promise.resolve(own!.data)
+  const list = idList.filter(id => UUID.test(id)).join(',')
+  if (!list) return Promise.resolve([])
+  return once(`playerMatchupPlays:${player.id}`, async () => {
+    const [mine, corrections] = await Promise.all([
+      fetchAllPaged<WpblPlayerMatchupPlay>('fetchWpblPlayerMatchupPlays', (from, to) =>
+        supabase.from('wpbl_game_plays')
+          .select(MATCHUP_PLAY_SELECT)
+          .or(`batter_id.in.(${list}),pitcher_id.in.(${list})`)
+          .order('game_id', { ascending: true })
+          .order('sequence', { ascending: true })
+          .range(from, to) as unknown as
+          PromiseLike<{ data: WpblPlayerMatchupPlay[] | null; error: unknown }>),
+      fetchAllPlayCorrections(),
+    ])
+    const have = new Set(mine.map(p => `${p.game_id}:${p.sequence}`))
+    const movedOn = new Map<string, number[]>()
+    for (const c of corrections) {
+      if ((c.field !== 'batter_id' && c.field !== 'pitcher_id') || !c.new_value || !ids.has(c.new_value)) continue
+      if (have.has(`${c.game_id}:${c.sequence}`)) continue
+      const seqs = movedOn.get(c.game_id)
+      if (seqs) seqs.push(c.sequence); else movedOn.set(c.game_id, [c.sequence])
+    }
+    const extra = (await Promise.all([...movedOn].map(([gameId, seqs]) =>
+      safe<WpblPlayerMatchupPlay[]>('fetchWpblPlayerMatchupPlays:corrected', () =>
+        supabase.from('wpbl_game_plays').select(MATCHUP_PLAY_SELECT)
+          .eq('game_id', gameId).in('sequence', seqs) as unknown as
+          PromiseLike<{ data: WpblPlayerMatchupPlay[] | null; error: unknown }>, [])))).flat()
+    const corrected = applyPlayCorrections([...mine, ...extra], corrections).filter(involves(ids))
+    if (corrected.length > 0 || !playerMatchupCache.has(player.id)) {
+      playerMatchupCache.set(player.id, { data: corrected, at: Date.now() })
     }
     return corrected
   })

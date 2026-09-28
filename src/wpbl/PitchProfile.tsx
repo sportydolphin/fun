@@ -5,7 +5,7 @@ import { aggregatePitchCodes, pitchQualifiers, rankBy, fmtPct, type PitchProfile
 import { wpblQualifiers } from './stats'
 import { ordinal } from './percentiles'
 import { useWpblDark } from './ui'
-import { wpblAccentFg } from './constants'
+import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './cardParts'
 import type { SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
 
@@ -16,11 +16,18 @@ import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
 // built from the league's radar, which reached the first couple of games and stopped; the
 // pitch-by-pitch codes (ball, called strike, whiff, foul, in play) are in the play log for every
 // plate appearance of the season. The numbers are the Pitches board's (derive/pitches.ts), read
-// for one player, so a rank here and that board can never disagree.
+// for one player.
 //
-// NO BOX AROUND IT. It sits between the season line and the game log, and it is set in the season
-// line's own type (a small label, a large figure, a line under it) so it reads as that line
-// continuing rather than as a new card on a page that already has plenty.
+// RANKED AGAINST THE SEASON LINE'S FIELD, NOT THE PITCHES BOARD'S. The board bars a player on
+// pitches seen, the card on plate appearances or innings, so the same pitcher read "9th of 16" in
+// her season line and "11th of 21" here, and a reader cannot know the two denominators are two
+// different bars. On the card every "of N" is now the same N (`rankPool`); the board keeps its own
+// bar, where it is the only one on the page.
+//
+// NO BOX AROUND IT, and only the headline on first sight. It sits after the game log and the
+// matchups, set in the season line's own type (a small label, a large figure, a line under it).
+// The pitch mix and the figures under it were the tallest block on the card, about 420px on a
+// phone, second from the top; they are one tap down now, behind the same control as the tables.
 //
 // WHAT GOES WHERE, decided by what each part can say that nothing else on the page does:
 //   • The headline is the RATES A FAN ALREADY READS, walks and strikeouts per plate appearance,
@@ -29,16 +36,17 @@ import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
 //     strike rate, which is the Ball row subtracted from 100): an early version did, twice.
 //   • The rows are the whole pitch mix against the league, placement by position rather than by
 //     rank, since ranking every row would bring back the clutter the rows replaced.
-//   • The footnote is the rest that is worth a figure but not a headline slot.
+//   • The extras are the rest that is worth a figure but not a headline slot, drawn as figures
+//     (label, number, league) rather than the sentence of numbers they used to be.
 //
 // ONE MEANING PER COLOUR. A row notably better than the league is the section's own blue, worse is
 // amber, and an outcome with no better direction (a foul, a ball in play) is never coloured at all.
 // An early version lit a hitter's high whiff rate green, which read as an achievement.
 //
-// THE ROWS DO NOT USE THE CLUB'S COLOUR, because "better" cannot depend on which club you play
+// NOTHING HERE USES THE CLUB'S COLOUR, because "better" cannot depend on which club you play
 // for: the Firebells' colour is red, and a pitcher's good walk rate drawn in red read as a warning.
-// The headline ranks keep the club's colour, since there it means what the season line above it
-// means, a top-five rank, and the two have to agree.
+// That now includes the headline ranks, which kept the club's colour until Sep 28, 2026 to match
+// the season line; the season line uses the blue too now (see useRankInk), so the two still agree.
 
 type Side = 'pitching' | 'batting'
 type Better = 'high' | 'low' | null
@@ -157,7 +165,7 @@ function MixRows({ me, league, side, better, amber }: {
   )
 }
 
-export default function PitchProfileBlock({ player, side, players, teams, games, scope, accent }: {
+export default function PitchProfileBlock({ player, side, players, teams, games, scope, rankPool, accent }: {
   player: WpblPlayer
   side: Side
   players: WpblPlayer[]
@@ -166,12 +174,18 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
   /** The page's Regular / Playoffs / Both control. Ranks only in the regular season, like the
    *  season line's: a rank over a four-game postseason is a rank over nobody. */
   scope: SeasonScope
+  /** The players the season line's rate ranks are taken against, for this side. Every rank here
+   *  is taken against exactly these, so the card has one "of N" (see the header). Null until the
+   *  league's lines arrive, when nothing is ranked yet anyway. */
+  rankPool: ReadonlySet<string> | null
+  /** The card's control colour, for the disclosure. Never used on a number. */
   accent: string
 }) {
   const dark = useWpblDark()
   const amber = amberFor(dark)
-  // Better than the league: the section's own blue, the same for every club (see the header).
-  const better = wpblAccentFg(dark)
+  // Better than the league, and a top-five rank: the section's own blue, the same for every club.
+  const better = useRankInk()
+  const [open, setOpen] = useState(false)
   const [plays, setPlays] = useState<WpblPitchPlay[] | null>(() => getCachedWpblAllPitchPlays())
   useEffect(() => {
     let cancelled = false
@@ -188,7 +202,7 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
   const me = pool.find(p => p.player?.id === player.id) ?? null
   const league = board?.league ?? null
 
-  // The Pitches board's own bar, so a player ranked here is ranked there too.
+  // The Pitches board's bar, spent here only on whether to draw at all.
   const minPitches = useMemo(() => {
     const q = wpblQualifiers(teams, games)
     const mins = pitchQualifiers(q.active ? q.teamGames : 0)
@@ -196,46 +210,49 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
   }, [teams, games, side])
 
   // A profile over a handful of pitches is noise wearing a percentage sign. Under a third of the
-  // qualifying bar the block does not draw at all; between that and the bar it draws unranked,
-  // with a line saying so. The bar is a SEASON's, so the playoff slice, a handful of games that
-  // the reader chose on purpose, only has to clear the 20-pitch floor, and is never ranked.
+  // pitch bar the block does not draw at all. The bar is a SEASON's, so the playoff slice, a
+  // handful of games that the reader chose on purpose, only has to clear the 20-pitch floor.
   const floor = scope === 'postseason' ? 20 : Math.max(20, minPitches / 3)
   if (!me || !league || me.pitches < floor) return null
 
   const rates = side === 'pitching' ? PITCHER_RATES : BATTER_RATES
-  const ranked = scope === 'regular' && me.pitches >= minPitches
-  // ONE POOL FOR EVERY RANK: the qualified players, so every "of N" in the row is the same N. The
-  // Pitches board also bars each rate on its own denominator, which is right for a leaderboard and
-  // read here as four different league sizes beside a season line that has one.
+  // Ranked when she is in the season line's qualified field. Below it the season block already
+  // says how far short she is, so this adds no second note about a second bar.
+  const ranked = scope === 'regular' && rankPool != null && rankPool.has(player.id)
+  const field = ranked ? pool.filter(p => p.player != null && rankPool!.has(p.player.id)) : []
   const rankOf = (d: RateDef): { rank: number; of: number } | null => {
     if (!ranked || !d.better) return null
-    const list = rankBy(pool, d.key, minPitches, d.better === 'low')
+    const list = rankBy(field, d.key, 0, d.better === 'low')
     const i = list.findIndex(p => p.player?.id === player.id)
     return i < 0 ? null : { rank: i + 1, of: list.length }
   }
   const outs = me.groundOuts + me.airOuts
   const coverage = `${me.pitches} pitches ${side === 'pitching' ? 'to' : 'across'} ${me.pa} ${side === 'pitching' ? 'batters' : 'plate appearances'}`
-  const footnote = [
-    side === 'pitching' ? `${fmtPct(me.putawayPct, 0)} putaway with two strikes (league ${fmtPct(league.putawayPct, 0)})` : null,
-    `${fmtRateFor('pitchesPerPa', me.pitchesPerPa)} pitches per ${side === 'pitching' ? 'batter' : 'plate appearance'} (league ${fmtRateFor('pitchesPerPa', league.pitchesPerPa)})`,
+  // The figures that are worth a number but not a headline slot. Drawn as the tiles are, one step
+  // smaller and never ranked, so the whole block is one format.
+  const extras: { label: string; value: string; league: string; note?: string }[] = [
+    ...(side === 'pitching'
+      ? [{ label: 'Two-strike putaway', value: fmtPct(me.putawayPct, 0), league: fmtPct(league.putawayPct, 0) }]
+      : []),
+    {
+      label: side === 'pitching' ? 'Pitches per batter' : 'Pitches per PA',
+      value: fmtRateFor('pitchesPerPa', me.pitchesPerPa), league: fmtRateFor('pitchesPerPa', league.pitchesPerPa),
+    },
     // OUTS IN PLAY, AND IT SAYS SO. A hit in the play text reads "singled to center field"
     // whatever it was, so only the outs can be sorted into ground and air. See battedOutKind.
-    outs >= 10 ? `${fmtPct(me.groundOutPct, 0)} of outs in play on the ground, ${me.groundOuts} of ${outs} (league ${fmtPct(league.groundOutPct, 0)})` : null,
-  ].filter(Boolean)
+    ...(outs >= 10
+      ? [{ label: 'Outs on the ground', value: fmtPct(me.groundOutPct, 0), league: fmtPct(league.groundOutPct, 0), note: `${me.groundOuts} of ${outs}` }]
+      : []),
+  ]
 
   return (
     <Box sx={{ mt: 2.5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 1 }}>
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
-          {side === 'pitching' ? 'Pitch profile' : 'Plate discipline'}
-        </Typography>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-          {coverage}
-        </Typography>
-      </Box>
+      <SectionHead title={side === 'pitching' ? 'Pitch profile' : 'Plate discipline'} caption={coverage} />
 
-      {/* Four across from sm up, two by two on a phone. Lit in the club's colour for a top-five
-          rank, the season line's rule, and nothing else: the headline praises, it does not warn. */}
+      {/* Four across from sm up, two by two on a phone. A top-five rank is drawn in the rank blue
+          and bold, the season line's rule, and nothing else: the headline praises, it does not
+          warn. The rank reads "Nth of N" whichever way is better, as ERA does: "1st" is always
+          the best, so no "fewest". */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))' }, rowGap: 1.5, columnGap: 1 }}>
         {rates.map(d => {
           const r = rankOf(d)
@@ -245,15 +262,13 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
               <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {d.label}
               </Typography>
-              <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: lit ? accent : 'text.primary' }}>
+              <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: lit ? better : 'text.primary' }}>
                 {fmtRateFor(d.key, me[d.key])}
               </Typography>
               <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
                 league {fmtRateFor(d.key, league[d.key])}
-                {/* "FEWEST" where lower is better: "1st of 36" for walks allowed or strikeouts made
-                    otherwise reads as the most of them. */}
-                {r && <Box component="span" sx={{ color: lit ? accent : 'text.secondary' }}>
-                  {' · '}{ordinal(r.rank)}{d.better === 'low' ? ' fewest' : ''} of {r.of}
+                {r && <Box component="span" sx={{ color: lit ? better : 'text.secondary', fontWeight: lit ? 800 : 700 }}>
+                  {' · '}{ordinal(r.rank)} of {r.of}
                 </Box>}
               </Typography>
             </Box>
@@ -261,24 +276,36 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
         })}
       </Box>
 
-      <Box sx={{ mt: 1.75 }}>
-        <MixRows me={me.counts} league={league.counts} side={side} better={better} amber={amber} />
-        <Typography sx={{ mt: 0.5, fontSize: '0.6rem', color: 'text.disabled' }}>
-          Share of every pitch {side === 'pitching' ? 'thrown' : 'seen'}; the tick is the league.
-          {' '}<Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box> is better than the league,
-          {' '}<Box component="span" sx={{ color: amber, fontWeight: 700 }}>amber</Box> is worse.
-        </Typography>
-      </Box>
-
-      <Typography sx={{ mt: 1.25, fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1.6 }}>
-        {footnote.join(' · ')}
-      </Typography>
-
-      {!ranked && scope === 'regular' && (
-        <Typography sx={{ mt: 0.5, fontSize: '0.62rem', color: 'text.disabled' }}>
-          Not ranked: under the {minPitches}-pitch bar for {side === 'pitching' ? 'pitchers' : 'hitters'}.
-        </Typography>
+      {open && (
+        <>
+          <Box sx={{ mt: 1.75 }}>
+            <MixRows me={me.counts} league={league.counts} side={side} better={better} amber={amber} />
+            <Typography sx={{ mt: 0.5, fontSize: '0.6rem', color: 'text.disabled' }}>
+              Share of every pitch {side === 'pitching' ? 'thrown' : 'seen'}; the tick is the league.
+              {' '}<Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box> is better than the league,
+              {' '}<Box component="span" sx={{ color: amber, fontWeight: 700 }}>amber</Box> is worse.
+            </Typography>
+          </Box>
+          <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: `repeat(${extras.length}, minmax(0, 1fr))`, columnGap: 1 }}>
+            {extras.map(x => (
+              <Box key={x.label} sx={{ textAlign: 'center', minWidth: 0 }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
+                  {x.label}
+                </Typography>
+                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
+                  {x.value}
+                </Typography>
+                <Typography sx={SECTION_CAPTION_SX}>
+                  league {x.league}{x.note ? ` · ${x.note}` : ''}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </>
       )}
+      <ShowMoreButton expanded={open} onClick={() => setOpen(o => !o)} accent={accent}>
+        {open ? 'Hide pitch mix' : 'Show pitch mix'}
+      </ShowMoreButton>
     </Box>
   )
 }

@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.103.0',
+    date:    '2026-09-28',
+    title:   'Batter vs pitcher, and a calmer player page',
+    changes: [
+      {
+        short: 'See who every WPBL player has faced',
+        full:  'Player pages now list a hitter\'s line against every pitcher she has faced, and a pitcher\'s against every batter, most-faced first. Tap a name for the full head-to-head. It follows the Regular, Playoffs and Both switch.',
+      },
+      {
+        short: 'Comparisons lead with the head-to-head',
+        full:  'When two players have faced each other, the comparison page now opens on that matchup, with the regular season and the playoffs as separate lines.',
+      },
+      {
+        short: 'Player pages are easier to read',
+        full:  'Good numbers are always blue, every rank says how many players it is out of, the game log comes right after the season line, and the pitch mix is one tap away instead of filling the screen. Fielding is one short line at the end.',
+      },
+      {
+        short: 'Long tables fold back up, and use the full width on phones',
+        full:  'The game log and the matchup tables can be collapsed again after you expand them, and on a phone the tables now run edge to edge.',
+      },
+      {
+        short: 'Team records against each club no longer count playoff games',
+        full:  'The head-to-head records on a WPBL team page were counting playoff games as regular season meetings. They now match the standings.',
+      },
+      {
+        short: 'Player pages load much less data',
+        full:  'A player page used to download the whole league\'s play log, about 280 KB, for one table. It now downloads that player\'s plays, about 15 KB.',
+      },
+    ],
+  },
+  {
     version: '1.102.0',
     date:    '2026-09-28',
     title:   'An MLB postseason bracket',
