@@ -517,6 +517,9 @@ Code: [`src/App.tsx`](src/App.tsx) is the shell, with hand-rolled path routing a
 router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling
 (`WpblApp.tsx`, `api.ts`, `SwipeableViews.tsx` are its spine);
 [`src/mlb/`](src/mlb/) plus [`src/MlbStats.tsx`](src/MlbStats.tsx) is the other section;
+[`src/ui/`](src/ui/) holds the UI both sections share (the bottom bar, the tab pager,
+`ModalShell`, the tap helpers), which WPBL built and re-exports from its old paths: neither
+section imports the other, both import this;
 [`src/lib/`](src/lib/) holds the shared client libs;
 [`shared/notifications.js`](shared/notifications.js) is one catalog serving both the
 in-site bell and the push senders.

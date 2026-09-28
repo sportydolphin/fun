@@ -1,6 +1,16 @@
-﻿import React, { useEffect, useCallback, useRef } from 'react'
-import { Box, Typography, useMediaQuery } from '@mui/material'
+﻿import React, { useEffect, useCallback, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Box, Typography, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
+import { MoreHoriz } from '@mui/icons-material'
 import { useMlbState } from './mlb/state/useMlbState'
+import type { MlbView } from './mlb/state/useMlbState'
+import { ACCENT } from './mlb/constants'
+import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
+import { hoverOnly } from './ui/interaction'
+import { requestDeepLink } from './mlb/state/deepLink'
+import type { DeepLink } from './mlb/state/deepLink'
+import { FinalGamesSection } from './mlb/views/FinalGames'
+import { TeamsView } from './mlb/views/TeamsView'
 import { SegControl } from './mlb/components/ui'
 import { Standings } from './mlb/views/Standings'
 import { VizView } from './mlb/views/VizView'
@@ -13,9 +23,54 @@ import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 import { track, EVENTS } from './lib/analytics'
 
-export default function MlbStats() {
+// ─── Navigation ───────────────────────────────────────────────────────────────
+//
+// FIVE TABS, THE SAME SHAPE AS WPBL (Sep 28, 2026). There were six pills in a sideways scroller,
+// and at 375px wide two of them (Stats, Search) were simply off the screen. Now:
+//   - Scores and Teams are tabs of their own; neither had one.
+//   - Leaderboard, Stats and Visualize were three tabs over the same numbers. They are the three
+//     BOARDS of one Stats tab. They stay separate views underneath, so every `?view=` link and
+//     every history entry written before this still lands where it did.
+//   - Search is the toolbar's alone; the player and team pages it opens are the view 'search'.
+//   - Everything that is a board inside a Home card (Predictions, Survivor, Milestones, Roster
+//     moves) or a mode of another tab (Odds, Charts) is one tap away under More.
+// On a phone the tabs are WPBL's floating bottom bar (src/ui/BottomNav); above that, pills.
+
+type NavKey = 'home' | 'scores' | 'standings' | 'stats' | 'teams'
+const NAV: { key: NavKey; label: string }[] = [
+  { key: 'home',      label: 'Home' },
+  { key: 'scores',    label: 'Scores' },
+  { key: 'standings', label: 'Standings' },
+  { key: 'stats',     label: 'Stats' },
+  { key: 'teams',     label: 'Teams' },
+]
+const STATS_BOARDS: { view: MlbView; label: string }[] = [
+  { view: 'leaderboard', label: 'Leaders' },
+  { view: 'stats',       label: 'Table' },
+  { view: 'viz',         label: 'Charts' },
+]
+const navKeyFor = (v: MlbView): NavKey | null =>
+  v === 'leaderboard' || v === 'viz' ? 'stats' : v === 'search' ? null : v
+
+// Under More: each opens a board that lives inside another view, by a deep link that view's
+// owner already listens for (state/deepLink.ts), so nothing here reaches into a component.
+interface MoreItem { key: string; label: string; hint: string; view: MlbView; link?: DeepLink; charts?: boolean }
+const MORE: MoreItem[] = [
+  { key: 'predictions', label: 'Predictions',      hint: 'Pick the winners, against the bots',            view: 'home',      link: { kind: 'predictor' } },
+  { key: 'survivor',    label: 'Streak Survivor',  hint: 'One hitter a day: the leaderboard',              view: 'home',      link: { kind: 'survivor' } },
+  { key: 'milestones',  label: 'Milestone Watch',  hint: 'Who is closing in on a round number',            view: 'home',      link: { kind: 'milestones' } },
+  { key: 'moves',       label: 'Roster moves',     hint: 'Trades, signings, call-ups and DFAs',            view: 'home',      link: { kind: 'rosterMoves' } },
+  { key: 'odds',        label: 'Playoff odds',     hint: 'Every club, simulated nightly',                  view: 'standings', link: { kind: 'odds' } },
+  { key: 'charts',      label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs wins',  view: 'viz',       charts: true },
+]
+
+export default function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const state = useMlbState()
-  const isDesktop = useMediaQuery('(min-width: 600px)')
+  // `noSsr` so the bar is in the very first layout rather than inserted a frame later (the same
+  // note as WpblApp's). The width matches App.tsx's isDesktop, which decides where the footer goes:
+  // the bar and the section's own footer must switch at exactly the same width.
+  const isDesktop = useMediaQuery('(min-width: 600px)', { noSsr: true })
+  const bottomNav = !isDesktop
   const canHover = useMediaQuery('(hover: hover)')
   const bridge = useSearchBridge()
 
@@ -105,47 +160,117 @@ export default function MlbStats() {
     track(EVENTS.MLB_TAB_VIEWED, { view: state.view, via, from })
   }, [state.view])
 
+  // Which tab is lit. A player or team page is the view 'search', which is no tab: a team page
+  // lights Teams, and a player lights the tab the reader came from, so a player opened from the
+  // Stats leaders still reads as being inside Stats.
+  const lastTab = useRef<NavKey>(navKeyFor(state.view) ?? 'home')
+  const direct = navKeyFor(state.view)
+  if (direct) lastTab.current = direct
+  const activeTab: NavKey = direct ?? (state.team && !state.player ? 'teams' : lastTab.current)
+  // The Stats tab returns to whichever board was last open, Leaders the first time.
+  const lastBoard = useRef<MlbView>(state.view === 'stats' || state.view === 'viz' ? state.view : 'leaderboard')
+  if (state.view === 'leaderboard' || state.view === 'stats' || state.view === 'viz') lastBoard.current = state.view
+
+  // Every deliberate move to another view: a fresh start (never let a stale Home modal reopen
+  // from a prior Back-restore path, see homeOverlay), a history entry, and the tab event's `via`.
+  const go = useCallback((v: MlbView, via: 'pill' | 'link' = 'pill') => {
+    clearHomeOverlay()
+    if (via === 'pill') tabVia.current = 'pill'
+    state.stampCurrentEntry()
+    window.history.pushState({ view: v }, '', window.location.href)
+    state.setView(v)
+    requestAnimationFrame(() => window.scrollTo({ top: 0 }))
+  }, [state.stampCurrentEntry, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
+  const goTab = (k: NavKey) => {
+    const target: MlbView = k === 'stats' ? lastBoard.current : k
+    if (target === state.view) return
+    go(target)
+  }
+
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null)
+  const openMore = (item: MoreItem) => {
+    setMoreOpen(false); setMoreAnchor(null)
+    if (item.charts) state.setVizDefaultTab('graphs')
+    if (item.view !== state.view) go(item.view, 'link')
+    // Published after the view change: the board's owner takes it when it mounts, or at once if
+    // it already is. See useDeepLink.
+    if (item.link) requestDeepLink(item.link)
+  }
+
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
   const containerMaxWidth = state.view === 'home' ? { xs: 640, md: 980 } : { xs: 640, md: 1280 }
+  const onStatsTab = activeTab === 'stats' && state.view !== 'search'
 
   return (
     // The desktop `zoom` that scales this content up lives on the app root (App.tsx)
     // so the toolbar scales with it; the `--app-zoom` CSS var it sets inherits down
     // here (see StatsView's scroll-height cap).
-    <Box sx={{ maxWidth: containerMaxWidth, mx: 'auto', position: 'relative' }}>
+    <Box sx={{
+      maxWidth: containerMaxWidth, mx: 'auto', position: 'relative',
+      // Scroll room under the floating bar, plus the device's safe-area inset, so the last card and
+      // the footer can always be scrolled clear of it.
+      pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,
+    }}>
 
       {/* The dev-settings gear + mobile-device preview now live app-wide in App.tsx
           (src/dev/DevSettings.tsx) so they cover both the MLB and WPBL sections. */}
 
-      {/* Tab switcher â€” scrollable on mobile so tabs don't overflow the viewport */}
-      <Box sx={{
-        display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 3,
-        overflowX: 'auto',
-        '&::-webkit-scrollbar': { display: 'none' },
-        msOverflowStyle: 'none', scrollbarWidth: 'none',
-      }}>
-        <SegControl
-          options={[
-            { value: 'home',        label: 'Home' },
-            { value: 'standings',   label: 'Standings' },
-            { value: 'viz',         label: 'Visualize' },
-            { value: 'leaderboard', label: 'Leaderboard' },
-            { value: 'stats',       label: 'Stats' },
-            { value: 'search',      label: 'Search' },
-          ]}
-          value={state.view}
-          onChange={v => {
-            // A deliberate tab navigation is a fresh start â€” never let a stale
-            // Home modal reopen from a prior Back-restore path (see homeOverlay).
-            clearHomeOverlay()
-            tabVia.current = 'pill'
-            state.stampCurrentEntry()
-            window.history.pushState({ view: v }, '', window.location.href)
-            state.setView(v as any)
-          }}
+      {/* Tab pills, above a phone's width. On a phone the bottom bar replaces them: two navs for
+          the same five destinations would be worse than either. */}
+      {!bottomNav && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 3 }}>
+          <SegControl
+            options={NAV.map(n => ({ value: n.key, label: n.label }))}
+            value={activeTab}
+            onChange={v => goTab(v as NavKey)}
+          />
+          <Box
+            role="button" aria-label="More MLB pages" aria-haspopup="menu"
+            onClick={e => setMoreAnchor(e.currentTarget)}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 0.25, px: 1.25, py: 0.6, borderRadius: 999,
+              cursor: 'pointer', color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600,
+              ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }),
+            }}
+          >
+            More <MoreHoriz sx={{ fontSize: '1rem' }} />
+          </Box>
+          <Menu anchorEl={moreAnchor} open={!!moreAnchor} onClose={() => setMoreAnchor(null)}>
+            {MORE.map(m => (
+              <MenuItem key={m.key} onClick={() => openMore(m)} sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 1 }}>
+                <Typography sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{m.label}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{m.hint}</Typography>
+              </MenuItem>
+            ))}
+          </Menu>
+        </Box>
+      )}
+
+      {/* The Stats tab's three boards. */}
+      {onStatsTab && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
+          <SegControl
+            options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label }))}
+            value={state.view}
+            onChange={v => go(v as MlbView)}
+          />
+        </Box>
+      )}
+
+      {state.view === 'scores' && (
+        <FinalGamesSection
+          layout="page"
+          followedTeamId={state.followedTeamId}
+          onPlayerClick={state.handleFollowedPlayerClick}
+          onTeamClick={state.handleTeamSearchClick}
         />
-      </Box>
+      )}
+
+      {state.view === 'teams' && (
+        <TeamsView followedTeamId={state.followedTeamId} onTeamClick={id => state.handleTeamSearchClick(id)} />
+      )}
 
       {state.view === 'home' && (
         <HomeView
@@ -310,6 +435,53 @@ export default function MlbStats() {
         />
       )}
 
+      {/* On a phone the site footer sits here, inside the room reserved for the bar, rather than
+          below the section where the bar would cover it. App.tsx drops its own copy at this width. */}
+      {bottomNav && renderFooter && <Box sx={{ mt: 4 }}>{renderFooter()}</Box>}
+
+      {bottomNav && (
+        <BottomNav
+          items={[...NAV.map(n => ({ key: n.key, label: n.label })), { key: MORE_KEY, label: 'More' }]}
+          value={activeTab}
+          onChange={k => goTab(k as NavKey)}
+          onMore={() => setMoreOpen(true)}
+          moreOpen={moreOpen}
+          accent={ACCENT}
+          label="MLB sections"
+          moreLabel="More MLB pages"
+        />
+      )}
+      {bottomNav && (
+        <SwipeableDrawer
+          anchor="bottom"
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          onOpen={() => {}}
+          disableSwipeToOpen
+          // The same sheet as WPBL's More: capped to the bar's width, rounded top corners, clear of
+          // the iOS home indicator, flicked down to dismiss.
+          PaperProps={{ sx: {
+            maxWidth: 460, mx: 'auto', left: 0, right: 0,
+            borderTopLeftRadius: 16, borderTopRightRadius: 16,
+            bgcolor: 'background.paper',
+            pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
+          } }}
+        >
+          <Box sx={{ px: 2, pt: 1 }}>
+            <Box aria-hidden sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
+            {MORE.map(m => (
+              <Box key={m.key} role="button" onClick={() => openMore(m)} sx={{
+                display: 'flex', flexDirection: 'column', gap: 0.1, cursor: 'pointer',
+                py: 1, borderBottom: '1px solid', borderColor: 'divider',
+                '&:last-of-type': { borderBottom: 'none' },
+              }}>
+                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{m.label}</Typography>
+                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{m.hint}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </SwipeableDrawer>
+      )}
     </Box>
   )
 }

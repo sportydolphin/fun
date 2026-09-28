@@ -32,8 +32,16 @@ import {
 import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
 import { careerSpan } from '../lib/utils'
 import { track, EVENTS } from '../../lib/analytics'
+import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry } from './sheetHistory'
 import type { CardInnerProps } from '../components/cards'
 import type { TeamCardInnerProps } from '../components/cards'
+
+/** Every screen the section can show. 'scores' and 'teams' arrived with the bottom nav (Sep 28,
+ *  2026); 'search' is the player and team pages; 'leaderboard', 'stats' and 'viz' are the three
+ *  boards of the Stats tab, kept as separate views so their `?view=` links still land. */
+export type MlbView = 'home' | 'scores' | 'standings' | 'stats' | 'leaderboard' | 'viz' | 'teams' | 'search'
+const MLB_VIEWS: readonly MlbView[] = ['home', 'scores', 'standings', 'stats', 'leaderboard', 'viz', 'teams', 'search']
+export const isMlbView = (v: unknown): v is MlbView => typeof v === 'string' && (MLB_VIEWS as readonly string[]).includes(v)
 
 /** Where an open came from when it is not simply the tab on screen. See `openFrom`. The
  *  default is the view, and the player and team pages are the view called 'search', so the header
@@ -209,11 +217,11 @@ export function useMlbState() {
   }, [user?.id, recentSearches])
 
   // ─── View & navigation ────────────────────────────────────────────────────────
-  const [view, setView] = useState<'home' | 'search' | 'viz' | 'leaderboard' | 'standings' | 'stats'>(() => {
+  const [view, setView] = useState<MlbView>(() => {
     try {
       // URL view param takes priority
       const vp = new URLSearchParams(window.location.search).get('view')
-      if (vp && ['home','search','viz','leaderboard','standings','stats'].includes(vp)) return vp as any
+      if (isMlbView(vp)) return vp
       // Default to Home for everyone — a no-team visitor still gets the league feed + team picker.
       return 'home'
     } catch { return 'home' }
@@ -523,13 +531,16 @@ export function useMlbState() {
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
   // that was on screen) rather than a stale default.
   const stampCurrentEntry = useCallback(() => {
+    // Not on a sheet's own entry: the navigation about to happen replaces that entry (pushEntry),
+    // and the entry under it was stamped when the sheet opened over it.
+    if (onSheetEntry()) return
     window.history.replaceState(currentHistoryState(), '', window.location.href)
   }, [currentHistoryState])
 
   const handleLbPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
     track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
     stampCurrentEntry()
-    window.history.pushState({ view: 'search', playerId }, '', window.location.href)
+    pushEntry({ view: 'search', playerId })
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
@@ -558,7 +569,7 @@ export function useMlbState() {
     // and season/career toggle) so a single Back from the stats leaderboard returns
     // right here — then push the destination 'stats' entry.
     stampCurrentEntry()
-    window.history.pushState({ view: 'stats', lb: group, allTime }, '', window.location.href)
+    pushEntry({ view: 'stats', lb: group, allTime })
     setView('stats')
     setLbGroup(group)
     setStatsAllTime(allTime)
@@ -573,7 +584,7 @@ export function useMlbState() {
   const handleFollowedPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
     track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
     stampCurrentEntry()
-    window.history.pushState({ view: 'search', playerId }, '', window.location.href)
+    pushEntry({ view: 'search', playerId })
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
@@ -584,7 +595,7 @@ export function useMlbState() {
     if (!t) return
     track(EVENTS.MLB_TEAM_OPENED, { teamId, from: openFrom(from) })
     stampCurrentEntry()
-    window.history.pushState({ view: 'search', teamId }, '', window.location.href)
+    pushEntry({ view: 'search', teamId })
     selectTeam(t).then(() => setView('search'))
   }, [allTeams, selectTeam, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -593,7 +604,7 @@ export function useMlbState() {
     if (!t) return
     track(EVENTS.MLB_TEAM_OPENED, { teamId: id, from: openFrom(from) })
     stampCurrentEntry()
-    window.history.pushState({ view: 'search', teamId: id }, '', window.location.href)
+    pushEntry({ view: 'search', teamId: id })
     selectTeam(t).then(() => setView('search'))
   }, [allTeams, selectTeam, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -677,12 +688,15 @@ export function useMlbState() {
     // land on carries an accurate description of its own screen, so popstate can restore
     // it directly. (popstate hands you the state of the entry you arrive at, never the
     // one you leave — so "where I came from" state is useless here.)
-    window.history.replaceState(currentHistoryState(), '', `/mlb${qs ? '?' + qs : ''}`)
+    window.history.replaceState(keepSheetMarker(currentHistoryState()), '', `/mlb${qs ? '?' + qs : ''}`)
   }, [view, player, team, lbGroup, vizSeason, statsAllTime, currentHistoryState])
 
   // Restore state when the browser back button is pressed
   useEffect(() => {
     const handlePop = (e: PopStateEvent) => {
+      // A pop that closes a sheet lands on the entry the sheet opened over, which already shows
+      // the right view. Restoring it would refetch whatever is underneath. See sheetHistory.ts.
+      if (sheetOpen()) return
       // Primary path: restore from the self-describing snapshot stamped on this entry
       // (see currentHistoryState + the URL-sync effect). Each entry describes the screen
       // it IS, so we can rebuild it exactly — this is what makes Back land where you'd
@@ -745,6 +759,12 @@ export function useMlbState() {
         setTeam(null)
         return
       }
+      if (viewParam === 'scores' || viewParam === 'teams') {
+        setView(viewParam)
+        setPlayer(null)
+        setTeam(null)
+        return
+      }
       if (viewParam === 'standings') {
         setView('standings')
         setPlayer(null)
@@ -787,7 +807,7 @@ export function useMlbState() {
     if (!urlViewReadRef.current) {
       urlViewReadRef.current = true
       const viewParam = params.get('view')
-      if (viewParam && ['home','viz','leaderboard','standings','stats'].includes(viewParam)) setView(viewParam as any)
+      if (isMlbView(viewParam) && viewParam !== 'search') setView(viewParam)
       const lbParam = params.get('lb')
       if (lbParam === 'pitching') setLbGroup('pitching')
       const seasonParam = params.get('season')
@@ -822,7 +842,7 @@ export function useMlbState() {
       // returns here restores it. Built from the URL's view param, not React state —
       // the setView() above is async, so `view` is still the pre-render value here.
       const vp = params.get('view')
-      const initView = vp && ['home','search','viz','leaderboard','standings','stats'].includes(vp) ? vp : view
+      const initView = isMlbView(vp) ? vp : view
       const snap: Record<string, any> = { view: initView }
       if (initView === 'leaderboard' || initView === 'stats') {
         snap.lb = params.get('lb') === 'pitching' ? 'pitching' : 'hitting'

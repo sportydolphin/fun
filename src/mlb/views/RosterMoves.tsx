@@ -7,6 +7,7 @@ import { useIsDark, defaultBorder, ringColor } from '../lib/colorUtils'
 import { useScrollLock } from '../lib/useScrollLock'
 import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
+import { useDeepLink } from '../state/deepLink'
 
 // ─── Roster Moves — trades, DFAs, claims, signings from the transactions feed ─
 //
@@ -458,6 +459,8 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
   useEffect(() => {
     if (getHomeOverlay()?.kind === 'rosterMoves') setShowAll(true)
   }, [])
+  // The More sheet's Roster moves row.
+  useDeepLink('rosterMoves', () => setShowAll(true))
 
   const deadline = deadlineInfo()
   // Group trades first, then take the top units, so a two-player swap counts as one

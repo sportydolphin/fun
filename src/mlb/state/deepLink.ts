@@ -30,6 +30,11 @@ export type DeepLink =
   | { kind: 'predictor' }                  // open the full predictions board
   | { kind: 'game'; gamePk: number }       // open a specific game's preview / Game Center
   | { kind: 'milestones' }                 // open the Milestone Watch board
+  // The phone's More sheet (Sep 28, 2026) opens these too: each is a board that lives inside a
+  // Home card or a Standings mode, with no page of its own to link to.
+  | { kind: 'survivor' }                   // open the Streak Survivor leaderboard
+  | { kind: 'rosterMoves' }                // open the full Roster Moves list
+  | { kind: 'odds' }                       // open Standings on its playoff Odds
 
 /** Query string → intent. Accepts a full url or a bare search string. */
 export function parseDeepLink(url: string): DeepLink | null {
@@ -45,6 +50,10 @@ export function parseDeepLink(url: string): DeepLink | null {
       }
       case 'milestones':
         return { kind: 'milestones' }
+      case 'survivor':
+      case 'rosterMoves':
+      case 'odds':
+        return { kind: params.get('open') as 'survivor' | 'rosterMoves' | 'odds' }
       default:
         return null
     }

@@ -6,6 +6,7 @@ import { fetchStandings } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { SegControl } from '../components'
 import { PlayoffOddsBoard } from './PlayoffOddsBoard'
+import { useDeepLink } from '../state/deepLink'
 
 // Dev-only icon tuner — lazy so it's stripped from production builds.
 const IconStudio = import.meta.env.DEV ? lazy(() => import('../dev/IconStudio')) : null
@@ -407,6 +408,8 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
   highlightTeamId?: number | null
 }) {
   const [mode, setMode] = useState<'divisions' | 'playoffs' | 'odds'>('divisions')
+  // The More sheet's Playoff odds row.
+  useDeepLink('odds', () => setMode('odds'))
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)

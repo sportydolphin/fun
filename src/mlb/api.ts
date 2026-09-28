@@ -141,19 +141,34 @@ export async function fetchAllTeams(): Promise<Team[]> {
   return (d.teams ?? []).sort((a: Team, b: Team) => a.name.localeCompare(b.name))
 }
 
-const teamStatsCache = new Map<string, Promise<any>>()
+// EVERY CLUB'S SEASON LINE IN ONE READ, per group. This was one request per club per group, and
+// the team page's league ranks (fetchTeamRankings) and the Visualize charts each want all thirty,
+// so opening a followed team's card fired 60 requests before anything drew. `/teams/stats` returns
+// the same stat object for every club (checked field for field, current and past seasons), so a
+// single team's line is simply looked up in it.
+//
+// A failed read is evicted rather than cached, so a network blip on one visit is not an empty
+// ranking for the rest of the session.
+const allTeamStatsCache = new Map<string, Promise<Map<number, any>>>()
+
+export function fetchAllTeamStats(group: 'hitting' | 'pitching', season: number): Promise<Map<number, any>> {
+  const key = `${group}-${season}`
+  let p = allTeamStatsCache.get(key)
+  if (!p) {
+    p = fetch(`https://statsapi.mlb.com/api/v1/teams/stats?stats=season&group=${group}&season=${season}&sportIds=1`)
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json() })
+      .then((d: any) => new Map<number, any>(
+        (d.stats?.[0]?.splits ?? []).map((s: any) => [Number(s.team?.id), s.stat ?? null] as [number, any]),
+      ))
+    p.catch(() => allTeamStatsCache.delete(key))
+    allTeamStatsCache.set(key, p)
+  }
+  return p
+}
 
 export async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', season: number): Promise<any> {
-  const key = `${id}-${group}-${season}`
-  if (!teamStatsCache.has(key)) {
-    teamStatsCache.set(key,
-      fetch(`https://statsapi.mlb.com/api/v1/teams/${id}/stats?stats=season&group=${group}&season=${season}`)
-        .then(r => r.json())
-        .then((d: any) => d.stats?.[0]?.splits?.[0]?.stat ?? null)
-        .catch(() => null)
-    )
-  }
-  return teamStatsCache.get(key)!
+  try { return (await fetchAllTeamStats(group, season)).get(id) ?? null }
+  catch { return null }
 }
 
 // Fetch all player stats for a season and return structured entries for leaderboard display

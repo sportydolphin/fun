@@ -1409,7 +1409,16 @@ function AppInner() {
           <AppErrorBoundary inline where="page" resetKey={path}>
           {path === '/mlb' && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <MlbStats />
+              {/* On a phone MLB has the floating bottom bar, so the footer rides inside the section
+                  above the room reserved for the bar, the same arrangement as WPBL. */}
+              <MlbStats renderFooter={() => (
+                <SiteFooter
+                  onOpenChangelog={() => setChangelogOpen(true)}
+                  onOpenFeedback={() => setFeedbackOpen(true)}
+                  onNavigate={navigate}
+                  isWpbl={false}
+                />
+              )} />
             </Suspense>
           )}
           {isWpblPlayersIndex(path) && (
@@ -1531,9 +1540,10 @@ function AppInner() {
         </Box>
 
         {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's
-            renderFooter) so it doesn't reflow when tabs of different heights swap, so skip
-            the shared one there. Everywhere else (incl. desktop WPBL) it renders here. */}
-        {!(rendersWpblApp(path) && !isDesktop) && (
+            renderFooter) so it doesn't reflow when tabs of different heights swap, and on mobile
+            MLB it sits inside the section above the bottom bar's reserved room, so skip the
+            shared one on both. Everywhere else (incl. desktop) it renders here. */}
+        {!((rendersWpblApp(path) || path === '/mlb') && !isDesktop) && (
           <SiteFooter
             onOpenChangelog={() => setChangelogOpen(true)}
             onOpenFeedback={() => setFeedbackOpen(true)}

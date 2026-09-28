@@ -7,6 +7,7 @@ import { useAuth } from '../../AuthContext'
 import { searchPlayers } from '../api'
 import { Player } from '../types'
 import { TeamLogo } from './Standings'
+import { useDeepLink } from '../state/deepLink'
 import {
   survivorToday, survivorNextDay, fetchMyPick, fetchMyStats, fetchHotHitters, fetchPickableTeams, saveMyPick,
   fetchSurvivorLeaderboard, fetchMyRecentPicks,
@@ -195,6 +196,8 @@ export function StreakSurvivorWidget() {
   const [query, setQuery]           = useState('')
   const [results, setResults]       = useState<Player[]>([])
   const [lbOpen, setLbOpen]         = useState(false)
+  // The More sheet's Streak Survivor row.
+  useDeepLink('survivor', () => setLbOpen(true))
 
   // Resolve the slate: today if any team hasn't played yet, otherwise tomorrow.
   // No auth needed, so it runs for signed-out visitors too (teaser).

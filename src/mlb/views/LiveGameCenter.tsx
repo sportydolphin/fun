@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { ModalShell } from '../../ui/ModalShell'
+import { useSheetHistory } from '../state/sheetHistory'
 import { FinalGameSummary } from './FinalGames'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import {
@@ -638,7 +639,9 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
   onTeamClick?:   (id: number) => void
   initialTab?:    'plays' | 'box'
 }) {
-  useScrollLock()
+  // Every way out (the close button, Escape, the backdrop, a drag down, Back) goes through this,
+  // so Back closes the sheet instead of leaving the section. See sheetHistory.ts.
+  const close = useSheetHistory(onClose)
   const [data,        setData]        = useState<GameCenterData | null>(null)
   const [wp,          setWp]          = useState<WpPoint[]>([])
   const [loading,     setLoading]     = useState(true)
@@ -656,12 +659,6 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
 
   // Poll while the game is live. Paused while the tab is hidden and pulled at once on return: see useForegroundInterval.
   useForegroundInterval(load, data?.state === 'live' ? 15000 : null)
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [onClose])
 
   const isLive     = (data?.state ?? game.state) === 'live'
   const isFinal    = (data?.state ?? game.state) === 'final'
@@ -730,57 +727,22 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
     </Box>
   )
 
+  // The shared sheet (src/ui/ModalShell): a bottom sheet on a phone that drags down to close, a
+  // centred card above that. Fixed width for every tab: the box score shows one team at a time with
+  // a toggle rather than widening the whole modal, which blew up the win probability graph.
   return (
-    <Box
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1500,
-        bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: { xs: 1, sm: 2 },
-      }}
-    >
-      <Box sx={{
-        bgcolor: 'background.paper', borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        // Fixed width for every tab — the box score shows one team at a time with a
-        // toggle rather than widening the whole modal (which blew up the WP graph).
-        width: '100%', maxWidth: 560,
-        // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
-        // wrapper viewport units don't shrink, so `90vh` would overflow the screen.
-        maxHeight: '100%', overflowY: 'auto',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        '&::-webkit-scrollbar': { width: 4 },
-        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
-      }}>
-
-        {/* Header */}
-        <Box sx={{
-          px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', gap: 0.75,
-          position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
-        }}>
+    <ModalShell
+      onClose={close}
+      maxWidth={560}
+      sheet
+      sheetFill
+      eyebrow={
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: isLive ? '#ef4444' : 'inherit' }}>
           {isLive && <LiveDot size={6} />}
-          <Typography sx={{
-            flex: 1, fontWeight: 800, fontSize: '0.72rem',
-            color: isLive ? '#ef4444' : 'text.secondary',
-            textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
-          }}>
-            {statusText}
-          </Typography>
-          <Box
-            onClick={onClose}
-            sx={{
-              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: 'text.disabled',
-              '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-            }}
-          >
-            <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
-          </Box>
+          {statusText}
         </Box>
-
+      }
+    >
         {/* Score summary — during live play the bases/count/outs sit between the teams */}
         <Box sx={{ px: 2, pt: 2.5, pb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           {teamHeader(away, home)}
@@ -830,7 +792,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
             <Box sx={{
               px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider',
               display: 'flex', alignItems: 'center', gap: 0.75,
-              position: 'sticky', top: 43, bgcolor: 'background.paper', zIndex: 1,
+              position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
             }}>
               {tabChip('plays', 'Plays')}
               {tabChip('box', 'Full Box Score')}
@@ -855,7 +817,6 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
             )}
           </>
         )}
-      </Box>
-    </Box>
+    </ModalShell>
   )
 }

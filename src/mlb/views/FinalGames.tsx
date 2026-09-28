@@ -10,6 +10,7 @@ import { useScrollLock } from '../lib/useScrollLock'
 import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
+import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
@@ -456,6 +457,50 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
   )
 }
 
+
+
+// ─── ScoresGrid: every game on a date, as cards ───────────────────────────────
+// Shared by the fullscreen scoreboard on Home and the Scores tab, so the two cannot drift.
+
+function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
+  games:          FinalGameSummary[]   // pre-sorted: followed team first
+  loading:        boolean
+  followedTeamId?: number | null
+  onGameClick:    (g: FinalGameSummary) => void
+}) {
+  const isMine = (g: FinalGameSummary) =>
+    followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
+  return (
+    <>
+    {loading ? (
+      <Box sx={{ py: 6, textAlign: 'center' }}>
+        <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading…</Typography>
+      </Box>
+    ) : games.length === 0 ? (
+      <Box sx={{ py: 6, textAlign: 'center' }}>
+        <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games scheduled on this date</Typography>
+      </Box>
+    ) : (
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
+        gap: 1.25,
+      }}>
+        {games.map(game => (
+          <FinalGameMiniCard
+            key={game.gamePk}
+            game={game}
+            wide
+            accent={isMine(game) ? (TEAM_BG[followedTeamId!] ?? undefined) : undefined}
+            onClick={() => onGameClick(game)}
+          />
+        ))}
+      </Box>
+    )}
+    </>
+  )
+}
+
 // ─── ScoreboardModal — all scores side by side ────────────────────────────────
 
 function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId, onGameClick, onClose, gameModalOpen }: {
@@ -475,9 +520,6 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [onClose, gameModalOpen])
-
-  const isMine = (g: FinalGameSummary) =>
-    followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
 
   return (
     <Box
@@ -533,31 +575,7 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
           '&::-webkit-scrollbar': { width: 4 },
           '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
         }}>
-          {loading ? (
-            <Box sx={{ py: 6, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading…</Typography>
-            </Box>
-          ) : games.length === 0 ? (
-            <Box sx={{ py: 6, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games scheduled on this date</Typography>
-            </Box>
-          ) : (
-            <Box sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
-              gap: 1.25,
-            }}>
-              {games.map(game => (
-                <FinalGameMiniCard
-                  key={game.gamePk}
-                  game={game}
-                  wide
-                  accent={isMine(game) ? (TEAM_BG[followedTeamId!] ?? undefined) : undefined}
-                  onClick={() => onGameClick(game)}
-                />
-              ))}
-            </Box>
-          )}
+          <ScoresGrid games={games} loading={loading} followedTeamId={followedTeamId} onGameClick={onGameClick} />
         </Box>
       </Box>
     </Box>
@@ -566,10 +584,14 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
 
 // ─── FinalGamesSection ─────────────────────────────────────────────────────────
 
-export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }: {
+export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, layout = 'strip' }: {
   followedTeamId?: number | null
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
+  /** 'strip' is Home's one-row scroller with a fullscreen view behind it. 'page' is the Scores
+   *  tab: the same day's games as the full grid, inline, with the same loading, date navigation
+   *  and Game Center behind every card. One component so the two cannot disagree about a slate. */
+  layout?:        'strip' | 'page'
 }) {
   const [dateISO,    setDateISO]    = useState(() => toISO(new Date()))
   const [games,      setGames]      = useState<FinalGameSummary[]>([])
@@ -680,6 +702,19 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
     return () => { cancelled = true }
   }, [dateISO])
 
+  // LIVE SCORES. Nothing refreshed this list once it loaded, so a score on the strip, and on the
+  // Scores tab built from the same list, stood still for as long as the page was open. Today only,
+  // and only while something on the slate is live or still to come: a finished day is final. The
+  // date is re-checked when the read lands, so stepping to another day mid-flight cannot paint
+  // today's games over it. `fetchFinalGames` never caches today, so every tick is a real read.
+  const dateRef = useRef(dateISO)
+  dateRef.current = dateISO
+  const pollToday = dateISO === toISO(new Date()) && games.some(g => g.state === 'live' || g.state === 'preview')
+  useForegroundInterval(() => {
+    const asked = dateRef.current
+    fetchFinalGames(asked).then(g => { if (dateRef.current === asked && g.length) setGames(g) }).catch(() => {})
+  }, pollToday ? 30_000 : null)
+
   // Re-check arrow visibility whenever the game list (re)renders — new date, new
   // width, etc. — since scrollWidth/clientWidth only settle after paint.
   useEffect(() => {
@@ -706,7 +741,18 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
 
   return (
     <>
-      {/* Open on the page — no enclosing card. The mini-cards carry their own border. */}
+      {layout === 'page' ? (
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+            <Typography component="h1" sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+              Scores
+            </Typography>
+            <Box sx={{ ml: 'auto' }}><DateNav dateISO={dateISO} onChange={setDateISO} /></Box>
+          </Box>
+          <ScoresGrid games={sortedGames} loading={loading} followedTeamId={followedTeamId} onGameClick={setOpenGame} />
+        </Box>
+      ) : (
+      /* Open on the page, no enclosing card. The mini-cards carry their own border. */
       <Box>
         {/* Header with date nav */}
         <Box sx={{
@@ -815,6 +861,8 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
           </Box>
         )}
       </Box>
+
+      )}
 
       {expanded && (
         <ScoreboardModal

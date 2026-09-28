@@ -7,7 +7,8 @@ import { Box, Typography } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { ModalShell } from '../../ui/ModalShell'
+import { useSheetHistory } from '../state/sheetHistory'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, SectionLabel } from '../components/boxScore'
 
@@ -300,7 +301,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   onPrev?: () => void
   onNext?: () => void
 }) {
-  useScrollLock()
+  // Back closes the sheet rather than leaving the section; see sheetHistory.ts.
+  const close = useSheetHistory(onClose)
   // Tag the loaded data with the game it belongs to. When `game` switches (‹ › nav) the
   // tag no longer matches, so `loading` flips true immediately — the skeleton shows in the
   // very first frame instead of briefly re-showing the previous game's pitchers.
@@ -315,13 +317,13 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowLeft'  && onPrev) { e.preventDefault(); onPrev() }
+      // Escape is ModalShell's, and goes through `close`.
+      if (e.key === 'ArrowLeft'  && onPrev) { e.preventDefault(); onPrev() }
       else if (e.key === 'ArrowRight' && onNext) { e.preventDefault(); onNext() }
     }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [onClose, onPrev, onNext])
+  }, [onPrev, onNext])
 
   const isDark = useIsDark()
 
@@ -437,80 +439,37 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
     </Box>
   )
 
-  // Prev/next-game arrows straddling the card edges — half in the backdrop margin, half
-  // over the card's padding gutter so they never cover content. Vertically centered.
-  const navArrowSx = (side: 'left' | 'right') => ({
-    position: 'absolute' as const, top: '50%', [side]: 0,
-    transform: side === 'left' ? 'translate(-50%, -50%)' : 'translate(50%, -50%)',
-    zIndex: 2, width: 36, height: 36, borderRadius: '50%',
-    bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+  // Prev/next-game arrows, in the sheet's header beside the close button. They used to straddle the
+  // card's edges, which a bottom sheet the width of a phone has nowhere to put.
+  const navArrowSx = {
+    flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
-    color: 'text.secondary',
-    transition: 'background-color 0.12s, color 0.12s',
+    cursor: 'pointer', color: 'text.secondary',
     '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-  } as const)
+  } as const
+  const unplayed = game.statusText === 'Postponed' || game.statusText === 'Cancelled'
 
   return (
-    <Box
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1500,
-        bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: { xs: 1, sm: 2 },
-      }}
-    >
-      <Box sx={{ position: 'relative', width: '100%', maxWidth: 480, maxHeight: '100%', display: 'flex' }}>
-        {onPrev && (
-          <Box onClick={e => { e.stopPropagation(); onPrev() }} sx={navArrowSx('left')} aria-label="Previous game">
-            <ChevronLeft sx={{ fontSize: '1.4rem' }} />
+    <ModalShell
+      onClose={close}
+      maxWidth={480}
+      sheet
+      eyebrow={unplayed
+        ? (game.reason ? `${game.statusText} · ${game.reason}` : game.statusText)
+        : `Preview · ${game.statusText}`}
+      actions={(onPrev || onNext) && (
+        <Box sx={{ display: 'flex', gap: 0.25 }}>
+          <Box onClick={onPrev} aria-label="Previous game" role="button"
+            sx={{ ...navArrowSx, visibility: onPrev ? 'visible' : 'hidden' }}>
+            <ChevronLeft sx={{ fontSize: '1.2rem' }} />
           </Box>
-        )}
-        {onNext && (
-          <Box onClick={e => { e.stopPropagation(); onNext() }} sx={navArrowSx('right')} aria-label="Next game">
-            <ChevronRight sx={{ fontSize: '1.4rem' }} />
-          </Box>
-        )}
-      <Box sx={{
-        bgcolor: 'background.paper', borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        width: '100%',
-        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
-        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
-        maxHeight: '100%', overflowY: 'auto',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        '&::-webkit-scrollbar': { width: 4 },
-        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
-      }}>
-
-        {/* Header */}
-        <Box sx={{
-          px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', gap: 1,
-          position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
-        }}>
-          <Typography sx={{
-            flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
-            textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
-          }}>
-            {game.statusText === 'Postponed' || game.statusText === 'Cancelled'
-              ? (game.reason ? `${game.statusText} · ${game.reason}` : game.statusText)
-              : `Preview · ${game.statusText}`}
-          </Typography>
-          <Box
-            onClick={onClose}
-            sx={{
-              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: 'text.disabled',
-              '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-            }}
-          >
-            <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
+          <Box onClick={onNext} aria-label="Next game" role="button"
+            sx={{ ...navArrowSx, visibility: onNext ? 'visible' : 'hidden' }}>
+            <ChevronRight sx={{ fontSize: '1.2rem' }} />
           </Box>
         </Box>
-
+      )}
+    >
         {/* Matchup */}
         <Box sx={{ px: 2, pt: 2.5, pb: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
           {teamSide(game.away)}
@@ -554,9 +513,6 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
 
         {/* How the two clubs stack up on the season */}
         <TeamComparison away={game.away} home={game.home} />
-
-      </Box>
-      </Box>
-    </Box>
+    </ModalShell>
   )
 }

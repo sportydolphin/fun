@@ -67,20 +67,34 @@ goes first and the rest is winter work.
    with where from. Read on /admin under "MLB: what gets used" (`admin_mlb_usage`). "Keep what
    MLB does better" is a guess until October says what gets used, so read it before phase 3
    decides what moves into More.
-2. **Lift the section-agnostic WPBL pieces into shared code**: `BottomNav` (accent as a prop),
-   `SwipeableViews`, `ModalShell` and its scroll lock, `chromePx`. A pure move with the WPBL
-   tests unchanged, since `src/wpbl` must stay free of MLB coupling and MLB must not import it.
-3. **Phone shell** (October). Five tabs, Home · Scores · Standings · Stats · Teams, plus More.
-   Leaderboard and Visualize become boards inside Stats, Search lives only in the toolbar, and
-   More holds Predictions, Survivor, Milestones, Roster Moves, Odds and Payroll.
-4. **Overlays and URLs** (October). All ten overlays onto `ModalShell` sheets, each a history
-   entry. Paths `/mlb/standings`, `/mlb/players/<name>-<id>` (the id always, since MLB has real
+2. ✅ **Lift the section-agnostic WPBL pieces into shared code** (Sep 28). `src/ui/` now holds
+   `BottomNav` (accent and labels as props), `SwipeableViews`, `ModalShell` with its scroll lock
+   and drag-to-dismiss, and the tap helpers (`pressable`, `hoverOnly`, `linkPress`, `FOCUS_RING`).
+   WPBL's old paths re-export them, so no WPBL call site changed and its tests passed untouched.
+   `chromePx` stays in WPBL until MLB takes the desktop ramp (7).
+3. ✅ **Phone shell** (Sep 28). Five tabs, Home · Scores · Standings · Stats · Teams, plus More:
+   WPBL's floating bottom bar and More sheet on a phone, pills and a More menu above that.
+   Leaderboard, Stats and Visualize are the Leaders / Table / Charts boards of one Stats tab, and
+   stay separate views underneath so every old `?view=` link lands. Scores is the full grid with
+   date navigation (and now refreshes live, which the Home strip never did); Teams lists all 30
+   by division as real links. More opens Predictions, Survivor, Milestones, Roster moves, Odds and
+   Charts & payroll through deep links their owners already listen for. Not done: the swipe pager.
+   MLB's views unmount on a tab change and refetch, so keeping them mounted side by side is a
+   separate job from the bar.
+4. 🟡 **Overlays and URLs.** *Done Sep 28:* Game Center and the game preview are `ModalShell`
+   sheets (drag down to close on a phone) and history entries, so Back closes them instead of
+   leaving the section (`state/sheetHistory.ts`, pinned in `__tests__/sheetHistory.test.tsx`). A
+   link out of a sheet replaces its entry, so Back from that player lands where the sheet opened.
+   *Open:* the other eight overlays (scoreboard, predictions, milestones, roster moves, survivor,
+   schedule, leaderboard fullscreen, trends fullscreen), and the real paths:
+   `/mlb/standings`, `/mlb/players/<name>-<id>` (the id always, since MLB has real
    namesakes), `/mlb/games/<pk>`, `/mlb/teams/<abbr>`, each with its `_redirects` lines,
    `seo.ts` entry and routes test; old `?view=` links 301 at the edge, and the notification
    URLs in `shared/notifications.js` (`/mlb?view=home&open=predictor`) keep working. The
    969-line `useMlbState` becomes route-driven.
-5. **Load cost.** The bulk team-stats call (60 requests to 2), lazy Game Center and player
-   page, skeletons, last-good seeds.
+5. 🟡 **Load cost.** *Done Sep 28:* one `/teams/stats` read per group replaces the 60 per-club
+   reads behind a team's league ranks and the Visualize charts. *Open:* lazy views, skeletons,
+   last-good seeds.
 6. **Offseason shape, by Nov 1.** Six daily MLB crons run all winter (only game-start is gated
    by month); give them a due-gate like `wpbl_ingest_due()`. The predictor's empty
    "TOMORROW / No upcoming games" card needs an offseason state.

@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.101.0',
+    date:    '2026-09-28',
+    title:   'MLB gets the WPBL layout on phones',
+    changes: [
+      {
+        short: 'MLB has a bottom tab bar on phones',
+        full:  'MLB now has the same floating tab bar as WPBL on a phone: Home, Scores, Standings, Stats and Teams, with Predictions, Streak Survivor, Milestone Watch, Roster moves, Playoff odds and the charts one tap away under More.',
+      },
+      {
+        short: 'New Scores and Teams tabs for MLB',
+        full:  'Scores shows every game on a date and keeps live scores updating while you watch. Teams lists all thirty clubs by division. Leaderboards, the stats table and the charts are now three views inside one Stats tab.',
+      },
+      {
+        short: 'Back closes an MLB game instead of leaving the page',
+        full:  'Game Center and game previews now open as a sheet you can drag down to close on a phone, and the Back button or gesture closes them rather than taking you out of MLB.',
+      },
+      {
+        short: 'MLB team pages load faster',
+        full:  'Opening a team used to make sixty separate requests for league-wide team stats. It now makes two.',
+      },
+    ],
+  },
+  {
     version: '1.100.0',
     date:    '2026-09-28',
     title:   'MLB is ready for the postseason',
