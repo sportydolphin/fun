@@ -31,7 +31,7 @@
   "id": "11764b0d-69b0-492d-aefa-8902f3b33c8b",
   "new_value": "2",
   "old_value": "1",
-  "reason": "Bases loaded, two out, bottom 1st. The feed credits the double with 2 RBI and its own runners-on state shows three occupied bases, but runs_scored is 1 and the clause for Benitez reads \"Samaria Benitez Samaria Benitez\" with the verb missing, which is why the field counts one run: it counts \"X scored\" clauses. The next row shows her gone from third. RetroWPBL scores the same plate appearance D7/L.3-H(RBI);2-H(RBI);1-3, two runners home. This is the missing run in LA 9-in-the-log against 10-on-the-board for 2026-08-29. Re-read against the live feed on 2026-09-02, five days on, still unfixed at source.",
+  "reason": "Bases loaded, two out, bottom 1st. The feed credits the double with 2 RBI and its own runners-on state shows three occupied bases, but runs_scored is 1 and the clause for Benitez reads \"Samaria Benitez Samaria Benitez\" with the verb missing, which is why the field counts one run: it counts \"X scored\" clauses. The next row shows Benitez gone from third. RetroWPBL scores the same plate appearance D7/L.3-H(RBI);2-H(RBI);1-3, two runners home. This is the missing run in LA 9-in-the-log against 10-on-the-board for 2026-08-29. Re-read against the live feed on 2026-09-02, five days on, still unfixed at source.",
   "sequence": 10,
   "source": "external"
  },
@@ -55,7 +55,7 @@
   "id": "173169bd-a61e-4b72-bda4-155d39395a74",
   "new_value": "Mo'ne Davis struck out looking (2-2 BBSKK).",
   "old_value": "Ayami Sato struck out looking (2-2 BBSKK).",
-  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be hers. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names her (NYH202608270, 5 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
+  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be theirs. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names Mo'ne Davis (NYH202608270, 5 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
   "sequence": 74,
   "source": "league"
  },
@@ -163,7 +163,7 @@
   "id": "3f1b6fbc-d966-459f-b22b-75ba8c16d2c4",
   "new_value": "Caitlin Eynon doubled down the lf line, 2 RBI (0-2 KFF); Sarah Edwards advanced to third; Jamie Mackay scored; Samaria Benitez scored.",
   "old_value": "Caitlin Eynon doubled down the lf line, 2 RBI (0-2 KFF); Sarah Edwards advanced to third; Jamie Mackay scored; Samaria Benitez Samaria Benitez.",
-  "reason": "Bases loaded, two out, bottom 1st. The feed credits the double with 2 RBI and its own runners-on state shows three occupied bases, but runs_scored is 1 and the clause for Benitez reads \"Samaria Benitez Samaria Benitez\" with the verb missing, which is why the field counts one run: it counts \"X scored\" clauses. The next row shows her gone from third. RetroWPBL scores the same plate appearance D7/L.3-H(RBI);2-H(RBI);1-3, two runners home. This is the missing run in LA 9-in-the-log against 10-on-the-board for 2026-08-29. Re-read against the live feed on 2026-09-02, five days on, still unfixed at source.",
+  "reason": "Bases loaded, two out, bottom 1st. The feed credits the double with 2 RBI and its own runners-on state shows three occupied bases, but runs_scored is 1 and the clause for Benitez reads \"Samaria Benitez Samaria Benitez\" with the verb missing, which is why the field counts one run: it counts \"X scored\" clauses. The next row shows Benitez gone from third. RetroWPBL scores the same plate appearance D7/L.3-H(RBI);2-H(RBI);1-3, two runners home. This is the missing run in LA 9-in-the-log against 10-on-the-board for 2026-08-29. Re-read against the live feed on 2026-09-02, five days on, still unfixed at source.",
   "sequence": 10,
   "source": "external"
  },
@@ -175,7 +175,7 @@
   "id": "3f5cb6de-b12e-4774-98ba-06994c12f4ee",
   "new_value": "Mo'ne Davis",
   "old_value": "Ayami Sato",
-  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be hers. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names her (NYH202608270, 7 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
+  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be theirs. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names Mo'ne Davis (NYH202608270, 7 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
   "sequence": 91,
   "source": "league"
  },
@@ -223,7 +223,7 @@
   "id": "55f7b42c-16ef-4536-a272-fa4a47a3d246",
   "new_value": "Mo'ne Davis singled through the left side (3-2 BKBKB).",
   "old_value": "Ayami Sato singled through the left side (3-2 BKBKB).",
-  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be hers. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names her (NYH202608270, 7 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
+  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be theirs. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names Mo'ne Davis (NYH202608270, 7 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
   "sequence": 91,
   "source": "league"
  },
@@ -379,7 +379,7 @@
   "id": "96338a12-dc2d-49fe-af43-c0545be061bd",
   "new_value": "288b2108-b1c2-4185-b108-3dc838aae072",
   "old_value": "4d34311c-b7d6-44da-9614-b5ad954ddc59",
-  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be hers. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names her (NYH202608270, 5 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
+  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be theirs. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names Mo'ne Davis (NYH202608270, 5 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
   "sequence": 74,
   "source": "league"
  },
@@ -583,7 +583,7 @@
   "id": "c2eb0f19-2269-4577-907e-fc6ae7e12bcf",
   "new_value": "288b2108-b1c2-4185-b108-3dc838aae072",
   "old_value": "4d34311c-b7d6-44da-9614-b5ad954ddc59",
-  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be hers. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names her (NYH202608270, 7 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
+  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be theirs. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names Mo'ne Davis (NYH202608270, 7 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
   "sequence": 91,
   "source": "league"
  },
@@ -715,7 +715,7 @@
   "id": "e9517eb8-8a8b-4565-b885-0b1c6ced987e",
   "new_value": "Mo'ne Davis",
   "old_value": "Ayami Sato",
-  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be hers. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names her (NYH202608270, 5 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
+  "reason": "The league's own box score gives Ayami Sato no plate appearance in this game, so this play cannot be theirs. Mo'ne Davis has the at-bats and no plays at all, the event matches, and RetroWPBL names Mo'ne Davis (NYH202608270, 5 top). The play is unchanged: only the batter on it. Not a second opinion on the league's scoring, an internal contradiction in it.",
   "sequence": 74,
   "source": "league"
  },
