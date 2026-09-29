@@ -1018,16 +1018,17 @@ export function fetchWpblRecaps(): Promise<WpblGameRecap[]> {
   })
 }
 
-// The league's mirrored YouTube uploads, newest first, for the highlights rail and the
-// per-game recap card. A small table, so this is one cheap read cached last-good: the rail
-// repaints on a revisit without re-querying, and the GameDetail recap reads the same cache
-// instead of its own request. Empty pre-migration.
+// The mirrored YouTube uploads (league and WPBL from Day 1), newest first, for the highlights
+// rail and the per-game recap card. A small table, so this is one cheap read cached last-good:
+// the rail repaints on a revisit without re-querying, and the GameDetail recap reads the same
+// cache instead of its own request. `channel_id` needs migration 20260929002026: without it this
+// read errors and every video on the site disappears, quietly, as an empty list.
 export function fetchWpblVideos(): Promise<WpblVideo[]> {
   if (isFresh(allVideosCache)) return Promise.resolve(allVideosCache!.data)
   return once('allVideos', async () => {
     const data = await safe<WpblVideo[]>('fetchWpblVideos', () =>
       supabase.from('wpbl_videos')
-        .select('video_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint')
+        .select('video_id,channel_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint')
         .order('published_at', { ascending: false }) as unknown as
         PromiseLike<{ data: WpblVideo[] | null; error: unknown }>,
       [])

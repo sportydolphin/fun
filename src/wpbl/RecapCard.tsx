@@ -6,7 +6,7 @@ import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE, useWpblDark, CLUB_BAND, cardFooterBand } from './ui'
 import { relativeDayLabel, wpblFullName, wpblSurface } from './constants'
-import { GameHighlightCard } from './Highlights'
+import { GameHighlightCards } from './Highlights'
 import { linkColor, useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 
 const MEDAL = ['🥇', '🥈', '🥉']
@@ -127,7 +127,7 @@ export function LazyWinProbCard(props: {
   return <Suspense fallback={null}><WinProbView {...props} /></Suspense>
 }
 
-export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], video, onOpenPlayer }: {
+export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], videos = [], onOpenPlayer }: {
   game: WpblGame
   teams: Map<string, WpblTeam>
   batting: WpblBattingLine[]
@@ -135,7 +135,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   plays: WpblGamePlay[]
   names: Map<string, WpblPlayer>
   games?: WpblGame[]   // full schedule, so the recap verbs calibrate to the league's run environment
-  video?: WpblVideo | null   // the league's highlight reel, when there is one: see the note where it renders
+  videos?: WpblVideo[]   // this game's videos, league reel first (gameVideos): see the note where they render
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
@@ -209,14 +209,14 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         </Box>
       )}
 
-      {/* The league's highlight reel, at the foot of the recap.
+      {/* This game's videos (the league's reel, then a fan's condensed game), at the foot of the recap.
       Not in the modal's fixed header, above the tab row, where it would cost every tab
       about 90px it never gets back: the header (line score, conditions, reel, tabs) would
       take more than half a 690px phone screen and leave the Recap pane too short for its
       own card. A reel is a nice thing to find at the end of a recap and a poor thing to
       spend a header on. GameDetail keeps a copy for the game that has video but no box
       score, since that game has no Recap tab to put it in. */}
-      {video && <GameHighlightCard video={video} />}
+      <GameHighlightCards videos={videos} />
 
     </Box>
   )

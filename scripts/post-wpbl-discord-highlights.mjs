@@ -81,6 +81,10 @@ const WINDOW_DAYS = 4
 // A normal run posts zero or one video. The gap only matters on a first seeding run.
 const SEND_GAP_MS = 400
 
+// @wpbl_official, the only channel this job posts from. Same default as the sync's
+// LEAGUE_CHANNEL_ID and the same repo variable overriding it.
+const LEAGUE_CHANNEL_ID = (process.env.WPBL_YT_CHANNEL_ID || '').trim() || 'UCtd3k09dk2H6UjU7skfmemQ'
+
 if (IS_ENTRYPOINT) {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and a Supabase key before running')
@@ -301,6 +305,12 @@ async function main() {
     // Either stream. `is_short.is.true` and not `is_short.not.is.false`: an undetermined probe
     // leaves the column null, and null must stay out of the channel rather than being guessed in.
     .or('kind.eq.highlight,is_short.is.true')
+    // The league's channel only. wpbl_videos also mirrors WPBL from Day 1, a fan channel we
+    // embed on the site with permission, and that permission says nothing about reposting
+    // their uploads into the fan server. Their classifier never emits 'highlight' and they are
+    // never probed for Shorts, so today neither half of the `or` could match one of their rows,
+    // but that is two coincidences standing in for a rule.
+    .eq('channel_id', LEAGUE_CHANNEL_ID)
     .order('published_at', { ascending: true })
   if (!SEED) query = query.gte('published_at', cutoff)
 

@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { ModalShell, TeamBadge, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, chromePx, hoverOnly } from './ui'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo, WpblTeam } from './types'
+import { isLeagueVideo, videoCredit, videoLabel } from './videoChannels'
 
 // The WPBL highlights surface: a mirror of the league's official YouTube uploads, read from
 // the wpbl_videos table (populated by scripts/sync-wpbl-youtube.mjs). Two consumers share
@@ -51,8 +52,9 @@ function PlayBadge({ size = 44 }: { size?: number }) {
 // YouTube happens from any list view.
 export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClose: () => void }) {
   const src = `https://www.youtube-nocookie.com/embed/${video.video_id}?autoplay=1&rel=0&modestbranding=1`
+  const credit = videoCredit(video)
   return (
-    <ModalShell eyebrow="Highlights" onClose={onClose} maxWidth={880} zIndex={1600}>
+    <ModalShell eyebrow={video.kind === 'condensed' ? 'Condensed game' : 'Highlights'} onClose={onClose} maxWidth={880} zIndex={1600}>
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Box sx={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 2, overflow: 'hidden', bgcolor: '#000' }}>
           <Box
@@ -65,6 +67,7 @@ export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClos
           />
         </Box>
         <Typography sx={{ mt: 1.25, fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.3 }}>{video.title}</Typography>
+        {credit && <Box sx={{ mt: 0.5 }}><VideoCreditLine credit={credit} /></Box>}
         <Box sx={{ mt: 0.75 }}>
           <Box
             component="a"
@@ -79,6 +82,29 @@ export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClos
         </Box>
       </Box>
     </ModalShell>
+  )
+}
+
+// "Video: WPBL from Day 1", linking to their channel. A real link rather than text, so the
+// credit sends people to the person who made the video. It stops propagation because on the
+// game card it sits inside the card's own click target, which would otherwise open the player
+// underneath the new tab.
+function VideoCreditLine({ credit }: { credit: { name: string; url: string } }) {
+  return (
+    <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>
+      Video:{' '}
+      <Box
+        component="a"
+        href={credit.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+        sx={{ color: 'inherit', fontWeight: 700, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+      >
+        {credit.name}
+      </Box>
+    </Typography>
   )
 }
 
@@ -155,10 +181,12 @@ export function HighlightsStrip({ videos, teams, from = 'recap' }: {
   const [active, setActive] = useState<WpblVideo | null>(null)
 
   // Highlights (matched to a game) lead; podcasts and features keep the tail. Capped so the
-  // strip stays a glanceable shelf rather than the whole channel.
+  // strip stays a glanceable shelf rather than the whole channel. League uploads only: this
+  // strip carries no credit line, and WPBL from Day 1's videos are due their own rail on the
+  // recap rather than a place in the tail of this one.
   const shown = useMemo(() => {
     const rank = (v: WpblVideo) => (v.kind === 'highlight' ? 0 : v.kind === 'podcast' ? 1 : 2)
-    return [...videos].sort((a, b) => rank(a) - rank(b)).slice(0, 12)
+    return videos.filter(isLeagueVideo).sort((a, b) => rank(a) - rank(b)).slice(0, 12)
   }, [videos])
   const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(shown.length)
 
@@ -187,10 +215,23 @@ export function HighlightsStrip({ videos, teams, from = 'recap' }: {
   )
 }
 
+// Every video of one game, stacked: the league's reel and, when there is one, a fan's condensed
+// game. Callers pass `gameVideos(...)`, which puts the league's first.
+export function GameHighlightCards({ videos }: { videos: WpblVideo[] }) {
+  if (videos.length === 0) return null
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {videos.map(v => <GameHighlightCard key={v.video_id} video={v} />)}
+    </Box>
+  )
+}
+
 // The per-game recap strip shown at the top of GameDetail for a final game that has a
 // matched highlight. Compact: a small thumbnail facade + label, opening the same lightbox.
-export function GameHighlightCard({ video }: { video: WpblVideo }) {
+function GameHighlightCard({ video }: { video: WpblVideo }) {
   const [open, setOpen] = useState(false)
+  const credit = videoCredit(video)
+  const label = videoLabel(video)
   // `from` separates the two surfaces that open the same lightbox: the shelf on Home is
   // discovery, this one is a reader already inside a box score. Without it the play count is
   // one number that cannot tell the shelf's job from the game page's.
@@ -202,7 +243,7 @@ export function GameHighlightCard({ video }: { video: WpblVideo }) {
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play() } }}
         role="button"
         tabIndex={0}
-        aria-label={`Watch highlights: ${video.title}`}
+        aria-label={`${label}: ${video.title}`}
         sx={{
           display: 'flex', alignItems: 'center', gap: 1.25, cursor: 'pointer',
           p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
@@ -223,7 +264,7 @@ export function GameHighlightCard({ video }: { video: WpblVideo }) {
         </Box>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
-            Watch Highlights
+            {label}
           </Typography>
           <Typography sx={{
             fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.3, mt: 0.25,
@@ -231,6 +272,7 @@ export function GameHighlightCard({ video }: { video: WpblVideo }) {
           }}>
             {video.title}
           </Typography>
+          {credit && <Box sx={{ mt: 0.25 }}><VideoCreditLine credit={credit} /></Box>}
         </Box>
       </Box>
       {open && <HighlightLightbox video={video} onClose={() => setOpen(false)} />}

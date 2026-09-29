@@ -12,7 +12,8 @@ import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import { wpblGameSlugFromPath, wpblGameShortPath } from './routes'
 import { WpblGamePreview } from './GamePreview'
-import { GameHighlightCard } from './Highlights'
+import { GameHighlightCards } from './Highlights'
+import { gameVideos } from './videoChannels'
 import { GameStoryCard, GameRecapLinkCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
 import LiveGameView from './LiveGameView'
@@ -1901,10 +1902,11 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   const [details, setDetails] = useState<WpblGameDetails | null>(() => cached?.details ?? null)
   const [revisions, setRevisions] = useState<WpblGameRevision[]>(() => cached?.revisions ?? [])
   const [names, setNames] = useState<Map<string, WpblPlayer>>(() => cached?.names ?? new Map())
-  // The recap video for this game, if the league has published one. Read from the shared
-  // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
-  const [video, setVideo] = useState<WpblVideo | null>(() =>
-    getCachedWpblVideos()?.find(v => v.game_id === seed.id) ?? null)
+  // This game's videos: the league's reel and a fan's condensed game, either, both or neither.
+  // Read from the shared wpbl_videos cache (a tiny table, fetched once app-wide), matched on
+  // game_id.
+  const [videos, setVideos] = useState<WpblVideo[]>(() =>
+    gameVideos(getCachedWpblVideos() ?? [], seed.id))
   // The written recaps of this game, when somebody has written one and the sync was confident
   // enough to link it (see matchGame in derive/articles.ts). EVERY one, oldest first: two writers
   // now cover the league, and opening day's LA at New York has a post from each. Same shared-cache
@@ -2029,12 +2031,12 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
     fetchWpblAllRunValuePlays().catch(() => { /* the card retries on its own */ })
   }, [])
 
-  // Resolve this game's recap video. Cheap shared read (deduped + cached by the api layer);
-  // revalidates in the background so a recap that lands after the game repaints on next open.
+  // Resolve this game's videos. Cheap shared read (deduped + cached by the api layer);
+  // revalidates in the background so a video that lands after the game repaints on next open.
   useEffect(() => {
     let cancelled = false
     fetchWpblVideos()
-      .then(vs => { if (!cancelled) setVideo(vs.find(v => v.game_id === seed.id) ?? null) })
+      .then(vs => { if (!cancelled) setVideos(gameVideos(vs, seed.id)) })
       .catch(() => { /* keep last-good */ })
     return () => { cancelled = true }
   }, [seed.id])
@@ -2438,7 +2440,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
                         {recap && <GameRecapLinkCard recap={recap} />}
                       </Box>
                     )}
-                    <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
+                    <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} videos={final ? videos : []} onOpenPlayer={onOpenPlayer} />
                     {/* Last, and only here: none of it is why anybody opens a game (see GameInfo). */}
                     <GameInfo game={game} details={details} />
                     {/* Under the info list, because the revision date there is the line this expands on. */}
@@ -2528,7 +2530,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
             />
             {/* No lines means no tabs, so there is no Recap tab holding the reel. A game with
                 video and no box score is exactly the game somebody wants the video from. */}
-            {video && <Box sx={{ mt: 2 }}><GameHighlightCard video={video} /></Box>}
+            {videos.length > 0 && <Box sx={{ mt: 2 }}><GameHighlightCards videos={videos} /></Box>}
           </Box>
         ) : away && home ? (
           // Unplayed game: a pre-game matchup card comparing the two clubs' season stats,

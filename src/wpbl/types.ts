@@ -137,15 +137,20 @@ export interface WpblGame {
   final_by_rule?: boolean
 }
 
-// A mirror of one WPBL official-YouTube upload (see scripts/sync-wpbl-youtube.mjs and
-// create_wpbl_videos.sql). `game_id` is set for a highlight whose title parsed to a known
-// game; null for podcasts, league features, or an unmatched matchup.
+// A mirror of one YouTube upload (see scripts/sync-wpbl-youtube.mjs and
+// create_wpbl_videos.sql), from the league's channel or from WPBL from Day 1 (`channel_id`,
+// see videoChannels.ts). `game_id` is set for a league highlight or a fan condensed game whose
+// title parsed to a known game; null for podcasts, features, compilations, or an unmatched
+// matchup.
 export interface WpblVideo {
   video_id: string           // YouTube 11-char id (watch?v=…)
+  channel_id: string
   title: string
   published_at: string       // ISO timestamp
   thumbnail_url: string | null
-  kind: 'highlight' | 'podcast' | 'other'
+  // highlight / podcast come from the league channel only, condensed / compilation from the
+  // fan channel only; other from either.
+  kind: 'highlight' | 'podcast' | 'condensed' | 'compilation' | 'other'
   game_id: string | null
   away_hint?: string | null
   home_hint?: string | null
