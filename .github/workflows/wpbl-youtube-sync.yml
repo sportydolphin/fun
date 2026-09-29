@@ -36,7 +36,10 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 5 for the schedule. An all_uploads run reads every upload and asks YouTube once per unknown
+    # one whether it is a Short, which on the league's 408-upload catalogue took 4m53s of the 5
+    # and was cancelled seconds after its last write.
+    timeout-minutes: ${{ inputs.all_uploads && 20 || 5 }}
     steps:
       - uses: actions/checkout@v4
 

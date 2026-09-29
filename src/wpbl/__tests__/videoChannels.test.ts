@@ -67,6 +67,14 @@ describe('WPBL from Day 1 titles', () => {
     expect(resolveVideo(fan, 'LA Queens vs. NY Heights: the rivalry', resolveTeam, gameByKey))
       .toMatchObject({ kind: 'other', gameId: null })
   })
+
+  it('takes a per-video date override over a title that names the wrong day', () => {
+    const games = new Map([['2026-08-23|LA|BOS', 'g-aug23']])
+    const title = 'LA Queens vs. Boston Hunters Highlights | WPBL | Aug. 24, 2026'
+    expect(resolveVideo(fan, title, resolveTeam, games)).toMatchObject({ gameId: null })
+    expect(resolveVideo(fan, title, resolveTeam, games, 'OEMYxsFlyDI'))
+      .toMatchObject({ gameId: 'g-aug23', date: '2026-08-23' })
+  })
 })
 
 describe('league titles', () => {

@@ -294,9 +294,20 @@ function splitMatchup(matchupPart, title, resolveTeam) {
 // Each mirrored channel: how to read its titles, and whether its Shorts are worth probing for.
 // The probe exists for the Discord poster, which posts league uploads only, so a channel that
 // never reaches Discord never pays for it (and never has a gated request mistaken for an answer).
+//
+// `dateOverrides` corrects a title that names the wrong day, keyed on the video id because the
+// title is the thing that is wrong. Without it the video matches no game (or, worse, the wrong
+// one), and a hand fix in the table lasts only until the next --all run re-reads the title.
 export const CHANNELS = [
   { id: LEAGUE_CHANNEL_ID, label: 'league', classify, parse: parseMatchup, gameKinds: ['highlight'], probeShorts: true },
-  { id: FAN_RECAPS_CHANNEL_ID, label: 'WPBL from Day 1', classify: classifyFan, parse: parseFanMatchup, gameKinds: ['condensed'], probeShorts: false },
+  {
+    id: FAN_RECAPS_CHANNEL_ID, label: 'WPBL from Day 1', classify: classifyFan, parse: parseFanMatchup, gameKinds: ['condensed'], probeShorts: false,
+    dateOverrides: {
+      // "LA Queens vs. Boston Hunters | Aug. 24": no game was played on the 24th. Uploaded the
+      // morning of the 24th, and the 26th's game has a video of its own, so it is LA at BOS, Aug 23.
+      OEMYxsFlyDI: '2026-08-23',
+    },
+  },
 ]
 
 // ─── Upload sources ─────────────────────────────────────────────────────────
@@ -409,11 +420,12 @@ async function fetchEntries(channelId) {
  * tried, and the hints are then taken from the GAME rather than the title, so the card's
  * "away @ home" badges say what happened rather than what the title's word order implied.
  */
-export function resolveVideo(channel, title, resolveTeam, gameByKey) {
+export function resolveVideo(channel, title, resolveTeam, gameByKey, videoId = null) {
   const kind = channel.classify(title)
   let away = null, home = null, date = null, gameId = null
   if (channel.gameKinds.includes(kind)) {
     ({ away, home, date } = channel.parse(title, resolveTeam))
+    date = channel.dateOverrides?.[videoId] ?? date
     if (away && home && date) {
       gameId = gameByKey.get(`${date}|${away}|${home}`) ?? null
       if (!gameId) {
@@ -474,7 +486,7 @@ async function syncChannel(channel, resolveTeam, gameByKey) {
 
   const rows = []
   for (const e of entries) {
-    const { kind, away, home, date, gameId } = resolveVideo(channel, e.title, resolveTeam, gameByKey)
+    const { kind, away, home, date, gameId } = resolveVideo(channel, e.title, resolveTeam, gameByKey, e.videoId)
     // A highlight reel and a podcast are never Shorts, so their answer is free. Everything else
     // is asked once, ever, and the answer is remembered. A channel that does not probe leaves
     // the column at whatever it holds, which for a new row is null: undetermined.
