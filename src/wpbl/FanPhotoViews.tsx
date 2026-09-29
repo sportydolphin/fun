@@ -587,7 +587,7 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
 export function FanPhotoHomeCardSkeleton() {
   return (
     <Box sx={{ mt: 1.5 }} aria-hidden>
-      <SectionCard title="2026 gallery">
+      <SectionCard title="2026 Gallery">
         <Box sx={{ mx: { xs: -2, sm: 0 }, display: 'flex', gap: 1.25, overflow: 'hidden', pb: 0.5 }}>
           {[1.5, 1, 1.5, 1.33, 1.5].map((a, i) => (
             <Box key={i} sx={{ flexShrink: 0, width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` } }}>
@@ -666,7 +666,7 @@ export function FanPhotoHomeCard({ reserve = false }: {
   return (
     <Box sx={{ mt: 1.5 }}>
       <SectionCard
-        title="2026 gallery"
+        title="2026 Gallery"
         action={
           <Box {...seeAll} sx={{
             textDecoration: 'none', fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',

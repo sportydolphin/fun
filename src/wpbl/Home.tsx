@@ -1265,7 +1265,7 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
   const split = finalInProgress || !!champTeam
 
   return (
-    <SectionCard title="2026 season" fill>
+    <SectionCard title="2026 Season" fill>
       {/* The whole body is the link, the way the league card's is: a card whose one job is to send
           a reader to the recap should open it from anywhere on the card, not just a trailing word.
           `flex: 1` + centred so it absorbs whatever height the card beside it (Last game) forces,
