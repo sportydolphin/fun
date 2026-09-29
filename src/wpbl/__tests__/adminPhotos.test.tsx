@@ -125,6 +125,24 @@ describe('AdminPhotos curation', () => {
     await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph2', { playerId: 'plW' }))
   })
 
+  it('narrows the queue by photographer and by whether a photo is tagged', async () => {
+    subjects = [{ id: 's9', photo_id: 'ph2', player_id: 'plW', figure_key: null, team_id: null }]
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByText('All (2)'))
+    // `Tag mode (n)` is the count of what the list is showing.
+    expect(await screen.findByText('Tag mode (2)')).toBeTruthy()
+
+    fireEvent.mouseDown(screen.getByText('Any photographer (2)'))
+    fireEvent.click(within(await screen.findByRole('listbox')).getByText('Alex (1)'))
+    expect(await screen.findByText('Tag mode (1)')).toBeTruthy()
+    expect(screen.getByText('Already up')).toBeTruthy()
+
+    // Alex's one photo is tagged, so Untagged empties the list.
+    fireEvent.mouseDown(screen.getByText('Tagged or not'))
+    fireEvent.click(within(await screen.findByRole('listbox')).getByText('Untagged (1)'))
+    await waitFor(() => expect(screen.queryByText(/^Tag mode/)).toBeNull())
+  })
+
   it('renames a photographer from the Photographers section', async () => {
     render(<AdminPhotos />)
     await screen.findAllByText('Jamie Fan')

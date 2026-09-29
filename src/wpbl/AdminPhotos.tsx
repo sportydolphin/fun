@@ -917,6 +917,18 @@ export function FanPhotoEditor({ photoId, onClose }: { photoId: string; onClose:
   )
 }
 
+// The queue's compact dropdowns, styled like the category select beside them.
+function FilterSelect({ value, onChange, options }: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]
+}) {
+  return (
+    <Select value={value} onChange={e => onChange(String(e.target.value))} size="small"
+      sx={{ fontSize: '0.75rem', '& .MuiSelect-select': { py: 0.4 } }}>
+      {options.map(o => <MenuItem key={o.value} value={o.value} sx={{ fontSize: '0.8rem' }}>{o.label}</MenuItem>)}
+    </Select>
+  )
+}
+
 export default function AdminPhotos() {
   const [photos, setPhotos] = useState<WpblFanPhotoRow[]>([])
   const [subjects, setSubjects] = useState<WpblPhotoSubject[]>([])
@@ -929,6 +941,10 @@ export default function AdminPhotos() {
   const [categoryFilter, setCategoryFilter] = useState<string>('*')
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('unapproved')
+  // '*' is every photographer; '' is photos with no contributor record.
+  const [photographerFilter, setPhotographerFilter] = useState<string>('*')
+  const [tagFilter, setTagFilter] = useState<'any' | 'untagged' | 'tagged'>('any')
+  const [sort, setSort] = useState<'queue' | 'newest' | 'oldest' | 'photographer' | 'least-tagged'>('queue')
   const [tagging, setTagging] = useState<{ ids: string[]; start: number } | null>(null)
 
   const load = useCallback(() => {
@@ -956,9 +972,30 @@ export default function AdminPhotos() {
     all: photos.length,
   }), [photos])
 
-  const shown = photos.filter(p =>
+  // The status and category filters decide what is in play; the photographer and tag counts
+  // below are counted over THAT, so "Untagged (12)" means twelve of the photos you are looking
+  // at, not twelve across a pile the status chip has already set aside.
+  const inPlay = photos.filter(p =>
     (filter === 'all' ? true : filter === 'approved' ? p.approved : !p.approved)
     && (categoryFilter === '*' || (p.category_key ?? '') === categoryFilter))
+  // Untagged means nothing says what the photo is: no subject and no category. A fan sign in the
+  // Fan Sign category has nobody to tag and is done.
+  const isTagged = (p: WpblFanPhotoRow) => (subjectsByPhoto.get(p.id)?.length ?? 0) > 0 || p.category_key != null
+  const byPhotographer = new Map<string, number>()
+  for (const p of inPlay) byPhotographer.set(p.contributor_id ?? '', (byPhotographer.get(p.contributor_id ?? '') ?? 0) + 1)
+  const taggedCount = inPlay.filter(isTagged).length
+  // No credit sorts after every name, rather than first as an empty string would.
+  const byCredit = (a: WpblFanPhotoRow, b: WpblFanPhotoRow) =>
+    !a.credit || !b.credit ? Number(!a.credit) - Number(!b.credit) : a.credit.localeCompare(b.credit)
+  const shown = inPlay
+    .filter(p => (photographerFilter === '*' || (p.contributor_id ?? '') === photographerFilter)
+      && (tagFilter === 'any' || (tagFilter === 'tagged') === isTagged(p)))
+    .sort((a, b) =>
+      sort === 'newest' ? b.created_at.localeCompare(a.created_at)
+      : sort === 'oldest' ? a.created_at.localeCompare(b.created_at)
+      : sort === 'photographer' ? byCredit(a, b) || b.created_at.localeCompare(a.created_at)
+      : sort === 'least-tagged' ? (subjectsByPhoto.get(a.id)?.length ?? 0) - (subjectsByPhoto.get(b.id)?.length ?? 0)
+      : 0)
   const lookups = useMemo<Lookups>(() => ({ players: playersById, figures: figuresByKey, teams, categories, contributors }),
     [playersById, figuresByKey, teams, categories, contributors])
   const openTagMode = (start: number) => setTagging({ ids: shown.map(p => p.id), start })
@@ -978,6 +1015,27 @@ export default function AdminPhotos() {
             {categories.map(c => <MenuItem key={c.key} value={c.key} sx={{ fontSize: '0.8rem' }}>{c.name}</MenuItem>)}
           </Select>
         )}
+        <FilterSelect value={photographerFilter} onChange={setPhotographerFilter} options={[
+          { value: '*', label: `Any photographer (${inPlay.length})` },
+          // Only photographers with photos in play, plus the one selected, so switching the status
+          // chip never leaves the dropdown holding a value it has no option for.
+          ...contributors.filter(c => byPhotographer.has(c.id) || c.id === photographerFilter)
+            .map(c => ({ value: c.id, label: `${c.display_name} (${byPhotographer.get(c.id) ?? 0})` })),
+          ...(byPhotographer.has('') || photographerFilter === ''
+            ? [{ value: '', label: `No photographer (${byPhotographer.get('') ?? 0})` }] : []),
+        ]} />
+        <FilterSelect value={tagFilter} onChange={v => setTagFilter(v as typeof tagFilter)} options={[
+          { value: 'any', label: 'Tagged or not' },
+          { value: 'untagged', label: `Untagged (${inPlay.length - taggedCount})` },
+          { value: 'tagged', label: `Tagged (${taggedCount})` },
+        ]} />
+        <FilterSelect value={sort} onChange={v => setSort(v as typeof sort)} options={[
+          { value: 'queue', label: 'Sort: queue order' },
+          { value: 'newest', label: 'Sort: newest added' },
+          { value: 'oldest', label: 'Sort: oldest added' },
+          { value: 'photographer', label: 'Sort: photographer' },
+          { value: 'least-tagged', label: 'Sort: fewest tags' },
+        ]} />
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {loading && <CircularProgress size={14} />}
           {shown.length > 0 && (
