@@ -27,7 +27,7 @@ import { buildBracket, championResult, championshipGames, aliveContenders, type 
 // The listener is DEV-guarded, so production never mounts it. See devChampion.ts.
 import { DEV_CHAMPION_EVENT, devChampionState, type DevChampionState } from './dev/devChampion'
 import SprayChart from './SprayChart'
-import { HighlightsStrip } from './Highlights'
+import { WatchCard } from './Watch'
 import { batStarScore, pitchStarScore, battingStatline, pitchingStatline } from './derive/recap'
 import SeasonShapeCard from './SeasonShapeCard'
 import { BracketDiagram } from './PlayoffBracket'
@@ -597,13 +597,13 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
             )
           })()}
 
-          {/* ── Highlights ───────────────────────────────────────────────────────
-              The league channel's game recaps, here rather than on the league page since a reader
-              looking back at the season is on this one. Each game page carries its own reel too. */}
+          {/* ── Watch ────────────────────────────────────────────────────────────
+              The door to /wpbl/watch, which replaced the twelve-card highlights rail that sat here.
+              Each game page still carries its own videos. */}
           {videos.length > 0 && (
             <>
-              <SectionHeading seen="season">Highlights</SectionHeading>
-              <HighlightsStrip videos={videos} teams={teams} from="recap" />
+              <SectionHeading seen="season">Watch</SectionHeading>
+              <WatchCard from="recap" eyebrow={false} />
             </>
           )}
 

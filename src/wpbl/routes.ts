@@ -633,6 +633,18 @@ export const WPBL_READING_PAGE = `${WPBL_BASE}/reading`
 export const isWpblReadingPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_READING_PAGE
 
+// ─── The Watch page ────────────────────────────────────────────────────────────
+//
+// Reading's sibling for video: every game's highlights, condensed game and broadcast, the league's
+// Shorts, and the rest of both channels. Its own URL for the reason Reading has one: the highlights
+// used to be a twelve-card rail on the season recap, which showed a quarter of the reels, none of
+// the 291 Shorts, and had no address. The shelf is a hash (#games, #clips, #more), not a path, so
+// this stays one route with one rewrite. See WatchPage.tsx.
+export const WPBL_WATCH_PAGE = `${WPBL_BASE}/watch`
+
+export const isWpblWatchPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_WATCH_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

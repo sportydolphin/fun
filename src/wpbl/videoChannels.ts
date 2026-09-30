@@ -28,20 +28,69 @@ export function videoCredit(v: WpblVideo): VideoCredit | null {
 
 /** The card's kicker. */
 export function videoLabel(v: WpblVideo): string {
-  return v.kind === 'condensed' ? 'Condensed game' : 'Watch Highlights'
+  return v.kind === 'condensed' ? 'Condensed game' : v.kind === 'full_game' ? 'Full game' : 'Watch Highlights'
 }
 
+/** The lightbox's eyebrow and a button's name: what the video IS, in a word or two. */
+export function videoKindName(v: WpblVideo): string {
+  if (v.is_short === true) return 'Clip'
+  switch (v.kind) {
+    case 'highlight': return 'Highlights'
+    case 'condensed': return 'Condensed game'
+    case 'full_game': return 'Full game'
+    case 'compilation': return 'Compilation'
+    case 'press': return 'Press conference'
+    case 'podcast': return 'Podcast'
+    default: return 'Video'
+  }
+}
+
+// Shortest watch first: the reel is a few minutes, the condensed game a quarter of an hour, the
+// broadcast the whole game. A reader who opened a game's videos wants the quick one on top.
+const GAME_KIND_RANK: Record<string, number> = { highlight: 0, condensed: 1, full_game: 2 }
+
 /**
- * Every video of one game, the league's first.
+ * Every video of one game, shortest watch first.
  *
- * A game can now have two: the league's reel and a fan's condensed game. This replaced a
- * `find`, which kept whichever row the table happened to return first and dropped the other
- * without a trace. League first because it is the official record and the shorter watch; the
- * condensed game is the longer one for a reader who wants more.
+ * A game can have three: the league's reel, a fan's condensed game and the league's full
+ * broadcast. This replaced a `find`, which kept whichever row the table happened to return first
+ * and dropped the rest without a trace.
  */
 export function gameVideos(videos: readonly WpblVideo[], gameId: string): WpblVideo[] {
-  const rank = (v: WpblVideo) => (isLeagueVideo(v) ? 0 : 1)
+  const rank = (v: WpblVideo) => GAME_KIND_RANK[v.kind] ?? 3
   return videos
     .filter(v => v.game_id === gameId)
     .sort((a, b) => rank(a) - rank(b) || a.published_at.localeCompare(b.published_at))
 }
+
+/**
+ * The Watch page's three shelves, from one list.
+ *
+ * `is_short` decides first and a game second, and the order matters: a Short never carries a
+ * `game_id` today, but when clip tagging lands one will, and it is still a clip, not a fourth
+ * button on the game card. An undetermined `is_short` (null) reads as landscape and goes to More,
+ * for the reason on the type. Every video lands on exactly one shelf.
+ */
+export function watchShelves(videos: readonly WpblVideo[]): {
+  gameIds: string[]; clips: WpblVideo[]; more: WpblVideo[]
+} {
+  const gameIds: string[] = []
+  const seen = new Set<string>()
+  const clips: WpblVideo[] = []
+  const more: WpblVideo[] = []
+  for (const v of videos) {
+    if (v.is_short === true) clips.push(v)
+    else if (v.game_id) { if (!seen.has(v.game_id)) { seen.add(v.game_id); gameIds.push(v.game_id) } }
+    else more.push(v)
+  }
+  return { gameIds, clips, more }
+}
+
+// More's groups, in page order. The fan's compilations lead: they are the best single watch on
+// the shelf and the only thing on it about the season as a whole.
+export const MORE_GROUPS: { key: string; label: string; test: (v: WpblVideo) => boolean }[] = [
+  { key: 'compilation', label: 'Season compilations', test: v => v.kind === 'compilation' },
+  { key: 'features', label: 'Features', test: v => v.kind === 'other' },
+  { key: 'press', label: 'Press conferences', test: v => v.kind === 'press' },
+  { key: 'podcast', label: 'Podcast', test: v => v.kind === 'podcast' },
+]

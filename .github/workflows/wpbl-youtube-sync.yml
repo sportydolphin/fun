@@ -9,8 +9,8 @@ on:
     # gain from running more often.
     # NOT season-gated, unlike the other WPBL workflows. The other three act on games and have
     # nothing to do out of season; this one mirrors a YouTube channel that keeps posting
-    # podcasts and features after the last pitch, and the Highlights segment of Home's media
-    # shelf would quietly stop updating all winter if this stopped with the schedule.
+    # podcasts and features after the last pitch, and /wpbl/watch would quietly stop updating
+    # all winter if this stopped with the schedule.
     # Twice an hour is arguably generous for a channel that posts a few times a week, but
     # cadence is a separate question from the season window.
     - cron: '0,30 14-23,0-3 * * *'
@@ -24,6 +24,11 @@ on:
         options: [dry-run, post, seed, skip]
       all_uploads:
         description: 'Sync every upload on each channel, not just the latest 25. For the first run after a channel is added.'
+        required: false
+        default: false
+        type: boolean
+      reclassify:
+        description: 'Re-run the classifiers over every stored video instead of syncing. No YouTube call. For the first run after a classifier changes.'
         required: false
         default: false
         type: boolean
@@ -64,7 +69,8 @@ jobs:
           # 404s intermittently from GitHub's datacenter IPs.
           YOUTUBE_API_KEY:           ${{ secrets.YOUTUBE_API_KEY }}
           ALL_UPLOADS:               ${{ inputs.all_uploads }}
-        run: node scripts/sync-wpbl-youtube.mjs $([ "$ALL_UPLOADS" = "true" ] && echo --all)
+          RECLASSIFY:                ${{ inputs.reclassify }}
+        run: node scripts/sync-wpbl-youtube.mjs $([ "$ALL_UPLOADS" = "true" ] && echo --all) $([ "$RECLASSIFY" = "true" ] && echo --reclassify)
 
       # Straight after the sync, in the same pass, so a reel reaches the Discord highlights
       # channel the moment we learn about it rather than waiting on a second schedule.

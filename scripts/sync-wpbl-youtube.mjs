@@ -31,6 +31,7 @@
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/sync-wpbl-youtube.mjs
  *   node --env-file=.env scripts/sync-wpbl-youtube.mjs --dry-run   # anon key, writes nothing
  *   ... --all   # every upload, not the latest 25 (needs YOUTUBE_API_KEY; for adding a channel)
+ *   ... --reclassify   # re-run the classifiers over every stored row; no YouTube call
  *
  * Source: prefers the YouTube Data API v3 when YOUTUBE_API_KEY is set (reliable from CI
  * datacenter IPs), otherwise falls back to the public RSS feed (keyless, but YouTube
@@ -58,6 +59,11 @@ const DRY_RUN = args.has('--dry-run')
 // Page through every upload instead of the latest 25. Data API only (the RSS feed has no
 // paging), and meant for a one-off backfill when a channel is added, not for the schedule.
 const ALL = args.has('--all')
+// Re-run classification and game matching over every STORED row, from its stored title, and
+// touch nothing else. No YouTube call. The schedule only ever re-reads the latest ~15 uploads, so
+// a change to a classifier otherwise reaches only what the channel posts next: the full-game
+// broadcasts were all posted in-season and would have sat as 'other' forever.
+const RECLASSIFY = args.has('--reclassify')
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
@@ -146,8 +152,31 @@ const MATCHUP_SEP = /\s@\s|\svs\.?\s/
 export function classify(title) {
   const t = title.toLowerCase()
   if (/\bhighlights?\b/.test(t) && MATCHUP_SEP.test(t)) return 'highlight'
+  if (/\bpress conference\b/.test(t)) return 'press'
+  if (isFullGameTitle(title)) return 'full_game'
   if (/\bpodcast\b|\bepisode\b|\bep\.?\s*\d|dialogues?\b/.test(t)) return 'podcast'
   return 'other'
+}
+
+/**
+ * The league's full-game broadcasts, the whole game as streamed, which were landing in 'other':
+ *
+ *   "WPBL: Boston Hunters @ San Francisco Firebells | September 6, 2026"
+ *   "WPBL Championship: Game 5 | Los Angeles Queens @ San Francisco Firebells | September 22, 2026"
+ *   "WPBL: Los Angeles Queens at New York Heights | August 1, 2026"
+ *
+ * i.e. a "WPBL...:" label, a matchup segment between pipes, and a date, with no "Highlights"
+ * (that is the reel, classified above). Deliberately narrower than the reel's rule. The channel
+ * also posts hundreds of Shorts with free-form titles, and the only thing that stops one reading
+ * as a three-hour broadcast is this shape: the label, the pipe and the date together. " at " is
+ * accepted HERE ONLY, because the opening-day broadcast used it, and as a general separator it
+ * would make "Pro Women's Baseball at Fenway Park!" a matchup.
+ */
+const FULL_GAME_SEP = /\s@\s|\svs\.?\s|\sat\s/i
+export function isFullGameTitle(title) {
+  if (!/^\s*WPBL\b[^|]*:/i.test(title) || !title.includes('|')) return false
+  if (/\bhighlights?\b/i.test(title) || !parseTitleDate(title)) return false
+  return title.split('|').some(seg => FULL_GAME_SEP.test(seg))
 }
 
 /**
@@ -266,7 +295,10 @@ export function parseMatchup(title, resolveTeam) {
   // reels put a round in front ("WPBL Highlights: Championship - Game 5 | LA @ SF | 09/22/26").
   const afterColon = title.includes(':') ? title.slice(title.indexOf(':') + 1) : title
   const segments = afterColon.split('|')
-  const matchupPart = segments.find(s => MATCHUP_SEP.test(s)) ?? segments[0]
+  // " at " only for a full-game broadcast, for the reason at isFullGameTitle.
+  const matchupPart = segments.find(s => MATCHUP_SEP.test(s))
+    ?? (isFullGameTitle(title) ? segments.find(s => FULL_GAME_SEP.test(s))?.replace(/\s+at\s+/i, ' @ ') : undefined)
+    ?? segments[0]
   return splitMatchup(matchupPart, title, resolveTeam)
 }
 
@@ -299,7 +331,7 @@ function splitMatchup(matchupPart, title, resolveTeam) {
 // title is the thing that is wrong. Without it the video matches no game (or, worse, the wrong
 // one), and a hand fix in the table lasts only until the next --all run re-reads the title.
 export const CHANNELS = [
-  { id: LEAGUE_CHANNEL_ID, label: 'league', classify, parse: parseMatchup, gameKinds: ['highlight'], probeShorts: true },
+  { id: LEAGUE_CHANNEL_ID, label: 'league', classify, parse: parseMatchup, gameKinds: ['highlight', 'full_game'], probeShorts: true },
   {
     id: FAN_RECAPS_CHANNEL_ID, label: 'WPBL from Day 1', classify: classifyFan, parse: parseFanMatchup, gameKinds: ['condensed'], probeShorts: false,
     dateOverrides: {
@@ -454,6 +486,8 @@ async function main() {
   const gameByKey = new Map()
   for (const g of games ?? []) gameByKey.set(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`, g.id)
 
+  if (RECLASSIFY) { await reclassifyStored(resolveTeam, gameByKey); return }
+
   // One channel failing does not stop the other: the RSS path 404s intermittently from CI, and
   // a bad read of the league's feed is no reason to leave the fan channel's new upload unsynced.
   // The run still exits non-zero, so the failure shows in Actions.
@@ -487,10 +521,11 @@ async function syncChannel(channel, resolveTeam, gameByKey) {
   const rows = []
   for (const e of entries) {
     const { kind, away, home, date, gameId } = resolveVideo(channel, e.title, resolveTeam, gameByKey, e.videoId)
-    // A highlight reel and a podcast are never Shorts, so their answer is free. Everything else
-    // is asked once, ever, and the answer is remembered. A channel that does not probe leaves
-    // the column at whatever it holds, which for a new row is null: undetermined.
-    const isShort = kind === 'highlight' || kind === 'podcast'
+    // A highlight reel, a broadcast, a press conference and a podcast are never Shorts, so their
+    // answer is free. Everything else is asked once, ever, and the answer is remembered. A channel
+    // that does not probe leaves the column at whatever it holds, which for a new row is null:
+    // undetermined.
+    const isShort = NEVER_SHORT.has(kind)
       ? false
       : knownShort.get(e.videoId) ?? (channel.probeShorts && !DRY_RUN ? await probeIsShort(e.videoId) : null)
     rows.push({
@@ -521,6 +556,41 @@ async function syncChannel(channel, resolveTeam, gameByKey) {
   const { error: upErr } = await supabase.from('wpbl_videos').upsert(rows, { onConflict: 'video_id' })
   if (upErr) throw new Error(`Upsert failed: ${upErr.message}`)
   console.log(`✅  Upserted ${rows.length} videos (${matched} matched to a game)`)
+}
+
+// Kinds whose answer to "is this a Short" is known from the title.
+const NEVER_SHORT = new Set(['highlight', 'full_game', 'press', 'podcast'])
+
+// --reclassify: see RECLASSIFY. Writes only the columns the title decides, and only on rows whose
+// answer changed, so a run with nothing to do writes nothing. `is_short` is written only where the
+// new kind settles it: a probed answer is never replaced by a guess. A title that names the wrong
+// day is corrected by the channel's `dateOverrides`, here exactly as in the sync.
+async function reclassifyStored(resolveTeam, gameByKey) {
+  const rows = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from('wpbl_videos')
+      .select('video_id, channel_id, title, kind, game_id, away_hint, home_hint, game_date_hint, is_short')
+      .order('video_id').range(from, from + 999)
+    if (error) throw new Error(`Loading stored videos failed: ${error.message}`)
+    rows.push(...(data ?? []))
+    if ((data ?? []).length < 1000) break
+  }
+  let changed = 0
+  for (const r of rows) {
+    const channel = CHANNELS.find(c => c.id === r.channel_id)
+    if (!channel) continue
+    const { kind, away, home, date, gameId } = resolveVideo(channel, r.title, resolveTeam, gameByKey, r.video_id)
+    const patch = { kind, game_id: gameId, away_hint: away, home_hint: home, game_date_hint: date }
+    if (NEVER_SHORT.has(kind) && r.is_short !== false) patch.is_short = false
+    if (Object.entries(patch).every(([k, v]) => (r[k] ?? null) === (v ?? null))) continue
+    changed++
+    console.log(`  • ${r.title}  [${r.kind} → ${kind}${gameId ? ` → game ${gameId.slice(0, 8)}` : ''}]`)
+    if (DRY_RUN) continue
+    const { error } = await supabase.from('wpbl_videos')
+      .update({ ...patch, updated_at: new Date().toISOString() }).eq('video_id', r.video_id)
+    if (error) throw new Error(`Update of ${r.video_id} failed: ${error.message}`)
+  }
+  console.log(`${DRY_RUN ? '🧪  Dry run: would change' : '✅  Changed'} ${changed} of ${rows.length} stored videos`)
 }
 
 if (IS_ENTRYPOINT) {

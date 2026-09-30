@@ -180,6 +180,8 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_photo_source:      A("Opened a photo's source", 'Reading & photos'),
   wpbl_highlight_played:  A('Played a highlight', 'Reading & photos'),
   wpbl_highlight_youtube: A('Opened a highlight on YouTube', 'Reading & photos'),
+  wpbl_watch_shown:       I('Watch card shown', 'Reading & photos'),
+  wpbl_watch_open:        A('Used the Watch card', 'Reading & photos'),
 
   wpbl_award_shown:       I('Fan awards shown', 'Awards & picks'),
   wpbl_award_open:        A('Opened fan awards', 'Awards & picks'),
@@ -267,6 +269,7 @@ export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; 
   { label: 'League card',  seen: 'wpbl_league_card_shown', used: ['wpbl_league_card_open'],                       verb: 'opened it' },
   { label: 'Compare card', seen: 'wpbl_compare_shown',     used: ['wpbl_compare_opened'],                         verb: 'opened Compare' },
   { label: 'Latest post',  seen: 'wpbl_reading_shown',     used: ['wpbl_article_opened', 'wpbl_reading_archive'], verb: 'opened a post' },
+  { label: 'Watch card',   seen: 'wpbl_watch_shown',       used: ['wpbl_watch_open'],                             verb: 'played a clip or opened Watch' },
   { label: 'Discord',      seen: 'discord_shown',          used: ['discord_joined'],                              verb: 'joined' },
 ]
 
@@ -282,7 +285,7 @@ export function buildFunnels(events: EventCount[]): FunnelRow[] {
 /** Readable names for the page ids and the snake_case section / control ids the pages send. */
 export const PAGE_LABELS: Record<string, string> = {
   season: 'Season recap', photos: 'Photos', scorigami: 'Scorigami', league: 'About the league',
-  reading: 'Reading', players: 'All players', standings: 'Standings tab',
+  reading: 'Reading', watch: 'Watch', players: 'All players', standings: 'Standings tab',
 }
 export function prettyId(id: string): string {
   const s = id.replace(/_/g, ' ')

@@ -159,6 +159,13 @@ const ROUTES: Record<string, Seo> = {
     description:
       "Everything two independent writers have published about the Women's Pro Baseball League: mary mustard's towards a more perfect game and D.A. Espinoza's The Rising Fastball, newest first and filterable by writer and club.",
   },
+  // Every video of the league in one place. Titled for what a reader searches ("WPBL highlights")
+  // rather than for the page's own name, and it says plainly that the condensed games are a fan's.
+  '/wpbl/watch': {
+    title: "WPBL highlights, full games and clips | sportydolphin.fun",
+    description:
+      "Every Women's Pro Baseball League game on video: the league's highlights and full broadcasts, condensed games by WPBL from Day 1, and every clip the league has posted.",
+  },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
     description:

@@ -24,7 +24,7 @@ import { track, trackImpression, EVENTS } from '../lib/analytics'
 // indexable. A page gives the writing an address, a list that shows every post, and a club filter,
 // which is the one way a reader actually narrows 27 headlines.
 //
-// JUST READING. Highlights live on the season recap and on each game, and the Commons archive is a
+// JUST READING. Video lives on /wpbl/watch and on each game, and the Commons archive is a
 // category of the gallery: this page is the writers' work and nothing else, which is also what
 // keeps it from reading as this site's own editorial.
 //

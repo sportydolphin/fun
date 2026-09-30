@@ -121,6 +121,12 @@ export const EVENTS = {
   WPBL_HIGHLIGHTS_SHOWN:  'wpbl_highlights_shown',  // retired
   WPBL_HIGHLIGHT_PLAYED:  'wpbl_highlight_played',  // opened the lightbox on a video, props {videoId, kind, from}
   WPBL_HIGHLIGHT_YOUTUBE: 'wpbl_highlight_youtube', // clicked out to YouTube from the lightbox, props {videoId}
+  // The Watch card on Home and on the season recap. Its own pair rather than a reuse of the
+  // highlight events, so the card has a funnel: `wpbl_highlight_played` fires from every video
+  // surface and cannot say whether this card earned its place. The page itself is counted as a
+  // page view (WpblPage), so SHOWN never fires from /wpbl/watch and stays a pure card denominator.
+  WPBL_WATCH_SHOWN:       'wpbl_watch_shown',       // the Watch card drew, props {count, from}
+  WPBL_WATCH_OPEN:        'wpbl_watch_open',        // used the Watch card, props {from, action: 'page' | 'play'}
 
   // A team page opened, from anywhere. `wpbl_seeding_team` and `wpbl_bracket_team` were the
   // only team opens counted, which measured two cards rather than the surface: the Teams grid,

@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.105.0',
+    date:    '2026-09-29',
+    title:   'Watch: every WPBL video in one place',
+    changes: [
+      {
+        short: 'A Watch page for WPBL video',
+        full:  'A new page gathers every video of the league: each game with its highlights, condensed game and full broadcast, every clip the league has posted, and the features, press conferences and podcast. It is in the More menu.',
+      },
+      {
+        short: 'Clips play vertically, one after another',
+        full:  'The league\'s short clips play upright, the way they were filmed, and the arrows (or your arrow keys) step to the next one without closing the player.',
+      },
+      {
+        short: 'Full broadcasts on each game',
+        full:  'Where the league streamed a game, Game Center now has the full broadcast beside the highlights and the condensed game.',
+      },
+      {
+        short: 'The newest clips on Home',
+        full:  'Home and the season recap show the six newest clips, which play right there, with a link to everything else.',
+      },
+    ],
+  },
+  {
     version: '1.104.2',
     date:    '2026-09-29',
     title:   'Playoff series that read as series',

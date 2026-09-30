@@ -39,6 +39,7 @@ import {
   isWpblScorigamiPage,
   isWpblMatchupsPage,
   isWpblReadingPage,
+  isWpblWatchPage,
   isWpblPhotosPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
@@ -834,6 +835,34 @@ describe('/wpbl/reading, the writing', () => {
   })
 })
 
+describe('/wpbl/watch, the videos', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/watch\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/watch\/\s+\/wpbl\/watch\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toMatch(/'\/wpbl\/watch':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/watch</loc>')
+  })
+
+  // The shelf is a hash, so the path alone is the page: #clips must not read as another route.
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblWatchPage('/wpbl/watch')).toBe(true)
+    expect(isWpblWatchPage('/wpbl/watch/')).toBe(true)
+    expect(isWpblWatchPage('/wpbl/watching')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/watch')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/watch')).toBe(false)
+  })
+
+  it('is linked from the site footer', () => {
+    expectInFooter('WPBL_WATCH_PAGE')
+  })
+})
+
 describe('/wpbl/photos, the fan photos gallery', () => {
   it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
     expect(redirects).toMatch(/^\/wpbl\/photos\s+\/\s+200\s*$/m)
@@ -878,7 +907,7 @@ describe('the More menu surfaces every non-tab WPBL page', () => {
   })
 
   const expected = [
-    'WPBL_SEASON_PAGE', 'WPBL_READING_PAGE', 'WPBL_PHOTOS_PAGE', 'WPBL_LEAGUE_PAGE',
+    'WPBL_SEASON_PAGE', 'WPBL_READING_PAGE', 'WPBL_WATCH_PAGE', 'WPBL_PHOTOS_PAGE', 'WPBL_LEAGUE_PAGE',
     'WPBL_SCORIGAMI_PAGE', 'WPBL_MATCHUPS_PAGE', 'WPBL_COMPARE_BASE', 'WPBL_PLAYERS_INDEX', 'WPBL_GLOSSARY_PAGE',
   ]
   for (const c of expected) {

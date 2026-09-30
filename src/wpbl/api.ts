@@ -1018,20 +1018,26 @@ export function fetchWpblRecaps(): Promise<WpblGameRecap[]> {
   })
 }
 
-// The mirrored YouTube uploads (league and WPBL from Day 1), newest first, for the highlights
-// rail and the per-game recap card. A small table, so this is one cheap read cached last-good:
-// the rail repaints on a revisit without re-querying, and the GameDetail recap reads the same
-// cache instead of its own request. `channel_id` needs migration 20260929002026: without it this
-// read errors and every video on the site disappears, quietly, as an empty list.
+// The mirrored YouTube uploads (league and WPBL from Day 1), newest first, for the Watch page, the
+// Home card and the per-game recap card. Cached last-good: the Watch page and GameDetail read the
+// same cache instead of each making their own request. `channel_id` needs migration
+// 20260929002026: without it this read errors and every video on the site disappears, quietly, as
+// an empty list.
+//
+// PAGED, although it fits one page today (451 rows on Sep 29, 2026). The league posts several
+// Shorts a game in season, so the table passes PostgREST's silent 1000-row cap next summer, and
+// from that day a bare select would drop the OLDEST uploads without an error. `video_id` breaks
+// the tie between two uploads stamped the same second, which is what keeps the pages disjoint.
 export function fetchWpblVideos(): Promise<WpblVideo[]> {
   if (isFresh(allVideosCache)) return Promise.resolve(allVideosCache!.data)
   return once('allVideos', async () => {
-    const data = await safe<WpblVideo[]>('fetchWpblVideos', () =>
+    const data = await fetchAllPaged<WpblVideo>('fetchWpblVideos', (from, to) =>
       supabase.from('wpbl_videos')
-        .select('video_id,channel_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint')
-        .order('published_at', { ascending: false }) as unknown as
-        PromiseLike<{ data: WpblVideo[] | null; error: unknown }>,
-      [])
+        .select('video_id,channel_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint,is_short')
+        .order('published_at', { ascending: false })
+        .order('video_id', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: WpblVideo[] | null; error: unknown }>)
     if (data.length > 0 || allVideosCache == null) allVideosCache = { data, at: Date.now() }
     return data
   })

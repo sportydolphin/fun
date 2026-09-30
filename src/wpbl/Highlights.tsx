@@ -1,28 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, TeamBadge, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, chromePx, hoverOnly } from './ui'
+import { ModalShell, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, FOCUS_RING } from './ui'
 import { track, EVENTS } from '../lib/analytics'
-import type { WpblVideo, WpblTeam } from './types'
-import { isLeagueVideo, videoCredit, videoLabel } from './videoChannels'
+import type { WpblVideo } from './types'
+import { videoCredit, videoLabel, videoKindName } from './videoChannels'
 
-// The WPBL highlights surface: a mirror of the league's official YouTube uploads, read from
-// the wpbl_videos table (populated by scripts/sync-wpbl-youtube.mjs). Two consumers share
-// this file, the media shelf's Highlights strip and the per-game recap card in GameDetail,
-// plus the lightbox they both open. Nothing here touches YouTube until a viewer clicks Play:
-// the cards are static thumbnail facades, and only then do we mount the privacy-mode embed.
-
-// A recognisable friendly label for a video's date. Highlights carry the game date parsed
-// from the title (game_date_hint); everything else falls back to the upload time.
-function videoDateLabel(v: WpblVideo): string {
-  const iso = v.game_date_hint ? `${v.game_date_hint}T00:00:00` : v.published_at
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
-}
+// The pieces every video surface shares: the thumbnail facade, the play badge, the credit line and
+// the lightbox. Three consumers: the Watch page and its Home card (Watch.tsx, WatchPage.tsx), and
+// the per-game cards in GameDetail and the recap card below. Nothing here touches YouTube until a
+// viewer clicks Play: the cards are static thumbnail facades, and only then does the privacy-mode
+// embed mount.
 
 // Play-button overlay shared by every thumbnail facade. The `.play-disc` class lets a
 // parent card scale the disc on hover (the transition below is otherwise idle).
-function PlayBadge({ size = 44 }: { size?: number }) {
+export function PlayBadge({ size = 44 }: { size?: number }) {
   return (
     <Box sx={{
       position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -47,17 +38,83 @@ function PlayBadge({ size = 44 }: { size?: number }) {
   )
 }
 
-// The click-to-play lightbox. Rendered only while a video is selected, so the YouTube embed
-// (privacy-enhanced youtube-nocookie host) mounts on demand and autoplays: no network to
-// YouTube happens from any list view.
-export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClose: () => void }) {
+/** The hover treatment a card holding a PlayBadge spreads into its `sx`. */
+export const PLAYABLE_HOVER = {
+  '&:hover .play-badge': { background: 'linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45))' },
+  '&:hover .play-disc': { transform: 'scale(1.08)' },
+} as const
+
+/**
+ * A thumbnail facade: the poster frame, a play badge over it, and nothing from YouTube.
+ *
+ * A SHORT'S POSTER IS LANDSCAPE. YouTube serves every thumbnail at 4:3 or 16:9, a Short's with the
+ * vertical frame pillarboxed in the middle, so `cover` in a 9:16 box crops to exactly the frame and
+ * the black bars fall outside it. Nothing here needs to know which poster size it was given.
+ */
+export function VideoThumb({ video, vertical, badge = 44, radius = 0 }: {
+  video: WpblVideo; vertical?: boolean; badge?: number; radius?: number
+}) {
+  return (
+    <Box sx={{
+      position: 'relative', width: '100%', aspectRatio: vertical ? '9 / 16' : '16 / 9',
+      bgcolor: 'action.hover', overflow: 'hidden', borderRadius: radius,
+    }}>
+      {video.thumbnail_url && (
+        <Box component="img" src={video.thumbnail_url} alt="" loading="lazy"
+          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      )}
+      <Box className="play-badge" sx={{ position: 'absolute', inset: 0 }}><PlayBadge size={badge} /></Box>
+    </Box>
+  )
+}
+
+// A recognisable friendly label for a video's date. Game videos carry the game date parsed from
+// the title (game_date_hint); everything else falls back to the upload time.
+export function videoDateLabel(v: WpblVideo): string {
+  const iso = v.game_date_hint ? `${v.game_date_hint}T00:00:00` : v.published_at
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+/**
+ * The click-to-play lightbox. Rendered only while a video is selected, so the YouTube embed
+ * (privacy-enhanced youtube-nocookie host) mounts on demand and autoplays: no network to YouTube
+ * happens from any list view.
+ *
+ * A Short plays in a 9:16 frame capped by the screen's height, since a vertical video sized to the
+ * dialog's width runs off the bottom of a laptop. `onPrev` / `onNext` turn it into a pager (the
+ * clips shelf), on buttons and the arrow keys; the embed remounts per video, which is what stops
+ * the previous one playing on underneath.
+ */
+export function HighlightLightbox({ video, onClose, onPrev, onNext }: {
+  video: WpblVideo; onClose: () => void; onPrev?: () => void; onNext?: () => void
+}) {
   const src = `https://www.youtube-nocookie.com/embed/${video.video_id}?autoplay=1&rel=0&modestbranding=1`
   const credit = videoCredit(video)
+  const vertical = video.is_short === true
+  useEffect(() => {
+    if (!onPrev && !onNext) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && onPrev) { e.preventDefault(); onPrev() }
+      if (e.key === 'ArrowRight' && onNext) { e.preventDefault(); onNext() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onPrev, onNext])
+  const watchUrl = vertical ? `https://www.youtube.com/shorts/${video.video_id}` : `https://www.youtube.com/watch?v=${video.video_id}`
   return (
-    <ModalShell eyebrow={video.kind === 'condensed' ? 'Condensed game' : 'Highlights'} onClose={onClose} maxWidth={880} zIndex={1600}>
+    <ModalShell eyebrow={videoKindName(video)} onClose={onClose} maxWidth={vertical ? chromePx(460) : 880} zIndex={1600}>
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-        <Box sx={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 2, overflow: 'hidden', bgcolor: '#000' }}>
+        <Box sx={{
+          position: 'relative', borderRadius: 2, overflow: 'hidden', bgcolor: '#000', mx: 'auto',
+          ...(vertical
+            // Height-led: the frame is as tall as the screen allows and its width follows.
+            ? { aspectRatio: '9 / 16', height: 'min(70vh, 44rem)', maxWidth: '100%' }
+            : { aspectRatio: '16 / 9', width: '100%' }),
+        }}>
           <Box
+            key={video.video_id}
             component="iframe"
             src={src}
             title={video.title}
@@ -68,20 +125,41 @@ export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClos
         </Box>
         <Typography sx={{ mt: 1.25, fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.3 }}>{video.title}</Typography>
         {credit && <Box sx={{ mt: 0.5 }}><VideoCreditLine credit={credit} /></Box>}
-        <Box sx={{ mt: 0.75 }}>
+        <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
             component="a"
-            href={`https://www.youtube.com/watch?v=${video.video_id}`}
+            href={watchUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => track(EVENTS.WPBL_HIGHLIGHT_YOUTUBE, { videoId: video.video_id })}
-            sx={{ fontSize: '0.75rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            sx={{ flex: 1, fontSize: '0.75rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
           >
             Watch on YouTube ↗
           </Box>
+          {(onPrev || onNext) && (
+            <>
+              <PagerButton label="Previous" glyph="‹" onClick={onPrev} />
+              <PagerButton label="Next" glyph="›" onClick={onNext} />
+            </>
+          )}
         </Box>
       </Box>
     </ModalShell>
+  )
+}
+
+function PagerButton({ label, glyph, onClick }: { label: string; glyph: string; onClick?: () => void }) {
+  return (
+    <Box component="button" type="button" onClick={onClick} disabled={!onClick} aria-label={label}
+      sx={{
+        width: chromePx(36), height: chromePx(36), borderRadius: '50%', cursor: onClick ? 'pointer' : 'default',
+        border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary',
+        fontSize: '1.2rem', fontWeight: 700, lineHeight: 1, opacity: onClick ? 1 : 0.35,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', p: 0,
+        ...(onClick ? hoverOnly({ borderColor: 'text.secondary' }) : {}), ...FOCUS_RING,
+      }}>
+      {glyph}
+    </Box>
   )
 }
 
@@ -89,10 +167,15 @@ export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClos
 // credit sends people to the person who made the video. It stops propagation because on the
 // game card it sits inside the card's own click target, which would otherwise open the player
 // underneath the new tab.
-function VideoCreditLine({ credit }: { credit: { name: string; url: string } }) {
+export function VideoCreditLine({ credit, what = 'Video' }: {
+  credit: { name: string; url: string }
+  /** What the credit is for. The Watch page's game card holds the league's videos too, so there
+   *  it names the one that is theirs. */
+  what?: string
+}) {
   return (
     <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>
-      Video:{' '}
+      {what}:{' '}
       <Box
         component="a"
         href={credit.url}
@@ -108,115 +191,8 @@ function VideoCreditLine({ credit }: { credit: { name: string; url: string } }) 
   )
 }
 
-// One card in the Home rail: a 16:9 thumbnail facade with a play badge, then the matchup
-// badges + date + title beneath. Sized for a horizontal scroller.
-function RailCard({ video, teamById, onPlay }: {
-  video: WpblVideo; teamById: Map<string, WpblTeam>; onPlay: () => void
-}) {
-  const away = video.away_hint ? teamById.get(video.away_hint) : undefined
-  const home = video.home_hint ? teamById.get(video.home_hint) : undefined
-  const dateLabel = videoDateLabel(video)
-  return (
-    <Box
-      onClick={onPlay}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay() } }}
-      role="button"
-      tabIndex={0}
-      aria-label={`Play highlights: ${video.title}`}
-      sx={{
-        flexShrink: 0, width: { xs: 232, sm: 248 }, cursor: 'pointer', scrollSnapAlign: 'start',
-        borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: CARD_BORDER,
-        bgcolor: CARD_FILL, transition: 'transform 0.1s, border-color 0.15s',
-        ...hoverOnly({ borderColor: 'text.disabled' }),
-        '&:hover .play-badge': { background: 'linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45))' },
-        '&:hover .play-disc': { transform: 'scale(1.08)' },
-        '&:active': { transform: 'scale(0.985)' },
-        '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
-      }}
-    >
-      <Box sx={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', bgcolor: 'action.hover' }}>
-        {video.thumbnail_url && (
-          <Box component="img" src={video.thumbnail_url} alt="" loading="lazy"
-            sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
-        <Box className="play-badge" sx={{ position: 'absolute', inset: 0 }}><PlayBadge /></Box>
-      </Box>
-      <Box sx={{ p: 1, pt: 0.85 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5, minHeight: 22 }}>
-          {away && home ? (
-            <>
-              <TeamBadge team={away} size={20} />
-              <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary' }}>@</Typography>
-              <TeamBadge team={home} size={20} />
-              <Box sx={{ flex: 1 }} />
-            </>
-          ) : <Box sx={{ flex: 1 }} />}
-          {dateLabel && <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled' }}>{dateLabel}</Typography>}
-        </Box>
-        <Typography sx={{
-          fontSize: '0.78rem', fontWeight: 600, lineHeight: 1.3,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
-          {video.title}
-        </Typography>
-      </Box>
-    </Box>
-  )
-}
-
-/**
- * The Highlights strip, on the season recap: the league channel's game recaps as a rail. Bare, no
- * card of its own; the page's section heading titles it. It left the league page's media shelf
- * with the rest of that shelf, and the recap is where a reader looking back at the season is.
- *
- * Nothing here touches YouTube until a viewer clicks Play. The cards are static thumbnail
- * facades and only then does the privacy-mode embed mount.
- */
-export function HighlightsStrip({ videos, teams, from = 'recap' }: {
-  videos: WpblVideo[]; teams: WpblTeam[]
-  /** Which surface a play came from, for WPBL_HIGHLIGHT_PLAYED. ('shelf' in the older events.) */
-  from?: string
-}) {
-  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const [active, setActive] = useState<WpblVideo | null>(null)
-
-  // Highlights (matched to a game) lead; podcasts and features keep the tail. Capped so the
-  // strip stays a glanceable shelf rather than the whole channel. League uploads only: this
-  // strip carries no credit line, and WPBL from Day 1's videos are due their own rail on the
-  // recap rather than a place in the tail of this one.
-  const shown = useMemo(() => {
-    const rank = (v: WpblVideo) => (v.kind === 'highlight' ? 0 : v.kind === 'podcast' ? 1 : 2)
-    return videos.filter(isLeagueVideo).sort((a, b) => rank(a) - rank(b)).slice(0, 12)
-  }, [videos])
-  const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(shown.length)
-
-  if (shown.length === 0) return null
-  // No edge-fade overlay: over a full-size video card the gradient sat on top of the very card
-  // the reader had just snapped into focus, reading as "this one is disabled". A half-peeking
-  // neighbour is the swipe cue on touch; the arrows do the paging on desktop.
-  return (
-    <>
-      <Box sx={{ position: 'relative' }}>
-        <RailScroller scrollRef={scrollRef} onScroll={syncEdges}>
-          {shown.map(v => (
-            <RailCard
-              key={v.video_id}
-              video={v}
-              teamById={teamById}
-              onPlay={() => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from }); setActive(v) }}
-            />
-          ))}
-        </RailScroller>
-        <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="highlights" />
-        <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="highlights" />
-      </Box>
-      {active && <HighlightLightbox video={active} onClose={() => setActive(null)} />}
-    </>
-  )
-}
-
-// Every video of one game, stacked: the league's reel and, when there is one, a fan's condensed
-// game. Callers pass `gameVideos(...)`, which puts the league's first.
+// Every video of one game, stacked: the league's reel, a fan's condensed game and the league's
+// broadcast, whichever exist. Callers pass `gameVideos(...)`, which puts the shortest watch first.
 export function GameHighlightCards({ videos }: { videos: WpblVideo[] }) {
   if (videos.length === 0) return null
   return (
@@ -232,9 +208,8 @@ function GameHighlightCard({ video }: { video: WpblVideo }) {
   const [open, setOpen] = useState(false)
   const credit = videoCredit(video)
   const label = videoLabel(video)
-  // `from` separates the two surfaces that open the same lightbox: the shelf on Home is
-  // discovery, this one is a reader already inside a box score. Without it the play count is
-  // one number that cannot tell the shelf's job from the game page's.
+  // `from` separates the surfaces that open the same lightbox: the Watch page is browsing, this
+  // one is a reader already inside a box score.
   const play = () => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: video.video_id, kind: video.kind, from: 'game' }); setOpen(true) }
   return (
     <>
@@ -249,18 +224,13 @@ function GameHighlightCard({ video }: { video: WpblVideo }) {
           p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
           transition: 'border-color 0.15s, background 0.15s',
           ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
-          '&:hover .play-badge': { background: 'linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45))' },
-          '&:hover .play-disc': { transform: 'scale(1.08)' },
+          ...PLAYABLE_HOVER,
           '&:active': { transform: 'scale(0.99)' },
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
         }}
       >
-        <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
-          {video.thumbnail_url && (
-            <Box component="img" src={video.thumbnail_url} alt="" loading="lazy"
-              sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          )}
-          <Box className="play-badge" sx={{ position: 'absolute', inset: 0 }}><PlayBadge size={30} /></Box>
+        <Box sx={{ width: chromePx(108), flexShrink: 0 }}>
+          <VideoThumb video={video} badge={30} radius={1.5} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>

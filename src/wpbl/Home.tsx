@@ -43,6 +43,7 @@ import { FanPhotoHomeCard, FanPhotoHomeCardSkeleton } from './FanPhotoViews'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
+import { WatchCard } from './Watch'
 import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblVideo, WpblArticle, WpblPhoto } from './types'
@@ -2906,16 +2907,24 @@ export function WpblHomeSkeleton() {
         <CardSkeleton minHeight={{ xs: '3.45rem', md: '24rem' }} titleWidth="8rem" lines={0} />
       </Box>
       <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
+      </Box>
+      <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
       </Box>
     </Box>
   )
 }
 
+// The Watch card's height, for both skeletons: a row of 9:16 posters, so it grows with the width.
+// Measured at 375px and at 1400px (Sep 29, 2026); a desktop narrower than that is a little shorter.
+const WATCH_CARD_SKELETON_H = { xs: '13.8rem', md: '22rem' }
+
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see the
  *  render below): the header, the gallery in the scoreboard's slot, the Discord invite on a phone,
  *  one row of the season card and the award results (the season card alone once the results come
- *  off), then the bracket and the two single-line cards. Heights measured off the real page. */
+ *  off), then the bracket, the Watch card and the two single-line cards. Heights measured off the
+ *  real page. */
 function OffseasonHomeSkeleton() {
   let discordDismissed = false
   try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
@@ -2954,6 +2963,9 @@ function OffseasonHomeSkeleton() {
 
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '3.45rem', md: '19.45rem' }} titleWidth="8rem" lines={0} />
+      </Box>
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
       </Box>
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
@@ -3516,6 +3528,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       {!seasonDone && <FanPhotoHomeCard />}
 
       <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <WatchCard from="home" />
         <LatestReadingCard />
         <LeagueCard />
       </Box>

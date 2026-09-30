@@ -139,19 +139,23 @@ export interface WpblGame {
 
 // A mirror of one YouTube upload (see scripts/sync-wpbl-youtube.mjs and
 // create_wpbl_videos.sql), from the league's channel or from WPBL from Day 1 (`channel_id`,
-// see videoChannels.ts). `game_id` is set for a league highlight or a fan condensed game whose
-// title parsed to a known game; null for podcasts, features, compilations, or an unmatched
-// matchup.
+// see videoChannels.ts). `game_id` is set for a league highlight, a league full-game broadcast or
+// a fan condensed game whose title parsed to a known game; null for Shorts, podcasts, features,
+// press conferences, compilations, or an unmatched matchup.
 export interface WpblVideo {
   video_id: string           // YouTube 11-char id (watch?v=…)
   channel_id: string
   title: string
   published_at: string       // ISO timestamp
   thumbnail_url: string | null
-  // highlight / podcast come from the league channel only, condensed / compilation from the
-  // fan channel only; other from either.
-  kind: 'highlight' | 'podcast' | 'condensed' | 'compilation' | 'other'
+  // highlight / full_game / press / podcast come from the league channel only, condensed /
+  // compilation from the fan channel only; other from either.
+  kind: 'highlight' | 'full_game' | 'press' | 'podcast' | 'condensed' | 'compilation' | 'other'
   game_id: string | null
+  // A vertical YouTube Short. Null when the sync has not been able to tell (see probeIsShort),
+  // which every surface reads as "not a Short": a landscape video in a 9:16 box is a worse
+  // failure than a Short in a 16:9 one.
+  is_short?: boolean | null
   away_hint?: string | null
   home_hint?: string | null
   game_date_hint?: string | null
