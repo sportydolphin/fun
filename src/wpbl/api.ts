@@ -1058,9 +1058,10 @@ export function fetchWpblVideos(): Promise<WpblVideo[]> {
  * and the club. A few hundred rows at most, read once and shared by the Watch page, Game Center's
  * clip row and the player page. A clip with no row has no tag, which is most of the pre-season.
  */
-export function fetchWpblVideoTags(): Promise<Map<string, WpblVideoTag>> {
-  if (isFresh(videoTagsCache)) return Promise.resolve(videoTagsCache!.data)
-  return once('videoTags', async () => {
+export function fetchWpblVideoTags(fresh = false): Promise<Map<string, WpblVideoTag>> {
+  // `fresh` for /admin's tag editor, which must not edit over another tab's older copy.
+  if (!fresh && isFresh(videoTagsCache)) return Promise.resolve(videoTagsCache!.data)
+  return once(fresh ? 'videoTagsFresh' : 'videoTags', async () => {
     const rows = await fetchAllPaged<WpblVideoTag>('fetchWpblVideoTags', (from, to) =>
       supabase.from('wpbl_video_tags')
         .select('video_id,game_id,play_sequence,inning,half,team_id,player_ids,method')
@@ -1344,6 +1345,32 @@ async function ownerWrite(label: string, run: () => PromiseLike<{ error: unknown
     console.error(`${label}:`, e)
     return false
   }
+}
+
+/**
+ * Set a clip's tag by hand (/admin → Clips). Always saved as method 'manual', which the sync's
+ * matcher never overwrites or deletes, so a correction outlives every later --relink. A manual row
+ * with no game, no players and no club is the way to say "this clip is from nothing": without it
+ * the matcher would put a wrong tag back on the next pass. Patches the shared cache on success, so
+ * the Watch page and Game Center show the fix without a reload.
+ */
+export async function saveWpblVideoTag(tag: Omit<WpblVideoTag, 'method'>): Promise<boolean> {
+  const row = { ...tag, method: 'manual' as const, matched_at: new Date().toISOString() }
+  const ok = await ownerWrite('saveWpblVideoTag', () =>
+    supabase.from('wpbl_video_tags').upsert(row, { onConflict: 'video_id' }))
+  if (ok && videoTagsCache) videoTagsCache.data.set(tag.video_id, { ...tag, method: 'manual' })
+  return ok
+}
+
+/**
+ * Drop a clip's tag, hand-set or not. The matcher tags it again on its next pass over that clip,
+ * which for anything older than the sync's 72-hour window means the next --relink.
+ */
+export async function deleteWpblVideoTag(videoId: string): Promise<boolean> {
+  const ok = await ownerWrite('deleteWpblVideoTag', () =>
+    supabase.from('wpbl_video_tags').delete().eq('video_id', videoId))
+  if (ok && videoTagsCache) videoTagsCache.data.delete(videoId)
+  return ok
 }
 
 export function setFanPhotoApproved(id: string, approved: boolean): Promise<boolean> {
