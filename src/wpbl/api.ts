@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase'
+import { viewerCountry } from '../lib/geo'
+import { playableIn } from './videoChannels'
 import { FIRSTS_EVENT_TYPES } from './firsts'
 import { countsInStandings, standingsFinals } from './season'
 import { settleGames } from './gameOver'
@@ -1031,15 +1033,21 @@ export function fetchWpblRecaps(): Promise<WpblGameRecap[]> {
 export function fetchWpblVideos(): Promise<WpblVideo[]> {
   if (isFresh(allVideosCache)) return Promise.resolve(allVideosCache!.data)
   return once('allVideos', async () => {
+    const countryLookup = viewerCountry()
     const data = await fetchAllPaged<WpblVideo>('fetchWpblVideos', (from, to) =>
       supabase.from('wpbl_videos')
-        .select('video_id,channel_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint,is_short')
+        .select('video_id,channel_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint,is_short,region_allowed,region_blocked')
         .order('published_at', { ascending: false })
         .order('video_id', { ascending: true })
         .range(from, to) as unknown as
         PromiseLike<{ data: WpblVideo[] | null; error: unknown }>)
-    if (data.length > 0 || allVideosCache == null) allVideosCache = { data, at: Date.now() }
-    return data
+    // FILTERED HERE, ONCE, so every surface (the Watch page, its card, Game Center, the recap
+    // card) shows only what this reader's country can play without each having to remember to
+    // ask. The country is fetched alongside the rows, never after them. See playableIn.
+    const country = await countryLookup
+    const playable = data.filter(v => playableIn(v, country))
+    if (playable.length > 0 || allVideosCache == null) allVideosCache = { data: playable, at: Date.now() }
+    return playable
   })
 }
 

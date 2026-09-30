@@ -156,6 +156,11 @@ export interface WpblVideo {
   // which every surface reads as "not a Short": a landscape video in a 9:16 box is a worse
   // failure than a Short in a 16:9 one.
   is_short?: boolean | null
+  // Where YouTube will play it (contentDetails.regionRestriction), as ISO country codes. At most
+  // one is set; both null means everywhere, or not yet checked. Read through playableIn in
+  // videoChannels.ts, never directly.
+  region_allowed?: string[] | null
+  region_blocked?: string[] | null
   away_hint?: string | null
   home_hint?: string | null
   game_date_hint?: string | null

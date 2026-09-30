@@ -17,7 +17,8 @@ import type { WpblGame, WpblTeam, WpblVideo } from './types'
 // on three shelves.
 //
 //   Games  one card per game, with a button for each video of it: the league's reel, the fan's
-//          condensed game and the league's full broadcast, whichever exist.
+//          condensed game and the league's full broadcast, whichever exist and this reader's
+//          country can play (the broadcasts are blocked in the US; see playableIn).
 //   Clips  the league's Shorts, newest first, played vertically.
 //   More   everything that belongs to no game: the fan's compilations, features, press
 //          conferences, the podcast.
@@ -74,11 +75,14 @@ export default function WatchPage({ onOpenGame }: {
 
   const shelves = useMemo(() => watchShelves(videos ?? []), [videos])
   const moreCount = shelves.more.length
+  // Only promised where it can be played: the broadcasts are blocked in the US, and `videos` has
+  // already had what this reader cannot play taken out (fetchWpblVideos).
+  const hasBroadcasts = useMemo(() => (videos ?? []).some(v => v.kind === 'full_game'), [videos])
 
   return (
     // Wide, like Reading: game cards lay out three across on a desktop and clips six.
     <WpblPage title="Watch" maxWidth="72rem" standfirst={<>
-      Every game&rsquo;s highlights, condensed game and full broadcast, and every clip the league has posted.
+      Every game&rsquo;s highlights{hasBroadcasts ? ', condensed game and full broadcast' : ' and condensed game'}, and every clip the league has posted.
       Condensed games by{' '}
       <Box component="a" href="https://www.youtube.com/@wpblfanrecaps" target="_blank" rel="noopener noreferrer"
         sx={{ color: 'inherit', fontWeight: 700 }}>WPBL from Day 1</Box>, with permission.

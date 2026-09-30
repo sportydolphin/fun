@@ -501,7 +501,79 @@ async function main() {
       failures.push(channel.label)
     }
   }
+  console.log('\n── region restrictions')
+  try {
+    await refreshRegions()
+  } catch (err) {
+    console.error(`❌  region restrictions: ${err.message}`)
+    failures.push('region restrictions')
+  }
   if (failures.length) throw new Error(`Sync failed for: ${failures.join(', ')}`)
+}
+
+// A restriction is re-read at least this often even when nothing else about the row changes,
+// because the league's blocks are rights windows and end without the video being touched.
+const REGION_RECHECK_MS = 24 * 3600 * 1000
+
+/**
+ * Which countries each long-form upload plays in, from the Data API's
+ * contentDetails.regionRestriction, onto region_allowed / region_blocked.
+ *
+ * WHY. The league's full-game broadcasts are blocked in the United States, and an embed of a
+ * blocked video is a black box reading "Video unavailable". The site hides a video the viewer's
+ * country cannot play (playableIn in src/wpbl/videoChannels.ts), and this is the only source for
+ * that: nothing in a title says it.
+ *
+ * Shorts are skipped: the league's are its own posts, not broadcast rights, and at 300 of them
+ * they would be most of the quota for none of the answers. Without a Data API key there is no way
+ * to ask, and the columns are left as they are: null reads as "plays everywhere", which shows the
+ * catalogue rather than hiding it on a missing secret.
+ */
+async function refreshRegions() {
+  if (!YT_API_KEY) { console.log('No YOUTUBE_API_KEY, skipping.'); return }
+  const rows = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from('wpbl_videos')
+      .select('video_id, is_short, region_allowed, region_blocked, region_checked_at')
+      .order('video_id').range(from, from + 999)
+    if (error) throw new Error(`Loading stored videos failed: ${error.message}`)
+    rows.push(...(data ?? []))
+    if ((data ?? []).length < 1000) break
+  }
+  const due = rows.filter(r => r.is_short !== true)
+  const sameList = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+  let changed = 0, blocked = 0, missing = 0
+  for (let i = 0; i < due.length; i += 50) {
+    const batch = due.slice(i, i + 50)
+    const url = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails' +
+      `&id=${batch.map(r => r.video_id).join(',')}&key=${encodeURIComponent(YT_API_KEY)}`
+    const res = await fetch(url)
+    const json = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(`Data API HTTP ${res.status}: ${json?.error?.message ?? res.statusText}`)
+    const byId = new Map((json?.items ?? []).map(it => [it.id, it.contentDetails?.regionRestriction ?? null]))
+    for (const r of batch) {
+      // A video the API does not return is private or deleted, not unrestricted: leave its row.
+      if (!byId.has(r.video_id)) { missing++; continue }
+      const rr = byId.get(r.video_id)
+      // Sorted, so the same restriction in a different order is not a change.
+      const allowed = rr?.allowed?.length ? [...rr.allowed].sort() : null
+      const blockedIn = rr?.blocked?.length ? [...rr.blocked].sort() : null
+      if (allowed || blockedIn) blocked++
+      const stale = !r.region_checked_at || Date.now() - Date.parse(r.region_checked_at) > REGION_RECHECK_MS
+      const differs = !sameList(r.region_allowed, allowed) || !sameList(r.region_blocked, blockedIn)
+      if (!differs && !stale) continue
+      if (differs) {
+        changed++
+        console.log(`  • ${r.video_id}  ${allowed ? `only ${allowed.join(' ')}` : blockedIn ? `blocked in ${blockedIn.length} (${blockedIn.includes('US') ? 'incl. US' : 'not US'})` : 'everywhere'}`)
+      }
+      if (DRY_RUN) continue
+      const { error } = await supabase.from('wpbl_videos')
+        .update({ region_allowed: allowed, region_blocked: blockedIn, region_checked_at: new Date().toISOString() })
+        .eq('video_id', r.video_id)
+      if (error) throw new Error(`Update of ${r.video_id} failed: ${error.message}`)
+    }
+  }
+  console.log(`${DRY_RUN ? '🧪  Dry run: ' : '✅  '}${due.length} checked, ${blocked} restricted somewhere, ${changed} changed, ${missing} not returned`)
 }
 
 async function syncChannel(channel, resolveTeam, gameByKey) {

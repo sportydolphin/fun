@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.105.1',
+    date:    '2026-09-29',
+    title:   'Only videos you can play',
+    changes: [
+      {
+        short: 'Videos blocked in your country are hidden',
+        full:  'Some league videos, including the full-game broadcasts, are blocked in certain countries. Watch and Game Center now leave out any video that would not play where you are, instead of showing a player that says it is unavailable.',
+      },
+    ],
+  },
+  {
     version: '1.105.0',
     date:    '2026-09-29',
     title:   'Watch: every WPBL video in one place',

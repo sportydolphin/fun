@@ -26,6 +26,26 @@ export function videoCredit(v: WpblVideo): VideoCredit | null {
   return isLeagueVideo(v) ? null : CREDITS[v.channel_id] ?? null
 }
 
+/**
+ * The country a reader is assumed to be in when /api/geo cannot say (the dev server, a failed
+ * request). The league is American and so is most of its audience, and the two ways of being wrong
+ * are not equal: hiding a broadcast from a reader abroad costs them a video they can still find on
+ * YouTube, while showing it to a reader in the US hands them a player that says "Video unavailable".
+ */
+export const ASSUMED_COUNTRY = 'US'
+
+/**
+ * Can a reader in `country` play this video? From the restriction the sync stores
+ * (refreshRegions in scripts/sync-wpbl-youtube.mjs). A video never checked has neither list and
+ * plays everywhere, so a missing API key shows the catalogue rather than hiding it.
+ */
+export function playableIn(v: Pick<WpblVideo, 'region_allowed' | 'region_blocked'>, country: string | null): boolean {
+  const c = country ?? ASSUMED_COUNTRY
+  if (v.region_allowed?.length && !v.region_allowed.includes(c)) return false
+  if (v.region_blocked?.includes(c)) return false
+  return true
+}
+
 /** The card's kicker. */
 export function videoLabel(v: WpblVideo): string {
   return v.kind === 'condensed' ? 'Condensed game' : v.kind === 'full_game' ? 'Full game' : 'Watch Highlights'

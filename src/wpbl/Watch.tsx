@@ -35,6 +35,9 @@ export function WatchCard({ from, eyebrow = true }: {
     return () => { live = false }
   }, [])
   const { clips, gameIds } = useMemo(() => watchShelves(videos), [videos])
+  // Only where the reader can play one: the broadcasts are blocked in the US, and the list here
+  // has already had what this reader cannot play taken out (fetchWpblVideos).
+  const hasBroadcasts = useMemo(() => videos.some(v => v.kind === 'full_game'), [videos])
   const [active, setActive] = useState<number | null>(null)
 
   const shown = useRef(false)
@@ -93,7 +96,7 @@ export function WatchCard({ from, eyebrow = true }: {
       </Box>
       {eyebrow && (
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
-          Highlights, condensed games and full broadcasts of {gameIds.length} games, and {clips.length} clips.
+          {hasBroadcasts ? 'Highlights, condensed games and full broadcasts' : 'Highlights and condensed games'} of {gameIds.length} games, and {clips.length} clips.
         </Typography>
       )}
       {active != null && (
