@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildBracket, seriesLine } from '../postseason'
+import { buildBracket, seriesLine, liveGameScore, winsNeeded } from '../postseason'
 import done2025 from './fixtures/postseason-2025.json'
 import open2026 from './fixtures/postseason-2026.json'
 
@@ -73,5 +73,40 @@ describe('a feed that is not the shape it should be', () => {
     expect(buildBracket(2026, { series: [] })).toBeNull()
     const missing = { series: (open2026 as { series: Array<{ series: { id: string } }> }).series.filter(s => s.series.id !== 'W_1') }
     expect(buildBracket(2026, missing)).toBeNull()
+  })
+})
+
+describe('a series with a game on', () => {
+  // The 2026 eve-of-postseason feed with Boston's Wild Card game 1 put in progress, the way the live
+  // feed publishes it (hydrate=linescore): a live game is what the Home card has to tell apart
+  // from the series it belongs to.
+  const raw = structuredClone(open2026) as { series: Array<{ series: { id: string }; games: any[] }> }
+  const g1 = raw.series.find(s => s.series.id === 'F_2')!.games.find(g => Number(g.seriesGameNumber) === 1)!
+  g1.status = { ...g1.status, abstractGameState: 'Live', codedGameState: 'I', detailedState: 'In Progress' }
+  g1.teams.home.score = 2
+  g1.teams.away.score = 0
+  g1.linescore = { currentInningOrdinal: '7th', inningHalf: 'Top' }
+  const s = buildBracket(2026, raw)!.series.F_2
+  const live = s.games.find(g => g.state === 'live')!
+
+  it('spells the inning the way the scoreboard does', () => {
+    expect(live.inning).toBe('▲ 7th')
+  })
+
+  it('gives the game score leader first, and never the series', () => {
+    expect(liveGameScore(live)).toMatch(/^[A-Z]{2,3} 2–0$/)
+    expect(liveGameScore({ ...live, away: { ...live.away, score: 2 } })).toBe('Tied 2–2')
+    expect(s.winsTop + s.winsBottom).toBe(0)
+    expect(seriesLine(s)).toBeNull()
+  })
+
+  it('has no inning on a game that is not live', () => {
+    expect(s.games.filter(g => g.state !== 'live').every(g => g.inning === null)).toBe(true)
+  })
+})
+
+describe('wins needed', () => {
+  it('is a majority of the games in the series', () => {
+    expect([3, 5, 7].map(bestOf => winsNeeded({ bestOf }))).toEqual([2, 3, 4])
   })
 })

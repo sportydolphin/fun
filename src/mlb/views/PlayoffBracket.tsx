@@ -8,7 +8,7 @@ import { ModalShell } from '../../ui/ModalShell'
 import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
-import { fetchBracket, seriesLine, fieldIsSet, ROUNDS, SERIES_ORDER } from '../postseason'
+import { fetchBracket, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
 import type { Bracket, PsSeries, PsGame, PsTeam, Round } from '../postseason'
 import type { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
@@ -32,12 +32,15 @@ const dayFmt = (ms: number) => new Date(ms).toLocaleDateString([], { weekday: 's
 const weekdayFmt = (ms: number) => new Date(ms).toLocaleDateString([], { weekday: 'short' })
 
 /** What a series says under its two clubs: the result, the live game, or the next one. `compact` is
- *  the half-width Home card, where "Game 2 · Wed, Sep 30, 1:08 PM" wraps to three lines. */
+ *  the half-width Home card, where "Game 2 · Wed, Sep 30, 1:08 PM" wraps to three lines.
+ *  A live game gets its own score and inning ("G1 · BOS 2–0 · ▲ 7th"), and no series line: the
+ *  pips carry the series, and this card sits under a scoreboard showing the same game, so saying
+ *  only "In Progress" here read as the two disagreeing about the score. */
 function seriesStatus(s: PsSeries, compact = false): { text: string; live: boolean } {
   const line = seriesLine(s)
   const game = (n: number) => compact ? `G${n}` : `Game ${n}`
   const live = s.games.find(g => g.state === 'live')
-  if (live) return { text: compact ? `${game(live.number)} · ${live.detail || 'Live'}` : `Game ${live.number} · ${live.detail || 'Live'}${line ? ` · ${line}` : ''}`, live: true }
+  if (live) return { text: [game(live.number), liveGameScore(live), live.inning ?? (live.detail || 'Live')].join(' · '), live: true }
   if (s.winnerId != null) return { text: line!, live: false }
   const n = s.next
   if (!n) return { text: line ?? '', live: false }
@@ -50,8 +53,25 @@ function seriesStatus(s: PsSeries, compact = false): { text: string; live: boole
   return { text: [line, next].filter(Boolean).join(' · '), live: false }
 }
 
-function TeamRow({ t, wins, won, lost, onTeamClick, compact = false }: {
-  t: PsTeam; wins: number; won: boolean; lost: boolean; onTeamClick?: (id: number) => void; compact?: boolean
+/** Series wins as pips, one per win the series needs. A number here was the scoreboard's exact
+ *  grammar (logo, club, figure on the right), so a series at 0-0 with game 1 on read as a game
+ *  stuck at 0-0 directly under the scoreboard's real score. Pips cannot be read as runs, and the
+ *  empty ones say how long the series is. */
+function WinPips({ wins, need }: { wins: number; need: number }) {
+  return (
+    <Box role="img" aria-label={`${wins} of ${need} wins`} sx={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+      {Array.from({ length: need }, (_, i) => (
+        <Box key={i} sx={{
+          width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box',
+          ...(i < wins ? { bgcolor: 'text.primary' } : { border: '1.5px solid', borderColor: 'text.disabled' }),
+        }} />
+      ))}
+    </Box>
+  )
+}
+
+function TeamRow({ t, wins, need, won, lost, onTeamClick, compact = false }: {
+  t: PsTeam; wins: number; need: number; won: boolean; lost: boolean; onTeamClick?: (id: number) => void; compact?: boolean
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, opacity: lost ? 0.5 : 1 }}>
@@ -80,9 +100,7 @@ function TeamRow({ t, wins, won, lost, onTeamClick, compact = false }: {
       >
         {t.real && !compact ? (TEAM_NICKNAME[t.id] ?? t.abbr) : t.abbr}
       </Typography>
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: won ? 900 : 700, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>
-        {t.real ? wins : ''}
-      </Typography>
+      {t.real && <WinPips wins={wins} need={need} />}
     </Box>
   )
 }
@@ -93,6 +111,7 @@ function SeriesCard({ s, onOpen, onTeamClick, compact = false }: {
   const isDark = useIsDark()
   const status = seriesStatus(s, compact)
   const winnerCol = s.winnerId != null ? TEAM_BG[s.winnerId] : undefined
+  const need = winsNeeded(s)
   return (
     <Box {...pressable(onOpen)} sx={{
       borderRadius: 2.5, border: '1px solid',
@@ -100,11 +119,17 @@ function SeriesCard({ s, onOpen, onTeamClick, compact = false }: {
       bgcolor: 'background.paper', px: 1.5, py: 1, cursor: 'pointer',
       ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
     }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'text.disabled', mb: 0.25 }}>
-        {compact ? s.label : `${s.label} · Best of ${s.bestOf}`}
-      </Typography>
-      <TeamRow compact={compact} t={s.top} wins={s.winsTop} won={s.winnerId === s.top.id} lost={s.winnerId != null && s.winnerId !== s.top.id} onTeamClick={onTeamClick} />
-      <TeamRow compact={compact} t={s.bottom} wins={s.winsBottom} won={s.winnerId === s.bottom.id} lost={s.winnerId != null && s.winnerId !== s.bottom.id} onTeamClick={onTeamClick} />
+      {/* The length stays on Home's compact card too: it is the one word on the card that says series. */}
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {s.label}
+        </Typography>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          Best of {s.bestOf}
+        </Typography>
+      </Box>
+      <TeamRow compact={compact} t={s.top} wins={s.winsTop} need={need} won={s.winnerId === s.top.id} lost={s.winnerId != null && s.winnerId !== s.top.id} onTeamClick={onTeamClick} />
+      <TeamRow compact={compact} t={s.bottom} wins={s.winsBottom} need={need} won={s.winnerId === s.bottom.id} lost={s.winnerId != null && s.winnerId !== s.bottom.id} onTeamClick={onTeamClick} />
       {status.text && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, pt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
           {status.live && <LiveDot size={6} />}
@@ -126,7 +151,7 @@ function toSummary(g: PsGame): FinalGameSummary {
   const team = (t: PsGame['home'], won: boolean) => ({ teamId: t.id, abbr: t.abbr, name: '', runs: t.score ?? 0, hits: 0, errors: 0, isWinner: won })
   return {
     gamePk: g.gamePk, state: g.state, startMs: g.startMs,
-    statusText: g.state === 'final' ? 'Final' : g.state === 'live' ? (g.detail || 'Live')
+    statusText: g.state === 'final' ? 'Final' : g.state === 'live' ? (g.inning ?? (g.detail || 'Live'))
       : g.state === 'postponed' ? g.detail : g.timeSet ? timeFmt(g.startMs) : 'TBD',
     home: team(g.home, g.winnerId === g.home.id), away: team(g.away, g.winnerId === g.away.id),
     winPitcher: null, losePitcher: null, savePitcher: null,
@@ -145,8 +170,8 @@ function SeriesSheet({ s, onClose, onTeamClick, onPlayerClick }: {
   return (
     <ModalShell onClose={close} maxWidth={480} sheet eyebrow={`${s.label} · Best of ${s.bestOf}`}>
       <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
-        <TeamRow t={s.top} wins={s.winsTop} won={s.winnerId === s.top.id} lost={s.winnerId != null && s.winnerId !== s.top.id} onTeamClick={toTeam} />
-        <TeamRow t={s.bottom} wins={s.winsBottom} won={s.winnerId === s.bottom.id} lost={s.winnerId != null && s.winnerId !== s.bottom.id} onTeamClick={toTeam} />
+        <TeamRow t={s.top} wins={s.winsTop} need={winsNeeded(s)} won={s.winnerId === s.top.id} lost={s.winnerId != null && s.winnerId !== s.top.id} onTeamClick={toTeam} />
+        <TeamRow t={s.bottom} wins={s.winsBottom} need={winsNeeded(s)} won={s.winnerId === s.bottom.id} lost={s.winnerId != null && s.winnerId !== s.bottom.id} onTeamClick={toTeam} />
         {line && <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary', mt: 0.5 }}>{line}</Typography>}
       </Box>
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
@@ -158,7 +183,7 @@ function SeriesSheet({ s, onClose, onTeamClick, onPlayerClick }: {
             ? `${g.away.abbr} ${g.away.score ?? 0}, ${g.home.abbr} ${g.home.score ?? 0}`
             : `${g.away.abbr} at ${g.home.abbr}`
           const when = g.state === 'final' ? 'Final'
-            : g.state === 'live' ? (g.detail || 'Live')
+            : g.state === 'live' ? (g.inning ?? (g.detail || 'Live'))
             : g.state === 'postponed' ? g.detail
             : g.timeSet ? `${dayFmt(g.startMs)}, ${timeFmt(g.startMs)}` : `${dayFmt(g.startMs)}, time TBD`
           return (
@@ -199,7 +224,7 @@ function SeriesSheet({ s, onClose, onTeamClick, onPlayerClick }: {
  * The bracket card. Draws nothing until the league has published a postseason (or if the feed is
  * not the shape postseason.ts expects), so it can sit on Home all year.
  */
-export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Postseason', compact = false }: {
+export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Playoff series', compact = false }: {
   onTeamClick?: (id: number) => void
   onPlayerClick?: (id: number) => void
   heading?: string

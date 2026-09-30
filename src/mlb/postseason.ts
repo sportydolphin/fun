@@ -62,6 +62,9 @@ export interface PsGame {
   /** A real first pitch, not the placeholder published before the time is set. */
   timeSet: boolean
   detail: string
+  /** "▲ 7th" while live, in the scoreboard's own spelling, so the two never disagree about a game
+   *  they both show. Null otherwise, and on a live game the linescore has not caught up to. */
+  inning: string | null
   away: { id: number; abbr: string; score: number | null }
   home: { id: number; abbr: string; score: number | null }
   winnerId: number | null
@@ -111,6 +114,10 @@ function parseGame(g: any): PsGame {
   const winnerId = state !== 'final' ? null
     : g.teams?.home?.isWinner ? home.id : g.teams?.away?.isWinner ? away.id : null
   const t = g.gameDate ? new Date(g.gameDate).getTime() : NaN
+  const ls = g.linescore ?? {}
+  const inning = state === 'live' && ls.currentInningOrdinal
+    ? `${ls.inningHalf === 'Bottom' || ls.inningHalf === 'End' ? '▼' : '▲'} ${ls.currentInningOrdinal}`
+    : null
   return {
     gamePk: Number(g.gamePk),
     number: Number(g.seriesGameNumber ?? 0),
@@ -119,6 +126,7 @@ function parseGame(g: any): PsGame {
     startMs: Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t,
     timeSet: hasStartTime(st),
     detail: st.detailedState ?? '',
+    inning,
     away, home, winnerId,
   }
 }
@@ -148,7 +156,7 @@ export function buildBracket(season: number, raw: any): Bracket | null {
     const top = mk('home', shape.topSeed)
     const bottom = mk('away', shape.bottomSeed)
     const bestOf = Number(g1raw.gamesInSeries ?? games.length) || games.length
-    const need = Math.floor(bestOf / 2) + 1
+    const need = winsNeeded({ bestOf })
     const winsTop = games.filter(g => g.winnerId === top.id && top.real).length
     const winsBottom = games.filter(g => g.winnerId === bottom.id && bottom.real).length
     const winnerId = winsTop >= need ? top.id : winsBottom >= need ? bottom.id : null
@@ -169,7 +177,8 @@ export function buildBracket(season: number, raw: any): Bracket | null {
 
 // Only what buildBracket reads: the full feed is several times the size, mostly venue and content links.
 const FIELDS = 'series,id,games,gamePk,gameDate,gameType,status,abstractGameState,codedGameState,detailedState,' +
-  'startTimeTBD,teams,away,home,team,name,score,isWinner,seriesGameNumber,gamesInSeries,ifNecessary'
+  'startTimeTBD,teams,away,home,team,name,score,isWinner,seriesGameNumber,gamesInSeries,ifNecessary,' +
+  'linescore,currentInningOrdinal,inningHalf'
 
 // A short-lived cache, so Home and Standings reading the bracket in one visit is one request.
 let cache: { season: number; at: number; p: Promise<Bracket | null> } | null = null
@@ -177,7 +186,7 @@ const FRESH_MS = 60_000
 
 export function fetchBracket(season: number, force = false): Promise<Bracket | null> {
   if (!force && cache && cache.season === season && Date.now() - cache.at < FRESH_MS) return cache.p
-  const p = fetch(`https://statsapi.mlb.com/api/v1/schedule/postseason/series?season=${season}&sportId=1&fields=${FIELDS}`)
+  const p = fetch(`https://statsapi.mlb.com/api/v1/schedule/postseason/series?season=${season}&sportId=1&hydrate=linescore&fields=${FIELDS}`)
     .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json() })
     .then(d => buildBracket(season, d))
     .catch(() => null)
@@ -192,7 +201,20 @@ export function fieldIsSet(b: Bracket): boolean {
   return (['F_1', 'F_2', 'F_3', 'F_4'] as const).every(id => b.series[id].top.real && b.series[id].bottom.real)
 }
 
-/** "TB leads 2-1", "Series tied 1-1", "NYY wins 2-0", or null before a game is final. */
+/** Wins needed to take the series: 2 of 3, 3 of 5, 4 of 7. */
+export const winsNeeded = (s: Pick<PsSeries, 'bestOf'>): number => Math.floor(s.bestOf / 2) + 1
+
+/** The live game's own score, leader first: "BOS 3–1", "Tied 2–2". Never the series: the card
+ *  says that with its pips, and a second pair of numbers beside them is what made the card read
+ *  as a box score. */
+export function liveGameScore(g: PsGame): string {
+  const a = g.away.score ?? 0, h = g.home.score ?? 0
+  if (a === h) return `Tied ${a}–${h}`
+  const lead = a > h ? g.away : g.home
+  return `${lead.abbr} ${Math.max(a, h)}–${Math.min(a, h)}`
+}
+
+/** "TB leads 2-1", "Series tied 1-1", "TOR wins 2-0", or null before a game is final. */
 export function seriesLine(s: PsSeries): string | null {
   const a = s.winsTop, b = s.winsBottom
   if (a + b === 0) return null

@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.104.2',
+    date:    '2026-09-29',
+    title:   'Playoff series that read as series',
+    changes: [
+      {
+        short: 'Series wins show as dots, not a score',
+        full:  'The playoff cards on MLB Home showed each club\'s series wins as a number, laid out exactly like the scoreboard above them, so a series at 0-0 with game 1 on looked like a scoreless game. Wins are now dots, one per win the series needs, and every card says how many games it is.',
+      },
+      {
+        short: 'A live playoff game shows its score and inning',
+        full:  'While a series game is on, its card says the game, the score and the inning, the same as the scoreboard, instead of just "In Progress".',
+      },
+    ],
+  },
+  {
     version: '1.104.1',
     date:    '2026-09-28',
     title:   'A roomier matchups board on desktop',
