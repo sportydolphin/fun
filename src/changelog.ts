@@ -5,7 +5,7 @@ import type { ChangelogEntry } from './version'
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.106.0',
-    date:    '2026-09-30',
+    date:    '2026-09-29',
     title:   'Clips on their games and players',
     changes: [
       {

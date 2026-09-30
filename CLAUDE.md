@@ -346,6 +346,14 @@ Each of these has already cost someone a debugging session, and none of them fai
   bottom of the page. This has regressed three times, once in each direction, every time by a
   scale being applied at one end of the sum and not the other.
 
+- **A video missing from the site may be missing on purpose: `fetchWpblVideos` drops what the
+  reader's country cannot play.** The league's full-game broadcasts are blocked in the US (28 of 41
+  as of Sep 29, 2026). The restriction is `region_allowed` / `region_blocked`, filled by the sync
+  from the Data API, and the country comes from `/api/geo` (Cloudflare's `cf.country`). Under
+  `npm run dev` there is no Pages Function, so the country is unknown and treated as the US: a
+  broadcast you can see on YouTube from abroad is correctly absent locally. Every surface reads
+  the filtered list, so none of them needs to ask; do not add a second read of `wpbl_videos` that
+  skips `playableIn`, or it will offer a player that says "Video unavailable".
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))
   is loaded by three builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and
@@ -466,7 +474,8 @@ units):
   standings, stats, TrackMan, Game Center, auto recaps, Hall of Firsts, push reminders.
   Run value (the league's own run-expectancy table, built from our own plays).
   Offseason surfaces: the season recap, Reading (two outside writers, linked out, see
-  `docs/READING.md`) and a fan-photo gallery.
+  `docs/READING.md`), Watch (every video, the league's Shorts tagged to the plays they show) and a
+  fan-photo gallery.
   Mirrored from the league feed into Supabase by the `wpbl-ingest` edge function. The feed
   went quiet on Sep 22, 2026 when the season ended, and returns in spring 2027.
 - **MLB** (`/mlb`): deeper and StatsAPI-driven. Game Center, personalized home feed, a

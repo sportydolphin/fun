@@ -822,8 +822,9 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Offseason Visuals, the share series for Bluesky and Reddit (the series frame, three output sizes, frames rendered with resvg and piped into ffmpeg, and a starter to copy) → [`scripts/visuals/kit.ts`](scripts/visuals/kit.ts), run by [`scripts/make-visual.ts`](scripts/make-visual.ts) as `npm run visual -- <slug>`; the list of ideas is in ROADMAP-WPBL.md
 - The three non-league feeds each live where a reader looks for them, not in one shared card: the
   writing on its own page (`/wpbl/reading`, [`src/wpbl/ReadingPage.tsx`](src/wpbl/ReadingPage.tsx)),
-  the Commons archive as a category of the photo gallery, the YouTube reels on the season recap and
-  each game. The old league-page "media shelf" hid all three behind a collapsible segmented card.
+  the Commons archive as a category of the photo gallery, and the video on its own page
+  (`/wpbl/watch`, [`src/wpbl/WatchPage.tsx`](src/wpbl/WatchPage.tsx)) and on each game and player.
+  The old league-page "media shelf" hid all three behind a collapsible segmented card.
 - The WPBL pages that are not tabs, in order, for the More menu, its phone sheet and the footer →
   [`src/wpbl/morePages.ts`](src/wpbl/morePages.ts). One list, so the three cannot drift
 - What is happening in a game right now (Game Center's Live tab: the count as a scoreboard band, the bases with the runners NAMED, the batter/pitcher matchup with each one's line in this game, the last play, and the win-probability chart under it) → [`src/wpbl/LiveGameView.tsx`](src/wpbl/LiveGameView.tsx), fed by `deriveSituation` in [`src/wpbl/Live.tsx`](src/wpbl/Live.tsx). Three things about the feed shape it and are written up in that file's header: `live_state.first_base` is a runner's NAME rather than a flag (the header strip's 34px glyph throws it away with a `!!`); there is no id for the batter or the pitcher, so both are matched by name against the rosters the modal already holds and the match is built to fail rather than guess; and the feed publishes counts that cannot exist between at-bats, so the bulbs clamp

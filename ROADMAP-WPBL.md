@@ -68,12 +68,16 @@ card, fan-award results until Oct 1, a fan-photo gallery card, the latest post f
 the bracket without its odds, leaders, standings) · Schedule · Standings · Stats, one row of board
 tabs (Players, Teams, Pitch by pitch, Run value, Tracked, Draft) · Teams and team pages · Game
 Center (recap with a win probability graph, box score, play-by-play with the situation after every
-play, pitch data, story and recap links from outside writers) · Player pages at
-`/wpbl/players/<slug>` with a regular / playoffs / both scope and a fan-photo strip, opening as an
+play with a Clip button on the plays the league filmed, pitch data, story and recap links from
+outside writers, the game's videos and clips) · Player pages at
+`/wpbl/players/<slug>` with a regular / playoffs / both scope, a fan-photo strip and the player's
+clips, opening as an
 overlay over whatever page they were tapped on · standalone pages off the More menu and the footer
 (one list, [`morePages.ts`](src/wpbl/morePages.ts)): `/wpbl/season` (the recap: final standings,
-the standings race, runs by inning, the postseason and its best performances, highlights),
-`/wpbl/reading` (both writers' posts, see [docs/READING.md](docs/READING.md)), `/wpbl/photos`
+the standings race, runs by inning, the postseason and its best performances, a Watch card),
+`/wpbl/reading` (both writers' posts, see [docs/READING.md](docs/READING.md)), `/wpbl/watch`
+(every game's highlights, condensed game and broadcast, the league's Shorts, the podcast),
+`/wpbl/photos`
 (fans' photos and the Commons archive), `/wpbl/league` (the primer only), Scorigami, Compare, the
 players index, the glossary, and Data sources · search · short share links (`/p`, `/g`) · push
 reminders · a fan Discord integration (board, final-score box scores, highlight reels and Shorts,
@@ -1231,6 +1235,40 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 29, 2026: Watch, every WPBL video in one place (`/wpbl/watch`, v1.105.0 to v1.106.0)
+
+**The highlights were a twelve-card rail on the season recap**: about a quarter of the league's
+reels, none of its 293 Shorts, none of its 41 full-game broadcasts, and no address. `/wpbl/watch`
+holds all of it on three shelves, Games (a card per game with a button per video: the league's
+reel, the condensed game from WPBL from Day 1, the league's broadcast), Clips (the Shorts, played
+vertically with next and previous) and More (compilations, the podcast, press conferences). A
+Watch card with the six newest clips replaced the rail, on Home and on the recap. The sync learned
+`full_game`, `press` and, after the Shorts probe and never before it, `podcast`; `--reclassify`
+re-runs the classifiers over stored rows, since the schedule only re-reads the latest fifteen.
+
+**No Short names its game, and clips are tagged by matching instead**
+([`scripts/wpbl-clip-tags.mjs`](scripts/wpbl-clip-tags.mjs), `wpbl_video_tags`). A title that names a
+player and an event ("GIANELLONI GRAND SLAM") is checked against play-by-play for the one play that
+agrees, in a game played shortly before the upload: 61 clips pin to the at-bat, 53 to the game, 32
+to a player, 14 to a club, 133 to nothing. It stops at the level the evidence supports, and a club
+named outside a game is never pinned to one, which is what put features on games in the first
+trial. Tags show as a club filter and badges on Clips, "Clips from this game" in Game Center, a
+Clip button on the play in play-by-play, and a row on the player page. `/admin` → Clips places
+the rest by hand: every save is `manual`, which the sync never overwrites, and an empty manual row
+marks a clip as from no game so the matcher cannot put a wrong tag back.
+
+**The broadcasts are blocked in the United States.** Nothing in a title says so; the Data API's
+`regionRestriction` does, now stored as `region_allowed` / `region_blocked` and re-read daily
+(rights windows end). `/api/geo` hands the page Cloudflare's country for the request, and
+`fetchWpblVideos` drops what the reader cannot play, once, for every surface. 28 of the 41 are
+hidden from a US reader; unknown (the dev server, a failed lookup) is treated as the US.
+
+**On a phone** the game cards were 310px each and the shelf 13,400px long, and every poster was
+the 1280px `maxresdefault` the sync stores, 2.5MB for a screen of clips. Game cards are a 169px row
+there now, posters take `hqdefault` (12KB, still the whole vertical frame) wherever the box is
+small, the shelf switcher pins, tap targets reach 38 to 44px on touch, and the embed sets
+`playsinline` so iOS keeps a Short on the page.
 
 ### Sep 28, 2026: batter vs pitcher, league-wide (`/wpbl/matchups`)
 
