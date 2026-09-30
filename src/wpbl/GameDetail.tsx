@@ -12,7 +12,8 @@ import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import { wpblGameSlugFromPath, wpblGameShortPath } from './routes'
 import { WpblGamePreview } from './GamePreview'
-import { GameHighlightCards } from './Highlights'
+import { GameHighlightCards, HighlightLightbox } from './Highlights'
+import { GameClips, useClipTags } from './Watch'
 import { gameVideos } from './videoChannels'
 import { GameStoryCard, GameRecapLinkCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
@@ -692,6 +693,20 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
 }) {
   const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
+  // The league's Short of a play, where a clip has been pinned to it (wpbl_video_tags, matched on
+  // (game, sequence) because a play's uuid does not survive the next ingest pass). Keyed by
+  // sequence; a play with two clips shows the first posted.
+  const { videos: clipVideos, tags: clipTags } = useClipTags()
+  const clipBySequence = useMemo(() => {
+    const out = new Map<number, WpblVideo>()
+    const sorted = clipVideos.filter(v => v.is_short === true).sort((a, b) => a.published_at.localeCompare(b.published_at))
+    for (const v of sorted) {
+      const t = clipTags.get(v.video_id)
+      if (t?.game_id === game.id && t.play_sequence != null && !out.has(t.play_sequence)) out.set(t.play_sequence, v)
+    }
+    return out
+  }, [clipVideos, clipTags, game.id])
+  const [clipPlaying, setClipPlaying] = useState<WpblVideo | null>(null)
   // The two clubs, for the running score on each half-inning header. Off the game rather than
   // off the plays: a half-inning has one batting club and the score has two.
   const awayTeam = teams.get(game.away_team_id)
@@ -1226,6 +1241,25 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                               color: 'primary.main', border: '1px solid', borderColor: 'primary.main',
                             }}>{swing.label}</Box>
                           )}
+                          {/* The league filmed this one. A button, not a link: it plays here, over
+                              the log, and the reader lands back on the same row. */}
+                          {clipBySequence.has(p.sequence) && (
+                            <Box component="button" type="button"
+                              onClick={() => {
+                                const v = clipBySequence.get(p.sequence)!
+                                track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: 'clip', from: 'pbp' })
+                                setClipPlaying(v)
+                              }}
+                              aria-label={`Watch the clip of this play: ${clipBySequence.get(p.sequence)!.title}`}
+                              sx={{
+                                ml: 0.6, px: 0.6, py: '1px', borderRadius: 0.75, cursor: 'pointer', font: 'inherit',
+                                fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase',
+                                whiteSpace: 'nowrap', verticalAlign: 'baseline',
+                                color: 'var(--wpbl-accent-solid)', bgcolor: 'transparent',
+                                border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
+                                ...FOCUS_RING, ...hoverOnly({ bgcolor: 'action.hover' }),
+                              }}>▶ Clip</Box>
+                          )}
                         </Typography>
                         {/* Runners, quieter and condensed: the same information in roughly half the words, not
                             competing with the batter for attention. */}
@@ -1310,6 +1344,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
         )
       })}
       <SourceNote plays={visiblePlays} />
+      {clipPlaying && <HighlightLightbox video={clipPlaying} onClose={() => setClipPlaying(null)} />}
     </Box>
   )
 }
@@ -2531,6 +2566,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
             {/* No lines means no tabs, so there is no Recap tab holding the reel. A game with
                 video and no box score is exactly the game somebody wants the video from. */}
             {videos.length > 0 && <Box sx={{ mt: 2 }}><GameHighlightCards videos={videos} /></Box>}
+            <GameClips gameId={seed.id} />
           </Box>
         ) : away && home ? (
           // Unplayed game: a pre-game matchup card comparing the two clubs' season stats,

@@ -107,10 +107,12 @@ export function watchShelves(videos: readonly WpblVideo[]): {
 }
 
 // More's groups, in page order. The fan's compilations lead: they are the best single watch on
-// the shelf and the only thing on it about the season as a whole.
+// the shelf and the only thing on it about the season as a whole. The podcast follows, because it
+// is most of the shelf (a weekly episode since March, each a player's own hour), and Features is
+// whatever is left.
 export const MORE_GROUPS: { key: string; label: string; test: (v: WpblVideo) => boolean }[] = [
   { key: 'compilation', label: 'Season compilations', test: v => v.kind === 'compilation' },
-  { key: 'features', label: 'Features', test: v => v.kind === 'other' },
-  { key: 'press', label: 'Press conferences', test: v => v.kind === 'press' },
   { key: 'podcast', label: 'Podcast', test: v => v.kind === 'podcast' },
+  { key: 'press', label: 'Press conferences', test: v => v.kind === 'press' },
+  { key: 'features', label: 'Features', test: v => v.kind === 'other' },
 ]

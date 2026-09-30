@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, FOCUS_RING } from './ui'
 import { track, EVENTS } from '../lib/analytics'
@@ -50,19 +50,33 @@ export const PLAYABLE_HOVER = {
  * A SHORT'S POSTER IS LANDSCAPE. YouTube serves every thumbnail at 4:3 or 16:9, a Short's with the
  * vertical frame pillarboxed in the middle, so `cover` in a 9:16 box crops to exactly the frame and
  * the black bars fall outside it. Nothing here needs to know which poster size it was given.
+ *
+ * THE POSTER IS SIZED TO THE BOX, NOT TO WHAT THE ROW STORES. The sync stores the largest poster the
+ * Data API offers, maxresdefault (1280x720, 70-130KB), and a 110px clip on a phone was downloading
+ * all of it: thirty of them is 2.5MB for one screen of the Clips shelf. `hqdefault` (480x360, about
+ * 12KB) exists for every upload, and cropped to 9:16 it still carries the full vertical frame at
+ * 202px wide, which is all a clip poster ever shows. So a vertical or small box always takes it, and
+ * a large 16:9 box offers both through srcset and lets the browser choose by `sizes`: a phone card
+ * takes the small one, a desktop card the large. hqdefault is letterboxed, and `cover` in a 16:9 box
+ * crops the bars off exactly.
  */
-export function VideoThumb({ video, vertical, badge = 44, radius = 0 }: {
+export function VideoThumb({ video, vertical, badge = 44, radius = 0, sizes }: {
   video: WpblVideo; vertical?: boolean; badge?: number; radius?: number
+  /** The rendered width, as an <img sizes> value, for a 16:9 box big enough to want the large
+   *  poster. Omitted, the box is small and takes hqdefault alone. */
+  sizes?: string
 }) {
+  const small = `https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`
+  const large = video.thumbnail_url && video.thumbnail_url !== small ? video.thumbnail_url : null
+  const useSet = !vertical && sizes && large
   return (
     <Box sx={{
       position: 'relative', width: '100%', aspectRatio: vertical ? '9 / 16' : '16 / 9',
       bgcolor: 'action.hover', overflow: 'hidden', borderRadius: radius,
     }}>
-      {video.thumbnail_url && (
-        <Box component="img" src={video.thumbnail_url} alt="" loading="lazy"
-          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-      )}
+      <Box component="img" src={small} alt="" loading="lazy" decoding="async"
+        {...(useSet ? { srcSet: `${small} 480w, ${large} 1280w`, sizes } : {})}
+        sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       <Box className="play-badge" sx={{ position: 'absolute', inset: 0 }}><PlayBadge size={badge} /></Box>
     </Box>
   )
@@ -85,12 +99,16 @@ export function videoDateLabel(v: WpblVideo): string {
  * A Short plays in a 9:16 frame capped by the screen's height, since a vertical video sized to the
  * dialog's width runs off the bottom of a laptop. `onPrev` / `onNext` turn it into a pager (the
  * clips shelf), on buttons and the arrow keys; the embed remounts per video, which is what stops
- * the previous one playing on underneath.
+ * the previous one playing on underneath. `context` is a line under the title saying what the
+ * clip is from (its game and inning), when the clip has been tagged.
  */
-export function HighlightLightbox({ video, onClose, onPrev, onNext }: {
+export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
   video: WpblVideo; onClose: () => void; onPrev?: () => void; onNext?: () => void
+  context?: ReactNode
 }) {
-  const src = `https://www.youtube-nocookie.com/embed/${video.video_id}?autoplay=1&rel=0&modestbranding=1`
+  // playsinline: without it iOS Safari takes the video to its own fullscreen player on play, which
+  // for a Short means leaving the page, the next/previous buttons and the title all at once.
+  const src = `https://www.youtube-nocookie.com/embed/${video.video_id}?autoplay=1&rel=0&modestbranding=1&playsinline=1`
   const credit = videoCredit(video)
   const vertical = video.is_short === true
   useEffect(() => {
@@ -124,6 +142,7 @@ export function HighlightLightbox({ video, onClose, onPrev, onNext }: {
           />
         </Box>
         <Typography sx={{ mt: 1.25, fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.3 }}>{video.title}</Typography>
+        {context && <Box sx={{ mt: 0.5 }}>{context}</Box>}
         {credit && <Box sx={{ mt: 0.5 }}><VideoCreditLine credit={credit} /></Box>}
         <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
@@ -153,6 +172,9 @@ function PagerButton({ label, glyph, onClick }: { label: string; glyph: string; 
     <Box component="button" type="button" onClick={onClick} disabled={!onClick} aria-label={label}
       sx={{
         width: chromePx(36), height: chromePx(36), borderRadius: '50%', cursor: onClick ? 'pointer' : 'default',
+        // A thumb needs more than a cursor: 44px is the smallest target a finger hits reliably, and
+        // these are the only way to the next clip on a phone, where the embed swallows every swipe.
+        '@media (pointer: coarse)': { width: 44, height: 44 },
         border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary',
         fontSize: '1.2rem', fontWeight: 700, lineHeight: 1, opacity: onClick ? 1 : 0.35,
         display: 'flex', alignItems: 'center', justifyContent: 'center', p: 0,

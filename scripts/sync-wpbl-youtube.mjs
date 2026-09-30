@@ -32,6 +32,7 @@
  *   node --env-file=.env scripts/sync-wpbl-youtube.mjs --dry-run   # anon key, writes nothing
  *   ... --all   # every upload, not the latest 25 (needs YOUTUBE_API_KEY; for adding a channel)
  *   ... --reclassify   # re-run the classifiers over every stored row; no YouTube call
+ *   ... --relink       # re-tag every Short with its game, play, players and club; no YouTube call
  *
  * Source: prefers the YouTube Data API v3 when YOUTUBE_API_KEY is set (reliable from CI
  * datacenter IPs), otherwise falls back to the public RSS feed (keyless, but YouTube
@@ -44,6 +45,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { pathToFileURL } from 'node:url'
+import { buildClipContext, gameStartMs, tagClip } from './wpbl-clip-tags.mjs'
 
 // Run only when invoked directly. Imported (by the tests, which exercise the Short probe's
 // reading of a response without touching YouTube) this file must define and not do.
@@ -64,6 +66,9 @@ const ALL = args.has('--all')
 // a change to a classifier otherwise reaches only what the channel posts next: the full-game
 // broadcasts were all posted in-season and would have sat as 'other' forever.
 const RECLASSIFY = args.has('--reclassify')
+// Re-tag EVERY Short (wpbl_video_tags) instead of the last few days' worth. For the first run,
+// and after a change to the matcher in wpbl-clip-tags.mjs.
+const RELINK = args.has('--relink')
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
@@ -159,6 +164,28 @@ export function classify(title) {
 }
 
 /**
+ * The league's podcast episodes, which the title classifier cannot see and so filed as 'other':
+ *
+ *   "Skylar Kaplan | Expert Hitter, Pro Ball Player, San Francisco Firebell"
+ *   "Lexi Hastings on Falling into Baseball, Social Justice, and Pursuing Your Dreams"
+ *   "WPBL Group Chat LIVE! | Fort Myers, FL"
+ *
+ * A guest's name, then a pipe and their taglines (or "on" and the topic): the weekly episode's own
+ * title, poster reading "Episode 26". ONLY FOR AN UPLOAD KNOWN NOT TO BE A SHORT, which is why this is
+ * a second step after the probe rather than part of `classify()`: the channel's Shorts use the same
+ * pipe ("Eyes on the ball | Watch the WPBL Draft live on YouTube..."), and 'podcast' is one of the
+ * kinds whose Short answer is taken as a free "no" (NEVER_SHORT), so reading one from the title alone
+ * would stamp a Short as landscape and take it off the clips shelf and out of the Discord channel.
+ */
+export function refineKind(kind, title, isShort) {
+  if (kind !== 'other' || isShort !== false) return kind
+  if (/\bgroup chat\b/i.test(title)) return 'podcast'
+  const guest = /^\s*[^|]{3,60}\s\|\s*\S/.test(title) && !MATCHUP_SEP.test(title) && !parseTitleDate(title)
+  const onTopic = /^[A-Z][\p{L}'’.-]+(?: [A-Z][\p{L}'’.-]+){1,2} on [A-Z]/u.test(title)
+  return guest || onTopic ? 'podcast' : kind
+}
+
+/**
  * The league's full-game broadcasts, the whole game as streamed, which were landing in 'other':
  *
  *   "WPBL: Boston Hunters @ San Francisco Firebells | September 6, 2026"
@@ -251,7 +278,9 @@ function parseTitleDate(s) {
     if (mo < 1 || mo > 12 || day < 1 || day > 31) return null
     return `${year}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
-  const m = s.match(/\b([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/)
+  // `\s*,?` rather than `,?`: the Aug 22 broadcast is titled "August 22 , 2026", and without the
+  // space allowance it matched no game and sat in 'other' with the features.
+  const m = s.match(/\b([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s+(\d{4})\b/)
   if (!m) return null
   const monthKey = Object.keys(MONTHS).find(k => k.startsWith(m[1].toLowerCase()))
   if (!monthKey) return null
@@ -487,6 +516,7 @@ async function main() {
   for (const g of games ?? []) gameByKey.set(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`, g.id)
 
   if (RECLASSIFY) { await reclassifyStored(resolveTeam, gameByKey); return }
+  if (RELINK) { await tagClips({ all: true }); return }
 
   // One channel failing does not stop the other: the RSS path 404s intermittently from CI, and
   // a bad read of the league's feed is no reason to leave the fan channel's new upload unsynced.
@@ -508,7 +538,101 @@ async function main() {
     console.error(`❌  region restrictions: ${err.message}`)
     failures.push('region restrictions')
   }
+  console.log('\n── clip tags')
+  try {
+    await tagClips({ all: false })
+  } catch (err) {
+    console.error(`❌  clip tags: ${err.message}`)
+    failures.push('clip tags')
+  }
   if (failures.length) throw new Error(`Sync failed for: ${failures.join(', ')}`)
+}
+
+// Every row of a query, paged, with a deterministic order: PostgREST caps a bare select at 1000.
+async function readAll(label, build) {
+  const out = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build().range(from, from + 999)
+    if (error) throw new Error(`${label}: ${error.message}`)
+    out.push(...(data ?? []))
+    if ((data ?? []).length < 1000) return out
+  }
+}
+
+// How far back a scheduled run re-tags. A clip is often posted before the ingest has the play it
+// shows (the league posts mid-game; plays land every two minutes but the box score can lag), so
+// a clip is re-tried on every run for three days, not just the run that first sees it.
+const RETAG_WINDOW_MS = 72 * 3600 * 1000
+// A clip's game started at most this long before it went up (EVENT_WINDOW in wpbl-clip-tags.mjs),
+// so this is how far back before the oldest clip the games and plays are read.
+const CLIP_GAME_LOOKBACK_MS = 49 * 3600 * 1000
+
+/**
+ * Tag Shorts with the game, at-bat, players and club they show (wpbl_video_tags), by matching
+ * each title against play-by-play. The matching is scripts/wpbl-clip-tags.mjs; this loads its
+ * inputs and writes its answers.
+ *
+ * A scheduled run re-tags the last RETAG_WINDOW's Shorts and reads only the games and plays that
+ * could hold them, which in the offseason is nothing at all. --relink does every Short.
+ *
+ * A 'manual' tag is never overwritten or deleted. An automatic tag whose clip no longer matches is
+ * deleted, so a fix to the matcher can take a wrong tag away as well as add a right one.
+ */
+async function tagClips({ all }) {
+  const since = all ? null : new Date(Date.now() - RETAG_WINDOW_MS).toISOString()
+  const shorts = await readAll('Loading Shorts', () => {
+    let q = supabase.from('wpbl_videos').select('video_id, title, published_at').eq('is_short', true)
+    if (since) q = q.gte('published_at', since)
+    return q.order('video_id')
+  })
+  if (shorts.length === 0) { console.log('No Shorts to tag.'); return }
+
+  const oldest = Math.min(...shorts.map(v => Date.parse(v.published_at)))
+  const games = (await readAll('Loading games', () => supabase.from('wpbl_games')
+    .select('id, game_date, start_time, home_team_id, away_team_id, status').order('id')))
+    .filter(g => all || gameStartMs(g.game_date, g.start_time) >= oldest - CLIP_GAME_LOOKBACK_MS)
+  const gameIds = games.map(g => g.id)
+  const [players, teams] = await Promise.all([
+    readAll('Loading players', () => supabase.from('wpbl_players').select('id, name').order('id')),
+    readAll('Loading teams', () => supabase.from('wpbl_teams').select('id, city, name, abbr').order('id')),
+  ])
+  // `.in()` on every game would be a URL of 40 uuids for a full relink, well within limits; an
+  // empty window reads nothing.
+  const byGames = (table, cols) => gameIds.length === 0 ? Promise.resolve([]) : readAll(`Loading ${table}`, () =>
+    supabase.from(table).select(cols).in('game_id', gameIds).order('game_id').order(cols.includes('sequence') ? 'sequence' : 'player_id'))
+  const [batting, pitching, plays] = await Promise.all([
+    byGames('wpbl_batting_lines', 'game_id, player_id, team_id'),
+    byGames('wpbl_pitching_lines', 'game_id, player_id, team_id'),
+    byGames('wpbl_game_plays', 'game_id, sequence, inning, half, team_id, batter_id, event_type, runs_scored, narrative'),
+  ])
+  const ctx = buildClipContext({ players, teams, games, lines: [...batting, ...pitching], plays })
+
+  const existing = await readAll('Loading tags', () => supabase.from('wpbl_video_tags')
+    .select('video_id, method').in('video_id', shorts.map(v => v.video_id)).order('video_id'))
+  const manual = new Set(existing.filter(t => t.method === 'manual').map(t => t.video_id))
+  const tagged = new Set(existing.map(t => t.video_id))
+
+  const upserts = []
+  const drops = []
+  const counts = {}
+  for (const v of shorts) {
+    if (manual.has(v.video_id)) { counts.manual = (counts.manual ?? 0) + 1; continue }
+    const tag = tagClip(v, ctx)
+    counts[tag?.method ?? 'none'] = (counts[tag?.method ?? 'none'] ?? 0) + 1
+    if (tag) upserts.push({ video_id: v.video_id, ...tag, matched_at: new Date().toISOString() })
+    else if (tagged.has(v.video_id)) drops.push(v.video_id)
+  }
+  const summary = Object.entries(counts).map(([k, n]) => `${n} ${k}`).join(', ')
+  if (DRY_RUN) { console.log(`🧪  Dry run: ${shorts.length} Shorts: ${summary}; would drop ${drops.length}`); return }
+  for (let i = 0; i < upserts.length; i += 500) {
+    const { error } = await supabase.from('wpbl_video_tags').upsert(upserts.slice(i, i + 500), { onConflict: 'video_id' })
+    if (error) throw new Error(`Tag upsert failed: ${error.message}`)
+  }
+  if (drops.length) {
+    const { error } = await supabase.from('wpbl_video_tags').delete().in('video_id', drops).neq('method', 'manual')
+    if (error) throw new Error(`Tag delete failed: ${error.message}`)
+  }
+  console.log(`✅  ${shorts.length} Shorts: ${summary}; dropped ${drops.length}`)
 }
 
 // A restriction is re-read at least this often even when nothing else about the row changes,
@@ -592,14 +716,16 @@ async function syncChannel(channel, resolveTeam, gameByKey) {
 
   const rows = []
   for (const e of entries) {
-    const { kind, away, home, date, gameId } = resolveVideo(channel, e.title, resolveTeam, gameByKey, e.videoId)
+    const { kind: titleKind, away, home, date, gameId } = resolveVideo(channel, e.title, resolveTeam, gameByKey, e.videoId)
     // A highlight reel, a broadcast, a press conference and a podcast are never Shorts, so their
     // answer is free. Everything else is asked once, ever, and the answer is remembered. A channel
     // that does not probe leaves the column at whatever it holds, which for a new row is null:
     // undetermined.
-    const isShort = NEVER_SHORT.has(kind)
+    const isShort = NEVER_SHORT.has(titleKind)
       ? false
       : knownShort.get(e.videoId) ?? (channel.probeShorts && !DRY_RUN ? await probeIsShort(e.videoId) : null)
+    // After the probe, never before it: see refineKind.
+    const kind = channel.id === LEAGUE_CHANNEL_ID ? refineKind(titleKind, e.title, isShort) : titleKind
     rows.push({
       video_id: e.videoId,
       channel_id: channel.id,
@@ -651,9 +777,11 @@ async function reclassifyStored(resolveTeam, gameByKey) {
   for (const r of rows) {
     const channel = CHANNELS.find(c => c.id === r.channel_id)
     if (!channel) continue
-    const { kind, away, home, date, gameId } = resolveVideo(channel, r.title, resolveTeam, gameByKey, r.video_id)
+    const { kind: titleKind, away, home, date, gameId } = resolveVideo(channel, r.title, resolveTeam, gameByKey, r.video_id)
+    // The stored probe answer stands in for the probe: see refineKind.
+    const kind = channel.id === LEAGUE_CHANNEL_ID ? refineKind(titleKind, r.title, r.is_short) : titleKind
     const patch = { kind, game_id: gameId, away_hint: away, home_hint: home, game_date_hint: date }
-    if (NEVER_SHORT.has(kind) && r.is_short !== false) patch.is_short = false
+    if (NEVER_SHORT.has(titleKind) && r.is_short !== false) patch.is_short = false
     if (Object.entries(patch).every(([k, v]) => (r[k] ?? null) === (v ?? null))) continue
     changed++
     console.log(`  • ${r.title}  [${r.kind} → ${kind}${gameId ? ` → game ${gameId.slice(0, 8)}` : ''}]`)

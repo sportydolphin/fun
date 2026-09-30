@@ -32,6 +32,11 @@ on:
         required: false
         default: false
         type: boolean
+      relink:
+        description: 'Re-tag every Short with its game, play, players and club instead of syncing. No YouTube call. For the first run after the clip matcher changes.'
+        required: false
+        default: false
+        type: boolean
 
 # One writer at a time; skip a tick rather than racing two upserts.
 concurrency:
@@ -70,7 +75,8 @@ jobs:
           YOUTUBE_API_KEY:           ${{ secrets.YOUTUBE_API_KEY }}
           ALL_UPLOADS:               ${{ inputs.all_uploads }}
           RECLASSIFY:                ${{ inputs.reclassify }}
-        run: node scripts/sync-wpbl-youtube.mjs $([ "$ALL_UPLOADS" = "true" ] && echo --all) $([ "$RECLASSIFY" = "true" ] && echo --reclassify)
+          RELINK:                    ${{ inputs.relink }}
+        run: node scripts/sync-wpbl-youtube.mjs $([ "$ALL_UPLOADS" = "true" ] && echo --all) $([ "$RECLASSIFY" = "true" ] && echo --reclassify) $([ "$RELINK" = "true" ] && echo --relink)
 
       # Straight after the sync, in the same pass, so a reel reaches the Discord highlights
       # channel the moment we learn about it rather than waiting on a second schedule.

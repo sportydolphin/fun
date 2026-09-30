@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.106.0',
+    date:    '2026-09-30',
+    title:   'Clips on their games and players',
+    changes: [
+      {
+        short: 'Clips in Game Center',
+        full:  'The league\'s short clips now show up on the game they are from, in the order the plays happened, under "Clips from this game".',
+      },
+      {
+        short: 'Watch a play from the play-by-play',
+        full:  'Where the league posted a clip of a play, that play has a Clip button in the play-by-play that plays it right there.',
+      },
+      {
+        short: 'Clips on player pages',
+        full:  'A player\'s page shows the clips they are in, each labelled with the game and inning where we could tell.',
+      },
+      {
+        short: 'Filter clips by club',
+        full:  'The Clips shelf on Watch can be narrowed to one club, each clip carries its club\'s badge, and a clip from a game says which one, with a link to the box score.',
+      },
+      {
+        short: 'Watch is quicker on a phone',
+        full:  'On a phone, each game on Watch is a compact row that fits four to a screen, the Games, Clips and More buttons stay at the top as you scroll, and the pictures are sized for the screen, so a page of clips loads a fraction of what it did.',
+      },
+      {
+        short: 'The podcast has its own shelf',
+        full:  'The league\'s weekly podcast episodes are grouped as Podcast under More, instead of being mixed in with everything else.',
+      },
+    ],
+  },
+  {
     version: '1.105.1',
     date:    '2026-09-29',
     title:   'Only videos you can play',

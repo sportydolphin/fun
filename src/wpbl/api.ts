@@ -13,7 +13,7 @@ import type {
   WpblGameRecap, WpblSprayPlay,
   WpblCorrectionSource,
   WpblPitchTracking, WpblTrackRow,
-  WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
+  WpblVideo, WpblVideoTag, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails, WpblGameRevision,
   WpblFanPhoto, WpblPhotoFigure, WpblPhotoSubject, WpblPhotoContributor, WpblPhotoCategory,
 } from './types'
@@ -243,6 +243,7 @@ let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 let allPitchPlaysCache: { data: WpblPitchPlay[]; at: number } | null = null
 let allRunValuePlaysCache: { data: WpblRunValuePlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
+let videoTagsCache:   { data: Map<string, WpblVideoTag>; at: number } | null = null
 let allRecapsCache:   { data: WpblGameRecap[]; at: number } | null = null
 let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
 let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
@@ -276,6 +277,7 @@ export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPla
 export function getCachedWpblAllPitchPlays(): WpblPitchPlay[] | null { return allPitchPlaysCache?.data ?? null }
 export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { return allRunValuePlaysCache?.data ?? null }
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
+export function getCachedWpblVideoTags(): Map<string, WpblVideoTag> | null { return videoTagsCache?.data ?? null }
 export function getCachedWpblRecaps(): WpblGameRecap[] | null { return allRecapsCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
@@ -1048,6 +1050,26 @@ export function fetchWpblVideos(): Promise<WpblVideo[]> {
     const playable = data.filter(v => playableIn(v, country))
     if (playable.length > 0 || allVideosCache == null) allVideosCache = { data: playable, at: Date.now() }
     return playable
+  })
+}
+
+/**
+ * What each Short shows (wpbl_video_tags), keyed by video id: the game, the at-bat, the players
+ * and the club. A few hundred rows at most, read once and shared by the Watch page, Game Center's
+ * clip row and the player page. A clip with no row has no tag, which is most of the pre-season.
+ */
+export function fetchWpblVideoTags(): Promise<Map<string, WpblVideoTag>> {
+  if (isFresh(videoTagsCache)) return Promise.resolve(videoTagsCache!.data)
+  return once('videoTags', async () => {
+    const rows = await fetchAllPaged<WpblVideoTag>('fetchWpblVideoTags', (from, to) =>
+      supabase.from('wpbl_video_tags')
+        .select('video_id,game_id,play_sequence,inning,half,team_id,player_ids,method')
+        .order('video_id', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: WpblVideoTag[] | null; error: unknown }>)
+    const data = new Map(rows.map(t => [t.video_id, t]))
+    if (data.size > 0 || videoTagsCache == null) videoTagsCache = { data, at: Date.now() }
+    return data
   })
 }
 

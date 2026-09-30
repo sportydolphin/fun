@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { CARD_BORDER, CARD_FILL, TYPE_SCALE, hoverOnly, FOCUS_RING } from './ui'
+import { CARD_BORDER, CARD_FILL, TYPE_SCALE, hoverOnly, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller } from './ui'
+import { SectionHead } from './cardParts'
 import { linkTo } from '../nav'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
-import { fetchWpblVideos, getCachedWpblVideos } from './api'
+import {
+  fetchWpblVideos, getCachedWpblVideos, fetchWpblVideoTags, getCachedWpblVideoTags,
+  fetchWpblSchedule, getCachedWpblSchedule, fetchWpblTeams, getCachedWpblTeams,
+} from './api'
 import { WPBL_WATCH_PAGE } from './routes'
 import { watchShelves } from './videoChannels'
 import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
-import type { WpblVideo } from './types'
+import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
 
 /**
  * The door to /wpbl/watch: the newest clips as a row of posters, and a link to everything.
@@ -126,4 +130,159 @@ export function ClipCaption({ title, lines = 2 }: { title: string; lines?: numbe
       }}>{title}</Typography>
     </Box>
   )
+}
+
+// ─── Tagged clips: labels, the row, and its places ───────────────────────────
+
+const ORDINAL = (n: number) => {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`
+}
+
+/** "Top 3rd", or null for a clip not pinned to an at-bat. */
+export function inningLabel(tag: Pick<WpblVideoTag, 'half' | 'inning'> | undefined): string | null {
+  if (!tag?.inning || !tag.half) return null
+  return `${tag.half === 'bottom' ? 'Bottom' : 'Top'} ${ORDINAL(tag.inning)}`
+}
+
+/**
+ * What a clip is from, as one line: "LA @ SF · Sep 16 · Top 3rd". `withGame` off where the game is
+ * already on screen (Game Center), leaving the inning alone. Null when there is nothing to say.
+ */
+export function clipLabel(tag: WpblVideoTag | undefined, gameById: Map<string, WpblGame>,
+  teamById: Map<string, WpblTeam>, withGame = true): string | null {
+  if (!tag) return null
+  const parts: string[] = []
+  const game = tag.game_id ? gameById.get(tag.game_id) : undefined
+  if (withGame && game) {
+    const abbr = (id: string) => teamById.get(id)?.abbr ?? id
+    parts.push(`${abbr(game.away_team_id)} @ ${abbr(game.home_team_id)}`)
+    parts.push(new Date(`${game.game_date}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' }))
+  }
+  const inning = inningLabel(tag)
+  if (inning) parts.push(inning)
+  return parts.length ? parts.join(' · ') : null
+}
+
+/** The label as the lightbox's context line. */
+export function ClipContextLine({ text, action }: { text: string | null; action?: React.ReactNode }) {
+  if (!text && !action) return null
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+      {text && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontWeight: 600 }}>From {text}</Typography>}
+      {action}
+    </Box>
+  )
+}
+
+/**
+ * A row of tagged clips, playing in place with next and previous: Game Center's "Clips from this
+ * game" and the player page's clips. Renders nothing without a clip, which is most games and
+ * most players, so it costs a page nothing to include.
+ */
+export function ClipStrip({ clips, labelFor, from, title = 'Clips' }: {
+  clips: WpblVideo[]
+  /** The line under each poster and in the lightbox, or null. */
+  labelFor: (v: WpblVideo) => string | null
+  /** For WPBL_HIGHLIGHT_PLAYED: 'game' or 'player'. */
+  from: string
+  title?: string
+}) {
+  const [active, setActive] = useState<number | null>(null)
+  const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(clips.length)
+  if (clips.length === 0) return null
+  const play = (i: number) => {
+    track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: clips[i].video_id, kind: 'clip', from })
+    setActive(i)
+  }
+  return (
+    <Box sx={{ mt: 2 }}>
+      <SectionHead title={title} />
+      <Box sx={{ position: 'relative' }}>
+        <RailScroller scrollRef={scrollRef} onScroll={syncEdges}>
+          {clips.map((v, i) => {
+            const label = labelFor(v)
+            return (
+              <Box key={v.video_id} sx={{ flexShrink: 0, width: chromePx(112), scrollSnapAlign: 'start' }}>
+                <Box
+                  onClick={() => play(i)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(i) } }}
+                  role="button" tabIndex={0} aria-label={`Play clip: ${v.title}`}
+                  sx={{ position: 'relative', borderRadius: 2, overflow: 'hidden', cursor: 'pointer', ...PLAYABLE_HOVER, ...FOCUS_RING }}
+                >
+                  <VideoThumb video={v} vertical badge={30} />
+                  <ClipCaption title={v.title} lines={3} />
+                </Box>
+                {label && (
+                  <Typography sx={{ mt: 0.4, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', lineHeight: 1.3 }}>
+                    {label}
+                  </Typography>
+                )}
+              </Box>
+            )
+          })}
+        </RailScroller>
+        <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="clips" />
+        <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="clips" />
+      </Box>
+      {active != null && clips[active] && (
+        <HighlightLightbox
+          video={clips[active]}
+          onClose={() => setActive(null)}
+          onPrev={active > 0 ? () => setActive(active - 1) : undefined}
+          onNext={active < clips.length - 1 ? () => setActive(active + 1) : undefined}
+          context={<ClipContextLine text={labelFor(clips[active])} />}
+        />
+      )}
+    </Box>
+  )
+}
+
+/** Every Short with a tag, and the tags, from the two app-wide caches. */
+export function useClipTags(): { videos: WpblVideo[]; tags: Map<string, WpblVideoTag> } {
+  const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
+  const [tags, setTags] = useState<Map<string, WpblVideoTag>>(() => getCachedWpblVideoTags() ?? new Map())
+  useEffect(() => {
+    let live = true
+    fetchWpblVideos().then(v => { if (live) setVideos(v) }).catch(() => { /* renders nothing */ })
+    fetchWpblVideoTags().then(t => { if (live) setTags(t) }).catch(() => { /* renders nothing */ })
+    return () => { live = false }
+  }, [])
+  return { videos, tags }
+}
+
+/**
+ * Game Center's clips: every Short pinned to this game, in the order the plays happened. A clip
+ * pinned to the game but not an at-bat follows the pinned ones, by upload time.
+ */
+export function GameClips({ gameId }: { gameId: string }) {
+  const { videos, tags } = useClipTags()
+  const mine = useMemo(() => videos
+    .filter(v => v.is_short === true && tags.get(v.video_id)?.game_id === gameId)
+    .sort((a, b) => {
+      const sa = tags.get(a.video_id)?.play_sequence ?? Infinity
+      const sb = tags.get(b.video_id)?.play_sequence ?? Infinity
+      return sa - sb || a.published_at.localeCompare(b.published_at)
+    }), [videos, tags, gameId])
+  const none = useMemo(() => ({ games: new Map<string, WpblGame>(), teams: new Map<string, WpblTeam>() }), [])
+  return <ClipStrip clips={mine} from="game" title="Clips from this game"
+    labelFor={v => clipLabel(tags.get(v.video_id), none.games, none.teams, false)} />
+}
+
+/** A player's clips, newest first, each labelled with the game it is from where it has one. */
+export function PlayerClips({ playerId }: { playerId: string }) {
+  const { videos, tags } = useClipTags()
+  const [games, setGames] = useState<WpblGame[]>(() => getCachedWpblSchedule() ?? [])
+  const [teams, setTeams] = useState<WpblTeam[]>(() => getCachedWpblTeams() ?? [])
+  useEffect(() => {
+    let live = true
+    fetchWpblSchedule().then(g => { if (live) setGames(g) }).catch(() => { /* labels without a game */ })
+    fetchWpblTeams().then(t => { if (live) setTeams(t) }).catch(() => { /* labels without a game */ })
+    return () => { live = false }
+  }, [])
+  const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
+  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const mine = useMemo(() => videos.filter(v => v.is_short === true && tags.get(v.video_id)?.player_ids.includes(playerId)),
+    [videos, tags, playerId])
+  return <ClipStrip clips={mine} from="player" labelFor={v => clipLabel(tags.get(v.video_id), gameById, teamById)} />
 }

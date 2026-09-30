@@ -40,6 +40,9 @@ export function FilterChip({ label, active, onClick }: { label: string; active: 
         bgcolor: active ? 'primary.main' : 'background.paper',
         color: active ? 'primary.contrastText' : 'text.secondary',
         '&:hover': { borderColor: active ? 'primary.main' : 'text.secondary' },
+        // 27px tall suits a cursor and not a thumb, and these rows are how every browse page is
+        // narrowed on a phone. Taller on a touch screen only, so a desktop row stays compact.
+        '@media (pointer: coarse)': { py: 0.8 },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}>
       {label}

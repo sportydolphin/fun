@@ -167,6 +167,23 @@ export interface WpblVideo {
 }
 
 /**
+ * What one Short shows (wpbl_video_tags), matched from its title against play-by-play by
+ * scripts/wpbl-clip-tags.mjs. `method` is how sure: 'play' pins the at-bat, 'game' the game only,
+ * 'player' and 'team' no game at all. The play is (game_id, play_sequence), never a play uuid,
+ * which the ingest regenerates on every pass.
+ */
+export interface WpblVideoTag {
+  video_id: string
+  game_id: string | null
+  play_sequence: number | null
+  inning: number | null
+  half: 'top' | 'bottom' | string | null
+  team_id: string | null
+  player_ids: string[]
+  method: 'play' | 'game' | 'player' | 'team' | 'manual'
+}
+
+/**
  * One independent outlet's recap of one game, held as a LINK.
  *
  * This is Women's Baseball write one per WPBL game and gave us permission to link to them

@@ -7,6 +7,7 @@ import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE, useWpblDark, CLUB_BAND, cardFooterBand } from './ui'
 import { relativeDayLabel, wpblFullName, wpblSurface } from './constants'
 import { GameHighlightCards } from './Highlights'
+import { GameClips } from './Watch'
 import { linkColor, useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 
 const MEDAL = ['🥇', '🥈', '🥉']
@@ -217,6 +218,8 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
       spend a header on. GameDetail keeps a copy for the game that has video but no box
       score, since that game has no Recap tab to put it in. */}
       <GameHighlightCards videos={videos} />
+      {/* The league's Shorts of this game's plays, in the order they happened. */}
+      <GameClips gameId={game.id} />
 
     </Box>
   )

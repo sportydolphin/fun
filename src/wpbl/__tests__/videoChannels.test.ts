@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 // drifted.
 import {
   CHANNELS, LEAGUE_CHANNEL_ID as SYNC_LEAGUE, FAN_RECAPS_CHANNEL_ID as SYNC_FAN,
-  buildTeamResolver, resolveVideo,
+  buildTeamResolver, resolveVideo, refineKind,
 } from '../../../scripts/sync-wpbl-youtube.mjs'
 import { LEAGUE_CHANNEL_ID, FAN_RECAPS_CHANNEL_ID, gameVideos, videoCredit, videoLabel, watchShelves, MORE_GROUPS } from '../videoChannels'
 import type { WpblVideo } from '../types'
@@ -107,6 +107,34 @@ describe('league titles', () => {
       'The Setup vs. The Shot vs. The Play',
       'WPBL batting practice at the ballpark 💪',
     ]) expect(league.classify(t)).toBe('other')
+  })
+
+  it('matches a broadcast whose date has a space before the comma', () => {
+    const games = new Map([['2026-08-22|NY|LA', 'g-aug22']])
+    expect(resolveVideo(league, 'WPBL: New York Height @ Los Angeles Queens | August 22 , 2026', resolveTeam, games))
+      .toMatchObject({ kind: 'full_game', gameId: 'g-aug22' })
+  })
+
+  it('reads a guest episode as the podcast, once the upload is known not to be a Short', () => {
+    for (const t of [
+      'Skylar Kaplan | Expert Hitter, Pro Ball Player, San Francisco Firebell',
+      'Justine Siegal, PhD | The First Commissioner of the WPBL',
+      'Lexi Hastings on Falling into Baseball, Social Justice, and Pursuing Your Dreams',
+      'WPBL Group Chat LIVE! | Fort Myers, FL',
+    ]) expect(refineKind(league.classify(t), t, false)).toBe('podcast')
+  })
+
+  // The channel's Shorts use the same pipe, and 'podcast' is a free "not a Short" (NEVER_SHORT):
+  // reading one from the title alone would take a clip off the clips shelf and out of Discord.
+  it('never turns a Short, or an upload not yet probed, into an episode', () => {
+    const t = 'Eyes 👀 on the ball ⚾️ | Watch the WPBL Draft live on YouTube, IG, and TikTok on Nov. 20 at 5pm PT'
+    expect(refineKind('other', t, true)).toBe('other')
+    expect(refineKind('other', 'Skylar Kaplan | Expert Hitter', null)).toBe('other')
+  })
+
+  it('leaves a broadcast, a press conference and a plain feature alone', () => {
+    expect(refineKind('full_game', 'WPBL: Boston Hunters @ San Francisco Firebells | September 6, 2026', false)).toBe('full_game')
+    expect(refineKind('other', 'WPBL Draft 2025', false)).toBe('other')
   })
 
   it('reads a press conference as one, matched to no game', () => {

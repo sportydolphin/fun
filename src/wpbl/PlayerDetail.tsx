@@ -14,6 +14,7 @@ import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { aboutPlayerFirst } from './derive/articles'
 import { FanPhotoPlayerStrip } from './FanPhotoViews'
+import { PlayerClips } from './Watch'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import PitchProfileBlock from './PitchProfile'
@@ -1973,6 +1974,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             is the most interesting thing on the page. Renders nothing when nobody has written
             about the player, which is most of the roster. */}
         <FanPhotoPlayerStrip playerId={player.id} players={players} />
+        <PlayerClips playerId={player.id} />
         <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
       </Box>
     )
@@ -2075,6 +2077,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>Season totals appear here once this player logs a game.</Typography>
           </Box>
           <FanPhotoPlayerStrip playerId={player.id} players={players} />
+          <PlayerClips playerId={player.id} />
           <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} />
         </Box>
       ) : (
@@ -2122,6 +2125,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
                   here that is neither a season fact nor a game, and a well-covered player put
                   346px of article cards against a rail with nothing like that much to say. */}
               <FanPhotoPlayerStrip playerId={player.id} players={players} />
+              <PlayerClips playerId={player.id} />
               <Box sx={{ mt: 1 }}>
                 <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
               </Box>
