@@ -2921,9 +2921,9 @@ export function WpblHomeSkeleton() {
 const WATCH_CARD_SKELETON_H = { xs: '13.8rem', md: '22rem' }
 
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see the
- *  render below): the header, the gallery in the scoreboard's slot, the Discord invite on a phone,
- *  one row of the season card and the award results (the season card alone once the results come
- *  off), then the bracket, the Watch card and the two single-line cards. Heights measured off the
+ *  render below): the header, the gallery in the scoreboard's slot, the Watch card, the Discord
+ *  invite on a phone, one row of the season card and the award results (the season card alone once
+ *  the results come off), then the bracket and the two single-line cards. Heights measured off the
  *  real page. */
 function OffseasonHomeSkeleton() {
   let discordDismissed = false
@@ -2949,6 +2949,9 @@ function OffseasonHomeSkeleton() {
       </Box>
 
       <FanPhotoHomeCardSkeleton />
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
+      </Box>
 
       {!discordDismissed && (
         <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
@@ -2963,9 +2966,6 @@ function OffseasonHomeSkeleton() {
 
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '3.45rem', md: '19.45rem' }} titleWidth="8rem" lines={0} />
-      </Box>
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
       </Box>
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
@@ -3413,6 +3413,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           the cards about games that just happened or are about to. */}
       {seasonDone && <FanPhotoHomeCard reserve />}
 
+      {/* Watch follows the gallery in the offseason rather than closing the page: the two are the
+          only parts of an offseason Home with something new in them, and the videos were sitting
+          under a finished bracket that no longer changes. During a season it stays below (see
+          the stack at the bottom), behind the cards about games. */}
+      {seasonDone && <Box sx={{ mt: 1.5 }}><WatchCard from="home" /></Box>}
+
       {/* Discord invite, mobile only. Sits between the scoreboard and the feed. Hidden at md+
           because the desktop feed is a two-column subgrid with shared row boundaries that a
           loose card would break; a desktop home for it is a later job. */}
@@ -3528,7 +3534,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       {!seasonDone && <FanPhotoHomeCard />}
 
       <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        <WatchCard from="home" />
+        {!seasonDone && <WatchCard from="home" />}
         <LatestReadingCard />
         <LeagueCard />
       </Box>

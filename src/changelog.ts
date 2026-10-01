@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.108.1',
+    date:    '2026-10-01',
+    changes: [
+      {
+        short: 'Videos right under the photos on WPBL Home',
+        full:  'With the season over, the Watch card now sits directly below the gallery at the top of WPBL Home, instead of at the bottom of the page.',
+      },
+    ],
+  },
+  {
     version: '1.108.0',
     date:    '2026-09-30',
     title:   'Every MLB pop-up is a sheet, and Back closes it',
