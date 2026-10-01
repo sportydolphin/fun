@@ -125,6 +125,14 @@ export function HomeView({
   const phase      = useSeasonPhase(CURRENT_SEASON)
   const seasonOver = phase == null ? null : isSeasonOver(phase)
 
+  // NO SCOREBOARD IN THE WINTER, for WPBL's reason: with no games left the strip sits frozen on the
+  // World Series' last night until spring, at the top of the page. The bracket under it says the
+  // same thing and names the champion. In the months that can be winter (November to March) the
+  // strip waits for the phase rather than drawing and then vanishing; the rest of the year it never
+  // waits, because there is always a game on it.
+  const winterMonth = [10, 11, 0, 1, 2].includes(new Date().getMonth())
+  const showScores = phase === 'offseason' ? false : phase != null || !winterMonth
+
   // The bracket, once the regular season is over: it says whether the followed club is still
   // playing. Shared with the bracket card's own read (fetchBracket caches), so it costs nothing.
   // `undefined` is "not read yet", which the team card waits on; null is "no bracket".
@@ -421,9 +429,11 @@ export function HomeView({
     <Box>
       {/* ── Scoreboard — full-width header, always visible ─────────────────────── */}
       {/* Every card on this page is a TrackedCard: seen, then used. See TrackedCard.tsx. */}
-      <TrackedCard card="scoreboard" sx={{ mb: 2 }}>
-        <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
-      </TrackedCard>
+      {showScores && (
+        <TrackedCard card="scoreboard" sx={{ mb: 2 }}>
+          <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+        </TrackedCard>
+      )}
 
       {/* The postseason bracket, straight under the scores while one is being played. It draws
           nothing outside a postseason, and TrackedCard hides its own box when it is empty. */}

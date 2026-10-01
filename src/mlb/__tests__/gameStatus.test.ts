@@ -53,7 +53,7 @@ describe('schedule reads include the postseason', () => {
     'src/mlb/api.ts': 'strength of the remaining regular-season schedule, for playoff odds',
     'src/mlb/reportCardData.ts': 'streak report cards count regular-season games',
     'src/mlb/views/Spotlight.tsx': 'byDateRange has no postseason data, so the lookback cannot use it',
-    'src/mlb/seasonPhase.ts': 'asks whether a regular-season makeup is still to be played',
+    'shared/mlbSeason.js': 'asks whether a regular-season makeup is still to be played',
     'scripts/simulate-playoff-odds.mjs': 'simulates the remaining regular season',
     'scripts/update-streaks.mjs': 'hitting streaks are regular-season records',
   }
@@ -67,6 +67,8 @@ describe('schedule reads include the postseason', () => {
   const files = [
     ...walk(join(root, 'src', 'mlb')),
     ...readdirSync(join(root, 'scripts')).filter(n => n.endsWith('.mjs')).map(n => join(root, 'scripts', n)),
+    // The calendar both sides share (shared/mlbSeason.js) reads the schedule too.
+    ...readdirSync(join(root, 'shared')).filter(n => n.endsWith('.js')).map(n => join(root, 'shared', n)),
   ]
 
   it('has no regular-season-only schedule read outside the list', () => {

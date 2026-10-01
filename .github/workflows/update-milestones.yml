@@ -28,14 +28,23 @@ jobs:
         with:
           node-version: '22'
 
+      # Nothing to do outside the MLB calendar's 'regular' window: see scripts/mlb-job-due.mjs.
+      # Before any install, so a skipped day costs one request. A manual run always goes through.
+      - name: Check the MLB calendar
+        id: due
+        if: github.event_name != 'workflow_dispatch'
+        run: node scripts/mlb-job-due.mjs regular
+
       # update-milestones.mjs imports exactly two packages — no need for `npm ci`
       # and the whole frontend toolchain.
       - name: Install script dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         run: |
           npm install --no-save --no-audit --no-fund --loglevel=error \
             $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
 
       - name: Update milestone watch
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         run: node scripts/update-milestones.mjs
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}

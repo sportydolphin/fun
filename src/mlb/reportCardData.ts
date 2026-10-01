@@ -3,6 +3,7 @@
 // Split out of api.ts; re-exported from there so '../api' imports still resolve.
 
 import { TEAM_ABBR, CURRENT_SEASON } from './constants'
+import { seasonIsOver } from './seasonPhase'
 import { supabase } from '../lib/supabase'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'
 
@@ -204,6 +205,11 @@ export function fetchStreakLeaders(season: number): Promise<StreakLeaders> {
 // streak_leaders table, one jsonb row per season) so most visitors get one
 // Supabase read instead of ~100 game-log fetches. Stale or missing rows fall
 // back to the live computation below — keep the script's logic in sync with it.
+//
+// EXCEPT ONCE THE REGULAR SEASON IS OVER. The job stops two days after the last game (it is gated
+// to the regular season, see scripts/mlb-job-due.mjs), so from then until spring the row is days
+// to months old and is also exactly right: nothing it counts can move. Treated as stale, it sent
+// every winter visitor through the hundred-fetch live path to rebuild the same numbers.
 const STREAK_STALE_MS = 48 * 3600 * 1000
 
 async function loadStreakLeaders(season: number): Promise<StreakLeaders> {
@@ -214,7 +220,8 @@ async function loadStreakLeaders(season: number): Promise<StreakLeaders> {
       .eq('season', season)
       .limit(1)
     const row = data?.[0]
-    if (row?.data && Date.now() - new Date(row.computed_at).getTime() < STREAK_STALE_MS) {
+    const fresh = !!row && Date.now() - new Date(row.computed_at).getTime() < STREAK_STALE_MS
+    if (row?.data && (fresh || await seasonIsOver(season))) {
       const stored = row.data as StreakLeaders
       if (stored.gamesPlayed) return stored
       // Row was written before the iron-man board existed. Keep the three cheap

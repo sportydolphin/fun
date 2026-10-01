@@ -103,7 +103,31 @@ export const DEFAULT_TEAM_PIT_STATS = TEAM_PITCHING_DEFS.filter(d => d.defaultSe
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const CURRENT_SEASON = new Date().getFullYear()
+// THE SEASON THE SECTION SHOWS, which is not the calendar year. It was `getFullYear()`, which on
+// Jan 1 would have turned every stats view, leaderboard and Home board to a season with no games
+// in it, for the three months until opening day. Last season stays the season until the new one's
+// first game.
+//
+// Decided before any request can return, since this is a module constant read at import. So the
+// opening day is the one the league published, remembered from an earlier visit (seasonPhase.ts
+// stores it under OPENING_DAY_KEY whenever it reads a calendar), and Mar 20 for a first visit: no
+// regular season has opened before Mar 18 (2025, Tokyo) and most open in the last week of March,
+// so a visitor with nothing remembered is wrong for a few days at most, and only in late March.
+export const OPENING_DAY_KEY = (year: number) => `mlb_opening_day_${year}`
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** Pure, for the test: the season shown on `now`, given that year's opening day if known. */
+export function displaySeasonOn(now: Date, openingDay: string | null): number {
+  const year = now.getFullYear()
+  return isoDay(now) < (openingDay ?? `${year}-03-20`) ? year - 1 : year
+}
+
+function rememberedOpeningDay(year: number): string | null {
+  try { return localStorage.getItem(OPENING_DAY_KEY(year)) } catch { return null }
+}
+
+export const CURRENT_SEASON = displaySeasonOn(new Date(), rememberedOpeningDay(new Date().getFullYear()))
 export const TEAM_SEASONS = Array.from({ length: CURRENT_SEASON - 2000 + 1 }, (_, i) => CURRENT_SEASON - i)
 
 // Correct picks in a row before a prediction streak counts as a "heater" — the bar

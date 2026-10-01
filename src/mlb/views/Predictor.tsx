@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN, isRealClub } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN, isRealClub, CURRENT_SEASON } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
@@ -12,6 +12,8 @@ import { useDevSim } from '../dev/devSim'
 import { useDeepLink } from '../state/deepLink'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
+import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
+import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +145,35 @@ export async function fetchVotesByGame(date: string): Promise<Record<number, Rec
 const predKey = (date: string) => `mlb_preds_${date}`
 
 // YYYY-MM-DD shifted by n local days (handles month/year rollover via Date math).
+const shortDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+const longDay  = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+
+// How far ahead the widget looks for the next day with a game to pick. The longest gap inside a
+// season is the All-Star break (four days) and inside a postseason the wait before the World Series
+// (five or six); two weeks clears both with room, and past it the season is simply over.
+const SLATE_LOOKAHEAD_DAYS = 14
+
+/**
+ * The next date from `from` with a game that can be picked: both clubs real (a postseason game
+ * against "NYY/BOS" cannot be) and not postponed. One schedule read for the whole window.
+ */
+export async function fetchNextSlateDate(from: string, days = SLATE_LOOKAHEAD_DAYS): Promise<string | null> {
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${from}&endDate=${addDays(from, days)}` +
+      `&gameType=${SCHEDULE_GAME_TYPES}&fields=dates,date,games,status,abstractGameState,codedGameState,detailedState,teams,away,home,team,id`
+    )
+    const d = await r.json()
+    for (const dateObj of d.dates ?? []) {
+      const pickable = (dateObj.games ?? []).some((g: any) =>
+        !isUnplayed(g.status) && g.status?.abstractGameState === 'Preview' &&
+        isRealClub(Number(g.teams?.home?.team?.id ?? 0)) && isRealClub(Number(g.teams?.away?.team?.id ?? 0)))
+      if (pickable) return dateObj.date as string
+    }
+  } catch { /* no read: the widget shows its idle line */ }
+  return null
+}
+
 export function addDays(dateStr: string, n: number): string {
   const [y, m, d] = dateStr.split('-').map(Number)
   const dt = new Date(y, m - 1, d + n)
@@ -568,7 +599,11 @@ export function PredictorWidget({ onPicksSettled }: {
   // made ahead instead of waiting for the date to change. Resolved by the games
   // effect below, which is why it starts at `today`.
   const [slateDate,   setSlateDate]   = useState(today)
-  const isTomorrow = slateDate !== today
+  const isTomorrow = slateDate === addDays(today, 1)
+  const isLater    = slateDate > addDays(today, 1)
+  // Nothing to pick within the lookahead: a postseason waiting on its next matchups, or the winter.
+  // `opening` is the next opening day when the league has published it.
+  const [idle,        setIdle]        = useState<null | { kind: 'between-rounds' } | { kind: 'offseason'; opening: string | null }>(null)
 
   const [games,       setGames]       = useState<TodayGame[]>([])
   const [predictions, setPredictions] = useState<Record<number, number>>({})
@@ -599,24 +634,56 @@ export function PredictorWidget({ onPicksSettled }: {
   // `import.meta.env.DEV` is false there, so this collapses to the real fetch.
   const devSim    = useDevSim()
   const simActive = import.meta.env.DEV && devSim.enabled
+  // Dev only: the gear's Winter phase shows the offseason card on any date (see devSeasonPhase.ts).
+  const devPhase  = useDevSeasonPhase()
+  const devWinter = import.meta.env.DEV && devPhase === 'offseason'
 
   useEffect(() => {
     if (simActive) { setSlateDate(today); setGames(devSim.games); setLoading(false); return }
     setLoading(true)
     let cancelled = false
     ;(async () => {
+      setIdle(null)
+      if (devWinter) {
+        const opening = (await fetchSeasonDates(CURRENT_SEASON + 1))?.regularSeasonStart ?? null
+        if (!cancelled) { setSlateDate(addDays(today, 1)); setGames([]); setIdle({ kind: 'offseason', opening }) }
+        return
+      }
       const todays = await fetchTodayGames(today)
       // Still something to pick today → show today. Otherwise roll to tomorrow.
       if (todays.some(g => g.state === 'preview')) {
         if (!cancelled) { setSlateDate(today); setGames(todays) }
-      } else {
-        const tmr = addDays(today, 1)
-        const tmrGames = await fetchTodayGames(tmr)
+        return
+      }
+      const tmr = addDays(today, 1)
+      const tmrGames = await fetchTodayGames(tmr)
+      if (tmrGames.length) {
         if (!cancelled) { setSlateDate(tmr); setGames(tmrGames) }
+        return
+      }
+      // TOMORROW IS AN OFF DAY. The card used to stop here and say "No upcoming games", which in
+      // October was every travel day between two postseason games and read as the season being
+      // over. It rolls on to the next day with a game to pick instead, and only when there is none
+      // in the lookahead says why: matchups not set yet, or the winter.
+      const next = await fetchNextSlateDate(addDays(today, 2))
+      if (next) {
+        const nextGames = await fetchTodayGames(next)
+        if (!cancelled) { setSlateDate(next); setGames(nextGames) }
+        return
+      }
+      const phase = await fetchSeasonPhase(CURRENT_SEASON)
+      // The next opening day belongs to the season after the one shown (CURRENT_SEASON stays last
+      // season until the new one opens, so in January this is still +1, not the calendar year +1).
+      const opening = phase === 'offseason' || phase === 'preseason'
+        ? (await fetchSeasonDates(CURRENT_SEASON + (phase === 'offseason' ? 1 : 0)))?.regularSeasonStart ?? null
+        : null
+      if (!cancelled) {
+        setSlateDate(tmr); setGames([])
+        setIdle(phase === 'postseason' ? { kind: 'between-rounds' } : { kind: 'offseason', opening })
       }
     })().finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [today, simActive, devSim.games])
+  }, [today, simActive, devSim.games, devWinter])
 
   // Load crowd-vote splits up front so the inline quick picks can show
   // percentages (not just when the modal opens). Sim mode uses devSim.votes.
@@ -742,9 +809,9 @@ export function PredictorWidget({ onPicksSettled }: {
             <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
               🎯 Predictions
             </Typography>
-            {isTomorrow && (
+            {(isTomorrow || isLater) && !idle && (
               <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
-                Tomorrow
+                {isTomorrow ? 'Tomorrow' : shortDay(slateDate)}
               </Typography>
             )}
           </Box>
@@ -764,7 +831,7 @@ export function PredictorWidget({ onPicksSettled }: {
                 📊 Stats
               </Box>
             )}
-            <Box
+            {!idle && <Box
               onClick={() => canOpen && setModalOpen(true)}
               sx={{
                 fontSize: '0.68rem', fontWeight: 700,
@@ -779,7 +846,7 @@ export function PredictorWidget({ onPicksSettled }: {
               }}
             >
               {loading ? '…' : pickedCount === 0 ? 'Make Predictions' : 'View Picks'}
-            </Box>
+            </Box>}
           </Box>
         </Box>
 
@@ -808,6 +875,17 @@ export function PredictorWidget({ onPicksSettled }: {
         >
           {loading ? (
             <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading the schedule…</Typography>
+          ) : idle?.kind === 'between-rounds' ? (
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.45 }}>
+              The next games open for picks once their matchups are set.
+            </Typography>
+          ) : idle?.kind === 'offseason' ? (
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.45 }}>
+              {idle.opening
+                ? <>Predictions are back on Opening Day, <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>{longDay(idle.opening)}</Box>.</>
+                : 'Predictions are back on Opening Day.'}
+              {user && ' Your season record is under Stats.'}
+            </Typography>
           ) : games.length === 0 ? (
             <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No upcoming games</Typography>
           ) : finalized.length > 0 && !allDone ? (

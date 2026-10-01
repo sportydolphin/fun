@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.111.0',
+    date:    '2026-10-01',
+    title:   'MLB is ready for the winter',
+    changes: [
+      {
+        short: 'Predictions skip off days',
+        full:  'On a day off between postseason games, MLB predictions open the next day with games instead of saying there are no upcoming games. When the next matchups are not set yet it says so, and once the season is over it says when Opening Day is.',
+      },
+      {
+        short: 'The 2026 season stays up all winter',
+        full:  'MLB stats, leaderboards and Home keep showing the 2026 season until the 2027 season opens, instead of switching to an empty season on January 1.',
+      },
+      {
+        short: 'A winter MLB Home',
+        full:  'Once the World Series is over, MLB Home drops the scoreboard, the bracket is titled with its season, and the Scores page opens on the last day with games.',
+      },
+    ],
+  },
+  {
     version: '1.110.0',
     date:    '2026-10-01',
     title:   'Postseason stakes on MLB Home',

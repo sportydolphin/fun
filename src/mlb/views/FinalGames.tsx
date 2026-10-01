@@ -246,7 +246,11 @@ async function findAdjacentGameDate(fromDateISO: string, dir: 1 | -1, season: nu
   const bounds = await fetchSeasonBounds(season)
   const probeDate = fromISO(fromDateISO)
   probeDate.setDate(probeDate.getDate() + dir)
-  const probe = toISO(probeDate)
+  // Clamped first, so a date outside the season looks from the season's edge. From January, a
+  // window ending "yesterday" clamps to the single last day of October, misses a World Series that
+  // ended on the 28th, and falls through to the sweep below: the whole season's games with their
+  // linescores, several megabytes, to find one date.
+  const probe = clampISO(toISO(probeDate), bounds)
 
   const edgeDate = fromISO(probe)
   edgeDate.setDate(edgeDate.getDate() + dir * NAV_WINDOW_DAYS)
@@ -645,7 +649,18 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
             setLoading(false)
             return
           }
-          // Nothing found ahead — show today's empty state as-is.
+          // Nothing ahead in the season: it is over. The last day that had games (the World Series'
+          // last night) is what a reader opening Scores in November wants, not an empty date.
+          const prev = await findAdjacentGameDate(dateISO, -1, CURRENT_SEASON)
+          if (cancelled) return
+          if (prev) {
+            const gg = await fetchFinalGames(prev)
+            if (cancelled) return
+            setDateISO(prev)
+            setGames(gg)
+            setLoading(false)
+            return
+          }
           setGames([])
           setLoading(false)
           return

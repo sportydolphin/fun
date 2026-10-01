@@ -489,11 +489,21 @@ sequenceDiagram
 
 ### GitHub Actions (`.github/workflows/*.yml`): all times **UTC**, all also `workflow_dispatch`
 
+**The MLB jobs are gated to the MLB calendar** (since Oct 2026). Each runs
+[`scripts/mlb-job-due.mjs`](scripts/mlb-job-due.mjs) `games` or `regular` before installing
+anything and skips the rest of the job outside its window, which is read from the league's own
+`/seasons` calendar ([`shared/mlbSeason.js`](shared/mlbSeason.js), the same module the site's
+season phase uses). **games**: the day before opening day to two days past the end of the
+postseason. **regular**: opening day to two days past the last regular-season game, longer while a
+makeup is still to be played. Fails open (a calendar it cannot read runs the job), and a manual
+`workflow_dispatch` always runs. The `regular` boards leave their last row in place all winter as
+the season's final word, and the site reads it that way rather than as stale.
+
 | Workflow | Schedule (UTC) | Script(s) | Purpose |
 |---|---|---|---|
-| `daily-bots` | `0 14` + `30 15` (retry) | `update-payrolls`, `run-bots`, `run-survivor-bots` | Bot predictions + survivor picks before first pitch; refresh payrolls |
-| `daily-reminders` | `0 16` | `send-reminders` | Push: nudge users to make their picks |
-| `game-start-reminders` | `*/5 15-23,0-4 * 3-10` | `send-game-start` | Push: MLB game starting soon (in-season, active hours) |
+| `daily-bots` | `0 14` + `30 15` (retry) | `update-payrolls`, `run-bots`, `run-survivor-bots` | Bot predictions + survivor picks before first pitch (gated: `games`); refresh payrolls (every day, since contracts move most in the winter) |
+| `daily-reminders` | `0 16` | `send-reminders` | Push: nudge users to make their picks (gated: `games`) |
+| `game-start-reminders` | `*/5 15-23,0-4 * 3-10` | `send-game-start` | Push: MLB game starting soon (active hours; gated: `games`) |
 | `wpbl-game-start-reminders` | `*/10 15-23,0-2` (Mar-Oct) | `send-wpbl-game-start` | Push: WPBL game starting soon. Writes a `cron_heartbeats` row (failure-only: a run that errors pages the owner via `admin-health-alert`; its game-hours cadence rules out a staleness alarm) |
 | `admin-health-alert` | `*/15 * * * 3-10` | `check-admin-health` | Push the OWNER when a background pipeline breaks (failed/stalled ingest, the "unmapped team" ok:true-with-errors trap, the nightly scoring job failing or going missing), so a red state reaches them without opening `/admin` — the failure mode the Health group's amber chip could not escape on its own. What pages is decided in [`shared/adminHealth.js`](shared/adminHealth.js) (unit-tested); `admin_alert_state` dedupes so an outage pages once, not every run. TrackMan "behind" and nightly findings are expected and never page. `--dry-run` / `--test` via `workflow_dispatch`. Subject to the same GitHub schedule throttling as the rest; add a `repository_dispatch` + pg_cron nudge if a faster guarantee is wanted |
 | `wpbl-discord-board` | `*/15 14-23,0-3` (Mar-Oct) | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
@@ -508,11 +518,11 @@ sequenceDiagram
 | `wpbl-retro-sync` | `0 10` (daily) | `retro-sync` | Pull the per-game facts the league feed does not publish from RetroWPBL's event files → `wpbl_game_details` (first pitch, length of game, umpiring crew, weather), shown under the Game Center scoreboard. Matches on (date, home club); an unmatched game is counted and skipped, never guessed at. The source is hand-transcribed and runs several games behind, so a missing row means "not written up yet" and coverage is reported rather than warned about |
 | `wpbl-play-gap-fill` | `30 10` (daily) | `fill-play-gaps` | Fill the plays the league published EMPTY from RetroWPBL's transcription of the same game → `wpbl_play_corrections`, never the mirror. The Aug 20 NY at BOS game is why it exists: 14 rows carrying a pitcher and a pitch sequence with no batter, no event and no narrative, New York's whole sixth and seventh among them, and the drift checker says our copy matches the feed exactly, so there was nothing to re-ingest. **Two things only.** A row the league published empty, and a row whose batter its own box score rules out: Aug 27 has two plate appearances under Ayami Sato, whose line in the same box score is 0 for 0 with no walk and no strikeout, while Mo'ne Davis has the at-bats and no plays. That is an internal contradiction rather than a second opinion, so it is settled here; a disagreement between two players who both batted is left alone and reported, which is the retro stats check's job and its answer is a person. The name fix identifies the play by its event type and by the replacement being absent from the whole game log, never by position, since our log carries substitution rows theirs folds away. Alignment is gated on the half-inning holding the same number of plays AND every row we already have naming their batter at the same index, which is a free checksum; a half-inning failing either is skipped. Insert-only, so a correction written by hand always outranks it. Runs between the retro sync at 10:00 and the stats check at 11:00 |
 | `wpbl-commons-sync` | `0 9 * * 0` (weekly, Sun) | `sync-wpbl-commons` | Mirror freely licensed women's baseball photography from Wikimedia Commons → `wpbl_photos` (the "From the archive" category of the `/wpbl/photos` gallery). Writes to a review queue: rows land `approved = false` and nothing renders until a human publishes them ([`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)) |
-| `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
-| `update-playoff-odds` | `20 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
-| `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
-| `update-milestones` | `0 7` | `update-milestones` | Milestone watch |
-| `update-prediction-boards` | `30 7` | `update-prediction-boards` | Prediction leaderboards |
+| `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight (gated: `games`) |
+| `update-playoff-odds` | `20 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds (gated: `regular`) |
+| `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards (gated: `regular`) |
+| `update-milestones` | `0 7` | `update-milestones` | Milestone watch (gated: `regular`) |
+| `update-prediction-boards` | `30 7` | `update-prediction-boards` | Prediction leaderboards (gated: `games`) |
 | `pull-feature-requests` | manual only | `pull-tasks` | Google Tasks → `docs/feature-requests.md`. Schedule removed Sep 27, 2026, when the task list stopped being kept |
 | `build-sitemap` | `40 6` | `sitemap` | Rebuild `public/sitemap.xml` from the roster (one URL per player) and commit it **only if the URL set changed**: a push to main is a deploy, so an unconditional rewrite would ship one a day for nothing |
 | `wpbl-restock-watch` | `*/10 * * * *` | `watch-wpbl-restock` | Two sources. **Shopify store, every run:** mirror the catalogue and announce new merch + restocks, quiet batched feed to the shop channel, loud `@everyone` for the shortlist **and for new merch** (a drop cannot be shortlisted: a shortlist names a handle, and a handle only exists for something that already does, which is why the eight team jerseys of Sep 7, 2026 reached nobody's phone). **The Realest, hourly:** mirror the league's memorabilia lots and announce new ones, quietly, in the same shop channel. There are no restocks there because every lot is one of one. The hourly gate is in the script (a check against the last attempt in `wpbl_shop_watch_runs`), not in the cron, because GitHub's schedule slips and two cron lines would collide on the hour. Notifies only, never buys and never bids (see [`docs/DISCORD.md`](docs/DISCORD.md)) |

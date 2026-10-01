@@ -2,6 +2,7 @@ import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, R
 import { TEAM_ABBR, CURRENT_SEASON } from './constants'
 import { supabase } from '../lib/supabase'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'
+import { seasonIsOver } from './seasonPhase'
 
 // Public API surface split across sibling modules — re-exported so existing
 // `from '../api'` imports across the app keep resolving unchanged.
@@ -1085,8 +1086,9 @@ export interface MilestoneData {
 // milestone_watch, one jsonb row per season). No in-browser fallback — recomputing
 // would mean fetching every active player's career stats — so a missing or stale
 // row just hides the card. Items arrive pre-sorted (records, then marquee, then by
-// closeness). The 3-day window covers the offseason, when the Action still runs
-// but totals stop moving.
+// closeness). Once the regular season is over the job stops (scripts/mlb-job-due.mjs) and its last
+// row is the season's final word, so an old row is read rather than hidden: it is what Milestone
+// Watch's "Reached in 2026" archive draws from all winter.
 const MILESTONE_STALE_MS = 72 * 3600 * 1000
 
 export async function fetchMilestoneData(season: number): Promise<MilestoneData | null> {
@@ -1097,7 +1099,8 @@ export async function fetchMilestoneData(season: number): Promise<MilestoneData 
       .eq('season', season)
       .limit(1)
     const row = data?.[0]
-    if (row?.data && Date.now() - new Date(row.computed_at).getTime() < MILESTONE_STALE_MS) {
+    const fresh = !!row && Date.now() - new Date(row.computed_at).getTime() < MILESTONE_STALE_MS
+    if (row?.data && (fresh || await seasonIsOver(season))) {
       const d = row.data as { items?: MilestoneItem[]; recent?: MilestoneItem[]; reached?: MilestoneItem[] }
       // `reached` is the season archive; fall back to `recent` for rows written before
       // the archive existed, so an un-migrated row still shows something under Reached.

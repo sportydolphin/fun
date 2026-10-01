@@ -14,11 +14,11 @@ name: Update Streak Leaders
 # more crons here if you want tighter freshness, with that in mind.
 on:
   schedule:
-    # 06:00 UTC / 2am ET — every game including west-coast finals is complete, so
-    # this pass locks in a fully correct previous day. Runs year-round: if the row
-    # ever goes >48h stale the client falls back to computing live in the browser
-    # (hundreds of fetches), so it's worth one cheap pass a day even in the
-    # offseason to keep that from triggering.
+    # 06:00 UTC / 2am ET: every game including west-coast finals is complete, so
+    # this pass locks in a fully correct previous day. Scheduled all year but gated
+    # to the regular season below. The row it leaves at the end of the season is
+    # final, and the client reads it that way once the season is over instead of
+    # falling back to a live recompute (reportCardData.ts, seasonIsOver).
     - cron: '0 6 * * *'
     # In-season only — these two just reduce lag during the day.
     # 23:00 UTC / 7pm ET — day games are final.
@@ -43,14 +43,23 @@ jobs:
         with:
           node-version: '22'
 
+      # Nothing to do outside the MLB calendar's 'regular' window: see scripts/mlb-job-due.mjs.
+      # Before any install, so a skipped day costs one request. A manual run always goes through.
+      - name: Check the MLB calendar
+        id: due
+        if: github.event_name != 'workflow_dispatch'
+        run: node scripts/mlb-job-due.mjs regular
+
       # update-streaks.mjs imports exactly two packages — no need for `npm ci`
       # and the whole frontend toolchain.
       - name: Install script dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         run: |
           npm install --no-save --no-audit --no-fund --loglevel=error \
             $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
 
       - name: Update streak leaders
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         run: node scripts/update-streaks.mjs
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}

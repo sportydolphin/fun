@@ -121,9 +121,15 @@ goes first and the rest is winter work.
    can no longer fall. The 30-logo team picker that led a new reader's feed is a one-line prompt
    opening a sheet by division. The dev gear pins either phase, and "No team", for review. The
    offseason (Nov 1) gets the same treatment for free; what it still needs is item 6.
-6. **Offseason shape, by Nov 1.** Six daily MLB crons run all winter (only game-start is gated
-   by month); give them a due-gate like `wpbl_ingest_due()`. The predictor's empty
-   "TOMORROW / No upcoming games" card needs an offseason state.
+6. ✅ **Offseason shape** (Oct 1). The MLB jobs run only inside the league calendar's window for
+   their kind (`scripts/mlb-job-due.mjs`, `shared/mlbSeason.js`, one definition shared with the
+   site); the streak and milestone readers take the frozen end-of-season row as final instead of
+   recomputing live or hiding. `CURRENT_SEASON` is the latest season that has OPENED, not the
+   calendar year, which on Jan 1 would have emptied every MLB stats view until opening day. The
+   predictor rolls past an off day to the next slate (a postseason travel day used to read "No
+   upcoming games"), and says when matchups are pending or when Opening Day is. Winter Home drops
+   the scoreboard, as WPBL's does; Scores opens on the last day with games; the bracket is titled
+   with its season once it is over. The dev gear previews Winter.
 7. **Winter.** MLB off the zoom onto the desktop ramp (then `DESKTOP_ZOOM`, `--app-shell` and
    the compensation sites go); Stats as a phone ranked list; real `<a href>`s and headings; the
    em-dash sweep; the first MLB tests.

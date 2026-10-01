@@ -8,8 +8,9 @@ on:
     #   hours 15-23,0-4 UTC — 11am ET (earliest getaway/holiday games) through
     #                         ~8pm PT first pitches. Nothing starts 05:00-15:00
     #                         UTC (1am-11am ET).
-    #   months 3-10         — the regular season. The sender only looks at
-    #                         gameType=R, so Nov-Feb runs could never send.
+    #   months 3-10         the season, postseason included. Nov-Feb runs
+    #                         could never send; the calendar gate below also
+    #                         stops the March days before opening day.
     #
     # The 5-min interval must stay ≤ the smallest selectable lead time (5 min) so
     # a game can't slip between passes; game_start_sent keeps each reminder to a
@@ -39,16 +40,25 @@ jobs:
         with:
           node-version: '22'
 
+      # Nothing to do outside the MLB calendar's 'games' window: see scripts/mlb-job-due.mjs.
+      # Before any install, so a skipped day costs one request. A manual run always goes through.
+      - name: Check the MLB calendar
+        id: due
+        if: github.event_name != 'workflow_dispatch'
+        run: node scripts/mlb-job-due.mjs games
+
       # `npm ci` would install the whole frontend toolchain (React, MUI, Vite,
       # Vitest) that this script never imports. The sender needs exactly three
       # packages, so install just those — versions are read out of package.json
       # so there's still a single source of truth.
       - name: Install sender dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         run: |
           npm install --no-save --no-audit --no-fund --loglevel=error \
             $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','web-push','ws'].map(k=>k+'@'+d[k]).join(' ')")
 
       - name: Send game-start reminders
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

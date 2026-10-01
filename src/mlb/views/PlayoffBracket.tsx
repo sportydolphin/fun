@@ -278,7 +278,8 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
         <Typography sx={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1.4, color: 'text.secondary' }}>
-          {heading}
+          {/* Once it is over it is a record of a season, read all winter: say which. */}
+          {bracket.over ? `${bracket.season} postseason` : heading}
         </Typography>
         <Box sx={{ ml: 'auto' }}>
           <SegControl

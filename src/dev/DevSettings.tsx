@@ -454,7 +454,7 @@ function SkinControls() {
 }
 
 // ─── Home season phase (MLB) ───────────────────────────────────────────────────
-// Auto reads the league calendar. In season / Season over pin it, so either Home can be reviewed
+// Auto reads the league calendar. Season / October / Winter pin it, so every Home can be reviewed
 // on any date: see seasonPhase.ts.
 function SeasonPhaseControls() {
   const phase = useDevSeasonPhase()
@@ -462,7 +462,7 @@ function SeasonPhaseControls() {
   return (
     <>
       <SegControl
-        options={[{ value: 'auto', label: 'Auto' }, { value: 'regular', label: 'In season' }, { value: 'over', label: 'Over' }]}
+        options={[{ value: 'auto', label: 'Auto' }, { value: 'regular', label: 'Season' }, { value: 'over', label: 'October' }, { value: 'offseason', label: 'Winter' }]}
         value={phase}
         onChange={v => setDevSeasonPhase(v as DevSeasonPhase)}
       />

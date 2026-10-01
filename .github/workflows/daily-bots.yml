@@ -33,6 +33,13 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      # Nothing to do outside the MLB calendar's 'games' window: see scripts/mlb-job-due.mjs.
+      # Before any install, so a skipped day costs one request. A manual run always goes through.
+      - name: Check the MLB calendar
+        id: due
+        if: github.event_name != 'workflow_dispatch'
+        run: node scripts/mlb-job-due.mjs games
+
       - name: Install dependencies
         run: npm ci
 
@@ -44,6 +51,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Run prediction bots
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         run: node scripts/run-bots.mjs
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
@@ -52,6 +60,7 @@ jobs:
       # Same slot on purpose: survivor bots must pick before first pitch, just like
       # the prediction bots. The nightly resolver grades their picks overnight.
       - name: Run Streak Survivor bots
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
         run: node scripts/run-survivor-bots.mjs
         continue-on-error: true
         env:
