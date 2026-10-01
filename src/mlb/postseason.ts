@@ -293,3 +293,28 @@ export function teamOctoberLine(o: TeamOctober): string {
 /** Whether the club's season is still going, which is what keeps its card at full size. */
 export const stillPlaying = (o: TeamOctober | null): boolean =>
   o == null || o.kind === 'playing' || o.kind === 'advanced' || o.kind === 'champion'
+
+// ─── One postseason game, in a few characters ─────────────────────────────────
+
+/** "NLWC Gm 2", "ALDS Gm 3", "WS Gm 1": the game's place in the bracket, short enough for a stat line. */
+export function postseasonGameLabel(g: { gameType?: string; description?: string; seriesGameNumber?: number }): string | undefined {
+  const round = ({ F: 'WC', D: 'DS', L: 'CS', W: 'WS' } as Record<string, string>)[g.gameType ?? '']
+  if (!round) return undefined
+  // "NL Wild Card 'A' Game 1", "ALDS 'B' Game 2", "ALCS Game 5": the league is the first two letters.
+  const league = round === 'WS' ? '' : (/^(AL|NL)/.exec(g.description ?? '')?.[1] ?? '')
+  const n = Number(g.seriesGameNumber ?? 0)
+  return `${league}${round}${n > 0 ? ` Gm ${n}` : ''}`
+}
+
+/**
+ * Whether a game still to be played decides its series: both clubs one win short. Read off the two
+ * clubs' series records as the schedule publishes them on a postseason game (`leagueRecord` there is
+ * the series, not the season), so it needs nothing beyond the game itself.
+ */
+export function isDecider(g: { gamesInSeries?: number; teams?: { away?: { leagueRecord?: { wins?: number } }; home?: { leagueRecord?: { wins?: number } } } }): boolean {
+  const n = Number(g.gamesInSeries ?? 0)
+  if (n < 3) return false
+  const need = Math.floor(n / 2) + 1
+  const a = g.teams?.away?.leagueRecord?.wins, h = g.teams?.home?.leagueRecord?.wins
+  return a === need - 1 && h === need - 1
+}

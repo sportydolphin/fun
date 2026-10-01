@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.110.0',
+    date:    '2026-10-01',
+    title:   'Postseason stakes on MLB Home',
+    changes: [
+      {
+        short: 'Deciding games say so',
+        full:  'A postseason game on the MLB scoreboard shows which series and game it is, and a game that will decide its series is marked Decider. The bracket card says the same thing, and on Home the series still being played come first.',
+      },
+      {
+        short: 'Yesterday\'s finals on a quiet day',
+        full:  'When today has only a game or two, the MLB scores strip on Home follows them with the previous day\'s results, labelled with their date.',
+      },
+      {
+        short: 'Names fit on the leaderboard cards',
+        full:  'On a phone, the streak and team boards on MLB Home give names the room they need, and teams show their nickname beside the logo.',
+      },
+      {
+        short: 'The Athletics are ATH',
+        full:  'The Athletics show as ATH everywhere on the MLB side, matching the league.',
+      },
+      {
+        short: 'Clearer followed players',
+        full:  'A followed player who has not played this season says so, instead of showing a row of dashes.',
+      },
+    ],
+  },
+  {
     version: '1.109.0',
     date:    '2026-10-01',
     title:   'MLB Home knows the regular season is over',

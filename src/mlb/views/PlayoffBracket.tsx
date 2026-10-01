@@ -36,7 +36,7 @@ const weekdayFmt = (ms: number) => new Date(ms).toLocaleDateString([], { weekday
  *  A live game gets its own score and inning ("G1 · BOS 2–0 · ▲ 7th"), and no series line: the
  *  pips carry the series, and this card sits under a scoreboard showing the same game, so saying
  *  only "In Progress" here read as the two disagreeing about the score. */
-function seriesStatus(s: PsSeries, compact = false): { text: string; live: boolean } {
+function seriesStatus(s: PsSeries, compact = false): { text: string; live: boolean; decider?: boolean } {
   const line = seriesLine(s)
   const game = (n: number) => compact ? `G${n}` : `Game ${n}`
   const live = s.games.find(g => g.state === 'live')
@@ -48,6 +48,16 @@ function seriesStatus(s: PsSeries, compact = false): { text: string; live: boole
     ? `${weekdayFmt(n.startMs)} ${n.timeSet ? timeFmt(n.startMs) : 'TBD'}`
     : n.timeSet ? `${dayFmt(n.startMs)}, ${timeFmt(n.startMs)}` : `${dayFmt(n.startMs)}, time TBD`
   const next = `${game(n.number)}${n.ifNecessary ? (compact ? ' if nec.' : ' (if necessary)') : ''} · ${when}`
+  // Both clubs one win short: the next game ends the series either way. "Series tied 1-1" said the
+  // arithmetic and left the reader to work out that tonight was winner-take-all.
+  const need = winsNeeded(s)
+  if (s.winsTop === need - 1 && s.winsBottom === need - 1) {
+    const today = new Date(n.startMs).toDateString() === new Date().toDateString()
+    const at = n.timeSet ? timeFmt(n.startMs) : 'TBD'
+    return compact
+      ? { text: `${game(n.number)} decider · ${today ? at : `${weekdayFmt(n.startMs)} ${at}`}`, live: false, decider: true }
+      : { text: `${line} · ${game(n.number)} decides it · ${when}`, live: false, decider: true }
+  }
   // Compact keeps one line: the series score while there is one, else the next game.
   if (compact) return { text: line ?? next, live: false }
   return { text: [line, next].filter(Boolean).join(' · '), live: false }
@@ -134,7 +144,8 @@ function SeriesCard({ s, onOpen, onTeamClick, compact = false }: {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, pt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
           {status.live && <LiveDot size={6} />}
           <Typography sx={{
-            fontSize: compact ? '0.64rem' : '0.7rem', fontWeight: 600, color: status.live ? '#ef4444' : 'text.secondary', lineHeight: 1.35,
+            fontSize: compact ? '0.64rem' : '0.7rem', fontWeight: status.decider ? 800 : 600, lineHeight: 1.35,
+            color: status.live ? '#ef4444' : status.decider ? '#f59e0b' : 'text.secondary',
             ...(compact ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : {}),
           }}>
             {status.text}
@@ -253,7 +264,12 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   // Not before the field is set; see fieldIsSet.
   if (!bracket || !fieldIsSet(bracket)) return null
   const shown: Round = round ?? bracket.current
+  // On Home, the series still being played come first: by the last day of a round three of the four
+  // were decided and the one with a game tonight sat in the bottom corner. Stable otherwise, so AL
+  // stays above NL within each group. The full bracket keeps its fixed order, where position means
+  // something.
   const inRound = SERIES_ORDER.map(id => bracket.series[id]).filter(s => s.round === shown)
+    .sort((a, b) => compact ? Number(a.winnerId != null) - Number(b.winnerId != null) : 0)
   const openSeries = openId ? bracket.series[openId] : null
   const champion = bracket.over ? bracket.series.W_1 : null
   const champ = champion?.winnerId != null ? (champion.winnerId === champion.top.id ? champion.top : champion.bottom) : null

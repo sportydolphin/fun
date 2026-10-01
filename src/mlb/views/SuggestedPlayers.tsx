@@ -19,7 +19,9 @@ export async function fetchSuggestions(teamId: number, followedIds: number[]): P
   const out: SuggestionPlayer[] = []
 
   // ── Roster from followed team (rotated daily for variety) ─────────────────
-  try {
+  // Skipped with no team: the toolbar asks with `followedTeamId ?? 0`, and team 0's roster is a
+  // request on every load that can only come back empty.
+  if (teamId > 0) try {
     const res = await fetch(
       `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?season=${CURRENT_SEASON}&rosterType=active`
     ).then(r => r.json())

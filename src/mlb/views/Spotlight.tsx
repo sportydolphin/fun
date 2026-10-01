@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
+import { postseasonGameLabel } from '../postseason'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -433,15 +434,6 @@ const POSTSEASON_TYPES = 'F,D,L,W'
 // Only what the scoring below reads. The full box score is about 170 KB.
 const BOX_FIELDS = 'teams,away,home,team,id,players,person,fullName,position,abbreviation,stats,batting,pitching,' +
   'hits,atBats,homeRuns,rbi,stolenBases,doubles,triples,strikeOuts,inningsPitched,earnedRuns,wins,saves,holds,gamesStarted'
-
-/** "NLWC Gm 2", "ALDS Gm 3", "WS Gm 1": the game's place in the bracket, short enough for a stat line. */
-export function postseasonGameLabel(g: { gameType?: string; description?: string; seriesGameNumber?: number }): string | undefined {
-  const round = ({ F: 'WC', D: 'DS', L: 'CS', W: 'WS' } as Record<string, string>)[g.gameType ?? '']
-  if (!round) return undefined
-  const league = round === 'WS' ? '' : (/^(AL|NL) /.exec(g.description ?? '')?.[1] ?? '')
-  const n = Number(g.seriesGameNumber ?? 0)
-  return `${league}${round}${n > 0 ? ` Gm ${n}` : ''}`
-}
 
 let _postseasonCache: Promise<HotGuyData[]> | null = null
 

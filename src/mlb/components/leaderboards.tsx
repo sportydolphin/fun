@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Box, Typography, Tooltip, CircularProgress, IconButton } from '@mui/material'
 import { OpenInFull } from '@mui/icons-material'
 import { InfoTip } from './ui'
-import { ACCENT, TEAM_BG, HEADSHOT } from '../constants'
+import { ACCENT, TEAM_BG, HEADSHOT, TEAM_NICKNAME } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder, photoBorderAlpha } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
 
@@ -60,6 +60,12 @@ export function TeamLogo({ teamId, abbr, size = 36, accent, highlighted }: {
   )
 }
 
+// The bar and verdict columns are fixed so the bars line up row to row. At 124 + 54 they left a
+// phone about 40px for the name, which read "Joey …" and "Los A…": narrower on a phone, the bar
+// still compares the three rows and the name fits.
+const BAR_W   = { xs: 64, sm: 124 }
+const LABEL_W = { xs: 48, sm: 54 }
+
 export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
   row: LbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
 }) {
@@ -81,7 +87,10 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {row.name}
+          {/* The nickname on a phone, beside a logo that already says the city: "Dodgers" rather
+              than "Los Angeles Do…". */}
+          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{TEAM_NICKNAME[row.teamId] ?? row.name}</Box>
+          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{row.name}</Box>
         </Typography>
         {row.sub && (
           <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', fontWeight: 500, mt: 0.1 }}>
@@ -90,7 +99,7 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
         )}
       </Box>
 
-      <Box sx={{ width: 124, flexShrink: 0 }}>
+      <Box sx={{ width: BAR_W, flexShrink: 0 }}>
         <Box sx={{ height: 7, bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
           <Box sx={{ height: '100%', width: `${Math.max(row.barFraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />
         </Box>
@@ -102,7 +111,7 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
       {showLabel && (
         <Typography sx={{
           fontSize: '0.54rem', fontWeight: 800, color: accent,
-          width: 54, flexShrink: 0, textAlign: 'right',
+          width: LABEL_W, flexShrink: 0, textAlign: 'right',
           letterSpacing: '0.3px', lineHeight: 1.25,
           textTransform: 'uppercase',
         }}>
@@ -327,7 +336,7 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
         </Box>
       </Box>
 
-      <Box sx={{ width: 124, flexShrink: 0 }}>
+      <Box sx={{ width: BAR_W, flexShrink: 0 }}>
         <Box sx={{ height: 7, bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
           <Box sx={{ height: '100%', width: `${Math.max(row.barFraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />
         </Box>
@@ -339,7 +348,7 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
       {showLabel && (
         <Typography sx={{
           fontSize: '0.54rem', fontWeight: 800, color: accent,
-          width: 54, flexShrink: 0, textAlign: 'right',
+          width: LABEL_W, flexShrink: 0, textAlign: 'right',
           letterSpacing: '0.3px', lineHeight: 1.25,
           textTransform: 'uppercase',
         }}>

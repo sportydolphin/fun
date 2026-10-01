@@ -144,10 +144,13 @@ export const FEATURED_PLAYER_IDS = [
 export const HEADSHOT = (id: number) =>
   `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/${id}/headshot/67/current`
 
+// The Athletics are ATH, as the feed has published them since they left Oakland in 2025. The OAK
+// here outlived the move, so a board built from these (streaks, milestones, odds) said OAK beside
+// a team picker reading ATH off the feed. The `OAK` id constant keeps its name.
 export const TEAM_ABBR: Record<number, string> = {
   [LAA]: 'LAA', [ARI]: 'ARI', [BAL]: 'BAL', [BOS]: 'BOS', [CHC]: 'CHC',
   [CIN]: 'CIN', [CLE]: 'CLE', [COL]: 'COL', [DET]: 'DET', [HOU]: 'HOU',
-  [KC]:  'KC',  [LAD]: 'LAD', [WSH]: 'WSH', [NYM]: 'NYM', [OAK]: 'OAK',
+  [KC]:  'KC',  [LAD]: 'LAD', [WSH]: 'WSH', [NYM]: 'NYM', [OAK]: 'ATH',
   [PIT]: 'PIT', [SD]:  'SD',  [SEA]: 'SEA', [SF]:  'SF',  [STL]: 'STL',
   [TB]:  'TB',  [TEX]: 'TEX', [TOR]: 'TOR', [MIN]: 'MIN', [PHI]: 'PHI',
   [ATL]: 'ATL', [CWS]: 'CWS', [MIA]: 'MIA', [NYY]: 'NYY', [MIL]: 'MIL',

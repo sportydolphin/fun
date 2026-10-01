@@ -11,6 +11,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
 import { fetchSeasonDates } from '../seasonPhase'
+import { postseasonGameLabel, isDecider } from '../postseason'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 
@@ -43,6 +44,10 @@ export interface FinalGameSummary {
   losePitcher: string | null
   savePitcher: string | null
   reason?:     string                // "Rain"/"Snow"/... — only set for postponed games
+  /** Postseason only: the game's place in the bracket ("NLWC Gm 3"), and whether it decides the
+   *  series. The score card printed "PHI 1-1, ATL 1-1" over a winner-take-all game and said nothing
+   *  else; the series records were there, the stakes were not. */
+  series?:     { label: string; decider: boolean }
 }
 
 
@@ -156,6 +161,11 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       losePitcher: game.decisions?.loser?.fullName  ?? null,
       savePitcher: game.decisions?.save?.fullName    ?? null,
       reason:      state === 'postponed' ? (game.status?.reason || undefined) : undefined,
+      series:      (() => {
+        const label = postseasonGameLabel(game)
+        // A decider is news before and during the game; once it is final the series line says it.
+        return label ? { label, decider: state !== 'final' && isDecider(game) } : undefined
+      })(),
     })
   }
   return out
@@ -261,6 +271,10 @@ async function findAdjacentGameDate(fromDateISO: string, dir: 1 | -1, season: nu
 // (liveData.linescore / liveData.boxscore) instead of the standalone endpoints.
 
 
+// Fewer games than this on today's strip and the previous game day's finals follow them. Four is
+// where a phone's row stops looking empty (about two and a half cards show).
+const THIN_DAY = 4
+
 // ─── Mini score card (final / live / preview) ────────────────────────────────
 
 function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
@@ -351,10 +365,21 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
       </Box>
 
       {/* Teams + scores */}
-      <Box sx={{ px: 1, pb: 0.8, display: 'flex', flexDirection: 'column', gap: 0.35 }}>
+      <Box sx={{ px: 1, pb: game.series ? 0.5 : 0.8, display: 'flex', flexDirection: 'column', gap: 0.35 }}>
         {teamRow(game.away)}
         {teamRow(game.home)}
       </Box>
+
+      {/* The postseason game's place in its series, and the stakes when it decides one. */}
+      {game.series && (
+        <Typography sx={{
+          px: 1, pb: 0.7, fontSize: '0.54rem', fontWeight: 700, lineHeight: 1.2,
+          color: game.series.decider ? '#f59e0b' : 'text.disabled',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {game.series.label}{game.series.decider ? ' · Decider' : ''}
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -645,12 +670,29 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
     fetchFinalGames(asked).then(g => { if (dateRef.current === asked && g.length) setGames(g) }).catch(() => {})
   }, pollToday ? 30_000 : null)
 
+  // A THIN DAY BORROWS THE LAST ONE. In October Home's strip is often one or two games, and a lone
+  // card in a full-width row read as a page that had not finished loading, on a phone and much more
+  // on a desktop. When today is that thin, the previous game day's finals follow today's behind a
+  // date label: they are what a reader checking scores the morning after is looking for anyway. The
+  // strip only; the Scores tab and the fullscreen board stay one date, where the date picker is.
+  const [earlier, setEarlier] = useState<{ date: string; games: FinalGameSummary[] } | null>(null)
+  const thinToday = layout === 'strip' && !loading && dateISO === toISO(new Date()) && games.length > 0 && games.length < THIN_DAY
+  useEffect(() => {
+    if (!thinToday) { setEarlier(null); return }
+    let cancelled = false
+    findAdjacentGameDate(dateISO, -1, CURRENT_SEASON)
+      .then(prev => prev ? fetchFinalGames(prev).then(g => ({ date: prev, games: g.filter(x => x.state === 'final') })) : null)
+      .then(e => { if (!cancelled) setEarlier(e && e.games.length ? e : null) })
+      .catch(() => { if (!cancelled) setEarlier(null) })
+    return () => { cancelled = true }
+  }, [thinToday, dateISO])
+
   // Re-check arrow visibility whenever the game list (re)renders — new date, new
   // width, etc. — since scrollWidth/clientWidth only settle after paint.
   useEffect(() => {
     const t = setTimeout(handleStripScroll, 50)
     return () => clearTimeout(t)
-  }, [games, handleStripScroll])
+  }, [games, earlier, handleStripScroll])
 
   // Ordering:
   //   1. Followed team's game is always first, no matter what.
@@ -787,6 +829,25 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                   onClick={() => setOpenGame(game)}
                 />
               ))}
+              {earlier && (
+                <>
+                  {/* The previous game day, labelled, so its finals are never read as today's. */}
+                  <Box sx={{
+                    flexShrink: 0, alignSelf: 'stretch', display: 'flex', alignItems: 'center',
+                    pl: 0.5, pr: 0.25, borderLeft: '1px solid', borderColor: 'divider', ml: 0.5,
+                  }}>
+                    <Typography sx={{
+                      fontSize: '0.56rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
+                      color: 'text.disabled', writingMode: 'vertical-rl', transform: 'rotate(180deg)', lineHeight: 1,
+                    }}>
+                      {dateLabel(earlier.date)}
+                    </Typography>
+                  </Box>
+                  {earlier.games.map(game => (
+                    <FinalGameMiniCard key={game.gamePk} game={game} onClick={() => setOpenGame(game)} />
+                  ))}
+                </>
+              )}
             </Box>
           </Box>
         )}

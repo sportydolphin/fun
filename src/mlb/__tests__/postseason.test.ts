@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildBracket, seriesLine, liveGameScore, winsNeeded, teamOctober, teamOctoberLine, stillPlaying } from '../postseason'
+import { buildBracket, seriesLine, liveGameScore, winsNeeded, teamOctober, teamOctoberLine, stillPlaying, postseasonGameLabel, isDecider } from '../postseason'
 import done2025 from './fixtures/postseason-2025.json'
 import open2026 from './fixtures/postseason-2026.json'
 
@@ -149,5 +149,25 @@ describe('one club’s October', () => {
   it('says nothing when the bracket cannot', () => {
     expect(teamOctober(null, 119)).toBeNull()
     expect(stillPlaying(null)).toBe(true)
+  })
+})
+
+describe('a postseason game in a few characters', () => {
+  it('names the round and league from the schedule’s own description', () => {
+    expect(postseasonGameLabel({ gameType: 'F', description: "NL Wild Card 'A' Game 1", seriesGameNumber: 1 })).toBe('NLWC Gm 1')
+    expect(postseasonGameLabel({ gameType: 'D', description: "ALDS 'B' Game 2", seriesGameNumber: 2 })).toBe('ALDS Gm 2')
+    expect(postseasonGameLabel({ gameType: 'L', description: 'NLCS Game 5', seriesGameNumber: 5 })).toBe('NLCS Gm 5')
+    expect(postseasonGameLabel({ gameType: 'W', description: 'World Series Game 7', seriesGameNumber: 7 })).toBe('WS Gm 7')
+    expect(postseasonGameLabel({ gameType: 'R', description: '' })).toBeUndefined()
+  })
+
+  it('knows a decider from the two series records', () => {
+    const g = (n: number, a: number, h: number) =>
+      ({ gamesInSeries: n, teams: { away: { leagueRecord: { wins: a } }, home: { leagueRecord: { wins: h } } } })
+    expect(isDecider(g(3, 1, 1))).toBe(true)
+    expect(isDecider(g(7, 3, 3))).toBe(true)
+    expect(isDecider(g(5, 2, 1))).toBe(false)   // one club can clinch; the other cannot win it tonight
+    expect(isDecider(g(3, 0, 0))).toBe(false)
+    expect(isDecider(g(1, 0, 0))).toBe(false)
   })
 })

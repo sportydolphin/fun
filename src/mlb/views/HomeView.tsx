@@ -391,16 +391,18 @@ export function HomeView({
 
   const record = standing ? `${standing.wins}–${standing.losses}` : null
   const divisionPlace = standing ? `${ordinal(standing.divisionRank)} ${standing.divisionName}` : null
-  const standingLine = october
+  // Kept as parts and drawn unbroken each (see the render), so a narrow card wraps between them and
+  // never inside one: "tied 1-" on one line and "1 vs PHI" on the next was the alternative.
+  const standingParts: string[] = (october
     // Games back means nothing once there are no games left; the postseason is the line instead.
     ? october.kind === 'missed'
-      ? [teamOctoberLine(october), record, divisionPlace].filter(Boolean).join(' · ')
-      : [record, teamOctoberLine(october)].filter(Boolean).join(' · ')
+      ? [teamOctoberLine(october), record, divisionPlace]
+      : [record, teamOctoberLine(october)]
     : standing ? [
       record,
       divisionPlace,
       !standing.divisionLeader && standing.gamesBack !== '-' ? `${fmtGB(standing.gamesBack)} GB` : null,
-    ].filter(Boolean).join(' · ') : null
+    ] : []).filter((p): p is string => !!p)
 
   // Clubs still playing, marked in the follow-a-team sheet: in October those are the ones a new
   // reader most likely came for.
@@ -475,13 +477,19 @@ export function HomeView({
                         }}>
                           {teamLabel}
                         </Typography>
-                        {standingLine && (
+                        {standingParts.length > 0 && (
                           <Typography sx={{
                             fontSize: { xs: '0.62rem', sm: '0.74rem' }, mt: 0.35, lineHeight: 1.3,
                             color: october?.kind === 'champion' ? '#eab308' : 'text.secondary',
                             fontWeight: october?.kind === 'champion' ? 800 : undefined,
                           }}>
-                            {october?.kind === 'champion' && '🏆 '}{standingLine}
+                            {october?.kind === 'champion' && '🏆 '}
+                            {standingParts.map((p, i) => (
+                              <React.Fragment key={i}>
+                                {i > 0 && ' · '}
+                                <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{p}</Box>
+                              </React.Fragment>
+                            ))}
                           </Typography>
                         )}
                       </Box>

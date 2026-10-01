@@ -25,6 +25,9 @@ interface FollowedPlayerInfo {
   isPitcher: boolean
   stats:     StatCell[]
   playedToday: boolean       // true when `stats` is today's game line rather than the season
+  /** The season read came back and holds no line: the player has not appeared this season. Not set
+   *  when the read failed, which keeps the loading dashes rather than claiming something untrue. */
+  noSeason?: boolean
 }
 
 // ─── Game log (shared fetch) ──────────────────────────────────────────────────
@@ -318,6 +321,7 @@ async function fetchFollowedPlayerData(id: number, fresh = false): Promise<Follo
       isPitcher,
       stats,
       playedToday: today != null,
+      noSeason: stats.length === 0 && (isPitcher ? pitRes : hitRes) != null,
     }
   } catch { return null }
 }
@@ -344,6 +348,10 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
   const teamColor  = TEAM_BG[data?.teamId ?? 0] ?? '#444'
   const subtitle   = data ? [data.position, data.teamAbbr].filter(Boolean).join(' · ') : ''
   const playedToday = !!data?.playedToday
+  // Loaded with no line at all (a player who has not appeared this season: injured all year, released,
+  // in the minors) says so in words. The dashes are the loading state, and left standing they read
+  // as a row that never finished loading.
+  const noSeason   = !!data?.noSeason
   const statCells  = (data?.stats && data.stats.length > 0)
     ? data.stats
     : [{ label: '···', value: '—' }, { label: '···', value: '—' }, { label: '···', value: '—' }]
@@ -476,6 +484,11 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
         )}
       </Box>
 
+      {noSeason ? (
+        <Typography sx={{ flexShrink: 0, fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          No {CURRENT_SEASON} games
+        </Typography>
+      ) : (<>
       {/* Recent-form sparkline — fixed narrow width so the trend's slope reads clearly.
           Extra right margin sets it apart from the stat columns. */}
       <Box sx={{ flexShrink: 0, width: { xs: 46, sm: 62 }, mr: { xs: 1, sm: 1.5 }, display: 'flex', alignItems: 'center' }}>
@@ -500,6 +513,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
           </Typography>
         </Box>
       ))}
+      </>)}
 
     </Box>
   )
