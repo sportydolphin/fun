@@ -131,8 +131,12 @@ export function batting(eventRaw) {
   else if (/^(W|IW|I)$/.test(primary))     { z.bb = 1 }
   else if (/^HP$/.test(primary))           { z.hbp = 1 }
   else if (/^C$/.test(primary))            { /* catcher's interference: PA, not an at-bat */ }
-  else if (/^E\d/.test(primary))           { z.ab = 1 }
-  else if (/^FC\d*/.test(primary))         { z.ab = 1 }
+  // A SACRIFICE SURVIVES THE ERROR. Rule 9.08 credits the bunt or fly whether the batter was
+  // put out, would have been but for an error, or reached while the fielder went after a lead
+  // runner, so `E5/BG/SH` is no at-bat. Charging one here read as an AB the box score was
+  // missing: Suzu Narasaki on Sep 4, the only such event in the season.
+  else if (/^E\d/.test(primary))           { if (!sf && !sh) z.ab = 1 }
+  else if (/^FC\d*/.test(primary))         { if (!sf && !sh) z.ab = 1 }
   else if (/^\d+/.test(primary))           { if (!sf && !sh) z.ab = 1 }   // fielded out, incl. `3E1`
   else                                     { z.unknown = true }
   return z

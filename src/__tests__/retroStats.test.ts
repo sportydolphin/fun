@@ -43,6 +43,9 @@ describe('batting', () => {
   it('does not charge an at-bat for a sacrifice', () => {
     expect(batting('8/SF.3-H(RBI)')).toMatchObject({ pa: 1, ab: 0, sf: 1, rbi: 1 })
     expect(batting('23/SH.1-2')).toMatchObject({ pa: 1, ab: 0, sh: 1 })
+    expect(batting('E5/BG/SH.1-2')).toMatchObject({ pa: 1, ab: 0, sh: 1 })
+    expect(batting('FC5/BG/SH.1-2')).toMatchObject({ pa: 1, ab: 0, sh: 1 })
+    expect(batting('E7/F/SF.3-H(RBI)')).toMatchObject({ pa: 1, ab: 0, sf: 1, rbi: 1 })
   })
 
   // The batter's half of a compound event is everything before the `+`: the runner's steal on
