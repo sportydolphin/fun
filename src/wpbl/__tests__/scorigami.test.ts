@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { wpblScorigami, scorigamiKey } from '../derive/scorigami'
+import { wpblScorigami, scorigamiKey, scorigamiCountsAt } from '../derive/scorigami'
 import type { WpblGame } from '../types'
 
 // The scorigami grid, and the four ways it could be wrong while rendering perfectly:
@@ -68,5 +68,21 @@ describe('wpblScorigami', () => {
   it('reports the largest winning score as the grid height, and 0 when empty', () => {
     expect(wpblScorigami([]).maxWin).toBe(0)
     expect(wpblScorigami([game({ home_score: 11, away_score: 9 })]).maxWin).toBe(11)
+  })
+
+  it('replays in date order, one final at a time, ending on the full grid', () => {
+    const grid = wpblScorigami([
+      game({ id: 'c', game_date: '2026-08-03', home_score: 5, away_score: 2 }),
+      game({ id: 'a', game_date: '2026-08-01', home_score: 5, away_score: 2 }),
+      game({ id: 'b', game_date: '2026-08-02', home_score: 9, away_score: 1 }),
+    ])
+    expect(grid.steps.map(s => s.game.id)).toEqual(['a', 'b', 'c'])
+    expect(scorigamiCountsAt(grid, 0).size).toBe(0)
+    expect([...scorigamiCountsAt(grid, 1)]).toEqual([[scorigamiKey(5, 2), 1]])
+    expect(scorigamiCountsAt(grid, 2).get(scorigamiKey(9, 1))).toBe(1)
+    // The last frame must agree with the static grid, or the replay ends on a different picture.
+    const end = scorigamiCountsAt(grid, grid.steps.length)
+    for (const [k, cell] of grid.cells) expect(end.get(k)).toBe(cell.count)
+    expect(scorigamiCountsAt(grid, 99).get(scorigamiKey(5, 2))).toBe(2)
   })
 })

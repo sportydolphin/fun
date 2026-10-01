@@ -330,7 +330,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
     const from = playColRef.current
     const t0 = performance.now()
     const tick = (now: number) => {
-      const next = from + Math.floor((now - t0) / stepMs)
+      const next = from + Math.floor(Math.max(0, now - t0) / stepMs) // see Scorigami: a rAF stamp can precede t0
       if (next >= last) { setPlayCol(last); setPlaying(false); return }
       setPlayCol(next)
       raf = requestAnimationFrame(tick)

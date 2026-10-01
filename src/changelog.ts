@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.107.0',
+    date:    '2026-09-30',
+    title:   'Scorigami: play the season, in club colors',
+    changes: [
+      {
+        short: 'Watch the grid fill in',
+        full:  'Press Play on the Scorigami page and the grid fills in one final at a time, in the order the games were played, with the date ticking along above it. Pause and Play pick up where you left off.',
+      },
+      {
+        short: 'Club colors on every score',
+        full:  'Each square is split between the two clubs in the first game that ended on that score, the winner lower left. A switch above the grid turns it back to the single-color version, and the page remembers which you chose.',
+      },
+      {
+        short: 'A simpler Scorigami page',
+        full:  'A shorter introduction, both controls together above the grid, and the key in a single line underneath.',
+      },
+      {
+        short: 'Season replays resume cleanly',
+        full:  'The batting leaders race and the season shape chart no longer jump back a step when you press Play after pausing.',
+      },
+    ],
+  },
+  {
     version: '1.106.0',
     date:    '2026-09-29',
     title:   'Clips on their games and players',

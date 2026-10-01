@@ -41,7 +41,13 @@ export interface WpblScorigamiGrid {
   maxWin: number
   /** Finals counted (both scores present, not a tie). The denominator under the grid. */
   totalGames: number
+  /** Every counted final as the cell it landed on, earliest first: the order the page's replay
+   *  lights the grid in. Its length is `totalGames`. */
+  steps: ScorigamiStep[]
 }
+
+/** One final in date order, and the cell it belongs to. */
+export interface ScorigamiStep { key: string; game: WpblGame }
 
 /** The map key for a cell, shared by the builder and every reader so the two cannot spell it
  *  differently. */
@@ -65,6 +71,7 @@ export function wpblScorigami(games: readonly WpblGame[]): WpblScorigamiGrid {
     && g.home_score !== g.away_score)
 
   const cells = new Map<string, ScorigamiCell>()
+  const steps: ScorigamiStep[] = []
   let maxWin = 0
 
   // Earliest first, so the first push into a cell's `games` is its `first` and the array stays
@@ -76,6 +83,7 @@ export function wpblScorigami(games: readonly WpblGame[]): WpblScorigamiGrid {
     const lose = Math.min(g.home_score!, g.away_score!)
     if (win > maxWin) maxWin = win
     const key = scorigamiKey(win, lose)
+    steps.push({ key, game: g })
     const existing = cells.get(key)
     if (existing) {
       existing.count += 1
@@ -85,5 +93,21 @@ export function wpblScorigami(games: readonly WpblGame[]): WpblScorigamiGrid {
     }
   }
 
-  return { cells, maxWin, totalGames: finals.length }
+  return { cells, maxWin, totalGames: finals.length, steps }
+}
+
+/**
+ * How many games had ended on each score after the first `frame` finals, for the replay. A cell
+ * missing from the map has not happened yet at that point. Taken from `steps` rather than by
+ * filtering each cell's games on date, because several finals share a date and the replay lights
+ * them one at a time in the same deterministic order the grid itself was built in.
+ */
+export function scorigamiCountsAt(grid: WpblScorigamiGrid, frame: number): Map<string, number> {
+  const counts = new Map<string, number>()
+  const end = Math.min(Math.max(frame, 0), grid.steps.length)
+  for (let i = 0; i < end; i++) {
+    const k = grid.steps[i].key
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  return counts
 }
