@@ -7,7 +7,7 @@ import { SegControl } from './index'
 import { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 import { RollingWindowChart } from './RollingWindowChart'
 import { fetchLeagueStatsBySeason, tooltipAnchorSx } from './trendChartUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { FullscreenEntry } from './MlbSheet'
 
 export { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 
@@ -50,7 +50,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const [rangeStart, setRangeStart] = useState<number | null>(null)
   const [rangeEnd, setRangeEnd] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  useScrollLock(isFullscreen)   // freeze page scroll behind the fullscreen chart overlay
+  const exitFullscreen = useRef<(() => void) | null>(null)
 
   const [leagueAvgPts, setLeagueAvgPts] = useState<Map<number, number>>(new Map())
 
@@ -333,6 +333,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
 
   return (
     <Box sx={isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999, bgcolor: 'background.default', overflow: 'auto', p: 2 } : {}}>
+      {isFullscreen && <FullscreenEntry onClose={() => setIsFullscreen(false)} exitRef={exitFullscreen} />}
       {/* Group toggle for two-way players */}
       {isTwoWay && (
         <Box sx={{ mb: 1.5 }}>
@@ -383,7 +384,9 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
         </>)}
 
         {/* Fullscreen toggle */}
-        <Box component="button" onClick={() => setIsFullscreen(f => !f)}
+        <Box component="button"
+          aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}
+          onClick={() => isFullscreen ? (exitFullscreen.current ?? (() => setIsFullscreen(false)))() : setIsFullscreen(true)}
           sx={{
             ml: 'auto', flexShrink: 0, border: '1.5px solid', borderColor: 'divider',
             borderRadius: 999, background: 'transparent', cursor: 'pointer', color: 'inherit',

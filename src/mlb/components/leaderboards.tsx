@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import { Box, Typography, Tooltip, CircularProgress, IconButton } from '@mui/material'
-import { OpenInFull, Close } from '@mui/icons-material'
+import { OpenInFull } from '@mui/icons-material'
 import { InfoTip } from './ui'
 import { ACCENT, TEAM_BG, HEADSHOT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder, photoBorderAlpha } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from './MlbSheet'
 
 // ─── Leaderboard row model — shared by every Report Card board ───────────────
 
@@ -182,6 +182,24 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
 
 // ─── Fullscreen modal — full scrollable ranking, no snarky labels ─────────────
 
+/** The sheet both fullscreen boards open in. */
+function BoardSheet({ onClose, icon, title, subtitle, children }: {
+  onClose: () => void
+  icon?: string
+  title?: string
+  subtitle?: string
+  children: React.ReactNode
+}) {
+  return (
+    <MlbSheet onClose={onClose} maxWidth={540} sheet eyebrow={[icon, title].filter(Boolean).join(' ')}>
+      {subtitle && (
+        <Typography sx={{ px: 2, pt: 1.25, fontSize: '0.72rem', color: 'text.secondary', flexShrink: 0 }}>{subtitle}</Typography>
+      )}
+      <Box sx={{ p: 1.5 }}>{children}</Box>
+    </MlbSheet>
+  )
+}
+
 export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent, rows, onSelectTeam }: {
   open: boolean
   onClose: () => void
@@ -192,60 +210,14 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
   rows: LbRow[]
   onSelectTeam?: (id: number) => void
 }) {
-  // Lock background scroll while a board is fullscreened
-  useScrollLock(open)
-
   if (!open) return null
   return (
-    <Box
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1300,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: 'rgba(0,0,0,0.55)', p: 2,
-      }}
-      onClick={onClose}
-    >
-      <Box
-        sx={{
-          bgcolor: 'background.paper',
-          borderRadius: 3,
-          width: '100%',
-          maxWidth: 540,
-          // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
-          // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
-          maxHeight: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <Box sx={{
-          px: 2.5, py: 1.75,
-          borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-          flexShrink: 0,
-        }}>
-          <Box>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{icon} {title}</Typography>
-            {subtitle && (
-              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
-            )}
-          </Box>
-          <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-            <Close sx={{ fontSize: '1.1rem' }} />
-          </IconButton>
-        </Box>
-        {/* Scrollable body — all teams, no verdict labels */}
-        <Box sx={{ overflowY: 'auto', p: 1.5 }}>
-          {rows.map((row, idx) => (
-            <LeaderboardRowItem key={row.teamId} row={row} rank={idx + 1} accent={accent ?? ACCENT} showLabel={false} onSelect={onSelectTeam} />
-          ))}
-        </Box>
-      </Box>
-    </Box>
+    <BoardSheet onClose={onClose} icon={icon} title={title} subtitle={subtitle}>
+      {/* All teams, no verdict labels */}
+      {rows.map((row, idx) => (
+        <LeaderboardRowItem key={row.teamId} row={row} rank={idx + 1} accent={accent ?? ACCENT} showLabel={false} onSelect={onSelectTeam} />
+      ))}
+    </BoardSheet>
   )
 }
 
@@ -439,37 +411,12 @@ export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, a
   rows: PlayerLbRow[]
   onSelectPlayer?: (id: number) => void
 }) {
-  useScrollLock(open)
-
   if (!open) return null
   return (
-    <Box
-      sx={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(0,0,0,0.55)', p: 2 }}
-      onClick={onClose}
-    >
-      <Box
-        sx={{
-          bgcolor: 'background.paper', borderRadius: 3, width: '100%', maxWidth: 540,
-          maxHeight: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <Box sx={{ px: 2.5, py: 1.75, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
-          <Box>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{icon} {title}</Typography>
-            {subtitle && <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>}
-          </Box>
-          <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-            <Close sx={{ fontSize: '1.1rem' }} />
-          </IconButton>
-        </Box>
-        <Box sx={{ overflowY: 'auto', p: 1.5 }}>
-          {rows.map((row, idx) => (
-            <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent ?? ACCENT} showLabel={false} onSelect={onSelectPlayer} />
-          ))}
-        </Box>
-      </Box>
-    </Box>
+    <BoardSheet onClose={onClose} icon={icon} title={title} subtitle={subtitle}>
+      {rows.map((row, idx) => (
+        <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent ?? ACCENT} showLabel={false} onSelect={onSelectPlayer} />
+      ))}
+    </BoardSheet>
   )
 }

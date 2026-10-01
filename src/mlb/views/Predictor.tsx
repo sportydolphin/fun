@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN, isRealClub } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
 import { track, EVENTS } from '../../lib/analytics'
@@ -512,14 +512,6 @@ function PredictorModal({ open, slateDate, games, predictions, allVotes, onPick,
   useEffect(() => {
     if (open) track(EVENTS.BOARD_VIEWED, { league: 'mlb' })
   }, [open])
-  useEffect(() => {
-    if (!open) return
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [open, onClose])
-
-  useScrollLock(open)
 
   if (!open) return null
 
@@ -533,57 +525,14 @@ function PredictorModal({ open, slateDate, games, predictions, allVotes, onPick,
   const dateLabel    = new Date(sy, sm - 1, sd).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 
   return (
-    <Box
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1400,
-        bgcolor: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: { xs: 1, sm: 2 },
-      }}
-    >
-      <Box sx={{
-        bgcolor: 'background.paper', borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 500,
-        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
-        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
-        maxHeight: '100%',
-        display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        overflow: 'hidden',
-      }}>
-        <Box sx={{ px: 2.5, pt: 2, pb: 1.75, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <Box sx={{ flex: 1 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', lineHeight: 1.2 }}>
-                🎯 {dateLabel} Matchups
-              </Typography>
-              <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.35, lineHeight: 1.4 }}>
-                {pickedCount}/{games.length} picked
-                {pct !== null && ` · ${correctCount}/${finalized.length} correct (${pct}%)`}
-                {!isSignedIn && ' · Sign in to save picks'}
-              </Typography>
-            </Box>
-            <Box
-              onClick={onClose}
-              sx={{
-                flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'text.disabled',
-                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-              }}
-            >
-              <Typography sx={{ fontSize: '0.8rem', lineHeight: 1 }}>✕</Typography>
-            </Box>
-          </Box>
-        </Box>
+    <MlbSheet onClose={onClose} maxWidth={500} sheet sheetFill eyebrow={`🎯 ${dateLabel} matchups`}>
+        <Typography sx={{ px: 2, pt: 1.25, fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4, flexShrink: 0 }}>
+          {pickedCount}/{games.length} picked
+          {pct !== null && ` · ${correctCount}/${finalized.length} correct (${pct}%)`}
+          {!isSignedIn && ' · Sign in to save picks'}
+        </Typography>
 
-        <Box sx={{
-          overflowY: 'auto', flex: 1, minHeight: 0, p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25,
-          '&::-webkit-scrollbar': { width: 4 },
-          '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
-        }}>
+        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           {games.length === 0 ? (
             <Box sx={{ py: 5, textAlign: 'center' }}>
               <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>No games scheduled</Typography>
@@ -598,8 +547,7 @@ function PredictorModal({ open, slateDate, games, predictions, allVotes, onPick,
             />
           ))}
         </Box>
-      </Box>
-    </Box>
+    </MlbSheet>
   )
 }
 

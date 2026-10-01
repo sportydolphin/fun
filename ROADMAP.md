@@ -85,8 +85,12 @@ goes first and the rest is winter work.
    sheets (drag down to close on a phone) and history entries, so Back closes them instead of
    leaving the section (`state/sheetHistory.ts`, pinned in `__tests__/sheetHistory.test.tsx`). A
    link out of a sheet replaces its entry, so Back from that player lands where the sheet opened.
-   *Open:* the other eight overlays (scoreboard, predictions, milestones, roster moves, survivor,
-   schedule, leaderboard fullscreen, trends fullscreen), and the real paths:
+   *Done Sep 30 (v1.108.0):* the other eight overlays (scoreboard, predictions and their stats,
+   milestones, roster moves, survivor, schedule, leaderboard fullscreen) open in `MlbSheet`, the
+   same history-backed `ModalShell`; the trends chart and the player card's fullscreen take a
+   `FullscreenEntry` so Back leaves fullscreen rather than the page. `ModalShell` now gives Escape
+   to the newest shell only, since two stacked sheets each called `history.back()` on one key.
+   *Open:* the real paths:
    `/mlb/standings`, `/mlb/players/<name>-<id>` (the id always, since MLB has real
    namesakes), `/mlb/games/<pk>`, `/mlb/teams/<abbr>`, each with its `_redirects` lines,
    `seo.ts` entry and routes test; old `?view=` links 301 at the edge, and the notification
@@ -102,8 +106,9 @@ goes first and the rest is winter work.
    `__tests__/postseason.test.ts`), and a feed of any other shape draws nothing. One round at a
    time, the current one by default, compact on Home and full as Standings' default mode while a
    postseason is on; each series opens game by game, with Game Center or the preview behind each
-   game. Draws nothing until the Wild Card field is set. *Open:* bracket picks, which WPBL has
-   and MLB's predictions engine could drive.
+   game. Draws nothing until the Wild Card field is set. *Dropped Sep 30:* bracket picks. The
+   per-game predictor already covers every postseason game, so a second pick'em would split the
+   same readers across two boards.
 6. **Offseason shape, by Nov 1.** Six daily MLB crons run all winter (only game-start is gated
    by month); give them a due-gate like `wpbl_ingest_due()`. The predictor's empty
    "TOMORROW / No upcoming games" card needs an offseason state.

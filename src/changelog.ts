@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.108.0',
+    date:    '2026-09-30',
+    title:   'Every MLB pop-up is a sheet, and Back closes it',
+    changes: [
+      {
+        short: 'MLB pop-ups slide up from the bottom on a phone',
+        full:  'All scores, the predictions board and its stats, Milestones, Roster moves, Survivor, a team\'s schedule and the full-size leaderboards now open as sheets that slide up from the bottom on a phone and can be dragged down to close, the way Game Center already did.',
+      },
+      {
+        short: 'Back closes what is open',
+        full:  'With any of them open, the Back button closes it instead of leaving the MLB section. The same goes for the full-screen trends chart and the full-screen player card.',
+      },
+      {
+        short: 'Escape closes one thing at a time',
+        full:  'With a game open on top of the scores, Escape closes the game and leaves the scores where they were.',
+      },
+    ],
+  },
+  {
     version: '1.107.0',
     date:    '2026-09-30',
     title:   'Scorigami: play the season, in club colors',

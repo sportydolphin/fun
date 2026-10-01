@@ -340,6 +340,16 @@ function useSheetDrag(
 /** How many ModalShells are mounted. See the effect in ModalShell for what it is for. */
 let modalDepth = 0
 
+/**
+ * Mounted shells, oldest first, so Escape reaches only the newest.
+ *
+ * Every shell listens on `window`, so with two stacked (Game Center over the scoreboard, a player
+ * over a game) one keypress reached both and closed both. Where each close is a `history.back()`,
+ * that is two steps of history for one key, and the second lands on whatever was under the first
+ * sheet, which in MLB can be another section entirely.
+ */
+const escapeStack: object[] = []
+
 export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, sheetFill, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
@@ -379,11 +389,23 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   sheetFill?: boolean
   children: React.ReactNode
 }) {
+  // Registered once, on mount, and separately from the listener: `onClose` is often a fresh
+  // function every render, and re-registering with it would move an old shell to the top.
+  const escapeId = useRef({}).current
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    escapeStack.push(escapeId)
+    return () => {
+      const i = escapeStack.indexOf(escapeId)
+      if (i >= 0) escapeStack.splice(i, 1)
+    }
+  }, [escapeId])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && escapeStack[escapeStack.length - 1] === escapeId) onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, escapeId])
 
   // Freeze the page behind the modal for as long as it's open.
   useEffect(() => { lockBodyScroll(); return unlockBodyScroll }, [])

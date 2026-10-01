@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from '../components/MlbSheet'
 import { supabase } from '../../lib/supabase'
 import { fetchDeactivatedUserIds } from '../../lib/usernames'
 import { ensureActiveUser } from '../../lib/userActive'
@@ -618,13 +618,6 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
   const [loading,     setLoading]     = useState(false)
   const [lbLoading,   setLbLoading]   = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [open, onClose])
-
   // Load personal stats when the modal opens
   useEffect(() => {
     if (!open || !userId) return
@@ -652,52 +645,16 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
     load.then(setLeaders).finally(() => setLbLoading(false))
   }, [open, tab, userId, boardWindow])
 
-  useScrollLock(open)
-
   if (!open) return null
 
   return (
-    <Box
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1400,
-        bgcolor: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: { xs: 1, sm: 2 },
-      }}
-    >
-      <Box sx={{
-        bgcolor: 'background.paper', borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 460,
-        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
-        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
-        maxHeight: '100%',
-        display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        overflow: 'hidden',
-      }}>
-        {/* Header */}
-        <Box sx={{ px: 2.5, pt: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', lineHeight: 1.2, flex: 1 }}>
-              📊 Prediction Stats
-            </Typography>
-            <Box
-              onClick={onClose}
-              sx={{
-                flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'text.disabled',
-                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-              }}
-            >
-              <Typography sx={{ fontSize: '0.8rem', lineHeight: 1 }}>✕</Typography>
-            </Box>
-          </Box>
-
-          {/* Sub-tabs */}
-          <Box sx={{ display: 'flex', gap: 0.75, mt: 1.25 }}>
+    <MlbSheet onClose={onClose} maxWidth={460} sheet sheetFill eyebrow="📊 Prediction stats">
+        {/* Sub-tabs, pinned while the content under them scrolls */}
+        <Box sx={{
+          px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0,
+          position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper',
+        }}>
+          <Box sx={{ display: 'flex', gap: 0.75 }}>
             {(['my', 'board'] as const).map(t => (
               <Box
                 key={t}
@@ -719,12 +676,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
           </Box>
         </Box>
 
-        {/* Scrollable content */}
-        <Box sx={{
-          overflowY: 'auto', flex: 1, minHeight: 0, p: 2,
-          '&::-webkit-scrollbar': { width: 4 },
-          '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
-        }}>
+        <Box sx={{ p: 2 }}>
           {!userId ? (
             <Box sx={{ py: 5, textAlign: 'center' }}>
               <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
@@ -789,7 +741,6 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
             </Box>
           )}
         </Box>
-      </Box>
-    </Box>
+    </MlbSheet>
   )
 }

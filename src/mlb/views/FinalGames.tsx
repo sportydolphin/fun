@@ -6,7 +6,7 @@ import { useIsDark, defaultBorder } from '../lib/colorUtils'
 import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, LiveDot } from '../components/boxScore'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from '../components/MlbSheet'
 import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
@@ -501,9 +501,9 @@ function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
   )
 }
 
-// ─── ScoreboardModal — all scores side by side ────────────────────────────────
+// ─── ScoreboardModal: all scores side by side ─────────────────────────────────
 
-function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId, onGameClick, onClose, gameModalOpen }: {
+function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId, onGameClick, onClose }: {
   dateISO:        string
   onDateChange:   (iso: string) => void
   games:          FinalGameSummary[]   // pre-sorted: followed team first
@@ -511,74 +511,14 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
   followedTeamId?: number | null
   onGameClick:    (g: FinalGameSummary) => void
   onClose:        () => void
-  gameModalOpen:  boolean              // a game modal is stacked on top — let it own Escape
 }) {
-  useScrollLock()
-  useEffect(() => {
-    if (gameModalOpen) return
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [onClose, gameModalOpen])
-
   return (
-    <Box
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1400,
-        bgcolor: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: { xs: 1, sm: 2.5 },
-      }}
-    >
-      <Box sx={{
-        bgcolor: 'background.paper', borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 1000,
-        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
-        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
-        maxHeight: '100%',
-        display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        overflow: 'hidden',
-      }}>
-        {/* Header */}
-        <Box sx={{
-          px: { xs: 2, sm: 2.5 }, py: 1.5, borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, flexWrap: 'wrap',
-        }}>
-          <Typography sx={{
-            fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase',
-            letterSpacing: 1.4, color: 'text.secondary', lineHeight: 1,
-          }}>
-            Scores
-          </Typography>
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <DateNav dateISO={dateISO} onChange={onDateChange} />
-            <Box
-              onClick={onClose}
-              sx={{
-                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'text.disabled',
-                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-              }}
-            >
-              <Typography sx={{ fontSize: '0.8rem', lineHeight: 1 }}>✕</Typography>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Grid of all games */}
-        <Box sx={{
-          overflowY: 'auto', flex: 1, minHeight: 0, p: { xs: 1.5, sm: 2 },
-          '&::-webkit-scrollbar': { width: 4 },
-          '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
-        }}>
-          <ScoresGrid games={games} loading={loading} followedTeamId={followedTeamId} onGameClick={onGameClick} />
-        </Box>
+    <MlbSheet onClose={onClose} maxWidth={1000} sheet sheetFill eyebrow="Scores"
+      actions={<DateNav dateISO={dateISO} onChange={onDateChange} />}>
+      <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <ScoresGrid games={games} loading={loading} followedTeamId={followedTeamId} onGameClick={onGameClick} />
       </Box>
-    </Box>
+    </MlbSheet>
   )
 }
 
@@ -873,7 +813,6 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
           followedTeamId={followedTeamId}
           onGameClick={setOpenGame}
           onClose={() => setExpanded(false)}
-          gameModalOpen={openGame !== null}
         />
       )}
 

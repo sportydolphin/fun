@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, TEAM_ABBR, TEAM_NICKNAME } from '../constants'
 import { useIsDark, highlightColor, defaultBorder } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
 import { searchPlayers } from '../api'
 import { Player } from '../types'
@@ -121,35 +121,15 @@ function LeaderRow({ entry }: { entry: SurvivorLeaderRow }) {
 }
 
 function SurvivorLeaderboardModal({ userId, onClose }: { userId: string | null; onClose: () => void }) {
-  useScrollLock()
-  const isDark = useIsDark()
   const [rows, setRows] = useState<SurvivorLeaderRow[] | null>(null)
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
     fetchSurvivorLeaderboard(userId).then(setRows).catch(() => setRows([]))
-    return () => window.removeEventListener('keydown', onKey)
-  }, [userId, onClose])
+  }, [userId])
 
   return (
-    <Box
-      onClick={onClose}
-      sx={{ position: 'fixed', inset: 0, zIndex: 1500, bgcolor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
-    >
-      <Box
-        onClick={e => e.stopPropagation()}
-        sx={{
-          width: '100%', maxWidth: 440, maxHeight: '90vh', overflow: 'auto',
-          borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper',
-        }}
-      >
-        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontWeight: 800, fontSize: '0.95rem' }}>Streak Survivor leaderboard</Typography>
-          <Box onClick={onClose} sx={{ cursor: 'pointer', px: 1, fontSize: '1.1rem', color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>✕</Box>
-        </Box>
-
-        <Box sx={{ px: 1.5, py: '6px', display: 'flex', alignItems: 'center', gap: 1.25, bgcolor: 'action.hover' }}>
+    <MlbSheet onClose={onClose} maxWidth={440} sheet eyebrow="Streak Survivor leaderboard">
+        <Box sx={{ px: 1.5, py: '6px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1.25, bgcolor: 'action.hover' }}>
           <Typography sx={{ minWidth: 26, textAlign: 'center', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>#</Typography>
           <Typography sx={{ flex: 1, fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>Player</Typography>
           <Typography sx={{ minWidth: 34, textAlign: 'right', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>Best</Typography>
@@ -166,8 +146,7 @@ function SurvivorLeaderboardModal({ userId, onClose }: { userId: string | null; 
         ) : (
           rows.map(r => <LeaderRow key={r.userId} entry={r} />)
         )}
-      </Box>
-    </Box>
+    </MlbSheet>
   )
 }
 

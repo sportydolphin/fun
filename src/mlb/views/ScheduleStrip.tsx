@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffe
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from '../components/MlbSheet'
 import { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
 import { GameCenterModal } from './LiveGameCenter'
@@ -372,7 +372,6 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   onTeamClick?:   (id: number) => void
   onClose:        () => void
 }) {
-  useScrollLock()
   const theme   = useTheme()
   const paperBg = theme.palette.background.paper
 
@@ -388,12 +387,6 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   const nextGame = games.find(g => g.date >= today && g.state !== 'final')
     ?? games.find(g => g.date >= today)
     ?? games[games.length - 1]
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [onClose])
 
   useEffect(() => {
     const c = containerRef.current, el = chipRef.current
@@ -441,44 +434,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
 
   return (
     <>
-      <Box
-        onClick={e => { if (e.target === e.currentTarget) onClose() }}
-        sx={{
-          position: 'fixed', inset: 0, zIndex: 1300,
-          bgcolor: 'rgba(0,0,0,0.55)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          p: 2,
-        }}
-      >
-        <Box sx={{
-          bgcolor: 'background.paper', borderRadius: 3,
-          border: '1px solid', borderColor: 'divider',
-          width: '100%', maxWidth: 560,
-          boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-          overflow: 'hidden',
-        }}>
-          {/* Header */}
-          <Box sx={{
-            px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider',
-            display: 'flex', alignItems: 'center', gap: 1.5,
-          }}>
-            <Typography sx={{ flex: 1, fontWeight: 800, fontSize: '1rem' }}>
-              Full Schedule
-            </Typography>
-            <Box
-              onClick={onClose}
-              sx={{
-                flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'text.disabled',
-                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-                transition: 'background 0.12s, color 0.12s',
-              }}
-            >
-              <Typography sx={{ fontSize: '0.85rem', lineHeight: 1 }}>✕</Typography>
-            </Box>
-          </Box>
-
+      <MlbSheet onClose={onClose} maxWidth={560} sheet eyebrow="Full schedule">
           {/* Chip strip with desktop scroll arrows */}
           <Box sx={{ py: 2.5, position: 'relative' }}>
             {/* Fade gradients */}
@@ -534,8 +490,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
               Tap any game to see matchup details & probable starters
             </Typography>
           </Box>
-        </Box>
-      </Box>
+      </MlbSheet>
 
       {selectedGame && (
         <GamePreviewModal

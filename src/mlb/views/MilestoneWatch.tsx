@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ACCENT } from '../constants'
 import { useIsDark, highlightColor, defaultBorder } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from './Standings'
@@ -244,17 +244,10 @@ function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }:
   onClose: () => void
   onPlayerClick?: (id: number) => void
 }) {
-  useScrollLock()
-  const isDark = useIsDark()
   // Open on whichever side has content — if there are no live chases (offseason), lead
   // with the reached archive instead of an empty Chasing tab.
   const [tab, setTab] = useState<ModalTab>(items.length ? 'chasing' : 'reached')
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('all')
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const isLive = (it: MilestoneItem) => !!liveTeamIds?.has(it.teamId)
   const matchesGroup = (it: MilestoneItem) => groupFilter === 'all' || it.group === groupFilter
@@ -264,21 +257,11 @@ function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }:
   const reachedFiltered = reached.filter(matchesGroup)
 
   return (
-    <Box
-      onClick={onClose}
-      sx={{ position: 'fixed', inset: 0, zIndex: 1500, bgcolor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
-    >
-      <Box
-        onClick={e => e.stopPropagation()}
-        sx={{ width: '100%', maxWidth: 460, maxHeight: '90vh', overflow: 'auto', borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper' }}
-      >
-        <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '0.95rem' }}>🏆 Milestone Watch</Typography>
-            <Box onClick={onClose} sx={{ cursor: 'pointer', px: 1, fontSize: '1.1rem', color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>✕</Box>
-          </Box>
-          {/* Chasing ↔ Reached — the reached side is the whole season's archive */}
-          <Box sx={{ display: 'flex', gap: 0.5, mt: 1, p: '2px', borderRadius: 2, bgcolor: 'action.hover' }}>
+    <MlbSheet onClose={onClose} maxWidth={460} sheet eyebrow="🏆 Milestone Watch">
+        {/* The tabs stay put while the list under them scrolls. */}
+        <Box sx={{ px: 2, pt: 1, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, flexShrink: 0 }}>
+          {/* Chasing or Reached: the reached side is the whole season's archive */}
+          <Box sx={{ display: 'flex', gap: 0.5, p: '2px', borderRadius: 2, bgcolor: 'action.hover' }}>
             <TabButton active={tab === 'chasing'} label="Chasing" count={items.length} color={ACCENT} onClick={() => setTab('chasing')} />
             <TabButton active={tab === 'reached'} label="Reached" count={reached.length} color={ACHIEVED_GREEN} onClick={() => setTab('reached')} />
           </Box>
@@ -341,8 +324,7 @@ function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }:
             </Typography>
           </Box>
         )}
-      </Box>
-    </Box>
+    </MlbSheet>
   )
 }
 

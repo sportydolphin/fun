@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { useState } from 'react'
+import { render, act, fireEvent } from '@testing-library/react'
 import { useSheetHistory, sheetOpen, pushEntry } from '../state/sheetHistory'
+import { MlbSheet } from '../components/MlbSheet'
 
 // On a phone, Back with Game Center open used to leave the MLB section. These pin the three
 // things that stopped it: opening pushes one entry, Back closes, and a link out of the sheet
@@ -52,5 +54,30 @@ describe('sheet history', () => {
     const before = window.history.length
     pushEntry({ view: 'stats' })
     expect(window.history.length).toBe(before + 1)
+  })
+
+  // Every MLB overlay now opens in MlbSheet. Two can be up at once (Game Center over the scoreboard),
+  // and one Escape used to reach both: two history.back()s, the second of which could leave /mlb.
+  it('Escape closes only the sheet on top, one entry at a time', async () => {
+    function Stack() {
+      const [lower, setLower] = useState(true)
+      const [upper, setUpper] = useState(true)
+      return (
+        <>
+          {lower && <MlbSheet eyebrow="Scores" onClose={() => setLower(false)}><div>scores</div></MlbSheet>}
+          {upper && <MlbSheet eyebrow="Game" onClose={() => setUpper(false)}><div>game</div></MlbSheet>}
+        </>
+      )
+    }
+    const before = window.history.length
+    const { queryByText } = render(<Stack />)
+    expect(window.history.length).toBe(before + 2)
+    await act(async () => { fireEvent.keyDown(window, { key: 'Escape' }); await popped() })
+    expect(queryByText('game')).toBeNull()
+    expect(queryByText('scores')).not.toBeNull()
+    expect(window.history.state).toMatchObject({ view: 'home', mlbSheet: 1 })
+    await act(async () => { fireEvent.keyDown(window, { key: 'Escape' }); await popped() })
+    expect(queryByText('scores')).toBeNull()
+    expect(window.history.state).toEqual({ view: 'home' })
   })
 })

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Box, Typography, IconButton, CircularProgress } from '@mui/material'
-import { Close, KeyboardArrowDown } from '@mui/icons-material'
+import { Box, Typography, CircularProgress } from '@mui/material'
+import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
 import { CURRENT_SEASON, ACCENT, TEAM_ABBR } from '../constants'
 import { useIsDark, defaultBorder, ringColor } from '../lib/colorUtils'
-import { useScrollLock } from '../lib/useScrollLock'
+import { MlbSheet } from '../components/MlbSheet'
 import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { useDeepLink } from '../state/deepLink'
@@ -273,9 +273,6 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
   const [filterTeam, setFilterTeam]       = useState<number | null>(null)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
 
-  // Lock background scroll while fullscreened
-  useScrollLock(open)
-
   if (!open) return null
 
   // Cross-links leave Home, which unmounts this modal — stamp the overlay so
@@ -313,52 +310,18 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
   })
 
   return (
-    <Box
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1300,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: 'rgba(0,0,0,0.55)', p: 2,
-      }}
-      onClick={onClose}
-    >
-      <Box
-        sx={{
-          bgcolor: 'background.paper',
-          borderRadius: 3,
-          width: '100%',
-          maxWidth: 540,
-          // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
-          // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
-          maxHeight: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <Box sx={{
-          px: 2.5, py: 1.75,
-          borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-          flexShrink: 0,
-        }}>
-          <Box>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>🔄 Roster Moves</Typography>
-            <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>
-              Trades, DFAs, claims and signings · last 14 days
-            </Typography>
-          </Box>
-          <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-            <Close sx={{ fontSize: '1.1rem' }} />
-          </IconButton>
-        </Box>
+    <MlbSheet onClose={onClose} maxWidth={540} sheet sheetFill eyebrow="🔄 Roster moves">
+        <Typography sx={{ px: 2, pt: 1.25, pb: 0.5, fontSize: '0.72rem', color: 'text.secondary', flexShrink: 0 }}>
+          Trades, DFAs, claims and signings · last 14 days
+        </Typography>
 
-        {/* Team filter — every club in the window; tap to isolate, tap again to clear */}
+        {/* Team filter: every club in the window; tap to isolate, tap again to clear. Pinned while
+            the days scroll under it, since it is the control for them. */}
         {filterTeams.length > 0 && (
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 0.75,
             px: 1.5, py: 1, borderBottom: '1px solid', borderColor: 'divider',
+            position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper',
             overflowX: 'auto', flexShrink: 0,
             scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
           }}>
@@ -392,7 +355,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
           </Box>
         )}
 
-        <Box sx={{ overflowY: 'auto', p: 1.5 }}>
+        <Box sx={{ p: 1.5 }}>
           {byDay.map(group => {
             const collapsed = collapsedDays.has(group.day)
             const units = groupUnits(group.items)
@@ -435,8 +398,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
             </Typography>
           )}
         </Box>
-      </Box>
-    </Box>
+    </MlbSheet>
   )
 }
 

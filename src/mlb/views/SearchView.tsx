@@ -8,7 +8,7 @@ import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronL
 import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, PlayerContract } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
-import { useScrollLock } from '../lib/useScrollLock'
+import { FullscreenEntry } from '../components/MlbSheet'
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
 // ~1,000-line chart module — lazy so it only loads once a player card is open.
 const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
@@ -136,7 +136,7 @@ export function SearchView({
   const cardRef = useRef<HTMLDivElement>(null)
   const isMobile = !useMediaQuery('(min-width: 600px)')
   const [fullscreen, setFullscreen] = React.useState(false)
-  useScrollLock(Boolean(fullscreen && hasStats))   // freeze page scroll behind the fullscreen card overlay
+  const exitFullscreen = useRef<(() => void) | null>(null)
   const [cardMenuAnchor, setCardMenuAnchor] = React.useState<HTMLElement | null>(null)
   const [downloading, setDownloading] = React.useState(false)
   const [cardOptionsAnchor, setCardOptionsAnchor] = React.useState<HTMLElement | null>(null)
@@ -293,8 +293,9 @@ export function SearchView({
   return (
     <>
       {/* Fullscreen overlay */}
+      {fullscreen && hasStats && <FullscreenEntry onClose={() => setFullscreen(false)} exitRef={exitFullscreen} />}
       {fullscreen && hasStats && (
-        <Box onClick={() => setFullscreen(false)} sx={{
+        <Box onClick={() => (exitFullscreen.current ?? (() => setFullscreen(false)))()} sx={{
           position: 'fixed', inset: 0, zIndex: 9999, bgcolor: palette.bg,
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
