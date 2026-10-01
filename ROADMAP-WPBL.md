@@ -161,9 +161,9 @@ reason to come back more than once a month until spring. So the order is by that
 3. **The six season-series pages** (data-mining list). Indexable pages from data already held, for
    a section whose constraint is search. Who owns whom shipped Sep 28 as `/wpbl/matchups` (see the
    log).
-4. **Decide Road to Springfield.** Built and sitting in `git stash` since Sep 25 (the map on
-   `/wpbl/league` and its share videos). Ship it or drop it; a stash is where work goes to be
-   forgotten.
+4. ~~**Decide Road to Springfield.**~~ ❌ *Dropped Sep 30: an AI-made hometown map and share
+   videos is work that belongs to a visual artist or motion designer, and the site should not be
+   standing in for one. Do not rebuild it.*
 5. **Fielding columns in the Stats tab** (#7). Computed in `stats.ts`, surfaced only on player and
    team pages. Small, and the boards were just rebuilt, so it is the cheapest it will ever be.
 
@@ -966,8 +966,8 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 A second pass at the same data, asking what could be DRAWN rather than tabulated. Nothing here
 repeats a chart that already exists (season shape, win probability, spray, team radar, pitch
 location, the count and take/swing boards). Three of these extend entries above rather than
-replacing them, and say so. Suggested first three: Scorigami, Road to Springfield, the count
-subway map, because all three are cheap, survive Sep 22 and make a share image.
+replacing them, and say so. Suggested first two: Scorigami and the count subway map, because
+both are cheap, survive Sep 22 and make a share image.
 
 **Durable**
 
@@ -975,9 +975,9 @@ subway map, because all three are cheap, survive Sep 22 and make a share image.
   that game. In an inaugural season every score is a first, so the grid is mostly dark and fills in
   next year. From `wpbl_games` alone; postseason finals count here, since a score is a score.~~
   ✅ *Shipped Sep 13, 2026 as `/wpbl/scorigami` (see the log).*
-- **Road to Springfield** 🎯. Arcs from all 118 hometowns across 11 countries, converging on the
-  one ballpark (see "One ballpark, all season" above). The visual half of "Where they come from",
-  and it belongs on `/wpbl/league` beside the prose. Share image and indexable.
+- ~~**Road to Springfield**. Arcs from all 118 hometowns converging on the one ballpark.~~ ❌
+  *Dropped Sep 30, 2026: illustrative map art and motion pieces are an artist's work, not
+  something to generate. See the winter order.*
 - **The count as a subway map** 🔬🎯. The 12 counts as stations, edge thickness for how many
   plate appearances travelled it, colour for on-base rate from there. Draws "What a single pitch is
   worth" above: the 1-0 against 0-1 split (48.4% vs 37.2%) becomes a visible fork.
@@ -1015,8 +1015,8 @@ subway map, because all three are cheap, survive Sep 22 and make a share image.
 A share series for Bluesky and Reddit, posted as "Offseason Visual #N" once or twice a week
 through the winter. **This is a menu, not a schedule: the owner picks which one is next, every
 time**, and nothing here is committed to or in order. Posted so far: #1 the hits bar chart race
-(screen-recorded from the season page). Road to Springfield (the map on the league page and its
-share videos) is built and set aside in a git stash, not shipped.
+(screen-recorded from the season page). Road to Springfield was dropped Sep 30, 2026 and is
+not on the menu.
 
 **How one gets made.** `npm run visual -- <slug> --n <number>` renders a visual from
 [`scripts/visuals/`](scripts/visuals/) into `share/visuals/<slug>/` (gitignored) at three sizes:
