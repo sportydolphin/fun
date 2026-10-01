@@ -680,10 +680,13 @@ function gameToFinalSummary(game: ScheduleGame, myTeamId: number): FinalGameSumm
 
 // ─── TeamScheduleStrip ────────────────────────────────────────────────────────
 
-export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleClose, onPlayerClick, onTeamClick }: {
+export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleClose, onPlayerClick, onTeamClick, collapsed }: {
   teamId:           number
   teamColor:        string
   showSchedule?:    boolean
+  /** Draw no strip, only the sheets it opens: the full schedule, a preview, a box score. For a club
+   *  whose season is over, whose card is one line but whose "Season" link still opens all of it. */
+  collapsed?:       boolean
   onScheduleClose?: () => void
   onPlayerClick?:   (id: number) => void
   onTeamClick?:     (id: number) => void
@@ -812,6 +815,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   // Fetch the supporting detail (recap performers / probable starters) for every
   // game currently on screen — both halves of a doubleheader, not just the first.
   useEffect(() => {
+    if (collapsed) return   // nothing is on screen to fill in
     const shown = [...slots.last, ...slots.primary, ...slots.upcoming]
     for (const g of shown) {
       if (g.state !== 'final' && g.state !== 'preview') continue
@@ -830,7 +834,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           .finally(done)
       }
     }
-  }, [slots, teamId])
+  }, [slots, teamId, collapsed])
 
   // Start / stop live polling as the primary day's live game comes and goes.
   useEffect(() => {
@@ -852,7 +856,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   // doubleheader, hands the live slot over to the nightcap).
   useForegroundInterval(() => { fetchTeamSchedule(teamId).then(setGames) }, liveGamePk ? 90_000 : null)
 
-  if (loading) return (
+  if (loading) return collapsed ? null : (
     <Box sx={{ py: 2, textAlign: 'center' }}>
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled' }}>Loading schedule…</Typography>
     </Box>
@@ -963,7 +967,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   return (
     <>
       {/* ── Game section: live = full-width card; else last + next ──────── */}
-      {isLive && liveGame ? (
+      {collapsed ? null : isLive && liveGame ? (
         <Box sx={{ px: 2.5, pt: 1.25, pb: 1.5 }}>
           {/* Doubleheader: the completed opener sits above the live nightcap. */}
           {slots.primary.filter(g => g.state === 'final').map(g => (

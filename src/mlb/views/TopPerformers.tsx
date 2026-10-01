@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
-import { fetchRecentGamePerformers } from './Spotlight'
+import { fetchRecentGamePerformers, fetchPostseasonGamePerformers } from './Spotlight'
 import type { HotGuyData } from './Spotlight'
 import { fetchFinalGames } from './FinalGames'
 import type { FinalGameSummary } from './FinalGames'
@@ -55,9 +55,12 @@ function buildStatItems(data: HotGuyData): Array<{ label: string; value: string;
 export function TopPerformers({
   onPlayerClick,
   onTeamClick,
+  postseason = false,
 }: {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
+  /** The regular season is over: build the card from postseason box scores (see Spotlight.tsx). */
+  postseason?:    boolean
 }) {
   const [performers, setPerformers] = useState<PerformerEntry[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -79,16 +82,31 @@ export function TopPerformers({
   useEffect(() => { performersRef.current = performers }, [performers])
 
   useEffect(() => {
-    fetchRecentGamePerformers().then(({ hitters, pitchers }) => {
+    let cancelled = false
+    const regular = () => fetchRecentGamePerformers().then(({ hitters, pitchers }) => {
       const combined: PerformerEntry[] = [
         ...hitters.map(h  => ({ ...h,  role: 'hitter'  as const })),
         ...pitchers.map(p => ({ ...p, role: 'pitcher' as const })),
       ]
-      combined.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
-      setPerformers(combined)
+      return combined.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+    })
+    // Past the regular season the card is the postseason's. Until the first postseason game is final
+    // there is nothing to build it from, and the last regular-season days stand in, for as long as the
+    // regular-season lookback still reaches them: that is the day or two between the two, when they
+    // are still the news.
+    const load = postseason
+      ? fetchPostseasonGamePerformers().then(ps => ps.length
+          ? ps.map(p => ({ ...p, role: p.isPitcher ? 'pitcher' as const : 'hitter' as const }))
+          : regular())
+      : regular()
+    load.then(list => {
+      if (cancelled) return
+      setPerformers(list)
+      setActiveIdx(0)
       setLoading(false)
     })
-  }, [])
+    return () => { cancelled = true }
+  }, [postseason])
 
   // Back-from-Search restore: reopen the box score the user cross-linked from.
   useEffect(() => {
@@ -158,7 +176,9 @@ export function TopPerformers({
     setBoxScoreLoadingId(entry.playerId)
     try {
       const games = await fetchFinalGames(entry.date)
-      const game  = games.find(g => g.home.teamId === entry.teamId || g.away.teamId === entry.teamId)
+      // A postseason standout knows its game; the regular-season ones are found by club and date.
+      const game  = (entry.gamePk && games.find(g => g.gamePk === entry.gamePk))
+        || games.find(g => g.home.teamId === entry.teamId || g.away.teamId === entry.teamId)
       if (game) setBoxScoreGame(game)
     } finally {
       setBoxScoreLoadingId(null)
@@ -249,7 +269,7 @@ export function TopPerformers({
               />
             </Box>
             <Typography className="tp-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
-              {entry.position} · {abbr}
+              {[entry.position, abbr, entry.context].filter(Boolean).join(' · ')}
             </Typography>
           </Box>
 
@@ -380,7 +400,7 @@ export function TopPerformers({
               fontWeight: 900, fontSize: '0.64rem', textTransform: 'uppercase',
               letterSpacing: 0.8, color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
             }}>
-              Single-Game Standout
+              {headerEntry.context ? 'Postseason Standout' : 'Single-Game Standout'}
             </Typography>
             <Typography sx={{
               fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary',

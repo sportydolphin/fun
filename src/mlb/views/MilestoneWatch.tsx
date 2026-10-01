@@ -23,6 +23,21 @@ function relativeDay(ymd: string): string {
   return `${days}d ago`
 }
 
+// "Sep 26". Once the season is over every reached date is a week old or more, and "34d ago" makes a
+// reader do arithmetic to learn something the calendar date says outright.
+function calendarDay(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00`)
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+}
+
+const reachedWhen = (ymd: string, seasonOver?: boolean) => (seasonOver ? calendarDay(ymd) : relativeDay(ymd))
+
+// The season's milestones, most notable first: a record over a career mark over a season total, and
+// the newest first within each. What leads the card once nothing is left to chase this year.
+const KIND_RANK: Record<MilestoneItem['kind'], number> = { record: 0, career: 1, season: 2 }
+const byNotability = (a: MilestoneItem, b: MilestoneItem) =>
+  KIND_RANK[a.kind] - KIND_RANK[b.kind] || (b.achievedOn ?? '').localeCompare(a.achievedOn ?? '')
+
 // How full the proximity meter reads. The nightly job only surfaces a chase once the
 // player is within a stat's watch window, so an absolute current/target bar is always
 // pinned near 100% and tells you nothing. Instead we fill by how far into that final
@@ -79,9 +94,10 @@ function MeterBar({ fill, color, live, height = 4 }: { fill: number; color: stri
 
 // ─── Featured chase — the big card treatment (up to 3 on the card) ───────────────
 
-function FeaturedMilestone({ item, isLive, onPlayerClick }: {
+function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
   item: MilestoneItem
   isLive: boolean
+  seasonOver?: boolean
   onPlayerClick?: (id: number) => void
 }) {
   const isDark = useIsDark()
@@ -114,7 +130,7 @@ function FeaturedMilestone({ item, isLive, onPlayerClick }: {
         </Box>
         <Typography sx={{ mt: '1px', fontSize: '0.64rem', color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {achieved
-            ? `Reached ${item.target} ${item.statLabel} · ${relativeDay(item.achievedOn!)}`
+            ? `Reached ${item.target} ${item.statLabel} · ${reachedWhen(item.achievedOn!, seasonOver)}`
             : `${kindLabel(item)} · ${item.target} ${item.statLabel}`}
         </Typography>
         <Box sx={{ mt: '6px' }}>
@@ -139,9 +155,10 @@ function FeaturedMilestone({ item, isLive, onPlayerClick }: {
 
 // ─── Compact row — used inside the View-all modal ────────────────────────────────
 
-function MilestoneRow({ item, isLive, onPlayerClick }: {
+function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
   item: MilestoneItem
   isLive: boolean
+  seasonOver?: boolean
   onPlayerClick?: (id: number) => void
 }) {
   const isDark = useIsDark()
@@ -174,7 +191,7 @@ function MilestoneRow({ item, isLive, onPlayerClick }: {
         </Box>
         {achieved ? (
           <Typography sx={{ mt: '2px', fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Reached {item.target} {item.statLabel} · {relativeDay(item.achievedOn!)}
+            Reached {item.target} {item.statLabel} · {reachedWhen(item.achievedOn!, seasonOver)}
           </Typography>
         ) : (
           <Box sx={{ mt: '4px' }}>
@@ -237,16 +254,18 @@ function TabButton({ active, label, count, color, onClick }: {
   )
 }
 
-function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }: {
+function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClose, onPlayerClick }: {
   items: MilestoneItem[]
   reached: MilestoneItem[]
   liveTeamIds?: Set<number>
+  seasonOver?: boolean
+  season: number
   onClose: () => void
   onPlayerClick?: (id: number) => void
 }) {
-  // Open on whichever side has content — if there are no live chases (offseason), lead
-  // with the reached archive instead of an empty Chasing tab.
-  const [tab, setTab] = useState<ModalTab>(items.length ? 'chasing' : 'reached')
+  // Open on whichever side has content, and on the season's archive once the season is over: what
+  // happened is the story then, and the chases are all a winter away.
+  const [tab, setTab] = useState<ModalTab>(items.length && !seasonOver ? 'chasing' : 'reached')
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('all')
 
   const isLive = (it: MilestoneItem) => !!liveTeamIds?.has(it.teamId)
@@ -302,7 +321,7 @@ function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }:
                 </Box>
                 {groupItems.map(it => (
                   <Box key={`${it.playerId}-${it.statKey}-${it.target}`} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <MilestoneRow item={it} isLive={isLive(it)} onPlayerClick={onPlayerClick} />
+                    <MilestoneRow item={it} isLive={isLive(it)} seasonOver={seasonOver} onPlayerClick={onPlayerClick} />
                   </Box>
                 ))}
               </Box>
@@ -311,17 +330,19 @@ function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }:
         ) : reachedFiltered.length ? (
           reachedFiltered.map(it => (
             <Box key={`${it.playerId}-${it.statKey}-${it.target}`} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-              <MilestoneRow item={it} isLive={isLive(it)} onPlayerClick={onPlayerClick} />
+              <MilestoneRow item={it} isLive={isLive(it)} seasonOver={seasonOver} onPlayerClick={onPlayerClick} />
             </Box>
           ))
         ) : (
           <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
-              No milestones reached yet this season.
+              {seasonOver ? `No milestones reached in ${season}.` : 'No milestones reached yet this season.'}
             </Typography>
-            <Typography sx={{ mt: 0.5, fontSize: '0.68rem', color: 'text.disabled' }}>
-              Check back as the chases above cross the line.
-            </Typography>
+            {!seasonOver && (
+              <Typography sx={{ mt: 0.5, fontSize: '0.68rem', color: 'text.disabled' }}>
+                Check back as the chases above cross the line.
+              </Typography>
+            )}
           </Box>
         )}
     </MlbSheet>
@@ -330,11 +351,17 @@ function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }:
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-export function MilestoneWatchCard({ season, liveTeamIds, onPlayerClick }: {
+export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonOver, onPlayerClick }: {
   season: number
   liveTeamIds?: Set<number>
+  /** The regular season is over: lead with what was reached, and drop what can no longer be. */
+  seasonOver?: boolean
   onPlayerClick?: (id: number) => void
 }) {
+  // No LIVE badge once the regular season is over. Postseason games do not count toward any of these
+  // marks, so a chase lit up because its club is playing in October would promise a milestone that
+  // cannot fall tonight.
+  const liveTeamIds = seasonOver ? undefined : liveTeamIdsIn
   const isDark = useIsDark()
   const [items, setItems] = useState<MilestoneItem[] | null>(null)
   const [recent, setRecent] = useState<MilestoneItem[]>([])
@@ -364,8 +391,11 @@ export function MilestoneWatchCard({ season, liveTeamIds, onPlayerClick }: {
   // card simply isn't part of the feed rather than flashing a spinner that then
   // vanishes. (fetchMilestoneData resolves to null for a missing table, so the
   // loading flag is what distinguishes "still fetching" from "nothing to show".)
-  const chases = items ?? []
-  if (loading || (!chases.length && !recent.length)) return null
+  // A season total cannot be reached once the season is over; a career mark or a record carries
+  // into next year, so those stay as what is next.
+  const chases = (items ?? []).filter(it => !seasonOver || it.kind !== 'season')
+  if (loading) return null
+  if (seasonOver ? !chases.length && !reached.length : !chases.length && !recent.length) return null
 
   const isLive = (it: MilestoneItem) => !!liveTeamIds?.has(it.teamId)
 
@@ -376,18 +406,25 @@ export function MilestoneWatchCard({ season, liveTeamIds, onPlayerClick }: {
 
   // Lead with anyone who just reached one, then fill with the closest (live-first)
   // chases, up to FEATURED cards total.
+  // Once the season is over "just reached" becomes the season's best: nothing new will be reached
+  // until spring, and a week-old list in date order leads with whoever happened to finish last.
+  const leading = seasonOver ? [...reached].sort(byNotability) : recent
   const recentCap = orderedChases.length ? RECENT_ON_CARD : FEATURED
-  const featured = [...recent.slice(0, recentCap), ...orderedChases].slice(0, FEATURED)
+  const featured = [...leading.slice(0, recentCap), ...orderedChases].slice(0, FEATURED)
   // The modal holds both tabs — every chase plus the whole season's reached archive
   // (recent ⊂ reached, so no double count). That's the "View all" universe.
   const total = chases.length + reached.length
   const anyLiveFeatured = featured.some(isLive)
 
-  const subtitle = anyLiveFeatured
-    ? 'Playing now, and closing in.'
-    : recent.length
-      ? 'Just reached, and closing in.'
-      : 'Chasing history, closest first.'
+  const subtitle = seasonOver
+    ? leading.length && orderedChases.length ? `Reached in ${season}, and next up.`
+      : leading.length ? `Reached in ${season}.`
+      : 'Next up, when play resumes.'
+    : anyLiveFeatured
+      ? 'Playing now, and closing in.'
+      : recent.length
+        ? 'Just reached, and closing in.'
+        : 'Chasing history, closest first.'
 
   return (
     <>
@@ -401,7 +438,7 @@ export function MilestoneWatchCard({ season, liveTeamIds, onPlayerClick }: {
 
         {featured.map((it, i) => (
           <Box key={`${it.achievedOn ? 'r' : 'c'}-${it.playerId}-${it.statKey}-${it.target}`} sx={{ borderBottom: i < featured.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
-            <FeaturedMilestone item={it} isLive={isLive(it)} onPlayerClick={onPlayerClick} />
+            <FeaturedMilestone item={it} isLive={isLive(it)} seasonOver={seasonOver} onPlayerClick={onPlayerClick} />
           </Box>
         ))}
 
@@ -417,7 +454,7 @@ export function MilestoneWatchCard({ season, liveTeamIds, onPlayerClick }: {
         )}
       </Box>
 
-      {modalOpen && <MilestoneModal items={chases} reached={reached} liveTeamIds={liveTeamIds} onClose={() => setModalOpen(false)} onPlayerClick={onPlayerClick} />}
+      {modalOpen && <MilestoneModal items={chases} reached={reached} liveTeamIds={liveTeamIds} seasonOver={seasonOver} season={season} onClose={() => setModalOpen(false)} onPlayerClick={onPlayerClick} />}
     </>
   )
 }

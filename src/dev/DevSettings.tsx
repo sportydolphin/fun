@@ -28,6 +28,7 @@ import { useDevSim, setDevSimEnabled, regenerateDevSim, decideDevSimWinners, reo
 import { useDevDrama, setDevDramaEnabled, regenerateDevDrama } from '../mlb/dev/devDrama'
 import { useDevDevice, setDeviceMode, currentPreset, isInsideDeviceFrame } from '../mlb/dev/devDevice'
 import { useDevSeasonSelector, setSeasonSelectorStyle } from '../mlb/dev/devSeasonSelector'
+import { useDevSeasonPhase, setDevSeasonPhase, DevSeasonPhase, useDevNoTeam, setDevNoTeam } from '../mlb/dev/devSeasonPhase'
 import { devShowDiscordCard } from '../wpbl/discordInvite'
 import { setDevChampionPhase, rerollDevChampion, devChampionState, type DevChampionPhase } from '../wpbl/dev/devChampion'
 import { setDevFanPhotos, devFanPhotosOn } from '../wpbl/dev/devFanPhotos'
@@ -115,6 +116,13 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
               Player-card season selector
             </Typography>
             <SeasonSelectorControls />
+
+            <Divider sx={{ my: 1.75 }} />
+
+            <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+              Home season phase
+            </Typography>
+            <SeasonPhaseControls />
 
             <Divider sx={{ my: 1.75 }} />
 
@@ -440,6 +448,31 @@ function SkinControls() {
             </Box>
           )
         })}
+      </Box>
+    </>
+  )
+}
+
+// ─── Home season phase (MLB) ───────────────────────────────────────────────────
+// Auto reads the league calendar. In season / Season over pin it, so either Home can be reviewed
+// on any date: see seasonPhase.ts.
+function SeasonPhaseControls() {
+  const phase = useDevSeasonPhase()
+  const noTeam = useDevNoTeam()
+  return (
+    <>
+      <SegControl
+        options={[{ value: 'auto', label: 'Auto' }, { value: 'regular', label: 'In season' }, { value: 'over', label: 'Over' }]}
+        value={phase}
+        onChange={v => setDevSeasonPhase(v as DevSeasonPhase)}
+      />
+      {/* Home as a reader who follows no team sees it, without touching the synced pref. */}
+      <Box sx={{ mt: 1 }}>
+        <SegControl
+          options={[{ value: 'mine', label: 'My team' }, { value: 'none', label: 'No team' }]}
+          value={noTeam ? 'none' : 'mine'}
+          onChange={v => setDevNoTeam(v === 'none')}
+        />
       </Box>
     </>
   )

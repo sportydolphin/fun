@@ -109,6 +109,18 @@ goes first and the rest is winter work.
    game. Draws nothing until the Wild Card field is set. *Dropped Sep 30:* bracket picks. The
    per-game predictor already covers every postseason game, so a second pick'em would split the
    same readers across two boards.
+5c. ✅ **Home knows the regular season is over** (Oct 1, `seasonPhase.ts`). Not in the original
+   plan either: an audit at 375px found Home still drawing the regular season a week into October
+   (a Wild Card race at 0% down the column, On Fire over a window with no games, streaks called
+   "active", a followed club eliminated a week earlier leading the page). The phase comes from the
+   league's own `/seasons` calendar, plus a check for a makeup still to be played, and fails toward
+   the regular season. Past it: a club that is out shrinks to one line under the picks and says how
+   its season ended; a club still playing keeps its card with its series line; standouts are built
+   from postseason box scores; the race card, On Fire / Ice Cold and the remaining-schedule boards
+   step aside; Milestone Watch leads with the season's reached marks and drops season totals that
+   can no longer fall. The 30-logo team picker that led a new reader's feed is a one-line prompt
+   opening a sheet by division. The dev gear pins either phase, and "No team", for review. The
+   offseason (Nov 1) gets the same treatment for free; what it still needs is item 6.
 6. **Offseason shape, by Nov 1.** Six daily MLB crons run all winter (only game-start is gated
    by month); give them a due-gate like `wpbl_ingest_due()`. The predictor's empty
    "TOMORROW / No upcoming games" card needs an offseason state.

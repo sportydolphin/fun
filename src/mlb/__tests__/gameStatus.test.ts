@@ -53,6 +53,7 @@ describe('schedule reads include the postseason', () => {
     'src/mlb/api.ts': 'strength of the remaining regular-season schedule, for playoff odds',
     'src/mlb/reportCardData.ts': 'streak report cards count regular-season games',
     'src/mlb/views/Spotlight.tsx': 'byDateRange has no postseason data, so the lookback cannot use it',
+    'src/mlb/seasonPhase.ts': 'asks whether a regular-season makeup is still to be played',
     'scripts/simulate-playoff-odds.mjs': 'simulates the remaining regular season',
     'scripts/update-streaks.mjs': 'hitting streaks are regular-season records',
   }

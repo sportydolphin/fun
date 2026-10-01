@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildBracket, seriesLine, liveGameScore, winsNeeded } from '../postseason'
+import { buildBracket, seriesLine, liveGameScore, winsNeeded, teamOctober, teamOctoberLine, stillPlaying } from '../postseason'
 import done2025 from './fixtures/postseason-2025.json'
 import open2026 from './fixtures/postseason-2026.json'
 
@@ -108,5 +108,46 @@ describe('a series with a game on', () => {
 describe('wins needed', () => {
   it('is a majority of the games in the series', () => {
     expect([3, 5, 7].map(bestOf => winsNeeded({ bestOf }))).toEqual([2, 3, 4])
+  })
+})
+
+// Home's team card reads a club's October from the bracket: full size while the club is playing,
+// one line once it is out. These pin both the kind and the words, from each side of a series.
+describe('one club’s October', () => {
+  const done = buildBracket(2025, done2025)!
+  const eve = buildBracket(2026, open2026)!
+  const line = (b: typeof done, id: number) => { const o = teamOctober(b, id); return o && teamOctoberLine(o) }
+
+  it('crowns the champion and names the loser of the World Series', () => {
+    expect(teamOctober(done, 119)?.kind).toBe('champion')
+    expect(line(done, 119)).toBe('World Series champions, 4-3 vs TOR')
+    expect(line(done, 141)).toBe('Lost the World Series 3-4 vs LAD')
+  })
+
+  it('reads a series from the club’s own side, wherever it was seeded', () => {
+    expect(line(done, 135)).toBe('Out in the NL Wild Card Series, 1-2 vs CHC')   // the bottom seed
+    expect(line(done, 143)).toBe('Out in the NLDS, 1-3 vs LAD')                  // the top seed
+    expect(line(done, 158)).toBe('Out in the NLCS, 0-4 vs LAD')
+  })
+
+  it('says a club outside the field missed it, and keeps only the clubs still playing at full size', () => {
+    expect(teamOctober(done, 115)).toEqual({ kind: 'missed' })
+    expect(line(done, 115)).toBe('Missed the postseason')
+    expect(stillPlaying(teamOctober(done, 115))).toBe(false)
+    expect(stillPlaying(teamOctober(done, 135))).toBe(false)
+    expect(stillPlaying(teamOctober(done, 119))).toBe(true)
+  })
+
+  it('on the eve of the Wild Card round, every entrant is playing and a bye names no opponent', () => {
+    expect(teamOctober(eve, 147)?.kind).toBe('playing')
+    expect(line(eve, 147)).toBe('AL Wild Card Series vs BOS')
+    // Tampa Bay's opponent is the stand-in "NYY/BOS", which is nobody a fan can be told about yet.
+    expect(line(eve, 139)).toBe('ALDS')
+    expect(teamOctober(eve, 115)).toEqual({ kind: 'missed' })
+  })
+
+  it('says nothing when the bracket cannot', () => {
+    expect(teamOctober(null, 119)).toBeNull()
+    expect(stillPlaying(null)).toBe(true)
   })
 })

@@ -39,6 +39,9 @@ export interface HotGuyData {
   period:     string
   date?:      string
   stats:      HotGuyStats
+  /** Postseason standouts only: the game it came from, and that game's short name ("ALDS Gm 3"). */
+  gamePk?:    number
+  context?:   string
 }
 
 // ─── Scoring helpers ──────────────────────────────────────────────────────────
@@ -409,6 +412,116 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
   } catch {
     return { hitters: [], pitchers: [] }
   }
+}
+
+// ─── Postseason single-game performers ────────────────────────────────────────
+//
+// THE SAME CARD, BUILT ANOTHER WAY. `stats=byDateRange` returns nothing for a postseason date (see
+// above), so in October the standout card had been showing the last regular-season days, under a
+// "Single-Game Standout" heading, beside a bracket whose games it never mentioned. Box scores carry
+// every player's line for that one game, so this reads the finals of the last few postseason days one
+// box score each and runs the same scoring and the same bar over them.
+//
+// A box score is per GAME, so a doubleheader (which never happens in October anyway) cannot merge two
+// lines the way byDateRange does, and each standout knows exactly which game to open.
+//
+// Bounded: at most three game days, and a postseason day is at most four games, so a cold read is
+// one schedule request and up to twelve trimmed box scores (about 30 KB each).
+
+const POSTSEASON_TYPES = 'F,D,L,W'
+
+// Only what the scoring below reads. The full box score is about 170 KB.
+const BOX_FIELDS = 'teams,away,home,team,id,players,person,fullName,position,abbreviation,stats,batting,pitching,' +
+  'hits,atBats,homeRuns,rbi,stolenBases,doubles,triples,strikeOuts,inningsPitched,earnedRuns,wins,saves,holds,gamesStarted'
+
+/** "NLWC Gm 2", "ALDS Gm 3", "WS Gm 1": the game's place in the bracket, short enough for a stat line. */
+export function postseasonGameLabel(g: { gameType?: string; description?: string; seriesGameNumber?: number }): string | undefined {
+  const round = ({ F: 'WC', D: 'DS', L: 'CS', W: 'WS' } as Record<string, string>)[g.gameType ?? '']
+  if (!round) return undefined
+  const league = round === 'WS' ? '' : (/^(AL|NL) /.exec(g.description ?? '')?.[1] ?? '')
+  const n = Number(g.seriesGameNumber ?? 0)
+  return `${league}${round}${n > 0 ? ` Gm ${n}` : ''}`
+}
+
+let _postseasonCache: Promise<HotGuyData[]> | null = null
+
+/** The best single-game lines of the last few postseason days, newest day first. Empty outside October. */
+export function fetchPostseasonGamePerformers(): Promise<HotGuyData[]> {
+  if (_postseasonCache) return _postseasonCache
+  _postseasonCache = (async () => {
+    const now    = new Date()
+    const today  = localDate(now)
+    const lookback = localDate(new Date(now.getTime() - 7 * 86400000))
+    const sched = await fetch(
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${lookback}&endDate=${today}&gameType=${POSTSEASON_TYPES}` +
+      `&fields=dates,date,games,gamePk,gameType,description,seriesGameNumber,status,abstractGameState,detailedState,codedGameState`
+    ).then(r => r.json()).catch(() => null)
+
+    const days: Array<{ date: string; games: any[] }> = []
+    for (const d of [...(sched?.dates ?? [])].reverse()) {
+      const finals = (d.games ?? []).filter((g: any) =>
+        g.status?.abstractGameState === 'Final' && g.status?.detailedState !== 'Postponed' && g.status?.codedGameState !== 'C')
+      if (finals.length) days.push({ date: d.date, games: finals })
+      if (days.length >= 3) break
+    }
+    if (!days.length) return []
+
+    type Candidate = { score: number; data: HotGuyData }
+    const pool: Candidate[] = []
+    await Promise.all(days.flatMap(({ date, games }) => games.map(async (g: any) => {
+      const box = await fetch(`https://statsapi.mlb.com/api/v1/game/${g.gamePk}/boxscore?fields=${BOX_FIELDS}`)
+        .then(r => r.json()).catch(() => null)
+      const period  = gameDateLabel(date, now)
+      const context = postseasonGameLabel(g)
+      for (const side of ['away', 'home'] as const) {
+        const team = box?.teams?.[side]
+        const teamId = Number(team?.team?.id ?? 0)
+        for (const p of Object.values<any>(team?.players ?? {})) {
+          const base = {
+            playerId: Number(p.person?.id), playerName: p.person?.fullName ?? '—',
+            teamId, teamName: '', period, date, gamePk: Number(g.gamePk), context,
+          }
+          const bat = p.stats?.batting
+          if (bat && Object.keys(bat).length) {
+            const score = scoreHitterGame(bat)
+            if (score > 0 && isStandoutHitterGame(bat)) pool.push({ score, data: {
+              ...base, position: p.position?.abbreviation ?? '', isPitcher: false, isStarter: false,
+              stats: {
+                hits: Number(bat.hits ?? 0), ab: Number(bat.atBats ?? 0), hr: Number(bat.homeRuns ?? 0),
+                rbi: Number(bat.rbi ?? 0), sb: Number(bat.stolenBases ?? 0),
+              },
+            }})
+          }
+          const pit = p.stats?.pitching
+          if (pit && pit.inningsPitched != null) {
+            const score = scorePitcherGame(pit)
+            if (score > 0 && isStandoutPitcherGame(pit)) {
+              const gs = Number(pit.gamesStarted ?? 0)
+              pool.push({ score, data: {
+                ...base, position: gs >= 1 ? 'SP' : 'RP', isPitcher: true, isStarter: gs >= 1,
+                stats: {
+                  k: Number(pit.strikeOuts ?? 0), ip: pit.inningsPitched, er: Number(pit.earnedRuns ?? 0),
+                  wins: Number(pit.wins ?? 0), saves: Number(pit.saves ?? 0), holds: Number(pit.holds ?? 0), gs,
+                },
+              }})
+            }
+          }
+        }
+      }
+    })))
+
+    // One entry per player: a two-way player can clear both bars in one game, and the carousel keys
+    // its panes by player.
+    pool.sort((a, b) => (b.data.date ?? '').localeCompare(a.data.date ?? '') || b.score - a.score)
+    const seen = new Set<number>()
+    const best = pool.filter(c => !seen.has(c.data.playerId) && seen.add(c.data.playerId))
+    // Same cap as the regular-season card: four of each, newest day first.
+    return [
+      ...best.filter(c => !c.data.isPitcher).slice(0, 4),
+      ...best.filter(c =>  c.data.isPitcher).slice(0, 4),
+    ].sort((a, b) => (b.data.date ?? '').localeCompare(a.data.date ?? '') || b.score - a.score).map(c => c.data)
+  })().catch(() => [])
+  return _postseasonCache
 }
 
 // ─── SpotlightCard ────────────────────────────────────────────────────────────

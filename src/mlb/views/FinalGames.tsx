@@ -10,6 +10,7 @@ import { MlbSheet } from '../components/MlbSheet'
 import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
+import { fetchSeasonDates } from '../seasonPhase'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 
@@ -211,23 +212,12 @@ function pickNearestGameDate(map: Map<string, FinalGameSummary[]>, dir: 1 | -1):
 // ─── Season bounds (clamps date-nav to the actual season) ──────────────────────
 
 interface SeasonBounds { start: string; end: string }
-const seasonBoundsCache = new Map<number, Promise<SeasonBounds>>()
 
+// The same read Home's season phase makes (see seasonPhase.ts), so the two cost one request.
 function fetchSeasonBounds(season: number): Promise<SeasonBounds> {
-  let p = seasonBoundsCache.get(season)
-  if (p) return p
-  p = fetch(`https://statsapi.mlb.com/api/v1/seasons/${season}?sportId=1`)
-    .then(r => r.json())
-    .then(d => {
-      const s = d.seasons?.[0]
-      return {
-        start: String(s?.regularSeasonStartDate ?? s?.seasonStartDate ?? `${season}-03-01`).slice(0, 10),
-        end:   String(s?.postSeasonEndDate ?? s?.seasonEndDate ?? `${season}-11-30`).slice(0, 10),
-      }
-    })
-    .catch(() => ({ start: `${season}-03-01`, end: `${season}-11-30` }))
-  seasonBoundsCache.set(season, p)
-  return p
+  return fetchSeasonDates(season).then(d => d
+    ? { start: d.regularSeasonStart, end: d.postSeasonEnd }
+    : { start: `${season}-03-01`, end: `${season}-11-30` })
 }
 
 const clampISO = (iso: string, bounds: SeasonBounds) =>

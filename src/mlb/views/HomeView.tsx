@@ -12,7 +12,7 @@ import {
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
-import { useIsDark, borderAlpha, cardGradient135, fmtGB, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { useIsDark, borderAlpha, cardGradient135, fmtGB } from '../lib/colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { RosterMovesCard } from './RosterMoves'
 import { LiveDramaCard } from './LiveDrama'
@@ -31,6 +31,10 @@ import { getHomeOverlay, clearOverlayIf } from '../state/homeOverlay'
 import { SCHEDULE_GAME_TYPES } from '../gameStatus'
 import { TrackedCard } from '../components/TrackedCard'
 import { PlayoffBracketCard } from './PlayoffBracket'
+import { FollowTeamPrompt } from './TeamPicker'
+import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
+import { useDevNoTeam } from '../dev/devSeasonPhase'
+import { fetchBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,60 +68,6 @@ async function fetchLiveTeamIds(): Promise<Set<number>> {
   } catch { return new Set() }
 }
 
-// ─── Team picker ───────────────────────────────────────────────────────────────
-
-function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: number) => void }) {
-  const sorted = [...allTeams].sort((a, b) => a.name.localeCompare(b.name))
-  const isDark = useIsDark()
-  return (
-    <Box>
-      <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', mb: 0.5 }}>Pick Your Team</Typography>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', mb: 3 }}>
-        Follow a team to make this your home base
-      </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: 1 }}>
-        {sorted.map(t => {
-          const bg = ringColor(t.id, isDark)
-          return (
-            <Box
-              key={t.id}
-              onClick={() => onSelect(t.id)}
-              sx={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
-                p: 1.25, borderRadius: 2,
-                border: '1.5px solid', borderColor: 'transparent',
-                cursor: 'pointer', userSelect: 'none',
-                transition: 'all 0.15s',
-                '&:hover': { borderColor: bg, bgcolor: `${bg}20`, transform: 'scale(1.04)' },
-              }}
-            >
-              <Box sx={{
-                width: 44, height: 44, borderRadius: '50%',
-                bgcolor: teamLogoBg(t.id, isDark), border: `2px solid ${bg}`, boxShadow: `0 0 0 1px ${bg}30`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', flexShrink: 0,
-              }}>
-                <Box
-                  component="img"
-                  src={teamLogoSrc(t.id, isDark)}
-                  alt={t.abbreviation}
-                  sx={{ width: 30, height: 30, objectFit: 'contain', transform: teamLogoCrop(t.id, isDark), transformOrigin: 'center' }}
-                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              </Box>
-              <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'text.primary', textAlign: 'center', lineHeight: 1.2 }}>
-                {t.abbreviation}
-              </Typography>
-            </Box>
-          )
-        })}
-      </Box>
-    </Box>
-  )
-}
-
 // ─── Standing summary ─────────────────────────────────────────────────────────
 
 interface StandingSummary {
@@ -143,23 +93,48 @@ export interface HomeViewProps {
 }
 
 // Flex `order` for the personal column. The Predictor takes one of two slots
-// depending on whether the user still has picks to make.
+// depending on whether the user still has picks to make, and the team card takes one of two
+// depending on whether its club is still playing: a club whose season is over shrinks to one line
+// under the picks rather than leading the page with a week-old game. The follow-a-team prompt takes
+// that same lower slot, since it is an invitation and not news.
 const ORDER = {
   teamCard:        0,
   predictorTop:    1,
-  followedPlayers: 2,
-  standings:       3,
-  predictorBottom: 4,
-  survivor:        5,
+  teamCardQuiet:   2,
+  followedPlayers: 3,
+  standings:       4,
+  predictorBottom: 5,
+  survivor:        6,
 } as const
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
 
 export function HomeView({
-  allTeams, followedTeamId, onFollowTeam, onUnfollowTeam,
+  allTeams, followedTeamId: followedTeamIdProp, onFollowTeam, onUnfollowTeam,
   followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick, onTeamClick,
   onViz,
 }: HomeViewProps) {
+  // Dev only: review Home as a reader who follows no team (see devSeasonPhase.ts).
+  const devNoTeam = useDevNoTeam()
+  const followedTeamId = import.meta.env.DEV && devNoTeam ? null : followedTeamIdProp
+
+  // ── Where the season is ──────────────────────────────────────────────────────
+  // Null until read. Every card whose SHAPE depends on it waits for it rather than drawing the
+  // regular-season version and then swapping, which on a phone moved the page under the reader's
+  // thumb. The scores and the bracket above never wait. See seasonPhase.ts.
+  const phase      = useSeasonPhase(CURRENT_SEASON)
+  const seasonOver = phase == null ? null : isSeasonOver(phase)
+
+  // The bracket, once the regular season is over: it says whether the followed club is still
+  // playing. Shared with the bracket card's own read (fetchBracket caches), so it costs nothing.
+  // `undefined` is "not read yet", which the team card waits on; null is "no bracket".
+  const [bracket, setBracket] = useState<Bracket | null | undefined>(undefined)
+  useEffect(() => {
+    if (seasonOver !== true) return
+    let cancelled = false
+    fetchBracket(CURRENT_SEASON).then(b => { if (!cancelled) setBracket(b) })
+    return () => { cancelled = true }
+  }, [seasonOver])
 
   // ── Data ─────────────────────────────────────────────────────────────────────
   const [standing,         setStanding]         = useState<StandingSummary | null>(null)
@@ -204,12 +179,15 @@ export function HomeView({
   }, [])
   const predictorOrder = picksPending ? ORDER.predictorTop : ORDER.predictorBottom
 
+  // On Fire / Ice Cold are "the last 14 days" of the regular season, which is a claim about now. Once
+  // the season is over that window holds no games, so the cards are neither drawn nor fetched.
   useEffect(() => {
+    if (seasonOver !== false) return
     setLoadingSpotlight(true)
     fetchSpotlight()
       .then(({ hot, cold }) => { setHotGuy(hot); setColdGuy(cold) })
       .finally(() => setLoadingSpotlight(false))
-  }, [])
+  }, [seasonOver])
 
   useEffect(() => {
     fetchTeamSummaryData(CURRENT_SEASON)
@@ -261,7 +239,10 @@ export function HomeView({
   }
 
   const QUALIFIED_NOTE = 'Only counts regulars with enough playing time to qualify for a league leaderboard.'
-  const BOARD_POOL: BoardMeta[] = [
+  // Once the season is over a streak is not "active", it is whatever was still alive on the last day
+  // (and it carries into next season, which is the league's rule for hitting streaks too).
+  const streakSub = (active: string) => (seasonOver ? 'Longest still alive when the season ended' : active)
+  const FULL_POOL: BoardMeta[] = [
     { id: 'fraud',           kind: 'team',   icon: '🚨', title: 'Top Frauds',        subtitle: 'Winning more than their scoring predicts', accent: '#f97316', dep: 'summaries' },
     { id: 'cursed',          kind: 'team',   icon: '💀', title: 'Most Cursed',       subtitle: 'Losing more than their scoring predicts',  accent: '#818cf8', dep: 'summaries' },
     { id: 'highest-payroll', kind: 'team',   icon: '💰', title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} estimated payroll spend`, accent: '#eab308', dep: 'payroll' },
@@ -270,30 +251,34 @@ export function HomeView({
     { id: 'youngest',        kind: 'team',   icon: '🌱', title: 'Youngest Rosters',  subtitle: 'Lowest avg roster age',                    accent: '#22c55e', dep: 'ages' },
     { id: 'hardest',         kind: 'team',   icon: '⚔️', title: 'Hardest Schedules', subtitle: 'Toughest remaining opponents',             accent: '#ef4444', dep: 'sos' },
     { id: 'easiest',         kind: 'team',   icon: '🏖️', title: 'Easiest Schedules', subtitle: 'Softest remaining opponents',              accent: '#22c55e', dep: 'sos' },
-    { id: 'hit-streak',      kind: 'player', icon: '🔥', title: 'Hitting Streaks',   subtitle: 'Longest active hitting streaks',           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
-    { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: 'Longest active scoreless-inning runs',     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
-    { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: 'Longest active hitless droughts',          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. The cold flip side of the hitting streaks board. Games with no official at-bat are skipped.' },
-    { id: 'games-played',    kind: 'player', icon: '🦾', title: 'Iron Men',          subtitle: 'Longest active games-played streaks',      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the run reaches back further than we searched, so it\'s even longer than shown.' },
+    { id: 'hit-streak',      kind: 'player', icon: '🔥', title: 'Hitting Streaks',   subtitle: streakSub('Longest active hitting streaks'),           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
+    { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: streakSub('Longest active scoreless-inning runs'),     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
+    { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: streakSub('Longest active hitless droughts'),          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. The cold flip side of the hitting streaks board. Games with no official at-bat are skipped.' },
+    { id: 'games-played',    kind: 'player', icon: '🦾', title: 'Iron Men',          subtitle: streakSub('Longest active games-played streaks'),      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the run reaches back further than we searched, so it\'s even longer than shown.' },
     { id: 'pitches-most',    kind: 'player', icon: '⏳', title: 'Grinders',          subtitle: 'Most pitches seen per plate appearance',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. These are the guys who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}` },
     { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Free Swingers',     subtitle: 'Fewest pitches seen per plate appearance', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These guys jump on an early strike instead of working the count. ${QUALIFIED_NOTE}` },
     { id: 'top-salary',      kind: 'player', icon: '🤑', title: 'Top Earners',       subtitle: `Highest ${CURRENT_SEASON} salaries`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
   ]
+  // "Toughest remaining opponents" has no remaining opponents to rank once the season is over.
+  const BOARD_POOL = seasonOver ? FULL_POOL.filter(m => m.dep !== 'sos') : FULL_POOL
 
   const boardPairs: Array<[number, number]> = []
   for (let i = 0; i < BOARD_POOL.length; i++)
     for (let j = i + 1; j < BOARD_POOL.length; j++)
       boardPairs.push([i, j])
   const dayNum       = Math.floor(Date.now() / 86400000)
-  // Walk the pair list with a stride coprime to its length (105 = 3·5·7) rather
-  // than stepping +1 a day: consecutive pairs in the list share a board, so a
-  // plain step would leave the same card camped for up to a dozen days. 47 is
-  // prime and hits every pair once across the cycle.
+  // Walk the pair list with a stride coprime to its length (105 = 3·5·7 in season,
+  // 78 = 2·3·13 once the two schedule boards drop out) rather than stepping +1 a
+  // day: consecutive pairs in the list share a board, so a plain step would leave
+  // the same card camped for up to a dozen days. 47 is prime and divides neither,
+  // so it hits every pair once across the cycle.
   const [aIdx, bIdx] = boardPairs[(dayNum * 47) % boardPairs.length]
   // Alternate which of the pair sits on top so the ordering feels fresh too.
   const selectedMetas = dayNum % 2 === 0
     ? [BOARD_POOL[aIdx], BOARD_POOL[bIdx]]
     : [BOARD_POOL[bIdx], BOARD_POOL[aIdx]]
-  const neededDeps = new Set<DataDep>(selectedMetas.map(m => m.dep))
+  // Nothing is fetched until the phase is known, since it decides which boards are in the pool.
+  const neededDeps = new Set<DataDep>(seasonOver == null ? [] : selectedMetas.map(m => m.dep))
 
   // Rows + loading for one board, built from whatever dataset backs it.
   const rowsForBoard = (m: BoardMeta): { rows: LbRow[] | PlayerLbRow[]; loading: boolean } => {
@@ -395,11 +380,38 @@ export function HomeView({
   // authoritative "City Nickname" for all 30 teams.
   const teamLabel = followedTeam?.name ?? followedTeam?.teamName ?? '—'
 
-  const standingLine = standing ? [
-    `${standing.wins}–${standing.losses}`,
-    `${ordinal(standing.divisionRank)} ${standing.divisionName}`,
-    !standing.divisionLeader && standing.gamesBack !== '-' ? `${fmtGB(standing.gamesBack)} GB` : null,
-  ].filter(Boolean).join(' · ') : null
+  // The club's October, once the regular season is over and the bracket has been read. Null in
+  // season, and null when the bracket cannot say, which keeps the regular-season card (fails open).
+  const october = seasonOver && followedTeamId && bracket ? teamOctober(bracket, followedTeamId) : null
+  // Out of it: missed the postseason, or eliminated. The card shrinks to one line under the picks.
+  const teamQuiet = october != null && !stillPlaying(october)
+  // The card waits on the phase, and past the season on the bracket too, so it draws once at the
+  // right size instead of drawing full and then collapsing.
+  const teamCardReady = seasonOver === false || (seasonOver === true && bracket !== undefined)
+
+  const record = standing ? `${standing.wins}–${standing.losses}` : null
+  const divisionPlace = standing ? `${ordinal(standing.divisionRank)} ${standing.divisionName}` : null
+  const standingLine = october
+    // Games back means nothing once there are no games left; the postseason is the line instead.
+    ? october.kind === 'missed'
+      ? [teamOctoberLine(october), record, divisionPlace].filter(Boolean).join(' · ')
+      : [record, teamOctoberLine(october)].filter(Boolean).join(' · ')
+    : standing ? [
+      record,
+      divisionPlace,
+      !standing.divisionLeader && standing.gamesBack !== '-' ? `${fmtGB(standing.gamesBack)} GB` : null,
+    ].filter(Boolean).join(' · ') : null
+
+  // Clubs still playing, marked in the follow-a-team sheet: in October those are the ones a new
+  // reader most likely came for.
+  const playingIds = new Set<number>()
+  if (bracket && !bracket.over) {
+    for (const id of SERIES_ORDER) {
+      for (const t of [bracket.series[id].top, bracket.series[id].bottom]) {
+        if (t.real && stillPlaying(teamOctober(bracket, t.id))) playingIds.add(t.id)
+      }
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -439,8 +451,10 @@ export function HomeView({
 
           {followedTeamId ? (
             <>
-              {/* Team card */}
-              <TrackedCard card="team_card" sx={{ order: ORDER.teamCard, minWidth: 0 }}>
+              {/* Team card. Full size while its club is playing; one line, under the picks, once its
+                  season is over (see `teamQuiet`). Not drawn until it knows which. */}
+              {teamCardReady && (
+              <TrackedCard card="team_card" sx={{ order: teamQuiet ? ORDER.teamCardQuiet : ORDER.teamCard, minWidth: 0 }}>
                 <Box sx={{
                   borderRadius: 3, overflow: 'hidden',
                   border: '1px solid', borderColor: borderAlpha(bg, isDark),
@@ -451,19 +465,23 @@ export function HomeView({
                 }}>
                   {/* Team header — name+standing | buttons. px matches the schedule
                       strip's 2.5 below so the name/record align with the game text. */}
-                  <Box sx={{ px: 2.5, pt: 1.25, pb: 1 }}>
+                  <Box sx={{ px: 2.5, pt: 1.25, pb: teamQuiet ? 1.25 : 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography sx={{
-                          fontSize: { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,
+                          fontSize: teamQuiet ? { xs: '0.95rem', sm: '1.05rem' } : { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,
                           letterSpacing: '-0.5px', lineHeight: 1.25,
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
                           {teamLabel}
                         </Typography>
                         {standingLine && (
-                          <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.74rem' }, color: 'text.secondary', mt: 0.35, lineHeight: 1.3 }}>
-                            {standingLine}
+                          <Typography sx={{
+                            fontSize: { xs: '0.62rem', sm: '0.74rem' }, mt: 0.35, lineHeight: 1.3,
+                            color: october?.kind === 'champion' ? '#eab308' : 'text.secondary',
+                            fontWeight: october?.kind === 'champion' ? 800 : undefined,
+                          }}>
+                            {october?.kind === 'champion' && '🏆 '}{standingLine}
                           </Typography>
                         )}
                       </Box>
@@ -498,9 +516,10 @@ export function HomeView({
                     </Box>
                   </Box>
   
-                  {/* Schedule strip */}
-                  <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                    <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
+                  {/* Schedule strip. Collapsed on a quiet card: no strip, but Schedule still opens
+                      the club's whole season from it. */}
+                  <Box sx={teamQuiet ? undefined : { borderTop: '1px solid', borderColor: 'divider' }}>
+                    <Suspense fallback={teamQuiet ? null : <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
                       <TeamScheduleStrip
                         teamId={followedTeamId}
                         teamColor={bg}
@@ -508,11 +527,13 @@ export function HomeView({
                         onScheduleClose={() => { setShowTeamSchedule(false); clearOverlayIf('teamSchedule') }}
                         onPlayerClick={onPlayerClick}
                         onTeamClick={onTeamClick}
+                        collapsed={teamQuiet}
                       />
                     </Suspense>
                   </Box>
                 </Box>
               </TrackedCard>
+              )}
 
               {/* Your players — capped so a long list doesn't dominate; scrolls internally */}
               <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: 460 } }}>
@@ -532,10 +553,13 @@ export function HomeView({
                 <PredictorWidget onPicksSettled={handlePicksSettled} />
               </TrackedCard>
 
-              {/* Standings snapshot — division race if in the hunt, else the wild card */}
-              <TrackedCard card="standings" sx={{ order: ORDER.standings, minWidth: 0 }}>
-                <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
-              </TrackedCard>
+              {/* Standings snapshot: division race if in the hunt, else the wild card. Regular season
+                  only: once it is over every row reads 0% or 100%, and the bracket says it better. */}
+              {seasonOver === false && (
+                <TrackedCard card="standings" sx={{ order: ORDER.standings, minWidth: 0 }}>
+                  <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
+                </TrackedCard>
+              )}
 
               {/* Streak Survivor — daily hitter-streak game */}
               <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
@@ -543,10 +567,12 @@ export function HomeView({
               </TrackedCard>
             </>
           ) : (
-            /* No team followed: picker leads, so the feed always nudges the core action */
+            /* No team followed: a one-line invitation under the picks (see TeamPicker.tsx for why it
+               is no longer the whole grid). Same card id as the grid it replaced, so the admin
+               series runs straight through the change and shows what it did to follows. */
             <>
-              <TrackedCard card="team_picker" sx={{ order: ORDER.teamCard, minWidth: 0 }}>
-                <TeamPicker allTeams={allTeams} onSelect={onFollowTeam} />
+              <TrackedCard card="team_picker" sx={{ order: ORDER.teamCardQuiet, minWidth: 0 }}>
+                <FollowTeamPrompt onFollow={onFollowTeam} playing={playingIds} />
               </TrackedCard>
               <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, minWidth: 0 }}>
                 <FollowedPlayersSection
@@ -561,10 +587,12 @@ export function HomeView({
                 <PredictorWidget onPicksSettled={handlePicksSettled} />
               </TrackedCard>
 
-              {/* Standings snapshot — no team followed, so a rotating division */}
-              <TrackedCard card="standings" sx={{ order: ORDER.standings, minWidth: 0 }}>
-                <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
-              </TrackedCard>
+              {/* Standings snapshot: no team followed, so a rotating division. Regular season only. */}
+              {seasonOver === false && (
+                <TrackedCard card="standings" sx={{ order: ORDER.standings, minWidth: 0 }}>
+                  <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
+                </TrackedCard>
+              )}
 
               {/* Streak Survivor — daily hitter-streak game */}
               <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
@@ -577,20 +605,25 @@ export function HomeView({
         {/* ═══ Discovery column — Around the League ════════════════════════════ */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-          {/* Standout performances */}
-          <TrackedCard card="standouts">
-            <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
-          </TrackedCard>
+          {/* Standout performances: the postseason's once the regular season is over */}
+          {seasonOver != null && (
+            <TrackedCard card="standouts">
+              <TopPerformers postseason={seasonOver} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+            </TrackedCard>
+          )}
 
           {/* Roster moves — trades, DFAs, claims, signings; deadline countdown in July */}
           <TrackedCard card="roster_moves">
             <RosterMovesCard followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
           </TrackedCard>
 
-          {/* Milestone Watch — players closing in on career/season/record marks */}
-          <TrackedCard card="milestones">
-            <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} onPlayerClick={onPlayerClick} />
-          </TrackedCard>
+          {/* Milestone Watch: players closing in on career/season/record marks, and once the season
+              is over, what was reached in it */}
+          {seasonOver != null && (
+            <TrackedCard card="milestones">
+              <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} seasonOver={seasonOver} onPlayerClick={onPlayerClick} />
+            </TrackedCard>
+          )}
 
 
           {/* Featured spotlight — hot / cold. No floating section title; the
@@ -617,7 +650,7 @@ export function HomeView({
 
           {/* Daily report cards — two cards drawn from the full pool (team + player
               boards), rotating day to day. Each carries its own heading. */}
-          {selectedMetas.map(m => {
+          {seasonOver != null && selectedMetas.map(m => {
             const { rows, loading } = rowsForBoard(m)
             // Keyed by board, not by slot: the two slots rotate through fifteen boards day to
             // day, and "does anyone open the payroll board" is the question, not "the top slot".

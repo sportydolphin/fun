@@ -226,3 +226,70 @@ export function seriesLine(s: PsSeries): string | null {
   const lead = a > b ? s.top : s.bottom
   return `${lead.abbr} leads ${Math.max(a, b)}-${Math.min(a, b)}`
 }
+
+// ─── One club's October, from the bracket ─────────────────────────────────────
+//
+// What Home's team card says once the regular season is over, and whether it still leads the page.
+// A club that is still playing keeps the full card, because its next game is the most useful thing
+// on Home for its fans; a club that is out shrinks to one line, because its last game is a week old.
+
+export type TeamOctober =
+  /** In a series that has not been decided. */
+  | { kind: 'playing'; series: PsSeries; wins: number; losses: number; opp: PsTeam }
+  /** Won its latest series and the next one has not been published with it in yet. */
+  | { kind: 'advanced'; series: PsSeries; wins: number; losses: number; opp: PsTeam }
+  | { kind: 'champion'; series: PsSeries; wins: number; losses: number; opp: PsTeam }
+  | { kind: 'eliminated'; series: PsSeries; wins: number; losses: number; opp: PsTeam }
+  | { kind: 'missed' }
+
+const ROUND_ORDER: Round[] = ['wc', 'ds', 'lcs', 'ws']
+
+/**
+ * Null when the bracket cannot say: no bracket, or a field still made of placeholders. A club absent
+ * from a bracket whose field IS set missed the postseason, since every entrant plays a Wild Card
+ * series or holds a bye into a Division Series, and both of those name real clubs once the field is set.
+ */
+export function teamOctober(b: Bracket | null, teamId: number): TeamOctober | null {
+  if (!b || !fieldIsSet(b)) return null
+  const mine = SERIES_ORDER
+    .map(id => b.series[id])
+    .filter(s => (s.top.real && s.top.id === teamId) || (s.bottom.real && s.bottom.id === teamId))
+    .sort((x, y) => ROUND_ORDER.indexOf(y.round) - ROUND_ORDER.indexOf(x.round))
+  const s = mine[0]
+  if (!s) return { kind: 'missed' }
+  const isTop = s.top.id === teamId
+  const wins = isTop ? s.winsTop : s.winsBottom
+  const losses = isTop ? s.winsBottom : s.winsTop
+  const opp = isTop ? s.bottom : s.top
+  if (s.winnerId == null) return { kind: 'playing', series: s, wins, losses, opp }
+  if (s.winnerId !== teamId) return { kind: 'eliminated', series: s, wins, losses, opp }
+  return { kind: s.round === 'ws' ? 'champion' : 'advanced', series: s, wins, losses, opp }
+}
+
+/** The series as a fan of the club says it: "ALDS", "NL Wild Card Series", "World Series". */
+export function seriesName(s: Pick<PsSeries, 'round' | 'league'>): string {
+  if (s.round === 'wc') return `${s.league ?? ''} Wild Card Series`.trim()
+  if (s.round === 'ws') return 'World Series'
+  return `${s.league ?? ''}${s.round === 'ds' ? 'DS' : 'CS'}`
+}
+
+/** One line for the team card. Records read from the club's side: wins first. */
+export function teamOctoberLine(o: TeamOctober): string {
+  if (o.kind === 'missed') return 'Missed the postseason'
+  const name = seriesName(o.series)
+  const vs = o.opp.real ? ` vs ${o.opp.abbr}` : ''
+  const rec = `${o.wins}-${o.losses}`
+  switch (o.kind) {
+    case 'champion':   return `World Series champions, ${rec}${vs}`
+    case 'advanced':   return `Won the ${name} ${rec}${vs}`
+    case 'eliminated': return o.series.round === 'ws' ? `Lost the World Series ${rec}${vs}` : `Out in the ${name}, ${rec}${vs}`
+    case 'playing':
+      if (o.wins + o.losses === 0) return `${name}${vs}`
+      if (o.wins === o.losses) return `${name}: tied ${rec}${vs}`
+      return `${name}: ${o.wins > o.losses ? 'leads' : 'trails'} ${rec}${vs}`
+  }
+}
+
+/** Whether the club's season is still going, which is what keeps its card at full size. */
+export const stillPlaying = (o: TeamOctober | null): boolean =>
+  o == null || o.kind === 'playing' || o.kind === 'advanced' || o.kind === 'champion'

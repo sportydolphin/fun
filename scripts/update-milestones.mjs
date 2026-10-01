@@ -41,7 +41,14 @@ const FETCH_CONCURRENCY = 5
 // snapshots totals; the next run diffs them to catch a crossing, then the item lingers
 // this many days so it's still visible for players who don't check daily.
 const RECENT_DAYS = 7
-const TODAY = new Date().toISOString().slice(0, 10)
+
+// The day a crossing is stamped with: YESTERDAY in Eastern time, not the run's own date. The job
+// runs at 07:00 UTC, the morning after the games it is diffing, so the run date put every milestone
+// a day after it happened, and once the season ended Home showed a reached date (Sep 28) after the
+// last game had been played (Sep 27). At 03:00 Eastern, "yesterday" there is the night of the games,
+// the late West Coast ones included. Already-stored dates stay a day late; only new ones are right.
+const ACHIEVED_ON = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' })
+  .format(new Date(Date.now() - 86400000))
 
 const TEAM_ABBR = {
   108: 'LAA', 109: 'ARI', 110: 'BAL', 111: 'BOS', 112: 'CHC',
@@ -246,7 +253,7 @@ function collectProgress(player, playerId, stat, catalog, kind, prevTotals) {
       target,
       remaining: 0,
       kind: isRecord ? 'record' : kind,
-      achievedOn: TODAY,
+      achievedOn: ACHIEVED_ON,
     })
   }
   return { totals, achieved }

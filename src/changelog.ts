@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.109.0',
+    date:    '2026-10-01',
+    title:   'MLB Home knows the regular season is over',
+    changes: [
+      {
+        short: 'Predictions lead MLB Home in October',
+        full:  'Once the regular season is over, a team that missed the postseason or has been knocked out shrinks to one line under the day\'s picks, saying how its season ended. A team still playing keeps its full card, with where it stands in its series.',
+      },
+      {
+        short: 'Postseason standouts',
+        full:  'The standout card now shows the best single-game performances of the postseason, each with the game it came from, instead of the last days of the regular season.',
+      },
+      {
+        short: 'No more frozen regular-season cards',
+        full:  'The wild card race, On Fire and Ice Cold, and the remaining-schedule boards step aside once the regular season ends. Streak boards say the streaks were still alive when the season ended, and Milestone Watch leads with what was reached this season.',
+      },
+      {
+        short: 'Choosing a team takes one line',
+        full:  'With no team followed, MLB Home shows a short invitation instead of all 30 logos. Choose a team opens a sheet grouped by division, with the clubs still in the postseason marked.',
+      },
+      {
+        short: 'Milestones are dated the day they happened',
+        full:  'Milestones reached from now on carry the date of the game, not the day after.',
+      },
+    ],
+  },
+  {
     version: '1.108.1',
     date:    '2026-10-01',
     changes: [
