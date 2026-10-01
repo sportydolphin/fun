@@ -34,16 +34,35 @@ const datesCache = new Map<number, Promise<SeasonDates | null>>()
 export function fetchSeasonDates(season: number): Promise<SeasonDates | null> {
   let p = datesCache.get(season)
   if (!p) {
-    p = fetchDates(season).then(d => { if (d) rememberOpeningDay(season, d.regularSeasonStart); return d })
+    p = fetchDates(season).then(d => { if (d) remember(season, d); return d })
     datesCache.set(season, p)
   }
   return p
 }
 
-// Opening day per year, kept for constants.ts, which has to decide the season to show before any
-// request can return (see CURRENT_SEASON there). Best effort; storage may be off.
-function rememberOpeningDay(year: number, iso: string) {
-  try { localStorage.setItem(OPENING_DAY_KEY(year), iso) } catch { /* storage off */ }
+// THE CALENDAR, REMEMBERED. Two readers need it before any request can return: constants.ts,
+// deciding which season to show (it reads the opening day), and Home's first paint (it reads the
+// whole calendar, below). It changes a few times a year, and asking the network for it on every
+// visit made Home draw its season cards a beat late and shove the page around as they arrived.
+// Best effort; storage may be off.
+const DATES_KEY = (year: number) => `mlb_season_dates_${year}`
+function remember(year: number, d: SeasonDates) {
+  try {
+    localStorage.setItem(OPENING_DAY_KEY(year), d.regularSeasonStart)
+    localStorage.setItem(DATES_KEY(year), JSON.stringify(d))
+  } catch { /* storage off */ }
+}
+
+/**
+ * The phase from the calendar this device last read, with no request: what Home draws on its first
+ * paint. It cannot see a makeup game still to be played (that needs a read), so the network phase
+ * replaces it a moment later on the day or two a year that differs. Null when nothing is remembered.
+ */
+export function rememberedPhase(season: number, now = new Date()): SeasonPhase | null {
+  try {
+    const raw = localStorage.getItem(DATES_KEY(season))
+    return raw ? phaseOn(JSON.parse(raw) as SeasonDates, localISO(now)) : null
+  } catch { return null }
 }
 
 const localISO = (d: Date) =>
@@ -81,7 +100,7 @@ export const seasonIsOver = (season: number): Promise<boolean> => fetchSeasonPha
  * holds back only the cards whose shape depends on it, so the scores and the bracket never wait.
  */
 export function useSeasonPhase(season: number): SeasonPhase | null {
-  const [phase, setPhase] = useState<SeasonPhase | null>(null)
+  const [phase, setPhase] = useState<SeasonPhase | null>(() => rememberedPhase(season))
   const dev = useDevSeasonPhase()
   useEffect(() => {
     let cancelled = false

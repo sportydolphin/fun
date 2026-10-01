@@ -387,8 +387,10 @@ export function VizView({
           <Box sx={{
             display: 'flex',
             width: '200%',
-            marginLeft: vizTab === 'report-card' ? '0%' : '-100%',
-            transition: 'margin-left 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+            // A transform rather than margin-left, so the slide is not layout (and never a layout
+            // shift). Percent of the 200% track, so one panel is -50%.
+            transform: vizTab === 'report-card' ? 'translateX(0%)' : 'translateX(-50%)',
+            transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             alignItems: 'flex-start',
           }}>
 

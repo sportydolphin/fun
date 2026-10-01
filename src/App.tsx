@@ -1410,7 +1410,10 @@ function AppInner() {
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
           {path === '/mlb' && (
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+            // A screen tall, for the reason the /wpbl fallback below gives: at spinner height the
+            // footer painted halfway up the screen and was then shoved off it, 0.13 of layout shift
+            // on a desktop load (Oct 1, 2026). The section keeps itself a screen tall once it is in.
+            <Suspense fallback={<Box sx={{ minHeight: 'calc(100dvh / var(--app-zoom, 1))', display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>}>
               {/* On a phone MLB has the floating bottom bar, so the footer rides inside the section
                   above the room reserved for the bar, the same arrangement as WPBL. */}
               <MlbStats renderFooter={() => (

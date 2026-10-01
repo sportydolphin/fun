@@ -249,6 +249,13 @@ export default function MlbStats({ renderFooter }: { renderFooter?: () => ReactN
         </Box>
       )}
 
+      {/* THE TAB'S CONTENT, AT LEAST A SCREEN TALL. On a phone the site footer renders right after
+          it (below), so while a tab is still loading the footer sat just under a few lines of
+          placeholder and was shoved off the screen as the content arrived: 0.14 of layout shift on
+          the Leaders board, the most visited MLB tab. Holding the content a screen tall keeps the
+          footer below the fold from the first paint. Divided by the desktop zoom, which scales
+          viewport units too. */}
+      <Box sx={{ minHeight: 'calc(100dvh / var(--app-zoom, 1))' }}>
       {/* The Stats tab's three boards. */}
       {onStatsTab && (
         <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
@@ -435,6 +442,8 @@ export default function MlbStats({ renderFooter }: { renderFooter?: () => ReactN
           teamRoster={state.teamRoster}
         />
       )}
+
+      </Box>
 
       {/* On a phone the site footer sits here, inside the room reserved for the bar, rather than
           below the section where the bar would cover it. App.tsx drops its own copy at this width. */}

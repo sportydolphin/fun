@@ -34,7 +34,7 @@ import { PlayoffBracketCard } from './PlayoffBracket'
 import { FollowTeamPrompt } from './TeamPicker'
 import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { useDevNoTeam } from '../dev/devSeasonPhase'
-import { fetchBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
+import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,7 +136,7 @@ export function HomeView({
   // The bracket, once the regular season is over: it says whether the followed club is still
   // playing. Shared with the bracket card's own read (fetchBracket caches), so it costs nothing.
   // `undefined` is "not read yet", which the team card waits on; null is "no bracket".
-  const [bracket, setBracket] = useState<Bracket | null | undefined>(undefined)
+  const [bracket, setBracket] = useState<Bracket | null | undefined>(() => seededBracket(CURRENT_SEASON) ?? undefined)
   useEffect(() => {
     if (seasonOver !== true) return
     let cancelled = false

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import { CURRENT_SEASON, TEAM_BG, TEAM_NICKNAME } from '../constants'
 import { LogoBubble, LiveDot } from '../components/boxScore'
 import { SegControl } from '../components/ui'
@@ -8,7 +8,7 @@ import { ModalShell } from '../../ui/ModalShell'
 import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
-import { fetchBracket, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
+import { fetchBracket, seededBracket, bracketLikely, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
 import type { Bracket, PsSeries, PsGame, PsTeam, Round } from '../postseason'
 import type { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
@@ -231,6 +231,25 @@ function SeriesSheet({ s, onClose, onTeamClick, onPlayerClick }: {
   )
 }
 
+/** The bracket's shape while its first read is in flight: the heading row and four series. */
+export function BracketSkeleton({ compact }: { compact: boolean }) {
+  return (
+    <Box aria-hidden>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25 }}>
+        <Skeleton variant="text" sx={{ width: '7.5rem', fontSize: '0.7rem' }} />
+        <Skeleton variant="rounded" sx={{ ml: 'auto', width: 176, height: 31, borderRadius: 999 }} />
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: compact ? '1fr 1fr' : '1fr', sm: '1fr 1fr' }, gap: 1 }}>
+        {[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" sx={{ height: SERIES_CARD_H, borderRadius: 2.5 }} />)}
+      </Box>
+    </Box>
+  )
+}
+
+// A series card's height at the default text size (127px, measured): label, two club rows, the
+// status line. In rem so it grows with the reader's text size the way the real card does.
+const SERIES_CARD_H = '7.95rem'
+
 /**
  * The bracket card. Draws nothing until the league has published a postseason (or if the feed is
  * not the shape postseason.ts expects), so it can sit on Home all year.
@@ -243,13 +262,15 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
    *  Four full-width Wild Card series were a screen of Home on their own. */
   compact?: boolean
 }) {
-  const [bracket, setBracket] = useState<Bracket | null>(null)
+  // Drawn from the last read on this device first (see seededBracket), then from the network.
+  const [bracket, setBracket] = useState<Bracket | null>(() => seededBracket(CURRENT_SEASON))
+  const [loaded, setLoaded] = useState(false)
   const [round, setRound] = useState<Round | null>(null)
   const [openId, setOpenId] = useState<PsSeries['id'] | null>(null)
 
   useEffect(() => {
     let alive = true
-    fetchBracket(CURRENT_SEASON).then(b => { if (alive) setBracket(b) })
+    fetchBracket(CURRENT_SEASON).then(b => { if (alive) { setBracket(b); setLoaded(true) } })
     return () => { alive = false }
   }, [])
   // Fresh while a game is on, and every few minutes on a day with games still to come; a quiet day
@@ -261,6 +282,10 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
     fetchBracket(CURRENT_SEASON, true).then(b => { if (b) setBracket(b) })
   }, anyLive ? 30_000 : gamesToday ? 180_000 : null)
 
+  // No seed on this device yet: hold the room a bracket takes while one is likely, so its arrival
+  // does not push the page down. Four series is the tallest round; a later round with fewer gives
+  // a little back, which is a far smaller move than the whole card arriving from nothing.
+  if (!bracket && !loaded && bracketLikely()) return <BracketSkeleton compact={compact} />
   // Not before the field is set; see fieldIsSet.
   if (!bracket || !fieldIsSet(bracket)) return null
   const shown: Round = round ?? bracket.current

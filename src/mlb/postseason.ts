@@ -184,14 +184,44 @@ const FIELDS = 'series,id,games,gamePk,gameDate,gameType,status,abstractGameStat
 let cache: { season: number; at: number; p: Promise<Bracket | null> } | null = null
 const FRESH_MS = 60_000
 
+// THE LAST GOOD READ, kept for the next visit. The bracket sits near the top of Home and is about
+// 300px tall on a phone, and it arrived a beat after the rest of the page: measured on Oct 1, 2026,
+// that one late arrival shoved everything under it down and scored 0.35 of layout shift on its own,
+// past Google's 0.25 line for "poor". Drawn from this seed it is on the page from the first paint,
+// and the network read that follows only updates it. The raw feed is stored rather than the built
+// bracket, so a change to buildBracket applies to old seeds too. Best effort; storage may be off.
+const SEED_KEY = (season: number) => `mlb_bracket_seed_${season}`
+
+/** The bracket as last read on this device, built synchronously for a first paint. */
+export function seededBracket(season: number): Bracket | null {
+  try {
+    const raw = localStorage.getItem(SEED_KEY(season))
+    return raw ? buildBracket(season, JSON.parse(raw)) : null
+  } catch { return null }
+}
+
 export function fetchBracket(season: number, force = false): Promise<Bracket | null> {
   if (!force && cache && cache.season === season && Date.now() - cache.at < FRESH_MS) return cache.p
   const p = fetch(`https://statsapi.mlb.com/api/v1/schedule/postseason/series?season=${season}&sportId=1&hydrate=linescore&fields=${FIELDS}`)
     .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json() })
-    .then(d => buildBracket(season, d))
+    .then(d => {
+      const b = buildBracket(season, d)
+      if (b) { try { localStorage.setItem(SEED_KEY(season), JSON.stringify(d)) } catch { /* storage off or full */ } }
+      return b
+    })
     .catch(() => null)
   cache = { season, at: Date.now(), p }
   return p
+}
+
+/**
+ * Whether a bracket is likely to draw today, for reserving its room before the read returns: from
+ * the last days of September, when the field is set, through the winter it stays up for, to the
+ * spring. Wrong only at the edges, where the cost is one shift, not a page that never settles.
+ */
+export function bracketLikely(now = new Date()): boolean {
+  const m = now.getMonth()
+  return m >= 9 || m <= 2 || (m === 8 && now.getDate() >= 27)
 }
 
 /** Whether the field is set: all four Wild Card series between real clubs. The league can publish

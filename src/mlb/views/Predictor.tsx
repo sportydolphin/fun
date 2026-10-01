@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN, isRealClub, CURRENT_SEASON } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
@@ -934,6 +934,15 @@ export function PredictorWidget({ onPicksSettled }: {
             </Typography>
           )}
         </Box>
+
+        {/* While the slate loads, the room one quick-pick row takes, which is the card's shape on
+            nearly every day with games. Without it the card grew by a third as the games arrived,
+            and on a phone everything under it moved. */}
+        {loading && (
+          <Box aria-hidden sx={{ px: 2.5, pb: 1.75, pt: 0.25 }}>
+            <Skeleton variant="rounded" sx={{ height: 51, borderRadius: 2 }} />
+          </Box>
+        )}
 
         {/* Inline quick picks — up to 3 open matchups, tap a logo to pick right here */}
         {!loading && quickPicks.length > 0 && (

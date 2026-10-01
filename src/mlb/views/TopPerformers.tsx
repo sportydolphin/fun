@@ -331,9 +331,14 @@ export function TopPerformers({
     ? [renderContent(performers[activeIdx], '100%')]
     : [renderContent(performers[slide.fromIdx], '50%'), renderContent(performers[slide.toIdx], '50%')]
 
-  const marginLeft = !slide ? '0%'
-    : slide.dir === 1 ? (sliding ? '-100%' : '0%')
-    : (sliding ? '0%' : '-100%')
+  // A TRANSFORM, NOT A MARGIN. The track used to move by animating margin-left, which is layout,
+  // and the browser scores layout that moves without a tap as a layout shift: every auto-advance
+  // added about 0.06 to the page's CLS, once every 15 seconds for as long as the card was on
+  // screen (measured Oct 1, 2026). A transform moves the same pixels and is not layout. It is a
+  // percentage of the TRACK, which is 200% of the card while sliding, so a pane is -50%.
+  const shift = !slide ? '0%'
+    : slide.dir === 1 ? (sliding ? '-50%' : '0%')
+    : (sliding ? '0%' : '-50%')
 
   // The label + count swap to the incoming performer the instant a slide kicks
   // off (not just once it completes). The border and background gradient, by
@@ -432,12 +437,12 @@ export function TopPerformers({
             display: 'flex',
             flexDirection: slide?.dir === -1 ? 'row-reverse' : 'row',
             width: slide ? '200%' : '100%',
-            marginLeft,
+            transform: `translateX(${shift})`,
             // Transition only during phase 2 (sliding). Phase 1 must plant the
             // start offset with NO transition, or "prev" (whose start offset is
             // -100%, unlike "next" whose start matches the idle 0%) never gets a
             // stationary base to animate from and snaps instead of sliding.
-            transition: slide && sliding ? `margin-left ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
+            transition: slide && sliding ? `transform ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
           }}>
             {trackChildren}
           </Box>

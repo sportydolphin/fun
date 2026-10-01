@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Typography, Skeleton, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON } from '../constants'
 import { useIsDark, defaultBorder } from '../lib/colorUtils'
@@ -11,7 +11,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
 import { fetchSeasonDates } from '../seasonPhase'
-import { postseasonGameLabel, isDecider } from '../postseason'
+import { postseasonGameLabel, isDecider, bracketLikely } from '../postseason'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 
@@ -771,8 +771,12 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
 
         {/* Body */}
         {loading ? (
-          <Box sx={{ py: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading…</Typography>
+          // The strip's own shape while it loads: a short line of text here, then a row of cards a
+          // third again as tall, moved everything under it on every visit.
+          <Box aria-hidden sx={{ display: 'flex', gap: 1, px: 0.25, py: 1, overflow: 'hidden' }}>
+            {[0, 1, 2, 3].map(i => (
+              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: 124, height: bracketLikely() ? 83 : 71, borderRadius: 2 }} />
+            ))}
           </Box>
         ) : games.length === 0 ? (
           <Box sx={{ py: 3, textAlign: 'center' }}>

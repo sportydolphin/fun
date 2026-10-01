@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.111.1',
+    date:    '2026-10-01',
+    changes: [
+      {
+        short: 'MLB pages stay put while they load',
+        full:  'MLB Home, Standings and the stats boards no longer jump around as they finish loading. The playoff bracket appears straight away on a return visit, the scores, bracket and predictions hold their space while they load, and the standout card slides without moving the page.',
+      },
+    ],
+  },
+  {
     version: '1.111.0',
     date:    '2026-10-01',
     title:   'MLB is ready for the winter',

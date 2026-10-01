@@ -7,8 +7,8 @@ import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { SegControl } from '../components'
 import { PlayoffOddsBoard } from './PlayoffOddsBoard'
 import { useDeepLink } from '../state/deepLink'
-import { PlayoffBracketCard } from './PlayoffBracket'
-import { fetchBracket, fieldIsSet } from '../postseason'
+import { PlayoffBracketCard, BracketSkeleton } from './PlayoffBracket'
+import { fetchBracket, seededBracket, bracketLikely, fieldIsSet } from '../postseason'
 
 type Mode = 'bracket' | 'divisions' | 'playoffs' | 'odds'
 
@@ -411,7 +411,11 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
 }) {
-  const [mode, setModeState] = useState<Mode>('divisions')
+  // Seeded from the last bracket read on this device (see seededBracket), so in October the tab
+  // opens on the bracket instead of drawing the divisions and swapping them out a moment later,
+  // which moved the whole page under the reader.
+  const [seed] = useState(() => { const b = seededBracket(season); return b && fieldIsSet(b) ? b : null })
+  const [mode, setModeState] = useState<Mode>(() => (seed && !seed.over ? 'bracket' : 'divisions'))
   // Once the reader picks a mode, a late-arriving bracket does not take the tab over from them.
   const picked = useRef(false)
   const setMode = (m: Mode) => { picked.current = true; setModeState(m) }
@@ -420,11 +424,17 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
   useDeepLink('bracket', () => setMode('bracket'))
   // THE BRACKET IS A MODE ONLY WHILE THERE IS ONE, and the default mode while it is being played:
   // in October "who plays whom" is the standings question, and the regular-season table is final.
-  const [hasBracket, setHasBracket] = useState(false)
+  const [hasBracket, setHasBracket] = useState(!!seed)
+  // With no seed, in the months a bracket is likely, the tab waits the one read it takes to know
+  // which mode it opens on, rather than drawing the divisions and swapping them out (0.25 of layout
+  // shift on a first visit, measured). Outside those months it never waits.
+  const [bracketChecked, setBracketChecked] = useState(() => !!seed || !bracketLikely())
   useEffect(() => {
     let alive = true
     fetchBracket(season).then(b => {
-      if (!alive || !b || !fieldIsSet(b)) return
+      if (!alive) return
+      setBracketChecked(true)
+      if (!b || !fieldIsSet(b)) return
       setHasBracket(true)
       if (!b.over && !picked.current) setModeState('bracket')
     })
@@ -482,7 +492,9 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
 
       {/* Odds mode fetches its own precomputed data, so it renders independent of
           the live standings load/error above. */}
-      {mode === 'bracket' ? (
+      {!bracketChecked ? (
+        <BracketSkeleton compact={false} />
+      ) : mode === 'bracket' ? (
         <PlayoffBracketCard heading="Bracket" onTeamClick={onTeamClick} />
       ) : mode === 'odds' ? (
         <PlayoffOddsBoard season={season} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />

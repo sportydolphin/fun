@@ -97,8 +97,15 @@ goes first and the rest is winter work.
    URLs in `shared/notifications.js` (`/mlb?view=home&open=predictor`) keep working. The
    969-line `useMlbState` becomes route-driven.
 5. 🟡 **Load cost.** *Done Sep 28:* one `/teams/stats` read per group replaces the 60 per-club
-   reads behind a team's league ranks and the Visualize charts. *Open:* lazy views, skeletons,
-   last-good seeds.
+   reads behind a team's league ranks and the Visualize charts. *Done Oct 1, layout shift:* field
+   CLS was 0.227 at p75 on phones (Google's "poor" starts at 0.25), measured with headless Chrome
+   at 0.35 on a fresh Home load and 0.29 on desktop. The late bracket alone was 0.35; the standout
+   carousel added about 0.06 a slide by animating margin-left. Now the bracket and the season
+   calendar are seeded from the last read on the device, the scores, bracket, Standings and
+   predictions hold their room while loading, the MLB content (and its Suspense fallback) is a
+   screen tall so the footer never starts mid-screen, and both carousels move by transform. Every
+   tab now measures under 0.1 on a phone and a desktop. *Open:* lazy views; INP on phones is
+   232ms at p75 (over the 200ms line) and has not been looked at.
 5b. ✅ **A postseason bracket** (Sep 28, `postseason.ts`, `views/PlayoffBracket.tsx`). Not in the
    original plan: MLB had no postseason surface at all, and October is the window. One read of
    `/schedule/postseason/series` gives all eleven series; the series ids fix the shape and every
