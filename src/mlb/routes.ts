@@ -188,6 +188,8 @@ export interface MlbSnapshot {
   lb?: 'hitting' | 'pitching'
   allTime?: boolean
   season?: number | null
+  /** Regular season (the default, left off the address), postseason, or both. */
+  games?: 'regular' | 'post' | 'all'
 }
 
 /** The full address of a snapshot: the path, plus the board filters the path cannot say. */
@@ -201,6 +203,7 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
     if (s.lb === 'pitching') params.set('lb', 'pitching')
     if (s.view === 'stats' && s.allTime) params.set('season', 'all')
     else if (s.season != null && currentSeason != null && s.season !== currentSeason) params.set('season', String(s.season))
+    if (s.view !== 'viz' && s.games && s.games !== 'regular') params.set('games', s.games)
   }
   const qs = params.toString()
   return qs ? `${path}?${qs}` : path

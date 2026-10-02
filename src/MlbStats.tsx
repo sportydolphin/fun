@@ -381,6 +381,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           setLbGroup={state.setLbGroup}
           vizSeason={state.vizSeason}
           setVizSeason={state.setVizSeason}
+          gameScope={state.lbGameScope}
+          setGameScope={state.setLbGameScope}
           lbData={state.lbData}
           loadingLb={state.loadingLb}
           lbSelectedKeys={state.lbSelectedKeys}
@@ -404,6 +406,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           setVizSeason={state.setVizSeason}
           allTime={state.statsAllTime}
           setAllTime={state.setStatsAllTime}
+          gameScope={state.lbGameScope}
+          setGameScope={state.setLbGameScope}
           lbData={state.lbData}
           lbFullscreen={state.lbFullscreen}
           setLbFullscreen={state.setLbFullscreen}

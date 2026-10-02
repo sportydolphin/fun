@@ -3,6 +3,8 @@ import { TEAM_ABBR, CURRENT_SEASON } from './constants'
 import { supabase } from '../lib/supabase'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'
 import { seasonIsOver } from './seasonPhase'
+import { combineEntries, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from './lib/gameScope'
+import type { GameScope } from './lib/gameScope'
 
 // Public API surface split across sibling modules — re-exported so existing
 // `from '../api'` imports across the app keep resolving unchanged.
@@ -172,13 +174,22 @@ export async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', 
   catch { return null }
 }
 
-// Fetch all player stats for a season and return structured entries for leaderboard display
+// Fetch all player stats for a season and return structured entries for leaderboard display.
+// `scope` 'all' is the two halves summed per player, since StatsAPI has no combined pool.
 export async function fetchLeaderboardData(
   group: 'hitting' | 'pitching',
-  season: number
+  season: number,
+  scope: GameScope = 'regular',
 ): Promise<LeaderboardEntry[]> {
+  if (scope === 'all') {
+    const [regular, post] = await Promise.all([
+      fetchLeaderboardData(group, season, 'regular'),
+      fetchLeaderboardData(group, season, 'post'),
+    ])
+    return combineEntries(regular, post)
+  }
   try {
-    const splits = await fetchSeasonPlayerStats(group, season)
+    const splits = await fetchSeasonPlayerStats(group, season, scope === 'post' ? 'P' : 'R')
     return splits.map((s: any) => ({
       playerId: Number(s.player?.id),
       playerName: s.player?.fullName ?? '—',
@@ -263,14 +274,33 @@ export interface AllTimeEntry {
   qualified:  boolean
 }
 
-const allTimeCache = new Map<'hitting' | 'pitching', Promise<AllTimeEntry[]>>()
+const allTimeCache = new Map<string, Promise<AllTimeEntry[]>>()
 
-export function fetchAllTimeLeaderboardData(group: 'hitting' | 'pitching'): Promise<AllTimeEntry[]> {
-  if (!allTimeCache.has(group)) {
-    const specs = CAREER_SORTS[group]
+// CAREER POSTSEASON HAS NO QUALIFIED POOL. StatsAPI answers `playerPool=Qualified&gameType=P` with
+// zero rows, and its All pool sorted by a rate is a list of pitchers with one scoreless inning. So
+// the postseason pool is built from volume instead (the counting leaders, plus the 400 players with
+// the most plate appearances or innings), and "qualified" is a bar of ours. 100 PA and 40 IP is
+// roughly four and a half postseason series of a regular's at-bats, and a starter's dozen-odd
+// starts: enough that one hot October cannot top the board, low enough that the board is not
+// only the dynasty clubs.
+const CAREER_POST_VOLUME: Record<'hitting' | 'pitching', string> = { hitting: 'plateAppearances', pitching: 'inningsPitched' }
+
+// Career postseason is a pool of its own (`gameType=P`), and the same leaders-union applies. There
+// is no career "All": the pools are each stat's top 100, so a player can be in one and not the
+// other, and summing what happens to be present would publish half a career as the whole of one.
+export function fetchAllTimeLeaderboardData(group: 'hitting' | 'pitching', scope: 'regular' | 'post' = 'regular'): Promise<AllTimeEntry[]> {
+  const key = `${group}-${scope}`
+  if (!allTimeCache.has(key)) {
+    const post = scope === 'post'
+    const specs: Array<CareerSortSpec & { limit?: number }> = post
+      ? [
+          ...CAREER_SORTS[group].filter(s => s.pool === 'All'),
+          { field: CAREER_POST_VOLUME[group], pool: 'All', order: 'desc', limit: 400 },
+        ]
+      : CAREER_SORTS[group]
     const p = Promise.all(specs.map(spec =>
-      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=career&group=${group}&sportId=1&limit=100` +
-        `&playerPool=${spec.pool}&sortStat=${spec.field}&order=${spec.order}`)
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=career&group=${group}&sportId=1&limit=${spec.limit ?? 100}` +
+        `&playerPool=${spec.pool}&sortStat=${spec.field}&order=${spec.order}${post ? '&gameType=P' : ''}`)
         .then(r => r.json())
         .then((d: any) => ({ spec, splits: (d.stats?.[0]?.splits ?? []) as any[] }))
         .catch(() => ({ spec, splits: [] as any[] }))
@@ -299,11 +329,19 @@ export function fetchAllTimeLeaderboardData(group: 'hitting' | 'pitching'): Prom
           })
         }
       }
-      return [...byId.values()]
+      const entries = [...byId.values()]
+      if (post) {
+        for (const e of entries) {
+          e.qualified = group === 'hitting'
+            ? Number(e.stat?.plateAppearances ?? 0) >= CAREER_POST_MIN_PA
+            : parseFloat(String(e.stat?.inningsPitched ?? 0)) >= CAREER_POST_MIN_IP
+        }
+      }
+      return entries
     }).catch(() => [])
-    allTimeCache.set(group, p)
+    allTimeCache.set(key, p)
   }
-  return allTimeCache.get(group)!
+  return allTimeCache.get(key)!
 }
 
 export async function fetchTeamRankings(group: 'hitting' | 'pitching', season: number, defs: StatDef[]): Promise<Map<string, number[]>> {

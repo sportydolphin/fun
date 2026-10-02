@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.113.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'Playoff stats on MLB',
+        full:  'The MLB Leaders and Table boards switch between the regular season, the playoffs, or both together, for any season, and the all-time table has career playoff leaders too.',
+      },
+    ],
+  },
+  {
     version: '1.112.0',
     date:    '2026-10-02',
     changes: [

@@ -4,9 +4,11 @@ import {
 } from '@mui/material'
 import { Tune, KeyboardArrowDown, OpenInFull } from '@mui/icons-material'
 import { StatDef, LbFullscreenState, LeaderboardEntry } from '../types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
+import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { SegControl, PillChip, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
+import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
+import type { GameScope } from '../lib/gameScope'
 import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 
 export interface LeaderboardViewProps {
@@ -14,6 +16,8 @@ export interface LeaderboardViewProps {
   setLbGroup: (g: 'hitting' | 'pitching') => void
   vizSeason: number
   setVizSeason: (s: number) => void
+  gameScope: GameScope
+  setGameScope: (s: GameScope) => void
   lbData: LeaderboardEntry[] | null
   loadingLb: boolean
   lbSelectedKeys: string[]
@@ -25,7 +29,7 @@ export interface LeaderboardViewProps {
 }
 
 export function LeaderboardView({
-  lbGroup, setLbGroup, vizSeason, setVizSeason,
+  lbGroup, setLbGroup, vizSeason, setVizSeason, gameScope, setGameScope,
   lbData, loadingLb, lbSelectedKeys, setLbSelectedKeys,
   isDesktop, canHover, handleLbPlayerClick, onOpenStats,
 }: LeaderboardViewProps) {
@@ -50,11 +54,18 @@ export function LeaderboardView({
     <Box>
       {/* Controls row */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
-        <SegControl
-          options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-          value={lbGroup}
-          onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
-        />
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SegControl
+            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+            value={lbGroup}
+            onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
+          />
+          <SegControl
+            options={GAME_SCOPES.map(s => ({ value: s, label: GAME_SCOPE_LABEL[s] }))}
+            value={gameScope}
+            onChange={v => setGameScope(v as GameScope)}
+          />
+        </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
             <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
@@ -151,6 +162,12 @@ export function LeaderboardView({
 
       {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
+      {!loadingLb && lbData && lbData.length === 0 && gameScope === 'post' && (
+        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+          No playoff games in {vizSeason}{vizSeason >= CURRENT_SEASON ? ' yet' : ''}.
+        </Typography>
+      )}
+
       {!loadingLb && lbData && (() => {
         const defs = lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key))
         const MEDALS = ['🥇', '🥈', '🥉']
@@ -159,7 +176,7 @@ export function LeaderboardView({
         // handful of ABs/IP could camp the top of AVG/ERA. Counting-stat boards
         // (SB, HR, saves…) must include everyone, since part-time players can
         // still lead them.
-        const qualifiedData = filterQualified(lbData, lbGroup)
+        const qualifiedData = filterQualified(lbData, lbGroup, gameScope)
         return (
           <Box
             onMouseLeave={() => setLbHoverId(null)}

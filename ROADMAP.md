@@ -104,6 +104,13 @@ goes first and the rest is winter work.
    query, the `pid=` in the address) went on naming the player; a tab now clears the selection.
    *Open:* `/mlb/games/<pk>`, since Game Center is still a sheet reached by `open=game`; and
    `useMlbState` reads the address but is not yet driven by it.
+   *Done Oct 2 (v1.113.0), Regular / Playoffs / All* on the Leaders and Table boards
+   (`lib/gameScope.ts`, `games=` on the address). StatsAPI serves the postseason as `gameType=P`
+   and has no combined pool, so All is summed per player with every rate rebuilt from its counts.
+   The postseason qualifier is MLB's 3.1 PA / 1 IP per team game counted per club, since the
+   regular rule's single bar with its 30 PA floor emptied every board for the first week. Career
+   playoffs have no qualified pool in StatsAPI at all, so that board is built from volume with a
+   bar of ours (100 PA, 40 IP), and career offers no All.
 5. 🟡 **Load cost.** *Done Sep 28:* one `/teams/stats` read per group replaces the 60 per-club
    reads behind a team's league ranks and the Visualize charts. *Done Oct 1, layout shift:* field
    CLS was 0.227 at p75 on phones (Google's "poor" starts at 0.25), measured with headless Chrome

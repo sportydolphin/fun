@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react'
 import { Box, Typography, Paper, CircularProgress } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
+import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { SegControl, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
+import { GAME_SCOPES, GAME_SCOPE_LABEL, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from '../lib/gameScope'
+import type { GameScope } from '../lib/gameScope'
 import { scrollBehavior } from '../../lib/motion'
 
 export interface StatsViewProps {
@@ -13,6 +15,8 @@ export interface StatsViewProps {
   setVizSeason: (s: number) => void
   allTime: boolean
   setAllTime: (b: boolean) => void
+  gameScope: GameScope
+  setGameScope: (s: GameScope) => void
   lbData: LeaderboardEntry[] | null
   lbFullscreen: LbFullscreenState | null
   setLbFullscreen: (s: LbFullscreenState | null | ((prev: LbFullscreenState | null) => LbFullscreenState | null)) => void
@@ -30,7 +34,7 @@ export interface StatsViewProps {
 }
 
 export function StatsView({
-  lbGroup, setLbGroup, vizSeason, setVizSeason, allTime, setAllTime,
+  lbGroup, setLbGroup, vizSeason, setVizSeason, allTime, setAllTime, gameScope, setGameScope,
   lbData, lbFullscreen, setLbFullscreen,
   lbStatsLimit, setLbStatsLimit,
   lbQualified, setLbQualified,
@@ -82,7 +86,7 @@ export function StatsView({
     // can't do this job — its thresholds are season-based and would nuke everyone
     // when measured against career totals.
     if (allTime) return activeDef.isRate ? all.filter(e => e.qualified) : all
-    return lbQualified && activeDef.isRate ? filterQualified(all, lbGroup) : all
+    return lbQualified && activeDef.isRate ? filterQualified(all, lbGroup, gameScope) : all
   })()
 
   const sortedEntries = qualifiedPool
@@ -134,16 +138,28 @@ export function StatsView({
   }).length
 
   const loadingLb = lbData == null
+  // Career has no "All" (see fetchAllTimeLeaderboardData): the option is not offered there, and a
+  // reader who had it chosen sees the regular season, which is what the board then shows.
+  const scopes = allTime ? GAME_SCOPES.filter(s => s !== 'all') : GAME_SCOPES
+  const shownScope: GameScope = allTime && gameScope === 'all' ? 'regular' : gameScope
+  const scopeNote = shownScope === 'post' ? ' · Playoffs' : shownScope === 'all' ? ' · Regular + playoffs' : ''
 
   return (
     <Box>
       {/* Controls row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, gap: 1 }}>
-        <SegControl
-          options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-          value={lbGroup}
-          onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
-        />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SegControl
+            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+            value={lbGroup}
+            onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
+          />
+          <SegControl
+            options={scopes.map(s => ({ value: s, label: GAME_SCOPE_LABEL[s] }))}
+            value={shownScope}
+            onChange={v => { setGameScope(v as GameScope); setLbStatsLimit(50) }}
+          />
+        </Box>
         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
           <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
             <select
@@ -182,7 +198,13 @@ export function StatsView({
 
       {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
-      {!loadingLb && lbData && (
+      {!loadingLb && lbData && lbData.length === 0 && shownScope === 'post' && (
+        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+          No playoff games in {vizSeason}{vizSeason >= CURRENT_SEASON ? ' yet' : ''}.
+        </Typography>
+      )}
+
+      {!loadingLb && lbData && lbData.length > 0 && (
         <Paper elevation={2} sx={{
           borderRadius: { xs: 0, sm: 3 },
           overflow: 'hidden',
@@ -200,11 +222,13 @@ export function StatsView({
               {activeDef.leaderLabel ?? activeDef.label}
             </Typography>
             <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-              {allTime ? 'All-Time · Career' : `${vizSeason} MLB`}
+              {allTime ? 'All-Time · Career' : `${vizSeason} MLB`}{scopeNote}
               {/* Say which population this is: an all-time rate board is qualified
                   players only, and reversing it shows the worst of them, not the
                   worst of everyone who ever played. */}
-              {allTime && activeDef.isRate ? ' · Qualified' : ''}
+              {allTime && activeDef.isRate
+                ? shownScope === 'post' ? ` · Min ${lbGroup === 'hitting' ? `${CAREER_POST_MIN_PA} PA` : `${CAREER_POST_MIN_IP} IP`}` : ' · Qualified'
+                : ''}
               {allTime && !activeDef.isRate ? ' · Leaders' : ''}
               {activeDef.lowerIsBetter ? ' · lower = better' : ''}
             </Typography>

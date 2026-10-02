@@ -52,7 +52,31 @@ export function parseIP(ip: any): number {
 // Filter a leaderboard pool down to "qualified" players — enough plate
 // appearances (hitting) or innings pitched (pitching) relative to the season's
 // leader, so a player with 3 ABs can't camp the top of a rate-stat board.
-export function filterQualified<T extends { stat: any }>(entries: T[], group: 'hitting' | 'pitching'): T[] {
+//
+// THE POSTSEASON IS JUDGED PER CLUB, because the clubs do not play the same number of games: a
+// Wild Card loser is out after two while a pennant winner plays fifteen or more. One threshold
+// from the busiest player either bars every eliminated club's hitters or, with the regular season's
+// 30 PA floor, bars everybody for the first week. So it is MLB's own rule, 3.1 PA or 1 IP per team
+// game, counted for each player's club: a club's games are its busiest hitter's games played, or
+// the starts its pitchers made between them (every game has exactly one starter).
+export function filterQualified<T extends { stat: any; teamId?: number }>(
+  entries: T[], group: 'hitting' | 'pitching', scope: 'regular' | 'post' | 'all' = 'regular',
+): T[] {
+  if (scope === 'post') {
+    const games = new Map<number, number>()
+    for (const e of entries) {
+      const t = e.teamId ?? 0
+      const g = group === 'hitting' ? Number(e.stat?.gamesPlayed ?? 0) : Number(e.stat?.gamesStarted ?? 0)
+      games.set(t, group === 'hitting' ? Math.max(games.get(t) ?? 0, g) : (games.get(t) ?? 0) + g)
+    }
+    return entries.filter(e => {
+      const g = games.get(e.teamId ?? 0) ?? 0
+      if (!g) return false
+      return group === 'hitting'
+        ? Number(e.stat?.plateAppearances ?? 0) >= Math.round(g * 3.1)
+        : parseIP(e.stat?.inningsPitched) >= g
+    })
+  }
   if (group === 'hitting') {
     const maxPA = Math.max(0, ...entries.map(e => Number(e.stat?.plateAppearances ?? 0)))
     const estGames = maxPA > 0 ? Math.round(maxPA / 4.3) : 162

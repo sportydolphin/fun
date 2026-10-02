@@ -8,11 +8,13 @@
 // averages — all share a single network request per (group, season).
 const seasonStatsCache = new Map<string, Promise<any[]>>()
 
-export function fetchSeasonPlayerStats(group: 'hitting' | 'pitching', season: number): Promise<any[]> {
-  const key = `${group}-${season}`
+/** `gameType` 'R' is the regular season, which is also what StatsAPI answers with none; 'P' is
+ *  the postseason. There is no combined pool (see lib/gameScope.ts). */
+export function fetchSeasonPlayerStats(group: 'hitting' | 'pitching', season: number, gameType: 'R' | 'P' = 'R'): Promise<any[]> {
+  const key = `${group}-${season}-${gameType}`
   if (!seasonStatsCache.has(key)) {
     seasonStatsCache.set(key,
-      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All`)
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All${gameType === 'P' ? '&gameType=P' : ''}`)
         .then(r => r.json())
         .then((d: any) => d.stats?.[0]?.splits ?? [])
         .catch(() => [])

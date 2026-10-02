@@ -35,6 +35,8 @@ import { track, EVENTS } from '../../lib/analytics'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry } from './sheetHistory'
 import { mlbTargetFromUrl, mlbUrlFor, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot } from '../routes'
+import { isGameScope } from '../lib/gameScope'
+import type { GameScope } from '../lib/gameScope'
 import type { CardInnerProps } from '../components/cards'
 import type { TeamCardInnerProps } from '../components/cards'
 
@@ -249,6 +251,10 @@ export function useMlbState() {
   const [lbQualified, setLbQualified] = useState(true)
   // All-time (career) mode for the Stats tab only — kept separate from vizSeason so
   // it never leaks into the Leaderboard/Viz tabs, which share vizSeason.
+  // Regular season, postseason or both, for the Leaders and Table boards. On the URL as `games=`.
+  const [lbGameScope, setLbGameScope] = useState<GameScope>(() => {
+    try { const g = new URLSearchParams(window.location.search).get('games'); return isGameScope(g) ? g : 'regular' } catch { return 'regular' }
+  })
   const [statsAllTime, setStatsAllTime] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('season') === 'all' } catch { return false }
   })
@@ -322,13 +328,21 @@ export function useMlbState() {
     if (view !== 'leaderboard' && view !== 'stats') return
     setLoadingLb(true)
     setLbData(null)
+    // Career has no "All" (see fetchAllTimeLeaderboardData), so it falls back to the regular
+    // season there while the choice itself is kept for the next season board.
     const req = (view === 'stats' && statsAllTime)
-      ? fetchAllTimeLeaderboardData(lbGroup)
-      : fetchLeaderboardData(lbGroup, vizSeason)
+      ? fetchAllTimeLeaderboardData(lbGroup, lbGameScope === 'post' ? 'post' : 'regular')
+      : fetchLeaderboardData(lbGroup, vizSeason, lbGameScope)
+    // ONLY THE LATEST REQUEST MAY LAND. A cold load asks for hitting and then, a render later, for
+    // the pitching the URL named; the two race, and whichever answers last used to win, so a
+    // pitching board could be drawn from hitting lines and read "0 of 0". The career postseason
+    // pool is slow enough to lose that race every time.
+    let current = true
     req
-      .then(setLbData)
-      .finally(() => setLoadingLb(false))
-  }, [view, lbGroup, vizSeason, statsAllTime])
+      .then(d => { if (current) setLbData(d) })
+      .finally(() => { if (current) setLoadingLb(false) })
+    return () => { current = false }
+  }, [view, lbGroup, vizSeason, statsAllTime, lbGameScope])
 
   // Reset to featured defaults whenever the leaderboard group switches
   useEffect(() => {
@@ -522,9 +536,9 @@ export function useMlbState() {
     if (view === 'search' && player) return { view: 'search', playerId: player.id, playerName: player.fullName, season, statsView }
     if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
-    if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime }
+    if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
     return s
-  }, [player, team, season, statsView, view, lbGroup, statsAllTime])
+  }, [player, team, season, statsView, view, lbGroup, statsAllTime, lbGameScope])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -572,6 +586,8 @@ export function useMlbState() {
     setView('stats')
     setLbGroup(group)
     setStatsAllTime(allTime)
+    // A player card is regular-season numbers, so the board it opens is too.
+    setLbGameScope('regular')
     if (!allTime) setVizSeason(season)
     setLbFullscreen({ def, group, sortKey: statKey, sortAsc: def.lowerIsBetter ?? false, entries: [] })
     setLbQualified(true)
@@ -707,14 +723,14 @@ export function useMlbState() {
     const snap: MlbSnapshot = player
       ? { view: 'search', playerId: player.id, playerName: player.fullName }
       : team ? { view: 'search', teamId: team.id }
-      : { view, lb: lbGroup, allTime: statsAllTime, season: vizSeason }
+      : { view, lb: lbGroup, allTime: statsAllTime, season: vizSeason, games: lbGameScope }
     // Re-stamp the active entry with a self-describing snapshot of the view it now
     // shows (not just the URL). This is what makes Back work: whichever entry you later
     // land on carries an accurate description of its own screen, so popstate can restore
     // it directly. (popstate hands you the state of the entry you arrive at, never the
     // one you leave — so "where I came from" state is useless here.)
     writeAddress(keepSheetMarker(currentHistoryState()), snap)
-  }, [view, player, team, lbGroup, vizSeason, statsAllTime, currentHistoryState])
+  }, [view, player, team, lbGroup, vizSeason, statsAllTime, lbGameScope, currentHistoryState])
 
   // Restore state when the browser back button is pressed
   useEffect(() => {
@@ -752,6 +768,7 @@ export function useMlbState() {
         setTeam(null)
         if (s.view === 'leaderboard' || s.view === 'stats') setLbGroup(s.lb === 'pitching' ? 'pitching' : 'hitting')
         if (s.view === 'stats') setStatsAllTime(!!s.allTime)
+        if (s.view === 'leaderboard' || s.view === 'stats') setLbGameScope(isGameScope(s.games) ? s.games : 'regular')
         return
       }
 
@@ -781,7 +798,11 @@ export function useMlbState() {
       setView(target.view)
       setPlayer(null)
       setTeam(null)
-      if (target.view === 'leaderboard' || target.view === 'stats') setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
+      if (target.view === 'leaderboard' || target.view === 'stats') {
+        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
+        const g = params.get('games')
+        setLbGameScope(isGameScope(g) ? g : 'regular')
+      }
     }
     window.addEventListener('popstate', handlePop)
     return () => window.removeEventListener('popstate', handlePop)
@@ -829,6 +850,8 @@ export function useMlbState() {
       if (initView === 'leaderboard' || initView === 'stats') {
         snap.lb = params.get('lb') === 'pitching' ? 'pitching' : 'hitting'
         snap.allTime = params.get('season') === 'all'
+        const g = params.get('games')
+        snap.games = isGameScope(g) ? g : 'regular'
       }
       // At the canonical address, which matters on a legacy landing (`/mlb?view=standings`): the
       // sync above has already run for this render and nothing else may change to re-run it.
@@ -971,6 +994,7 @@ export function useMlbState() {
     lbStatsLimit, setLbStatsLimit,
     lbQualified, setLbQualified,
     statsAllTime, setStatsAllTime,
+    lbGameScope, setLbGameScope,
     handleLbPlayerClick,
 
     // Career trends
