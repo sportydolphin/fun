@@ -24,9 +24,13 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
 
 **Next, in order** (why, in each item below):
 
-1. **Stats as a ranked list on a phone** (item 7). The Table board is still a wide spreadsheet in
-   a nested scroller at 375px, sorted by OPS with the OPS column off screen. WPBL's
-   `StatsView.tsx` is the pattern: a ranked list with a sort sheet.
+1. ✅ **Stats as a ranked list on a phone** (item 7, Oct 2, v1.116.0).
+   Under 600px the Table board is a ranked list of one stat (`views/StatsRankedList.tsx`): rank
+   with ties, face, a real `<a href>` per player, the ranked number, three supporting numbers,
+   ten rows then "Show 50". A Sort sheet picks the stat and a Best / Worst first order; one
+   Filters sheet holds season, Regular / Playoffs / All and Qualified. "Full table" brings the
+   grid back and is remembered. The board math is `lib/statsBoard.ts`, shared with the grid.
+   Pinned in `__tests__/statsBoard.test.ts` and `statsRankedList.test.tsx`.
 2. **Real `<a href>`s and an `<h1>` per page** (item 7). The paths exist, but about 200
    `onClick`s against a handful of `href`s means Google can reach few of them. Use `linkTo()` /
    `linkPress` and WPBL's `PageHeading`. The scoreboard's "Box →" is the clearest case.

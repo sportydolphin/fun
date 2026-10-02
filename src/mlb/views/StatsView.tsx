@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Box, Typography, Paper, CircularProgress } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
@@ -9,6 +9,9 @@ import type { GameScope } from '../lib/gameScope'
 import { scrollBehavior } from '../../lib/motion'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
+import { pressable, FOCUS_RING } from '../../ui/interaction'
+import { sortBoard, ascFor, isBestFirst } from '../lib/statsBoard'
+import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable } from './StatsRankedList'
 
 export interface StatsViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -91,14 +94,8 @@ export function StatsView({
     return lbQualified && activeDef.isRate ? filterQualified(all, lbGroup, gameScope) : all
   })()
 
-  const sortedEntries = qualifiedPool
-    .map(e => {
-      const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
-      return { ...e, _v: v }
-    })
-    .filter(e => !isNaN(e._v))
-    .sort((a, b) => effectiveAsc ? a._v - b._v : b._v - a._v)
-    .slice(0, lbStatsLimit)
+  const rankedAll = sortBoard(qualifiedPool, activeDef, effectiveAsc)
+  const sortedEntries = rankedAll.slice(0, lbStatsLimit)
 
   const MEDALS_FS = ['🥇', '🥈', '🥉']
   const colPx = isDesktop ? chromePx(10) : chromePx(5)
@@ -134,10 +131,29 @@ export function StatsView({
   }
 
   // Total players with a valid value — used for rank numbering and the footer count
-  const totalInDataset = qualifiedPool.filter(e => {
-    const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
-    return !isNaN(v)
-  }).length
+  const totalInDataset = rankedAll.length
+
+  // ── Phones get a ranked list, not the grid ────────────────────────────
+  // The grid is a spreadsheet in a nested scroller at 375px, ranked by a column that is off the
+  // screen. See StatsRankedList. `fullTable` is the reader's way back to it.
+  const [fullTable, setFullTable] = useState(readFullTable)
+  const [sortOpen, setSortOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const listView = !isDesktop && !fullTable
+  const toggleFullTable = () => { const next = !fullTable; setFullTable(next); writeFullTable(next) }
+  const pickSort = (def: (typeof statDefs)[number]) => {
+    // A new stat is a new board, so it starts at the first page again; the list closes back to
+    // ten on its own (it is keyed on sortKey), and a raised limit would make it offer "Show 150".
+    if (def.key !== sortKey) { handleColClick(def); setLbStatsLimit(50) }
+  }
+  const setDirection = (bestFirst: boolean) => {
+    const asc = ascFor(activeDef, bestFirst)
+    setLbFullscreen(prev => prev
+      ? { ...prev, sortAsc: asc }
+      : { def: activeDef, group: lbGroup, sortKey, sortAsc: asc, entries: [] })
+    setHighlightPlayerId?.(null)
+    setHighlightStatKey?.(null)
+  }
 
   const loadingLb = lbData == null
   // Career has no "All" (see fetchAllTimeLeaderboardData): the option is not offered there, and a
@@ -146,10 +162,63 @@ export function StatsView({
   const shownScope: GameScope = allTime && gameScope === 'all' ? 'regular' : gameScope
   const scopeNote = shownScope === 'post' ? ' · Playoffs' : shownScope === 'all' ? ' · Regular + playoffs' : ''
 
+  // Say which population this is: an all-time rate board is qualified players only, and reversing
+  // it shows the worst of them, not the worst of everyone who ever played.
+  const populationNote =
+    (allTime && activeDef.isRate
+      ? shownScope === 'post' ? ` · Min ${lbGroup === 'hitting' ? `${CAREER_POST_MIN_PA} PA` : `${CAREER_POST_MIN_IP} IP`}` : ' · Qualified'
+      : '') +
+    (allTime && !activeDef.isRate ? ' · Leaders' : '') +
+    (activeDef.lowerIsBetter ? ' · lower = better' : '')
+  const boardSubtitle = `${allTime ? 'All-Time · Career' : `${vizSeason} MLB`}${scopeNote}${populationNote}`
+  const filtersSet = allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
+
+  const pill = (on: boolean) => ({
+    ...FOCUS_RING,
+    display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
+    cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+    minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
+    border: '1px solid', transition: 'all 0.15s',
+    borderColor: on ? ACCENT : 'divider',
+    bgcolor: on ? `${ACCENT}12` : 'transparent',
+    color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
+  })
+
   return (
     <Box>
+      {/* Phone controls: the two that do the work, stating what they are set to. The grid's
+          chips stay on desktop, where there is room for all of them and the headers already sort. */}
+      {!isDesktop && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, flexWrap: 'wrap' }}>
+          <PillGroup
+            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+            value={lbGroup}
+            onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
+          />
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {listView && (
+              <Box {...pressable(() => setSortOpen(true))} aria-haspopup="dialog" aria-expanded={sortOpen} sx={pill(true)}>
+                {/* Reversed is the state a reader forgets they set, and the pill is the only control
+                    they look at again. It replaces "Sort" rather than adding a word: at 375px this row
+                    has no room for one, and a wider pill wraps the whole row onto two lines. */}
+                <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>{isBestFirst(activeDef, effectiveAsc) ? 'Sort' : 'Worst'}</Box>
+                {activeDef.label}
+                <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+              </Box>
+            )}
+            {/* One pill for season, games and the qualifying bar. The dot says only that
+                something is off its default, so a filter can never be silently on. */}
+            <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={pill(filtersSet)}>
+              Filters
+              {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
+              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+            </Box>
+          </Box>
+        </Box>
+      )}
+
       {/* Controls row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
+      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
@@ -196,7 +265,7 @@ export function StatsView({
             </Box>
           )}
         </Box>
-      </Box>
+      </Box>}
 
       {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
@@ -206,7 +275,30 @@ export function StatsView({
         </Typography>
       )}
 
-      {!loadingLb && lbData && lbData.length > 0 && (
+      {!loadingLb && lbData && lbData.length > 0 && listView && (
+        <>
+          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1), mb: 0.75 }}>
+            {boardSubtitle}
+          </Typography>
+          {rankedAll.length === 0 ? (
+            <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+              {/* Only point at Everyone where the sheet offers it: a rate stat on a season board. */}
+              {activeDef.isRate && !allTime && lbQualified
+                ? 'Nobody has qualified yet. Filters → Everyone shows the whole roster.'
+                : 'Nobody on this board yet.'}
+            </Typography>
+          ) : (
+            // Keyed on everything that reorders or repopulates the board, so "Show 50" closes
+            // again when the reader changes what they are looking at.
+            <StatsRankedList key={`${lbGroup}|${sortKey}|${effectiveAsc}|${allTime}|${vizSeason}|${shownScope}|${lbQualified}`}
+              rows={sortedEntries} def={activeDef} statDefs={statDefs} group={lbGroup} asc={effectiveAsc}
+              highlightPlayerId={highlightPlayerId} total={totalInDataset} limit={lbStatsLimit}
+              onOpenPlayer={handleLbPlayerClick} onMore={() => setLbStatsLimit(l => l + 50)} />
+          )}
+        </>
+      )}
+
+      {!loadingLb && lbData && lbData.length > 0 && !listView && (
         <Paper elevation={2} sx={{
           borderRadius: { xs: 0, sm: 3 },
           overflow: 'hidden',
@@ -224,15 +316,7 @@ export function StatsView({
               {activeDef.leaderLabel ?? activeDef.label}
             </Typography>
             <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1) }}>
-              {allTime ? 'All-Time · Career' : `${vizSeason} MLB`}{scopeNote}
-              {/* Say which population this is: an all-time rate board is qualified
-                  players only, and reversing it shows the worst of them, not the
-                  worst of everyone who ever played. */}
-              {allTime && activeDef.isRate
-                ? shownScope === 'post' ? ` · Min ${lbGroup === 'hitting' ? `${CAREER_POST_MIN_PA} PA` : `${CAREER_POST_MIN_IP} IP`}` : ' · Qualified'
-                : ''}
-              {allTime && !activeDef.isRate ? ' · Leaders' : ''}
-              {activeDef.lowerIsBetter ? ' · lower = better' : ''}
+              {boardSubtitle}
             </Typography>
           </Box>
 
@@ -407,6 +491,35 @@ export function StatsView({
             )}
           </Box>
         </Paper>
+      )}
+
+      {/* Phones only: the way between the list and the grid, under the board where it is not in the
+          way of the thing most readers came for. */}
+      {!isDesktop && !loadingLb && lbData && lbData.length > 0 && (
+        <Box {...pressable(toggleFullTable)} sx={{
+          ...FOCUS_RING, mt: 1.5, mx: 'auto', width: 'fit-content', cursor: 'pointer', userSelect: 'none',
+          minHeight: 34, px: 1.5, display: 'flex', alignItems: 'center', borderRadius: 999,
+          border: '1px solid', borderColor: 'divider', fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+        }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
+      )}
+
+      {sortOpen && listView && (
+        <StatsSortSheet statDefs={statDefs} group={lbGroup} sortKey={sortKey} asc={effectiveAsc}
+          reversible={reversible} onPick={pickSort} onDirection={setDirection}
+          onClose={() => setSortOpen(false)} />
+      )}
+      {filtersOpen && !isDesktop && (
+        <StatsFilterSheet
+          seasonValue={allTime ? 'all' : String(vizSeason)}
+          onSeason={v => {
+            if (v === 'all') setAllTime(true)
+            else { setAllTime(false); setVizSeason(Number(v)) }
+            setLbStatsLimit(50); setLbFullscreen(null)
+          }}
+          scope={shownScope} scopes={scopes} onScope={s => { setGameScope(s); setLbStatsLimit(50) }}
+          canQualify={activeDef.isRate && !allTime} qualified={lbQualified}
+          onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
+          onClose={() => setFiltersOpen(false)} />
       )}
     </Box>
   )

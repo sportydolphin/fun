@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.116.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'MLB stats as a ranked list on phones',
+        full:  'On a phone, the MLB stats table is now a ranked list showing the stat it is sorted by, with three supporting numbers on each row. Sort picks the stat and whether the best or worst come first; Filters holds the season, regular season or playoffs, and qualified players. Full table brings the spreadsheet back, and remembers that you prefer it.',
+      },
+    ],
+  },
+  {
     version: '1.115.1',
     date:    '2026-10-02',
     changes: [
