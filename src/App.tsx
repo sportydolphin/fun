@@ -578,6 +578,18 @@ function AppInner() {
 
   // ── Toolbar search bridge ─────────────────────────────────────────────────
   const bridge = useSearchBridge()
+  // STABLE, because MlbStats is memoized on it. This shell re-renders on every toolbar change (it
+  // reads the search bridge), and with an inline footer here the whole MLB section re-rendered
+  // with it: opening a team page from Home went round MlbStats and this shell three times, about
+  // 5,000 component renders a pass, which was most of MLB's 232ms p75 interaction latency on phones.
+  const renderMlbFooter = useCallback(() => (
+    <SiteFooter
+      onOpenChangelog={() => setChangelogOpen(true)}
+      onOpenFeedback={() => setFeedbackOpen(true)}
+      onNavigate={navigate}
+      isWpbl={false}
+    />
+  ), [])
   const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false)
   const [toolbarDropdownOpen, setToolbarDropdownOpen] = useState(false)
   const [toolbarInputFocused, setToolbarInputFocused] = useState(false)
@@ -1416,14 +1428,7 @@ function AppInner() {
             <Suspense fallback={<Box sx={{ minHeight: 'calc(100dvh / var(--app-zoom, 1))', display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>}>
               {/* On a phone MLB has the floating bottom bar, so the footer rides inside the section
                   above the room reserved for the bar, the same arrangement as WPBL. */}
-              <MlbStats renderFooter={() => (
-                <SiteFooter
-                  onOpenChangelog={() => setChangelogOpen(true)}
-                  onOpenFeedback={() => setFeedbackOpen(true)}
-                  onNavigate={navigate}
-                  isWpbl={false}
-                />
-              )} />
+              <MlbStats renderFooter={renderMlbFooter} />
             </Suspense>
           )}
           {isWpblPlayersIndex(path) && (

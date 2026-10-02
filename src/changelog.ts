@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.111.2',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'Faster taps on MLB',
+        full:  'Opening a team or player from MLB Home, and typing in the search box while on it, respond several times faster on a phone. Home no longer redraws itself in full behind every tap and keystroke.',
+      },
+    ],
+  },
+  {
     version: '1.111.1',
     date:    '2026-10-01',
     changes: [

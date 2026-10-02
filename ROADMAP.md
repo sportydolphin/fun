@@ -104,8 +104,13 @@ goes first and the rest is winter work.
    calendar are seeded from the last read on the device, the scores, bracket, Standings and
    predictions hold their room while loading, the MLB content (and its Suspense fallback) is a
    screen tall so the footer never starts mid-screen, and both carousels move by transform. Every
-   tab now measures under 0.1 on a phone and a desktop. *Open:* lazy views; INP on phones is
-   232ms at p75 (over the 200ms line) and has not been looked at.
+   tab now measures under 0.1 on a phone and a desktop. *Done Oct 2, INP* (232ms p75 on phones):
+   opening a team page from Home re-rendered the whole app about six times, around 15,000
+   component renders, because MlbStats republished to the search bridge on every render, the
+   bridge notified the app shell, and the shell re-rendered MlbStats through an inline prop. The
+   bridge now skips no-op updates and MlbStats reads only the query from it; MlbStats and HomeView
+   are memoized on stable props. Measured at 4x CPU on the dev build: team open 440 to 90ms, a
+   keystroke in search 144 to about 50ms median (production before). *Open:* lazy views.
 5b. ✅ **A postseason bracket** (Sep 28, `postseason.ts`, `views/PlayoffBracket.tsx`). Not in the
    original plan: MLB had no postseason surface at all, and October is the window. One read of
    `/schedule/postseason/series` gives all eleven series; the series ids fix the shape and every

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useCallback, useRef, useState } from 'react'
+﻿import React, { memo, useEffect, useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Box, Typography, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import { MoreHoriz } from '@mui/icons-material'
@@ -18,7 +18,7 @@ import { LeaderboardView } from './mlb/views/LeaderboardView'
 import { StatsView } from './mlb/views/StatsView'
 import { SearchView } from './mlb/views/SearchView'
 import { HomeView } from './mlb/views/HomeView'
-import { useSearchBridge, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
+import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 import { track, EVENTS } from './lib/analytics'
@@ -65,7 +65,19 @@ const MORE: MoreItem[] = [
   { key: 'charts',      label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs wins',  view: 'viz',       charts: true },
 ]
 
-export default function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
+/** A callback with one identity forever that always calls the latest `fn`. For props handed to a
+ *  memoized child, where a fresh function each time would undo the memo. */
+function useLatest<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+  const ref = useRef(fn)
+  ref.current = fn
+  return useCallback((...args: A) => ref.current(...args), [])
+}
+
+// MEMOIZED, so the app shell re-rendering (which it does on every toolbar change) does not
+// re-render the whole section. Its one prop is a stable callback in App.tsx; keep it that way.
+export default memo(MlbStats)
+
+function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const state = useMlbState()
   // `noSsr` so the bar is in the very first layout rather than inserted a frame later (the same
   // note as WpblApp's). The width matches App.tsx's isDesktop, which decides where the footer goes:
@@ -73,12 +85,14 @@ export default function MlbStats({ renderFooter }: { renderFooter?: () => ReactN
   const isDesktop = useMediaQuery('(min-width: 600px)', { noSsr: true })
   const bottomNav = !isDesktop
   const canHover = useMediaQuery('(hover: hover)')
-  const bridge = useSearchBridge()
+  // The query alone. This section PUBLISHES the rest of the bridge, so subscribing to all of it
+  // re-rendered the section on its own every publish.
+  const bridgeQuery = useSearchBridgeQuery()
 
   // Sync query typed in the toolbar â†’ useMlbState debounced search
   useEffect(() => {
-    state.setQuery(bridge.query)
-  }, [bridge.query]) // eslint-disable-line react-hooks/exhaustive-deps
+    state.setQuery(bridgeQuery)
+  }, [bridgeQuery]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Push current result state + selection handlers up to the toolbar bridge
   const handleBridgeSelect = useCallback((fn: () => void, dest: Record<string, any>) => {
@@ -199,6 +213,27 @@ export default function MlbStats({ renderFooter }: { renderFooter?: () => ReactN
     if (item.link) requestDeepLink(item.link)
   }
 
+  // ONE IDENTITY FOR THE LIFE OF THE SECTION, calling whatever the handler is now. The real
+  // handlers are rebuilt whenever what they close over changes, and opening a team does exactly
+  // that the instant it is tapped (the team is set before the page switches), so a memoized Home
+  // was handed new props and re-rendered in full, inside the tap, a frame before being replaced.
+  const homeTeamClick     = useLatest(state.handleTeamSearchClick)
+  const homePlayerClick   = useLatest(state.handleFollowedPlayerClick)
+  const homeFollowTeam    = useLatest(state.followTeam)
+  const homeUnfollowTeam  = useLatest(state.unfollowTeam)
+  const homeFollowPlayer  = useLatest(state.followPlayer)
+  const homeUnfollowPlayer = useLatest(state.unfollowPlayer)
+
+  // The same footing as the handlers above: stampCurrentEntry is rebuilt with the view state.
+  const openReportCards = useLatest(() => {
+    state.stampCurrentEntry()
+    window.history.pushState({ view: 'viz' }, '', window.location.href)
+    state.setVizDefaultTab('report-card')
+    state.setView('viz')
+    // Land at the top of the report cards, not wherever the home page was scrolled.
+    requestAnimationFrame(() => window.scrollTo({ top: 0 }))
+  })
+
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
   const containerMaxWidth = state.view === 'home' ? { xs: 640, md: 980 } : { xs: 640, md: 1280 }
@@ -284,21 +319,14 @@ export default function MlbStats({ renderFooter }: { renderFooter?: () => ReactN
         <HomeView
           allTeams={state.allTeams}
           followedTeamId={state.followedTeamId}
-          onFollowTeam={state.followTeam}
-          onUnfollowTeam={state.unfollowTeam}
+          onFollowTeam={homeFollowTeam}
+          onUnfollowTeam={homeUnfollowTeam}
           followedPlayerIds={state.followedPlayerIds}
-          onFollowPlayer={state.followPlayer}
-          onUnfollowPlayer={state.unfollowPlayer}
-          onPlayerClick={state.handleFollowedPlayerClick}
-          onTeamClick={state.handleTeamSearchClick}
-          onViz={() => {
-            state.stampCurrentEntry()
-            window.history.pushState({ view: 'viz' }, '', window.location.href)
-            state.setVizDefaultTab('report-card')
-            state.setView('viz')
-            // Land at the top of the report cards, not wherever the home page was scrolled.
-            requestAnimationFrame(() => window.scrollTo({ top: 0 }))
-          }}
+          onFollowPlayer={homeFollowPlayer}
+          onUnfollowPlayer={homeUnfollowPlayer}
+          onPlayerClick={homePlayerClick}
+          onTeamClick={homeTeamClick}
+          onViz={openReportCards}
         />
       )}
 

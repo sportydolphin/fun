@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import React, { memo, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
 import { Team, TeamSummary, SosEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
@@ -109,7 +109,14 @@ const ORDER = {
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
 
-export function HomeView({
+// MEMOIZED. The whole MLB section's state lives in one hook above this (useMlbState), so every
+// change to it re-rendered all of Home: each keystroke in the toolbar search, and the three state
+// steps of opening a team or a player from a card, each one about 2,400 components on a phone,
+// before the page being opened had even drawn. Home reads none of that state, so it skips those.
+// Every prop must stay stable for this to hold (MlbStats wraps the one that was an inline arrow).
+export const HomeView = memo(HomeViewInner)
+
+function HomeViewInner({
   allTeams, followedTeamId: followedTeamIdProp, onFollowTeam, onUnfollowTeam,
   followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick, onTeamClick,
   onViz,

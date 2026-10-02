@@ -104,15 +104,26 @@ function _snapshot(): SearchBridgeState {
 }
 
 export function updateSearchBridge(partial: Partial<SearchBridgeState>): void {
+  // Nothing new, nobody told. Every subscriber re-renders on a notify, and the app shell is one.
+  if ((Object.keys(partial) as (keyof SearchBridgeState)[]).every(k => _state[k] === partial[k])) return
   _state = { ..._state, ...partial }
   _notify()
 }
 
 export function setSearchQuery(q: string): void {
+  if (_state.query === q) return
   _state = { ..._state, query: q }
   _notify()
 }
 
 export function useSearchBridge(): SearchBridgeState {
   return useSyncExternalStore(_subscribe, _snapshot)
+}
+
+const _querySnapshot = () => _state.query
+
+/** Only the typed query: a component that publishes the rest of the bridge should read just this,
+ *  or every one of its own publishes re-renders it. */
+export function useSearchBridgeQuery(): string {
+  return useSyncExternalStore(_subscribe, _querySnapshot)
 }
