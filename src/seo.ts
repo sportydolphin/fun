@@ -7,6 +7,7 @@
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
 import { WPBL_RULES } from './wpbl/glossary'
+import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS } from './mlb/routes'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -215,6 +216,47 @@ const ROUTES: Record<string, Seo> = {
     description:
       'Free MLB stats: live scores, player and team statistics, standings, and a daily predictions game. No sign-in required to browse.',
   },
+  // MLB's tabs, real paths since Oct 2026 (see mlb/routes.ts) for the reason WPBL's became paths:
+  // under `?view=` the whole section had this one title above. Each leads with the term somebody
+  // would type, and none says "2026": the section runs year round and these pages roll over.
+  [MLB_VIEW_PATHS.scores]: {
+    title: 'MLB Scores: today\'s games and final scores | sportydolphin.fun',
+    description:
+      'Every MLB game today: live scores, line scores and final results, with box scores and a Game Center for each one.',
+  },
+  [MLB_VIEW_PATHS.standings]: {
+    title: 'MLB Standings, playoff odds and postseason bracket | sportydolphin.fun',
+    description:
+      'Current MLB standings for all six divisions and the wild card races, with nightly simulated playoff odds and the postseason bracket.',
+  },
+  [MLB_VIEW_PATHS.leaderboard]: {
+    title: 'MLB Stat Leaders: batting and pitching | sportydolphin.fun',
+    description:
+      'MLB batting and pitching leaders: home runs, batting average, OPS, ERA, strikeouts and more, for this season or any past one.',
+  },
+  [MLB_VIEW_PATHS.stats]: {
+    title: 'MLB Player Stats table: sortable, every qualifier | sportydolphin.fun',
+    description:
+      'Sort every qualified MLB hitter or pitcher by any stat, for one season or across careers.',
+  },
+  [MLB_VIEW_PATHS.viz]: {
+    title: 'MLB Charts: run differential, payroll and streak report cards | sportydolphin.fun',
+    description:
+      'MLB in charts: run differential, ERA against OPS, payroll against wins, and a report card for every club\'s recent form.',
+  },
+  [MLB_VIEW_PATHS.teams]: {
+    title: 'MLB Teams: all 30 clubs, rosters and stats | sportydolphin.fun',
+    description:
+      'All 30 Major League Baseball clubs by division: rosters, team batting and pitching, standings and leaders.',
+  },
+  // One per club, written from the routes table rather than registered at runtime, for the reason
+  // the WPBL clubs are: thirty fixed pages need no fetch to describe. A player page has thousands
+  // of possible addresses and a name that arrives with a fetch, so it goes through setDynamicSeo.
+  ...Object.fromEntries(MLB_CLUBS.map(c => [`${MLB_TEAMS_BASE}/${c.slug}`, {
+    title: `${c.name}: stats, roster and standings | sportydolphin.fun`,
+    description:
+      `The ${c.name}: team batting and pitching, the roster, team leaders, where they stand in the division, and how the season has gone.`,
+  }])),
   // Owner-only. `noindex` is belt to robots.txt's braces: robots.txt asks a crawler not to
   // fetch the URL, this tells one that fetched it anyway not to index it. Neither is a
   // security control — the RPC guards are (see docs/ADMIN_ANALYTICS.md).

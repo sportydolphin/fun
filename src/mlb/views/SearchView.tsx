@@ -21,6 +21,7 @@ import { CareerStatsTable } from '../components/CareerStatsTable'
 import { ContractPanel } from '../components/ContractPanel'
 import { fetchPlayerDetails } from '../api'
 import { track, EVENTS } from '../../lib/analytics'
+import { mlbPlayerPath } from '../routes'
 
 export interface SearchViewProps {
   // Search
@@ -177,12 +178,13 @@ export function SearchView({
     </Box>
   ) : null
 
-  // Open a player from within a team page. Pushes a ?tid= history entry first so the
-  // browser Back button returns to this team (mirrors the Team Leaders cards below).
+  // Open a player from within a team page. Pushes the player's entry so the browser Back
+  // button returns to this team (mirrors the Team Leaders cards below); the team's own entry
+  // already carries its snapshot from the URL sync.
   const openPlayerFromTeam = React.useCallback((playerId: number) => {
     if (!team) return
     track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: 'team_page' })
-    window.history.pushState({}, '', `/mlb?tid=${team.id}`)
+    window.history.pushState({ view: 'search', playerId }, '', mlbPlayerPath({ id: playerId }))
     fetchPlayerDetails(playerId)
       .then(details => { if (details) selectPlayer(details) })
       .catch(() => {})
@@ -775,9 +777,7 @@ export function SearchView({
                         highlightStat={p.highlightStat}
                         onClick={() => {
                           track(EVENTS.MLB_PLAYER_OPENED, { playerId: p.playerId, from: 'team_page' })
-                          const params = new URLSearchParams()
-                          params.set('tid', String(team.id))
-                          window.history.pushState({}, '', `/mlb?${params.toString()}`)
+                          window.history.pushState({ view: 'search', playerId: p.playerId }, '', mlbPlayerPath({ id: p.playerId }))
                           fetchPlayerDetails(p.playerId)
                             .then(details => { if (details) selectPlayer(details) })
                             .catch(() => {})

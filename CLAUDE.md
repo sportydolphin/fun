@@ -438,7 +438,10 @@ Each of these has already cost someone a debugging session, and none of them fai
   read.
 - **`public/sitemap.xml` is generated.** `npm run sitemap` rebuilds it from the roster (one
   URL per player). A hand-edit is lost on the next run.
-- **The one wildcard in `_redirects` is `/wpbl/players/*`,** because the valid slugs live in
+- **The wildcards in `_redirects` (`/wpbl/players/*`, `/wpbl/games/*`, `/wpbl/compare/*`,
+  `/mlb/players/*`) each have a Pages Function standing in front of them** that answers a real
+  404 for a slug naming nothing; the MLB one is [`functions/mlb/index.ts`](functions/mlb/index.ts),
+  which asks StatsAPI. The original, `/wpbl/players/*`, exists because the valid slugs live in
   the database. What keeps it from being a soft-404 hole is
   [`functions/wpbl/index.ts`](functions/wpbl/index.ts), which resolves the slug against the
   roster and answers a real 404 for anything that names nobody, *before* the rewrite is

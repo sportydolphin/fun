@@ -98,7 +98,7 @@ Client-side routing in [`src/App.tsx`](src/App.tsx) (no framework router; matche
 ```mermaid
 flowchart LR
     subgraph Main["Main sections (lazy chunks)"]
-        mlb["/mlb<br/>MlbStats.tsx"]
+        mlb["/mlb + /mlb/{scores,standings,leaders,stats,charts,teams}<br/>+ /mlb/teams/&lt;club&gt; + /mlb/players/&lt;name&gt;-&lt;id&gt;<br/>MlbStats.tsx"]
         wpbl["/wpbl + /wpbl/{schedule,standings,stats,teams}<br/>wpbl/WpblApp.tsx"]
         wplayers["/wpbl/players<br/>+ /wpbl/players/&lt;slug&gt;"]
         wleague["/wpbl/league<br/>LeaguePage.tsx (About the league)"]
@@ -156,6 +156,14 @@ flowchart LR
   [`src/seo.ts`](src/seo.ts), `public/_redirects` (both blocks) and the `Route` union in
   `App.tsx`; [`src/wpbl/__tests__/routes.test.ts`](src/wpbl/__tests__/routes.test.ts) pins
   them together because three of the four failures are invisible under `npm run dev`.
+- **MLB URLs are paths too** since Oct 2, 2026 ([`src/mlb/routes.ts`](src/mlb/routes.ts)): a tab
+  per path, a club per `/mlb/teams/<nickname>`, a player per `/mlb/players/<name>-<id>` (the id
+  decides; the name is cosmetic and the edge 301s a stale one). The shell asks `isMlbPath`, the
+  section reads and writes the address in `useMlbState` and fires `MLB_PATH_EVENT` so the shell's
+  path (and so `seo.ts`) follows. [`functions/mlb/`](functions/mlb/index.ts) 301s the old
+  `/mlb?view=` / `?pid=` / `?tid=` forms and 404s a player URL that names nobody.
+  [`src/mlb/__tests__/routes.test.ts`](src/mlb/__tests__/routes.test.ts) pins the tabs and clubs
+  to `_redirects`, the sitemap and `seo.ts`.
 - **Comparison pages** (`/wpbl/compare`, [`src/wpbl/Compare.tsx`](src/wpbl/Compare.tsx) +
   [`src/wpbl/derive/compare.ts`](src/wpbl/derive/compare.ts)): any two players side by side,
   with the pair in the PATH (`/wpbl/compare/denae-benites-vs-molly-paddison`). The path keeps
@@ -646,7 +654,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 | Scope | Vars | Where |
 |---|---|---|
 | **Client (build-time)** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env + `.env` |
-| **Pages Functions** (`functions/wpbl`, `functions/discord/wpbl`, `functions/api/fan-photo`, `functions/api/geo`) | the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, plus `SUPABASE_SERVICE_ROLE_KEY` for `/predict` only, plus the five `R2_*` vars for `/api/fan-photo` | Cloudflare Pages env (available to functions at runtime). The Discord app's Ed25519 public key is committed in the function rather than held here, since it verifies Discord's signatures and grants nothing, so it survives redeploys with nothing to re-enter. **The service-role key is the one real secret here**: `/predict` writes picks, the predictions tables are RLS-on with no policies, and the anon key ships in the client bundle so it cannot be trusted to say which Discord user a pick belongs to. `/api/fan-photo` holds the R2 keys and gates every upload on the DB's own `is_site_owner()` called with the caller's token (no owner email or JWT secret duplicated at the edge); it writes only R2, never a DB row. `/api/geo` needs nothing: it returns Cloudflare's `cf.country` for the request, uncached and unstored, so the page can hide videos the reader's country cannot play |
+| **Pages Functions** (`functions/wpbl`, `functions/mlb`, `functions/discord/wpbl`, `functions/api/fan-photo`, `functions/api/geo`) | the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, plus `SUPABASE_SERVICE_ROLE_KEY` for `/predict` only, plus the five `R2_*` vars for `/api/fan-photo` | Cloudflare Pages env (available to functions at runtime). The Discord app's Ed25519 public key is committed in the function rather than held here, since it verifies Discord's signatures and grants nothing, so it survives redeploys with nothing to re-enter. **The service-role key is the one real secret here**: `/predict` writes picks, the predictions tables are RLS-on with no policies, and the anon key ships in the client bundle so it cannot be trusted to say which Discord user a pick belongs to. `/api/fan-photo` holds the R2 keys and gates every upload on the DB's own `is_site_owner()` called with the caller's token (no owner email or JWT secret duplicated at the edge); it writes only R2, never a DB row. `/api/geo` needs nothing: it returns Cloudflare's `cf.country` for the request, uncached and unstored, so the page can hide videos the reader's country cannot play |
 | **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string, Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
 | **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_BOT_TOKEN` (for the `/predict` reveal) | Supabase (*auto-injected) |
 | **pg_cron** | service-role key; `github_dispatch_token` (fine-grained PAT on `sportydolphin/fun`, Contents: read+write, used only to fire the Bluesky nudge's `repository_dispatch`) | Supabase **Vault** (`wpbl_service_role_key`, `github_dispatch_token`) |
@@ -733,7 +741,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   ([`src/wpbl/playerSearch.ts`](src/wpbl/playerSearch.ts)), and answers from the same
   `stats.ts` aggregation the site uses. Setup: [`docs/DISCORD.md`](docs/DISCORD.md).
 - **`public/_routes.json` is an allow-list**, and it gates all of the above: only the paths
-  named in `include` (`/wpbl`, `/wpbl/*`, `/discord/wpbl`, `/p/*`, `/g/*`) invoke the Functions
+  named in `include` (`/wpbl`, `/wpbl/*`, `/mlb`, `/mlb/*`, `/discord/wpbl`, `/p/*`, `/g/*`) invoke the Functions
   worker, everything else is served as a plain asset with no function run. **Adding a function
   under `functions/` is not enough. Its route has to be added here too**, or it compiles,
   uploads, deploys and is then never called. It **narrows only**: routing is by file path, so `functions/wpbl/index.ts` serves

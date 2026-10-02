@@ -33,15 +33,14 @@ import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
 import { careerSpan } from '../lib/utils'
 import { track, EVENTS } from '../../lib/analytics'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry } from './sheetHistory'
+import { mlbTargetFromUrl, mlbUrlFor, MLB_PATH_EVENT } from '../routes'
+import type { MlbView, MlbSnapshot } from '../routes'
 import type { CardInnerProps } from '../components/cards'
 import type { TeamCardInnerProps } from '../components/cards'
 
-/** Every screen the section can show. 'scores' and 'teams' arrived with the bottom nav (Sep 28,
- *  2026); 'search' is the player and team pages; 'leaderboard', 'stats' and 'viz' are the three
- *  boards of the Stats tab, kept as separate views so their `?view=` links still land. */
-export type MlbView = 'home' | 'scores' | 'standings' | 'stats' | 'leaderboard' | 'viz' | 'teams' | 'search'
-const MLB_VIEWS: readonly MlbView[] = ['home', 'scores', 'standings', 'stats', 'leaderboard', 'viz', 'teams', 'search']
-export const isMlbView = (v: unknown): v is MlbView => typeof v === 'string' && (MLB_VIEWS as readonly string[]).includes(v)
+// The view names and the address of each live in ../routes.ts, which the shell and the edge read too.
+export type { MlbView } from '../routes'
+export { isMlbView } from '../routes'
 
 /** Where an open came from when it is not simply the tab on screen. See `openFrom`. The
  *  default is the view, and the player and team pages are the view called 'search', so the header
@@ -219,11 +218,9 @@ export function useMlbState() {
   // ─── View & navigation ────────────────────────────────────────────────────────
   const [view, setView] = useState<MlbView>(() => {
     try {
-      // URL view param takes priority
-      const vp = new URLSearchParams(window.location.search).get('view')
-      if (isMlbView(vp)) return vp
-      // Default to Home for everyone — a no-team visitor still gets the league feed + team picker.
-      return 'home'
+      // The address decides, old spelling or new; Home for everyone else, since a no-team
+      // visitor still gets the league feed and the team picker there.
+      return mlbTargetFromUrl(window.location.pathname, window.location.search)?.view ?? 'home'
     } catch { return 'home' }
   })
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
@@ -520,8 +517,10 @@ export function useMlbState() {
   // the one you leave — so an entry must describe ITSELF (not "where it came from") for
   // Back to restore the right screen. See the popstate handler + URL-sync effect below.
   const currentHistoryState = useCallback((): Record<string, any> => {
-    if (player) return { view: 'search', playerId: player.id, season, statsView }
-    if (team)   return { view: 'search', teamId: team.id }
+    // The VIEW names the screen; a player or team only does when the view is their page. Off it,
+    // one still set is an open that has not landed yet (see the URL sync below).
+    if (view === 'search' && player) return { view: 'search', playerId: player.id, playerName: player.fullName, season, statsView }
+    if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime }
     return s
@@ -540,7 +539,7 @@ export function useMlbState() {
   const handleLbPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
     track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
     stampCurrentEntry()
-    pushEntry({ view: 'search', playerId })
+    pushEntry({ view: 'search', playerId }, mlbUrlFor({ view: 'search', playerId }))
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
@@ -569,7 +568,7 @@ export function useMlbState() {
     // and season/career toggle) so a single Back from the stats leaderboard returns
     // right here — then push the destination 'stats' entry.
     stampCurrentEntry()
-    pushEntry({ view: 'stats', lb: group, allTime })
+    pushEntry({ view: 'stats', lb: group, allTime }, mlbUrlFor({ view: 'stats', lb: group, allTime, season }, CURRENT_SEASON))
     setView('stats')
     setLbGroup(group)
     setStatsAllTime(allTime)
@@ -579,12 +578,23 @@ export function useMlbState() {
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
+    // The player stays on the entry behind this one, not in state: left set, they would hold the
+    // Stats board's address on the player page (see the URL sync).
+    setPlayer(null)
+    setTeam(null)
   }, [player, season, statsView, stampCurrentEntry])
+
+  /** Leave the player or team page for a tab. Without it the player stays selected behind the
+   *  tab, and the address and the history entry go on naming them rather than the tab on screen. */
+  const clearSelection = useCallback(() => {
+    setPlayer(null)
+    setTeam(null)
+  }, [])
 
   const handleFollowedPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
     track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
     stampCurrentEntry()
-    pushEntry({ view: 'search', playerId })
+    pushEntry({ view: 'search', playerId }, mlbUrlFor({ view: 'search', playerId }))
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
@@ -595,7 +605,7 @@ export function useMlbState() {
     if (!t) return
     track(EVENTS.MLB_TEAM_OPENED, { teamId, from: openFrom(from) })
     stampCurrentEntry()
-    pushEntry({ view: 'search', teamId })
+    pushEntry({ view: 'search', teamId }, mlbUrlFor({ view: 'search', teamId }))
     selectTeam(t).then(() => setView('search'))
   }, [allTeams, selectTeam, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -604,7 +614,7 @@ export function useMlbState() {
     if (!t) return
     track(EVENTS.MLB_TEAM_OPENED, { teamId: id, from: openFrom(from) })
     stampCurrentEntry()
-    pushEntry({ view: 'search', teamId: id })
+    pushEntry({ view: 'search', teamId: id }, mlbUrlFor({ view: 'search', teamId: id }))
     selectTeam(t).then(() => setView('search'))
   }, [allTeams, selectTeam, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -670,25 +680,40 @@ export function useMlbState() {
 
   // ─── Effects: URL sync & restore ─────────────────────────────────────────────
 
+  /** Stamp the active entry and move it to the snapshot's address. The query is rebuilt from the
+   *  snapshot alone, so a notification's `open=` goes too: deepLink.ts has already read it at
+   *  module load, and left in place it would reopen a board the reader has since closed. */
+  const writeAddress = (state: Record<string, any>, snap: MlbSnapshot) => {
+    window.history.replaceState(state, '', mlbUrlFor(snap, CURRENT_SEASON))
+    // EVERY time, not only when this call moved the path. A tap pushes its destination's address
+    // before the view changes (pushEntry), so by the time this runs the path is already right and
+    // only the shell is behind; skip the event then and the tab keeps the previous page's title.
+    // The shell's setPath bails out on an unchanged path, so the redundant ones cost nothing.
+    window.dispatchEvent(new Event(MLB_PATH_EVENT))
+  }
+
   // Sync URL whenever view/player/team/lb state changes
   useEffect(() => {
     if (!autoLoadedRef.current) return
-    const params = new URLSearchParams()
-    if (player) params.set('pid', String(player.id))
-    else if (team) params.set('tid', String(team.id))
-    params.set('view', view)
-    if (view === 'leaderboard' || view === 'viz' || view === 'stats') {
-      if (lbGroup !== 'hitting') params.set('lb', lbGroup)
-      if (view === 'stats' && statsAllTime) params.set('season', 'all')
-      else if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
-    }
-    const qs = params.toString()
+    // NOTHING IS WRITTEN WHILE AN OPEN IS IN FLIGHT. Every open pushes its destination's address
+    // first (pushEntry), then loads, and the old page stays on screen until the new one is ready
+    // (v1.111.1). In between, the state is half of each: a team page's club is set while the view
+    // is still Home, or the view is already 'search' with no player yet. Written then, the address
+    // would flick back to the page being left, or to the bare /mlb, and the title with it. A tab
+    // never leaves a player behind (clearSelection), so a player or team off its page means an
+    // open that has not landed, and 'search' with neither means one that has not started.
+    const onPage = view === 'search'
+    if (onPage ? !player && !team : !!(player || team)) return
+    const snap: MlbSnapshot = player
+      ? { view: 'search', playerId: player.id, playerName: player.fullName }
+      : team ? { view: 'search', teamId: team.id }
+      : { view, lb: lbGroup, allTime: statsAllTime, season: vizSeason }
     // Re-stamp the active entry with a self-describing snapshot of the view it now
     // shows (not just the URL). This is what makes Back work: whichever entry you later
     // land on carries an accurate description of its own screen, so popstate can restore
     // it directly. (popstate hands you the state of the entry you arrive at, never the
     // one you leave — so "where I came from" state is useless here.)
-    window.history.replaceState(keepSheetMarker(currentHistoryState()), '', `/mlb${qs ? '?' + qs : ''}`)
+    writeAddress(keepSheetMarker(currentHistoryState()), snap)
   }, [view, player, team, lbGroup, vizSeason, statsAllTime, currentHistoryState])
 
   // Restore state when the browser back button is pressed
@@ -730,55 +755,14 @@ export function useMlbState() {
         return
       }
 
-      // Fallback: parse URL params (covers older history entries / deep links).
-      // Check `view` first — a player/team can be set in the background (e.g. the
-      // random auto-load on Home) while view stays 'home', so a stray `pid`/`tid`
-      // must never override an explicit non-search view param.
+      // Fallback: read the address. That is an entry with no snapshot: the shell's navigate, a
+      // notification in the bell, an entry written before the snapshots existed. The legacy
+      // `?view=` form is read too, and there `view` wins over an id, as it always did.
       const params = new URLSearchParams(window.location.search)
-      const viewParam = params.get('view')
-      const tid = params.get('tid')
-      const pid = params.get('pid')
-
-      if (viewParam === 'leaderboard') {
-        setView('leaderboard')
-        setPlayer(null)
-        setTeam(null)
-        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
-        return
-      }
-      if (viewParam === 'stats') {
-        setView('stats')
-        setPlayer(null)
-        setTeam(null)
-        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
-        return
-      }
-      if (viewParam === 'viz') {
-        setView('viz')
-        setPlayer(null)
-        setTeam(null)
-        return
-      }
-      if (viewParam === 'scores' || viewParam === 'teams') {
-        setView(viewParam)
-        setPlayer(null)
-        setTeam(null)
-        return
-      }
-      if (viewParam === 'standings') {
-        setView('standings')
-        setPlayer(null)
-        setTeam(null)
-        return
-      }
-      if (viewParam === 'home') {
-        setView('home')
-        setPlayer(null)
-        setTeam(null)
-        return
-      }
-      if (tid) {
-        const t = allTeams.find(t => t.id === Number(tid))
+      const target = mlbTargetFromUrl(window.location.pathname, window.location.search)
+      if (!target) return
+      if (target.teamId) {
+        const t = allTeams.find(t => t.id === target.teamId)
         if (t) {
           blockDropdownRef.current = true
           setQuery(t.name)
@@ -787,13 +771,17 @@ export function useMlbState() {
         }
         return
       }
-      if (pid) {
+      if (target.playerId) {
         setView('search')
-        fetchPlayerDetails(Number(pid))
+        fetchPlayerDetails(target.playerId)
           .then(p => { if (p) selectPlayer(p) })
           .catch(() => {})
         return
       }
+      setView(target.view)
+      setPlayer(null)
+      setTeam(null)
+      if (target.view === 'leaderboard' || target.view === 'stats') setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
     }
     window.addEventListener('popstate', handlePop)
     return () => window.removeEventListener('popstate', handlePop)
@@ -803,11 +791,10 @@ export function useMlbState() {
   useEffect(() => {
     if (autoLoadedRef.current) return
     const params = new URLSearchParams(window.location.search)
+    const target = mlbTargetFromUrl(window.location.pathname, window.location.search)
 
     if (!urlViewReadRef.current) {
       urlViewReadRef.current = true
-      const viewParam = params.get('view')
-      if (isMlbView(viewParam) && viewParam !== 'search') setView(viewParam)
       const lbParam = params.get('lb')
       if (lbParam === 'pitching') setLbGroup('pitching')
       const seasonParam = params.get('season')
@@ -815,40 +802,38 @@ export function useMlbState() {
       else if (seasonParam) setVizSeason(Number(seasonParam))
     }
 
-    const pid = params.get('pid')
-    const tid = params.get('tid')
-    if (pid) {
+    if (target?.playerId) {
       autoLoadedRef.current = true
-      fetchPlayerDetails(Number(pid)).then(p => { if (p) selectPlayer(p) }).catch(() => {})
-    } else if (tid) {
-      // Wait for the team list before resolving a ?tid= deep link — this effect
-      // re-runs once allTeams arrives. Until then, leave autoLoadedRef false so the
-      // URL-sync effect can't wipe the ?tid= before selectTeam runs.
+      fetchPlayerDetails(target.playerId).then(p => { if (p) selectPlayer(p) }).catch(() => {})
+    } else if (target?.teamId) {
+      // Wait for the team list before resolving a team page: this effect re-runs once
+      // allTeams arrives. Until then, leave autoLoadedRef false so the URL-sync effect
+      // can't rewrite the address before selectTeam runs.
       if (allTeams.length > 0) {
         autoLoadedRef.current = true
-        const t = allTeams.find(t => t.id === Number(tid))
+        const t = allTeams.find(t => t.id === target.teamId)
         if (t) selectTeam(t)
       }
     } else {
-      // No pid/tid deep-link to restore (e.g. a home-first session). There's nothing
+      // No player or team to restore (e.g. a home-first session). There's nothing
       // to load, but we still MUST mark auto-load complete so the URL-sync effect
       // activates. Otherwise the address bar stays frozen at the initial URL and every
       // cross-link click (followed player, standout, spotlight, …) leaves the URL
-      // unchanged — so the browser Back button can't return to Home.
-      // The search tab shows a "search for a player" prompt rather than auto-loading a
-      // random showcase player (which polluted recent searches + the URL).
+      // unchanged, so the browser Back button can't return to Home.
       autoLoadedRef.current = true
       // Stamp the landing entry with a self-describing snapshot so a later Back that
-      // returns here restores it. Built from the URL's view param, not React state —
-      // the setView() above is async, so `view` is still the pre-render value here.
-      const vp = params.get('view')
-      const initView = isMlbView(vp) ? vp : view
+      // returns here restores it. Built from the URL, not React state, which may not have
+      // caught up with it yet.
+      const initView = target?.view ?? view
       const snap: Record<string, any> = { view: initView }
       if (initView === 'leaderboard' || initView === 'stats') {
         snap.lb = params.get('lb') === 'pitching' ? 'pitching' : 'hitting'
         snap.allTime = params.get('season') === 'all'
       }
-      window.history.replaceState(snap, '', window.location.href)
+      // At the canonical address, which matters on a legacy landing (`/mlb?view=standings`): the
+      // sync above has already run for this render and nothing else may change to re-run it.
+      const season = Number(params.get('season'))
+      writeAddress(snap, { ...snap, view: initView, season: Number.isFinite(season) && season > 0 ? season : null })
     }
   }, [allTeams, selectPlayer, selectTeam, view])
 
@@ -918,6 +903,7 @@ export function useMlbState() {
   // ─── Return ───────────────────────────────────────────────────────────────────
 
   return {
+    clearSelection,
     // Search
     query, setQuery,
     playerResults, teamResults, allTeams,

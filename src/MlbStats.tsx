@@ -21,6 +21,8 @@ import { HomeView } from './mlb/views/HomeView'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
+import { MLB_VIEW_PATHS, mlbUrlFor, mlbPlayerPath } from './mlb/routes'
+import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
@@ -29,8 +31,8 @@ import { track, EVENTS } from './lib/analytics'
 // and at 375px wide two of them (Stats, Search) were simply off the screen. Now:
 //   - Scores and Teams are tabs of their own; neither had one.
 //   - Leaderboard, Stats and Visualize were three tabs over the same numbers. They are the three
-//     BOARDS of one Stats tab. They stay separate views underneath, so every `?view=` link and
-//     every history entry written before this still lands where it did.
+//     BOARDS of one Stats tab. They stay separate views underneath, each with its own address
+//     (/mlb/leaders, /mlb/stats, /mlb/charts; see mlb/routes.ts).
 //   - Search is the toolbar's alone; the player and team pages it opens are the view 'search'.
 //   - Everything that is a board inside a Home card (Predictions, Survivor, Milestones, Roster
 //     moves) or a mode of another tab (Odds, Charts) is one tap away under More.
@@ -51,6 +53,8 @@ const STATS_BOARDS: { view: MlbView; label: string }[] = [
 ]
 const navKeyFor = (v: MlbView): NavKey | null =>
   v === 'leaderboard' || v === 'viz' ? 'stats' : v === 'search' ? null : v
+/** A tab's address, for its href and for the history entry it pushes. */
+const viewHref = (v: MlbView): string => v === 'search' ? MLB_VIEW_PATHS.home : MLB_VIEW_PATHS[v]
 
 // Under More: each opens a board that lives inside another view, by a deep link that view's
 // owner already listens for (state/deepLink.ts), so nothing here reaches into a component.
@@ -97,7 +101,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Push current result state + selection handlers up to the toolbar bridge
   const handleBridgeSelect = useCallback((fn: () => void, dest: Record<string, any>) => {
     state.stampCurrentEntry()
-    window.history.pushState(dest, '', window.location.href)
+    window.history.pushState(dest, '', mlbUrlFor(dest as { view: MlbView }))
     fn()
     setSearchQuery('')
     state.setView('search')
@@ -119,6 +123,25 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       isRegistered: true,
     })
   }, [state.playerResults, state.teamResults, state.searching, handleBridgeSelect]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A player page's title and description. seo.ts describes the tabs and the thirty clubs from a
+  // table; a player cannot be in one, since the name arrives with a fetch. Keyed on the player's
+  // canonical path, which is the address the URL sync writes, so it cannot outlive the page.
+  const seoPlayer = state.view === 'search' ? state.player : null
+  useEffect(() => {
+    if (!seoPlayer) return
+    const pos = seoPlayer.primaryPosition?.abbreviation
+    const club = seoPlayer.currentTeam?.name
+    const who = [pos, club].filter(Boolean).join(', ')
+    setDynamicSeo({
+      path: mlbPlayerPath(seoPlayer),
+      seo: {
+        title: `${seoPlayer.fullName} stats, game log and career | sportydolphin.fun`,
+        description: `${seoPlayer.fullName}${who ? ` (${who})` : ''}: season and career stats, where they rank in the majors, the game log, career trends and contract.`,
+      },
+    })
+    return () => setDynamicSeo(null)
+  }, [seoPlayer])
 
   // Fetch toolbar suggestions whenever the followed team changes
   useEffect(() => {
@@ -192,12 +215,15 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     clearHomeOverlay()
     if (via === 'pill') tabVia.current = 'pill'
     state.stampCurrentEntry()
-    window.history.pushState({ view: v }, '', window.location.href)
+    // The destination's own address, not the current one: see pushEntry in sheetHistory.ts.
+    window.history.pushState({ view: v }, '', viewHref(v))
+    if (v !== 'search') state.clearSelection()
     state.setView(v)
     requestAnimationFrame(() => window.scrollTo({ top: 0 }))
-  }, [state.stampCurrentEntry, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.stampCurrentEntry, state.setView, state.clearSelection]) // eslint-disable-line react-hooks/exhaustive-deps
+  const tabView = (k: NavKey): MlbView => k === 'stats' ? lastBoard.current : k
   const goTab = (k: NavKey) => {
-    const target: MlbView = k === 'stats' ? lastBoard.current : k
+    const target = tabView(k)
     if (target === state.view) return
     go(target)
   }
@@ -227,7 +253,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // The same footing as the handlers above: stampCurrentEntry is rebuilt with the view state.
   const openReportCards = useLatest(() => {
     state.stampCurrentEntry()
-    window.history.pushState({ view: 'viz' }, '', window.location.href)
+    window.history.pushState({ view: 'viz' }, '', MLB_VIEW_PATHS.viz)
+    state.clearSelection()
     state.setVizDefaultTab('report-card')
     state.setView('viz')
     // Land at the top of the report cards, not wherever the home page was scrolled.
@@ -258,7 +285,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       {!bottomNav && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 3 }}>
           <SegControl
-            options={NAV.map(n => ({ value: n.key, label: n.label }))}
+            options={NAV.map(n => ({ value: n.key, label: n.label, href: viewHref(tabView(n.key)) }))}
             value={activeTab}
             onChange={v => goTab(v as NavKey)}
           />
@@ -295,7 +322,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       {onStatsTab && (
         <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
           <SegControl
-            options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label }))}
+            options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
             value={state.view}
             onChange={v => go(v as MlbView)}
           />
@@ -479,7 +506,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
       {bottomNav && (
         <BottomNav
-          items={[...NAV.map(n => ({ key: n.key, label: n.label })), { key: MORE_KEY, label: 'More' }]}
+          items={[...NAV.map(n => ({ key: n.key, label: n.label, href: viewHref(tabView(n.key)) })), { key: MORE_KEY, label: 'More' }]}
           value={activeTab}
           onChange={k => goTab(k as NavKey)}
           onMore={() => setMoreOpen(true)}

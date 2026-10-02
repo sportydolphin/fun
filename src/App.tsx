@@ -9,6 +9,7 @@ import { APP_VERSION } from './version'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
+import { isMlbPath, MLB_PATH_EVENT } from './mlb/routes'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { EraBasisProvider } from './wpbl/EraBasisContext'
@@ -125,7 +126,8 @@ const DIALOG_FALLBACK = null
 
 // The WPBL tabs (/wpbl/schedule and friends) are routes too; they live in wpbl/routes.ts
 // because seo.ts and WpblApp need the same list. Adding one there means adding a line in
-// public/_redirects as well, or it 404s in production and works fine in dev.
+// public/_redirects as well, or it 404s in production and works fine in dev. The same goes for
+// MLB's tabs, clubs and players under /mlb, which live in mlb/routes.ts (`isMlbPath`).
 type Route = '/' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/delete-account' | '/admin'
 
 /** A WPBL tab page. `/wpbl/api` is a sibling route, not a tab, so it is not one of these. */
@@ -523,7 +525,7 @@ function AppInner() {
     // The toolbar scales on BOTH sections, so switching between them moves nothing above the
     // content. Separate from the attribute above because the two sections are scaled by
     // different means and only the shell is shared; see the note in styles.css.
-    if (path === '/mlb' || isWpblSection(path)) root.setAttribute('data-shell-scale', '1')
+    if (isMlbPath(path) || isWpblSection(path)) root.setAttribute('data-shell-scale', '1')
     else root.removeAttribute('data-shell-scale')
   }, [path])
 
@@ -531,7 +533,7 @@ function AppInner() {
   // settled. `requestIdleCallback` where it exists (not in Safari), a timeout otherwise, and
   // only for the two routes that have another section to go to.
   useEffect(() => {
-    if (path !== '/mlb' && !isWpblSection(path)) return
+    if (!isMlbPath(path) && !isWpblSection(path)) return
     // NOT ON THE FIRST IDLE MOMENT. The page goes idle while it waits on the network, so an idle
     // callback alone fired at ~0.7s on production, and ~100 KB of the other section went out
     // right beside the first data reads, on the connection and the phone CPU the page still
@@ -766,9 +768,12 @@ function AppInner() {
     // the address bar without a popstate. Without this the shell's `path` would lag and
     // useSeo would keep serving the landing tab's title on every other tab.
     window.addEventListener(WPBL_PATH_EVENT, onPop)
+    // MLB the same, since its tabs and pages became paths (Oct 2026).
+    window.addEventListener(MLB_PATH_EVENT, onPop)
     return () => {
       window.removeEventListener('popstate', onPop)
       window.removeEventListener(WPBL_PATH_EVENT, onPop)
+      window.removeEventListener(MLB_PATH_EVENT, onPop)
     }
   }, [])
 
@@ -964,7 +969,7 @@ function AppInner() {
               p: '2px', borderRadius: 999, cursor: 'pointer',
               border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
             }}>
-              {(path === '/mlb' || isWpblSection(path)) && (() => {
+              {(isMlbPath(path) || isWpblSection(path)) && (() => {
                 const wpblActive = isWpblSection(path)
                 return (
                   <Box sx={{
@@ -994,7 +999,7 @@ function AppInner() {
                 // slid the rainbow across and left the label in unselected grey on top of it.
                 // Every WPBL tab counts, and /wpbl/api too, so the switch stays "on WPBL" in
                 // the docs.
-                const active = seg.to === '/wpbl' ? isWpblSection(path) : path === seg.to
+                const active = seg.to === '/wpbl' ? isWpblSection(path) : isMlbPath(path)
                 const rainbow = active && seg.to === '/wpbl'
                 return (
                   // An anchor, not a plain Box, purely so a crawler can see the two
@@ -1188,7 +1193,7 @@ function AppInner() {
                 simulation, notification tester, simulated login, and (on /mlb) the
                 MLB simulators. Renders on every section, so the mobile toggle works
                 in WPBL too. See src/dev/DevSettings.tsx. Never in a production build. */}
-            {import.meta.env.DEV && <DevSettings showMlbTools={path === '/mlb'} showWpblTools={isWpblSection(path)} />}
+            {import.meta.env.DEV && <DevSettings showMlbTools={isMlbPath(path)} showWpblTools={isWpblSection(path)} />}
 
             <IconButton
               onClick={toggleTheme}
@@ -1404,7 +1409,7 @@ function AppInner() {
         shell reads 1 and means it. Portaled Dialogs, Menus and the Snackbar render in `body`
         and were never inside this, zoom or no zoom. */}
       <Box sx={{
-        '--app-zoom': { xs: '1', md: path === '/mlb' ? String(DESKTOP_ZOOM) : '1' },
+        '--app-zoom': { xs: '1', md: isMlbPath(path) ? String(DESKTOP_ZOOM) : '1' },
         zoom: 'var(--app-zoom)',
       }}>
         {/* The top padding is pinned in SCREEN pixels, which the sides are not.
@@ -1421,7 +1426,7 @@ function AppInner() {
           {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
-          {path === '/mlb' && (
+          {isMlbPath(path) && (
             // A screen tall, for the reason the /wpbl fallback below gives: at spinner height the
             // footer painted halfway up the screen and was then shoved off it, 0.13 of layout shift
             // on a desktop load (Oct 1, 2026). The section keeps itself a screen tall once it is in.
@@ -1563,7 +1568,7 @@ function AppInner() {
             renderFooter) so it doesn't reflow when tabs of different heights swap, and on mobile
             MLB it sits inside the section above the bottom bar's reserved room, so skip the
             shared one on both. Everywhere else (incl. desktop) it renders here. */}
-        {!((rendersWpblApp(path) || path === '/mlb') && !isDesktop) && (
+        {!((rendersWpblApp(path) || isMlbPath(path)) && !isDesktop) && (
           <SiteFooter
             onOpenChangelog={() => setChangelogOpen(true)}
             onOpenFeedback={() => setFeedbackOpen(true)}

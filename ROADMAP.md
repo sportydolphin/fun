@@ -90,12 +90,20 @@ goes first and the rest is winter work.
    same history-backed `ModalShell`; the trends chart and the player card's fullscreen take a
    `FullscreenEntry` so Back leaves fullscreen rather than the page. `ModalShell` now gives Escape
    to the newest shell only, since two stacked sheets each called `history.back()` on one key.
-   *Open:* the real paths:
-   `/mlb/standings`, `/mlb/players/<name>-<id>` (the id always, since MLB has real
-   namesakes), `/mlb/games/<pk>`, `/mlb/teams/<abbr>`, each with its `_redirects` lines,
-   `seo.ts` entry and routes test; old `?view=` links 301 at the edge, and the notification
-   URLs in `shared/notifications.js` (`/mlb?view=home&open=predictor`) keep working. The
-   969-line `useMlbState` becomes route-driven.
+   *Done Oct 2 (v1.112.0), the real paths* (`src/mlb/routes.ts`): `/mlb/scores`,
+   `/mlb/standings`, `/mlb/leaders`, `/mlb/stats`, `/mlb/charts`, `/mlb/teams`, one page per club
+   at `/mlb/teams/<nickname>` (`red-sox`, `blue-jays`: what a fan types, where an abbreviation is
+   not), and `/mlb/players/<name>-<id>`, which resolves on the id alone since MLB has real
+   namesakes. Every tab is a real link, each page has its own title and canonical, the tabs and
+   clubs are in the sitemap (players deliberately are not), and `routes.test.ts` pins the
+   redirects, sitemap and tags together. `functions/mlb/` 301s every old `?view=` / `?pid=` /
+   `?tid=` link onto its path, keeping `open=` so the notification URLs still open their board,
+   and answers a real 404 for a player URL naming nobody. Each tap now pushes its DESTINATION's
+   address, which also fixes the stale-build reload landing back on the page being left. Found on
+   the way: a tab left the player selected behind it, so its history entry (and, under the old
+   query, the `pid=` in the address) went on naming the player; a tab now clears the selection.
+   *Open:* `/mlb/games/<pk>`, since Game Center is still a sheet reached by `open=game`; and
+   `useMlbState` reads the address but is not yet driven by it.
 5. 🟡 **Load cost.** *Done Sep 28:* one `/teams/stats` read per group replaces the 60 per-club
    reads behind a team's league ranks and the Visualize charts. *Done Oct 1, layout shift:* field
    CLS was 0.227 at p75 on phones (Google's "poor" starts at 0.25), measured with headless Chrome

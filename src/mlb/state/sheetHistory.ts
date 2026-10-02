@@ -37,10 +37,15 @@ export const onSheetEntry = (): boolean =>
  * that entry would outlive the sheet as a copy of the page beneath it, and Back from the player
  * would land on it and then need a second Back to get anywhere. Replacing it makes the sheet's
  * entry become the player's, so Back goes straight to where the sheet was opened.
+ *
+ * `url` is the DESTINATION's address. Without it the entry is written at the current one and the
+ * section's URL sync corrects it a render later, which looks the same until a deploy lands under
+ * an open tab: lib/staleBuild.ts turns the next pushState into a full load OF ITS URL, and loading
+ * the page being left is a tap that goes nowhere.
  */
-export function pushEntry(state: Record<string, unknown>): void {
-  if (onSheetEntry()) window.history.replaceState(state, '', window.location.href)
-  else window.history.pushState(state, '', window.location.href)
+export function pushEntry(state: Record<string, unknown>, url: string = window.location.href): void {
+  if (onSheetEntry()) window.history.replaceState(state, '', url)
+  else window.history.pushState(state, '', url)
 }
 
 /** Carry the sheet marker through a replaceState, so restamping an entry does not unmark it. */

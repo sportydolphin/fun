@@ -6,9 +6,12 @@ import { KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
 import { RankMode, Palette, StatDef } from '../types'
 import { ACCENT } from '../constants'
 import { statCols } from '../lib/utils'
+import { linkPress } from '../../ui/interaction'
 
 export function SegControl({ options, value, onChange }: {
-  options: { value: string; label: string }[]
+  /** `href` makes the option a real link (linkPress): a tab that is a page must be one a crawler
+   *  can follow and a reader can open in a new tab. Options that only switch a mode leave it off. */
+  options: { value: string; label: string; href?: string }[]
   value: string
   onChange: (v: string) => void
 }) {
@@ -23,8 +26,9 @@ export function SegControl({ options, value, onChange }: {
       {options.map(opt => (
         <Box
           key={opt.value}
-          onClick={() => onChange(opt.value)}
+          {...(opt.href ? linkPress(opt.href, () => onChange(opt.value)) : { onClick: () => onChange(opt.value) })}
           sx={{
+            display: 'block', textDecoration: 'none',
             px: 1.75, py: 0.5,
             borderRadius: 999,
             cursor: 'pointer',

@@ -190,9 +190,10 @@ export const EVENTS = {
   // is the question the WPBL alignment has to answer before it decides what MLB keeps (see
   // "Aligning with WPBL" in ROADMAP.md). Read through admin_mlb_usage.
   //
-  // THE TAB EVENT IS NOT A PAGE VIEW, for a reason the WPBL one is not either, and a stronger one:
-  // every MLB tab is the same path, `/mlb`, with the view in the query string, so Cloudflare
-  // cannot tell them apart at all. `via` says how: a pill tap, or a link from a card.
+  // THE TAB EVENT IS NOT A PAGE VIEW, for the reason the WPBL one is not either. Until Oct 2, 2026
+  // every MLB tab was also the same path, `/mlb`, so Cloudflare could not tell them apart at all;
+  // they are paths now, but this is still what says how a tab was reached: `via` is a pill tap, or
+  // a link from a card.
   MLB_TAB_VIEWED:      'mlb_tab_viewed',      // switched MLB tab, props {view, via: pill|link, from}
   MLB_PLAYER_OPENED:   'mlb_player_opened',   // opened an MLB player, props {playerId, from}
   MLB_TEAM_OPENED:     'mlb_team_opened',     // opened an MLB team, props {teamId, from}

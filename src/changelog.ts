@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.112.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'Real links for every MLB page',
+        full:  'Every MLB tab, club and player now has an address of its own, like /mlb/standings, /mlb/teams/cubs or a player\'s name, so a link you copy opens exactly that page and the tabs open in a new tab. Old links still work.',
+      },
+    ],
+  },
+  {
     version: '1.111.2',
     date:    '2026-10-02',
     changes: [

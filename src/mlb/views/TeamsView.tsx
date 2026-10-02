@@ -3,12 +3,13 @@ import { TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME, TEAM_BG } from '../constants'
 import { LogoBubble } from '../components/boxScore'
 import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { useIsDark, borderAlpha } from '../lib/colorUtils'
+import { mlbTeamPath } from '../routes'
 
 // The Teams tab: every club, by division, one tap from its page. Teams had no tab before Sep 28,
 // 2026; a club page was reached only by searching for it or tapping a logo somewhere else, which is
 // a lot to ask of a reader who just wants the Cubs. WPBL's Teams tab is the model.
 //
-// Every tile is a real link to the club's `?tid=` address (linkPress), so a crawler can follow it
+// Every tile is a real link to the club's page, /mlb/teams/<club> (linkPress), so a crawler can follow it
 // and a long-press opens it in a new tab; a plain tap stays in the app.
 
 const DIVISIONS: Array<{ code: string; label: string }> = [
@@ -43,7 +44,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
                   const mine = id === followedTeamId
                   const col = TEAM_BG[id] ?? '#888'
                   return (
-                    <Box key={id} {...linkPress(`/mlb?tid=${id}`, () => onTeamClick(id))} sx={{
+                    <Box key={id} {...linkPress(mlbTeamPath(id), () => onTeamClick(id))} sx={{
                       display: 'flex', alignItems: 'center', gap: 1.25,
                       px: 1.25, py: 1, minHeight: 48, borderRadius: 2,
                       textDecoration: 'none', color: 'text.primary',

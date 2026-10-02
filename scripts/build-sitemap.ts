@@ -23,6 +23,7 @@ import {
   WPBL_TEAMS_BASE, teamSlug,
 } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
+import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE } from '../src/mlb/routes'
 
 const SITE = 'https://sportydolphin.fun'
 // Relative to the repo root, NOT to this file: `npm run sitemap` bundles it into
@@ -195,7 +196,18 @@ const gameEntries: Entry[] = played.map(g => ({
 const missing = WPBL_VIEW_PATHS.filter(p => !STATIC.some(e => e.loc === p))
 if (missing.length) throw new Error(`WPBL tabs missing from STATIC: ${missing.join(', ')}`)
 
-const entries = [...STATIC, ...teamEntries, ...players, ...gameEntries]
+// MLB's tabs and its thirty clubs, from src/mlb/routes.ts like the WPBL tabs. The section root is
+// already in STATIC. NO PLAYER PAGES: they are every player in StatsAPI, thousands of pages built
+// from a public feed that MLB.com and Baseball Savant both serve better, which would bury this
+// site's own ~125 written URLs exactly the way the comparison pairs would. They are indexable,
+// and found by being linked from a club page or a leaderboard.
+const mlbEntries: Entry[] = [
+  ...Object.values(MLB_VIEW_PATHS).filter(p => !STATIC.some(e => e.loc === p))
+    .map(loc => ({ loc, changefreq: 'daily', priority: '0.6' })),
+  ...MLB_CLUBS.map(c => ({ loc: `${MLB_TEAMS_BASE}/${c.slug}`, changefreq: 'daily', priority: '0.5' })),
+]
+
+const entries = [...STATIC, ...teamEntries, ...players, ...gameEntries, ...mlbEntries]
 
 // Rewrite ONLY when the set of URLs actually changed.
 //

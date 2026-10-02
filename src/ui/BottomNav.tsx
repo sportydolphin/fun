@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
   HomeOutlined, Home,
@@ -25,6 +26,9 @@ export interface BottomNavItem {
   label: string
   /** Draws a "something new here" dot on the icon. See src/lib/seen.ts. */
   badge?: boolean
+  /** The tab's address, which makes it a real link: a crawler follows it and a modified click
+   *  opens it in a new tab. A plain tap still goes through `onChange`. */
+  href?: string
 }
 
 // Filled icon when active, outlined when not: the standard tab-bar cue, and it means the
@@ -222,7 +226,16 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
           return (
             <Box
               key={item.key}
-              onClick={() => isMore ? onMore?.() : select(item.key)}
+              {...(item.href && !isMore ? { component: 'a' as const, href: item.href } : {})}
+              onClick={(e: MouseEvent) => {
+                if (item.href && !isMore) {
+                  // A modified click is the reader asking the BROWSER for this URL, not the app.
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return
+                  e.preventDefault()
+                }
+                if (isMore) onMore?.()
+                else select(item.key)
+              }}
               role={isMore ? 'button' : 'tab'}
               aria-selected={isMore ? undefined : active}
               aria-haspopup={isMore ? 'menu' : undefined}
@@ -233,7 +246,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                 flex: 1, minWidth: 0,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 gap: `${ICON_LABEL_GAP}px`, py: `${TAB_PAD_Y}px`,
-                cursor: 'pointer', userSelect: 'none',
+                cursor: 'pointer', userSelect: 'none', textDecoration: 'none',
                 WebkitTapHighlightColor: 'transparent',
                 color: t => active ? accent : (t.palette.mode === 'dark' ? INACTIVE_TAB.dark : INACTIVE_TAB.light),
                 // Drives the icon and the label (both inherit currentColor), on the shared timing

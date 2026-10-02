@@ -42,6 +42,42 @@
 /wpbl/watch/     /wpbl/watch      301
 /wpbl/compare/   /wpbl/compare    301
 /mlb/          /mlb       301
+/mlb/scores/     /mlb/scores      301
+/mlb/standings/  /mlb/standings   301
+/mlb/leaders/    /mlb/leaders     301
+/mlb/stats/      /mlb/stats       301
+/mlb/charts/     /mlb/charts      301
+/mlb/teams/      /mlb/teams       301
+/mlb/teams/angels/            /mlb/teams/angels           301
+/mlb/teams/diamondbacks/      /mlb/teams/diamondbacks     301
+/mlb/teams/orioles/           /mlb/teams/orioles          301
+/mlb/teams/red-sox/           /mlb/teams/red-sox          301
+/mlb/teams/cubs/              /mlb/teams/cubs             301
+/mlb/teams/reds/              /mlb/teams/reds             301
+/mlb/teams/guardians/         /mlb/teams/guardians        301
+/mlb/teams/rockies/           /mlb/teams/rockies          301
+/mlb/teams/tigers/            /mlb/teams/tigers           301
+/mlb/teams/astros/            /mlb/teams/astros           301
+/mlb/teams/royals/            /mlb/teams/royals           301
+/mlb/teams/dodgers/           /mlb/teams/dodgers          301
+/mlb/teams/nationals/         /mlb/teams/nationals        301
+/mlb/teams/mets/              /mlb/teams/mets             301
+/mlb/teams/athletics/         /mlb/teams/athletics        301
+/mlb/teams/pirates/           /mlb/teams/pirates          301
+/mlb/teams/padres/            /mlb/teams/padres           301
+/mlb/teams/mariners/          /mlb/teams/mariners         301
+/mlb/teams/giants/            /mlb/teams/giants           301
+/mlb/teams/cardinals/         /mlb/teams/cardinals        301
+/mlb/teams/rays/              /mlb/teams/rays             301
+/mlb/teams/rangers/           /mlb/teams/rangers          301
+/mlb/teams/blue-jays/         /mlb/teams/blue-jays        301
+/mlb/teams/twins/             /mlb/teams/twins            301
+/mlb/teams/phillies/          /mlb/teams/phillies         301
+/mlb/teams/braves/            /mlb/teams/braves           301
+/mlb/teams/white-sox/         /mlb/teams/white-sox        301
+/mlb/teams/marlins/           /mlb/teams/marlins          301
+/mlb/teams/yankees/           /mlb/teams/yankees          301
+/mlb/teams/brewers/           /mlb/teams/brewers          301
 /privacy/      /privacy   301
 /terms/        /terms     301
 /delete-account/ /delete-account 301
@@ -110,6 +146,51 @@
 # order onto the alphabetical one, so a pair is one URL rather than two.
 /wpbl/compare/*  /  200
 /mlb           /  200
+# MLB's tabs, one line each and not /mlb/*, for the reason the WPBL tabs above give. See
+# src/mlb/routes.ts, which src/mlb/__tests__/routes.test.ts pins to this block.
+/mlb/scores      /  200
+/mlb/standings   /  200
+/mlb/leaders     /  200
+/mlb/stats       /  200
+/mlb/charts      /  200
+/mlb/teams       /  200
+# One line per club, as WPBL's four are: thirty is enumerable, so an unknown
+# /mlb/teams/<anything> falls through to the real 404 with nothing standing behind it.
+/mlb/teams/angels           /  200
+/mlb/teams/diamondbacks     /  200
+/mlb/teams/orioles          /  200
+/mlb/teams/red-sox          /  200
+/mlb/teams/cubs             /  200
+/mlb/teams/reds             /  200
+/mlb/teams/guardians        /  200
+/mlb/teams/rockies          /  200
+/mlb/teams/tigers           /  200
+/mlb/teams/astros           /  200
+/mlb/teams/royals           /  200
+/mlb/teams/dodgers          /  200
+/mlb/teams/nationals        /  200
+/mlb/teams/mets             /  200
+/mlb/teams/athletics        /  200
+/mlb/teams/pirates          /  200
+/mlb/teams/padres           /  200
+/mlb/teams/mariners         /  200
+/mlb/teams/giants           /  200
+/mlb/teams/cardinals        /  200
+/mlb/teams/rays             /  200
+/mlb/teams/rangers          /  200
+/mlb/teams/blue-jays        /  200
+/mlb/teams/twins            /  200
+/mlb/teams/phillies         /  200
+/mlb/teams/braves           /  200
+/mlb/teams/white-sox        /  200
+/mlb/teams/marlins          /  200
+/mlb/teams/yankees          /  200
+/mlb/teams/brewers          /  200
+# A wildcard, because the valid player URLs are every player in StatsAPI. The soft-404 hole
+# it would open is closed by functions/mlb/[[path]].ts, which answers a real 404 for a path
+# that names no player BEFORE this rule is reached, and 301s a stale name onto the current one.
+# There is no /mlb/players index, so the bare directory is not routed and 404s.
+/mlb/players/*   /  200
 /privacy       /  200
 /terms         /  200
 /delete-account /  200
