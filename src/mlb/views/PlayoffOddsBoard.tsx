@@ -4,6 +4,7 @@ import { ACCENT, TEAM_NICKNAME } from '../constants'
 import { useIsDark, highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { TeamLogo } from './Standings'
+import { chromePx, typePx } from '../../ui/scale'
 
 // Percent shown to one significant "feel": near-locks read as >99% rather than a
 // misleadingly exact 100%, and live-but-tiny chances read as <1% rather than 0%.
@@ -41,7 +42,7 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
       onClick={() => onTeamClick?.(row.teamId)}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25,
-        px: 1.5, py: '9px',
+        px: 1.5, py: chromePx(9),
         borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
         borderLeft: `3px solid ${teamColor}`,
         bgcolor: isMine ? `${teamColor}22` : undefined,
@@ -61,17 +62,17 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
       </Box>
 
       {/* Make playoffs — the headline number, with a slim meter under it */}
-      <Box sx={{ minWidth: 60, textAlign: 'right' }}>
+      <Box sx={{ minWidth: chromePx(60), textAlign: 'right' }}>
         <Typography sx={{ fontSize: '0.86rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: pctColor(row.makePlayoffs), lineHeight: 1.2 }}>
           {fmtPct(row.makePlayoffs)}
         </Typography>
-        <Box sx={{ mt: '3px', height: 3, borderRadius: 2, bgcolor: 'action.hover', overflow: 'hidden' }}>
+        <Box sx={{ mt: chromePx(3), height: chromePx(3), borderRadius: 2, bgcolor: 'action.hover', overflow: 'hidden' }}>
           <Box sx={{ height: '100%', width: `${Math.max(0, Math.min(1, row.makePlayoffs)) * 100}%`, bgcolor: teamColor, borderRadius: 2 }} />
         </Box>
       </Box>
 
       {/* Win the division — secondary, hidden on the narrowest screens */}
-      <Box sx={{ minWidth: 42, textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+      <Box sx={{ minWidth: chromePx(42), textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: row.winDivision > 0 ? 'text.secondary' : 'text.disabled' }}>
           {fmtPct(row.winDivision)}
         </Typography>
@@ -100,10 +101,10 @@ function LeagueOddsCard({ label, leagueId, rows, onTeamClick, highlightTeamId }:
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', minWidth: 60, textAlign: 'right' }}>
+          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '3.75rem', textAlign: 'right' }}>
             Playoffs
           </Typography>
-          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', minWidth: 42, textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '2.625rem', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
             Div
           </Typography>
         </Box>

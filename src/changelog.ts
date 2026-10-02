@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.115.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'MLB sized like WPBL on desktop',
+        full:  'On a computer, MLB pages now use the same text size and spacing as WPBL, so more of each page fits on screen and switching between the two leagues no longer changes the size of the bar at the top. Game Center and the other pop-up panels are larger and easier to read, and the Large text setting works properly on every MLB page.',
+      },
+      {
+        short: 'MLB tabs match WPBL',
+        full:  'The MLB tab bar and its More menu sit and look the same as WPBL\'s, the selected tab is easier to read, and switches like Hitting and Pitching now look different from the tabs that take you to another page. Every tab and switch can be reached with the keyboard.',
+      },
+    ],
+  },
+  {
     version: '1.114.0',
     date:    '2026-10-02',
     changes: [

@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { ACCENT } from '../constants'
 import { RecentGameEntry } from '../types'
 import { scrollBehavior } from '../../lib/motion'
+import { chromePx, typePx } from '../../ui/scale'
 
 const INIT = 5
 
@@ -33,7 +34,7 @@ function DecBadge({ s }: { s: any }) {
   return (
     <Box component="span" sx={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 22, height: 22, borderRadius: '50%',
+      width: chromePx(22), height: chromePx(22), borderRadius: '50%',
       bgcolor: `${c}1e`, color: c, fontSize: '0.65rem', fontWeight: 800,
     }}>
       {d}
@@ -83,16 +84,16 @@ const PIT_COLS: ColDef[] = [
 ]
 
 const thSx = {
-  py: '7px', px: { xs: '4px', sm: '14px' },
+  py: chromePx(7), px: { xs: chromePx(4), sm: chromePx(14) },
   fontSize: { xs: '0.6rem', sm: '0.66rem' }, fontWeight: 800,
-  letterSpacing: '0.5px', textTransform: 'uppercase' as const,
+  letterSpacing: typePx(0.5), textTransform: 'uppercase' as const,
   whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   color: 'text.primary',
   borderBottom: '2px solid', borderColor: 'divider',
 }
 
 const tdSx = {
-  py: '7px', px: { xs: '4px', sm: '14px' },
+  py: chromePx(7), px: { xs: chromePx(4), sm: chromePx(14) },
   fontSize: { xs: '0.75rem', sm: '0.82rem' },
   whiteSpace: 'nowrap' as const,
 }
@@ -127,7 +128,7 @@ function GameSection({ title, entries, cols, dataKey, highlightDate, onTeamClick
   return (
     <Box>
       {title && (
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.4, color: 'text.disabled', mb: 0.75 }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.4), color: 'text.disabled', mb: 0.75 }}>
           {title}
         </Typography>
       )}
@@ -137,7 +138,7 @@ function GameSection({ title, entries, cols, dataKey, highlightDate, onTeamClick
 
           <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
             <Box component="tr" sx={{ bgcolor: 'background.paper' }}>
-              <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: '8px', sm: '16px' } }}>
+              <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: chromePx(8), sm: chromePx(16) } }}>
                 Date
               </Box>
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>
@@ -166,8 +167,8 @@ function GameSection({ title, entries, cols, dataKey, highlightDate, onTeamClick
                   }}>
 
                   {/* Date */}
-                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', pl: { xs: '8px', sm: '16px' }, color: 'text.secondary',
-                    ...(g.date === highlightDate ? { borderLeft: `3px solid ${ACCENT}`, pl: { xs: '5px', sm: '13px' } } : {}) }}>
+                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', pl: { xs: chromePx(8), sm: chromePx(16) }, color: 'text.secondary',
+                    ...(g.date === highlightDate ? { borderLeft: `3px solid ${ACCENT}`, pl: { xs: chromePx(5), sm: chromePx(13) } } : {}) }}>
                     {fmtDate(g.date)}
                   </Box>
 

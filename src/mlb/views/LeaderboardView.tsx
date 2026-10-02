@@ -5,11 +5,13 @@ import {
 import { Tune, KeyboardArrowDown, OpenInFull } from '@mui/icons-material'
 import { StatDef, LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
-import { SegControl, PillChip, pillActionSx } from '../components/ui'
+import { PillChip, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
 import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { chromePx, typePx } from '../../ui/scale'
+import { PillGroup } from '../../ui/PillGroup'
 
 export interface LeaderboardViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -55,12 +57,12 @@ export function LeaderboardView({
       {/* Controls row */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SegControl
+          <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
             value={lbGroup}
             onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
           />
-          <SegControl
+          <PillGroup
             options={GAME_SCOPES.map(s => ({ value: s, label: GAME_SCOPE_LABEL[s] }))}
             value={gameScope}
             onChange={v => setGameScope(v as GameScope)}
@@ -69,7 +71,7 @@ export function LeaderboardView({
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
             <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
-              style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
+              style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(16)}`, borderRadius: 999, fontFamily: 'inherit' }}>
               {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </Box>
@@ -108,13 +110,13 @@ export function LeaderboardView({
             onClose={() => setLbPickerAnchor(null)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: 280, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+            PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: chromePx(280), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
           >
             {(() => {
               const allLbSelected = allLbKeys.every(k => lbSelectedKeys.includes(k))
               return (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                  <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                     Leaderboard stats
                   </Typography>
                   <Box
@@ -209,7 +211,7 @@ export function LeaderboardView({
                     display: 'flex', alignItems: 'center',
                   }}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', letterSpacing: typePx(-0.2), lineHeight: 1.2 }}>
                         {def.leaderLabel ?? def.label}
                       </Typography>
                       {def.lowerIsBetter && (
@@ -264,7 +266,7 @@ export function LeaderboardView({
                             fontSize: rank < 3 ? '1rem' : '0.82rem',
                             fontWeight: 800,
                             color: 'text.disabled',
-                            width: 22,
+                            width: '1.375rem',
                             flexShrink: 0,
                             textAlign: 'center',
                             lineHeight: 1,
@@ -278,7 +280,7 @@ export function LeaderboardView({
                             src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
                             alt={e.playerName}
                             sx={{
-                              width: 34, height: 34,
+                              width: chromePx(34), height: chromePx(34),
                               borderRadius: '50%',
                               objectFit: 'cover',
                               flexShrink: 0,
@@ -301,7 +303,7 @@ export function LeaderboardView({
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.1 }}>
                               {e.teamId > 0 && (
                                 <Box sx={{
-                                  width: 16, height: 16, borderRadius: '50%',
+                                  width: chromePx(16), height: chromePx(16), borderRadius: '50%',
                                   bgcolor: teamLogoBg(e.teamId, isDark),
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   flexShrink: 0, overflow: 'hidden',
@@ -310,7 +312,7 @@ export function LeaderboardView({
                                     component="img"
                                     src={teamLogoSrc(e.teamId, isDark)}
                                     alt={e.teamAbbr}
-                                    sx={{ width: 12, height: 12, objectFit: 'contain', transform: teamLogoCrop(e.teamId, isDark), transformOrigin: 'center' }}
+                                    sx={{ width: chromePx(12), height: chromePx(12), objectFit: 'contain', transform: teamLogoCrop(e.teamId, isDark), transformOrigin: 'center' }}
                                     onError={(ev: React.SyntheticEvent<HTMLImageElement>) => {
                                       ev.currentTarget.parentElement!.style.display = 'none'
                                     }}

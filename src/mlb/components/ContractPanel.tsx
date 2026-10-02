@@ -14,6 +14,7 @@ import React from 'react'
 import { Box, Typography, Tooltip } from '@mui/material'
 import { PlayerContract, ContractYear } from '../types'
 import { useIsDark, defaultBorder } from '../lib/colorUtils'
+import { chromePx, typePx } from '../../ui/scale'
 
 // One colour per control state. Deliberately not team-coloured: these encode
 // contract *status*, and the legend has to mean the same thing on every page.
@@ -66,7 +67,7 @@ export function ContractPanel({ contract, currentSeason }: {
   const summaryChip = (label: string, value: string) => (
     <Box key={label} sx={{ minWidth: 0 }}>
       <Typography sx={{
-        fontSize: '0.56rem', fontWeight: 800, letterSpacing: 0.8,
+        fontSize: '0.56rem', fontWeight: 800, letterSpacing: typePx(0.8),
         textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
       }}>
         {label}
@@ -120,7 +121,7 @@ export function ContractPanel({ contract, currentSeason }: {
       {/* Control timeline */}
       {years.length > 0 && (
         <Box sx={{ px: 2, py: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.6, minHeight: 76 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.6, minHeight: chromePx(76) }}>
             {years.map(y => {
               const style   = KIND_STYLE[y.kind] ?? KIND_STYLE.other
               const isNow   = y.season === currentSeason
@@ -147,7 +148,7 @@ export function ContractPanel({ contract, currentSeason }: {
                     }}>
                       {money(y.salary)}
                     </Typography>
-                    <Box sx={{ width: '100%', height: 46, display: 'flex', alignItems: 'flex-end' }}>
+                    <Box sx={{ width: '100%', height: chromePx(46), display: 'flex', alignItems: 'flex-end' }}>
                       <Box sx={{
                         width: '100%', height: `${pct}%`, borderRadius: 0.75,
                         bgcolor: style.color,
@@ -176,7 +177,7 @@ export function ContractPanel({ contract, currentSeason }: {
               const style = KIND_STYLE[kind] ?? KIND_STYLE.other
               return (
                 <Box key={kind} sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                  <Box sx={{ width: 8, height: 8, borderRadius: 0.5, bgcolor: style.color, flexShrink: 0 }} />
+                  <Box sx={{ width: chromePx(8), height: chromePx(8), borderRadius: 0.5, bgcolor: style.color, flexShrink: 0 }} />
                   <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', fontWeight: 600 }}>
                     {style.label}
                   </Typography>

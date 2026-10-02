@@ -5,17 +5,6 @@ import { fmt, fmtDecimal } from './lib/utils'
 
 export const ACCENT = '#60a5fa'
 
-// Desktop-only content scale. On wide screens the app is capped + centered, which
-// leaves a lot of empty side margin and reads small; we scale the whole MLB view
-// up with CSS `zoom` (applied at the md breakpoint and above) so it fills the
-// width and everything is larger — the same effect as zooming the browser to
-// ~140%. Mobile is untouched (single column already fills the width).
-//
-// Exposed as the `--app-zoom` CSS variable on the MLB wrapper so viewport-relative
-// sizing inside the zoomed subtree (which `zoom` does NOT compensate) can divide
-// by it — see StatsView's scroll-height cap. Tune this one number to taste.
-export const DESKTOP_ZOOM = 1.4
-
 // How many players you can follow at once. The Home "Your Players" card only shows
 // the first few (3 on mobile, 5 from sm up) behind a "View all" toggle, so the list
 // stays a glanceable summary rather than a wall of rows.

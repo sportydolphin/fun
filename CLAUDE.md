@@ -283,46 +283,37 @@ Each of these has already cost someone a debugging session, and none of them fai
   check the league's own stat page against a pitcher with a lot of innings, where the two bases
   are far apart.
 
-- **`/wpbl` renders at a DESKTOP SCALE in CSS, not under a `zoom`, and there are two scales.**
+- **Both sections render at a DESKTOP SCALE in CSS, not under a `zoom`, and there are two scales.**
   Until Aug 31, 2026 the whole app sat inside `zoom: 1.4` at `md`, which split it into two
-  pixel units nothing in the type system tells apart and cost five shipped bugs. `/wpbl` is
-  out (`/mlb` is not yet: it still runs `DESKTOP_ZOOM`, which is why the scale is keyed on
-  `:root[data-app-scale='wpbl']`, set per route in App.tsx). **Never put both on one element**,
-  a root font-size ramp on top of a zoom compounds. The two scales, in `styles.css`:
+  pixel units nothing in the type system tells apart and cost five shipped bugs. `/wpbl` came out
+  then and `/mlb` in Oct 2026; there is no `zoom` left on the site. The scale is keyed on
+  `:root[data-app-scale]`, set per route in App.tsx, and off both sections (`/admin`, `/privacy`)
+  everything stays at 1. The two scales, in `styles.css`:
   **`--app-type`** is spent on the root font size, so it moves every `rem` (the type, and the
   boxes that reserve room for type) and it MULTIPLIES with `--sd-text-scale`, the reader's
   Large text setting. **`--app-chrome`** is spent on px that is not type: MUI's whole `spacing`
   scale, `TeamBadge` / `PlayerPortrait`, the toolbar logo, and every structural length via
-  `chromePx()` in [`ui.tsx`](src/wpbl/ui.tsx). It deliberately EXCLUDES the text scale, because
-  a tap target that grows with the reader's text size is a worse tap target. `AccessibilityContext`
-  must keep PUBLISHING `--sd-text-scale` rather than setting `font-size` itself: an inline style
-  beats the stylesheet, so setting it there gives a Large-text reader the MOBILE type size on a
-  desktop. See item 0 in [ROADMAP-WPBL.md](ROADMAP-WPBL.md).
+  `chromePx()` in [`src/ui/scale.ts`](src/ui/scale.ts). It deliberately EXCLUDES the text scale,
+  because a tap target that grows with the reader's text size is a worse tap target.
+  `AccessibilityContext` must keep PUBLISHING `--sd-text-scale` rather than setting `font-size`
+  itself: an inline style beats the stylesheet, so setting it there gives a Large-text reader the
+  MOBILE type size on a desktop. **One number for both sections** (`DESKTOP_SCALE` in App.tsx):
+  the shared toolbar rides the root scale, so two values would resize the bar on every section
+  switch. It had a `zoom` of its own while `/mlb` was zoomed, and that is gone too. See item 0 in
+  [ROADMAP-WPBL.md](ROADMAP-WPBL.md) and item 7 in [ROADMAP.md](ROADMAP.md).
 
-- **The shared toolbar has its OWN scale, and it is a `zoom`, deliberately.** The bar is shared
-  by `/wpbl` and `/mlb`, and those two are scaled by different means, so neither section's
-  mechanism can reach it without reaching the other section too. Everything above lives on
-  `:root`, and `/mlb` has 212 raw px dimensions that read no variable, so scaling the root to
-  fix the bar would leave all of those adrift. `--app-shell` in `styles.css` therefore scales
-  the `AppBar` on its own, and applies **only where the root is not already scaling it**
-  (`:root[data-shell-scale]:not([data-app-scale])`); applied on both, the bar scaled twice and
-  the wordmark came out half again too big. `zoom` is right here for the reasons it was wrong
-  in a section: what made it harmful there was 51 rect and scroll call sites and 37 breakpoints
-  reading a viewport the layout no longer matched, and a chrome bar has neither. It has three
-  lengths that can tell: the `70vh` caps on the panels hanging off it, which divide it back out.
-  `--app-header-h` needs nothing, since it publishes a rect (on-screen pixels) and is spent
-  outside the bar where those are the same pixels. The point of all of it is that the bar
-  measures the same on both sections, so switching moves nothing above the content.
-
-- **A fixed px size in `/wpbl` is one of three things, and only two of them scale.** Ordinary
-  CSS has no equivalent of `zoom`, so every length now says what it is. A box **reserving room
+- **A fixed px size in either section is one of three things, and only two of them scale.**
+  Ordinary CSS has no equivalent of `zoom`, so every length now says what it is. A box **reserving room
   for a string or a number** goes in `rem` (a rank column, a club-name column, the scoreboard
   chip): it must grow with the type or it clips, and this is the one that bites, because a box
   sized in px around a font sized in rem looks perfectly right until someone enlarges the text.
   **Structure** goes through `chromePx()` (rail widths, a dialog's cap, a card's flex basis):
   left raw it silently shrinks 40% against the type inside it, which is how the player dialog
   started wrapping a name onto two lines. **Ornament** stays raw px: hairline borders, the 6px
-  live dot, a 4px scrollbar. The failure is silent in every direction, and `tsc` sees none of
+  live dot, a 4px scrollbar. **Letter spacing** is type, so it is `typePx()` (rem): MUI reads a
+  bare `letterSpacing: 0.5` as px, which the old zoom scaled and the ramp does not, and that alone
+  re-wrapped headings across `/mlb`. MUI's own controls (a `Switch`, a native `select` arrow) are
+  fixed px inside and stay that way on both sections. The failure is silent in every direction, and `tsc` sees none of
   it: the only check that works is opening the page and looking for a box whose content is
   wider than it is, at more than one text scale. **Which is why anything behind the experiments
   flag is exempt from that check by construction, and has to be swept separately.** The seeding

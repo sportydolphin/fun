@@ -16,6 +16,7 @@ import {
 } from './scheduleData'
 import { scrollBehavior } from '../../lib/motion'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
+import { chromePx, chromeScale, typePx } from '../../ui/scale'
 
 // ─── GameChip ─────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       ref={innerRef}
       onClick={onClick}
       sx={{
-        flexShrink: 0, width: 70,
+        flexShrink: 0, width: chromePx(70),
         borderRadius: 2,
         border: `1.5px solid`,
         borderColor: highlight ? `${teamColor}90` : `${teamColor}22`,
@@ -62,11 +63,11 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
                  : isPostponed  ? 'rgba(128,128,128,0.5)'
                  : isActualToday ? teamColor
                  : `${teamColor}90`,
-          py: '2.5px',
+          py: chromePx(2.5),
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Typography sx={{
-            fontSize: '0.44rem', fontWeight: 900, letterSpacing: 1.5,
+            fontSize: '0.44rem', fontWeight: 900, letterSpacing: typePx(1.5),
             color: '#fff', textTransform: 'uppercase', lineHeight: 1,
           }}>
             {isLive ? '● LIVE' : isPostponed ? unplayedTag : isActualToday ? 'TODAY' : 'NEXT'}
@@ -77,17 +78,17 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       <Typography sx={{
         fontSize: '0.56rem', fontWeight: 600,
         color: 'text.disabled', lineHeight: 1,
-        mt: highlight ? 1.4 : 0, letterSpacing: 0.3,
+        mt: highlight ? 1.4 : 0, letterSpacing: typePx(0.3),
       }}>
         {chipDate(game.date)}{game.gameNumber > 1 ? ' · G2' : ''}
       </Typography>
 
-      <Typography sx={{ fontSize: '0.46rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: 0.8 }}>
+      <Typography sx={{ fontSize: '0.46rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.8) }}>
         {game.isHome ? 'VS' : '@'}
       </Typography>
 
       <Box sx={{
-        width: 28, height: 28, borderRadius: '50%', bgcolor: teamLogoBg(game.opponentId, isDark),
+        width: chromePx(28), height: chromePx(28), borderRadius: '50%', bgcolor: teamLogoBg(game.opponentId, isDark),
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden', flexShrink: 0,
       }}>
@@ -95,7 +96,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
           component="img"
           src={teamLogoSrc(game.opponentId, isDark)}
           alt={game.opponentAbbr}
-          sx={{ width: 20, height: 20, objectFit: 'contain', transform: teamLogoCrop(game.opponentId, isDark), transformOrigin: 'center' }}
+          sx={{ width: chromePx(20), height: chromePx(20), objectFit: 'contain', transform: teamLogoCrop(game.opponentId, isDark), transformOrigin: 'center' }}
         />
       </Box>
 
@@ -108,7 +109,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
           <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.primary', lineHeight: 1 }}>
             {game.teamScore}–{game.opponentScore}
           </Typography>
-          <Box sx={{ px: 0.75, py: '2px', borderRadius: 0.75, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
+          <Box sx={{ px: 0.75, py: chromePx(2), borderRadius: 0.75, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
             <Typography sx={{ fontSize: '0.58rem', fontWeight: 900, lineHeight: 1, color: isWin ? '#22c55e' : '#ef4444' }}>
               {isWin ? 'W' : 'L'}
             </Typography>
@@ -119,7 +120,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
           {game.teamScore}–{game.opponentScore}
         </Typography>
       ) : isPostponed ? (
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: 0.5 }}>
+        <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.5) }}>
           {unplayedTag}
         </Typography>
       ) : (
@@ -169,13 +170,13 @@ function GameCountdown({ iso }: { iso: string }) {
   return (
     <Box sx={{
       display: 'inline-flex', alignItems: 'center', gap: 0.4,
-      px: 0.6, py: '2px', borderRadius: 999, lineHeight: 1,
+      px: 0.6, py: chromePx(2), borderRadius: 999, lineHeight: 1,
       bgcolor: tint ? `${tint}18` : 'action.hover',
       border: '1px solid', borderColor: tint ? `${tint}45` : 'divider',
     }}>
       {urgency === 'imminent' && (
         <Box sx={{
-          width: 5, height: 5, borderRadius: '50%', bgcolor: tint, flexShrink: 0,
+          width: chromePx(5), height: chromePx(5), borderRadius: '50%', bgcolor: tint, flexShrink: 0,
           animation: 'countdownPulse 1.1s ease-in-out infinite',
           '@keyframes countdownPulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.25 } },
         }} />
@@ -226,7 +227,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
     <Box
       onClick={e => { e.stopPropagation(); onTeamClick?.(teamId) }}
       sx={{
-        width: size, height: size, borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
+        width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
         border: ringCol ? `2.5px solid ${ringCol}` : `1.5px solid ${col}`,
         display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
@@ -239,7 +240,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
       <Box component="img"
         src={teamLogoSrc(teamId, isDark)}
         alt={TEAM_ABBR[teamId] ?? ''}
-        sx={{ width: Math.round(size * 0.7), height: Math.round(size * 0.7), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
+        sx={{ width: chromePx(Math.round(size * 0.7)), height: chromePx(Math.round(size * 0.7)), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
       />
     </Box>
   )
@@ -255,7 +256,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
           )}
           {gmLabel && (
             <Box component="span" sx={{
-              fontSize: '0.55rem', fontWeight: 800, letterSpacing: 0.5, color: 'text.disabled',
+              fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.5), color: 'text.disabled',
               px: 0.55, py: 0.2, borderRadius: 999, border: '1px solid', borderColor: 'divider',
               whiteSpace: 'nowrap', flexShrink: 0,
             }}>
@@ -283,8 +284,8 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
 
       {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height.
           On mobile, rightSlot (the pitcher lines) sits just to the right of the score. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 } }}>
-        <Box ref={scoreRef} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: COMPACT_ROW_MAX, flexShrink: 0, minWidth: scoreMinWidth ? { xs: `${scoreMinWidth}px`, sm: 0 } : 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: chromePx(26), sm: chromePx(32) } }}>
+        <Box ref={scoreRef} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: chromePx(COMPACT_ROW_MAX), flexShrink: 0, minWidth: scoreMinWidth ? { xs: `${scoreMinWidth}px`, sm: 0 } : 0 }}>
         {(isFinal || isLive) && myTeamId ? (
           // Scoreboard-style, mirrored around the dash: away team → score – score ← home team,
           // so the two scores sit adjacent to the dash instead of a logo sitting next to it.
@@ -342,7 +343,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         {label && (
           <Box component="span" sx={{
             ml: 1, flexShrink: 0, alignSelf: 'center',
-            fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase',
+            fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
             color: labelColor ?? 'text.secondary', lineHeight: 1,
           }}>
             {label}
@@ -404,7 +405,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   }, [])
 
   const scrollStrip = useCallback((dir: 'left' | 'right') => {
-    containerRef.current?.scrollBy({ left: dir === 'right' ? 280 : -280, behavior: scrollBehavior() })
+    containerRef.current?.scrollBy({ left: (dir === 'right' ? 280 : -280) * chromeScale(), behavior: scrollBehavior() })
   }, [])
 
   // The shared preview modal fetches its own probable-starter data by gamePk, so opening
@@ -420,7 +421,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   // Arrow button style shared by both sides
   const arrowBtn = (visible: boolean) => ({
     position: 'absolute' as const, top: '50%', transform: 'translateY(-50%)',
-    zIndex: 3, width: 30, height: 30, borderRadius: '50%',
+    zIndex: 3, width: chromePx(30), height: chromePx(30), borderRadius: '50%',
     bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
@@ -433,25 +434,25 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
 
   return (
     <>
-      <MlbSheet onClose={onClose} maxWidth={560} sheet eyebrow="Full schedule">
+      <MlbSheet onClose={onClose} maxWidth={chromePx(560)} sheet eyebrow="Full schedule">
           {/* Chip strip with desktop scroll arrows */}
           <Box sx={{ py: 2.5, position: 'relative' }}>
             {/* Fade gradients */}
             <Box sx={{
-              position: 'absolute', left: 0, top: 0, bottom: 8, width: 40, zIndex: 2,
+              position: 'absolute', left: 0, top: 0, bottom: chromePx(8), width: chromePx(40), zIndex: 2,
               background: `linear-gradient(to right, ${paperBg} 40%, transparent)`, pointerEvents: 'none',
             }} />
             <Box sx={{
-              position: 'absolute', right: 0, top: 0, bottom: 8, width: 40, zIndex: 2,
+              position: 'absolute', right: 0, top: 0, bottom: chromePx(8), width: chromePx(40), zIndex: 2,
               background: `linear-gradient(to left, ${paperBg} 40%, transparent)`, pointerEvents: 'none',
             }} />
 
             {/* ◀ scroll button */}
-            <Box onClick={() => scrollStrip('left')} sx={{ ...arrowBtn(canScrollLeft), left: 6 }}>
+            <Box onClick={() => scrollStrip('left')} sx={{ ...arrowBtn(canScrollLeft), left: chromePx(6) }}>
               <Typography sx={{ fontSize: '0.7rem', lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>◀</Typography>
             </Box>
             {/* ▶ scroll button */}
-            <Box onClick={() => scrollStrip('right')} sx={{ ...arrowBtn(canScrollRight), right: 6 }}>
+            <Box onClick={() => scrollStrip('right')} sx={{ ...arrowBtn(canScrollRight), right: chromePx(6) }}>
               <Typography sx={{ fontSize: '0.7rem', lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>▶</Typography>
             </Box>
 
@@ -460,7 +461,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
               onScroll={handleScroll}
               sx={{
                 display: 'flex', gap: 1, overflowX: 'auto', px: 5, pb: 1,
-                '&::-webkit-scrollbar': { height: 3 },
+                '&::-webkit-scrollbar': { height: chromePx(3) },
                 '&::-webkit-scrollbar-thumb': { bgcolor: `${teamColor}30`, borderRadius: 2 },
                 scrollbarWidth: 'thin', scrollbarColor: `${teamColor}30 transparent`,
               }}
@@ -539,16 +540,16 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
         }}
       >
         <Box sx={{
-          width: 22, height: 22, borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
+          width: chromePx(22), height: chromePx(22), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
           border: `1.5px solid ${col}`, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
           justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         }}>
           <Box component="img"
             src={teamLogoSrc(teamId, isDark)}
-            sx={{ width: 15, height: 15, objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
+            sx={{ width: chromePx(15), height: chromePx(15), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
           />
         </Box>
-        <Box sx={{ minWidth: 0, maxWidth: 96 }}>
+        <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
           <Typography className="pmn" sx={{
             fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -570,7 +571,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
       mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
-      maxWidth: inline ? 'none' : COMPACT_ROW_MAX,
+      maxWidth: inline ? 'none' : chromePx(COMPACT_ROW_MAX),
     }}>
       <PitcherChip pitcher={awayPitcher} teamId={awayTeamId} />
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
@@ -609,21 +610,21 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
       >
         {/* 26px frame matches the score-row logo width so the circles share a center line */}
         <Box sx={{
-          width: 26, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
+          width: chromePx(26), display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
           justifyContent: 'center', flexShrink: 0,
         }}>
           <Box sx={{
-            width: 22, height: 22, borderRadius: '50%', bgcolor: teamLogoBg(player.teamId, isDark),
+            width: chromePx(22), height: chromePx(22), borderRadius: '50%', bgcolor: teamLogoBg(player.teamId, isDark),
             border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
             justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
           }}>
             <Box component="img"
               src={teamLogoSrc(player.teamId, isDark)}
-              sx={{ width: 15, height: 15, objectFit: 'contain', transform: teamLogoCrop(player.teamId, isDark), transformOrigin: 'center' }}
+              sx={{ width: chromePx(15), height: chromePx(15), objectFit: 'contain', transform: teamLogoCrop(player.teamId, isDark), transformOrigin: 'center' }}
             />
           </Box>
         </Box>
-        <Box sx={{ minWidth: 0, maxWidth: 96 }}>
+        <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
           <Typography className="pmn" sx={{
             fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -643,7 +644,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
       mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
-      maxWidth: inline ? 'none' : COMPACT_ROW_MAX,
+      maxWidth: inline ? 'none' : chromePx(COMPACT_ROW_MAX),
     }}>
       {first && <PlayerCard player={first} />}
       {first && second && (

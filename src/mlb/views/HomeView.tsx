@@ -35,6 +35,7 @@ import { FollowTeamPrompt } from './TeamPicker'
 import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { useDevNoTeam } from '../dev/devSeasonPhase'
 import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -489,7 +490,7 @@ function HomeViewInner({
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography sx={{
                           fontSize: teamQuiet ? { xs: '0.95rem', sm: '1.05rem' } : { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,
-                          letterSpacing: '-0.5px', lineHeight: 1.25,
+                          letterSpacing: typePx(-0.5), lineHeight: 1.25,
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
                           {teamLabel}
@@ -561,7 +562,7 @@ function HomeViewInner({
               )}
 
               {/* Your players — capped so a long list doesn't dominate; scrolls internally */}
-              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: 460 } }}>
+              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: chromePx(460) } }}>
                 <FollowedPlayersSection
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}

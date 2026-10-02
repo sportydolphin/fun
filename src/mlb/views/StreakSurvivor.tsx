@@ -13,6 +13,7 @@ import {
   fetchSurvivorLeaderboard, fetchMyRecentPicks,
   SurvivorPick, SurvivorStats, HotHitter, SurvivorLeaderRow, SurvivorResult,
 } from './survivorData'
+import { chromePx, typePx } from '../../ui/scale'
 
 const ZERO_STATS: SurvivorStats = { currentStreak: 0, longestStreak: 0, totalHits: 0, totalPicks: 0 }
 
@@ -29,9 +30,9 @@ function ResultPill({ result }: { result: SurvivorResult }) {
   const m = RESULT_META[result]
   return (
     <Box sx={{
-      px: 1, py: '2px', borderRadius: 999, bgcolor: `${m.color}22`,
+      px: 1, py: chromePx(2), borderRadius: 999, bgcolor: `${m.color}22`,
       fontSize: '0.62rem', fontWeight: 800, color: m.color,
-      textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap',
+      textTransform: 'uppercase', letterSpacing: typePx(0.5), whiteSpace: 'nowrap',
     }}>
       {m.label}
     </Box>
@@ -45,14 +46,14 @@ function StreakBadge({ current, longest }: { current: number; longest: number })
         <Typography sx={{ fontSize: '0.98rem', fontWeight: 800, lineHeight: 1, color: current > 0 ? '#f97316' : 'text.primary' }}>
           {current > 0 ? `🔥 ${current}` : '0'}
         </Typography>
-        <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', mt: '2px' }}>
+        <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', mt: chromePx(2) }}>
           Current
         </Typography>
       </Box>
       <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider' }} />
       <Box sx={{ textAlign: 'right' }}>
         <Typography sx={{ fontSize: '0.98rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{longest}</Typography>
-        <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', mt: '2px' }}>
+        <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', mt: chromePx(2) }}>
           Best
         </Typography>
       </Box>
@@ -69,7 +70,7 @@ function HitterRow({ name, teamId, subtitle, disabled, onPick }: {
     <Box
       onClick={() => !disabled && onPick()}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: '7px', borderRadius: 2,
+        display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: chromePx(7), borderRadius: 2,
         border: '1px solid', borderColor: 'divider',
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
         '&:hover': { bgcolor: disabled ? undefined : 'action.hover', borderColor: disabled ? 'divider' : ACCENT },
@@ -98,11 +99,11 @@ function LeaderRow({ entry }: { entry: SurvivorLeaderRow }) {
   const medal = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : null
   return (
     <Box sx={{
-      display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: '9px',
+      display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: chromePx(9),
       borderBottom: '1px solid', borderColor: 'divider',
       bgcolor: entry.isMe ? `${ACCENT}18` : undefined,
     }}>
-      <Typography sx={{ minWidth: 26, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: 'text.secondary' }}>
+      <Typography sx={{ minWidth: '1.625rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: 'text.secondary' }}>
         {medal ?? entry.rank}
       </Typography>
       <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.84rem', fontWeight: entry.isMe ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -113,7 +114,7 @@ function LeaderRow({ entry }: { entry: SurvivorLeaderRow }) {
           🔥 {entry.currentStreak}
         </Typography>
       )}
-      <Typography sx={{ minWidth: 34, textAlign: 'right', fontSize: '0.9rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+      <Typography sx={{ minWidth: '2.125rem', textAlign: 'right', fontSize: '0.9rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
         {entry.longestStreak}
       </Typography>
     </Box>
@@ -128,11 +129,11 @@ function SurvivorLeaderboardModal({ userId, onClose }: { userId: string | null; 
   }, [userId])
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={440} sheet eyebrow="Streak Survivor leaderboard">
-        <Box sx={{ px: 1.5, py: '6px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1.25, bgcolor: 'action.hover' }}>
-          <Typography sx={{ minWidth: 26, textAlign: 'center', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>#</Typography>
-          <Typography sx={{ flex: 1, fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>Player</Typography>
-          <Typography sx={{ minWidth: 34, textAlign: 'right', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>Best</Typography>
+    <MlbSheet onClose={onClose} maxWidth={chromePx(440)} sheet eyebrow="Streak Survivor leaderboard">
+        <Box sx={{ px: 1.5, py: chromePx(6), flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1.25, bgcolor: 'action.hover' }}>
+          <Typography sx={{ minWidth: '1.625rem', textAlign: 'center', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled' }}>#</Typography>
+          <Typography sx={{ flex: 1, fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled' }}>Player</Typography>
+          <Typography sx={{ minWidth: '2.125rem', textAlign: 'right', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled' }}>Best</Typography>
         </Box>
 
         {rows === null ? (
@@ -255,7 +256,7 @@ export function StreakSurvivorWidget() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.15 }}>🎯 Streak Survivor</Typography>
             {isTomorrow && (
-              <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
                 Tomorrow
               </Typography>
             )}
@@ -267,12 +268,12 @@ export function StreakSurvivorWidget() {
       {children}
       {/* Recent form — last few graded picks, oldest-left */}
       {user && recentForm.length > 0 && (
-        <Box sx={{ px: 1.75, py: '8px', borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>Recent</Typography>
+        <Box sx={{ px: 1.75, py: chromePx(8), borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled' }}>Recent</Typography>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             {recentForm.map((r, i) => (
               <Box key={i} title={`${r.gameDate}: ${RESULT_META[r.result].label} (${r.playerName})`} sx={{
-                width: 9, height: 9, borderRadius: '50%', bgcolor: RESULT_META[r.result].color,
+                width: chromePx(9), height: chromePx(9), borderRadius: '50%', bgcolor: RESULT_META[r.result].color,
               }} />
             ))}
           </Box>
@@ -281,7 +282,7 @@ export function StreakSurvivorWidget() {
       {/* Footer */}
       <Box
         onClick={() => setLbOpen(true)}
-        sx={{ px: 1.75, py: '9px', borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75, '&:hover': { bgcolor: 'action.hover' } }}
+        sx={{ px: 1.75, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75, '&:hover': { bgcolor: 'action.hover' } }}
       >
         <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT }}>View leaderboard</Typography>
       </Box>
@@ -297,7 +298,7 @@ export function StreakSurvivorWidget() {
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
         placeholder="Search any hitter…"
         sx={{
-          width: '100%', px: 1.25, py: '8px', borderRadius: 2, fontSize: '0.82rem',
+          width: '100%', px: 1.25, py: chromePx(8), borderRadius: 2, fontSize: '0.82rem',
           border: '1px solid', borderColor: 'divider', bgcolor: 'background.default',
           color: 'text.primary', outline: 'none', '&:focus': { borderColor: ACCENT },
           '&::placeholder': { color: 'text.disabled' },
@@ -340,7 +341,7 @@ export function StreakSurvivorWidget() {
         </Typography>
         <Box
           onClick={() => openAuthDialog('signin')}
-          sx={{ px: 1.5, py: '9px', borderRadius: 2, bgcolor: ACCENT, color: '#fff', textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: '0.82rem', '&:hover': { opacity: 0.9 } }}
+          sx={{ px: 1.5, py: chromePx(9), borderRadius: 2, bgcolor: ACCENT, color: '#fff', textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: '0.82rem', '&:hover': { opacity: 0.9 } }}
         >
           Sign in to play
         </Box>
@@ -349,7 +350,7 @@ export function StreakSurvivorWidget() {
   } else if (myPick && !changing) {
     body = (
       <Box sx={{ px: 1.75, py: 1.5 }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.75 }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.75 }}>
           {isTomorrow ? "Tomorrow's pick" : "Today's pick"}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -370,7 +371,7 @@ export function StreakSurvivorWidget() {
         {!pickLocked && myPick.result === 'pending' && (
           <Box
             onClick={() => setChanging(true)}
-            sx={{ mt: 1, px: 1.25, py: '7px', borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 700, color: 'text.secondary', '&:hover': { borderColor: ACCENT, color: ACCENT } }}
+            sx={{ mt: 1, px: 1.25, py: chromePx(7), borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 700, color: 'text.secondary', '&:hover': { borderColor: ACCENT, color: ACCENT } }}
           >
             Change pick
           </Box>
@@ -380,7 +381,7 @@ export function StreakSurvivorWidget() {
   } else {
     body = (
       <Box sx={{ px: 1.75, py: 1.5 }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.75 }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.75 }}>
           {changing ? 'Change your pick' : isTomorrow ? "Pick tomorrow's hitter" : "Pick today's hitter"}
         </Typography>
         {suggestions}

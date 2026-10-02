@@ -8,6 +8,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { chromePx, typePx } from '../../ui/scale'
 
 // Per-inning + R/H/E line score plus full batting / pitching tables.
 interface InningLine { num: number; away: number | null; home: number | null }
@@ -134,7 +135,7 @@ export function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
   const col = ringColor(teamId, isDark)
   return (
     <Box sx={{
-      width: size, height: size, borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
+      width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
       border: `${ring}px solid ${col}`, flexShrink: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
@@ -142,7 +143,7 @@ export function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
         component="img"
         src={teamLogoSrc(teamId, isDark)}
         alt={abbr}
-        sx={{ width: size * 0.72, height: size * 0.72, objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
+        sx={{ width: chromePx(size * 0.72), height: chromePx(size * 0.72), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
       />
     </Box>
   )
@@ -153,7 +154,7 @@ export function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
 export function LiveDot({ size = 6 }: { size?: number }) {
   return (
     <Box sx={{
-      width: size, height: size, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
+      width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
       animation: 'scoreLivePulse 1.6s ease-in-out infinite',
       '@keyframes scoreLivePulse': { '0%,100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: 0.45, transform: 'scale(0.8)' } },
     }} />
@@ -166,8 +167,8 @@ function StatHead({ children, w = 26 }: { children: React.ReactNode; w?: number 
   return (
     <Box component="th" sx={{
       fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled',
-      textTransform: 'uppercase', letterSpacing: 0.4,
-      textAlign: 'right', px: 0.4, py: 0.5, minWidth: w,
+      textTransform: 'uppercase', letterSpacing: typePx(0.4),
+      textAlign: 'right', px: 0.4, py: 0.5, minWidth: chromePx(w),
     }}>
       {children}
     </Box>
@@ -200,11 +201,11 @@ export function LineScoreTable({ box }: { box: BoxScore }) {
       <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
         <Box component="thead">
           <Box component="tr">
-            <Box component="th" sx={{ minWidth: 44 }} />
+            <Box component="th" sx={{ minWidth: chromePx(44) }} />
             {cols.map(num => (
               <StatHead key={num} w={18}>{num}</StatHead>
             ))}
-            <Box component="th" sx={{ width: 8 }} />
+            <Box component="th" sx={{ width: chromePx(8) }} />
             <StatHead w={22}>R</StatHead>
             <StatHead w={22}>H</StatHead>
             <StatHead w={22}>E</StatHead>
@@ -228,7 +229,7 @@ export function LineScoreTable({ box }: { box: BoxScore }) {
                 // Home team that didn't bat in its last frame → "x"
                 return <StatCell key={num}>{v == null ? (side === 'home' ? 'x' : '-') : v}</StatCell>
               })}
-              <Box component="td" sx={{ width: 8 }} />
+              <Box component="td" sx={{ width: chromePx(8) }} />
               <StatCell bold>{t.runs}</StatCell>
               <StatCell>{t.hits}</StatCell>
               <StatCell>{t.errors}</StatCell>
@@ -246,7 +247,7 @@ function BattingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: 
       <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
         <Box component="thead">
           <Box component="tr">
-            <Box component="th" sx={{ minWidth: 132, textAlign: 'left', fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.5 }}>
+            <Box component="th" sx={{ minWidth: '8.25rem', textAlign: 'left', fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
               Batters
             </Box>
             <StatHead>AB</StatHead><StatHead>R</StatHead><StatHead>H</StatHead>
@@ -289,7 +290,7 @@ function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?:
       <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
         <Box component="thead">
           <Box component="tr">
-            <Box component="th" sx={{ minWidth: 132, textAlign: 'left', fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.5 }}>
+            <Box component="th" sx={{ minWidth: '8.25rem', textAlign: 'left', fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
               Pitchers
             </Box>
             <StatHead w={32}>IP</StatHead><StatHead>H</StatHead><StatHead>R</StatHead>
@@ -335,7 +336,7 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
       fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled',
-      textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1,
+      textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1,
     }}>
       {children}
     </Typography>

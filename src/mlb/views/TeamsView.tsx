@@ -4,6 +4,7 @@ import { LogoBubble } from '../components/boxScore'
 import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { useIsDark, borderAlpha } from '../lib/colorUtils'
 import { mlbTeamPath } from '../routes'
+import { chromePx, typePx } from '../../ui/scale'
 
 // The Teams tab: every club, by division, one tap from its page. Teams had no tab before Sep 28,
 // 2026; a club page was reached only by searching for it or tapping a logo somewhere else, which is
@@ -25,14 +26,14 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
   const ids = Object.keys(TEAM_ABBR).map(Number)
   return (
     <Box>
-      <Typography component="h1" sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: '-0.3px', mb: 1.5 }}>
+      <Typography component="h1" sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: typePx(-0.3), mb: 1.5 }}>
         Teams
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
         {DIVISIONS.map(d => (
           <Box key={d.code}>
             <Typography sx={{
-              fontSize: '0.62rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
+              fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase',
               color: 'text.disabled', mb: 0.75,
             }}>
               {d.label}
@@ -46,7 +47,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
                   return (
                     <Box key={id} {...linkPress(mlbTeamPath(id), () => onTeamClick(id))} sx={{
                       display: 'flex', alignItems: 'center', gap: 1.25,
-                      px: 1.25, py: 1, minHeight: 48, borderRadius: 2,
+                      px: 1.25, py: 1, minHeight: chromePx(48), borderRadius: 2,
                       textDecoration: 'none', color: 'text.primary',
                       bgcolor: 'background.paper',
                       border: '1px solid', borderColor: mine ? borderAlpha(col, isDark) : 'divider',
@@ -59,7 +60,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
                         {TEAM_NICKNAME[id] ?? TEAM_ABBR[id]}
                       </Typography>
                       {mine && (
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary', letterSpacing: 0.6 }}>
+                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary', letterSpacing: typePx(0.6) }}>
                           YOUR TEAM
                         </Typography>
                       )}

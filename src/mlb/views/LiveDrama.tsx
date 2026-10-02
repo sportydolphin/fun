@@ -9,6 +9,7 @@ import { FinalGameSummary } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
 import { stampOverlay, clearOverlayIf } from '../state/homeOverlay'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── "Happening Now" — live drama card ────────────────────────────────────────
 // Appears on Home only while something dramatic is live (no-hitter, walk-off
@@ -63,7 +64,7 @@ function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void })
             px: 0.55, py: '1px', borderRadius: 999, flexShrink: 0,
             bgcolor: `${accent}1c`, border: `1px solid ${accent}55`,
             fontSize: '0.5rem', fontWeight: 800, color: accent,
-            letterSpacing: 0.5, lineHeight: 1.4, whiteSpace: 'nowrap',
+            letterSpacing: typePx(0.5), lineHeight: 1.4, whiteSpace: 'nowrap',
           }}>
             {KIND_TAG[event.kind]}
           </Box>
@@ -151,13 +152,13 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
         borderBottom: '1px solid', borderColor: 'divider',
       }}>
         <Box sx={{
-          width: 8, height: 8, borderRadius: '50%', bgcolor: topAccent, flexShrink: 0,
+          width: chromePx(8), height: chromePx(8), borderRadius: '50%', bgcolor: topAccent, flexShrink: 0,
           '@keyframes dramaPulse': {
             '0%': { opacity: 1 }, '50%': { opacity: 0.25 }, '100%': { opacity: 1 },
           },
           animation: 'dramaPulse 1.6s ease-in-out infinite',
         }} />
-        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>
           Happening Now
         </Typography>
         <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', ml: 'auto' }}>

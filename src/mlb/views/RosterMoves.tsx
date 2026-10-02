@@ -8,6 +8,7 @@ import { MlbSheet } from '../components/MlbSheet'
 import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { useDeepLink } from '../state/deepLink'
+import { typePx, chromePx } from '../../ui/scale'
 
 // ─── Roster Moves — trades, DFAs, claims, signings from the transactions feed ─
 //
@@ -130,7 +131,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
             px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
             bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
             fontSize: '0.55rem', fontWeight: 800, color: style.color,
-            letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 1.4,
+            letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
           }}>
             {style.label}
           </Box>
@@ -199,7 +200,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
           px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
           bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
           fontSize: '0.55rem', fontWeight: 800, color: style.color,
-          letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 1.4,
+          letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
         }}>
           {style.label}
         </Box>
@@ -310,7 +311,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
   })
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={540} sheet sheetFill eyebrow="🔄 Roster moves">
+    <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet sheetFill eyebrow="🔄 Roster moves">
         <Typography sx={{ px: 2, pt: 1.25, pb: 0.5, fontSize: '0.72rem', color: 'text.secondary', flexShrink: 0 }}>
           Trades, DFAs, claims and signings · last 14 days
         </Typography>
@@ -328,7 +329,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
             <Box
               onClick={() => setFilterTeam(null)}
               sx={{
-                px: 1, py: '5px', borderRadius: 999, flexShrink: 0, cursor: 'pointer',
+                px: 1, py: chromePx(5), borderRadius: 999, flexShrink: 0, cursor: 'pointer',
                 border: '1px solid',
                 borderColor: filterTeam == null ? 'text.secondary' : 'divider',
                 bgcolor: filterTeam == null ? 'action.selected' : 'transparent',
@@ -377,7 +378,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
                   }} />
                   <Typography className="day-label" sx={{
                     fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled',
-                    textTransform: 'uppercase', letterSpacing: 1,
+                    textTransform: 'uppercase', letterSpacing: typePx(1),
                     transition: 'color 0.12s',
                   }}>
                     {fmtMoveDay(group.day)}
@@ -435,15 +436,15 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
       <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>🔄 Roster Moves</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>🔄 Roster Moves</Typography>
             {deadline && (
               <Box sx={{
-                px: 0.75, py: '2px', borderRadius: 999, flexShrink: 0,
+                px: 0.75, py: chromePx(2), borderRadius: 999, flexShrink: 0,
                 bgcolor: deadline.hot ? '#ef44441c' : '#f973161c',
                 border: `1px solid ${deadline.hot ? '#ef4444' : '#f97316'}55`,
               }}>
                 <Typography sx={{
-                  fontSize: '0.55rem', fontWeight: 800, letterSpacing: 0.4, lineHeight: 1.3,
+                  fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.3,
                   color: deadline.hot ? '#ef4444' : '#f97316',
                 }}>
                   ⏳ {deadline.label}
@@ -458,13 +459,13 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
         <Box
           onClick={() => setShowAll(true)}
           sx={{
-            px: 1, py: '3px', borderRadius: 999, flexShrink: 0,
+            px: 1, py: chromePx(3), borderRadius: 999, flexShrink: 0,
             bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
             cursor: 'pointer', transition: 'border-color 0.12s',
             '&:hover': { borderColor: 'text.secondary' },
           }}
         >
-          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
+          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: typePx(0.3), lineHeight: 1 }}>
             View All →
           </Typography>
         </Box>

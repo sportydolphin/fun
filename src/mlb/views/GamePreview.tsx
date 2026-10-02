@@ -13,6 +13,7 @@ import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, SectionLabel } from '../components/boxScore'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Game preview types ───────────────────────────────────────────────────────
 
@@ -171,9 +172,9 @@ function TeamComparison({ away, home }: {
 
   // value + rank stacked on the outer edge, bar growing inward from it.
   const valueCell = (v: TeamStatValue | undefined, better: boolean, color: string, align: 'right' | 'left') => (
-    <Box sx={{ width: 42, flexShrink: 0, textAlign: align }}>
+    <Box sx={{ width: chromePx(42), flexShrink: 0, textAlign: align }}>
       {loading ? (
-        <Box sx={{ ...shimmer, width: 32, height: '0.8rem', ml: align === 'right' ? 'auto' : 0 }} />
+        <Box sx={{ ...shimmer, width: chromePx(32), height: '0.8rem', ml: align === 'right' ? 'auto' : 0 }} />
       ) : (
         <>
           <Typography sx={{
@@ -194,7 +195,7 @@ function TeamComparison({ away, home }: {
   // length the team's position in the league range for that stat.
   const bar = (v: TeamStatValue | undefined, better: boolean, color: string, side: 'away' | 'home') => (
     <Box sx={{
-      flex: 1, minWidth: 0, height: 8, borderRadius: 999, bgcolor: trackBg,
+      flex: 1, minWidth: 0, height: chromePx(8), borderRadius: 999, bgcolor: trackBg,
       position: 'relative', overflow: 'hidden',
     }}>
       {!loading && v && (
@@ -224,9 +225,9 @@ function TeamComparison({ away, home }: {
         {valueCell(a, awayBetter, awayColor, 'right')}
         {bar(a, awayBetter, awayColor, 'away')}
         <Typography sx={{
-          flexShrink: 0, width: 38, textAlign: 'center',
+          flexShrink: 0, width: '2.375rem', textAlign: 'center',
           fontSize: '0.56rem', fontWeight: 800, color: 'text.secondary',
-          textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1,
+          textTransform: 'uppercase', letterSpacing: typePx(0.4), lineHeight: 1,
         }}>
           {def.label}
         </Typography>
@@ -243,7 +244,7 @@ function TeamComparison({ away, home }: {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
         <Typography sx={{
           fontSize: '0.5rem', fontWeight: 800, color: 'text.disabled',
-          textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1, flexShrink: 0,
+          textTransform: 'uppercase', letterSpacing: typePx(1), lineHeight: 1, flexShrink: 0,
         }}>
           {label}
         </Typography>
@@ -259,7 +260,7 @@ function TeamComparison({ away, home }: {
       flex: 1, display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
       flexDirection: align === 'right' ? 'row-reverse' : 'row',
     }}>
-      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+      <Box sx={{ width: chromePx(8), height: chromePx(8), borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
       <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color, lineHeight: 1 }}>
         {abbr}
       </Typography>
@@ -358,7 +359,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
       >
         {/* Headshot (or its shimmer while loading) */}
         <Box sx={{
-          width: 58, height: 70, borderRadius: 1.5, overflow: 'hidden',
+          width: chromePx(58), height: chromePx(70), borderRadius: 1.5, overflow: 'hidden',
           border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`, bgcolor: 'action.hover', flexShrink: 0,
           ...(loading ? shimmerSx : {}),
         }}>
@@ -377,8 +378,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
         {/* Name / hand (or shimmer bars) */}
         {loading ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, py: 0.15 }}>
-            <Box sx={{ ...shimmerSx, width: 84, height: '0.86rem' }} />
-            <Box sx={{ ...shimmerSx, width: 52, height: '0.56rem' }} />
+            <Box sx={{ ...shimmerSx, width: chromePx(84), height: '0.86rem' }} />
+            <Box sx={{ ...shimmerSx, width: chromePx(52), height: '0.56rem' }} />
           </Box>
         ) : (
           <Box sx={{ textAlign: 'center', minWidth: 0 }}>
@@ -399,8 +400,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
           <Box sx={{ display: 'flex', gap: 1.25, justifyContent: 'center' }}>
             {[0, 1, 2, 3].map(i => (
               <Box key={i} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.35 }}>
-                <Box sx={{ ...shimmerSx, width: 20, height: '0.8rem' }} />
-                <Box sx={{ ...shimmerSx, width: 16, height: '0.46rem' }} />
+                <Box sx={{ ...shimmerSx, width: chromePx(20), height: '0.8rem' }} />
+                <Box sx={{ ...shimmerSx, width: chromePx(16), height: '0.46rem' }} />
               </Box>
             ))}
           </Box>
@@ -413,12 +414,12 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
               { label: 'K',    value: String(pitcher.k) },
             ].map(s => (
               <Box key={s.label} sx={{ textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.9rem', fontWeight: 900, lineHeight: 1, color: accentText, letterSpacing: '-0.3px' }}>
+                <Typography sx={{ fontSize: '0.9rem', fontWeight: 900, lineHeight: 1, color: accentText, letterSpacing: typePx(-0.3) }}>
                   {s.value}
                 </Typography>
                 <Typography sx={{
                   fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: 0.4, color: 'text.secondary', lineHeight: 1, mt: 0.2,
+                  letterSpacing: typePx(0.4), color: 'text.secondary', lineHeight: 1, mt: 0.2,
                 }}>
                   {s.label}
                 </Typography>
@@ -446,7 +447,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   // Prev/next-game arrows, in the sheet's header beside the close button. They used to straddle the
   // card's edges, which a bottom sheet the width of a phone has nowhere to put.
   const navArrowSx = {
-    flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+    flexShrink: 0, width: chromePx(26), height: chromePx(26), borderRadius: '50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', color: 'text.secondary',
     '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
@@ -456,7 +457,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   return (
     <ModalShell
       onClose={close}
-      maxWidth={480}
+      maxWidth={chromePx(480)}
       sheet
       eyebrow={unplayed
         ? (game.reason ? `${game.statusText} · ${game.reason}` : game.statusText)
@@ -487,7 +488,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
         {loading ? (
           <Box sx={{ px: 2, pb: 1.5, display: 'flex', justifyContent: 'center' }}>
             <Box sx={{ height: 'calc(0.68rem * 1.4)', display: 'flex', alignItems: 'center' }}>
-              <Box sx={{ ...shimmerSx, width: 176, height: '0.62rem' }} />
+              <Box sx={{ ...shimmerSx, width: chromePx(176), height: '0.62rem' }} />
             </Box>
           </Box>
         ) : preview && (preview.venueName || preview.weather) ? (
@@ -505,7 +506,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
         <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
           <Typography sx={{
             fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled',
-            textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1.25,
+            textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1, mb: 1.25,
           }}>
             Probable Starters
           </Typography>

@@ -9,6 +9,7 @@ import { PlayoffOddsBoard } from './PlayoffOddsBoard'
 import { useDeepLink } from '../state/deepLink'
 import { PlayoffBracketCard, BracketSkeleton } from './PlayoffBracket'
 import { fetchBracket, seededBracket, bracketLikely, fieldIsSet } from '../postseason'
+import { chromePx, typePx } from '../../ui/scale'
 
 type Mode = 'bracket' | 'divisions' | 'playoffs' | 'odds'
 
@@ -71,7 +72,7 @@ export function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
   const ring = ringColor(teamId, isDark)
   return (
     <Box sx={{
-      width: 28, height: 28, borderRadius: '50%',
+      width: chromePx(28), height: chromePx(28), borderRadius: '50%',
       bgcolor: teamLogoBg(teamId, isDark), border: `2.5px solid ${ring}`,
       boxShadow: `0 0 0 1px ${ring}30`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -88,7 +89,7 @@ export function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
           src={teamLogoSrc(teamId, isDark)}
           alt={abbr}
           onError={() => setFailed(true)}
-          sx={{ width: 19, height: 19, objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
+          sx={{ width: chromePx(19), height: chromePx(19), objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
         />
       )}
     </Box>
@@ -98,9 +99,9 @@ export function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
 // ─── Shared th/td styles ──────────────────────────────────────────────────────
 
 const thSx = {
-  py: '6px', px: '10px',
+  py: chromePx(6), px: chromePx(10),
   fontSize: '0.58rem', fontWeight: 700,
-  letterSpacing: '0.5px', textTransform: 'uppercase' as const,
+  letterSpacing: typePx(0.5), textTransform: 'uppercase' as const,
   whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   color: 'text.disabled',
   borderBottom: '1px solid', borderColor: 'divider',
@@ -108,7 +109,7 @@ const thSx = {
 }
 
 const tdSx = {
-  py: '8px', px: '10px',
+  py: chromePx(8), px: chromePx(10),
   fontSize: '0.8rem', whiteSpace: 'nowrap' as const,
   textAlign: 'right' as const,
 }
@@ -146,7 +147,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
       <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%' }}>
         <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper' }}>
           <Box component="tr">
-            <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: '12px', width: '99%' }}>Team</Box>
+            <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: chromePx(12), width: '99%' }}>Team</Box>
             <Box component="th" sx={thSx}>W</Box>
             <Box component="th" sx={thSx}>L</Box>
             <Box component="th" sx={thSx}>PCT</Box>
@@ -181,7 +182,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
                 >
                   {/* Team cell */}
                   <Box component="td" sx={{
-                    ...tdSx, ...borderSx, ...highlightSx, textAlign: 'left', pl: '9px',
+                    ...tdSx, ...borderSx, ...highlightSx, textAlign: 'left', pl: chromePx(9),
                     borderLeft: `3px solid ${teamColor}`,
                     fontWeight: isMine ? 800 : undefined,
                   }}>
@@ -235,7 +236,7 @@ function LeagueSection({ label, order, leagueId, divisions, onTeamClick, highlig
 
   return (
     <Box>
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, color: 'text.disabled', mb: 1.5 }}>
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2), color: 'text.disabled', mb: 1.5 }}>
         {label}
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2 }}>
@@ -275,7 +276,7 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
         onClick={() => onTeamClick?.(team.teamId)}
         sx={{
           display: 'flex', alignItems: 'center', gap: 1.25,
-          px: 1.5, py: '9px',
+          px: 1.5, py: chromePx(9),
           borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
           borderLeft: `3px solid ${teamColor}`,
           bgcolor: isMine ? `${teamColor}22` : undefined,
@@ -292,14 +293,14 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
             {TEAM_NICKNAME[team.teamId] ?? team.abbr}
           </Typography>
         </Box>
-        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', minWidth: 44, textAlign: 'right' }}>
+        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', minWidth: '2.75rem', textAlign: 'right' }}>
           {team.wins}–{team.losses}
         </Typography>
-        <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', minWidth: 34, textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+        <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', minWidth: '2.125rem', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
           {team.pct}
         </Typography>
         {/* Games back from the wild-card line */}
-        <Box sx={{ minWidth: 60, textAlign: 'right' }}>
+        <Box sx={{ minWidth: chromePx(60), textAlign: 'right' }}>
           <Typography sx={{
             fontSize: '0.75rem', fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
@@ -308,7 +309,7 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
         </Box>
         {/* Streak */}
         <Typography sx={{
-          fontSize: '0.74rem', fontWeight: 700, minWidth: 26, textAlign: 'right',
+          fontSize: '0.74rem', fontWeight: 700, minWidth: '1.625rem', textAlign: 'right',
           color: team.streakCode.startsWith('W') ? '#22c55e' : team.streakCode.startsWith('L') ? '#ef4444' : 'text.disabled',
         }}>
           {team.streakCode || '—'}
@@ -324,8 +325,8 @@ const ColHeaders = () => (
     {(['W–L', 'PCT', 'GB', 'Strk'] as const).map((h, i) => (
       <Typography key={i} sx={{
         fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase',
-        letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right',
-        minWidth: i === 0 ? 44 : i === 1 ? 34 : i === 2 ? 60 : 26,
+        letterSpacing: typePx(0.5), color: 'text.disabled', textAlign: 'right',
+        minWidth: i === 0 ? '2.75rem' : i === 1 ? '2.125rem' : i === 2 ? '3.75rem' : '1.625rem',
         display: i === 1 ? { xs: 'none', sm: 'block' } : 'block',
       }}>{h}</Typography>
     ))}
@@ -363,8 +364,8 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick, highlightT
       </Box>
 
       {/* Wild Card sub-header */}
-      <Box sx={{ px: 2, py: '6px', bgcolor: 'action.hover' }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled' }}>
+      <Box sx={{ px: 2, py: chromePx(6), bgcolor: 'action.hover' }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.2), color: 'text.disabled' }}>
           Wild Card
         </Typography>
       </Box>
@@ -462,7 +463,7 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
         <Box
           onClick={() => setStudioOpen(true)}
           sx={{
-            position: 'absolute', top: -4, right: 0, zIndex: 3,
+            position: 'absolute', top: chromePx(-4), right: 0, zIndex: 3,
             px: 1.1, py: 0.4, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
             fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
             border: '1px solid', borderColor: 'divider',

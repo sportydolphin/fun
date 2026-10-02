@@ -14,6 +14,7 @@ import { fetchSeasonDates } from '../seasonPhase'
 import { postseasonGameLabel, isDecider, bracketLikely } from '../postseason'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
+import { chromePx, typePx } from '../../ui/scale'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -342,7 +343,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         {!noScore && (
           <Typography sx={{
             fontSize: '0.9rem', fontWeight: em ? 800 : 500, lineHeight: 1,
-            color: (isLive || em) ? 'text.primary' : 'text.secondary', minWidth: 16, textAlign: 'right',
+            color: (isLive || em) ? 'text.primary' : 'text.secondary', minWidth: '1rem', textAlign: 'right',
           }}>
             {t.runs}
           </Typography>
@@ -355,7 +356,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
     <Box
       onClick={onClick}
       sx={{
-        flexShrink: 0, width: wide ? '100%' : 124, minWidth: 0,
+        flexShrink: 0, width: wide ? '100%' : chromePx(124), minWidth: 0,
         borderRadius: 2, border: '1px solid',
         borderColor: accent ? `${accent}70` : defaultBorder(isDark),
         boxShadow: accent ? `0 0 0 1.5px ${accent}40` : 'none',
@@ -373,7 +374,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         {isLive && <LiveDot size={5} />}
         <Typography sx={{
           fontSize: '0.56rem', fontWeight: 800, color: statusColor,
-          letterSpacing: 0.6, textTransform: 'uppercase', lineHeight: 1,
+          letterSpacing: typePx(0.6), textTransform: 'uppercase', lineHeight: 1,
         }}>
           {game.statusText}
         </Typography>
@@ -433,7 +434,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
   }
 
   const arrowSx = {
-    width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+    width: chromePx(26), height: chromePx(26), borderRadius: '50%', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: navigating ? 'default' : 'pointer', color: 'text.secondary',
     opacity: navigating ? 0.5 : 1,
@@ -450,7 +451,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
       <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         <Typography sx={{
           fontSize: '0.7rem', fontWeight: 700, color: 'text.primary',
-          minWidth: 88, textAlign: 'center', lineHeight: 1, userSelect: 'none',
+          minWidth: '5.5rem', textAlign: 'center', lineHeight: 1, userSelect: 'none',
         }}>
           {dateLabel(dateISO)}
         </Typography>
@@ -518,7 +519,7 @@ function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
     ) : (
       <Box sx={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${chromePx(148)}, 1fr))`,
         gap: 1.25,
       }}>
         {games.map(game => (
@@ -548,7 +549,7 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
   onClose:        () => void
 }) {
   return (
-    <MlbSheet onClose={onClose} maxWidth={1000} sheet sheetFill eyebrow="Scores"
+    <MlbSheet onClose={onClose} maxWidth={chromePx(1000)} sheet sheetFill eyebrow="Scores"
       actions={<DateNav dateISO={dateISO} onChange={onDateChange} />}>
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
         <ScoresGrid games={games} loading={loading} followedTeamId={followedTeamId} onGameClick={onGameClick} />
@@ -747,7 +748,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
       {layout === 'page' ? (
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <Typography component="h1" sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+            <Typography component="h1" sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: typePx(-0.3), lineHeight: 1.2 }}>
               Scores
             </Typography>
             <Box sx={{ ml: 'auto' }}><DateNav dateISO={dateISO} onChange={setDateISO} /></Box>
@@ -764,7 +765,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
         }}>
           <Typography sx={{
             fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase',
-            letterSpacing: 1.4, color: 'text.secondary', lineHeight: 1,
+            letterSpacing: typePx(1.4), color: 'text.secondary', lineHeight: 1,
           }}>
             Scores
           </Typography>
@@ -774,7 +775,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
               onClick={() => setExpanded(true)}
               title="View all scores"
               sx={{
-                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                width: chromePx(26), height: chromePx(26), borderRadius: '50%', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', color: 'text.secondary',
                 '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
@@ -791,7 +792,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
           // third again as tall, moved everything under it on every visit.
           <Box aria-hidden sx={{ display: 'flex', gap: 1, px: 0.25, py: 1, overflow: 'hidden' }}>
             {[0, 1, 2, 3].map(i => (
-              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: 124, height: bracketLikely() ? 83 : 71, borderRadius: 2 }} />
+              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: chromePx(124), height: bracketLikely() ? chromePx(83) : chromePx(71), borderRadius: 2 }} />
             ))}
           </Box>
         ) : games.length === 0 ? (
@@ -808,7 +809,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
               onMouseEnter={() => startAutoScroll('left')}
               onMouseLeave={stopAutoScroll}
               sx={{
-                position: 'absolute', left: 0, top: 0, bottom: 0, width: 34, zIndex: 3,
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: chromePx(34), zIndex: 3,
                 display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
                 cursor: 'pointer',
                 opacity: canScrollLeft ? 1 : 0, pointerEvents: canScrollLeft ? 'auto' : 'none',
@@ -829,7 +830,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
               onMouseEnter={() => startAutoScroll('right')}
               onMouseLeave={stopAutoScroll}
               sx={{
-                position: 'absolute', right: 0, top: 0, bottom: 0, width: 34, zIndex: 3,
+                position: 'absolute', right: 0, top: 0, bottom: 0, width: chromePx(34), zIndex: 3,
                 display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
                 cursor: 'pointer',
                 opacity: canScrollRight ? 1 : 0, pointerEvents: canScrollRight ? 'auto' : 'none',
@@ -872,7 +873,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                     pl: 0.5, pr: 0.25, borderLeft: '1px solid', borderColor: 'divider', ml: 0.5,
                   }}>
                     <Typography sx={{
-                      fontSize: '0.56rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
+                      fontSize: '0.56rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
                       color: 'text.disabled', writingMode: 'vertical-rl', transform: 'rotate(180deg)', lineHeight: 1,
                     }}>
                       {dateLabel(earlier.date)}

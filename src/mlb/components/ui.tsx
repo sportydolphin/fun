@@ -6,8 +6,18 @@ import { KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
 import { RankMode, Palette, StatDef } from '../types'
 import { ACCENT } from '../constants'
 import { statCols } from '../lib/utils'
-import { linkPress } from '../../ui/interaction'
+import { linkPress, pressable, hoverOnly, FOCUS_RING } from '../../ui/interaction'
+import { chromePx, typePx } from '../../ui/scale'
 
+// The section's segmented control: the tab bar, the Stats boards, Hitting / Pitching and the rest.
+//
+// WPBL'S SegNav LOOK, AND FOR TWO REASONS RATHER THAN FOR MATCHING (Oct 2026). The active option was
+// white on a #60a5fa fill, which measures about 2.5:1, under AA in both themes since contrast is
+// absolute. It is now WPBL's raised surface chip with the foreground-safe accent as its text, which
+// clears AA in either theme. And the options were click-only boxes a keyboard could not reach; they
+// are now buttons (or links, with `href`) with WPBL's focus ring. Same geometry as before, so nothing
+// around a control moves. The tab bar is the one a reader sees in both sections, so it now reads the
+// same on both sides of the switch.
 export function SegControl({ options, value, onChange }: {
   /** `href` makes the option a real link (linkPress): a tab that is a page must be one a crawler
    *  can follow and a reader can open in a new tab. Options that only switch a mode leave it off. */
@@ -20,31 +30,39 @@ export function SegControl({ options, value, onChange }: {
       display: 'inline-flex',
       bgcolor: 'action.hover',
       borderRadius: 999,
-      p: '3px',
+      p: chromePx(3),
       gap: 0,
     }}>
-      {options.map(opt => (
-        <Box
-          key={opt.value}
-          {...(opt.href ? linkPress(opt.href, () => onChange(opt.value)) : { onClick: () => onChange(opt.value) })}
-          sx={{
-            display: 'block', textDecoration: 'none',
-            px: 1.75, py: 0.5,
-            borderRadius: 999,
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            lineHeight: 1.4,
-            transition: 'all 0.15s',
-            userSelect: 'none',
-            bgcolor: value === opt.value ? ACCENT : 'transparent',
-            color: value === opt.value ? '#fff' : 'text.secondary',
-            '&:hover': value !== opt.value ? { color: 'text.primary' } : {},
-          }}
-        >
-          {opt.label}
-        </Box>
-      ))}
+      {options.map(opt => {
+        const on = value === opt.value
+        return (
+          <Box
+            key={opt.value}
+            {...(opt.href
+              ? { ...linkPress(opt.href, () => onChange(opt.value)), 'aria-current': on ? ('page' as const) : undefined }
+              : { ...pressable(() => onChange(opt.value)), 'aria-pressed': on })}
+            sx={{
+              ...FOCUS_RING,
+              display: 'block', textDecoration: 'none',
+              px: 1.75, py: 0.5,
+              borderRadius: 999,
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              lineHeight: 1.4,
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s',
+              userSelect: 'none',
+              bgcolor: on ? 'background.paper' : 'transparent',
+              color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
+              fontWeight: on ? 700 : 600,
+              boxShadow: on ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
+              ...hoverOnly(on ? {} : { color: 'text.primary' }),
+            }}
+          >
+            {opt.label}
+          </Box>
+        )
+      })}
     </Box>
   )
 }
@@ -111,7 +129,7 @@ export function SectionLabel({ children, strong }: { children: React.ReactNode; 
     <Typography sx={{
       fontSize: strong ? '0.78rem' : '0.63rem',
       fontWeight: strong ? 800 : 700,
-      textTransform: 'uppercase', letterSpacing: 1.8,
+      textTransform: 'uppercase', letterSpacing: typePx(1.8),
       color: strong ? 'text.primary' : 'text.disabled', mb: 1,
     }}>
       {children}
@@ -158,14 +176,14 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
       <Typography sx={{
         color: palette.text, fontWeight: 700,
         fontSize: large ? { xs: '0.82rem', sm: '0.92rem' } : { xs: '0.74rem', sm: '0.82rem' },
-        letterSpacing: 0.3, opacity: 0.85, mb: 0.4,
+        letterSpacing: typePx(0.3), opacity: 0.85, mb: 0.4,
       }}>
         {label}
       </Typography>
       <Typography sx={{
         color: palette.text, fontWeight: 700,
         fontSize: large ? { xs: '2rem', sm: '2.4rem' } : { xs: '1.75rem', sm: '2.1rem' },
-        lineHeight: 1, letterSpacing: '-0.5px',
+        lineHeight: 1, letterSpacing: typePx(-0.5),
       }}>
         {value}
       </Typography>
@@ -181,7 +199,7 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
                 {emoji}
               </Typography>
             )}
-            <Typography component="span" sx={{ color: palette.rank, fontSize: '0.8rem', fontWeight: 800, letterSpacing: 0.4, lineHeight: 1.4 }}>
+            <Typography component="span" sx={{ color: palette.rank, fontSize: '0.8rem', fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.4 }}>
               #{rankNum}
             </Typography>
           </Box>
@@ -230,7 +248,7 @@ export function StatPicker({ defs, selected, onToggle, label }: StatPickerProps)
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{ sx: { borderRadius: 2.5, p: 1.5, mt: 0.75, maxWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1.5, mt: 0.75, maxWidth: chromePx(210), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
       >
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
           {defs.map(def => (
@@ -274,18 +292,18 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
   return (
     <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5, mt: mt ?? 0 }}>
       {showHeader && (sectionLabel ? (
-        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2.5, mb: 2 }}>
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
           {sectionLabel}
         </Typography>
       ) : bigYear ? (
         <Typography sx={{
           textAlign: 'center', color: palette.text, fontWeight: 800,
-          fontSize: large ? '1.5rem' : '1.2rem', letterSpacing: '-0.3px', lineHeight: 1, mb: 2,
+          fontSize: large ? '1.5rem' : '1.2rem', letterSpacing: typePx(-0.3), lineHeight: 1, mb: 2,
         }}>
           {season}
         </Typography>
       ) : (
-        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2.5, mb: 2 }}>
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
           {season} {label}
         </Typography>
       ))}
@@ -338,7 +356,7 @@ export function InfoTip({ text, size = 0.88 }: { text: React.ReactNode; size?: n
         disableHoverListener
         disableTouchListener
         title={
-          <Box sx={{ maxWidth: 240, py: 0.5 }}>
+          <Box sx={{ maxWidth: chromePx(240), py: 0.5 }}>
             {typeof text === 'string'
               ? <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>{text}</Typography>
               : text}

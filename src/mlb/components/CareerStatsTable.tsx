@@ -4,6 +4,7 @@ import { ACCENT, TEAM_BG } from '../constants'
 import { CareerStatSplit } from '../types'
 import { fmtR } from '../lib/utils'
 import { scrollBehavior } from '../../lib/motion'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -26,16 +27,16 @@ function Dim() {
 // ─── Shared table styles ──────────────────────────────────────────────────────
 
 const thSx = {
-  py: '7px', px: { xs: '4px', sm: '10px' },
+  py: chromePx(7), px: { xs: chromePx(4), sm: chromePx(10) },
   fontSize: { xs: '0.56rem', sm: '0.6rem' }, fontWeight: 700,
-  letterSpacing: '0.4px', textTransform: 'uppercase' as const,
+  letterSpacing: typePx(0.4), textTransform: 'uppercase' as const,
   whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   color: 'text.disabled',
   borderBottom: '1px solid', borderColor: 'divider',
 }
 
 const tdSx = {
-  py: '7px', px: { xs: '4px', sm: '10px' },
+  py: chromePx(7), px: { xs: chromePx(4), sm: chromePx(10) },
   fontSize: { xs: '0.75rem', sm: '0.82rem' },
   whiteSpace: 'nowrap' as const,
 }
@@ -78,7 +79,7 @@ function StatSection<T extends BaseRow>({
   return (
     <Box>
       {title && (
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.4, color: 'text.disabled', mb: 0.75 }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.4), color: 'text.disabled', mb: 0.75 }}>
           {title}
         </Typography>
       )}
@@ -88,7 +89,7 @@ function StatSection<T extends BaseRow>({
 
           <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
             <Box component="tr" sx={{ bgcolor: 'background.paper' }}>
-              <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: '8px', sm: '16px' } }}>Year</Box>
+              <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: chromePx(8), sm: chromePx(16) } }}>Year</Box>
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Team</Box>
               {cols.map(c => (
                 <Box component="th" key={c.h} sx={{ ...thSx, textAlign: 'right' }}>{c.h}</Box>
@@ -118,7 +119,7 @@ function StatSection<T extends BaseRow>({
                   <Box component="td" sx={{
                     ...tdSx, ...borderProps,
                     textAlign: 'left',
-                    pl: isHighlighted ? { xs: '5px', sm: '13px' } : { xs: '8px', sm: '16px' },
+                    pl: isHighlighted ? { xs: chromePx(5), sm: chromePx(13) } : { xs: chromePx(8), sm: chromePx(16) },
                     fontWeight: 700,
                     color: isHighlighted ? ACCENT : 'text.primary',
                     borderLeft: isHighlighted ? `3px solid ${ACCENT}` : undefined,
@@ -132,7 +133,7 @@ function StatSection<T extends BaseRow>({
                       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                         {!traded && r.teamId != null && (
                           <Box sx={{
-                            width: 6, height: 6, borderRadius: '50%',
+                            width: chromePx(6), height: chromePx(6), borderRadius: '50%',
                             bgcolor: TEAM_BG[r.teamId] ?? 'grey.500', flexShrink: 0,
                           }} />
                         )}

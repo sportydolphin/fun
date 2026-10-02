@@ -2,7 +2,6 @@ import React, { useEffect, useState, lazy, Suspense } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { CURRENT_SEASON, TEAM_BG, TEAM_NICKNAME } from '../constants'
 import { LogoBubble, LiveDot } from '../components/boxScore'
-import { SegControl } from '../components/ui'
 import { useIsDark, borderAlpha } from '../lib/colorUtils'
 import { ModalShell } from '../../ui/ModalShell'
 import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
@@ -12,6 +11,8 @@ import { fetchBracket, seededBracket, bracketLikely, seriesLine, fieldIsSet, win
 import type { Bracket, PsSeries, PsGame, PsTeam, Round } from '../postseason'
 import type { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
+import { chromePx, typePx } from '../../ui/scale'
+import { PillGroup } from '../../ui/PillGroup'
 
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
@@ -69,10 +70,10 @@ function seriesStatus(s: PsSeries, compact = false): { text: string; live: boole
  *  empty ones say how long the series is. */
 function WinPips({ wins, need }: { wins: number; need: number }) {
   return (
-    <Box role="img" aria-label={`${wins} of ${need} wins`} sx={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+    <Box role="img" aria-label={`${wins} of ${need} wins`} sx={{ display: 'flex', gap: chromePx(3), flexShrink: 0 }}>
       {Array.from({ length: need }, (_, i) => (
         <Box key={i} sx={{
-          width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box',
+          width: chromePx(7), height: chromePx(7), borderRadius: '50%', boxSizing: 'border-box',
           ...(i < wins ? { bgcolor: 'text.primary' } : { border: '1.5px solid', borderColor: 'text.disabled' }),
         }} />
       ))}
@@ -90,7 +91,7 @@ function TeamRow({ t, wins, need, won, lost, onTeamClick, compact = false }: {
       </Typography>
       {t.real
         ? <LogoBubble teamId={t.id} abbr={t.abbr} size={26} />
-        : <Box sx={{ width: 26, height: 26, borderRadius: '50%', border: '1.5px dashed', borderColor: 'divider', flexShrink: 0 }} />}
+        : <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', border: '1.5px dashed', borderColor: 'divider', flexShrink: 0 }} />}
       <Typography
         // Its own control inside a card that is one: both handlers stop here, so a tap or an Enter
         // on the club opens the club and not the series too.
@@ -131,7 +132,7 @@ function SeriesCard({ s, onOpen, onTeamClick, compact = false }: {
     }}>
       {/* The length stays on Home's compact card too: it is the one word on the card that says series. */}
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
-        <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {s.label}
         </Typography>
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -179,7 +180,7 @@ function SeriesSheet({ s, onClose, onTeamClick, onPlayerClick }: {
   // A club tapped here leaves for its page: close first, so Back from the team does not reopen this.
   const toTeam = onTeamClick ? (id: number) => { onClose(); onTeamClick(id) } : undefined
   return (
-    <ModalShell onClose={close} maxWidth={480} sheet eyebrow={`${s.label} · Best of ${s.bestOf}`}>
+    <ModalShell onClose={close} maxWidth={chromePx(480)} sheet eyebrow={`${s.label} · Best of ${s.bestOf}`}>
       <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
         <TeamRow t={s.top} wins={s.winsTop} need={winsNeeded(s)} won={s.winnerId === s.top.id} lost={s.winnerId != null && s.winnerId !== s.top.id} onTeamClick={toTeam} />
         <TeamRow t={s.bottom} wins={s.winsBottom} need={winsNeeded(s)} won={s.winnerId === s.bottom.id} lost={s.winnerId != null && s.winnerId !== s.bottom.id} onTeamClick={toTeam} />
@@ -237,7 +238,7 @@ export function BracketSkeleton({ compact }: { compact: boolean }) {
     <Box aria-hidden>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25 }}>
         <Skeleton variant="text" sx={{ width: '7.5rem', fontSize: '0.7rem' }} />
-        <Skeleton variant="rounded" sx={{ ml: 'auto', width: 176, height: 31, borderRadius: 999 }} />
+        <Skeleton variant="rounded" sx={{ ml: 'auto', width: chromePx(176), height: chromePx(31), borderRadius: 999 }} />
       </Box>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: compact ? '1fr 1fr' : '1fr', sm: '1fr 1fr' }, gap: 1 }}>
         {[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" sx={{ height: SERIES_CARD_H, borderRadius: 2.5 }} />)}
@@ -302,12 +303,12 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1.4, color: 'text.secondary' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: typePx(1.4), color: 'text.secondary' }}>
           {/* Once it is over it is a record of a season, read all winter: say which. */}
           {bracket.over ? `${bracket.season} postseason` : heading}
         </Typography>
         <Box sx={{ ml: 'auto' }}>
-          <SegControl
+          <PillGroup
             options={ROUNDS.map(r => ({ value: r.key, label: r.short }))}
             value={shown}
             onChange={v => setRound(v as Round)}

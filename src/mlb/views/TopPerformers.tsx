@@ -8,6 +8,7 @@ import type { HotGuyData } from './Spotlight'
 import { fetchFinalGames } from './FinalGames'
 import type { FinalGameSummary } from './FinalGames'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
+import { chromePx, typePx } from '../../ui/scale'
 // Loaded on first Box Score click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
@@ -226,7 +227,7 @@ export function TopPerformers({
         }}
       >
         <Box sx={{
-          flexShrink: 0, width: 58, minHeight: 70,
+          flexShrink: 0, width: chromePx(58), minHeight: chromePx(70),
           borderRadius: 2, overflow: 'hidden',
           border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`,
           bgcolor: 'action.hover',
@@ -258,14 +259,14 @@ export function TopPerformers({
             }}
           >
             <Box sx={{
-              width: 14, height: 14, borderRadius: '50%', bgcolor: teamLogoBg(entry.teamId, isDark),
+              width: chromePx(14), height: chromePx(14), borderRadius: '50%', bgcolor: teamLogoBg(entry.teamId, isDark),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden', flexShrink: 0,
             }}>
               <Box
                 component="img"
                 src={teamLogoSrc(entry.teamId, isDark)}
-                sx={{ width: 11, height: 11, objectFit: 'contain', transform: teamLogoCrop(entry.teamId, isDark), transformOrigin: 'center' }}
+                sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(entry.teamId, isDark), transformOrigin: 'center' }}
               />
             </Box>
             <Typography className="tp-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
@@ -281,13 +282,13 @@ export function TopPerformers({
                     fontSize:   s.hero ? { xs: '1.35rem', sm: '1.5rem' } : { xs: '0.88rem', sm: '1rem' },
                     fontWeight: 900, lineHeight: 1,
                     color:      s.hero ? accentText : 'text.primary',
-                    letterSpacing: s.hero ? '-0.3px' : 0,
+                    letterSpacing: s.hero ? typePx(-0.3) : 0,
                   }}>
                     {s.value}
                   </Typography>
                   <Typography sx={{
                     fontSize: '0.6rem', fontWeight: 700,
-                    textTransform: 'uppercase', letterSpacing: 0.5,
+                    textTransform: 'uppercase', letterSpacing: typePx(0.5),
                     color: 'text.secondary', lineHeight: 1, mt: 0.2,
                   }}>
                     {s.label}
@@ -403,7 +404,7 @@ export function TopPerformers({
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, flex: 1, minWidth: 0 }}>
             <Typography sx={{
               fontWeight: 900, fontSize: '0.64rem', textTransform: 'uppercase',
-              letterSpacing: 0.8, color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
+              letterSpacing: typePx(0.8), color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
             }}>
               {headerEntry.context ? 'Postseason Standout' : 'Single-Game Standout'}
             </Typography>
@@ -421,7 +422,7 @@ export function TopPerformers({
             </Box>
             <Typography sx={{
               fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary',
-              fontVariantNumeric: 'tabular-nums', minWidth: 30, textAlign: 'center', lineHeight: 1,
+              fontVariantNumeric: 'tabular-nums', minWidth: '1.875rem', textAlign: 'center', lineHeight: 1,
             }}>
               {headerIdx + 1} / {performers.length}
             </Typography>

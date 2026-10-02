@@ -4,7 +4,7 @@ import { Typography, Box, IconButton, AppBar, Toolbar, Button, Paper, ClickAwayL
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
-import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/constants'
+import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { APP_VERSION } from './version'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
@@ -159,12 +159,14 @@ const BRAND_LOGO_H = 32
 // original reason: theme breakpoints match the real viewport, and what is being asked about
 // here is the toolbar's own width.
 const BRAND_WORDMARK_MIN = 960
-/** How much larger /wpbl renders at md and up, now that it is scaled in CSS rather than under
- *  `zoom: 1.4`. Published as --app-scale-desktop for styles.css to spend on --app-type and
- *  --app-chrome; the breakpoint itself stays in CSS. Moving this one number moves the whole
- *  section, the threshold below included. */
-export const WPBL_DESKTOP_SCALE = 1.25
-const BRAND_WORDMARK_MIN_SCALED = Math.ceil(BRAND_WORDMARK_MIN * WPBL_DESKTOP_SCALE)
+/** How much larger both sections render at md and up, now that they are scaled in CSS rather
+ *  than under `zoom: 1.4` (/wpbl since Aug 31, 2026, /mlb since Oct 2026). Published as
+ *  --app-scale-desktop for styles.css to spend on --app-type and --app-chrome; the breakpoint
+ *  itself stays in CSS. ONE number for both on purpose: the toolbar rides the root scale, so two
+ *  values would make it change size on a section switch. Moving it moves the whole site, the
+ *  threshold below included. */
+export const DESKTOP_SCALE = 1.25
+const BRAND_WORDMARK_MIN_SCALED = Math.ceil(BRAND_WORDMARK_MIN * DESKTOP_SCALE)
 
 
 // A one-shot confetti pop, fired when you flip the league switch to WPBL — a small nod to
@@ -337,9 +339,7 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      // Divided by the toolbar's own scale: this panel hangs inside it, and `zoom` does not
-      // shrink viewport units, so a raw 70vh would resolve to 87% of the screen at 1.25.
-      maxHeight: 'calc(70vh / var(--app-shell, 1))', overflowY: 'auto',
+      maxHeight: '70vh', overflowY: 'auto',
     }}>
       {recents.length > 0 && renderRecents()}
       {recents.length > 0 && (teamPlayers.length > 0 || trending.length > 0) && <Divider sx={{ mt: 0.5 }} />}
@@ -390,9 +390,7 @@ function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      // Divided by the toolbar's own scale: this panel hangs inside it, and `zoom` does not
-      // shrink viewport units, so a raw 70vh would resolve to 87% of the screen at 1.25.
-      maxHeight: 'calc(70vh / var(--app-shell, 1))', overflowY: 'auto',
+      maxHeight: '70vh', overflowY: 'auto',
     }}>
       <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
@@ -501,32 +499,21 @@ function AppInner() {
   // that wants to stick can sit below it without hard-coding a number that would drift.
   // Reads the computed position rather than the breakpoint: the bar is only sticky on
   // desktop, and a static bar scrolls away, contributing nothing to pin beneath.
-  // WPBL renders at the desktop scale in styles.css rather than under a `zoom`, and that scale
-  // keys on this attribute. An attribute rather than a class so it cannot collide with one, and
-  // on the ROOT because --app-type is spent on the root font size, which is the only place a
-  // `rem` will look. MLB is deliberately absent: it still runs the zoom, and a root font size
-  // ramp on top of a 1.4 zoom would compound. Exactly one section is mounted at a time, so the
-  // two never overlap.
+  // Both sections render at the desktop scale in styles.css, and that scale keys on this
+  // attribute. An attribute rather than a class so it cannot collide with one, and on the ROOT
+  // because --app-type is spent on the root font size, which is the only place a `rem` will look.
+  // Off both sections (/admin, /privacy) the page and the toolbar stay at 1.
   //
-  // A LAYOUT EFFECT, AND THAT IS THE WHOLE FIX FOR THE JUMP ON A SECTION SWITCH. A plain
-  // `useEffect` is passive: React runs it AFTER the browser has painted. The render that
-  // changes `path` also changes the content box's `--app-zoom` in the same commit, so with the
-  // attributes arriving a beat later there was one painted frame holding the NEW section's
-  // zoom against the OLD section's root scale. Going to /mlb that frame is a 1.4 zoom on top
-  // of a 1.25 root, and the tab bar under the toolbar drew half again too big before snapping
-  // back; going the other way it drew unscaled and grew. Running before paint closes the
-  // window completely, because the attributes then land in the same frame as the zoom they
-  // belong with. Same reasoning as the scoreboard's placement in Home.tsx.
+  // A LAYOUT EFFECT, so the attribute lands in the same frame as the section it belongs to. A
+  // plain `useEffect` runs after paint, which on a switch between a scaled route and an unscaled
+  // one drew one frame of the new page at the old scale before snapping. It was worse while /mlb
+  // ran a `zoom` (until Oct 2026), when that frame was a 1.4 zoom on top of a 1.25 root.
   useLayoutEffect(() => {
     const root = document.documentElement
-    root.style.setProperty('--app-scale-desktop', String(WPBL_DESKTOP_SCALE))
+    root.style.setProperty('--app-scale-desktop', String(DESKTOP_SCALE))
     if (isWpblSection(path)) root.setAttribute('data-app-scale', 'wpbl')
+    else if (isMlbPath(path)) root.setAttribute('data-app-scale', 'mlb')
     else root.removeAttribute('data-app-scale')
-    // The toolbar scales on BOTH sections, so switching between them moves nothing above the
-    // content. Separate from the attribute above because the two sections are scaled by
-    // different means and only the shell is shared; see the note in styles.css.
-    if (isMlbPath(path) || isWpblSection(path)) root.setAttribute('data-shell-scale', '1')
-    else root.removeAttribute('data-shell-scale')
   }, [path])
 
   // Touch has no hover to prefetch on, so warm the other section once the current one has
@@ -556,13 +543,8 @@ function AppInner() {
     const el = headerRef.current
     const publish = () => {
       const pinned = el && getComputedStyle(el).position === 'sticky'
-      // PUBLISHED IN REAL SCREEN PIXELS, AND A CONSUMER INSIDE A ZOOMED SECTION HAS TO
-      // DIVIDE. The toolbar is no longer inside the `zoom` wrapper (it moved down to the
-      // content box), so a rect and a CSS length are the same pixel here and there is
-      // nothing left to divide out at this end. That is not true at the other end: a section
-      // still running a `zoom` resolves its sticky `top` BEFORE the zoom, so it has to spend
-      // this over its own `--app-zoom`. StatsView does exactly that, and the day the last
-      // section drops its zoom the division there becomes a no-op and goes.
+      // Published in screen pixels, which is what every consumer spends now that no section runs
+      // a `zoom` (until Oct 2026 /mlb did, and anything inside it had to divide this back out).
       //
       // The rect rather than `offsetHeight`, which rounds to a whole pixel: a bar 43.67px
       // tall published itself as 44 and left a sub-pixel crack under it for whatever sticks
@@ -801,11 +783,6 @@ function AppInner() {
     <Box>
       <AppBar
         ref={headerRef}
-        // Scaled as one piece; see --app-shell in styles.css for why this is a `zoom` when the
-        // rest of the rebuild was about removing one. --app-header-h needs no adjustment for
-        // it: the publisher hands over a rect, which is already the on-screen height, and that
-        // is exactly what a consumer outside this bar spends.
-        style={{ zoom: 'var(--app-shell, 1)' }}
         // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
         // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
         // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
@@ -909,10 +886,8 @@ function AppInner() {
             {/* Wordmark. It only earns its place once the toolbar can show it whole,
                 so it appears at BRAND_WORDMARK_MIN and the logo carries the brand alone
                 below that. The threshold is a raw px media query, not a theme
-                breakpoint, because those match the real viewport while the layout here
-                is divided by DESKTOP_ZOOM: the lockup wants ~308px of the ~964px the
-                toolbar has to split at 1350, leaving a few px of slack even while the
-                webfont is still loading and a wider fallback is being measured. */}
+                breakpoint, and is scaled with DESKTOP_SCALE on the two sections: see the
+                note at BRAND_WORDMARK_MIN. */}
             <Typography
               variant="h6"
               {...linkTo(brandHome)}
@@ -926,7 +901,7 @@ function AppInner() {
                 // there the lockup is that much wider in the pixels the query counts, and it
                 // would ellipsise into the search box instead.
                 [`@media (max-width:${BRAND_WORDMARK_MIN_SCALED - 0.05}px)`]: {
-                  'html[data-shell-scale] &': { display: 'none' },
+                  'html[data-app-scale] &': { display: 'none' },
                 },
               }}
             >
@@ -1396,33 +1371,13 @@ function AppInner() {
           app root (not inside a section) so the device toggle covers MLB and WPBL. */}
       {import.meta.env.DEV && !isInsideDeviceFrame && <MobilePreviewHost />}
 
-      {/* THE DESKTOP SCALE LIVES BELOW THE TOOLBAR NOW, NOT AT THE APP ROOT.
-        It used to wrap the whole app so the toolbar scaled with the view, which is a real
-        thing to want and is why it sat up there. What it cost is that the shell and both
-        sections shared one `zoom`, so nothing could be un-zoomed without un-zooming
-        everything: see item 0 in ROADMAP-WPBL.md. Dropping it one level leaves the toolbar
-        at real scale, where a rect and a CSS length are the same pixel again, and leaves
-        every section exactly as it was.
-
-        `--app-zoom` still inherits into the subtree for viewport-relative sizing that `zoom`
-        cannot compensate. It is now UNSET above this box, which is the point: code in the
-        shell reads 1 and means it. Portaled Dialogs, Menus and the Snackbar render in `body`
-        and were never inside this, zoom or no zoom. */}
-      <Box sx={{
-        '--app-zoom': { xs: '1', md: isMlbPath(path) ? String(DESKTOP_ZOOM) : '1' },
-        zoom: 'var(--app-zoom)',
-      }}>
-        {/* The top padding is pinned in SCREEN pixels, which the sides are not.
-            This box is shared by both sections and they are scaled by different means, so a
-            single `p: 2` resolved to two different heights: 16px times --app-chrome on /wpbl,
-            and 16px times MLB's 1.4 zoom on /mlb. 20 against 22.4, which put the tab bar under
-            the toolbar 2.4px lower on one section than the other and made switching look like
-            the bar hopped. Dividing by whatever zoom this box is under lands it at 20 screen
-            pixels either way, and 20 is where both sections land anyway once /mlb takes its own
-            turn at the 1.25 scale: this only gets it there early. Desktop only, so a phone keeps
-            the ordinary 16px, and the sides keep ordinary spacing too, since nothing lines up
-            across the switch horizontally and so nothing there can jump. */}
-        <Box sx={{ px: 2, py: { xs: 2, md: 'calc(20px / var(--app-zoom, 1))' } }}>
+      {/* This box held MLB's `zoom: 1.4` until Oct 2026, the last `zoom` on the site. Both
+          sections now scale from the root (styles.css), toolbar and portaled sheets included,
+          which the zoom never reached. */}
+      <Box>
+        {/* p: 2 is 20px at the desktop scale on both sections, so the tab bar under the toolbar
+            sits at the same height on each and a section switch moves nothing. */}
+        <Box sx={{ p: 2 }}>
           {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
@@ -1430,7 +1385,7 @@ function AppInner() {
             // A screen tall, for the reason the /wpbl fallback below gives: at spinner height the
             // footer painted halfway up the screen and was then shoved off it, 0.13 of layout shift
             // on a desktop load (Oct 1, 2026). The section keeps itself a screen tall once it is in.
-            <Suspense fallback={<Box sx={{ minHeight: 'calc(100dvh / var(--app-zoom, 1))', display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>}>
+            <Suspense fallback={<Box sx={{ minHeight: '100dvh', display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>}>
               {/* On a phone MLB has the floating bottom bar, so the footer rides inside the section
                   above the room reserved for the bar, the same arrangement as WPBL. */}
               <MlbStats renderFooter={renderMlbFooter} />

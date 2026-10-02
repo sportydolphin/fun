@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { TeamSummary } from '../types'
 import { ACCENT, TEAM_BG } from '../constants'
 import { niceTicks, fmtR } from '../lib/utils'
+import { chromePx } from '../../ui/scale'
 
 // ─── Shared chart helpers ─────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ export function ChartTooltip({ tipPos, children }: { tipPos: { x: number; y: num
       borderRadius: 2, px: 1.5, py: 1,
       pointerEvents: 'none',
       boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-      zIndex: 10, minWidth: 148,
+      zIndex: 10, minWidth: chromePx(148),
     }}>
       {children}
     </Box>
@@ -150,7 +151,7 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, o
       {hovered && (
         <ChartTooltip tipPos={tipPos}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
+            <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
             <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
           </Box>
           <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>OPS <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.ops.toFixed(3)}</Box></Typography>
@@ -276,7 +277,7 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, on
       {hovered && (
         <ChartTooltip tipPos={tipPos}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
+            <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
             <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
           </Box>
           <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Actual <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
@@ -454,7 +455,7 @@ export function PayrollWinsPlot({
       {hovered && (
         <ChartTooltip tipPos={tipPos}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
+            <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
             <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
           </Box>
           <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Record <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>

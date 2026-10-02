@@ -1,12 +1,11 @@
 ﻿import React, { memo, useEffect, useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Box, Typography, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
-import { MoreHoriz } from '@mui/icons-material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
 import { ACCENT } from './mlb/constants'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
-import { hoverOnly } from './ui/interaction'
+import { hoverOnly, FOCUS_RING } from './ui/interaction'
 import { requestDeepLink } from './mlb/state/deepLink'
 import type { DeepLink } from './mlb/state/deepLink'
 import { FinalGamesSection } from './mlb/views/FinalGames'
@@ -25,6 +24,7 @@ import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 import { MLB_VIEW_PATHS, mlbUrlFor, mlbPlayerPath } from './mlb/routes'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
+import { chromePx } from './ui/scale'
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 //
@@ -81,6 +81,14 @@ function useLatest<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) 
 // MEMOIZED, so the app shell re-rendering (which it does on every toolbar change) does not
 // re-render the whole section. Its one prop is a stable callback in App.tsx; keep it that way.
 export default memo(MlbStats)
+
+// The section's columns on a desktop, in SCREEN pixels: 980 and 1280 as they were drawn under the
+// old `zoom: 1.4` (Oct 2026). Fixed rather than chromePx because these are the columns that have
+// somewhere to put the room, another scoreboard chip or more stat columns, so when the scale came
+// down to 1.25 the content inside got smaller and the column kept its width. WPBL's Home and stats
+// table break out of its reading column the same way. Below md the phone column is 640.
+const HOME_W = 1372
+const PAGE_W = 1792
 
 function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const state = useMlbState()
@@ -264,13 +272,11 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
-  const containerMaxWidth = state.view === 'home' ? { xs: 640, md: 980 } : { xs: 640, md: 1280 }
+  const containerMaxWidth = state.view === 'home' ? { xs: 640, md: HOME_W } : { xs: 640, md: PAGE_W }
   const onStatsTab = activeTab === 'stats' && state.view !== 'search'
 
   return (
-    // The desktop `zoom` that scales this content up lives on the app root (App.tsx)
-    // so the toolbar scales with it; the `--app-zoom` CSS var it sets inherits down
-    // here (see StatsView's scroll-height cap).
+    // Scaled up on a desktop by the root's --app-type / --app-chrome (styles.css), as WPBL is.
     <Box sx={{
       maxWidth: containerMaxWidth, mx: 'auto', position: 'relative',
       // Scroll room under the floating bar, plus the device's safe-area inset, so the last card and
@@ -283,29 +289,54 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
       {/* Tab pills, above a phone's width. On a phone the bottom bar replaces them: two navs for
           the same five destinations would be worse than either. */}
+      {/* WPBL's nav row, laid out the same way so the switch between the sections moves nothing:
+          the same 720 column (scaled on a desktop), the pills centred in it and More pinned to its
+          right edge, a lighter bordered chip with a ▾ so it reads as a menu rather than a sixth tab.
+          See NavMore in WpblApp.tsx. The menu keeps MLB's one-line hints, which WPBL's desktop menu
+          drops: "Streak Survivor" or "Milestone Watch" says nothing on its own, and both sections'
+          phone sheets already carry a hint under every item. */}
       {!bottomNav && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 3 }}>
-          <SegControl
-            options={NAV.map(n => ({ value: n.key, label: n.label, href: viewHref(tabView(n.key)) }))}
-            value={activeTab}
-            onChange={v => goTab(v as NavKey)}
-          />
+        <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+            <SegControl
+              options={NAV.map(n => ({ value: n.key, label: n.label, href: viewHref(tabView(n.key)) }))}
+              value={activeTab}
+              onChange={v => goTab(v as NavKey)}
+            />
+          </Box>
           <Box
-            role="button" aria-label="More MLB pages" aria-haspopup="menu"
+            component="button"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={!!moreAnchor}
+            aria-label="More MLB pages"
             onClick={e => setMoreAnchor(e.currentTarget)}
             sx={{
-              display: 'flex', alignItems: 'center', gap: 0.25, px: 1.25, py: 0.6, borderRadius: 999,
-              cursor: 'pointer', color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600,
-              ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }),
+              ...FOCUS_RING,
+              flexShrink: 0,
+              display: 'inline-flex', alignItems: 'center', gap: 0.25,
+              px: 1.25, py: 0.5, borderRadius: 999, cursor: 'pointer',
+              border: '1px solid', borderColor: 'divider', bgcolor: 'transparent',
+              color: moreAnchor ? 'text.primary' : 'text.secondary',
+              fontSize: '0.75rem', fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
+              ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
             }}
           >
-            More <MoreHoriz sx={{ fontSize: '1rem' }} />
+            More
+            <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▾</Box>
           </Box>
-          <Menu anchorEl={moreAnchor} open={!!moreAnchor} onClose={() => setMoreAnchor(null)}>
+          <Menu
+            anchorEl={moreAnchor}
+            open={!!moreAnchor}
+            onClose={() => setMoreAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            MenuListProps={{ dense: true }}
+          >
             {MORE.map(m => (
-              <MenuItem key={m.key} onClick={() => openMore(m)} sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 1 }}>
-                <Typography sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{m.label}</Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{m.hint}</Typography>
+              <MenuItem key={m.key} onClick={() => openMore(m)} sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.35 }}>{m.label}</Typography>
+                <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1.35 }}>{m.hint}</Typography>
               </MenuItem>
             ))}
           </Menu>
@@ -316,9 +347,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           it (below), so while a tab is still loading the footer sat just under a few lines of
           placeholder and was shoved off the screen as the content arrived: 0.14 of layout shift on
           the Leaders board, the most visited MLB tab. Holding the content a screen tall keeps the
-          footer below the fold from the first paint. Divided by the desktop zoom, which scales
-          viewport units too. */}
-      <Box sx={{ minHeight: 'calc(100dvh / var(--app-zoom, 1))' }}>
+          footer below the fold from the first paint. */}
+      <Box sx={{ minHeight: '100dvh' }}>
       {/* The Stats tab's three boards. */}
       {onStatsTab && (
         <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
@@ -534,14 +564,14 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           // The same sheet as WPBL's More: capped to the bar's width, rounded top corners, clear of
           // the iOS home indicator, flicked down to dismiss.
           PaperProps={{ sx: {
-            maxWidth: 460, mx: 'auto', left: 0, right: 0,
+            maxWidth: chromePx(460), mx: 'auto', left: 0, right: 0,
             borderTopLeftRadius: 16, borderTopRightRadius: 16,
             bgcolor: 'background.paper',
             pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
           } }}
         >
           <Box sx={{ px: 2, pt: 1 }}>
-            <Box aria-hidden sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
+            <Box aria-hidden sx={{ width: chromePx(36), height: chromePx(4), borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
             {MORE.map(m => (
               <Box key={m.key} role="button" onClick={() => openMore(m)} sx={{
                 display: 'flex', flexDirection: 'column', gap: 0.1, cursor: 'pointer',

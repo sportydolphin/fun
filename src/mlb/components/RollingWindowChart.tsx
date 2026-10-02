@@ -4,6 +4,7 @@ import { RecentGameEntry } from '../types'
 import { ACCENT, CURRENT_SEASON } from '../constants'
 import { fmtR, parseIP } from '../lib/utils'
 import { fetchLeagueStatsBySeason, tooltipAnchorSx } from './trendChartUtils'
+import { chromePx, typePx } from '../../ui/scale'
 
 // The current-season rolling-window trendline (OPS for hitters, ERA for pitchers).
 // Split out of PlayerTrendsChart.tsx (July 2026); the career chart lives there.
@@ -299,7 +300,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         {!seasonComplete && (
           <Box>
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               {isPitcher && !isStarter ? `Last ${currentPt.ip != null ? currentPt.ip.toFixed(1) : '—'} IP` : `Last ${currentPt.size} ${isPitcher ? 'starts' : 'games'}`}
             </Typography>
             <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>
@@ -309,7 +310,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
         )}
         {seasonStat.stat != null && (
           <Box>
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               Season {label}
             </Typography>
             <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2, color: seasonComplete ? ACCENT : 'text.primary' }}>
@@ -318,7 +319,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
           </Box>
         )}
         <Box>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.5), color: 'text.disabled' }}>
             {seasonStat.volumeLabel}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
@@ -417,7 +418,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
               pointerEvents: 'none',
               bgcolor: 'background.paper', border: '1.5px solid', borderColor: 'divider',
               borderRadius: 2, px: 1.5, py: 1, boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
-              minWidth: 90, zIndex: 10,
+              minWidth: chromePx(90), zIndex: 10,
             }}>
               <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1 }}>{fmtDate(hov.date)}</Typography>
               <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>

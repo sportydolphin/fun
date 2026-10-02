@@ -11,6 +11,7 @@ import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/ch
 import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboardCard, PlayerLeaderboardModal } from '../components/leaderboards'
 import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow } from '../api'
+import { chromePx, typePx } from '../../ui/scale'
 
 
 // ─── VizSubNav — in-page tab switcher ────────────────────────────────────────
@@ -326,7 +327,7 @@ export function VizView({
             </Box>
           ) : (
             <ClickAwayListener onClickAway={() => setVizSearchOpen(false)}>
-              <Box sx={{ position: 'relative', minWidth: { xs: 0, sm: 180 }, flex: { xs: 1, sm: 'none' } }}>
+              <Box sx={{ position: 'relative', minWidth: { xs: 0, sm: chromePx(180) }, flex: { xs: 1, sm: 'none' } }}>
                 <Box sx={{
                   display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.6, borderRadius: 999,
                   border: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper',
@@ -353,7 +354,7 @@ export function VizView({
                           <React.Fragment key={t.id}>
                             {i > 0 && <Divider />}
                             <ListItemButton onClick={() => { setVizHighlightId(t.id); setVizSearch(''); setVizSearchOpen(false) }} sx={{ gap: 1.25, py: 0.6 }}>
-                              <Box sx={{ width: 26, height: 26, borderRadius: '50%', bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: t.abbr.length > 2 ? '0.52rem' : '0.62rem', lineHeight: 1 }}>{t.abbr}</Typography>
                               </Box>
                               <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{nameMap.get(t.id) ?? t.abbr}</Typography>
@@ -371,7 +372,7 @@ export function VizView({
 
         <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
           <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
+            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(16)}`, borderRadius: 999, fontFamily: 'inherit' }}>
             {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </Box>
@@ -402,7 +403,7 @@ export function VizView({
                 {/* ERA vs OPS */}
                 <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                    <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Pitching vs Hitting</Typography>
+                    <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Pitching vs Hitting</Typography>
                     <InfoTip size={0.95} text={
                       <>
                         <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
@@ -417,7 +418,7 @@ export function VizView({
                 {/* Wins vs Run Margin */}
                 <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                    <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Wins vs Run Margin</Typography>
+                    <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Wins vs Run Margin</Typography>
                     <InfoTip size={0.95} text={
                       <>
                         <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
@@ -433,7 +434,7 @@ export function VizView({
                 {showSos && (
                   <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Payroll vs. Performance</Typography>
+                        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Payroll vs. Performance</Typography>
                         <InfoTip size={0.95} text={
                           <>
                             <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>

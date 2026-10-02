@@ -13,6 +13,7 @@ import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
 import { useWpblPlayerLink } from './LinkContext'
 import { hoverOnly, TAPPABLE, tappableIf, pressable, FOCUS_RING } from '../ui/interaction'
+import { chromePx } from '../ui/scale'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
 export { ModalShell } from '../ui/ModalShell'
 
@@ -299,19 +300,8 @@ export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: num
 
 // hoverOnly / TAPPABLE / tappableIf live in src/ui/interaction.ts (shared with MLB); re-exported above.
 
-/** A structural pixel length, scaled by the desktop chrome scale.
- *
- *  STRUCTURE SCALES, ORNAMENT DOES NOT. Ordinary CSS has no equivalent of `zoom`, so each px
- *  length either says it scales or stays at its written size. The ones that MUST scale are the
- *  ones that decide how much fits: column widths, rail widths, a dialog's cap. Left at their
- *  written size those boxes silently shrink relative to the type inside them, and a name that
- *  fit on one line wraps onto two.
- *
- *  Ornament is deliberately left alone: hairline borders, the 6px live dot, a 4px scrollbar.
- *  At this scale they are a pixel or two either way, and a 1px border that stays 1px is
- *  sharper for it.
- */
-export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
+// chromePx lives in src/ui/scale.ts (shared with MLB); re-exported here so WPBL's imports did not change.
+export { chromePx } from '../ui/scale'
 
 /**
  * The page column the Stats boards that are prose and lists sit in, and the wider measure the
@@ -780,59 +770,9 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
   )
 }
 
-// Compact segmented pills. The in-card sibling of SegNav: SegNav is the page-level tab bar
-// and centres itself across the full width, this one is inline and sized to sit inside a
-// SectionCard, either in the body beside a leaderboard or in the header's `action` slot.
-//
-// Solid accent fill rather than SegNav's raised surface chip, because at this size the chip's
-// shadow-on-paper trick disappears against the card it is sitting on: inside a card the only
-// thing that reads as "selected" at 0.68rem is colour. Use `--wpbl-accent-solid`, never
-// WPBL_ACCENT. White on #60a5fa measures 2.37:1, and colour contrast is absolute, so the raw
-// accent fails in dark mode too.
-export function PillGroup({ options, value, onChange, mb }: {
-  options: { value: string; label: string }[]
-  value: string
-  onChange: (v: string) => void
-  mb?: number
-}) {
-  return (
-    <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb }}>
-      {options.map(opt => {
-        const on = opt.value === value
-        return (
-          <Box
-            key={opt.value}
-            {...pressable(() => onChange(opt.value))}
-            aria-pressed={on}
-            sx={{
-              ...FOCUS_RING,
-              px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
-              // A FLOOR UNDER THE TAP TARGET. At their natural height these are one pixel under WCAG 2.2's
-              // 24px minimum, and they sit shoulder to shoulder inside one pill, so the spacing exception
-              // that forgives a small target does not apply. `minHeight` rather than more padding: the
-              // pill's proportions stay as drawn, and the box still grows on its own if the reader's text
-              // needs more room than the floor.
-              //
-              // `chromePx` and not a bare number, and not rem. It is structure, so it takes the
-              // desktop chrome scale; and it deliberately does NOT take the reader's text scale,
-              // because a target that grows with the type is not a better target, it is a moving
-              // one. That is the whole reason --app-chrome excludes --sd-text-scale.
-              minHeight: chromePx(28),
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3,
-              whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
-              bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',
-              color: on ? '#fff' : 'text.secondary',
-              '&:hover': on ? {} : { color: 'text.primary' },
-            }}
-          >
-            {opt.label}
-          </Box>
-        )
-      })}
-    </Box>
-  )
-}
+// PillGroup lives in src/ui/PillGroup.tsx (shared with MLB since Oct 2026); re-exported here so WPBL's
+// imports did not change.
+export { PillGroup } from '../ui/PillGroup'
 
 // Bordered content card with a left accent stripe and an icon + title + subtitle
 // header, mirroring the MLB home-feed cards. `action` sits at the right of the header

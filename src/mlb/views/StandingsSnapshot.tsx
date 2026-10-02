@@ -5,6 +5,7 @@ import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { TEAM_NICKNAME, ACCENT } from '../constants'
 import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../lib/colorUtils'
 import { TeamLogo } from './Standings'
+import { chromePx, typePx } from '../../ui/scale'
 
 // Within this many games of the division lead → the division race is still live,
 // so show that. Otherwise the wild card is the more meaningful picture.
@@ -56,7 +57,7 @@ function SnapshotRow({ team, rightLabel, rightColor, oddsLabel, oddsClr, isMine,
         onClick={() => onTeamClick?.(team.teamId)}
         sx={{
           display: 'flex', alignItems: 'center', gap: 1,
-          px: 1.5, py: '7px',
+          px: 1.5, py: chromePx(7),
           borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
           borderLeft: `3px solid ${teamColor}`,
           bgcolor: isMine ? `${teamColor}22` : undefined,
@@ -72,19 +73,19 @@ function SnapshotRow({ team, rightLabel, rightColor, oddsLabel, oddsClr, isMine,
         }}>
           {TEAM_NICKNAME[team.teamId] ?? team.abbr}
         </Typography>
-        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', minWidth: 44, textAlign: 'right' }}>
+        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', minWidth: '2.75rem', textAlign: 'right' }}>
           {team.wins}–{team.losses}
         </Typography>
         <Typography sx={{
           fontSize: '0.76rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-          minWidth: 40, textAlign: 'right', color: rightColor,
+          minWidth: '2.5rem', textAlign: 'right', color: rightColor,
         }}>
           {rightLabel}
         </Typography>
         {oddsLabel !== undefined && (
           <Typography sx={{
             fontSize: '0.76rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-            minWidth: 46, textAlign: 'right', color: oddsClr ?? 'text.secondary',
+            minWidth: '2.875rem', textAlign: 'right', color: oddsClr ?? 'text.secondary',
           }}>
             {oddsLabel}
           </Typography>
@@ -220,7 +221,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
   const title    = view.kind === 'division' ? view.division.divisionName : `${leagueAbbr(view.leagueId)} Wild Card`
   const hasOdds  = odds.size > 0
 
-  const colLabel = { fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right' } as const
+  const colLabel = { fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', textAlign: 'right' } as const
 
   return (
     <Box sx={{
@@ -235,13 +236,13 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
         <Typography sx={{
           flex: 1, minWidth: 0,
           fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase',
-          letterSpacing: 1.2, color: ACCENT,
+          letterSpacing: typePx(1.2), color: ACCENT,
         }}>
           {title}
         </Typography>
-        <Box sx={{ minWidth: 44 }} />
-        <Typography sx={{ ...colLabel, minWidth: 40 }}>GB</Typography>
-        {hasOdds && <Typography sx={{ ...colLabel, minWidth: 46 }}>Odds</Typography>}
+        <Box sx={{ minWidth: chromePx(44) }} />
+        <Typography sx={{ ...colLabel, minWidth: chromePx(40) }}>GB</Typography>
+        {hasOdds && <Typography sx={{ ...colLabel, minWidth: chromePx(46) }}>Odds</Typography>}
       </Box>
 
       {/* Rows */}

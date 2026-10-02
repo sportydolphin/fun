@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { fetchDeactivatedUserIds } from '../../lib/usernames'
 import { ensureActiveUser } from '../../lib/userActive'
 import { SCHEDULE_GAME_TYPES } from '../gameStatus'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Supabase table setup (run once in Supabase SQL editor) ──────────────────
 //
@@ -320,7 +321,7 @@ function StatPill({ label, value, accent }: { label: string; value: string | num
       </Typography>
       <Typography sx={{
         fontSize: { xs: '0.58rem', sm: '0.66rem' }, color: 'text.secondary',
-        lineHeight: 1, mt: 0.5, textTransform: 'uppercase', letterSpacing: 0.5,
+        lineHeight: 1, mt: 0.5, textTransform: 'uppercase', letterSpacing: typePx(0.5),
       }}>
         {label}
       </Typography>
@@ -351,7 +352,7 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
       {/* Logo with rank badge */}
       <Box sx={{ position: 'relative', mb: 0.25 }}>
         <Box sx={{
-          width: logoSize, height: logoSize, borderRadius: '50%',
+          width: chromePx(logoSize), height: chromePx(logoSize), borderRadius: '50%',
           bgcolor: teamLogoBg(teamId, isDark),
           border: `2.5px solid ${col}`,
           boxShadow: rank === 0 ? `0 0 0 2px ${rankCol}55, 0 4px 16px ${col}30` : `0 2px 8px ${col}20`,
@@ -376,8 +377,8 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
 
         {/* Rank badge */}
         <Box sx={{
-          position: 'absolute', top: -3, right: -3,
-          width: 20, height: 20, borderRadius: '50%',
+          position: 'absolute', top: chromePx(-3), right: chromePx(-3),
+          width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           bgcolor: rankCol,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
@@ -422,7 +423,7 @@ function TeamPodium({ title, teams, getMain, getSub }: {
     <Box>
       <Typography sx={{
         fontWeight: 800, fontSize: '0.62rem',
-        textTransform: 'uppercase', letterSpacing: 1.2,
+        textTransform: 'uppercase', letterSpacing: typePx(1.2),
         color: ACCENT, mb: 1.25,
       }}>
         {title}
@@ -525,10 +526,10 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
         display: 'flex', gap: 1, pb: 0.75,
         borderBottom: '1px solid', borderColor: 'divider', mb: 0.5,
       }}>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.5, width: 28, textAlign: 'center', flexShrink: 0 }}>#</Typography>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.5, flex: 1 }}>User</Typography>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.5, minWidth: 52, textAlign: 'right' }}>W/L</Typography>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.5, minWidth: 40, textAlign: 'right' }}>Acc.</Typography>
+        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), width: '1.75rem', textAlign: 'center', flexShrink: 0 }}>#</Typography>
+        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), flex: 1 }}>User</Typography>
+        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '3.25rem', textAlign: 'right' }}>W/L</Typography>
+        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '2.5rem', textAlign: 'right' }}>Acc.</Typography>
       </Box>
 
       {leaders.map((entry, i) => {
@@ -553,7 +554,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
         >
           <Typography sx={{
             fontSize: entry.rank <= 3 ? '0.88rem' : '0.7rem',
-            fontWeight: 800, width: 28, textAlign: 'center', flexShrink: 0,
+            fontWeight: 800, width: '1.75rem', textAlign: 'center', flexShrink: 0,
             color: entry.rank <= 3 ? 'text.primary' : 'text.disabled',
             lineHeight: 1,
           }}>
@@ -578,11 +579,11 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
               </Box>
             )}
           </Box>
-          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', minWidth: 52, textAlign: 'right' }}>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', minWidth: '3.25rem', textAlign: 'right' }}>
             {entry.correct}/{entry.total}
           </Typography>
           <Typography sx={{
-            fontSize: '0.78rem', fontWeight: 700, minWidth: 40, textAlign: 'right',
+            fontSize: '0.78rem', fontWeight: 700, minWidth: '2.5rem', textAlign: 'right',
             color: entry.isMe ? ACCENT : 'text.primary',
           }}>
             {Math.round(entry.accuracy)}%
@@ -648,7 +649,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
   if (!open) return null
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={460} sheet sheetFill eyebrow="📊 Prediction stats">
+    <MlbSheet onClose={onClose} maxWidth={chromePx(460)} sheet sheetFill eyebrow="📊 Prediction stats">
         {/* Sub-tabs, pinned while the content under them scrolls */}
         <Box sx={{
           px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0,

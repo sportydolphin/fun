@@ -3,11 +3,12 @@ import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { CareerStatSplit, RecentGameEntry } from '../types'
 import { ACCENT, CURRENT_SEASON, TEAM_BG } from '../constants'
 import { parseIP } from '../lib/utils'
-import { SegControl } from './index'
 import { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 import { RollingWindowChart } from './RollingWindowChart'
 import { fetchLeagueStatsBySeason, tooltipAnchorSx } from './trendChartUtils'
 import { FullscreenEntry } from './MlbSheet'
+import { chromePx, typePx } from '../../ui/scale'
+import { PillGroup } from '../../ui/PillGroup'
 
 export { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 
@@ -17,7 +18,7 @@ export { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 const trendSelSx: React.CSSProperties = {
   border: 'none', outline: 'none', background: 'transparent',
   fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
-  color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
+  color: 'inherit', padding: `${chromePx(4)} ${chromePx(10)}`, borderRadius: 999, fontFamily: 'inherit',
 }
 
 export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season, chartMode, onGameSelect, onYearSelect }: {
@@ -337,7 +338,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       {/* Group toggle for two-way players */}
       {isTwoWay && (
         <Box sx={{ mb: 1.5 }}>
-          <SegControl
+          <PillGroup
             options={[{ value: 'hitting', label: 'Batting' }, { value: 'pitching', label: 'Pitching' }]}
             value={group}
             onChange={v => setGroup(v as 'hitting' | 'pitching')}
@@ -405,21 +406,21 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         {avg != null && (
           <Box>
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               {currentDef.counting ? `Avg / yr` : `Career ${currentDef.label}`}
             </Typography>
             <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
           </Box>
         )}
         <Box>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>Best season</Typography>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>Best season</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
             {currentDef.fmt(fpts[bestIdx].isPace ? fpts[bestIdx].actual! : fpts[bestIdx].value)}
             <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({fpts[bestIdx].season})</Typography>
           </Typography>
         </Box>
         <Box>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>Seasons</Typography>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>Seasons</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>{n}</Typography>
         </Box>
       </Box>
@@ -579,7 +580,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               borderRadius: 2,
               px: 1.5, py: 1,
               boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
-              minWidth: 90,
+              minWidth: chromePx(90),
               zIndex: 10,
             }}>
               <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1 }}>{hov.season}</Typography>
@@ -588,7 +589,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
                 return (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3 }}>
                     {!traded && hov.teamId && (
-                      <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: TEAM_BG[hov.teamId] ?? 'grey.500', flexShrink: 0 }} />
+                      <Box sx={{ width: chromePx(7), height: chromePx(7), borderRadius: '50%', bgcolor: TEAM_BG[hov.teamId] ?? 'grey.500', flexShrink: 0 }} />
                     )}
                     <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', fontStyle: traded ? 'italic' : 'normal' }}>
                       {hov.teamAbbr}

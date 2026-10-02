@@ -7,7 +7,7 @@ import {
 import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert } from '@mui/icons-material'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, PlayerContract } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
-import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
+import { PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
 import { FullscreenEntry } from '../components/MlbSheet'
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
 // ~1,000-line chart module — lazy so it only loads once a player card is open.
@@ -22,6 +22,8 @@ import { ContractPanel } from '../components/ContractPanel'
 import { fetchPlayerDetails } from '../api'
 import { track, EVENTS } from '../../lib/analytics'
 import { mlbPlayerPath } from '../routes'
+import { chromePx, typePx } from '../../ui/scale'
+import { PillGroup } from '../../ui/PillGroup'
 
 export interface SearchViewProps {
   // Search
@@ -208,17 +210,12 @@ export function SearchView({
       const range = document.createRange()
       range.selectNodeContents(yearEl)
       const yr = range.getBoundingClientRect()
-      // The app root applies a desktop CSS `zoom` (see App.tsx / --app-zoom), so
-      // getBoundingClientRect() returns zoom-scaled screen coordinates. These deltas are
-      // then used as left/top on the arrow Box, which lives INSIDE the same zoomed
-      // subtree and so gets scaled a second time — divide back down by --app-zoom to
-      // cancel the double-scale and keep the arrows flanking the year. On mobile /
-      // non-/mlb routes --app-zoom is 1, so this is a no-op.
-      const zoom = parseFloat(getComputedStyle(wrap).getPropertyValue('--app-zoom')) || 1
+      // Spent as left/top in the same pixels the rects are in, now that no `zoom` sits between
+      // the two (until Oct 2026 these were divided back down by it).
       setYearRect({
-        top:   (yr.top - wr.top + yr.height / 2) / zoom,
-        left:  (yr.left - wr.left) / zoom,
-        right: (yr.right - wr.left) / zoom,
+        top:   yr.top - wr.top + yr.height / 2,
+        left:  yr.left - wr.left,
+        right: yr.right - wr.left,
       })
     }
     measure()
@@ -301,7 +298,7 @@ export function SearchView({
           position: 'fixed', inset: 0, zIndex: 9999, bgcolor: palette.bg,
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
-          <Box sx={{ width: '100%', maxWidth: 520, px: 4 }}>
+          <Box sx={{ width: '100%', maxWidth: chromePx(520), px: 4 }}>
             {playerCardProps && <CardInner {...playerCardProps} large onToggleHitStat={undefined} onTogglePitStat={undefined} />}
             {teamCardProps && <TeamCardInner {...teamCardProps} large onToggleHitStat={undefined} onTogglePitStat={undefined} />}
           </Box>
@@ -334,7 +331,7 @@ export function SearchView({
             onClick={() => setStatsView('career')}
             sx={{
               flexShrink: 0, px: 1.6, py: 0.6, borderRadius: 999,
-              cursor: 'pointer', fontSize: '0.82rem', fontWeight: 800, letterSpacing: 0.2,
+              cursor: 'pointer', fontSize: '0.82rem', fontWeight: 800, letterSpacing: typePx(0.2),
               userSelect: 'none', whiteSpace: 'nowrap',
               display: 'inline-flex', alignItems: 'center', gap: 0.5,
               bgcolor: careerActive ? ACCENT : 'transparent',
@@ -394,7 +391,7 @@ export function SearchView({
               <select
                 value={careerActive ? '' : String(season)}
                 onChange={e => { setStatsView('season'); handleSeasonChange(Number(e.target.value)) }}
-                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'inherit', padding: '6px 14px', borderRadius: 999, fontFamily: 'inherit' }}
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(14)}`, borderRadius: 999, fontFamily: 'inherit' }}
               >
                 {careerActive && <option value="" disabled>Jump to season…</option>}
                 {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
@@ -407,7 +404,7 @@ export function SearchView({
       {hasStats && (
         <Box sx={{
           display: { xs: 'block', md: (showTrends || showFeaturedRight || (!!team && !!divisionStandings)) ? 'grid' : 'block' },
-          gridTemplateColumns: { md: 'minmax(0, 460px) 1fr' },
+          gridTemplateColumns: { md: `minmax(0, ${chromePx(460)}) 1fr` },
           gap: { md: 4 },
           alignItems: 'start',
           mb: 2,
@@ -432,7 +429,7 @@ export function SearchView({
                 const newerYear = idx > 0 ? currentAvailableSeasons[idx - 1] : null
                 const navBtnSx = {
                   position: 'absolute' as const, top: `${yearRect.top}px`, transform: 'translateY(-50%)',
-                  zIndex: 2, width: 30, height: 30, borderRadius: '50%',
+                  zIndex: 2, width: chromePx(30), height: chromePx(30), borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   bgcolor: 'rgba(0,0,0,0.32)', color: '#fff', cursor: 'pointer',
                   backdropFilter: 'blur(2px)',
@@ -442,14 +439,14 @@ export function SearchView({
                 return (<>
                   {olderYear != null && (
                     <Tooltip title={`${olderYear} season`} placement="top">
-                      <Box onClick={() => handleSeasonChange(olderYear)} sx={{ ...navBtnSx, left: `${yearRect.left - 38}px` }}>
+                      <Box onClick={() => handleSeasonChange(olderYear)} sx={{ ...navBtnSx, left: `calc(${yearRect.left}px - ${chromePx(38)})` }}>
                         <ChevronLeft sx={{ fontSize: '1.3rem' }} />
                       </Box>
                     </Tooltip>
                   )}
                   {newerYear != null && (
                     <Tooltip title={`${newerYear} season`} placement="top">
-                      <Box onClick={() => handleSeasonChange(newerYear)} sx={{ ...navBtnSx, left: `${yearRect.right + 8}px` }}>
+                      <Box onClick={() => handleSeasonChange(newerYear)} sx={{ ...navBtnSx, left: `calc(${yearRect.right}px + ${chromePx(8)})` }}>
                         <ChevronRight sx={{ fontSize: '1.3rem' }} />
                       </Box>
                     </Tooltip>
@@ -457,7 +454,7 @@ export function SearchView({
                 </>)
               })()}
               {/* Card actions — collapsed into a single ⋮ menu */}
-              <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+              <Box sx={{ position: 'absolute', top: chromePx(8), right: chromePx(8) }}>
                 <Tooltip title={downloading ? 'Saving…' : 'Card options'}>
                   <Box
                     onClick={e => setCardMenuAnchor(e.currentTarget as HTMLElement)}
@@ -481,7 +478,7 @@ export function SearchView({
                 onClose={() => setCardMenuAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 190 } }}
+                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: chromePx(190) } }}
               >
                 <MenuItem
                   onClick={() => { const el = cardMenuAnchor; setCardMenuAnchor(null); setCardOptionsAnchor(el) }}
@@ -507,11 +504,11 @@ export function SearchView({
                 onClose={() => setCardOptionsAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 290, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+                PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: chromePx(290), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
               >
                 {/* Colors */}
                 <Box sx={{ mb: 1.75 }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
                     Colors
                   </Typography>
                   <Box
@@ -539,7 +536,7 @@ export function SearchView({
                   return (
                     <Box sx={{ mb: 1.75 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Batting stats
                         </Typography>
                         <Box onClick={() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
@@ -565,7 +562,7 @@ export function SearchView({
                   return (
                     <Box sx={{ mb: 1.75 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Pitching stats
                         </Typography>
                         <Box onClick={() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
@@ -583,10 +580,10 @@ export function SearchView({
 
                 {/* League rank */}
                 <Box sx={{ mb: player ? 1.75 : 0 }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
                     League rank
                   </Typography>
-                  <SegControl
+                  <PillGroup
                     options={[{ value: 'none', label: 'None' }, { value: 'top5', label: 'Top 5' }, { value: 'all', label: 'All' }]}
                     value={rankMode}
                     onChange={v => setRankMode(v as RankMode)}
@@ -596,7 +593,7 @@ export function SearchView({
                 {/* Portrait toggles */}
                 {player && (
                   <Box>
-                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
                       Show under portrait
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ACCENT, HEADSHOT, TEAM_BG } from '../constants'
 import { RosterEntry } from '../types'
+import { chromePx, typePx } from '../../ui/scale'
 
 // Position-type groups, in the order they appear on a scorecard. `match` decides
 // which group a roster entry falls into (positionType from the API, with a code
@@ -21,7 +22,7 @@ function RosterHeadshot({ playerId, teamId }: { playerId: number; teamId: number
   const bg = TEAM_BG[teamId] ?? '#444'
   return (
     <Box sx={{
-      width: 34, height: 34, borderRadius: '50%', bgcolor: bg, flexShrink: 0,
+      width: chromePx(34), height: chromePx(34), borderRadius: '50%', bgcolor: bg, flexShrink: 0,
       overflow: 'hidden', display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }}>
       {!failed && (
@@ -30,7 +31,7 @@ function RosterHeadshot({ playerId, teamId }: { playerId: number; teamId: number
           src={HEADSHOT(playerId)}
           alt=""
           onError={() => setFailed(true)}
-          sx={{ width: 34, height: 34, objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+          sx={{ width: chromePx(34), height: chromePx(34), objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
         />
       )}
     </Box>
@@ -68,7 +69,7 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
     >
       {/* Jersey number */}
       <Typography sx={{
-        minWidth: 22, textAlign: 'right', flexShrink: 0,
+        minWidth: '1.375rem', textAlign: 'right', flexShrink: 0,
         fontSize: '0.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
         color: entry.jerseyNumber ? 'text.secondary' : 'text.disabled',
       }}>
@@ -93,10 +94,10 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
       {/* IL badge */}
       {injured && (
         <Box sx={{
-          flexShrink: 0, px: 0.6, height: 16, borderRadius: 0.75,
+          flexShrink: 0, px: 0.6, height: chromePx(16), borderRadius: 0.75,
           display: 'inline-flex', alignItems: 'center',
           bgcolor: '#ef444422', color: '#ef4444',
-          fontSize: '0.55rem', fontWeight: 800, letterSpacing: 0.3,
+          fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.3),
         }}>
           IL
         </Box>
@@ -132,7 +133,7 @@ export function TeamRoster({ roster, teamId, onPlayerClick }: {
         <Box key={g.label}>
           <Typography sx={{
             fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: 1.4, color: 'text.disabled', mb: 0.75,
+            letterSpacing: typePx(1.4), color: 'text.disabled', mb: 0.75,
           }}>
             {g.label} · {g.players.length}
           </Typography>

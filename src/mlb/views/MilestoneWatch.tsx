@@ -6,6 +6,7 @@ import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from './Standings'
+import { chromePx, typePx } from '../../ui/scale'
 
 const FEATURED = 3          // hero chases shown on the card; the rest live in the modal
 const RECENT_ON_CARD = 2    // cap on how many "just reached" rows lead the featured strip
@@ -60,18 +61,18 @@ function LiveBadge() {
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 0.6, py: '1px', borderRadius: 999, bgcolor: LIVE_RED, flexShrink: 0 }}>
       <Box sx={{
-        width: 4, height: 4, borderRadius: '50%', bgcolor: '#fff',
+        width: chromePx(4), height: chromePx(4), borderRadius: '50%', bgcolor: '#fff',
         '@keyframes msLiveDot': { '0%': { opacity: 1 }, '50%': { opacity: 0.2 }, '100%': { opacity: 1 } },
         animation: 'msLiveDot 1.4s ease-in-out infinite',
       }} />
-      <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: 0.5, color: '#fff' }}>LIVE</Typography>
+      <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: typePx(0.5), color: '#fff' }}>LIVE</Typography>
     </Box>
   )
 }
 
 function Tag({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color, border: `1px solid ${color}55`, borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+    <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color, border: `1px solid ${color}55`, borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
       {children}
     </Typography>
   )
@@ -79,7 +80,7 @@ function Tag({ color, children }: { color: string; children: React.ReactNode }) 
 
 function MeterBar({ fill, color, live, height = 4 }: { fill: number; color: string; live?: boolean; height?: number }) {
   return (
-    <Box sx={{ height, borderRadius: 3, bgcolor: 'action.hover', overflow: 'hidden' }}>
+    <Box sx={{ height: chromePx(height), borderRadius: 3, bgcolor: 'action.hover', overflow: 'hidden' }}>
       <Box sx={{
         height: '100%', width: `${Math.round(fill * 100)}%`, borderRadius: 3, bgcolor: color,
         transition: 'width 0.3s ease',
@@ -133,18 +134,18 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
             ? `Reached ${item.target} ${item.statLabel} · ${reachedWhen(item.achievedOn!, seasonOver)}`
             : `${kindLabel(item)} · ${item.target} ${item.statLabel}`}
         </Typography>
-        <Box sx={{ mt: '6px' }}>
+        <Box sx={{ mt: chromePx(6) }}>
           <MeterBar fill={proximity(item)} color={isLive ? LIVE_RED : accent} live={isLive} height={5} />
         </Box>
       </Box>
-      <Box sx={{ textAlign: 'right', flexShrink: 0, minWidth: 42 }}>
+      <Box sx={{ textAlign: 'right', flexShrink: 0, minWidth: chromePx(42) }}>
         {achieved ? (
           <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1, color: ACHIEVED_GREEN }}>✓</Typography>
         ) : (<>
           <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: isLive ? LIVE_RED : item.remaining <= 3 ? ACHIEVED_GREEN : 'text.primary' }}>
             {item.remaining}
           </Typography>
-          <Typography sx={{ mt: '2px', fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', lineHeight: 1 }}>
+          <Typography sx={{ mt: chromePx(2), fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', lineHeight: 1 }}>
             to go
           </Typography>
         </>)}
@@ -172,7 +173,7 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
     <Box
       onClick={() => onPlayerClick?.(item.playerId)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: '9px',
+        display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: chromePx(9),
         borderLeft: `3px solid ${isLive ? LIVE_RED : accent}`,
         cursor: clickable ? 'pointer' : 'default',
         '&:hover': { bgcolor: clickable ? 'action.hover' : undefined },
@@ -190,11 +191,11 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
           {!isLive && !achieved && isRecord && <Tag color={RECORD_GOLD}>Record</Tag>}
         </Box>
         {achieved ? (
-          <Typography sx={{ mt: '2px', fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Typography sx={{ mt: chromePx(2), fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Reached {item.target} {item.statLabel} · {reachedWhen(item.achievedOn!, seasonOver)}
           </Typography>
         ) : (
-          <Box sx={{ mt: '4px' }}>
+          <Box sx={{ mt: chromePx(4) }}>
             <MeterBar fill={proximity(item)} color={isLive ? LIVE_RED : accent} live={isLive} height={3} />
           </Box>
         )}
@@ -243,7 +244,7 @@ function TabButton({ active, label, count, color, onClick }: {
       onClick={onClick}
       sx={{
         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5,
-        py: '5px', borderRadius: 2, cursor: 'pointer', userSelect: 'none', transition: 'all 0.12s',
+        py: chromePx(5), borderRadius: 2, cursor: 'pointer', userSelect: 'none', transition: 'all 0.12s',
         bgcolor: active ? `${color}18` : 'transparent',
         border: '1px solid', borderColor: active ? color : 'transparent',
       }}
@@ -276,11 +277,11 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
   const reachedFiltered = reached.filter(matchesGroup)
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={460} sheet eyebrow="🏆 Milestone Watch">
+    <MlbSheet onClose={onClose} maxWidth={chromePx(460)} sheet eyebrow="🏆 Milestone Watch">
         {/* The tabs stay put while the list under them scrolls. */}
         <Box sx={{ px: 2, pt: 1, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, flexShrink: 0 }}>
           {/* Chasing or Reached: the reached side is the whole season's archive */}
-          <Box sx={{ display: 'flex', gap: 0.5, p: '2px', borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ display: 'flex', gap: 0.5, p: chromePx(2), borderRadius: 2, bgcolor: 'action.hover' }}>
             <TabButton active={tab === 'chasing'} label="Chasing" count={items.length} color={ACCENT} onClick={() => setTab('chasing')} />
             <TabButton active={tab === 'reached'} label="Reached" count={reached.length} color={ACHIEVED_GREEN} onClick={() => setTab('reached')} />
           </Box>
@@ -292,7 +293,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
                   key={f.key}
                   onClick={() => setGroupFilter(f.key)}
                   sx={{
-                    px: 1.25, py: '3px', borderRadius: 999, cursor: 'pointer',
+                    px: 1.25, py: chromePx(3), borderRadius: 999, cursor: 'pointer',
                     fontSize: '0.66rem', fontWeight: 700, userSelect: 'none',
                     border: '1px solid',
                     borderColor: groupFilter === f.key ? ACCENT : 'divider',
@@ -314,8 +315,8 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
             if (!groupItems.length) return null
             return (
               <Box key={g.key}>
-                <Box sx={{ px: 1.5, py: '6px', bgcolor: 'action.hover' }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
+                <Box sx={{ px: 1.5, py: chromePx(6), bgcolor: 'action.hover' }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
                     {g.label}
                   </Typography>
                 </Box>
@@ -445,7 +446,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
         {total > featured.length && (
           <Box
             onClick={() => setModalOpen(true)}
-            sx={{ px: 1.75, py: '9px', borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', textAlign: 'center', '&:hover': { bgcolor: 'action.hover' } }}
+            sx={{ px: 1.75, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', textAlign: 'center', '&:hover': { bgcolor: 'action.hover' } }}
           >
             <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT }}>
               View all {total} →

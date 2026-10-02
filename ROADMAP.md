@@ -34,7 +34,7 @@ goes first and the rest is winter work.
 | Requests | **107 on Home mount**, 60 of them per-team stats (`fetchTeamRankings`, 30 clubs x 2 groups) that `/teams/stats?sportIds=1` answers in 2 | 24 on Home |
 | Loading | No skeletons, "Loading…" text; all six views ship in one chunk | Skeletons, lazy modals, last-good seeds |
 | Stats on a phone | A wide spreadsheet in a nested scroller (`maxHeight: calc(100vh - 280px)`); sorted by OPS with the OPS column off screen | Ranked list with a sort sheet |
-| Desktop | Still under `zoom: 1.4`. All 553 MLB font sizes are already rem, so the type half of the ramp is free | `--app-type` / `--app-chrome`, `chromePx()` |
+| Desktop | ✅ *Fixed in v1.115.0*: off `zoom: 1.4`, onto the same 1.25 ramp as WPBL | `--app-type` / `--app-chrome`, `chromePx()` |
 | Measurement | 3 events | 71 |
 | Tests | 0 | 119 |
 | House rules | 525 em dashes in 62 files; a Yankees example in `HomeView.tsx`; BOM and mojibake in `MlbStats.tsx` | |
@@ -165,9 +165,32 @@ goes first and the rest is winter work.
    upcoming games"), and says when matchups are pending or when Opening Day is. Winter Home drops
    the scoreboard, as WPBL's does; Scores opens on the last day with games; the bracket is titled
    with its season once it is over. The dev gear previews Winter.
-7. **Winter.** MLB off the zoom onto the desktop ramp (then `DESKTOP_ZOOM`, `--app-shell` and
-   the compensation sites go); Stats as a phone ranked list; real `<a href>`s and headings; the
-   em-dash sweep; the first MLB tests.
+7. **Winter.** Stats as a phone ranked list; real `<a href>`s and headings; the em-dash sweep.
+   *Done Oct 2 (v1.115.0), off the zoom.* `/mlb` renders on the same root ramp as `/wpbl` at the
+   same 1.25 (`DESKTOP_SCALE`, one number, since the toolbar rides it), and `DESKTOP_ZOOM`,
+   `--app-zoom`, the toolbar's own `--app-shell` zoom and every division by them are gone. Done in
+   two steps so the first could be checked rather than eyeballed: the ramp at 1.4 with the zoom
+   off, element boxes diffed against production on nine pages at 1440, 1024 and phone width,
+   which matched within hairline rounding once three blind spots were closed (`letterSpacing`
+   numbers are px, now `typePx()`; px strings on spacing keys; a padding held in a variable);
+   then 1.25. The two section columns keep their screen widths (1372 Home, 1792 elsewhere), so
+   the content got smaller inside them and more fits. Sheets, menus and tooltips are portaled and
+   the zoom never reached them, so on a desktop Game Center's smallest labels drew at about 9.6px;
+   they now scale with the page, caps included. Overflow-scanned at Default and Large text at
+   1440, 1024 and 390: 39 boxes holding a rank, stat or verdict went to rem, and the Home
+   leaderboard rows give the name a floor and let the bar give way, since at 1024 with Large text
+   the name had been left 18px. Pre-existing and left: the contract bars' salary labels spill 3px
+   into their gap at Large text. MUI's Switch and the native select arrow stay at their fixed
+   size, as on WPBL.
+   *Done Oct 2 (v1.115.0), the nav row and its controls.* The desktop tab bar sits in WPBL's 720
+   column with the pills centred and More pinned right as WPBL's bordered ▾ chip, so a section
+   switch moves nothing at the top. `SegControl` takes WPBL's raised chip for its active option:
+   the old white-on-#60a5fa fill measured about 2.5:1, under AA in both themes, and its options were
+   click-only boxes a keyboard could not reach. Settings on the data (Hitting / Pitching, Regular /
+   Playoffs / All, league rank, the bracket's round) moved to WPBL's solid `PillGroup`, now in
+   `src/ui`, so a page's navigation and its filters no longer look the same. Kept MLB's way:
+   the desktop More menu keeps a one-line hint per item, which WPBL's drops; MLB's items are
+   feature names that say nothing alone, and both phone sheets already carry hints.
 
 ### What MLB does better, and keeps
 

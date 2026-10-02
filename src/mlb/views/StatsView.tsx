@@ -2,11 +2,13 @@ import React, { useEffect, useRef } from 'react'
 import { Box, Typography, Paper, CircularProgress } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
-import { SegControl, pillActionSx } from '../components/ui'
+import { pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
 import { scrollBehavior } from '../../lib/motion'
+import { chromePx, typePx } from '../../ui/scale'
+import { PillGroup } from '../../ui/PillGroup'
 
 export interface StatsViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -99,15 +101,15 @@ export function StatsView({
     .slice(0, lbStatsLimit)
 
   const MEDALS_FS = ['🥇', '🥈', '🥉']
-  const colPx = isDesktop ? '10px' : '5px'
+  const colPx = isDesktop ? chromePx(10) : chromePx(5)
   const stThSx = {
     py: 1, px: colPx,
     fontSize: '0.68rem', fontWeight: 700,
-    textTransform: 'uppercase' as const, letterSpacing: '0.5px',
+    textTransform: 'uppercase' as const, letterSpacing: typePx(0.5),
     whiteSpace: 'nowrap' as const,
   }
   const stTdSx = {
-    py: '7px', px: colPx,
+    py: chromePx(7), px: colPx,
     borderBottom: '1px solid', borderColor: 'divider',
     whiteSpace: 'nowrap' as const,
     verticalAlign: 'middle' as const,
@@ -149,12 +151,12 @@ export function StatsView({
       {/* Controls row */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SegControl
+          <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
             value={lbGroup}
             onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
           />
-          <SegControl
+          <PillGroup
             options={scopes.map(s => ({ value: s, label: GAME_SCOPE_LABEL[s] }))}
             value={shownScope}
             onChange={v => { setGameScope(v as GameScope); setLbStatsLimit(50) }}
@@ -170,7 +172,7 @@ export function StatsView({
                 else { setAllTime(false); setVizSeason(Number(v)); setLbStatsLimit(50) }
                 setLbFullscreen(null)
               }}
-              style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 12px', borderRadius: 999, fontFamily: 'inherit' }}>
+              style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(12)}`, borderRadius: 999, fontFamily: 'inherit' }}>
               <option value="all">All-Time</option>
               {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
@@ -218,10 +220,10 @@ export function StatsView({
             borderBottom: '1px solid', borderColor: 'divider',
             display: 'flex', alignItems: 'baseline', gap: 1.5,
           }}>
-            <Typography sx={{ fontWeight: 900, fontSize: { xs: '1rem', sm: '1.15rem' }, letterSpacing: '-0.3px' }}>
+            <Typography sx={{ fontWeight: 900, fontSize: { xs: '1rem', sm: '1.15rem' }, letterSpacing: typePx(-0.3) }}>
               {activeDef.leaderLabel ?? activeDef.label}
             </Typography>
-            <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1) }}>
               {allTime ? 'All-Time · Career' : `${vizSeason} MLB`}{scopeNote}
               {/* Say which population this is: an all-time rate board is qualified
                   players only, and reversing it shows the worst of them, not the
@@ -234,11 +236,10 @@ export function StatsView({
             </Typography>
           </Box>
 
-          {/* Scrollable table — overflow both axes so sticky thead works vertically.
-              Divide 100vh by --app-zoom: inside the desktop `zoom` wrapper, viewport
-              units aren't shrunk, so the visible height in this scaled coordinate
-              space is 100vh / zoom. (--app-zoom defaults to 1 → unchanged off desktop.) */}
-          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 280px)' }}>
+          {/* Scrollable table, overflow both axes so sticky thead works vertically. The 280 is
+              the chrome above it, so it scales with that chrome; 100vh is plain screen height,
+              which it is again now that the section has no `zoom` to divide out. */}
+          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: `calc(100vh - ${chromePx(280)})` }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%' }}>
               <Box component="thead">
                 <Box component="tr">
@@ -250,9 +251,9 @@ export function StatsView({
                     textAlign: 'left',
                     borderBottom: '2px solid', borderColor: 'divider',
                     borderRight: '1px solid',
-                    minWidth: isDesktop ? 180 : 120, color: 'text.disabled',
-                    pl: isDesktop ? '16px' : '8px',
-                    pr: isDesktop ? '12px' : '8px',
+                    minWidth: isDesktop ? chromePx(180) : chromePx(120), color: 'text.disabled',
+                    pl: isDesktop ? chromePx(16) : chromePx(8),
+                    pr: isDesktop ? chromePx(12) : chromePx(8),
                   }}>
                     Player
                   </Box>
@@ -321,17 +322,17 @@ export function StatsView({
                         bgcolor: 'background.paper',
                         boxShadow: isHighlighted ? `inset 0 0 0 9999px ${ACCENT}10` : 'none',
                         fontWeight: 'normal',
-                        pl: isDesktop ? '16px' : '8px',
+                        pl: isDesktop ? chromePx(16) : chromePx(8),
                         borderRight: isHighlighted ? `2px solid ${ACCENT}` : '1px solid',
                         borderColor: isHighlighted ? ACCENT : 'divider',
-                        pr: isDesktop ? '12px' : '8px',
+                        pr: isDesktop ? chromePx(12) : chromePx(8),
                         'tr:hover > &': { boxShadow: `inset 0 0 0 9999px ${isHighlighted ? ACCENT + '18' : ACCENT + '0e'}` },
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                           <Typography sx={{
                             fontSize: displayRank <= 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
                             color: 'text.disabled',
-                            minWidth: isDesktop ? 22 : 28,
+                            minWidth: isDesktop ? '1.375rem' : '1.75rem',
                             textAlign: 'center', flexShrink: 0, lineHeight: 1,
                           }}>
                             {displayRank <= 3 ? MEDALS_FS[displayRank - 1] : `${displayRank}`}
@@ -340,7 +341,7 @@ export function StatsView({
                             <Box component="img"
                               src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
                               alt={e.playerName}
-                              sx={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
+                              sx={{ width: chromePx(28), height: chromePx(28), borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
                             />
                           )}
                           <Box sx={{ minWidth: 0 }}>

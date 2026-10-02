@@ -14,6 +14,7 @@ import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -245,8 +246,8 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
     >
       {(correct || wrong) && (
         <Box sx={{
-          position: 'absolute', top: 5, right: 5,
-          width: 17, height: 17, borderRadius: '50%',
+          position: 'absolute', top: chromePx(5), right: chromePx(5),
+          width: chromePx(17), height: chromePx(17), borderRadius: '50%',
           bgcolor: correct ? '#22c55e' : '#ef4444',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '0.62rem', color: '#fff', fontWeight: 900, lineHeight: 1,
@@ -259,7 +260,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
       {/* Team logo — click votes (bubbles to parent) */}
       <Box
         sx={{
-          width: { xs: 44, sm: 54 }, height: { xs: 44, sm: 54 }, borderRadius: '50%',
+          width: { xs: chromePx(44), sm: chromePx(54) }, height: { xs: chromePx(44), sm: chromePx(54) }, borderRadius: '50%',
           bgcolor: teamLogoBg(team.teamId, isDark), border: `2px solid ${col}`,
           boxShadow: picked ? `0 0 0 3px ${col}35` : `0 0 0 1px ${col}20`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -294,7 +295,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
               {team.pitcher.hand === 'R' ? 'RHP' : team.pitcher.hand === 'L' ? 'LHP' : '—'}
             </Box>
           </Typography>
-          <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.72rem' }, color: 'text.secondary', lineHeight: 1, mt: '2px' }}>
+          <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.72rem' }, color: 'text.secondary', lineHeight: 1, mt: chromePx(2) }}>
             {team.pitcher.era} ERA
           </Typography>
         </Box>
@@ -325,14 +326,14 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flexShrink: 0 }}>
       <Box sx={{
-        px: 2, py: '5px', borderBottom: '1px solid', borderColor: 'divider',
+        px: 2, py: chromePx(5), borderBottom: '1px solid', borderColor: 'divider',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
       }}>
         {game.state === 'live' && (
-          <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} />
+          <Box sx={{ width: chromePx(5), height: chromePx(5), borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} />
         )}
         <Typography sx={{
-          fontSize: { xs: '0.62rem', sm: '0.74rem' }, fontWeight: 700, letterSpacing: 0.5, lineHeight: 1,
+          fontSize: { xs: '0.62rem', sm: '0.74rem' }, fontWeight: 700, letterSpacing: typePx(0.5), lineHeight: 1,
           color: game.state === 'live' ? '#ef4444' : game.state === 'postponed' ? '#f59e0b' : 'text.secondary',
           textTransform: 'uppercase',
         }}>
@@ -355,14 +356,14 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
       {awayPct !== null && homePct !== null && (
         <Box sx={{ px: 1.25, pb: 1.25 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: 22, textAlign: 'right', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: '1.375rem', textAlign: 'right', lineHeight: 1 }}>
               {awayPct}%
             </Typography>
-            <Box sx={{ flex: 1, display: 'flex', borderRadius: 999, overflow: 'hidden', height: 5 }}>
+            <Box sx={{ flex: 1, display: 'flex', borderRadius: 999, overflow: 'hidden', height: chromePx(5) }}>
               <Box sx={{ width: `${awayPct}%`, bgcolor: awayCol, opacity: 0.65, transition: 'width 0.4s ease' }} />
               <Box sx={{ flex: 1, bgcolor: homeCol, opacity: 0.65 }} />
             </Box>
-            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: 22, lineHeight: 1 }}>
+            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: '1.375rem', lineHeight: 1 }}>
               {homePct}%
             </Typography>
           </Box>
@@ -393,7 +394,7 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
 
   const logo = (
     <Box sx={{
-      width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+      width: chromePx(30), height: chromePx(30), borderRadius: '50%', flexShrink: 0,
       bgcolor: teamLogoBg(team.teamId, isDark), border: `2px solid ${col}`,
       boxShadow: picked ? `0 0 0 2px ${col}40` : 'none',
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -476,7 +477,7 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
       {/* 5-column grid: vote% · away (hugs centre) · @ · home (hugs centre) · vote%. */}
       <Box sx={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(26px,auto) minmax(0,1fr) auto minmax(0,1fr) minmax(26px,auto)',
+        gridTemplateColumns: `minmax(${chromePx(26)},auto) minmax(0,1fr) auto minmax(0,1fr) minmax(${chromePx(26)},auto)`,
         alignItems: 'center', columnGap: 0.6,
       }}>
         <PctLabel pct={awayPct} align="left" />
@@ -502,16 +503,16 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
           The side you picked pulls to full strength so the bar shows the crowd
           lean and your call at once. A hairline gap marks the boundary. */}
       {awayPct !== null && (
-        <Box sx={{ display: 'flex', alignItems: 'stretch', height: 6, gap: '2px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'stretch', height: chromePx(6), gap: chromePx(2) }}>
           <Box sx={{
-            width: `${awayPct}%`, minWidth: awayPct > 0 ? 4 : 0,
+            width: `${awayPct}%`, minWidth: awayPct > 0 ? chromePx(4) : 0,
             bgcolor: awayCol, opacity: !hasPick ? 0.72 : pickedAway ? 1 : 0.32,
             borderRadius: '999px 3px 3px 999px',
             boxShadow: pickedAway ? `0 0 6px ${awayCol}88` : 'none',
             transition: 'width 0.45s ease, opacity 0.2s',
           }} />
           <Box sx={{
-            flex: 1, minWidth: homePct! > 0 ? 4 : 0,
+            flex: 1, minWidth: homePct! > 0 ? chromePx(4) : 0,
             bgcolor: homeCol, opacity: !hasPick ? 0.72 : pickedHome ? 1 : 0.32,
             borderRadius: '3px 999px 999px 3px',
             boxShadow: pickedHome ? `0 0 6px ${homeCol}88` : 'none',
@@ -556,7 +557,7 @@ function PredictorModal({ open, slateDate, games, predictions, allVotes, onPick,
   const dateLabel    = new Date(sy, sm - 1, sd).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={500} sheet sheetFill eyebrow={`🎯 ${dateLabel} matchups`}>
+    <MlbSheet onClose={onClose} maxWidth={chromePx(500)} sheet sheetFill eyebrow={`🎯 ${dateLabel} matchups`}>
         <Typography sx={{ px: 2, pt: 1.25, fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4, flexShrink: 0 }}>
           {pickedCount}/{games.length} picked
           {pct !== null && ` · ${correctCount}/${finalized.length} correct (${pct}%)`}
@@ -798,7 +799,7 @@ export function PredictorWidget({ onPicksSettled }: {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {!loading && remainingCount > 0 && (
               <Box sx={{
-                width: 7, height: 7, borderRadius: '50%', bgcolor: ACCENT, flexShrink: 0,
+                width: chromePx(7), height: chromePx(7), borderRadius: '50%', bgcolor: ACCENT, flexShrink: 0,
                 animation: 'predPulse 1.6s ease-in-out infinite',
                 '@keyframes predPulse': {
                   '0%, 100%': { boxShadow: `0 0 0 0 ${ACCENT}59`, opacity: 1 },
@@ -806,11 +807,11 @@ export function PredictorWidget({ onPicksSettled }: {
                 },
               }} />
             )}
-            <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: typePx(1.5), color: ACCENT }}>
               🎯 Predictions
             </Typography>
             {(isTomorrow || isLater) && !idle && (
-              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
                 {isTomorrow ? 'Tomorrow' : shortDay(slateDate)}
               </Typography>
             )}
@@ -940,7 +941,7 @@ export function PredictorWidget({ onPicksSettled }: {
             and on a phone everything under it moved. */}
         {loading && (
           <Box aria-hidden sx={{ px: 2.5, pb: 1.75, pt: 0.25 }}>
-            <Skeleton variant="rounded" sx={{ height: 51, borderRadius: 2 }} />
+            <Skeleton variant="rounded" sx={{ height: chromePx(51), borderRadius: 2 }} />
           </Box>
         )}
 

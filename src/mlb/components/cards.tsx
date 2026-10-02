@@ -6,6 +6,7 @@ import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingI
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
 import { useIsDark, accentColor, borderAlpha, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { StatGrid } from './ui'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Player card inner ────────────────────────────────────────────────────────
 
@@ -55,8 +56,8 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
 
   const photo = (
     <Box sx={{
-      width: photoSize,
-      height: Math.round(photoSize * 1.2),
+      width: chromePx(photoSize),
+      height: chromePx(Math.round(photoSize * 1.2)),
       borderRadius: 3,
       overflow: 'hidden',
       border: `3px solid ${palette.text}`,
@@ -73,7 +74,7 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
       <Typography sx={{
         color: palette.text, fontWeight: 800,
         fontSize: large ? { xs: '2rem', sm: '2.4rem' } : { xs: '1.25rem', sm: '1.5rem' },
-        lineHeight: 1.05, letterSpacing: '-0.3px',
+        lineHeight: 1.05, letterSpacing: typePx(-0.3),
       }}>
         {player.fullName}
       </Typography>
@@ -92,7 +93,7 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
       <Typography data-card-year sx={{
         color: palette.text, fontWeight: 900,
         fontSize: large ? { xs: '2.2rem', sm: '2.6rem' } : { xs: '1.7rem', sm: '2rem' },
-        lineHeight: 1, letterSpacing: '-0.5px', mt: large ? 0.4 : 0.25,
+        lineHeight: 1, letterSpacing: typePx(-0.5), mt: large ? 0.4 : 0.25,
       }}>
         {season}
       </Typography>
@@ -103,7 +104,7 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
         <Typography sx={{
           color: palette.sub, fontWeight: 700,
           fontSize: large ? '0.95rem' : { xs: '0.7rem', sm: '0.78rem' },
-          letterSpacing: 0.4, lineHeight: 1, mt: large ? 0.5 : 0.35,
+          letterSpacing: typePx(0.4), lineHeight: 1, mt: large ? 0.5 : 0.35,
           whiteSpace: 'nowrap',
         }}>
           {careerSpan}
@@ -197,7 +198,7 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
 
   const logoEl = (
     <Box sx={{
-      width: logoSize, height: logoSize,
+      width: chromePx(logoSize), height: chromePx(logoSize),
       borderRadius: '50%',
       border: `3px solid ${palette.text}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -224,7 +225,7 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
           <Typography sx={{
             textAlign: 'center', color: palette.text, fontWeight: 800,
             fontSize: { xs: '1.8rem', sm: '2.2rem' },
-            lineHeight: 1.1, letterSpacing: '-0.3px', mb: 0.5,
+            lineHeight: 1.1, letterSpacing: typePx(-0.3), mb: 0.5,
           }}>
             {team.name}
           </Typography>
@@ -241,7 +242,7 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5 }}>
               {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
                 <Box key={lbl as string} sx={{ textAlign: 'center' }}>
-                  <Typography sx={{ color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, mb: 0.5 }}>{lbl}</Typography>
+                  <Typography sx={{ color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2), mb: 0.5 }}>{lbl}</Typography>
                   <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: '2.2rem', lineHeight: 1 }}>{val}</Typography>
                 </Box>
               ))}
@@ -256,7 +257,7 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
             <Typography sx={{
               color: palette.text, fontWeight: 800,
               fontSize: { xs: '1.2rem', sm: '1.5rem' },
-              lineHeight: 1.1, letterSpacing: '-0.3px', mb: 0.25,
+              lineHeight: 1.1, letterSpacing: typePx(-0.3), mb: 0.25,
             }}>
               {team.name}
             </Typography>
@@ -273,7 +274,7 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
               <Box sx={{ display: 'flex', gap: 2.5 }}>
                 {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
                   <Box key={lbl as string}>
-                    <Typography sx={{ color: palette.rank, fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, mb: 0.25 }}>{lbl}</Typography>
+                    <Typography sx={{ color: palette.rank, fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.5), mb: 0.25 }}>{lbl}</Typography>
                     <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: '1.35rem', lineHeight: 1 }}>{val}</Typography>
                   </Box>
                 ))}
@@ -361,7 +362,7 @@ export function FeaturedMiniCard({
       }}>
         <Typography sx={{
           fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase',
-          letterSpacing: 0.8, color: accent, lineHeight: 1,
+          letterSpacing: typePx(0.8), color: accent, lineHeight: 1,
         }}>
           {awardLabel}
         </Typography>
@@ -370,7 +371,7 @@ export function FeaturedMiniCard({
       <Box sx={{ px: 1.25, pt: 1.25, pb: 1.5, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Headshot */}
         <Box sx={{
-          width: 56, height: 68, borderRadius: 2, overflow: 'hidden',
+          width: chromePx(56), height: chromePx(68), borderRadius: 2, overflow: 'hidden',
           border: `2px solid ${teamColor}`, bgcolor: 'action.hover',
           flexShrink: 0, mb: 0.75, mx: 'auto',
         }}>
@@ -394,11 +395,11 @@ export function FeaturedMiniCard({
 
         {/* Position badge */}
         <Box sx={{
-          display: 'inline-flex', px: 0.75, height: 15, borderRadius: 1,
+          display: 'inline-flex', px: 0.75, height: chromePx(15), borderRadius: 1,
           alignItems: 'center', justifyContent: 'center',
           bgcolor: `${teamColor}22`, mb: 1.25,
         }}>
-          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: accent, letterSpacing: 0.5 }}>
+          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: accent, letterSpacing: typePx(0.5) }}>
             {posLabel}
           </Typography>
         </Box>
@@ -420,7 +421,7 @@ export function FeaturedMiniCard({
               }}>
                 <Typography sx={{
                   fontSize: '0.52rem', fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: 0.6, color: isAward ? accent : 'text.disabled',
+                  letterSpacing: typePx(0.6), color: isAward ? accent : 'text.disabled',
                   lineHeight: 1, mb: 0.4,
                 }}>
                   {def.label}
@@ -463,7 +464,7 @@ export function DivisionStandingsCard({
 
   const hdrSx = {
     fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase' as const,
-    letterSpacing: 0.5, color: 'text.disabled', lineHeight: 1,
+    letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1,
   }
   const cellSx = { fontSize: '0.75rem', fontWeight: 600, lineHeight: 1 }
 
@@ -476,7 +477,7 @@ export function DivisionStandingsCard({
         borderBottom: '1px solid', borderColor: 'divider',
         display: 'flex', alignItems: 'baseline', gap: 1,
       }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', letterSpacing: '-0.2px' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', letterSpacing: typePx(-0.2) }}>
           {division.divisionName}
         </Typography>
         <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600 }}>
@@ -485,7 +486,7 @@ export function DivisionStandingsCard({
       </Box>
 
       {/* Column headers */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: '18px 40px 1fr 26px 26px 36px', px: 1.25, py: 0.5, borderBottom: '1px solid', borderColor: 'divider', gap: '4px' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: [18, 40, 0, 26, 26, 36].map(w => (w ? chromePx(w) : '1fr')).join(' '), px: 1.25, py: 0.5, borderBottom: '1px solid', borderColor: 'divider', gap: chromePx(4) }}>
         <Typography sx={hdrSx}>#</Typography>
         <Box />
         <Typography sx={hdrSx}>Team</Typography>
@@ -502,8 +503,8 @@ export function DivisionStandingsCard({
           <Box key={t.teamId}
             onClick={clickable ? () => onTeamClick!(t.teamId) : undefined}
             sx={{
-            display: 'grid', gridTemplateColumns: '18px 40px 1fr 26px 26px 36px',
-            alignItems: 'center', gap: '4px',
+            display: 'grid', gridTemplateColumns: [18, 40, 0, 26, 26, 36].map(w => (w ? chromePx(w) : '1fr')).join(' '),
+            alignItems: 'center', gap: chromePx(4),
             px: 1.25, py: 0.7,
             bgcolor: isHL ? `${teamColor}14` : undefined,
             borderLeft: `3px solid ${isHL ? teamColor : 'transparent'}`,
@@ -516,13 +517,13 @@ export function DivisionStandingsCard({
               {t.divisionRank}
             </Typography>
             {/* Logo */}
-            <Box sx={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ width: chromePx(24), height: chromePx(24), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Box
                 component="img"
                 src={teamLogoSrc(t.teamId, isDark2)}
                 alt={t.abbr}
                 crossOrigin="anonymous"
-                sx={{ width: 20, height: 20, objectFit: 'contain', opacity: isHL ? 1 : 0.7, transform: teamLogoCrop(t.teamId, isDark2), transformOrigin: 'center' }}
+                sx={{ width: chromePx(20), height: chromePx(20), objectFit: 'contain', opacity: isHL ? 1 : 0.7, transform: teamLogoCrop(t.teamId, isDark2), transformOrigin: 'center' }}
               />
             </Box>
             {/* Name */}

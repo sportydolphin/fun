@@ -11,6 +11,7 @@ import { parseIP } from '../lib/utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
 import { useIsDark, defaultBorder } from '../lib/colorUtils'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,7 +240,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
 
   const svg = (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
-      style={{ width: '100%', height: 22, display: 'block', overflow: 'visible' }}>
+      style={{ width: '100%', height: chromePx(22), display: 'block', overflow: 'visible' }}>
       {/* League-average baseline — faint dashed reference behind the form line */}
       {baseline != null && (
         <line x1={0} y1={y(baseline)} x2={W} y2={y(baseline)}
@@ -261,7 +262,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
         arrow
         disableFocusListener disableHoverListener disableTouchListener
         title="Recent form over the last several games. Green means heating up, red means cooling off. The dashed line is the league average."
-        slotProps={{ tooltip: { sx: { maxWidth: 200, fontSize: '0.66rem', lineHeight: 1.45, fontWeight: 500, p: 1 } } }}
+        slotProps={{ tooltip: { sx: { maxWidth: '12.5rem', fontSize: '0.66rem', lineHeight: 1.45, fontWeight: 500, p: 1 } } }}
       >
         <Box
           onMouseEnter={() => setTipOpen(true)}
@@ -390,7 +391,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
       {/* Selection circle — edit mode */}
       {editMode && (
         <Box sx={{
-          flexShrink: 0, width: 20, height: 20, borderRadius: '50%',
+          flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           border: '2px solid', borderColor: isSelected ? ACCENT : 'text.disabled',
           bgcolor: isSelected ? ACCENT : 'transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -404,7 +405,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
       {/* Headshot */}
       <Box sx={{
         position: 'relative', flexShrink: 0,
-        width: 30, height: 38, borderRadius: 1,
+        width: chromePx(30), height: chromePx(38), borderRadius: 1,
         overflow: 'hidden', bgcolor: 'action.hover',
         border: `2px solid ${teamColor}50`,
       }}>
@@ -419,9 +420,9 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
             position: 'absolute', bottom: 0, left: 0, right: 0,
             bgcolor: 'rgba(239,68,68,0.92)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            py: '1.5px',
+            py: chromePx(1.5),
           }}>
-            <Typography sx={{ fontSize: '0.37rem', fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '0.5px' }}>
+            <Typography sx={{ fontSize: '0.37rem', fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: typePx(0.5) }}>
               LIVE
             </Typography>
           </Box>
@@ -456,7 +457,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
                 px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
                 bgcolor: `${ACCENT}1c`, border: `1px solid ${ACCENT}55`,
                 fontSize: '0.5rem', fontWeight: 800, color: ACCENT,
-                letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 1.4,
+                letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
                 whiteSpace: 'nowrap',
               }}>
                 {isLive ? 'Live' : 'Today'}
@@ -472,7 +473,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
                     px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
                     bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
                     fontSize: '0.5rem', fontWeight: 800, color: style.color,
-                    letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 1.4,
+                    letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
                     whiteSpace: 'nowrap',
                   }}>
                     {label}
@@ -491,13 +492,13 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
       ) : (<>
       {/* Recent-form sparkline — fixed narrow width so the trend's slope reads clearly.
           Extra right margin sets it apart from the stat columns. */}
-      <Box sx={{ flexShrink: 0, width: { xs: 46, sm: 62 }, mr: { xs: 1, sm: 1.5 }, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ flexShrink: 0, width: { xs: chromePx(46), sm: chromePx(62) }, mr: { xs: 1, sm: 1.5 }, display: 'flex', alignItems: 'center' }}>
         {data && <PlayerSparkline id={id} isPitcher={data.isPitcher} />}
       </Box>
 
       {/* Stat cells */}
       {statCells.map((s, idx) => (
-        <Box key={idx} sx={{ flexShrink: 0, textAlign: 'right', minWidth: { xs: 28, sm: 36 } }}>
+        <Box key={idx} sx={{ flexShrink: 0, textAlign: 'right', minWidth: { xs: chromePx(28), sm: chromePx(36) } }}>
           <Typography sx={{
             fontWeight: 800, fontSize: { xs: '0.8rem', sm: '0.88rem' }, lineHeight: 1.1,
             fontVariantNumeric: 'tabular-nums', color: 'text.primary',
@@ -506,7 +507,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
           </Typography>
           <Typography sx={{
             fontSize: '0.52rem', fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: 0.4,
+            textTransform: 'uppercase', letterSpacing: typePx(0.4),
             color: playedToday ? ACCENT : 'text.disabled', lineHeight: 1,
           }}>
             {s.label}
@@ -659,7 +660,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
         px: 1.5, py: compact ? 1.1 : 1.4,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid', borderColor: 'divider',
-        gap: 0.5, minHeight: 40,
+        gap: 0.5, minHeight: chromePx(40),
         position: 'relative',
       }}>
         {/* Title — hidden while search is open */}
@@ -667,7 +668,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           <Typography sx={{
             fontWeight: 800,
             fontSize: compact ? '0.65rem' : '0.72rem',
-            textTransform: 'uppercase', letterSpacing: 1.2,
+            textTransform: 'uppercase', letterSpacing: typePx(1.2),
             color: editMode ? 'text.secondary' : ACCENT,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             transition: 'color 0.15s',
@@ -786,7 +787,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                       '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
-                    <Box sx={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
+                    <Box sx={{ width: chromePx(32), height: chromePx(32), borderRadius: '50%', overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
                       <Box component="img" src={HEADSHOT(p.id)}
                         sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
                     </Box>
@@ -815,7 +816,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
                 p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
               }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', px: 0.25 }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled', px: 0.25 }}>
                   Suggested
                 </Typography>
                 {suggestions.map(p => (
@@ -847,7 +848,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             display: 'flex', flexDirection: 'column', py: 0.5, flex: 1, minHeight: 0, overflowY: 'auto',
             scrollbarWidth: 'thin',
             scrollbarColor: 'transparent transparent',
-            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar': { width: chromePx(4) },
             '&::-webkit-scrollbar-track': { background: 'transparent' },
             '&::-webkit-scrollbar-thumb': { background: 'transparent', borderRadius: 2 },
             '&:hover': {
@@ -893,7 +894,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
               px: 1.5, py: 0.75, cursor: 'pointer', flexShrink: 0,
               borderTop: '1px solid', borderColor: 'divider',
               color: ACCENT, fontSize: compact ? '0.62rem' : '0.66rem',
-              fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8,
+              fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8),
               userSelect: 'none',
               transition: 'background 0.12s',
               '&:hover': { bgcolor: `${ACCENT}12` },

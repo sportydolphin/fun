@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT, CURRENT_SEASON } from '../constants'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,14 +98,14 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
       border: '1px solid',
       borderColor: player.isTeamPlayer ? `${col}40` : 'divider',
       bgcolor:     player.isTeamPlayer ? `${col}08` : 'transparent',
-      minWidth: large ? 0 : 138,
+      minWidth: large ? 0 : chromePx(138),
       cursor: alreadyFollowed ? 'default' : 'pointer',
       transition: 'border-color 0.15s, background-color 0.15s',
       '&:hover': alreadyFollowed ? {} : { borderColor: `${col}60`, bgcolor: `${col}10` },
     }}>
       {/* Headshot */}
       <Box sx={{
-        width: large ? 32 : 28, height: large ? 32 : 28, borderRadius: '50%',
+        width: large ? chromePx(32) : chromePx(28), height: large ? chromePx(32) : chromePx(28), borderRadius: '50%',
         overflow: 'hidden', bgcolor: 'action.hover',
         flexShrink: 0, border: `1.5px solid ${col}40`,
       }}>
@@ -132,7 +133,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
       {/* Already-followed indicator */}
       {alreadyFollowed && (
         <Box sx={{
-          flexShrink: 0, width: 20, height: 20, borderRadius: '50%',
+          flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           border: '1.5px solid #22c55e60',
           color: '#22c55e', fontSize: '0.6rem', fontWeight: 900, lineHeight: 1,
@@ -176,7 +177,7 @@ export function SuggestedPlayersSection({ teamId, followedPlayerIds, onFollow }:
       }}>
         <Typography sx={{
           fontWeight: 800, fontSize: { xs: '0.65rem', sm: '0.72rem' },
-          textTransform: 'uppercase', letterSpacing: 1.2, color: ACCENT,
+          textTransform: 'uppercase', letterSpacing: typePx(1.2), color: ACCENT,
         }}>
           Suggested Players
         </Typography>

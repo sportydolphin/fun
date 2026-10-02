@@ -12,6 +12,7 @@ import {
   BoxScore, parseBoxScoreData,
   LogoBubble, LiveDot, SectionLabel, LineScoreTable, TeamBoxSection,
 } from '../components/boxScore'
+import { chromePx, typePx } from '../../ui/scale'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,7 +240,7 @@ function BasesDiamond({ onFirst, onSecond, onThird, color, size = 22 }: {
   const unit = (size / Math.SQRT2) * 1.06
   const sq = (occupied: boolean) => (
     <Box sx={{
-      width: size, height: size, placeSelf: 'center',
+      width: chromePx(size), height: chromePx(size), placeSelf: 'center',
       transform: 'rotate(45deg)',
       bgcolor: occupied ? color : 'transparent',
       border: `${size >= 12 ? 2 : 1.5}px solid`,
@@ -251,8 +252,8 @@ function BasesDiamond({ onFirst, onSecond, onThird, color, size = 22 }: {
   return (
     <Box sx={{
       display: 'grid',
-      gridTemplateColumns: `repeat(3, ${unit}px)`,
-      gridTemplateRows: `repeat(2, ${unit}px)`,
+      gridTemplateColumns: `repeat(3, ${chromePx(unit)})`,
+      gridTemplateRows: `repeat(2, ${chromePx(unit)})`,
       flexShrink: 0,
     }}>
       <Box />{sq(onSecond)}<Box />
@@ -266,7 +267,7 @@ function OutsDots({ outs }: { outs: number }) {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       {[0, 1, 2].map(i => (
         <Box key={i} sx={{
-          width: 8, height: 8, borderRadius: '50%',
+          width: chromePx(8), height: chromePx(8), borderRadius: '50%',
           bgcolor: i < outs ? '#ef4444' : 'transparent',
           border: '1.5px solid', borderColor: i < outs ? '#ef4444' : 'text.disabled',
         }} />
@@ -300,7 +301,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
       }}
     >
       <Box sx={{
-        width: 40, height: 50, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
+        width: chromePx(40), height: chromePx(50), borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
         border: `2px solid ${photoBorderAlpha(col, isDark)}`, bgcolor: 'action.hover',
       }}>
         {player && (
@@ -311,7 +312,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: accent, textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1 }}>
+        <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: accent, textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1 }}>
           {label}
         </Typography>
         <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, lineHeight: 1.2, mt: 0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -358,8 +359,8 @@ function SituationPanel({ sit, onPlayerClick }: {
       {sit.betweenInnings && (
         // Between innings there's no live count/outs/bases — just flag who's due up.
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.25 }}>
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
-          <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+          <Box sx={{ width: chromePx(6), height: chromePx(6), borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
+          <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.8) }}>
             Due up next inning
           </Typography>
         </Box>
@@ -492,13 +493,13 @@ function WinProbChart({ pts, plays, away, home, live }: {
         {hover != null && hoverPlay && (
           <Box sx={{
             position: 'absolute', left: `${tipLeft}%`, transform: 'translateX(-50%)',
-            ...(tipOnTop ? { top: 2 } : { bottom: 18 }),
-            width: 200, maxWidth: '80%', pointerEvents: 'none', zIndex: 3,
+            ...(tipOnTop ? { top: chromePx(2) } : { bottom: chromePx(18) }),
+            width: chromePx(200), maxWidth: '80%', pointerEvents: 'none', zIndex: 3,
             bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
             borderRadius: 1.5, boxShadow: '0 6px 20px rgba(0,0,0,0.35)', p: 1,
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
-              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.6) }}>
                 {hoverPlay.half === 'top' ? '▲' : '▼'} {ordinal(hoverPlay.inning)}
               </Typography>
               <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
@@ -557,7 +558,7 @@ function PlaysList({ plays, away, home, scoringOnly }: {
               <Typography sx={{
                 px: 2, pt: 1.25, pb: 0.5,
                 fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled',
-                textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1,
+                textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1,
               }}>
                 {p.half === 'top' ? '▲' : '▼'} {ordinal(p.inning)} · {TEAM_ABBR[p.battingTeamId] ?? ''} batting
               </Typography>
@@ -737,7 +738,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
   return (
     <ModalShell
       onClose={close}
-      maxWidth={560}
+      maxWidth={chromePx(560)}
       sheet
       sheetFill
       eyebrow={
