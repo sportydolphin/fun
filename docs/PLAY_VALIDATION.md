@@ -25,7 +25,7 @@ Two separate things live here and they are easy to confuse:
 | Run-health table | [`scripts/migrations/20260817200000_add_wpbl_pbp_validation_runs.sql`](../scripts/migrations/20260817200000_add_wpbl_pbp_validation_runs.sql) |
 | The overlay | `applyPlayCorrections` in [`src/wpbl/api.ts`](../src/wpbl/api.ts) · tests in [`playCorrections.test.ts`](../src/wpbl/__tests__/playCorrections.test.ts) |
 | Runs semantics | `runsOnPlay` in [`src/wpbl/derive/playByPlay.ts`](../src/wpbl/derive/playByPlay.ts) |
-| Admin indicator | `WpblValidationChip` in [`src/AdminPanel.tsx`](../src/AdminPanel.tsx) · [`adminValidationChip.test.tsx`](../src/__tests__/adminValidationChip.test.tsx) |
+| Admin indicator | `WpblValidationChip` in [`src/AdminPanel.tsx`](../src/AdminPanel.tsx) · [`adminHealth.test.tsx`](../src/__tests__/adminHealth.test.tsx) |
 
 Needs `SUPABASE_DB_URL`, the same session-pooler connection string the migration runner uses.
 The checks are window functions and full-table joins across four tables, which is SQL's job

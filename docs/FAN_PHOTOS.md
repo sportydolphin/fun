@@ -1,8 +1,8 @@
 # Fan photographs, tagged by who is in them
 
-**Plan of record.** Scoped Sep 21, 2026. Like [`ANDROID.md`](ANDROID.md) and
-[`IOS.md`](IOS.md), this is a design that has been argued through rather than a description of
-something running.
+**Built and live** (Sep 21 to 22, 2026, everything below is on `main`). Written as a plan of record
+first, like [`ANDROID.md`](ANDROID.md) and [`IOS.md`](IOS.md), so the reasoning sections still read
+as a design argued through.
 
 **Built so far (Sep 21, 2026):** the four tables and their RLS, migration
 `20260922020815_add_wpbl_fan_photos_tables.sql`, applied; `wpbl_merge_players` extended to
@@ -36,10 +36,9 @@ through routes/seo/_redirects/sitemap/footer and pinned in `routes.test.ts`), an
 The offseason Home is previewable in dev: the season-finale simulator plus a "Fan photos on Home
 (mock)" toggle ([`dev/devFanPhotos.ts`](../src/wpbl/dev/devFanPhotos.ts)) that pads the card. The
 fan-awards results give up their Home slot at `AWARDS_RESULTS_UNTIL` (end of Sep). **Deliberately
-NOT built:** Game Center "from this game" — the photos are not reliably matched to games, so the
-`game_id` column stays but no surface reads it. **The reader surfaces are committed on the
-`wpbl-fan-photos` branch and held unpushed** until a real batch is curated; the owner tools (ingest,
-upload, curation) are already live on `main`.
+NOT built:** Game Center "from this game". The photos are not reliably matched to games, so the
+`game_id` column stays but no surface reads it. The reader surfaces were held on the
+`wpbl-fan-photos` branch until a real batch was curated, and have since been merged to `main`.
 
 ### The web upload's server env (owner)
 

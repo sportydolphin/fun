@@ -180,7 +180,7 @@ export const TEAM_ABBR: Record<number, string> = {
 /** One of the 30 clubs, as opposed to a postseason stand-in. */
 export const isRealClub = (teamId: number): boolean => teamId in TEAM_ABBR
 
-// Team nickname only (no city/location) — e.g. "Yankees", not "New York Yankees".
+// Team nickname only (no city/location): "Orioles", not "Baltimore Orioles".
 export const TEAM_NICKNAME: Record<number, string> = {
   [LAA]: 'Angels',      [ARI]: 'Diamondbacks', [BAL]: 'Orioles',    [BOS]: 'Red Sox',   [CHC]: 'Cubs',
   [CIN]: 'Reds',        [CLE]: 'Guardians',    [COL]: 'Rockies',    [DET]: 'Tigers',    [HOU]: 'Astros',

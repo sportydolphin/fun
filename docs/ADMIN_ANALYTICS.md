@@ -64,7 +64,7 @@ audited alongside the new events and two things came off it:
   adding seven event names on Aug 25 lifts it about a fifth with nothing changing in what
   anyone did, and the number was already on the page twice (the chart plots it per day, the
   Events card breaks it down). "Active today" and "Active 30d" were two tiles carrying three
-  numbers, and unlike their neighbours they ignore the range chips entirely — they are now one
+  numbers, and unlike their neighbours they ignore the range chips entirely. They are now one
   tile whose sub-line names all three windows, so the fixed-window group cannot be mistaken for
   something the filter moved.
 
@@ -72,8 +72,8 @@ audited alongside the new events and two things came off it:
 in the reader's timezone, so the chip says "Today" rather than "24h": at 9am it covers nine
 hours. Its previous window is ALL of yesterday, which would read negative every morning and
 only catch up around midnight, so `comparable` in `AdminPage.tsx` drops every change arrow on
-that range and says why. The same bias exists at 7d and 30d — every window is *n-1* full days
-plus a partial one — at a seventh and a thirtieth of the weight, which is why those keep
+that range and says why. The same bias exists at 7d and 30d (every window is *n-1* full days
+plus a partial one), at a seventh and a thirtieth of the weight, which is why those keep
 theirs. A true rolling 24h window would need an hours parameter on all nine RPCs and an
 hour-bucketed series behind the chart; that is a different feature, not a different label.
 

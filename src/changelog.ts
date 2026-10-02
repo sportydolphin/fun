@@ -3228,7 +3228,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Standings show full team names',
-        full:  'Standings list each team by name, like "Yankees", instead of the three-letter abbreviation.',
+        full:  'Standings list each team by name, like "Orioles", instead of the three-letter abbreviation.',
       },
     ],
   },

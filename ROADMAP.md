@@ -7,10 +7,45 @@
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
 > Last realigned: **Sep 27, 2026**, around bringing the section up to the WPBL standard (see
 > "Aligning with WPBL" below, which is now the live front). Before that Aug 10, 2026.
+> Last reviewed for handoff: **Oct 2, 2026**, at v1.115.1. Start at "Handoff" just below.
 >
 > *Status note, Aug 22, 2026, now history: the section was dormant on purpose while the WPBL
 > season ran. Over the 14 days to Aug 19, `/mlb` drew 768 events across 33 browsers against
 > `/wpbl`'s 18,213 across 2,036. The WPBL season is over, which is what reopens this file.*
+
+## Handoff: where MLB stands (Oct 2, 2026)
+
+**State.** Items 0 to 6 of the plan below are done, and 7 is half done. The section now has
+WPBL's phone shell, history-backed sheets, a real path for every tab, club, player and game, a
+postseason bracket, an offseason-aware Home, the desktop scale with no `zoom`, and a chunk per
+view. The postseason runs to Oct 31, and the offseason shape
+switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
+`shared/mlbSeason.js`): nothing needs doing on that date.
+
+**Next, in order** (why, in each item below):
+
+1. **Stats as a ranked list on a phone** (item 7). The Table board is still a wide spreadsheet in
+   a nested scroller at 375px, sorted by OPS with the OPS column off screen. WPBL's
+   `StatsView.tsx` is the pattern: a ranked list with a sort sheet.
+2. **Real `<a href>`s and an `<h1>` per page** (item 7). The paths exist, but about 200
+   `onClick`s against a handful of `href`s means Google can reach few of them. Use `linkTo()` /
+   `linkPress` and WPBL's `PageHeading`. The scoreboard's "Box →" is the clearest case.
+3. **Home's own weight** (item 5). A Home landing costs 132 kB gzip of MLB code against 67 to 82 kB
+   for any other page, because the Predictor, Live Game Center and the report cards load with it
+   rather than on use.
+4. **Let the address drive `useMlbState`** (item 4's open note). It reads the address but is not
+   driven by it.
+5. **Swipe pager with kept-alive tabs** (item 3's open note). Views unmount and refetch on every
+   tab change.
+6. **House rules sweep** (item 7). About 500 em dashes in 62 MLB files (the ones meaning "no
+   value" stay), and the BOM plus mojibake in `MlbStats.tsx` (`â†’` in a comment). The Yankees
+   examples were removed Oct 2.
+
+**Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
+October is over; it is the first real measurement of which Home cards are used.
+
+**Tests**: 9 files and 89 cases under `src/mlb/__tests__/`, against 126 files in WPBL. Each item
+above should leave a test behind, as items 0, 4 and 5b did.
 
 ## Aligning with WPBL (Sep 27, 2026) 🎯⚙️
 
@@ -27,17 +62,17 @@ goes first and the rest is winter work.
 
 | Area | `/mlb` | WPBL pattern to copy |
 |---|---|---|
-| Phone nav | 6 pills in a sideways scroller; at 375px Stats and Search are off screen, no swipe, and the player page lights no tab | Bottom bar + More sheet, swipe pager, visited tabs kept mounted |
-| Overlays | 10 hand-rolled `position: fixed` boxes: centred, 26px close, `backdropFilter` blur (the cost WPBL removed), not portalled | `ModalShell`: portalled, a bottom sheet on a phone with drag to dismiss |
-| Back | Back with Game Center open leaves the section entirely (lands on `/wpbl`), because no MLB modal is a history entry | Every modal is a history entry; Back closes it |
-| URLs, SEO | One URL, `/mlb?view=&pid=`, so one title and nothing indexable; 8 `href`s against 201 `onClick`s (the scoreboard's "Box →" is a plain div); no `<h1>` | A path per tab, player, game and team; `linkTo()`; `PageHeading` |
-| Requests | **107 on Home mount**, 60 of them per-team stats (`fetchTeamRankings`, 30 clubs x 2 groups) that `/teams/stats?sportIds=1` answers in 2 | 24 on Home |
-| Loading | No skeletons, "Loading…" text; all six views ship in one chunk | Skeletons, lazy modals, last-good seeds |
-| Stats on a phone | A wide spreadsheet in a nested scroller (`maxHeight: calc(100vh - 280px)`); sorted by OPS with the OPS column off screen | Ranked list with a sort sheet |
+| Phone nav | ✅ *Fixed Sep 28 (item 3).* Was 6 pills in a sideways scroller; at 375px Stats and Search are off screen, no swipe, and the player page lights no tab | Bottom bar + More sheet, swipe pager, visited tabs kept mounted |
+| Overlays | ✅ *Fixed Sep 28 to 30 (item 4).* Were 10 hand-rolled `position: fixed` boxes: centred, 26px close, `backdropFilter` blur (the cost WPBL removed), not portalled | `ModalShell`: portalled, a bottom sheet on a phone with drag to dismiss |
+| Back | ✅ *Fixed Sep 28 (item 4).* Back with Game Center open leaves the section entirely (lands on `/wpbl`), because no MLB modal is a history entry | Every modal is a history entry; Back closes it |
+| URLs, SEO | 🟡 *Paths done Oct 2 (item 4); hrefs and headings open (item 7).* Was one URL, `/mlb?view=&pid=`, so one title and nothing indexable; 8 `href`s against 201 `onClick`s (the scoreboard's "Box →" is a plain div); no `<h1>` | A path per tab, player, game and team; `linkTo()`; `PageHeading` |
+| Requests | ✅ *Fixed Sep 28 (item 5).* Was **107 on Home mount**, 60 of them per-team stats (`fetchTeamRankings`, 30 clubs x 2 groups) that `/teams/stats?sportIds=1` answers in 2 | 24 on Home |
+| Loading | ✅ *Chunk per view in v1.115.1; skeletons on Scores, Standings, the bracket and the predictor (item 5).* Was no skeletons, "Loading…" text, all views in one chunk | Skeletons, lazy modals, last-good seeds |
+| Stats on a phone | Open (item 7). A wide spreadsheet in a nested scroller (`maxHeight: calc(100vh - 280px)`); sorted by OPS with the OPS column off screen | Ranked list with a sort sheet |
 | Desktop | ✅ *Fixed in v1.115.0*: off `zoom: 1.4`, onto the same 1.25 ramp as WPBL | `--app-type` / `--app-chrome`, `chromePx()` |
-| Measurement | 3 events | 71 |
-| Tests | 0 | 119 |
-| House rules | 525 em dashes in 62 files; a Yankees example in `HomeView.tsx`; BOM and mojibake in `MlbStats.tsx` | |
+| Measurement | ✅ *5 `mlb_*` events since Sep 28 (item 1).* Was 3 events | 71 |
+| Tests | 9 files, 89 cases (was 0) | 126 files |
+| House rules | Open (item 7). 525 em dashes in 62 files; ~~a Yankees example in `HomeView.tsx`~~ (removed Oct 2); BOM and mojibake in `MlbStats.tsx` | |
 | Polling | ✅ *Fixed in v1.99.2*: `useForegroundInterval` moved to `src/lib` and every MLB poll uses it | |
 
 ### The plan, in order
@@ -211,7 +246,7 @@ goes first and the rest is winter work.
 - **Back restores the exact screen you left** (self-describing history snapshots). WPBL does
   the same thing another way; keep the behaviour, the implementation can change.
 
-## Where the app stands
+## Where the app stands (as of Aug 10, 2026)
 
 **Strong:** live scoreboard + deep Game Center (play-by-play, scrubbable win-probability, live situation, full box scores), personalized home feed (team card, followed players with form sparklines, standings snapshot, dual daily report cards, standout carousel, On Fire / Ice Cold), predictions game with vote bars, confidence-ranked leaderboard and running record, bot rivals, installable PWA with daily pick-reminder push, all-time leaderboards, rosters, recent-search UX, dark mode, responsive, exact back-button restoration.
 
@@ -294,5 +329,7 @@ Solo-first games sharing auth + leaderboards + streak infra. Bots play these too
 - **Prod error visibility** ⚙️: No way to know today whether visitors hit errors. Even a tiny Supabase `client_errors` table fed by a `window.onerror` hook would answer "is anything broken?"
 
 ---
+
+*The paragraph below is the Aug 10 suggestion and is superseded by "Handoff" at the top.*
 
 **Suggested next three:** close-game push alerts (reuses the shipped push plumbing + the milestone-alert pattern, as in "up 2–1 in the 8th") → a second Phase 2 daily game (Daily Trivia is the offseason-proof pick) → the September race page + magic numbers (playoff-odds follow-on, timely as divisions tighten). Phase 1 is fully shipped and Predictions 2.0 is now complete (v1.20.0), so the retention loop leans on push alerts and the next daily game.

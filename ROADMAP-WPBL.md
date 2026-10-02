@@ -4,6 +4,7 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
+> Last reviewed for handoff: **Oct 2, 2026** (doc accuracy only; priorities unchanged since Sep 27).
 > Last checked against production: **Sep 24, 2026**. The season is over (40 finals, the last on
 > Sep 22), the feed has gone quiet, and every surface below is in its offseason shape.
 > Last realigned: **Sep 24, 2026**, for the offseason (see the realignment log). The experiments
@@ -40,7 +41,8 @@ is durable or it is nothing**: the question for each item is whether it is a rea
 
 Dated things left:
 
-- **Oct 1, 2026**: the fan-award results come off Home and the season card goes full width.
+- ~~**Oct 1, 2026**: the fan-award results come off Home and the season card goes full width.~~ ✅
+  *Happens on its own at `AWARDS_RESULTS_UNTIL` in `awards.ts`; nothing to do.*
 - **Spring 2027, before the first game: rethink the Bluesky integrations.** What runs today is
   two posters (a recap with a box-score image for every final, a "starting soon" reminder before
   each first pitch) and the mention watcher's search, which since Sep 27, 2026 reports only posts
@@ -192,8 +194,7 @@ in now is:
 4. ~~**#5 daily standouts.**~~ ❌ *Dropped Sep 1: this league plays one game a day, so the day's
    standouts and that game's stars are the same three players, and `LastGameCard` already draws
    them. See the entry. What it was really reaching for became **#5b**.*
-5. **#5b: Home's one player name should open the player.** Two lines, and it is the only item on
-   this list aimed straight at the measured retention gradient.
+5. ~~**#5b: Home's one player name should open the player.**~~ ✅ *Done Sep 1.*
 6. **#2 the archive**, scoped Sep 1 and smaller than it looked: the mirror is already complete
    against the feed, so there is no capture pass to write and the whole build can wait for the
    winter. Its one dated half, a verified export of the season, ~~cannot wait~~ ✅ *shipped
@@ -204,7 +205,7 @@ in now is:
    the whole thing is buildable today and only gains a postseason section on Sep 22. It is the
    one item on this list with an audience in November.
 
-### 5b. Home's star name opens the game, not the player 🎯
+### 5b. Home's star name opens the game, not the player 🎯: ✅ **shipped Sep 1, 2026** (`abbb9b6`; the star is now a player link)
 
 Split out of #5 when that was dropped, because it is the half of it that was right.
 `LastGameCard` renders one star and passes `onClick={() => onOpenGame(game)}`, so the single
@@ -1832,7 +1833,7 @@ Kelsie Whitmore is 2-for-5 against Ayami Sato with two home runs. `batterPitcher
 computed this since August and nothing had ever drawn it.
 
 **AND IT HAD TO BE FED THE RIGHT PLAYS.** Its parameter type said `WpblFirstsPlay`, which names
-the projection behind `fetchWpblAllPlays` — the read that drops routine outs AT THE DATABASE
+the projection behind `fetchWpblAllPlays`, the read that drops routine outs AT THE DATABASE
 because none of them can set a milestone. Pass that here and every hitter in the league bats
 about .650: the outs are most of the denominator and none of them arrive, with no error and
 nothing short about the array to notice. The parameter is now `WpblMatchupPlay`, which is the
@@ -1865,7 +1866,7 @@ between them, with the comparison somebody had come to build eleven screens down
 the search box is for. It now offers her own half of the game first (`leadsWithPitching`, the same
 call the player card opens on) and then by playing time, most first, with that figure printed on
 every row. **The sort key is always the number the row shows**: ranked on batters faced while the
-column printed innings, the pitchers came out 21.0, 21.2, 18.2, 15.2, 18.2 — a correct sort no
+column printed innings, the pitchers came out 21.0, 21.2, 18.2, 15.2, 18.2: a correct sort no
 reader could check. Because role is the first key each role is a contiguous block, so each block
 sorts in its own unit and descends on screen.
 
@@ -5483,7 +5484,7 @@ about a bad number, and a Firebells hitter leading the league would have got her
 the colour was editorialising, at random, by club. It is neutral now. And the percentile bar
 put a tied block at the BOTTOM of its own range rather than the middle, so a hitter with 0 HR
 in a league where most of the field also has 0 drew a completely empty bar next to the text
-"13th of 33" — the bar said last and the number said mid-pack, about the same player, on the
+"13th of 33": the bar said last and the number said mid-pack, about the same player, on the
 same row. Ties sit at their midpoint now, which that 0 HR row reads as a 31% bar.
 
 **And the sheet drag was broken on real phones, for a reason no emulator can show you.** The
@@ -5497,7 +5498,7 @@ the device.
 
 Two declarations remove the race rather than trying to win it. The chrome (handle plus title
 bar) is `touch-action: none` on a phone, so the browser never claims a touch that starts there
-and the handler still owns it at 10px — safe for the reason `useSheetDrag` already gives for
+and the handler still owns it at 10px. That is safe for the reason `useSheetDrag` already gives for
 treating the chrome as always-draggable, and taps are unaffected because touch-action governs
 panning, not clicks. The scroll pane is `overscroll-behavior: contain`, so a downward drag at
 the top stops chaining out to Android's pull-to-refresh and iOS's rubber-banding, which is the
@@ -6193,15 +6194,15 @@ inserted a second Diana Ibarra.
 The interesting part is what a duplicate does downstream, because it is not just a stray row.
 Her season split 8 games to 1, so every leaderboard she was on undercounted her twice over.
 The slug rule from Aug 21 did precisely what it was written to do with a shared name and
-declared it ambiguous, which meant her canonical `/wpbl/players/diana-ibarra` — indexed, in
-the sitemap, one day old — started answering a real 404. The Discord bot began offering a "did
+declared it ambiguous, which meant her canonical `/wpbl/players/diana-ibarra` (indexed, in
+the sitemap, one day old) started answering a real 404. The Discord bot began offering a "did
 you mean" list for a player who exists once. That is the case the Aug 21 log called "no live
 example"; it took a day to get one, and it arrived from a direction nobody was watching.
 
 What shipped:
 
 - **`api_ids`** on `wpbl_players`: every feed id a person has held, `api_id` being the current
-  one. Not cosmetic — `wpbl_pitch_tracking` is keyed on the FEED id, so a traded pitcher's
+  one. Not cosmetic: `wpbl_pitch_tracking` is keyed on the FEED id, so a traded pitcher's
   work before the trade is only reachable through the old one.
 - **`team_as_of`**: the date of the newest box score that placed her on `team_id`. The ingest
   re-reads old games constantly and each of those is honest evidence of where she was *then*,
@@ -6254,7 +6255,7 @@ instead of the list the reader came from.
 
 ### Aug 21, 2026: one URL per tab, so the section can be found at all
 
-Search Console said the site had three indexed pages, and one of them was `/wpbl),and` — a
+Search Console said the site had three indexed pages, and one of them was `/wpbl),and`, a
 mangled link someone pasted, which Pages had happily answered with a 200 and the app shell.
 Google had never heard of `/mlb`. Two silent causes, both now fixed:
 
@@ -6272,13 +6273,13 @@ a single title, description and canonical, and there was literally no page for "
 standings" to rank. Each tab now has its own, and the old spelling 301s at the edge.
 
 Googlebot's rendered HTML (via URL Inspection) settled the question that was holding up the
-plan: **it renders the JS completely** — scoreboard, standings, leaders, recap prose. So
+plan: **it renders the JS completely**: scoreboard, standings, leaders, recap prose. So
 pre-rendering was cancelled rather than built.
 
 Two traps worth remembering, both of which fail without a symptom: rewrites must target `/`
 and never `/index.html` (Pages canonicalises the latter with a 308, turning every route into a
 redirect to the home page), and `_routes.json` can only narrow function routing, never widen
-it — the player share-card rewrite needed a catch-all file once the tabs moved.
+it: the player share-card rewrite needed a catch-all file once the tabs moved.
 
 Next: player pages at `/wpbl/players/<slug>`, which is where the long-tail volume actually is.
 ### Aug 21, 2026: the batter in every play opens

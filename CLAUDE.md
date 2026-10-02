@@ -119,7 +119,7 @@ Each of these has already cost someone a debugging session, and none of them fai
   canonical `/wpbl/players/diana-ibarra` started answering 404 and the Discord bot started
   offering a "did you mean" for someone who exists once. `wpbl_players.api_ids` now holds every
   id a person has held and the resolver matches on any of them. Two consequences to keep:
-  **`team_id` on a roster row means "now", never "then"** — a game log, a team page, or a Hall
+  **`team_id` on a roster row means "now", never "then"**: a game log, a team page, or a Hall
   of Firsts badge must take the club off the box-score line or the play, both of which carry
   the team that game was played for, or a traded player's July reads as if she spent it
   somewhere she had not arrived yet. **And it is not only the club: it is whether she is on the
@@ -501,7 +501,9 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   its security section is the only thing keeping site analytics from being readable by
   every signed-in user), `PLAY_VALIDATION.md`, `COMMONS_PHOTOS.md` (**read before approving an archive
   photo**: what the sync will not do, and why the approval gate is in RLS rather than in the
-  query), `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md` (paused, manual only),
+  query), `PUSH_NOTIFICATIONS.md`, `READING.md` and `RECAPS.md` (the outside writers and the
+  recap outlet, linked out, never mirrored in full), `FAN_PHOTOS.md` (fan photos tagged by who is in them: ingest, R2, curation on `/admin`),
+  `GOOGLE_TASKS.md` (paused, manual only),
   `BACKLINKS.md` (the SEO work that is not code: who to contact and the drafts to send;
   the site's own markup is done, links are the remaining constraint),
   `ANDROID.md` (shipping this on Google Play as a Trusted Web Activity. A signed build

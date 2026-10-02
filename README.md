@@ -4,8 +4,8 @@
 
 A baseball web app with **two independent league sections**, switchable from the toolbar:
 
-- **WPBL** (`/wpbl`): Women's Pro Baseball League coverage (the default section), one URL per tab (`/wpbl`, `/wpbl/schedule`, `/wpbl/standings`, `/wpbl/stats`, `/wpbl/teams`) plus a page per player at `/wpbl/players/<slug>`. Live scoreboard, schedule, standings, team pages, and a **Stats** tab that carries five boards on one screen: the season table, **Pitch by pitch** (~4,300 pitches decoded from the play log), **Run value** (this league's own run-expectancy table, and runs added / prevented per player; behind the experimental-features switch while it settles), **Tracked** (TrackMan velocity / spin / exit velo, hidden while the league has published radar for barely any games) and the draft-class analysis. Also a **Game Center** (line score, box score, play-by-play, pitch data), **Hall of Firsts**, a **Watch** page (every game's highlights, condensed game and broadcast, the league's Shorts matched to the plays they show, and the podcast), a Reading page (two independent writers, linked out), a photo gallery with a Wikimedia Commons archive, opt-in **pre-game push reminders**, and **Discord integration** for the fan server (a self-editing "next games" board, a box score posted as each game goes final, highlight reels, birthday greetings, shop restock alerts, a `/player` slash command, and the mod-run `/predict` in-game game). Data comes from the league's public feed, mirrored into Supabase by the `wpbl-ingest` Edge Function.
-- **MLB** (`/mlb`): a deeper, StatsAPI-driven app: live Game Center with scrubbable win-probability, a personalized home feed, a predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone watch, streak report cards, Streak Survivor, and more.
+- **WPBL** (`/wpbl`): Women's Pro Baseball League coverage (the default section), one URL per tab (`/wpbl`, `/wpbl/schedule`, `/wpbl/standings`, `/wpbl/stats`, `/wpbl/teams`) plus a page per player at `/wpbl/players/<slug>`. Live scoreboard, schedule, standings, team pages, and a **Stats** tab that carries five boards on one screen: the season table, **Pitch by pitch** (~4,300 pitches decoded from the play log), **Run value** (this league's own run-expectancy table, and runs added / prevented per player), **Tracked** (TrackMan velocity / spin / exit velo, hidden while the league has published radar for barely any games) and the draft-class analysis. Also a **Game Center** (line score, box score, play-by-play, pitch data), **Hall of Firsts**, a **Watch** page (every game's highlights, condensed game and broadcast, the league's Shorts matched to the plays they show, and the podcast), a Reading page (two independent writers, linked out), a photo gallery with a Wikimedia Commons archive, opt-in **pre-game push reminders**, and **Discord integration** for the fan server (a self-editing "next games" board, a box score posted as each game goes final, highlight reels, birthday greetings, shop restock alerts, a `/player` slash command, and the mod-run `/predict` in-game game). Data comes from the league's public feed, mirrored into Supabase by the `wpbl-ingest` Edge Function.
+- **MLB** (`/mlb`): a deeper, StatsAPI-driven app with a real URL per tab, club, player and game (`/mlb/scores`, `/mlb/teams/red-sox`, `/mlb/players/<name>-<id>`, `/mlb/games/<pk>`): live Game Center with scrubbable win-probability, a personalized home feed, a postseason bracket, a predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone watch, streak report cards, Streak Survivor, and more.
 
 Both sections share one shell: auth, header search, notifications/Web Push, units, theme, and back-button history.
 
@@ -82,7 +82,7 @@ Schema changes go through the migration runner. See
 [scripts/migrations/README.md](scripts/migrations/README.md). The legacy `scripts/*.sql`
 files are the already-applied baseline.
 
-`package.json` also holds the Node jobs that GitHub Actions runs on a schedule (predictions bots, payroll updates, streak/milestone/playoff-odds precompute, survivor resolver, and the Web Push senders, MLB `send-game-start.mjs` and WPBL `send-wpbl-game-start.mjs`).
+`package.json` holds more scripts than this list (45 in all); most are the Node jobs that GitHub Actions runs on a schedule, listed with their workflows in ARCHITECTURE §5 (predictions bots, payroll updates, streak/milestone/playoff-odds precompute, survivor resolver, and the Web Push senders, MLB `send-game-start.mjs` and WPBL `send-wpbl-game-start.mjs`).
 
 ## Layout
 
@@ -90,11 +90,12 @@ files are the already-applied baseline.
 - [src/App.tsx](src/App.tsx): shell: routing between `/mlb` and `/wpbl`, toolbar, auth, search bridge
 - [src/mlb/](src/mlb/): the MLB section (views, components, state, notifications)
 - [src/wpbl/](src/wpbl/): the WPBL section (self-contained, WPBL-native components; no MLB coupling)
+- [src/ui/](src/ui/): UI both sections share: the bottom nav, the tab pager, `ModalShell`, `PillGroup`, the desktop scale helpers
 - [src/lib/](src/lib/): shared: Supabase client, analytics, push, notifications, units
 - [shared/notifications.js](shared/notifications.js): one notification catalog shared by the in-site bell and the push senders
 - [scripts/](scripts/): SQL migrations (`create_*`, `add_*`, seeds) and the Node cron jobs
 - [supabase/functions/](supabase/functions/): Edge Functions (incl. `wpbl-ingest`, the WPBL feed mirror)
-- [functions/](functions/): **Cloudflare Pages** Functions (not Supabase): `wpbl/` rewrites a shared player link's Open Graph tags at the edge, so `/wpbl?player=<id>` unfurls as that player rather than as the site
+- [functions/](functions/): **Cloudflare Pages** Functions (not Supabase): `wpbl/` and `mlb/` answer real 404s for slugs naming nothing and 301 the old query-string links (and `wpbl/` rewrites a shared player link's Open Graph tags so it unfurls as that player); `p/` and `g/` are the short share links; `discord/wpbl` is the Discord bot; `api/` serves `/api/geo` and the owner's fan-photo upload. Each needs a route in `public/_routes.json`
 
 ## Docs
 
@@ -108,5 +109,7 @@ files are the already-applied baseline.
 - [docs/IOS.md](docs/IOS.md): the App Store plan, which is a much bigger job than Android: no TWA on iOS, so Google sign-in and push both have to be rebuilt. Nothing exists yet but the Universal Links file
 - [docs/COMMONS_PHOTOS.md](docs/COMMONS_PHOTOS.md): the Wikimedia Commons archive gallery, and why the approval gate lives in RLS rather than in the query
 - [docs/READING.md](docs/READING.md): mirroring an independent writer's WPBL coverage, headlines only, never the article body
+- [docs/RECAPS.md](docs/RECAPS.md): linking an outside outlet's recap from each game page
+- [docs/FAN_PHOTOS.md](docs/FAN_PHOTOS.md): fan photographs tagged by who is in them: the ingest, R2 storage and the curation tool on `/admin`
 - [docs/BACKLINKS.md](docs/BACKLINKS.md): the SEO work that is not code. The markup is done; links are the remaining brake
 - [docs/GOOGLE_TASKS.md](docs/GOOGLE_TASKS.md): pulling the Google Tasks backlog into the repo (paused, manual only)

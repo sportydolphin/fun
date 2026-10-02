@@ -391,8 +391,8 @@ function HomeViewInner({
   const bg       = TEAM_BG[followedTeamId ?? 0] ?? '#1a2035'
   const abbr     = followedTeam?.abbreviation ?? '?'
   // Use the full team name directly. `locationName` is the raw municipality
-  // (e.g. "Denver" for the Rockies, "Bronx" for the Yankees, "Arlington" for
-  // the Rangers), which reads wrong next to the common name — `name` is the
+  // (e.g. "Denver" for the Rockies, "Flushing" for the Mets, "Arlington" for
+  // the Rangers), which reads wrong next to the common name. `name` is the
   // authoritative "City Nickname" for all 30 teams.
   const teamLabel = followedTeam?.name ?? followedTeam?.teamName ?? '—'
 

@@ -9,7 +9,7 @@ token, no gateway, nothing to keep running:
 | **Box scores** | a different channel | [`supabase/functions/wpbl-ingest/announce-final.ts`](../supabase/functions/wpbl-ingest/announce-final.ts) and [`scripts/post-wpbl-discord-recaps.ts`](../scripts/post-wpbl-discord-recaps.ts) | One message per finished game, edited in place if the stats are corrected later. |
 | **Highlights** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per league game highlight reel **and per YouTube Short**, posted once and never touched again. |
 | **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole Shopify store, plus new memorabilia lots on The Realest, batched into one message per run. Never pings. |
-| **Shortlist and drop alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back, **and when new merch appears at all** — a drop cannot be shortlisted, because a shortlist needs a handle that already exists. |
+| **Shortlist and drop alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back, **and when new merch appears at all**, since a drop cannot be shortlisted, because a shortlist needs a handle that already exists. |
 | **Mention watch** | a private channel | [`scripts/watch-wpbl-mentions.mjs`](../scripts/watch-wpbl-mentions.mjs) | One digest per run of the public posts where somebody is asking where to follow a WPBL game. Threads to go and answer, not content for the server. |
 | **Birthdays** | a birthdays channel | [`scripts/post-wpbl-discord-birthdays.ts`](../scripts/post-wpbl-discord-birthdays.ts) | One message on the mornings someone on the roster has a birthday, and nothing on the mornings nobody does. |
 
@@ -572,7 +572,7 @@ The state of a game happening right now, on the same Cloudflare endpoint. It rea
 `status = 'live'` rows of `wpbl_games` directly (never the cached roster: a live line moves on
 every pitch, and a stale one is the staleness a viewer notices at once), and renders the score,
 the inning and count, who is at bat, who is pitching, and who is on base. It is deliberately
-spare, with **no emoji and no line score** — a `/score` in a chat channel wants the state in a
+spare, with **no emoji and no line score**: a `/score` in a chat channel wants the state in a
 few lines, and the linked game page carries the rest.
 
 The reply is **public** so a score can be shared into the channel; the "no game is live",
