@@ -13,6 +13,7 @@ import type { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
+import { teamLink, LINK_SX } from '../lib/links'
 
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
@@ -93,16 +94,20 @@ function TeamRow({ t, wins, need, won, lost, onTeamClick, compact = false }: {
         ? <LogoBubble teamId={t.id} abbr={t.abbr} size={26} />
         : <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', border: '1.5px dashed', borderColor: 'divider', flexShrink: 0 }} />}
       <Typography
-        // Its own control inside a card that is one: both handlers stop here, so a tap or an Enter
-        // on the club opens the club and not the series too.
-        {...(t.real && onTeamClick ? {
-          role: 'button', tabIndex: 0,
-          onClick: (e: React.MouseEvent) => { e.stopPropagation(); onTeamClick(t.id) },
-          onKeyDown: (e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onTeamClick(t.id) }
-          },
-        } : {})}
+        // A link to the club, inside a card that is a button: both handlers stop here, so a tap or
+        // an Enter on the club opens the club and not the series too. The keydown stop matters as
+        // much as the click's: the card's Enter handler would otherwise preventDefault the link's
+        // own activation and open the series instead.
+        {...(t.real && onTeamClick ? (() => {
+          const link = teamLink(t.id, onTeamClick) as { onClick?: (e: React.MouseEvent) => void }
+          return {
+            ...link,
+            onClick: (e: React.MouseEvent) => { e.stopPropagation(); link.onClick?.(e) },
+            onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') e.stopPropagation() },
+          }
+        })() : {})}
         sx={{
+          ...LINK_SX, display: 'block',
           flex: 1, minWidth: 0, fontSize: '0.85rem', fontWeight: won ? 800 : 600,
           color: t.real ? 'text.primary' : 'text.secondary',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

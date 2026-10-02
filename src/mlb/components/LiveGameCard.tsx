@@ -4,6 +4,7 @@ import { TEAM_ABBR, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { shortName, ScheduleGame, LiveGameData } from '../views/scheduleData'
 import { chromePx, typePx } from '../../ui/scale'
+import { playerLink, teamLink, LINK_SX } from '../lib/links'
 
 // The live in-progress game card for the home team schedule strip, plus its two
 // visual helpers (the base diamond and the hit/run celebration overlay). Split out
@@ -175,9 +176,9 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
 
   const logo = (teamId: number, col: string) => (
     <Box
-      onClick={() => onTeamClick?.(teamId)}
+      {...teamLink(teamId, onTeamClick)}
       sx={{
-        width: chromePx(32), height: chromePx(32), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
+        ...LINK_SX, width: chromePx(32), height: chromePx(32), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
         border: `2px solid ${col}`, display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         boxShadow: `0 0 0 1px ${col}30`,
@@ -249,8 +250,8 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85, minWidth: 0, width: '100%' }}>
                 {liveData.pitcher && (
                   <Box
-                    onClick={() => onPlayerClick?.(liveData.pitcher!.id)}
-                    sx={{ minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT } : {} }}
+                    {...playerLink(liveData.pitcher.id, liveData.pitcher.name, onPlayerClick)}
+                    sx={{ ...LINK_SX, display: 'block', minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT } : {} }}
                   >
                     <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
                       {betweenInnings ? 'On the Mound' : 'Pitching'}
@@ -269,8 +270,8 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                 )}
                 {liveData.batter && (
                   <Box
-                    onClick={() => onPlayerClick?.(liveData.batter!.id)}
-                    sx={{ minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT } : {} }}
+                    {...playerLink(liveData.batter.id, liveData.batter.name, onPlayerClick)}
+                    sx={{ ...LINK_SX, display: 'block', minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT } : {} }}
                   >
                     <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
                       {betweenInnings ? 'Leading Off' : 'At Bat'}

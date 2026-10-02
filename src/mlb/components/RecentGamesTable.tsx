@@ -4,6 +4,7 @@ import { ACCENT } from '../constants'
 import { RecentGameEntry } from '../types'
 import { scrollBehavior } from '../../lib/motion'
 import { chromePx, typePx } from '../../ui/scale'
+import { teamLink, LINK_SX } from '../lib/links'
 
 const INIT = 5
 
@@ -176,9 +177,9 @@ function GameSection({ title, entries, cols, dataKey, highlightDate, onTeamClick
                   <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', fontWeight: 600 }}>
                     <Box
                       component="span"
-                      onClick={onTeamClick && g.opponentId != null ? () => onTeamClick(g.opponentId!) : undefined}
+                      {...(g.opponentId != null ? teamLink(g.opponentId, onTeamClick) : {})}
                       sx={onTeamClick && g.opponentId != null
-                        ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }
+                        ? { ...LINK_SX, cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }
                         : undefined}
                     >
                       {g.isHome

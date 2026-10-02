@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { ACCENT, HEADSHOT, TEAM_BG } from '../constants'
 import { RosterEntry } from '../types'
 import { chromePx, typePx } from '../../ui/scale'
+import { playerLink, LINK_SX } from '../lib/links'
 
 // Position-type groups, in the order they appear on a scorecard. `match` decides
 // which group a roster entry falls into (positionType from the API, with a code
@@ -56,9 +57,9 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
 
   return (
     <Box
-      onClick={() => onPlayerClick?.(entry.playerId)}
+      {...playerLink(entry.playerId, entry.fullName, onPlayerClick)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1,
+        ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1,
         px: 1, py: 0.75, borderRadius: 1.5,
         border: '1px solid', borderColor: 'divider',
         bgcolor: 'background.paper',

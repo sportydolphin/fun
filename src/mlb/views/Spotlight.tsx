@@ -4,6 +4,7 @@ import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { postseasonGameLabel } from '../postseason'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
+import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -583,7 +584,8 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
 
   return (
     <Box
-      onClick={onPlayerClick ? () => onPlayerClick(data.playerId) : undefined}
+      // Whole-card click; the name and club inside are the links (see rowClick).
+      {...rowClick(onPlayerClick && (() => onPlayerClick(data.playerId)))}
       sx={{
       flex: 1, minWidth: 0, borderRadius: 2.5, overflow: 'hidden',
       // Outline follows labelColor so the "On Fire" card reads orange in dark mode.
@@ -634,17 +636,17 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
         </Box>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{
-            fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
+          <Typography {...playerLink(data.playerId, data.playerName, onPlayerClick)} sx={{
+            ...LINK_SX, fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {data.playerName}
           </Typography>
 
           <Box
-            onClick={onTeamClick ? (e) => { e.stopPropagation(); onTeamClick(data.teamId) } : undefined}
+            {...teamLink(data.teamId, onTeamClick)}
             sx={{
-              display: 'inline-flex', alignItems: 'center', gap: 0.6, mb: 1.25,
+              ...LINK_SX, display: 'inline-flex', alignItems: 'center', gap: 0.6, mb: 1.25,
               ...(onTeamClick ? { cursor: 'pointer', '&:hover .spotlight-team-abbr': { color: 'text.primary', textDecoration: 'underline' } } : {}),
             }}
           >

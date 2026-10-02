@@ -5,6 +5,7 @@ import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { useIsDark, borderAlpha } from '../lib/colorUtils'
 import { mlbTeamPath } from '../routes'
 import { chromePx, typePx } from '../../ui/scale'
+import { useMlbHeadingTag } from '../components/PageHeading'
 
 // The Teams tab: every club, by division, one tap from its page. Teams had no tab before Sep 28,
 // 2026; a club page was reached only by searching for it or tapping a logo somewhere else, which is
@@ -23,10 +24,11 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
   onTeamClick: (teamId: number) => void
 }) {
   const isDark = useIsDark()
+  const headingTag = useMlbHeadingTag()
   const ids = Object.keys(TEAM_ABBR).map(Number)
   return (
     <Box>
-      <Typography component="h1" sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: typePx(-0.3), mb: 1.5 }}>
+      <Typography component={headingTag} sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: typePx(-0.3), mb: 1.5 }}>
         Teams
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>

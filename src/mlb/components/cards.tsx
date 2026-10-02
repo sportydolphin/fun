@@ -7,6 +7,7 @@ import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_
 import { useIsDark, accentColor, borderAlpha, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { StatGrid } from './ui'
 import { chromePx, typePx } from '../../ui/scale'
+import { teamLink, LINK_SX } from '../lib/links'
 
 // ─── Player card inner ────────────────────────────────────────────────────────
 
@@ -501,9 +502,9 @@ export function DivisionStandingsCard({
         const clickable = !!onTeamClick && !isHL
         return (
           <Box key={t.teamId}
-            onClick={clickable ? () => onTeamClick!(t.teamId) : undefined}
+            {...teamLink(t.teamId, clickable ? onTeamClick : undefined)}
             sx={{
-            display: 'grid', gridTemplateColumns: [18, 40, 0, 26, 26, 36].map(w => (w ? chromePx(w) : '1fr')).join(' '),
+            ...LINK_SX, display: 'grid', gridTemplateColumns: [18, 40, 0, 26, 26, 36].map(w => (w ? chromePx(w) : '1fr')).join(' '),
             alignItems: 'center', gap: chromePx(4),
             px: 1.25, py: 0.7,
             bgcolor: isHL ? `${teamColor}14` : undefined,

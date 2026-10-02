@@ -10,6 +10,7 @@ import { useDeepLink } from '../state/deepLink'
 import { PlayoffBracketCard, BracketSkeleton } from './PlayoffBracket'
 import { fetchBracket, seededBracket, bracketLikely, fieldIsSet } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
+import { teamLink, rowClick, LINK_SX } from '../lib/links'
 
 type Mode = 'bracket' | 'divisions' | 'playoffs' | 'odds'
 
@@ -172,7 +173,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
               <React.Fragment key={t.teamId}>
                 <Box
                   component="tr"
-                  onClick={() => onTeamClick?.(t.teamId)}
+                  {...rowClick(onTeamClick && (() => onTeamClick(t.teamId)))}
                   sx={{
                     cursor: clickable ? 'pointer' : 'default',
                     '& > td': highlightSx,
@@ -188,7 +189,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TeamLogo teamId={t.teamId} abbr={t.abbr} />
-                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>
+                      <Typography {...teamLink(t.teamId, onTeamClick)} sx={{ ...LINK_SX, fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>
                         {TEAM_NICKNAME[t.teamId] ?? t.abbr}
                       </Typography>
                     </Box>
@@ -273,9 +274,9 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
   return (
     <>
       <Box
-        onClick={() => onTeamClick?.(team.teamId)}
+        {...teamLink(team.teamId, onTeamClick)}
         sx={{
-          display: 'flex', alignItems: 'center', gap: 1.25,
+          ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25,
           px: 1.5, py: chromePx(9),
           borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
           borderLeft: `3px solid ${teamColor}`,

@@ -9,6 +9,7 @@ import { fetchFinalGames } from './FinalGames'
 import type { FinalGameSummary } from './FinalGames'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { chromePx, typePx } from '../../ui/scale'
+import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 // Loaded on first Box Score click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
@@ -219,7 +220,9 @@ export function TopPerformers({
     return (
       <Box
         key={entry.playerId}
-        onClick={() => onPlayerClick?.(entry.playerId)}
+        // The card keeps its whole-area click; the name and the club inside it are the links, since
+        // a link cannot hold another link (see rowClick).
+        {...rowClick(onPlayerClick && (() => onPlayerClick(entry.playerId)))}
         sx={{
           width: widthPct, flexShrink: 0,
           px: 1.75, pt: 1.5, pb: 1.75, display: 'flex', gap: 1.5, alignItems: 'stretch',
@@ -241,17 +244,17 @@ export function TopPerformers({
         </Box>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{
-            fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
+          <Typography {...playerLink(entry.playerId, entry.playerName, onPlayerClick)} sx={{
+            ...LINK_SX, fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {entry.playerName}
           </Typography>
 
           <Box
-            onClick={onTeamClick ? (e) => { e.stopPropagation(); onTeamClick(entry.teamId) } : undefined}
+            {...teamLink(entry.teamId, onTeamClick)}
             sx={{
-              display: 'inline-flex', alignItems: 'center', gap: 0.6, mb: 1.25,
+              ...LINK_SX, display: 'inline-flex', alignItems: 'center', gap: 0.6, mb: 1.25,
               ...(onTeamClick ? {
                 cursor: 'pointer',
                 '&:hover .tp-abbr': { color: 'text.primary', textDecoration: 'underline' },

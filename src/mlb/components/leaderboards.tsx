@@ -6,6 +6,7 @@ import { ACCENT, TEAM_BG, HEADSHOT, TEAM_NICKNAME } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder, photoBorderAlpha } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
 import { chromePx, typePx } from '../../ui/scale'
+import { playerLink, teamLink, LINK_SX } from '../lib/links'
 
 // ─── Leaderboard row model — shared by every Report Card board ───────────────
 
@@ -78,9 +79,9 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
 }) {
   return (
     <Box
-      onClick={onSelect ? () => onSelect(row.teamId) : undefined}
+      {...teamLink(row.teamId, onSelect)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25,
+        ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25,
         py: 0.9, px: 0.75, borderRadius: 2,
         ...(onSelect ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
         transition: 'background-color 0.15s',
@@ -309,9 +310,9 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
   const isDark = useIsDark()
   return (
     <Box
-      onClick={onSelect ? () => onSelect(row.playerId) : undefined}
+      {...playerLink(row.playerId, row.playerName, onSelect)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25,
+        ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25,
         py: 0.9, px: 0.75, borderRadius: 2,
         ...(onSelect ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
         transition: 'background-color 0.15s',

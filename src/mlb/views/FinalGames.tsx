@@ -12,9 +12,11 @@ import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
 import { fetchSeasonDates } from '../seasonPhase'
 import { postseasonGameLabel, isDecider, bracketLikely } from '../postseason'
+import { gameLink, LINK_SX } from '../lib/links'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 import { chromePx, typePx } from '../../ui/scale'
+import { useMlbHeadingTag } from '../components/PageHeading'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -353,9 +355,12 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   }
 
   return (
+    // The card is a link to the game's page: "Box →" was the clearest case of a page Google
+    // could not reach, since a game path existed but nothing on the site pointed at one.
     <Box
-      onClick={onClick}
+      {...gameLink(game.gamePk, onClick)}
       sx={{
+        ...LINK_SX, display: 'block',
         flexShrink: 0, width: wide ? '100%' : chromePx(124), minWidth: 0,
         borderRadius: 2, border: '1px solid',
         borderColor: accent ? `${accent}70` : defaultBorder(isDark),
@@ -569,6 +574,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
    *  and Game Center behind every card. One component so the two cannot disagree about a slate. */
   layout?:        'strip' | 'page'
 }) {
+  const headingTag = useMlbHeadingTag()
   const [dateISO,    setDateISO]    = useState(() => toISO(new Date()))
   const [games,      setGames]      = useState<FinalGameSummary[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -748,7 +754,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
       {layout === 'page' ? (
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <Typography component="h1" sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: typePx(-0.3), lineHeight: 1.2 }}>
+            <Typography component={headingTag} sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: typePx(-0.3), lineHeight: 1.2 }}>
               Scores
             </Typography>
             <Box sx={{ ml: 'auto' }}><DateNav dateISO={dateISO} onChange={setDateISO} /></Box>

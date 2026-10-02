@@ -7,6 +7,7 @@ import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from './Standings'
 import { chromePx, typePx } from '../../ui/scale'
+import { playerLink, LINK_SX } from '../lib/links'
 
 const FEATURED = 3          // hero chases shown on the card; the rest live in the modal
 const RECENT_ON_CARD = 2    // cap on how many "just reached" rows lead the featured strip
@@ -110,9 +111,9 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
 
   return (
     <Box
-      onClick={() => onPlayerClick?.(item.playerId)}
+      {...playerLink(item.playerId, item.playerName, onPlayerClick)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25,
+        ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25,
         borderLeft: `3px solid ${isLive ? LIVE_RED : accent}`,
         cursor: clickable ? 'pointer' : 'default',
         '&:hover': { bgcolor: clickable ? 'action.hover' : undefined },
@@ -171,9 +172,9 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
 
   return (
     <Box
-      onClick={() => onPlayerClick?.(item.playerId)}
+      {...playerLink(item.playerId, item.playerName, onPlayerClick)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: chromePx(9),
+        ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: chromePx(9),
         borderLeft: `3px solid ${isLive ? LIVE_RED : accent}`,
         cursor: clickable ? 'pointer' : 'default',
         '&:hover': { bgcolor: clickable ? 'action.hover' : undefined },

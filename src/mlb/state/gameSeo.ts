@@ -17,7 +17,7 @@ export function useGameSeo(game: {
   away: SeoSide
   home: SeoSide
   series?: { label: string }
-}): void {
+}): string {
   const { gamePk, state, startMs } = game
   const away = mlbClubById(game.away.teamId)?.name ?? game.away.abbr
   const home = mlbClubById(game.home.teamId)?.name ?? game.home.abbr
@@ -25,30 +25,35 @@ export function useGameSeo(game: {
   const homeRuns = game.home.runs
   const label = game.series?.label
 
-  useEffect(() => {
-    // A start time StatsAPI has not set sorts as MAX_SAFE_INTEGER (FinalGames.tsx), not a date.
-    const date = startMs != null && startMs < 8.64e15
-      ? new Date(startMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      : null
-    const when = [label, date].filter(Boolean).join(', ')
-    const matchup = `${away} at ${home}`
-    const final = state === 'final' && awayRuns != null && homeRuns != null
-    // Winner first, the way a final score is said out loud.
-    const score = final
-      ? (awayRuns! > homeRuns! ? `${away} ${awayRuns}, ${home} ${homeRuns}` : `${home} ${homeRuns}, ${away} ${awayRuns}`)
-      : null
-    const title = score
-      ? `${score}${when ? ` (${when})` : ''}: box score | sportydolphin.fun`
-      : `${matchup}${when ? `, ${when}` : ''}: ${state === 'live' ? 'live' : 'preview'} | sportydolphin.fun`
-    const description = state === 'preview' || state === 'postponed'
-      ? `${matchup}${when ? `, ${when}` : ''}: the probable starters, how the two clubs compare, and Game Center once it starts.`
-      : `${matchup}${when ? `, ${when}` : ''}: the box score, every play, the line score and the win probability, pitch by pitch.`
+  // A start time StatsAPI has not set sorts as MAX_SAFE_INTEGER (FinalGames.tsx), not a date.
+  const date = startMs != null && startMs < 8.64e15
+    ? new Date(startMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null
+  const when = [label, date].filter(Boolean).join(', ')
+  const matchup = `${away} at ${home}`
+  const final = state === 'final' && awayRuns != null && homeRuns != null
+  // Winner first, the way a final score is said out loud.
+  const score = final
+    ? (awayRuns! > homeRuns! ? `${away} ${awayRuns}, ${home} ${homeRuns}` : `${home} ${homeRuns}, ${away} ${awayRuns}`)
+    : null
+  const title = score
+    ? `${score}${when ? ` (${when})` : ''}: box score | sportydolphin.fun`
+    : `${matchup}${when ? `, ${when}` : ''}: ${state === 'live' ? 'live' : 'preview'} | sportydolphin.fun`
+  const description = state === 'preview' || state === 'postponed'
+    ? `${matchup}${when ? `, ${when}` : ''}: the probable starters, how the two clubs compare, and Game Center once it starts.`
+    : `${matchup}${when ? `, ${when}` : ''}: the box score, every play, the line score and the win probability, pitch by pitch.`
 
+  // The sheet's <h1> says what the <title> says, without the site's name (PageHeading.tsx).
+  const heading = title.replace(/ \| sportydolphin\.fun$/, '')
+
+  useEffect(() => {
     const path = mlbGamePath(gamePk)
     // Put back whatever the page under the sheet had registered (a player's title), rather than
     // clearing it: the page is still up, and its own effect will not run again to restore it.
     const under = getDynamicSeo()
     setDynamicSeo({ path, seo: { title, description } })
     return () => { if (getDynamicSeo()?.path === path) setDynamicSeo(under?.path === path ? null : under) }
-  }, [gamePk, state, startMs, away, home, awayRuns, homeRuns, label])
+  }, [gamePk, title, description])
+
+  return heading
 }

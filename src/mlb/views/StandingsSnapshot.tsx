@@ -6,6 +6,7 @@ import { TEAM_NICKNAME, ACCENT } from '../constants'
 import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../lib/colorUtils'
 import { TeamLogo } from './Standings'
 import { chromePx, typePx } from '../../ui/scale'
+import { teamLink, LINK_SX } from '../lib/links'
 
 // Within this many games of the division lead → the division race is still live,
 // so show that. Otherwise the wild card is the more meaningful picture.
@@ -54,9 +55,9 @@ function SnapshotRow({ team, rightLabel, rightColor, oddsLabel, oddsClr, isMine,
   return (
     <>
       <Box
-        onClick={() => onTeamClick?.(team.teamId)}
+        {...teamLink(team.teamId, onTeamClick)}
         sx={{
-          display: 'flex', alignItems: 'center', gap: 1,
+          ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1,
           px: 1.5, py: chromePx(7),
           borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
           borderLeft: `3px solid ${teamColor}`,

@@ -9,6 +9,7 @@ import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { useDeepLink } from '../state/deepLink'
 import { typePx, chromePx } from '../../ui/scale'
+import { playerLink, rowClick, LINK_SX } from '../lib/links'
 
 // ─── Roster Moves — trades, DFAs, claims, signings from the transactions feed ─
 //
@@ -112,7 +113,8 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
   }
   return (
     <Box
-      onClick={onPlayerClick ? () => onPlayerClick(move.playerId) : undefined}
+      // Whole-row click; the name is the link, since the club logos beside it are controls too.
+      {...rowClick(onPlayerClick && (() => onPlayerClick(move.playerId)))}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25,
         py: 0.9, px: 0.75, borderRadius: 2,
@@ -123,7 +125,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
       <PlayerHeadshot playerId={move.playerId} name={move.playerName} size={34} />
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography {...playerLink(move.playerId, move.playerName, onPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {move.playerName}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.2 }}>
@@ -226,7 +228,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
         {group.players.map(p => (
           <Box
             key={p.playerId}
-            onClick={onPlayerClick ? () => onPlayerClick(p.playerId) : undefined}
+            {...rowClick(onPlayerClick && (() => onPlayerClick(p.playerId)))}
             sx={{
               display: 'flex', alignItems: 'center', gap: 1,
               ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { opacity: 0.75 } } : {}),
@@ -234,7 +236,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
             }}
           >
             <PlayerHeadshot playerId={p.playerId} name={p.playerName} size={28} />
-            <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: '0.78rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography {...playerLink(p.playerId, p.playerName, onPlayerClick)} sx={{ ...LINK_SX, display: 'block', flex: 1, minWidth: 0, fontWeight: 700, fontSize: '0.78rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {p.playerName}
             </Typography>
             {p.toTeamId != null && (

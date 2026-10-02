@@ -19,6 +19,7 @@ import { MLB_VIEW_PATHS, mlbUrlFor, mlbPlayerPath } from './mlb/routes'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
+import { MlbPageH1 } from './mlb/components/PageHeading'
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 //
@@ -48,6 +49,16 @@ const STATS_BOARDS: { view: MlbView; label: string }[] = [
 ]
 const navKeyFor = (v: MlbView): NavKey | null =>
   v === 'leaderboard' || v === 'viz' ? 'stats' : v === 'search' ? null : v
+/** The h1 of a tab that draws no title of its own. Close to the <title> in seo.ts, without the
+ *  pitch: the heading names the page, the title also sells it. */
+const TAB_H1: Partial<Record<MlbView, string>> = {
+  home:        'MLB scores, stats and standings',
+  standings:   'MLB Standings',
+  leaderboard: 'MLB Stat Leaders',
+  stats:       'MLB Player Stats',
+  viz:         'MLB Charts',
+}
+
 /** A tab's address, for its href and for the history entry it pushes. */
 const viewHref = (v: MlbView): string => v === 'search' ? MLB_VIEW_PATHS.home : MLB_VIEW_PATHS[v]
 
@@ -363,6 +374,10 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
       {/* No fallback: the screen-tall box above already holds the room, so a view whose chunk is
           still on the wire leaves the tab bar and footer exactly where they will be. */}
+      {/* The tabs whose name only the nav says. Scores and Teams draw their own; a player or club
+          page and a game sheet supply theirs (mlb/components/PageHeading.tsx). */}
+      {TAB_H1[state.view] && <MlbPageH1>{TAB_H1[state.view]}</MlbPageH1>}
+
       <Suspense fallback={null}>
       {state.view === 'scores' && (
         <FinalGamesSection

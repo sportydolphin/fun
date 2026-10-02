@@ -24,6 +24,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import { mlbPlayerPath } from '../routes'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
+import { MlbPageH1 } from '../components/PageHeading'
 
 export interface SearchViewProps {
   // Search
@@ -291,6 +292,9 @@ export function SearchView({
 
   return (
     <>
+      {/* The page's name. Drawn only inside the card, which is a picture of the player as far as
+          the outline goes; see PageHeading.tsx. */}
+      {(player || team) && <MlbPageH1>{player ? `${player.fullName}: MLB stats` : `${team!.name}: stats and roster`}</MlbPageH1>}
       {/* Fullscreen overlay */}
       {fullscreen && hasStats && <FullscreenEntry onClose={() => setFullscreen(false)} exitRef={exitFullscreen} />}
       {fullscreen && hasStats && (

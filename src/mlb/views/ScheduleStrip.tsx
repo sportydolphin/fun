@@ -17,6 +17,7 @@ import {
 import { scrollBehavior } from '../../lib/motion'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { chromePx, chromeScale, typePx } from '../../ui/scale'
+import { gameLink, LINK_SX } from '../lib/links'
 
 // ─── GameChip ─────────────────────────────────────────────────────────────────
 
@@ -38,9 +39,9 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
   return (
     <Box
       ref={innerRef}
-      onClick={onClick}
+      {...gameLink(game.gamePk, onClick)}
       sx={{
-        flexShrink: 0, width: chromePx(70),
+        ...LINK_SX, flexShrink: 0, width: chromePx(70),
         borderRadius: 2,
         border: `1.5px solid`,
         borderColor: highlight ? `${teamColor}90` : `${teamColor}22`,

@@ -12,6 +12,7 @@ import { PillGroup } from '../../ui/PillGroup'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { sortBoard, ascFor, isBestFirst } from '../lib/statsBoard'
 import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable } from './StatsRankedList'
+import { playerLink, rowClick, LINK_SX } from '../lib/links'
 
 export interface StatsViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -391,7 +392,7 @@ export function StatsView({
                   return (
                     <Box component="tr" key={e.playerId}
                       ref={isHighlighted ? (el: HTMLElement | null) => { highlightRowRef.current = el } : undefined}
-                      onClick={() => handleLbPlayerClick(e.playerId)}
+                      {...rowClick(() => handleLbPlayerClick(e.playerId))}
                       sx={{
                         cursor: 'pointer',
                         bgcolor: isHighlighted ? `${ACCENT}10` : undefined,
@@ -429,7 +430,7 @@ export function StatsView({
                             />
                           )}
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography sx={{ fontWeight: 700, fontSize: isDesktop ? '0.82rem' : '0.75rem', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <Typography {...playerLink(e.playerId, e.playerName, handleLbPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 700, fontSize: isDesktop ? '0.82rem' : '0.75rem', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {isDesktop ? e.playerName : abbrevName(e.playerName)}
                             </Typography>
                             <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', fontWeight: 600 }}>

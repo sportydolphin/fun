@@ -9,6 +9,7 @@ import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
+import { playerLink, LINK_SX } from '../lib/links'
 
 // Per-inning + R/H/E line score plus full batting / pitching tables.
 interface InningLine { num: number; away: number | null; home: number | null }
@@ -261,9 +262,9 @@ function BattingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: 
               <Box component="td" sx={{ px: 0.4, py: 0.45 }}>
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                   <Typography
-                    onClick={onPlayerClick ? () => onPlayerClick(b.id) : undefined}
+                    {...playerLink(b.id, b.name, onPlayerClick)}
                     sx={{
-                      fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.2,
+                      ...LINK_SX, fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.2,
                       pl: b.isSub ? 1 : 0,
                       ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
                     }}
@@ -305,9 +306,9 @@ function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?:
               <Box component="td" sx={{ px: 0.4, py: 0.45 }}>
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                   <Typography
-                    onClick={onPlayerClick ? () => onPlayerClick(p.id) : undefined}
+                    {...playerLink(p.id, p.name, onPlayerClick)}
                     sx={{
-                      fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.2,
+                      ...LINK_SX, fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.2,
                       ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
                     }}
                   >

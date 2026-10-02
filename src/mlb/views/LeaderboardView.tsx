@@ -12,6 +12,7 @@ import type { GameScope } from '../lib/gameScope'
 import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
+import { playerLink, LINK_SX } from '../lib/links'
 
 export interface LeaderboardViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -247,9 +248,9 @@ export function LeaderboardView({
                         <Box
                           key={e.playerId}
                           onMouseEnter={() => { if (canHover) setLbHoverId(e.playerId) }}
-                          onClick={() => handleLbPlayerClick(e.playerId)}
+                          {...playerLink(e.playerId, e.playerName, handleLbPlayerClick)}
                           sx={{
-                            display: 'flex', alignItems: 'center', gap: 1.25,
+                            ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25,
                             py: 0.65,
                             borderBottom: rank < entries.length - 1 ? '1px solid' : 'none',
                             borderColor: 'divider',

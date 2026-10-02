@@ -5,6 +5,7 @@ import { useIsDark, highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { TeamLogo } from './Standings'
 import { chromePx, typePx } from '../../ui/scale'
+import { teamLink, LINK_SX } from '../lib/links'
 
 // Percent shown to one significant "feel": near-locks read as >99% rather than a
 // misleadingly exact 100%, and live-but-tiny chances read as <1% rather than 0%.
@@ -39,9 +40,9 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
 
   return (
     <Box
-      onClick={() => onTeamClick?.(row.teamId)}
+      {...teamLink(row.teamId, onTeamClick)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25,
+        ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25,
         px: 1.5, py: chromePx(9),
         borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
         borderLeft: `3px solid ${teamColor}`,

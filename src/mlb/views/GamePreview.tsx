@@ -14,6 +14,7 @@ import { mlbGamePath } from '../routes'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, SectionLabel } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
+import { MlbHiddenH1 } from '../components/PageHeading'
 
 // ─── Game preview types ───────────────────────────────────────────────────────
 
@@ -307,7 +308,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   // Back closes the sheet rather than leaving the section; see sheetHistory.ts. The entry carries
   // the game's address, and follows the ‹ › arrows from one game to the next.
   const close = useSheetHistory(onClose, mlbGamePath(game.gamePk))
-  useGameSeo({ ...game, state: 'preview' })
+  const heading = useGameSeo({ ...game, state: 'preview' })
   // Tag the loaded data with the game it belongs to. When `game` switches (‹ › nav) the
   // tag no longer matches, so `loading` flips true immediately — the skeleton shows in the
   // very first frame instead of briefly re-showing the previous game's pitchers.
@@ -475,6 +476,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
         </Box>
       )}
     >
+      {/* While the sheet is up the game is the page (PageHeading.tsx). */}
+      <MlbHiddenH1>{heading}</MlbHiddenH1>
         {/* Matchup */}
         <Box sx={{ px: 2, pt: 2.5, pb: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
           {teamSide(game.away)}

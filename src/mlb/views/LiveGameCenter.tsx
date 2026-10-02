@@ -13,6 +13,7 @@ import {
   LogoBubble, LiveDot, SectionLabel, LineScoreTable, TeamBoxSection,
 } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
+import { MlbHiddenH1 } from '../components/PageHeading'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -670,7 +671,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
   const away       = data?.away ?? { teamId: game.away.teamId, abbr: game.away.abbr, runs: game.away.runs }
   const home       = data?.home ?? { teamId: game.home.teamId, abbr: game.home.abbr, runs: game.home.runs }
   const hasScoring = Boolean(data?.plays.some(p => p.isScoring))
-  useGameSeo({ ...game, state: data?.state ?? game.state, away, home })
+  const heading = useGameSeo({ ...game, state: data?.state ?? game.state, away, home })
 
   const selectPlayer = onPlayerClick ? (id: number) => { onPlayerClick(id); onClose() } : undefined
 
@@ -748,6 +749,8 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
         </Box>
       }
     >
+      {/* While the sheet is up the game is the page (PageHeading.tsx). */}
+      <MlbHiddenH1>{heading}</MlbHiddenH1>
         {/* Score summary — during live play the bases/count/outs sit between the teams */}
         <Box sx={{ px: 2, pt: 2.5, pb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           {teamHeader(away, home)}

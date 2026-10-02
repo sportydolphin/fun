@@ -31,9 +31,15 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    Filters sheet holds season, Regular / Playoffs / All and Qualified. "Full table" brings the
    grid back and is remembered. The board math is `lib/statsBoard.ts`, shared with the grid.
    Pinned in `__tests__/statsBoard.test.ts` and `statsRankedList.test.tsx`.
-2. **Real `<a href>`s and an `<h1>` per page** (item 7). The paths exist, but about 200
-   `onClick`s against a handful of `href`s means Google can reach few of them. Use `linkTo()` /
-   `linkPress` and WPBL's `PageHeading`. The scoreboard's "Box →" is the clearest case.
+2. ✅ **Real `<a href>`s and an `<h1>` per page** (item 7, Oct 2, v1.117.0). Every row that opens a player,
+   a club or a game is now a link to its path (`lib/links.ts`): Leaders, the Stats grid, Standings
+   and the bracket, the odds board, rosters, box scores, Scores' game cards, Home's cards and the
+   live card. A table row keeps its whole-width click through `rowClick`, with the link on the
+   name; a card holding a club chip does the same. Every page has exactly one `<h1>`
+   (`components/PageHeading.tsx`): Scores and Teams draw theirs, the other tabs, player and club
+   pages carry a hidden one, and a game sheet takes it over while its address is in the bar.
+   Pinned in `__tests__/pageLinks.test.tsx`. Not converted: the Charts SVG marks, Predictor and
+   Live drama, the followed-players grid, and club logos inside schedule chips.
 3. **Home's own weight** (item 5). A Home landing costs 132 kB gzip of MLB code against 67 to 82 kB
    for any other page, because the Predictor, Live Game Center and the report cards load with it
    rather than on use.

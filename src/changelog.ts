@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.117.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'Open MLB players, teams and games in a new tab',
+        full:  'Every MLB player, team and game you can tap is now a real link, on the leaderboards, the stats table, standings, the bracket, rosters, box scores and the scoreboard, so you can open one in a new tab or copy its address. It also lets search engines find every MLB page.',
+      },
+    ],
+  },
+  {
     version: '1.116.0',
     date:    '2026-10-02',
     changes: [
