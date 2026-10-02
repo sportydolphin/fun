@@ -1,4 +1,4 @@
-﻿import React, { memo, useEffect, useCallback, useRef, useState } from 'react'
+﻿import React, { memo, Suspense, useEffect, useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Box, Typography, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
@@ -10,14 +10,8 @@ import { requestDeepLink } from './mlb/state/deepLink'
 import type { DeepLink } from './mlb/state/deepLink'
 import { FinalGamesSection } from './mlb/views/FinalGames'
 import { GameRoute } from './mlb/views/GameRoute'
-import { TeamsView } from './mlb/views/TeamsView'
 import { SegControl } from './mlb/components/ui'
-import { Standings } from './mlb/views/Standings'
-import { VizView } from './mlb/views/VizView'
-import { LeaderboardView } from './mlb/views/LeaderboardView'
-import { StatsView } from './mlb/views/StatsView'
-import { SearchView } from './mlb/views/SearchView'
-import { HomeView } from './mlb/views/HomeView'
+import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
@@ -178,6 +172,13 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, toolbarSuggestions: [], recentSearches: [], handleSelectRecent: null, clearRecentSearches: null })
       setSearchQuery('')
     }
+  }, [])
+
+  // Warm every other view once this one has had the network to itself, on the same few-second
+  // footing as App.tsx's warming of the other section, so a later tab tap does not wait on a chunk.
+  useEffect(() => {
+    const t = window.setTimeout(preloadAllMlbViews, 4000)
+    return () => window.clearTimeout(t)
   }, [])
 
   // Tab changes, with how they happened. A pill tap marks itself; every other change of view is a
@@ -360,6 +361,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         </Box>
       )}
 
+      {/* No fallback: the screen-tall box above already holds the room, so a view whose chunk is
+          still on the wire leaves the tab bar and footer exactly where they will be. */}
+      <Suspense fallback={null}>
       {state.view === 'scores' && (
         <FinalGamesSection
           layout="page"
@@ -532,6 +536,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           teamRoster={state.teamRoster}
         />
       )}
+      </Suspense>
 
       {/* Game Center reached by its address, /mlb/games/<pk>, over whichever tab is up. */}
       <GameRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} />

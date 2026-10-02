@@ -133,7 +133,11 @@ goes first and the rest is winter work.
    bridge notified the app shell, and the shell re-rendered MlbStats through an inline prop. The
    bridge now skips no-op updates and MlbStats reads only the query from it; MlbStats and HomeView
    are memoized on stable props. Measured at 4x CPU on the dev build: team open 440 to 90ms, a
-   keystroke in search 144 to about 50ms median (production before). *Open:* lazy views.
+   keystroke in search 144 to about 50ms median (production before). *Done Oct 2 (v1.115.1), lazy views*
+   (`views/lazyViews.ts`): every MLB page shipped all eight views, 148 kB gzip of MLB code. Each
+   view is now its own chunk, fetched beside MlbStats rather than after it, and the rest are warmed
+   4s after landing. A landing now costs 67 to 82 kB, Home 132 kB. *Open:* Home is most of what is
+   left (Predictor, Live Game Center, report cards load with it, not on use).
 5b. ✅ **A postseason bracket** (Sep 28, `postseason.ts`, `views/PlayoffBracket.tsx`). Not in the
    original plan: MLB had no postseason surface at all, and October is the window. One read of
    `/schedule/postseason/series` gives all eleven series; the series ids fix the shape and every

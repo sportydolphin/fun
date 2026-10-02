@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.115.1',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'MLB pages load faster',
+        full:  'Each MLB page now downloads only what it needs to show, instead of the whole MLB section at once, so Scores, Standings, Stats and the team and player pages open noticeably sooner.',
+      },
+    ],
+  },
+  {
     version: '1.115.0',
     date:    '2026-10-02',
     changes: [

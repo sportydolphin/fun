@@ -10,6 +10,7 @@ import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { isMlbPath, MLB_PATH_EVENT } from './mlb/routes'
+import { preloadMlbViewFor } from './mlb/views/lazyViews'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { EraBasisProvider } from './wpbl/EraBasisContext'
@@ -42,8 +43,14 @@ import { ADMIN_EMAIL } from './lib/admin'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
-const loadMlb = () => import('./MlbStats')
-const MlbStats = lazy(loadMlb)
+// The view the address opens is fetched BESIDE the section, not after it: each MLB view is its
+// own chunk (mlb/views/lazyViews.ts), and waiting for MlbStats to ask for it would put a second
+// round trip in front of every cold load. A warm from the WPBL side lands on /mlb, so Home.
+const loadMlb = (path = window.location.pathname, search = window.location.search) => {
+  preloadMlbViewFor(path, search)
+  return import('./MlbStats')
+}
+const MlbStats = lazy(() => loadMlb())
 // WPBL — a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
 const loadWpbl = () => import('./wpbl/WpblApp')
@@ -64,7 +71,7 @@ const WpblApp = lazy(loadWpbl)
  *  Failures are swallowed on purpose: this is a prefetch, and the real import will report any
  *  problem properly when the reader actually goes there. */
 function preloadSection(path: string) {
-  const p = isWpblSection(path) ? loadMlb() : loadWpbl()
+  const p = isWpblSection(path) ? loadMlb('/mlb', '') : loadWpbl()
   p.catch(() => {})
 }
 // The flat players list at /wpbl/players. Its own chunk and its own route: it is a plain
