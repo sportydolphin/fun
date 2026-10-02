@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.114.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'A link for every MLB game',
+        full:  'Every MLB game now has an address of its own, like /mlb/games/849844, so you can share a box score or a preview and it opens that game. The game-start alert opens it the same way, for any game rather than only your team\'s.',
+      },
+    ],
+  },
+  {
     version: '1.113.0',
     date:    '2026-10-02',
     changes: [

@@ -13,6 +13,7 @@ import { TEAM_ABBR } from '../constants'
 import {
   MLB_VIEW_PATHS, MLB_CLUBS, MLB_STATIC_PATHS, mlbTeamPath, mlbPlayerPath, mlbPlayerIdFromPath,
   mlbTargetFromPath, mlbTargetFromUrl, mlbLegacyTarget, mlbUrlFor, isMlbPath,
+  mlbGamePath, mlbGamePkFromPath, mlbLegacyGamePk,
 } from '../routes'
 import { pushEntry } from '../state/sheetHistory'
 import { onRequestGet } from '../../../functions/mlb/index'
@@ -39,8 +40,21 @@ describe('reading an address', () => {
     expect(mlbPlayerPath({ id: 1, fullName: 'José Ramírez' })).toBe('/mlb/players/jose-ramirez-1')
   })
 
+  // A game is a sheet over Scores, which is what a cold landing on its address puts beneath it.
+  it('reads a game as Scores with the game over it', () => {
+    expect(mlbGamePath(849844)).toBe('/mlb/games/849844')
+    expect(mlbTargetFromPath('/mlb/games/849844')).toEqual({ view: 'scores', gamePk: 849844 })
+    expect(mlbTargetFromPath('/mlb/games/849844/')).toEqual({ view: 'scores', gamePk: 849844 })
+    // One URL per game: no leading zero, no slug, nothing below it.
+    for (const p of ['/mlb/games', '/mlb/games/0', '/mlb/games/0849844', '/mlb/games/phi-atl-849844', '/mlb/games/1/2', '/mlb/games/-1']) {
+      expect(mlbGamePkFromPath(p), p).toBeNull()
+    }
+    expect(mlbLegacyGamePk('?view=home&open=game&gamePk=849844')).toBe(849844)
+    expect(mlbLegacyGamePk('?open=predictor&gamePk=849844')).toBeNull()
+  })
+
   it('is null for anything that is not an MLB page, so the shell 404s it', () => {
-    for (const p of ['/mlb/nope', '/mlb/teams/expos', '/mlb/players', '/mlb/players/shohei', '/mlb/players/a/1', '/wpbl', '/mlbx']) {
+    for (const p of ['/mlb/nope', '/mlb/teams/expos', '/mlb/players', '/mlb/players/shohei', '/mlb/players/a/1', '/mlb/games', '/mlb/games/x', '/wpbl', '/mlbx']) {
       expect(isMlbPath(p), p).toBe(false)
     }
   })
@@ -93,8 +107,9 @@ describe('every page is routable in production', () => {
   })
 
   // The one wildcard, and it is only safe because the function below answers the 404s.
-  it('routes players by wildcard and nothing else under /mlb that way', () => {
+  it('routes players and games by wildcard and nothing else under /mlb that way', () => {
     expect(redirects).toMatch(/^\/mlb\/players\/\*\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/mlb\/games\/\*\s+\/\s+200\s*$/m)
     expect(redirects).not.toMatch(/^\/mlb\/\*/m)
     expect(redirects).not.toMatch(/^\/mlb\/teams\/\*/m)
   })
@@ -112,8 +127,9 @@ describe('every page is discoverable and distinct', () => {
   })
 
   // Thousands of thin pages built from a public feed would bury the site's own. See build-sitemap.ts.
-  it('keeps player pages out of the sitemap', () => {
+  it('keeps player and game pages out of the sitemap', () => {
     expect(sitemap).not.toContain('/mlb/players/')
+    expect(sitemap).not.toContain('/mlb/games/')
   })
 
   it('has tags of its own in seo.ts', () => {
@@ -136,9 +152,9 @@ describe('the edge function', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
   it('301s the old query spelling, keeping the rest of the query', async () => {
-    const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb?view=home&open=game&gamePk=7'))
+    const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb?view=home&open=predictor'))
     expect(res.status).toBe(301)
-    expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb?open=game&gamePk=7')
+    expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb?open=predictor')
     const lb = await onRequestGet(ctx('https://sportydolphin.fun/mlb?view=leaderboard&lb=pitching'))
     expect(lb.headers.get('location')).toBe('https://sportydolphin.fun/mlb/leaders?lb=pitching')
     const team = await onRequestGet(ctx('https://sportydolphin.fun/mlb?tid=138'))
@@ -172,6 +188,42 @@ describe('the edge function', () => {
   it('serves the page when StatsAPI cannot be asked, rather than 404 a real player', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'))
     const c = ctx('https://sportydolphin.fun/mlb/players/shohei-ohtani-660271')
+    await onRequestGet(c)
+    expect(c.next).toHaveBeenCalled()
+  })
+
+  // Every game-start push before Oct 2026 carried this, and some are still on lock screens.
+  it('301s the old game link onto the game', async () => {
+    const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb?view=home&open=game&gamePk=849844'))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/games/849844')
+  })
+
+  const schedule = (games: { gamePk: number; gameType: string }[]) =>
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ dates: games.length ? [{ games }] : [] })))
+
+  it('serves a game the scoreboard shows', async () => {
+    schedule([{ gamePk: 849844, gameType: 'F' }])
+    const c = ctx('https://sportydolphin.fun/mlb/games/849844')
+    await onRequestGet(c)
+    expect(c.next).toHaveBeenCalled()
+  })
+
+  it('404s a game that does not exist, or that the scoreboard would not show', async () => {
+    expect((await onRequestGet(ctx('https://sportydolphin.fun/mlb/games/nope'))).status).toBe(404)
+    schedule([])
+    expect((await onRequestGet(ctx('https://sportydolphin.fun/mlb/games/1'))).status).toBe(404)
+    vi.restoreAllMocks()
+    schedule([{ gamePk: 2, gameType: 'S' }])
+    expect((await onRequestGet(ctx('https://sportydolphin.fun/mlb/games/2'))).status).toBe(404)
+  })
+
+  it('folds the trailing slash, and serves the game when StatsAPI cannot be asked', async () => {
+    const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/games/849844/'))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/games/849844')
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'))
+    const c = ctx('https://sportydolphin.fun/mlb/games/849844')
     await onRequestGet(c)
     expect(c.next).toHaveBeenCalled()
   })

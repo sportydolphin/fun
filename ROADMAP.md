@@ -102,8 +102,16 @@ goes first and the rest is winter work.
    address, which also fixes the stale-build reload landing back on the page being left. Found on
    the way: a tab left the player selected behind it, so its history entry (and, under the old
    query, the `pid=` in the address) went on naming the player; a tab now clears the selection.
-   *Open:* `/mlb/games/<pk>`, since Game Center is still a sheet reached by `open=game`; and
-   `useMlbState` reads the address but is not yet driven by it.
+   *Done Oct 2 (v1.114.0), `/mlb/games/<pk>`.* Game Center and the preview stay sheets; the
+   address belongs to the sheet's history entry (`mlbSheetUrl`, `state/sheetHistory.ts`), so it is
+   in the bar exactly while the sheet is up and Back takes it away. `views/GameRoute.tsx` opens
+   one from an address (cold, the bell, Forward, the old `?open=game`), seating Scores beneath a
+   cold landing so Back cannot land on the same address and reopen it. Each game titles itself
+   with its clubs, score and date (`state/gameSeo.ts`). The edge 404s a pk that is no game the
+   scoreboard shows and 301s the old `open=game` push links; games stay out of the sitemap, as
+   players do. The game-start push now opens any game, where the team card used to drop one
+   that was not the followed club's. *Open:* `useMlbState` reads the address but is not yet
+   driven by it.
    *Done Oct 2 (v1.113.0), Regular / Playoffs / All* on the Leaders and Table boards
    (`lib/gameScope.ts`, `games=` on the address). StatsAPI serves the postseason as `gameType=P`
    and has no combined pool, so All is summed per player with every rate rebuilt from its counts.

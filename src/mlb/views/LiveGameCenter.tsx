@@ -4,6 +4,8 @@ import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
+import { useGameSeo } from '../state/gameSeo'
+import { mlbGamePath } from '../routes'
 import { FinalGameSummary } from './FinalGames'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import {
@@ -640,8 +642,9 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
   initialTab?:    'plays' | 'box'
 }) {
   // Every way out (the close button, Escape, the backdrop, a drag down, Back) goes through this,
-  // so Back closes the sheet instead of leaving the section. See sheetHistory.ts.
-  const close = useSheetHistory(onClose)
+  // so Back closes the sheet instead of leaving the section. The sheet's entry carries the game's
+  // own address, which is the page a shared link or a search result opens. See sheetHistory.ts.
+  const close = useSheetHistory(onClose, mlbGamePath(game.gamePk))
   const [data,        setData]        = useState<GameCenterData | null>(null)
   const [wp,          setWp]          = useState<WpPoint[]>([])
   const [loading,     setLoading]     = useState(true)
@@ -666,6 +669,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
   const away       = data?.away ?? { teamId: game.away.teamId, abbr: game.away.abbr, runs: game.away.runs }
   const home       = data?.home ?? { teamId: game.home.teamId, abbr: game.home.abbr, runs: game.home.runs }
   const hasScoring = Boolean(data?.plays.some(p => p.isScoring))
+  useGameSeo({ ...game, state: data?.state ?? game.state, away, home })
 
   const selectPlayer = onPlayerClick ? (id: number) => { onPlayerClick(id); onClose() } : undefined
 

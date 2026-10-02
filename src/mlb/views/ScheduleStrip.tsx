@@ -7,7 +7,6 @@ import { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
 import { GameCenterModal } from './LiveGameCenter'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
-import { useDeepLink } from '../state/deepLink'
 import { LiveGameCard } from '../components/LiveGameCard'
 import {
   chipDate, relativeChipDate, shortName, formatIP, COMPACT_ROW_MAX,
@@ -746,26 +745,6 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       setModalGame(o.game)
     }
   }, [])
-
-  // A "game starting soon" notification names a gamePk; open that game here.
-  // Held until the schedule has loaded, since we need the game to open it.
-  const [pendingGamePk, setPendingGamePk] = useState<number | null>(null)
-  useDeepLink('game', link => setPendingGamePk(link.gamePk))
-  useEffect(() => {
-    if (pendingGamePk === null) return
-    const g = games.find(x => x.gamePk === pendingGamePk)
-    if (!g) {
-      // Not this team's game (the user switched teams since the reminder fired) —
-      // drop it rather than leaving it queued to fire at some unrelated moment.
-      if (games.length) setPendingGamePk(null)
-      return
-    }
-    // First pitch may have arrived between the reminder and the click, so pick the
-    // modal that matches where the game actually is now.
-    if (g.state === 'preview' || g.state === 'postponed') setModalGame(g)
-    else setBoxScoreGame(gameToFinalSummary(g, teamId))
-    setPendingGamePk(null)
-  }, [pendingGamePk, games, teamId])
 
   useEffect(() => {
     setLoading(true)

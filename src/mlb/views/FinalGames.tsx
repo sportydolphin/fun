@@ -190,6 +190,22 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
   } catch { return [] }
 }
 
+/** One game by its pk, in the shape the scoreboard opens it with, for a game reached by its
+ *  address rather than from a scoreboard (state/GameRoute.tsx). Null for no such game, or one the
+ *  scoreboard would not show (spring training, an exhibition). Never cached: it may be live. */
+export async function fetchGameSummary(gamePk: number): Promise<FinalGameSummary | null> {
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=${gamePk}` +
+      `&hydrate=linescore,decisions`
+    )
+    if (!r.ok) return null
+    const d = await r.json()
+    const dateObj = d.dates?.[0]
+    return dateObj ? parseScheduleDateGames(dateObj).find(g => g.gamePk === gamePk) ?? null : null
+  } catch { return null }
+}
+
 // Fetches a whole date range in one request and primes gamesCache with every
 // date in it (again skipping "today", for the same live-score reason as
 // above) — this is what lets date-nav resolve the target date's games from

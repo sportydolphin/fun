@@ -9,6 +9,8 @@ import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
+import { useGameSeo } from '../state/gameSeo'
+import { mlbGamePath } from '../routes'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, SectionLabel } from '../components/boxScore'
 
@@ -301,8 +303,10 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   onPrev?: () => void
   onNext?: () => void
 }) {
-  // Back closes the sheet rather than leaving the section; see sheetHistory.ts.
-  const close = useSheetHistory(onClose)
+  // Back closes the sheet rather than leaving the section; see sheetHistory.ts. The entry carries
+  // the game's address, and follows the ‹ › arrows from one game to the next.
+  const close = useSheetHistory(onClose, mlbGamePath(game.gamePk))
+  useGameSeo({ ...game, state: 'preview' })
   // Tag the loaded data with the game it belongs to. When `game` switches (‹ › nav) the
   // tag no longer matches, so `loading` flips true immediately — the skeleton shows in the
   // very first frame instead of briefly re-showing the previous game's pitchers.

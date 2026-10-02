@@ -18,13 +18,34 @@
 // over it (pushEntry), so Back from that player lands where the sheet was opened, not on a copy of
 // it. And a sheet that mounts on an entry already marked for its depth (React's development
 // double-mount, a Forward onto the entry) adopts it rather than pushing a second one.
+//
+// A SHEET CAN HAVE AN ADDRESS OF ITS OWN (Oct 2026): Game Center is `/mlb/games/<pk>`. The entry is
+// pushed at that URL and remembers it as `mlbSheetUrl`, which is what tells useMlbState's URL sync
+// to leave the bar alone while the entry is on top. Without it the sync restamps the entry with the
+// page underneath, and the game's address lasts one render. Back pops it like any other sheet.
 
 import { useEffect, useRef, useCallback } from 'react'
+import { MLB_PATH_EVENT } from '../routes'
 
 let openSheets = 0
+// The addresses of the sheets that are up, counted, since the same game can be open twice for a
+// frame (a sheet closing as another opens). GameRoute asks before opening one of its own.
+const openUrls = new Map<string, number>()
+const holdUrl = (url: string, by: 1 | -1) => {
+  const n = (openUrls.get(url) ?? 0) + by
+  if (n > 0) openUrls.set(url, n)
+  else openUrls.delete(url)
+}
 
 /** True while any MLB sheet is open. */
 export const sheetOpen = (): boolean => openSheets > 0
+
+/** True while a sheet with this address is open. */
+export const sheetOpenAt = (url: string): boolean => (openUrls.get(url) ?? 0) > 0
+
+/** How many sheets are open, so an entry seated ahead of its sheet (GameRoute) carries the depth
+ *  the sheet will take when it mounts and adopts it. */
+export const openSheetCount = (): number => openSheets
 
 /** Whether the entry on top is a sheet's own. */
 export const onSheetEntry = (): boolean =>
@@ -48,38 +69,86 @@ export function pushEntry(state: Record<string, unknown>, url: string = window.l
   else window.history.pushState(state, '', url)
 }
 
-/** Carry the sheet marker through a replaceState, so restamping an entry does not unmark it. */
+/** Carry the sheet marker, and the sheet's own address if it has one, through a replaceState, so
+ *  restamping an entry does not unmark it. */
 export function keepSheetMarker<T extends Record<string, unknown>>(state: T): T {
-  const marker = (window.history.state as Record<string, unknown> | null)?.mlbSheet
-  return marker == null ? state : { ...state, mlbSheet: marker }
+  const st = window.history.state as Record<string, unknown> | null
+  const marker = st?.mlbSheet
+  if (marker == null) return state
+  return typeof st?.mlbSheetUrl === 'string' ? { ...state, mlbSheet: marker, mlbSheetUrl: st.mlbSheetUrl } : { ...state, mlbSheet: marker }
+}
+
+/** The address of the sheet whose entry is on top, when it has one of its own. */
+export function sheetEntryUrl(): string | null {
+  const st = window.history.state as Record<string, unknown> | null
+  return st?.mlbSheet != null && typeof st.mlbSheetUrl === 'string' ? st.mlbSheetUrl : null
 }
 
 /**
  * Register a sheet with the browser history for as long as it is mounted. Returns the function
  * every close path should call instead of `onClose`.
+ *
+ * `url` gives the sheet an address of its own (see the top of the file). It may change while the
+ * sheet is up (the preview's ‹ › arrows step to another game), and the entry follows it.
  */
-export function useSheetHistory(onClose: () => void): () => void {
+export function useSheetHistory(onClose: () => void, url?: string): () => void {
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const depthRef = useRef(0)
+  const urlRef = useRef(url)
 
   useEffect(() => {
     openSheets += 1
     const depth = openSheets
     depthRef.current = depth
+    const own = urlRef.current
     const st = (window.history.state ?? {}) as Record<string, unknown>
-    if (st.mlbSheet !== depth) window.history.pushState({ ...st, mlbSheet: depth }, '', window.location.href)
+    if (st.mlbSheet === depth && (!own || st.mlbSheetUrl === own)) {
+      // Adopted as it stands: a double-mount, or an entry seated for this sheet.
+    } else if (own && st.mlbSheetUrl === own) {
+      // Forward onto a game that was opened deeper in a stack nobody has rebuilt: take the entry
+      // at the depth this sheet really has, or Back would find a marker it does not expect.
+      window.history.replaceState({ ...st, mlbSheet: depth }, '', own)
+    } else {
+      // A sheet without an address opened over one with an address inherits it along with the
+      // rest of the entry, since the bar still shows it.
+      const next: Record<string, unknown> = { ...st, mlbSheet: depth }
+      if (own) next.mlbSheetUrl = own
+      window.history.pushState(next, '', own ?? window.location.href)
+    }
+    if (own) {
+      holdUrl(own, 1)
+      // A pushState fires no popstate, so the shell would keep the page's title under the sheet.
+      window.dispatchEvent(new Event(MLB_PATH_EVENT))
+    }
 
     const onPop = () => {
       const now = Number((window.history.state as Record<string, unknown> | null)?.mlbSheet ?? 0)
-      if (now < depth) onCloseRef.current()
+      // A sheet with an address also closes on landing anywhere that is not that address: an entry
+      // renumbered above can sit at the same depth as the sheet it was opened over.
+      const left = urlRef.current != null && window.location.pathname !== urlRef.current
+      if (now < depth || left) onCloseRef.current()
     }
     window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener('popstate', onPop)
       openSheets = Math.max(0, openSheets - 1)
+      if (urlRef.current) holdUrl(urlRef.current, -1)
     }
   }, [])
+
+  // Follow a change of address in place: the same sheet, showing another game.
+  useEffect(() => {
+    const prev = urlRef.current
+    if (url === prev) return
+    urlRef.current = url
+    if (prev) holdUrl(prev, -1)
+    if (url) holdUrl(url, 1)
+    const st = window.history.state as Record<string, unknown> | null
+    if (!url || st?.mlbSheet !== depthRef.current) return
+    window.history.replaceState({ ...st, mlbSheetUrl: url }, '', url)
+    window.dispatchEvent(new Event(MLB_PATH_EVENT))
+  }, [url])
 
   return useCallback(() => {
     const now = (window.history.state as Record<string, unknown> | null)?.mlbSheet

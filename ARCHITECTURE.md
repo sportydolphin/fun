@@ -98,7 +98,7 @@ Client-side routing in [`src/App.tsx`](src/App.tsx) (no framework router; matche
 ```mermaid
 flowchart LR
     subgraph Main["Main sections (lazy chunks)"]
-        mlb["/mlb + /mlb/{scores,standings,leaders,stats,charts,teams}<br/>+ /mlb/teams/&lt;club&gt; + /mlb/players/&lt;name&gt;-&lt;id&gt;<br/>MlbStats.tsx"]
+        mlb["/mlb + /mlb/{scores,standings,leaders,stats,charts,teams}<br/>+ /mlb/teams/&lt;club&gt; + /mlb/players/&lt;name&gt;-&lt;id&gt;<br/>+ /mlb/games/&lt;pk&gt;<br/>MlbStats.tsx"]
         wpbl["/wpbl + /wpbl/{schedule,standings,stats,teams}<br/>wpbl/WpblApp.tsx"]
         wplayers["/wpbl/players<br/>+ /wpbl/players/&lt;slug&gt;"]
         wleague["/wpbl/league<br/>LeaguePage.tsx (About the league)"]
@@ -158,10 +158,14 @@ flowchart LR
   them together because three of the four failures are invisible under `npm run dev`.
 - **MLB URLs are paths too** since Oct 2, 2026 ([`src/mlb/routes.ts`](src/mlb/routes.ts)): a tab
   per path, a club per `/mlb/teams/<nickname>`, a player per `/mlb/players/<name>-<id>` (the id
-  decides; the name is cosmetic and the edge 301s a stale one). The shell asks `isMlbPath`, the
+  decides; the name is cosmetic and the edge 301s a stale one), and a game per `/mlb/games/<pk>`,
+  which is the address of Game Center's SHEET rather than a page: it rides on the sheet's history
+  entry (`src/mlb/state/sheetHistory.ts`) and `src/mlb/views/GameRoute.tsx` opens the sheet over
+  Scores when the address is reached directly. The shell asks `isMlbPath`, the
   section reads and writes the address in `useMlbState` and fires `MLB_PATH_EVENT` so the shell's
   path (and so `seo.ts`) follows. [`functions/mlb/`](functions/mlb/index.ts) 301s the old
-  `/mlb?view=` / `?pid=` / `?tid=` forms and 404s a player URL that names nobody.
+  `/mlb?view=` / `?pid=` / `?tid=` / `?open=game` forms and 404s a player or game URL that names
+  nothing.
   [`src/mlb/__tests__/routes.test.ts`](src/mlb/__tests__/routes.test.ts) pins the tabs and clubs
   to `_redirects`, the sitemap and `seo.ts`.
 - **Comparison pages** (`/wpbl/compare`, [`src/wpbl/Compare.tsx`](src/wpbl/Compare.tsx) +

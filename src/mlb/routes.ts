@@ -25,6 +25,7 @@ export const isMlbView = (v: unknown): v is MlbView => typeof v === 'string' && 
 export const MLB_BASE = '/mlb'
 export const MLB_TEAMS_BASE = '/mlb/teams'
 export const MLB_PLAYERS_BASE = '/mlb/players'
+export const MLB_GAMES_BASE = '/mlb/games'
 
 /** The path of every view that IS a page. 'search' is not: it is a player or a team, which have
  *  paths of their own below. The three Stats boards get flat names rather than /mlb/stats/…,
@@ -128,10 +129,42 @@ export function mlbPlayerIdFromPath(pathname: string): number | null {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
+// ─── Games ────────────────────────────────────────────────────────────────────
+//
+// /mlb/games/<gamePk>: Game Center (or, before first pitch, the matchup preview), which is a SHEET
+// over a page rather than a page of its own. The address belongs to the sheet's history entry
+// (state/sheetHistory.ts), so it is in the bar exactly while the sheet is up and Back takes it
+// away with the sheet. Landed on cold, the page under it is Scores (state/GameRoute.tsx).
+//
+// THE PK ALONE, with no matchup in the slug. A game's clubs and date are fixed, but a postseason
+// game is published before its clubs are known ("HOU/CWS"), so a slug written then would be wrong
+// by the time anyone shared it, and the id is what StatsAPI resolves on anyway.
+
+export function mlbGamePath(gamePk: number): string {
+  return `${MLB_GAMES_BASE}/${gamePk}`
+}
+
+/** The gamePk a game path names, or null. Digits only, no leading zero, so each game is one URL. */
+export function mlbGamePkFromPath(pathname: string): number | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${MLB_GAMES_BASE}/`)) return null
+  const m = /^[1-9]\d{0,9}$/.exec(p.slice(MLB_GAMES_BASE.length + 1))
+  return m ? Number(m[0]) : null
+}
+
+/** The gamePk of a pre-Oct 2026 game link, `/mlb?open=game&gamePk=…`, which every game-start push
+ *  carried and some still sit on phones and in the bell's store. Null when the query is not one. */
+export function mlbLegacyGamePk(search: string): number | null {
+  const params = new URLSearchParams(search)
+  if (params.get('open') !== 'game') return null
+  const pk = Number(params.get('gamePk'))
+  return Number.isInteger(pk) && pk > 0 ? pk : null
+}
+
 // ─── Reading an address ───────────────────────────────────────────────────────
 
-/** What a URL asks the section to show. */
-export interface MlbTarget { view: MlbView; playerId?: number; teamId?: number }
+/** What a URL asks the section to show. `gamePk` is a game sheet over that view. */
+export interface MlbTarget { view: MlbView; playerId?: number; teamId?: number; gamePk?: number }
 
 /** The target a pathname names, or null if it is not an MLB page at all. Null rather than a
  *  fallback to Home so the shell can tell an MLB page from a typo under /mlb, which 404s. */
@@ -145,6 +178,8 @@ export function mlbTargetFromPath(pathname: string): MlbTarget | null {
     const club = MLB_CLUBS.find(c => c.slug === slug)
     return club ? { view: 'search', teamId: club.id } : null
   }
+  const gamePk = mlbGamePkFromPath(p)
+  if (gamePk) return { view: 'scores', gamePk }
   const playerId = mlbPlayerIdFromPath(p)
   return playerId ? { view: 'search', playerId } : null
 }
@@ -176,6 +211,8 @@ export function mlbTargetFromUrl(pathname: string, search: string): MlbTarget | 
 /** The query names the legacy form spends, which the new paths make redundant. Everything else
  *  on a query (`open=`, `gamePk=`, `lb=`, `season=`) is carried through a redirect untouched. */
 export const MLB_LEGACY_PARAMS = ['view', 'pid', 'tid'] as const
+/** The same for a legacy game link, whose whole meaning moves into the path. */
+export const MLB_LEGACY_GAME_PARAMS = ['view', 'pid', 'tid', 'open', 'gamePk'] as const
 
 // ─── Writing an address ───────────────────────────────────────────────────────
 

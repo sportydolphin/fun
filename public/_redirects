@@ -191,6 +191,9 @@
 # that names no player BEFORE this rule is reached, and 301s a stale name onto the current one.
 # There is no /mlb/players index, so the bare directory is not routed and 404s.
 /mlb/players/*   /  200
+# The same arrangement for games, every gamePk StatsAPI has: the function 404s a pk that names no
+# game the scoreboard shows, and folds the trailing slash. No /mlb/games index either.
+/mlb/games/*     /  200
 /privacy       /  200
 /terms         /  200
 /delete-account /  200

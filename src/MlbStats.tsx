@@ -10,6 +10,7 @@ import { hoverOnly } from './ui/interaction'
 import { requestDeepLink } from './mlb/state/deepLink'
 import type { DeepLink } from './mlb/state/deepLink'
 import { FinalGamesSection } from './mlb/views/FinalGames'
+import { GameRoute } from './mlb/views/GameRoute'
 import { TeamsView } from './mlb/views/TeamsView'
 import { SegControl } from './mlb/components/ui'
 import { Standings } from './mlb/views/Standings'
@@ -501,6 +502,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           teamRoster={state.teamRoster}
         />
       )}
+
+      {/* Game Center reached by its address, /mlb/games/<pk>, over whichever tab is up. */}
+      <GameRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} />
 
       </Box>
 

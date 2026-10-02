@@ -32,7 +32,7 @@ import {
 import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
 import { careerSpan } from '../lib/utils'
 import { track, EVENTS } from '../../lib/analytics'
-import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry } from './sheetHistory'
+import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
 import { mlbTargetFromUrl, mlbUrlFor, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot } from '../routes'
 import { isGameScope } from '../lib/gameScope'
@@ -700,7 +700,11 @@ export function useMlbState() {
    *  snapshot alone, so a notification's `open=` goes too: deepLink.ts has already read it at
    *  module load, and left in place it would reopen a board the reader has since closed. */
   const writeAddress = (state: Record<string, any>, snap: MlbSnapshot) => {
-    window.history.replaceState(state, '', mlbUrlFor(snap, CURRENT_SEASON))
+    // A sheet with an address of its own (Game Center) keeps it, and its marker, while its entry is
+    // on top: the snapshot describes the page under the sheet, which is what Back restores. The
+    // marker is kept HERE rather than by each caller because a cold landing on /mlb/games/<pk> seats
+    // the sheet's entry before the first-render stamp below runs, and that stamp used to drop it.
+    window.history.replaceState(keepSheetMarker(state), '', sheetEntryUrl() ?? mlbUrlFor(snap, CURRENT_SEASON))
     // EVERY time, not only when this call moved the path. A tap pushes its destination's address
     // before the view changes (pushEntry), so by the time this runs the path is already right and
     // only the shell is behind; skip the event then and the tab keeps the previous page's title.

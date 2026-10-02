@@ -7,7 +7,7 @@
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
 import { WPBL_RULES } from './wpbl/glossary'
-import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS } from './mlb/routes'
+import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, mlbGamePkFromPath } from './mlb/routes'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -305,6 +305,17 @@ export function setDynamicSeo(next: { path: string; seo: Seo } | null) {
   subscribers.forEach(fn => fn())
 }
 
+/** What is registered now, so a sheet titling itself over a page can put the page's tags back. */
+export const getDynamicSeo = (): { path: string; seo: Seo } | null => dynamicSeo
+
+// An MLB game before its sheet has the clubs to title it with (mlb/state/gameSeo.ts), and for a
+// crawler that reads the tags before the fetch lands. Better than the site default, which is about
+// both leagues and names neither game nor club.
+const MLB_GAME_SEO: Seo = {
+  title: 'MLB Game Center: box score, play-by-play and win probability | sportydolphin.fun',
+  description: 'An MLB game: the box score, every play, the line score and the win probability, live or final.',
+}
+
 function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`)
   if (!el) {
@@ -338,7 +349,8 @@ export function useSeo(path: string) {
 
   useEffect(() => {
     const base = path.split('?')[0].replace(/\/+$/, '') || '/'
-    const seo = (dynamicSeo?.path === base ? dynamicSeo.seo : null) ?? ROUTES[base] ?? DEFAULT
+    const seo = (dynamicSeo?.path === base ? dynamicSeo.seo : null) ?? ROUTES[base]
+      ?? (mlbGamePkFromPath(base) ? MLB_GAME_SEO : null) ?? DEFAULT
     const url = `${SITE}${base === '/' ? '/wpbl' : base}`
     // The canonical is the route's own URL unless it names another to consolidate onto (the
     // comparison's alphabetical spelling). og:url follows the canonical, which is the whole point

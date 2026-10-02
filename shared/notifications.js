@@ -140,8 +140,9 @@ export function buildGameStart({ gamePk, teamName, matchup, minutesToStart }) {
       ? `${matchup}. First pitch is now.`
       : `${matchup}. First pitch in ${mins} min.`,
     // Opens this game's matchup card (or the Game Center once it's underway)
-    // rather than dropping the user on Home to hunt for it.
-    url:   gamePk ? `/mlb?view=home&open=game&gamePk=${gamePk}` : meta.defaultUrl,
+    // rather than dropping the user on Home to hunt for it. The game's own address since Oct 2026;
+    // the old `/mlb?open=game&gamePk=` still works (functions/mlb 301s it, GameRoute reads it).
+    url:   gamePk ? `/mlb/games/${gamePk}` : meta.defaultUrl,
   }
 }
 
