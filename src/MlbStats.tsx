@@ -20,6 +20,10 @@ import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
 import { MlbPageH1 } from './mlb/components/PageHeading'
+import SwipeableViews from './ui/SwipeableViews'
+import { useSwipeNav } from './AccessibilityContext'
+import { AppErrorBoundary } from './AppErrorBoundary'
+import { PanelActiveContext } from './lib/panelActive'
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 //
@@ -102,6 +106,11 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // the bar and the section's own footer must switch at exactly the same width.
   const isDesktop = useMediaQuery('(min-width: 600px)', { noSsr: true })
   const bottomNav = !isDesktop
+  // Whether the tabs are a finger-driven pager, by the same two tests SwipeableViews makes: a phone,
+  // and the reader not having turned swiping off. When it is, the pager owns each tab's scroll.
+  const isMobileView = useMediaQuery('(max-width:600px)')
+  const swipeNav = useSwipeNav()
+  const pagerOn = isMobileView && swipeNav
   const canHover = useMediaQuery('(hover: hover)')
   // The query alone. This section PUBLISHES the rest of the bridge, so subscribing to all of it
   // re-rendered the section on its own every publish.
@@ -197,7 +206,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // choose one and are not counted (the same rule as wpbl_tab_viewed). Landing on the section is
   // not a tab change either. And a link into 'search' is a player or team opening, already
   // counted with its source by mlb_player_opened / mlb_team_opened, so it is not counted twice.
-  const tabVia = useRef<'pill' | 'back' | null>(null)
+  const tabVia = useRef<'pill' | 'swipe' | 'back' | null>(null)
   const prevView = useRef(state.view)
   useEffect(() => {
     // Cleared once the pop has settled: a Back that lands on the same view (player to player)
@@ -232,21 +241,25 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // Every deliberate move to another view: a fresh start (never let a stale Home modal reopen
   // from a prior Back-restore path, see homeOverlay), a history entry, and the tab event's `via`.
-  const go = useCallback((v: MlbView, via: 'pill' | 'link' = 'pill') => {
+  const go = useCallback((v: MlbView, via: 'pill' | 'swipe' | 'link' = 'pill') => {
     clearHomeOverlay()
-    if (via === 'pill') tabVia.current = 'pill'
+    if (via !== 'link') tabVia.current = via
     state.stampCurrentEntry()
     // The destination's own address, not the current one: see pushEntry in sheetHistory.ts.
     window.history.pushState({ view: v }, '', viewHref(v))
+    // On a phone the pager returns each tab to where the reader left it, so a move from one tab to
+    // another leaves the scroll to it. Everything else (a desktop, a board within Stats, a page that
+    // is no tab) starts the destination at its top.
+    const pagerScrolls = pagerOn && state.view !== 'search' && v !== 'search' && navKeyFor(v) !== navKeyFor(state.view)
     if (v !== 'search') state.clearSelection()
     state.setView(v)
-    requestAnimationFrame(() => window.scrollTo({ top: 0 }))
-  }, [state.stampCurrentEntry, state.setView, state.clearSelection]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!pagerScrolls) requestAnimationFrame(() => window.scrollTo({ top: 0 }))
+  }, [state.stampCurrentEntry, state.setView, state.clearSelection, state.view, pagerOn]) // eslint-disable-line react-hooks/exhaustive-deps
   const tabView = (k: NavKey): MlbView => k === 'stats' ? lastBoard.current : k
-  const goTab = (k: NavKey) => {
+  const goTab = (k: NavKey, via: 'pill' | 'swipe' = 'pill') => {
     const target = tabView(k)
     if (target === state.view) return
-    go(target)
+    go(target, via)
   }
 
   const [moreOpen, setMoreOpen] = useState(false)
@@ -285,7 +298,130 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
   const containerMaxWidth = state.view === 'home' ? { xs: 640, md: HOME_W } : { xs: 640, md: PAGE_W }
-  const onStatsTab = activeTab === 'stats' && state.view !== 'search'
+  const onSearch = state.view === 'search'
+  const tabIndex = NAV.findIndex(n => n.key === activeTab)
+  // The pager mounts with the first tab the reader is shown, and stays mounted from then on.
+  const pagerMounted = useRef(false)
+  if (!onSearch) pagerMounted.current = true
+
+  // On a phone the site footer ends each page, inside it, so it slides with its tab rather than
+  // reflowing under a swipe; the column is floored to the screen less the bar, so on a short page
+  // the footer comes to rest just above the bar rather than under it. The same arrangement as WPBL.
+  const withFooter = (content: ReactNode): ReactNode => {
+    if (!bottomNav || !renderFooter) return content
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column',
+        minHeight: `calc(100dvh - 24px - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px))` }}>
+        {content}
+        <Box sx={{ mt: 'auto', pt: 4 }}>{renderFooter()}</Box>
+      </Box>
+    )
+  }
+
+  const tabContent = (k: NavKey): ReactNode => {
+    switch (k) {
+      case 'home': return (
+        <HomeView
+          allTeams={state.allTeams}
+          followedTeamId={state.followedTeamId}
+          onFollowTeam={homeFollowTeam}
+          onUnfollowTeam={homeUnfollowTeam}
+          followedPlayerIds={state.followedPlayerIds}
+          onFollowPlayer={homeFollowPlayer}
+          onUnfollowPlayer={homeUnfollowPlayer}
+          onPlayerClick={homePlayerClick}
+          onTeamClick={homeTeamClick}
+          onViz={openReportCards}
+        />
+      )
+      case 'scores': return (
+        <FinalGamesSection
+          layout="page"
+          followedTeamId={state.followedTeamId}
+          onPlayerClick={state.handleFollowedPlayerClick}
+          onTeamClick={state.handleTeamSearchClick}
+        />
+      )
+      case 'standings': return (
+        <Standings season={state.season} onTeamClick={state.handleVizNavigate} highlightTeamId={state.followedTeamId} />
+      )
+      case 'teams': return (
+        <TeamsView followedTeamId={state.followedTeamId} onTeamClick={id => state.handleTeamSearchClick(id)} />
+      )
+      case 'stats': {
+        // The board last open, which is the one on screen whenever this tab is.
+        const board = lastBoard.current
+        return (
+          <>
+            <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
+              <SegControl
+                options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
+                value={board}
+                onChange={v => go(v as MlbView)}
+              />
+            </Box>
+            {board === 'viz' && (
+              <VizView
+                vizSeason={state.vizSeason}
+                setVizSeason={state.setVizSeason}
+                teamSummaries={state.teamSummaries}
+                loadingViz={state.loadingViz}
+                nameMap={state.nameMap}
+                handleVizNavigate={state.handleVizNavigate}
+                handleLbPlayerClick={state.handleLbPlayerClick}
+                canHover={canHover}
+                defaultTab={state.vizDefaultTab}
+              />
+            )}
+            {board === 'leaderboard' && (
+              <LeaderboardView
+                lbGroup={state.lbGroup}
+                setLbGroup={state.setLbGroup}
+                vizSeason={state.vizSeason}
+                setVizSeason={state.setVizSeason}
+                gameScope={state.lbGameScope}
+                setGameScope={state.setLbGameScope}
+                lbData={state.lbData}
+                loadingLb={state.loadingLb}
+                lbSelectedKeys={state.lbSelectedKeys}
+                setLbSelectedKeys={state.setLbSelectedKeys}
+                isDesktop={isDesktop}
+                canHover={canHover}
+                handleLbPlayerClick={state.handleLbPlayerClick}
+                onOpenStats={state.openStatsBoard}
+              />
+            )}
+            {board === 'stats' && (
+              <StatsView
+                lbGroup={state.lbGroup}
+                setLbGroup={state.setLbGroup}
+                vizSeason={state.vizSeason}
+                setVizSeason={state.setVizSeason}
+                allTime={state.statsAllTime}
+                setAllTime={state.setStatsAllTime}
+                gameScope={state.lbGameScope}
+                setGameScope={state.setLbGameScope}
+                lbData={state.lbData}
+                lbFullscreen={state.lbFullscreen}
+                setLbFullscreen={state.setLbFullscreen}
+                lbStatsLimit={state.lbStatsLimit}
+                setLbStatsLimit={state.setLbStatsLimit}
+                lbQualified={state.lbQualified}
+                setLbQualified={state.setLbQualified}
+                isDesktop={isDesktop}
+                canHover={canHover}
+                handleLbPlayerClick={state.handleLbPlayerClick}
+                highlightPlayerId={state.statsHighlightPlayerId}
+                highlightStatKey={state.statsHighlightStatKey}
+                setHighlightPlayerId={state.setStatsHighlightPlayerId}
+                setHighlightStatKey={state.setStatsHighlightStatKey}
+              />
+            )}
+          </>
+        )
+      }
+    }
+  }
 
   return (
     // Scaled up on a desktop by the root's --app-type / --app-chrome (styles.css), as WPBL is.
@@ -355,208 +491,133 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         </Box>
       )}
 
-      {/* THE TAB'S CONTENT, AT LEAST A SCREEN TALL. On a phone the site footer renders right after
-          it (below), so while a tab is still loading the footer sat just under a few lines of
+      {/* THE TAB'S CONTENT, AT LEAST A SCREEN TALL. On a phone the site footer renders inside it
+          (withFooter), so while a tab is still loading the footer sat just under a few lines of
           placeholder and was shoved off the screen as the content arrived: 0.14 of layout shift on
           the Leaders board, the most visited MLB tab. Holding the content a screen tall keeps the
           footer below the fold from the first paint. */}
       <Box sx={{ minHeight: '100dvh' }}>
-      {/* The Stats tab's three boards. */}
-      {onStatsTab && (
-        <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
-          <SegControl
-            options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
-            value={state.view}
-            onChange={v => go(v as MlbView)}
-          />
-        </Box>
-      )}
-
-      {/* No fallback: the screen-tall box above already holds the room, so a view whose chunk is
-          still on the wire leaves the tab bar and footer exactly where they will be. */}
       {/* The tabs whose name only the nav says. Scores and Teams draw their own; a player or club
           page and a game sheet supply theirs (mlb/components/PageHeading.tsx). */}
       {TAB_H1[state.view] && <MlbPageH1>{TAB_H1[state.view]}</MlbPageH1>}
 
-      <Suspense fallback={null}>
-      {state.view === 'scores' && (
-        <FinalGamesSection
-          layout="page"
-          followedTeamId={state.followedTeamId}
-          onPlayerClick={state.handleFollowedPlayerClick}
-          onTeamClick={state.handleTeamSearchClick}
-        />
+      {/* THE FIVE TABS, KEPT MOUNTED ONCE VISITED, the way WPBL's are. Each view fetched on mount,
+          so every tab change unmounted the one being left and refetched the one arrived at:
+          Standings and Scores re-read StatsAPI and redrew from a skeleton on every visit, and Back
+          from a player opened off Home rebuilt Home from nothing. On a phone the same pager is the
+          swipe between tabs. A player or club page is no tab, so it draws over the pager, which
+          stays mounted and hidden beneath it; it is first mounted by a tab, so a reader who lands
+          on a player page from a search result does not pay for Home behind it. A hidden tab
+          neither polls nor holds the page's h1 (lib/panelActive.ts). */}
+      {pagerMounted.current && (
+        // Full-bleed on a phone, with the 16px gutter handed back inside each pane (padX), so a
+        // swiped pane slides all the way off the screen rather than vanishing at the gutter.
+        <Box sx={{ display: onSearch ? 'none' : 'block', mx: { xs: -2, sm: 0 } }}>
+          <SwipeableViews
+            index={tabIndex}
+            onIndexChange={i => goTab(NAV[i].key, 'swipe')}
+            minHeight={isMobileView ? 'calc(100dvh - 24px)' : undefined}
+            padX={isMobileView ? 16 : 0}
+            keepAlive
+            panels={NAV.map((n, i) => (
+              <PanelActiveContext.Provider key={n.key} value={!onSearch && i === tabIndex}>
+                {/* Its own boundary, so one tab crashing cannot take the bar and the other four with
+                    it, and its own Suspense, so a chunk still loading for a tab warmed behind the
+                    reader never blanks the one on screen. */}
+                {withFooter(
+                  <AppErrorBoundary inline where="tab">
+                    <Suspense fallback={null}>{tabContent(n.key)}</Suspense>
+                  </AppErrorBoundary>,
+                )}
+              </PanelActiveContext.Provider>
+            ))}
+          />
+        </Box>
       )}
 
-      {state.view === 'teams' && (
-        <TeamsView followedTeamId={state.followedTeamId} onTeamClick={id => state.handleTeamSearchClick(id)} />
+      {onSearch && withFooter(
+        <Suspense fallback={null}>
+          <SearchView
+            query={state.query}
+            setQuery={state.setQuery}
+            playerResults={state.playerResults}
+            teamResults={state.teamResults}
+            searching={state.searching}
+            dropdownOpen={state.dropdownOpen}
+            setDropdownOpen={state.setDropdownOpen}
+            selectPlayer={state.selectPlayer}
+            selectTeam={state.selectTeam}
+            onTeamClick={state.handleTeamSearchClick}
+            player={state.player}
+            team={state.team}
+            palette={state.palette}
+            setPalette={state.setPalette}
+            season={state.season}
+            loadingStats={state.loadingStats}
+            hasStats={state.hasStats}
+            rankMode={state.rankMode}
+            setRankMode={state.setRankMode}
+            showPosition={state.showPosition}
+            setShowPosition={state.setShowPosition}
+            showTeam={state.showTeam}
+            setShowTeam={state.setShowTeam}
+            showAge={state.showAge}
+            setShowAge={state.setShowAge}
+            showNumber={state.showNumber}
+            setShowNumber={state.setShowNumber}
+            statsView={state.statsView}
+            setStatsView={state.setStatsView}
+            currentAvailableSeasons={state.currentAvailableSeasons}
+            handleSeasonChange={state.handleSeasonChange}
+            careerHittingTotals={state.careerHittingTotals}
+            careerPitchingTotals={state.careerPitchingTotals}
+            seasonSelectorStyle={state.seasonSelectorStyle}
+            hittingStats={state.hittingStats}
+            pitchingStats={state.pitchingStats}
+            teamHitting={state.teamHitting}
+            teamPitching={state.teamPitching}
+            selectedHitStats={state.selectedHitStats}
+            setSelectedHitStats={state.setSelectedHitStats}
+            selectedPitStats={state.selectedPitStats}
+            setSelectedPitStats={state.setSelectedPitStats}
+            selectedTeamHitStats={state.selectedTeamHitStats}
+            setSelectedTeamHitStats={state.setSelectedTeamHitStats}
+            selectedTeamPitStats={state.selectedTeamPitStats}
+            setSelectedTeamPitStats={state.setSelectedTeamPitStats}
+            toggleHitStat={state.toggleHitStat}
+            togglePitStat={state.togglePitStat}
+            toggleTeamHitStat={state.toggleTeamHitStat}
+            toggleTeamPitStat={state.toggleTeamPitStat}
+            hitLeaders={state.hitLeaders}
+            pitLeaders={state.pitLeaders}
+            teamHitLeaders={state.teamHitLeaders}
+            teamPitLeaders={state.teamPitLeaders}
+            playerCardProps={state.playerCardProps}
+            teamCardProps={state.teamCardProps}
+            showTrends={state.showTrends}
+            playerContract={state.playerContract}
+            careerSplits={state.careerSplits}
+            loadingCareer={state.loadingCareer}
+            recentGames={state.recentGames}
+            loadingRecent={state.loadingRecent}
+            recentGamesOpen={state.recentGamesOpen}
+            setRecentGamesOpen={state.setRecentGamesOpen}
+            highlightedGameDate={state.highlightedGameDate}
+            setHighlightedGameDate={state.setHighlightedGameDate}
+            showFeaturedRight={state.showFeaturedRight}
+            featuredPlayers={state.featuredPlayers}
+            featuredHitLeaders={state.featuredHitLeaders}
+            featuredPitLeaders={state.featuredPitLeaders}
+            divisionStandings={state.divisionStandings}
+            teamRoster={state.teamRoster}
+          />
+        </Suspense>,
       )}
-
-      {state.view === 'home' && (
-        <HomeView
-          allTeams={state.allTeams}
-          followedTeamId={state.followedTeamId}
-          onFollowTeam={homeFollowTeam}
-          onUnfollowTeam={homeUnfollowTeam}
-          followedPlayerIds={state.followedPlayerIds}
-          onFollowPlayer={homeFollowPlayer}
-          onUnfollowPlayer={homeUnfollowPlayer}
-          onPlayerClick={homePlayerClick}
-          onTeamClick={homeTeamClick}
-          onViz={openReportCards}
-        />
-      )}
-
-      {state.view === 'standings' && (
-        <Standings season={state.season} onTeamClick={state.handleVizNavigate} highlightTeamId={state.followedTeamId} />
-      )}
-
-      {state.view === 'viz' && (
-        <VizView
-          vizSeason={state.vizSeason}
-          setVizSeason={state.setVizSeason}
-          teamSummaries={state.teamSummaries}
-          loadingViz={state.loadingViz}
-          nameMap={state.nameMap}
-          handleVizNavigate={state.handleVizNavigate}
-          handleLbPlayerClick={state.handleLbPlayerClick}
-          canHover={canHover}
-          defaultTab={state.vizDefaultTab}
-        />
-      )}
-
-      {state.view === 'leaderboard' && (
-        <LeaderboardView
-          lbGroup={state.lbGroup}
-          setLbGroup={state.setLbGroup}
-          vizSeason={state.vizSeason}
-          setVizSeason={state.setVizSeason}
-          gameScope={state.lbGameScope}
-          setGameScope={state.setLbGameScope}
-          lbData={state.lbData}
-          loadingLb={state.loadingLb}
-          lbSelectedKeys={state.lbSelectedKeys}
-          setLbSelectedKeys={state.setLbSelectedKeys}
-          isDesktop={isDesktop}
-          canHover={canHover}
-          handleLbPlayerClick={state.handleLbPlayerClick}
-          onOpenStats={state.openStatsBoard}
-        />
-      )}
-
-      {state.view === 'stats' && (
-        <StatsView
-          lbGroup={state.lbGroup}
-          setLbGroup={state.setLbGroup}
-          vizSeason={state.vizSeason}
-          setVizSeason={state.setVizSeason}
-          allTime={state.statsAllTime}
-          setAllTime={state.setStatsAllTime}
-          gameScope={state.lbGameScope}
-          setGameScope={state.setLbGameScope}
-          lbData={state.lbData}
-          lbFullscreen={state.lbFullscreen}
-          setLbFullscreen={state.setLbFullscreen}
-          lbStatsLimit={state.lbStatsLimit}
-          setLbStatsLimit={state.setLbStatsLimit}
-          lbQualified={state.lbQualified}
-          setLbQualified={state.setLbQualified}
-          isDesktop={isDesktop}
-          canHover={canHover}
-          handleLbPlayerClick={state.handleLbPlayerClick}
-          highlightPlayerId={state.statsHighlightPlayerId}
-          highlightStatKey={state.statsHighlightStatKey}
-          setHighlightPlayerId={state.setStatsHighlightPlayerId}
-          setHighlightStatKey={state.setStatsHighlightStatKey}
-        />
-      )}
-
-      {state.view === 'search' && (
-        <SearchView
-          query={state.query}
-          setQuery={state.setQuery}
-          playerResults={state.playerResults}
-          teamResults={state.teamResults}
-          searching={state.searching}
-          dropdownOpen={state.dropdownOpen}
-          setDropdownOpen={state.setDropdownOpen}
-          selectPlayer={state.selectPlayer}
-          selectTeam={state.selectTeam}
-          onTeamClick={state.handleTeamSearchClick}
-          player={state.player}
-          team={state.team}
-          palette={state.palette}
-          setPalette={state.setPalette}
-          season={state.season}
-          loadingStats={state.loadingStats}
-          hasStats={state.hasStats}
-          rankMode={state.rankMode}
-          setRankMode={state.setRankMode}
-          showPosition={state.showPosition}
-          setShowPosition={state.setShowPosition}
-          showTeam={state.showTeam}
-          setShowTeam={state.setShowTeam}
-          showAge={state.showAge}
-          setShowAge={state.setShowAge}
-          showNumber={state.showNumber}
-          setShowNumber={state.setShowNumber}
-          statsView={state.statsView}
-          setStatsView={state.setStatsView}
-          currentAvailableSeasons={state.currentAvailableSeasons}
-          handleSeasonChange={state.handleSeasonChange}
-          careerHittingTotals={state.careerHittingTotals}
-          careerPitchingTotals={state.careerPitchingTotals}
-          seasonSelectorStyle={state.seasonSelectorStyle}
-          hittingStats={state.hittingStats}
-          pitchingStats={state.pitchingStats}
-          teamHitting={state.teamHitting}
-          teamPitching={state.teamPitching}
-          selectedHitStats={state.selectedHitStats}
-          setSelectedHitStats={state.setSelectedHitStats}
-          selectedPitStats={state.selectedPitStats}
-          setSelectedPitStats={state.setSelectedPitStats}
-          selectedTeamHitStats={state.selectedTeamHitStats}
-          setSelectedTeamHitStats={state.setSelectedTeamHitStats}
-          selectedTeamPitStats={state.selectedTeamPitStats}
-          setSelectedTeamPitStats={state.setSelectedTeamPitStats}
-          toggleHitStat={state.toggleHitStat}
-          togglePitStat={state.togglePitStat}
-          toggleTeamHitStat={state.toggleTeamHitStat}
-          toggleTeamPitStat={state.toggleTeamPitStat}
-          hitLeaders={state.hitLeaders}
-          pitLeaders={state.pitLeaders}
-          teamHitLeaders={state.teamHitLeaders}
-          teamPitLeaders={state.teamPitLeaders}
-          playerCardProps={state.playerCardProps}
-          teamCardProps={state.teamCardProps}
-          showTrends={state.showTrends}
-          playerContract={state.playerContract}
-          careerSplits={state.careerSplits}
-          loadingCareer={state.loadingCareer}
-          recentGames={state.recentGames}
-          loadingRecent={state.loadingRecent}
-          recentGamesOpen={state.recentGamesOpen}
-          setRecentGamesOpen={state.setRecentGamesOpen}
-          highlightedGameDate={state.highlightedGameDate}
-          setHighlightedGameDate={state.setHighlightedGameDate}
-          showFeaturedRight={state.showFeaturedRight}
-          featuredPlayers={state.featuredPlayers}
-          featuredHitLeaders={state.featuredHitLeaders}
-          featuredPitLeaders={state.featuredPitLeaders}
-          divisionStandings={state.divisionStandings}
-          teamRoster={state.teamRoster}
-        />
-      )}
-      </Suspense>
 
       {/* Game Center reached by its address, /mlb/games/<pk>, over whichever tab is up. */}
       <GameRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} />
 
       </Box>
-
-      {/* On a phone the site footer sits here, inside the room reserved for the bar, rather than
-          below the section where the bar would cover it. App.tsx drops its own copy at this width. */}
-      {bottomNav && renderFooter && <Box sx={{ mt: 4 }}>{renderFooter()}</Box>}
 
       {bottomNav && (
         <BottomNav

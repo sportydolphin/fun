@@ -49,6 +49,10 @@ export { isMlbView } from '../routes'
 export type MlbOpenSource = 'header_search' | 'recent' | 'team_page'
 const OPEN_SOURCES = new Set<string>(['header_search', 'recent', 'team_page'])
 
+/** How long a board's rows are reused before a return to it fetches them again. Short enough that
+ *  an evening on the site still sees the night's games land in the totals. */
+const BOARD_FRESH_MS = 5 * 60_000
+
 /** The Table's sort state for `key` on a board, or null when the key names no stat there (a stale
  *  or hand-typed `sort=`), which leaves the board on its default rather than on nothing. */
 export function boardSortFor(group: 'hitting' | 'pitching', key: string | null | undefined): LbFullscreenState | null {
@@ -349,33 +353,52 @@ export function useMlbState() {
     }
   }, [allTeams])
 
+  // WHAT THE BOARDS HOLD IS KEPT while it is fresh, keyed on what it was fetched for. The Stats tab's
+  // boards stay mounted across tab changes now (MlbStats), but these loads are keyed on the VIEW, so
+  // every return to Leaders, every Leaders to Table, and every Back from a player opened off a board
+  // blanked it and fetched the same rows again. Cleared at the start of each load, so a load
+  // abandoned halfway is never mistaken for one that landed.
+  const vizLoaded = useRef<{ key: string; at: number } | null>(null)
+  const lbLoaded = useRef<{ key: string; at: number } | null>(null)
+  const fresh = (r: { key: string; at: number } | null, key: string) => r?.key === key && Date.now() - r.at < BOARD_FRESH_MS
+
   // Load visualization data when switching to viz tab or changing season
   useEffect(() => {
     if (view !== 'viz') return
+    const key = String(vizSeason)
+    if (fresh(vizLoaded.current, key)) return
+    vizLoaded.current = null
     setLoadingViz(true)
     setTeamSummaries([])
+    let current = true
     fetchTeamSummaryData(vizSeason)
-      .then(setTeamSummaries)
+      .then(d => { if (current) { setTeamSummaries(d); vizLoaded.current = { key, at: Date.now() } } })
       .catch(() => {})
-      .finally(() => setLoadingViz(false))
+      .finally(() => { if (current) setLoadingViz(false) })
+    return () => { current = false }
   }, [view, vizSeason])
 
   useEffect(() => {
     if (view !== 'leaderboard' && view !== 'stats') return
-    setLoadingLb(true)
-    setLbData(null)
     // Career has no "All" (see fetchAllTimeLeaderboardData), so it falls back to the regular
     // season there while the choice itself is kept for the next season board.
-    const req = (view === 'stats' && statsAllTime)
-      ? fetchAllTimeLeaderboardData(lbGroup, lbGameScope === 'post' ? 'post' : 'regular')
+    const career = view === 'stats' && statsAllTime
+    const careerScope = lbGameScope === 'post' ? 'post' : 'regular'
+    const key = career ? `career|${lbGroup}|${careerScope}` : `${vizSeason}|${lbGroup}|${lbGameScope}`
+    if (fresh(lbLoaded.current, key)) return
+    lbLoaded.current = null
+    setLoadingLb(true)
+    setLbData(null)
+    const req = career
+      ? fetchAllTimeLeaderboardData(lbGroup, careerScope)
       : fetchLeaderboardData(lbGroup, vizSeason, lbGameScope)
-    // ONLY THE LATEST REQUEST MAY LAND. A cold load asks for hitting and then, a render later, for
-    // the pitching the URL named; the two race, and whichever answers last used to win, so a
-    // pitching board could be drawn from hitting lines and read "0 of 0". The career postseason
-    // pool is slow enough to lose that race every time.
+    // ONLY THE LATEST REQUEST MAY LAND. Two loads can be in flight at once (a filter changed while
+    // the last one was still on the wire), and whichever answered last used to win, so a pitching
+    // board could be drawn from hitting lines and read "0 of 0". The career postseason pool is slow
+    // enough to lose that race every time.
     let current = true
     req
-      .then(d => { if (current) setLbData(d) })
+      .then(d => { if (current) { setLbData(d); lbLoaded.current = { key, at: Date.now() } } })
       .finally(() => { if (current) setLoadingLb(false) })
     return () => { current = false }
   }, [view, lbGroup, vizSeason, statsAllTime, lbGameScope])

@@ -383,8 +383,10 @@ export function VizView({
 
       {loadingViz && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
+      {/* The swipe between Report card and Graphs is this board's own, so the section's tab
+          pager stands aside here (data-swipe-lock) rather than changing tab under it too. */}
       {!loadingViz && teamSummaries.length > 0 && (
-        <Box onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} sx={{ overflow: 'hidden' }}>
+        <Box data-swipe-lock="true" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} sx={{ overflow: 'hidden' }}>
           <Box sx={{
             display: 'flex',
             width: '200%',

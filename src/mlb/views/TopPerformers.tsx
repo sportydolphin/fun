@@ -156,8 +156,9 @@ export function TopPerformers({
     advance(delta)
   }
 
-  // ── Touch / swipe within the card — marked data-swipe-ignore so it doesn't
-  // also trigger HomeView's Around-the-League / My-Feed tab swipe.
+  // Touch / swipe within the card. Marked data-swipe-lock so the section's tab pager
+  // (src/ui/SwipeableViews) leaves the gesture to it, rather than paging to Scores as the
+  // carousel steps to its next standout.
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
@@ -359,7 +360,7 @@ export function TopPerformers({
 
   return (
     <Box
-      data-swipe-ignore="true"
+      data-swipe-lock="true"
       onMouseEnter={() => { pausedRef.current = true }}
       onMouseLeave={() => { pausedRef.current = false }}
       onTouchStart={onTouchStart}

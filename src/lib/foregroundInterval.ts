@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { usePanelActive } from './panelActive'
 
 /**
  * The site's one polling policy: tick only while the page is actually in front, and pull
@@ -44,12 +45,21 @@ export function useForegroundInterval(fn: () => void, ms: number | null): void {
   // never actually reach its interval.
   const saved = useRef(fn)
   useEffect(() => { saved.current = fn })
+  // A kept-alive tab the reader has left is a page nobody is looking at, the same as a hidden
+  // browser tab, so it does not tick. Back on screen, it pulls at once only if it has missed a tick
+  // (see lib/panelActive.ts): a reader who opens a player off Home and comes straight back would
+  // otherwise refetch every feed on Home for data a few seconds old. The mount is the first pull,
+  // since every caller fetches on mount itself.
+  const onScreen = usePanelActive()
+  const offScreen = useRef(false)
+  const lastPull = useRef(Date.now())
 
   useEffect(() => {
     if (ms == null) return
+    if (!onScreen) { offScreen.current = true; return }
     let id: ReturnType<typeof setInterval> | undefined
     let lastRun = 0
-    const run = () => { lastRun = Date.now(); saved.current() }
+    const run = () => { lastRun = lastPull.current = Date.now(); saved.current() }
     const stop = () => { if (id !== undefined) { clearInterval(id); id = undefined } }
     const start = () => {
       stop()
@@ -64,7 +74,10 @@ export function useForegroundInterval(fn: () => void, ms: number | null): void {
     }
     const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) resume() }
 
-    start()
+    const missedTick = offScreen.current && Date.now() - lastPull.current >= ms
+    offScreen.current = false
+    if (missedTick) resume()
+    else start()
     document.addEventListener('visibilitychange', resume)
     window.addEventListener('focus', resume)
     window.addEventListener('pageshow', onPageShow)
@@ -74,5 +87,5 @@ export function useForegroundInterval(fn: () => void, ms: number | null): void {
       window.removeEventListener('focus', resume)
       window.removeEventListener('pageshow', onPageShow)
     }
-  }, [ms])
+  }, [ms, onScreen])
 }

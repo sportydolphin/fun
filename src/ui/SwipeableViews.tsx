@@ -94,9 +94,13 @@ interface Props {
                 //     remembers its own depth for free, instead of the single shared scroller carrying a deep
                 //     play-by-play's position over onto a short recap.
   mode?: 'window' | 'pane'
+  /** Keep visited panels mounted on a desktop too, where the pager otherwise renders the active
+   *  panel alone. For tabs that fetch on mount (MLB's), which would otherwise refetch on every tab
+   *  change. Window mode only. */
+  keepAlive?: boolean
 }
 
-export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef, padX = 0, mode = 'window' }: Props) {
+export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef, padX = 0, mode = 'window', keepAlive = false }: Props) {
   const paneMode = mode === 'pane'
   const isMobile = useMediaQuery('(max-width:600px)')
   // Accessibility opt-out. With swiping off, the pager takes exactly the same path desktop
@@ -486,9 +490,18 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // Desktop, or swiping turned off: no pager, but pane mode still has to supply the
   // scroller the modal relies on.
   if (!pagerOn) {
-    return paneMode
-      ? <div style={{ flex: 1, minHeight: 0, ...paneInset, ...paneScroll }}>{panels[activeIndex]}</div>
-      : <div style={paneInset}>{panels[activeIndex]}</div>
+    if (paneMode) return <div style={{ flex: 1, minHeight: 0, ...paneInset, ...paneScroll }}>{panels[activeIndex]}</div>
+    if (!keepAlive) return <div style={paneInset}>{panels[activeIndex]}</div>
+    // Keyed per panel, as the pager's track is, so a tab change hides one and shows another
+    // rather than handing the active slot's DOM to a different tab.
+    visited.current.add(activeIndex)
+    return (
+      <div style={paneInset}>
+        {panels.map((panel, i) => i === activeIndex
+          ? <div key={i}>{panel}</div>
+          : visited.current.has(i) ? <div key={i} style={{ display: 'none' }} aria-hidden>{panel}</div> : null)}
+      </div>
+    )
   }
 
   // The panes riding the track besides the active one: a swipe's single neighbour, or, for a

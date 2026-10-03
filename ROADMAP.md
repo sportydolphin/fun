@@ -75,8 +75,19 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    earlier season's board drew this season and the URL sync rewrote the address to match. Every
    initial value now comes from the landing address in its initializer, so a pitching board no
    longer draws and fetches hitting first. Pinned in `__tests__/addressState.test.ts`.
-7. **Swipe pager with kept-alive tabs** (item 3's open note). Views unmount and refetch on every
-   tab change.
+7. ✅ **Swipe pager with kept-alive tabs** (item 3's open note, Oct 3, v1.120.0). The five tabs sit
+   in the shared `SwipeableViews`: swiped between on a phone, each returning to its own scroll,
+   and kept mounted once visited on every width (`keepAlive`, new, since the pager rendered the
+   active panel alone above 600px). A player or club page draws over the pager, which stays
+   mounted beneath it, so Back from a player opened off Home costs no requests where it rebuilt
+   Home from nothing; the pager mounts with the first tab shown, so a cold landing on a player
+   page does not pay for Home. Two things keep a hidden tab cheap (`lib/panelActive.ts`): its
+   `useForegroundInterval` polls stop and pull once on return only if a tick was missed, and its
+   heading steps down so the page keeps one h1. The Stats boards' rows are kept for five minutes
+   per request, so Leaders to Table and Back onto a board no longer blank and refetch. The
+   Standouts carousel and the Charts board's Report card / Graphs swipe take `data-swipe-lock`.
+   Each tab has its own error boundary and Suspense, as WPBL's do. Pinned in
+   `__tests__/keptAliveTabs.test.tsx`.
 8. **House rules sweep** (item 7). About 500 em dashes in 62 MLB files (the ones meaning "no
    value" stay), and the BOM plus mojibake in `MlbStats.tsx` (`â†’` in a comment). The Yankees
    examples were removed Oct 2.
@@ -84,7 +95,7 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.
 
-**Tests**: 15 files and 133 cases under `src/mlb/__tests__/`, against 126 files in WPBL. Each item
+**Tests**: 16 files and 137 cases under `src/mlb/__tests__/`, against 126 files in WPBL. Each item
 above should leave a test behind, as items 0, 4 and 5b did.
 
 ## Aligning with WPBL (Sep 27, 2026) 🎯⚙️
@@ -111,7 +122,7 @@ goes first and the rest is winter work.
 | Stats on a phone | Open (item 7). A wide spreadsheet in a nested scroller (`maxHeight: calc(100vh - 280px)`); sorted by OPS with the OPS column off screen | Ranked list with a sort sheet |
 | Desktop | ✅ *Fixed in v1.115.0*: off `zoom: 1.4`, onto the same 1.25 ramp as WPBL | `--app-type` / `--app-chrome`, `chromePx()` |
 | Measurement | ✅ *5 `mlb_*` events since Sep 28 (item 1).* Was 3 events | 71 |
-| Tests | 15 files, 133 cases (was 0) | 126 files |
+| Tests | 16 files, 137 cases (was 0) | 126 files |
 | House rules | Open (item 7). 525 em dashes in 62 files; ~~a Yankees example in `HomeView.tsx`~~ (removed Oct 2); BOM and mojibake in `MlbStats.tsx` | |
 | Polling | ✅ *Fixed in v1.99.2*: `useForegroundInterval` moved to `src/lib` and every MLB poll uses it | |
 
@@ -153,9 +164,8 @@ goes first and the rest is winter work.
    stay separate views underneath so every old `?view=` link lands. Scores is the full grid with
    date navigation (and now refreshes live, which the Home strip never did); Teams lists all 30
    by division as real links. More opens Predictions, Survivor, Milestones, Roster moves, Odds and
-   Charts & payroll through deep links their owners already listen for. Not done: the swipe pager.
-   MLB's views unmount on a tab change and refetch, so keeping them mounted side by side is a
-   separate job from the bar.
+   Charts & payroll through deep links their owners already listen for. *Done Oct 3 (v1.120.0):*
+   the swipe pager, with visited tabs kept mounted (Handoff item 7).
 4. ✅ **Overlays and URLs.** *Done Sep 28:* Game Center and the game preview are `ModalShell`
    sheets (drag down to close on a phone) and history entries, so Back closes them instead of
    leaving the section (`state/sheetHistory.ts`, pinned in `__tests__/sheetHistory.test.tsx`). A

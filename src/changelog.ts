@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.120.0',
+    date:    '2026-10-03',
+    changes: [
+      {
+        short: 'Swipe between MLB tabs',
+        full:  'On a phone, swipe left or right to move between the MLB tabs, the same as on WPBL. Each tab keeps your place when you come back to it.',
+      },
+      {
+        short: 'MLB tabs open instantly',
+        full:  'MLB tabs you have already visited no longer reload when you come back to them, and going Back from a player or team page returns to the page exactly as you left it.',
+      },
+    ],
+  },
+  {
     version: '1.119.2',
     date:    '2026-10-03',
     changes: [

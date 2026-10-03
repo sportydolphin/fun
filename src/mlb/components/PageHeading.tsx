@@ -1,5 +1,6 @@
 import React, { useSyncExternalStore } from 'react'
 import { mlbGamePkFromPath, MLB_PATH_EVENT } from '../routes'
+import { usePanelActive } from '../../lib/panelActive'
 
 // The ONE <h1> per MLB page, and who owns it.
 //
@@ -32,9 +33,11 @@ function subscribe(cb: () => void) {
 }
 const isGamePage = () => mlbGamePkFromPath(window.location.pathname) != null
 
-/** False while a game sheet is the page. */
+/** False while a game sheet is the page, and in a tab kept mounted behind the one on screen
+ *  (lib/panelActive.ts), which would otherwise give the page a second h1 under `display: none`. */
 export function useMlbOwnsHeading(): boolean {
-  return !useSyncExternalStore(subscribe, isGamePage, () => false)
+  const onScreen = usePanelActive()
+  return !useSyncExternalStore(subscribe, isGamePage, () => false) && onScreen
 }
 
 /** For a page's DRAWN title (Scores, Teams): spread into `component`. Looks the same either way. */
