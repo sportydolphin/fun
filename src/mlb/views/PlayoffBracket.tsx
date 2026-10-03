@@ -238,6 +238,19 @@ function SeriesSheet({ s, onClose, onTeamClick, onPlayerClick }: {
 }
 
 /** The bracket's shape while its first read is in flight: the heading row and four series. */
+/** A round's series side by side wherever there is room. Two-by-two at every width left a desktop
+ *  card 680px wide around a 3-letter club and three pips, and stacked a four-series round into two
+ *  rows of mostly empty card. On a wide screen it is always FOUR columns, whatever the round: the
+ *  Championship Series' two and the World Series' one then sit at the same card width as the
+ *  Division Series' four rather than stretching to fill the row. From `md` on Home, where the clubs
+ *  are abbreviations; the full bracket names them, so it waits for `lg`. */
+function seriesGrid(n: number, compact: boolean) {
+  const four = 'repeat(4, minmax(0, 1fr))'
+  return compact
+    ? { xs: n > 1 ? '1fr 1fr' : '1fr', md: four }
+    : { xs: '1fr', sm: n > 1 ? '1fr 1fr' : 'minmax(0, 26rem)', lg: four }
+}
+
 export function BracketSkeleton({ compact }: { compact: boolean }) {
   return (
     <Box aria-hidden>
@@ -245,7 +258,7 @@ export function BracketSkeleton({ compact }: { compact: boolean }) {
         <Skeleton variant="text" sx={{ width: '7.5rem', fontSize: '0.7rem' }} />
         <Skeleton variant="rounded" sx={{ ml: 'auto', width: chromePx(176), height: chromePx(31), borderRadius: 999 }} />
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: compact ? '1fr 1fr' : '1fr', sm: '1fr 1fr' }, gap: 1 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(4, compact), gap: 1 }}>
         {[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" sx={{ height: SERIES_CARD_H, borderRadius: 2.5 }} />)}
       </Box>
     </Box>
@@ -330,7 +343,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
           {ROUNDS.find(r => r.key === shown)!.label}
         </Typography>
       )}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: compact && inRound.length > 1 ? '1fr 1fr' : '1fr', sm: inRound.length > 1 ? '1fr 1fr' : '1fr' }, gap: 1 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(inRound.length, compact), gap: 1 }}>
         {inRound.map(s => (
           <SeriesCard key={s.id} s={s} compact={compact} onOpen={() => setOpenId(s.id)} onTeamClick={onTeamClick} />
         ))}

@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.119.1',
+    date:    '2026-10-03',
+    changes: [
+      {
+        short: 'Playoff series in one row',
+        full:  'On a computer, the MLB playoff series now sit side by side, four to a row, so the bracket on Home takes half the space it did and the rest of the page moves up.',
+      },
+    ],
+  },
+  {
     version: '1.119.0',
     date:    '2026-10-02',
     changes: [
