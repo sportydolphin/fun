@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography, Skeleton, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
-import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON } from '../constants'
-import { useIsDark, defaultBorder } from '../lib/colorUtils'
+import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TONE } from '../constants'
+import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
 import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, LiveDot } from '../components/boxScore'
@@ -306,6 +306,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   wide?:    boolean          // fill the parent (grid cell) instead of fixed strip width
   accent?:  string           // ring color to call out the followed team's game
 }) {
+  const tone = useTextTone()
   const isPreview   = game.state === 'preview'
   const isPostponed = game.state === 'postponed'
   const isLive      = game.state === 'live'
@@ -378,7 +379,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, px: 1, pt: 0.8, pb: 0.4 }}>
         {isLive && <LiveDot size={5} />}
         <Typography sx={{
-          fontSize: '0.56rem', fontWeight: 800, color: statusColor,
+          fontSize: '0.56rem', fontWeight: 800, color: tone(statusColor),
           letterSpacing: typePx(0.6), textTransform: 'uppercase', lineHeight: 1,
         }}>
           {game.statusText}
@@ -400,7 +401,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
       {game.series && (
         <Typography sx={{
           px: 1, pb: 0.7, fontSize: '0.54rem', fontWeight: 700, lineHeight: 1.2,
-          color: game.series.decider ? '#f59e0b' : 'text.disabled',
+          color: game.series.decider ? TONE.amber : 'text.disabled',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {game.series.label}{game.series.decider ? ' · Decider' : ''}

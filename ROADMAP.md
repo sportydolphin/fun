@@ -40,14 +40,31 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    pages carry a hidden one, and a game sheet takes it over while its address is in the bar.
    Pinned in `__tests__/pageLinks.test.tsx`. Not converted: the Charts SVG marks, Predictor and
    Live drama, the followed-players grid, and club logos inside schedule chips.
-3. **Home's own weight** (item 5). A Home landing costs 132 kB gzip of MLB code against 67 to 82 kB
+3. ✅ **Leaders and Table, one job each** (item 7, Oct 2, v1.118.0). Leaders is the overview, the Table the
+   full ranking. Each Leaders card ends in "All N ranked", a real link to the Table at
+   `/mlb/stats?sort=<stat>` (`sort=` is on the address now, read on landing and on Back, and left
+   off for the default stat), which opens as its own history entry where the old expand icon swapped
+   the view in place. Leaders on a phone takes the Table's controls (Hitting / Pitching, a Stats
+   pill, a Filters sheet without All-Time), and ranks ties the way the Table does: "T-1", with a
+   medal only for a place nobody shares. Pinned in `__tests__/leadersBoard.test.tsx`.
+4. ✅ **Readable colour in both themes** (Oct 2, v1.118.0). MLB's colours were picked on dark, so on light
+   the section blue, the status colours and team colours as text measured 1.9 to 3.8:1, and the
+   team cards' secondary white 2.1:1 on the red clubs. Text now goes through `ACCENT_TEXT`,
+   `TONE` (theme-keyed `--mlb-tone-*` in styles.css) or `textTone()` / `useTextTone()` for a
+   colour known only at runtime; white sits on `FILL` or the solid accent; `teamPalette` sizes
+   its secondary white per club and deepens Baltimore and Philadelphia's card a shade. Raw hexes
+   stay for fills, bars and tints. A page-by-page audit (every MLB tab, team, player and game
+   page, light and dark, phone and desktop) found nothing under 4.5:1 afterwards. Pinned in
+   `__tests__/contrast.test.ts`. WPBL's bottom bar still passes its raw `#60a5fa` as the active
+   tab colour, the same 2.5:1 MLB's had.
+5. **Home's own weight** (item 5). A Home landing costs 132 kB gzip of MLB code against 67 to 82 kB
    for any other page, because the Predictor, Live Game Center and the report cards load with it
    rather than on use.
-4. **Let the address drive `useMlbState`** (item 4's open note). It reads the address but is not
+6. **Let the address drive `useMlbState`** (item 4's open note). It reads the address but is not
    driven by it.
-5. **Swipe pager with kept-alive tabs** (item 3's open note). Views unmount and refetch on every
+7. **Swipe pager with kept-alive tabs** (item 3's open note). Views unmount and refetch on every
    tab change.
-6. **House rules sweep** (item 7). About 500 em dashes in 62 MLB files (the ones meaning "no
+8. **House rules sweep** (item 7). About 500 em dashes in 62 MLB files (the ones meaning "no
    value" stay), and the BOM plus mojibake in `MlbStats.tsx` (`â†’` in a comment). The Yankees
    examples were removed Oct 2.
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT, TEAM_NICKNAME } from '../constants'
+import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME } from '../constants'
 import { useIsDark, highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { TeamLogo } from './Standings'
@@ -145,7 +145,7 @@ export function PlayoffOddsBoard({ season, onTeamClick, highlightTeamId }: {
   }, [season])
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT }} /></Box>
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT_TEXT }} /></Box>
   }
 
   if (!rows || !rows.length) {

@@ -2,14 +2,13 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { Box, Typography, InputBase, Tooltip, ClickAwayListener, Popper } from '@mui/material'
 import { Player, RecentGameEntry } from '../types'
 import {
-  TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON,
-  MAX_FOLLOWED_PLAYERS, FOLLOWED_PREVIEW_XS, FOLLOWED_PREVIEW_SM,
-} from '../constants'
+  TEAM_BG, TEAM_ABBR, ACCENT, ACCENT_TEXT, HEADSHOT, CURRENT_SEASON,
+  MAX_FOLLOWED_PLAYERS, FOLLOWED_PREVIEW_XS, FOLLOWED_PREVIEW_SM, FILL, TONE } from '../constants'
 import { searchPlayers, fetchRecentGames, fetchRosterMoves, fetchServedSuspensionIds, RosterMove } from '../api'
 import { MOVE_STYLE } from './RosterMoves'
 import { parseIP } from '../lib/utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
-import { useIsDark, defaultBorder } from '../lib/colorUtils'
+import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { chromePx, typePx } from '../../ui/scale'
 
@@ -88,7 +87,8 @@ function todayStatCells(games: RecentGameEntry[], isPitcher: boolean): StatCell[
 const pillSx = (color = ACCENT, compact = false) => ({
   flexShrink: 0, cursor: 'pointer',
   fontSize: compact ? '0.62rem' : '0.68rem',
-  fontWeight: 700, color,
+  // The raw hex frames and tints the pill; the label takes its text-safe twin (TONE, ACCENT_TEXT).
+  fontWeight: 700, color: color === ACCENT ? ACCENT_TEXT : color === '#ef4444' ? TONE.red : color,
   px: compact ? 1 : 1.25, py: 0.5,
   borderRadius: 999, border: `1px solid ${color}40`,
   transition: 'background 0.12s',
@@ -346,6 +346,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
   onToggleSelect: () => void
   onClick:        () => void
 }) {
+  const tone = useTextTone()
   const teamColor  = TEAM_BG[data?.teamId ?? 0] ?? '#444'
   const subtitle   = data ? [data.position, data.teamAbbr].filter(Boolean).join(' · ') : ''
   const playedToday = !!data?.playedToday
@@ -393,7 +394,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
         <Box sx={{
           flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           border: '2px solid', borderColor: isSelected ? ACCENT : 'text.disabled',
-          bgcolor: isSelected ? ACCENT : 'transparent',
+          bgcolor: isSelected ? 'var(--wpbl-accent-solid)' : 'transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.15s',
           color: '#fff', fontSize: '0.6rem', fontWeight: 900, lineHeight: 1,
@@ -418,7 +419,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
         {isLive && (
           <Box sx={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
-            bgcolor: 'rgba(239,68,68,0.92)',
+            bgcolor: FILL.red,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             py: chromePx(1.5),
           }}>
@@ -456,7 +457,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
               <Box component="span" sx={{
                 px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
                 bgcolor: `${ACCENT}1c`, border: `1px solid ${ACCENT}55`,
-                fontSize: '0.5rem', fontWeight: 800, color: ACCENT,
+                fontSize: '0.5rem', fontWeight: 800, color: ACCENT_TEXT,
                 letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
                 whiteSpace: 'nowrap',
               }}>
@@ -472,7 +473,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
                   <Box component="span" sx={{
                     px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
                     bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
-                    fontSize: '0.5rem', fontWeight: 800, color: style.color,
+                    fontSize: '0.5rem', fontWeight: 800, color: tone(style.color, undefined, 5.6),
                     letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
                     whiteSpace: 'nowrap',
                   }}>
@@ -508,7 +509,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
           <Typography sx={{
             fontSize: '0.52rem', fontWeight: 700,
             textTransform: 'uppercase', letterSpacing: typePx(0.4),
-            color: playedToday ? ACCENT : 'text.disabled', lineHeight: 1,
+            color: playedToday ? ACCENT_TEXT : 'text.disabled', lineHeight: 1,
           }}>
             {s.label}
           </Typography>
@@ -669,7 +670,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             fontWeight: 800,
             fontSize: compact ? '0.65rem' : '0.72rem',
             textTransform: 'uppercase', letterSpacing: typePx(1.2),
-            color: editMode ? 'text.secondary' : ACCENT,
+            color: editMode ? 'text.secondary' : ACCENT_TEXT,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             transition: 'color 0.15s',
           }}>
@@ -800,7 +801,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                       </Typography>
                     </Box>
                     {followedPlayerIds.includes(p.id) && (
-                      <Typography sx={{ fontSize: '0.6rem', color: ACCENT, fontWeight: 700, ml: 'auto', flexShrink: 0 }}>
+                      <Typography sx={{ fontSize: '0.6rem', color: ACCENT_TEXT, fontWeight: 700, ml: 'auto', flexShrink: 0 }}>
                         ✓
                       </Typography>
                     )}
@@ -893,7 +894,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
               alignItems: 'center', justifyContent: 'center', gap: 0.5,
               px: 1.5, py: 0.75, cursor: 'pointer', flexShrink: 0,
               borderTop: '1px solid', borderColor: 'divider',
-              color: ACCENT, fontSize: compact ? '0.62rem' : '0.66rem',
+              color: ACCENT_TEXT, fontSize: compact ? '0.62rem' : '0.66rem',
               fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8),
               userSelect: 'none',
               transition: 'background 0.12s',

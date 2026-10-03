@@ -6,7 +6,7 @@ import {
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert } from '@mui/icons-material'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, PlayerContract } from '../types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
+import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
 import { FullscreenEntry } from '../components/MlbSheet'
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
@@ -342,7 +342,7 @@ export function SearchView({
               color: careerActive ? '#000' : 'text.secondary',
               border: '1.5px solid', borderColor: careerActive ? ACCENT : 'divider',
               transition: 'all 0.15s',
-              '&:hover': careerActive ? {} : { borderColor: ACCENT, color: ACCENT },
+              '&:hover': careerActive ? {} : { borderColor: ACCENT, color: ACCENT_TEXT },
             }}
           >
             ★ Career
@@ -522,7 +522,7 @@ export function SearchView({
                       cursor: 'pointer', px: 1.5, py: 0.5, borderRadius: 999,
                       border: '1.5px solid', borderColor: 'divider',
                       fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary',
-                      '&:hover': { borderColor: ACCENT, color: ACCENT },
+                      '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
                       transition: 'border-color 0.15s, color 0.15s',
                     }}
                   >
@@ -543,7 +543,7 @@ export function SearchView({
                         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Batting stats
                         </Typography>
-                        <Box onClick={() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
+                        <Box onClick={() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
                           {allHit ? 'Reset' : 'All'}
                         </Box>
                       </Box>
@@ -569,7 +569,7 @@ export function SearchView({
                         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Pitching stats
                         </Typography>
-                        <Box onClick={() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
+                        <Box onClick={() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
                           {allPit ? 'Reset' : 'All'}
                         </Box>
                       </Box>
@@ -810,7 +810,7 @@ export function SearchView({
               <SectionLabel strong>Schedule</SectionLabel>
               <Box
                 onClick={e => { e.stopPropagation(); setShowFullSchedule(true) }}
-                sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
               >
                 Full schedule →
               </Box>

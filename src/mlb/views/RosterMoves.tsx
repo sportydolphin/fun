@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
-import { CURRENT_SEASON, ACCENT, TEAM_ABBR } from '../constants'
-import { useIsDark, defaultBorder, ringColor } from '../lib/colorUtils'
+import { CURRENT_SEASON, ACCENT, ACCENT_TEXT, TEAM_ABBR } from '../constants'
+import { useIsDark, defaultBorder, ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
@@ -105,6 +105,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
+  const tone = useTextTone()
   const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: '#94a3b8' }
   const teamClick = (id: number) => (e: React.MouseEvent) => {
     if (!onTeamClick) return
@@ -132,7 +133,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
           <Box component="span" sx={{
             px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
             bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
-            fontSize: '0.55rem', fontWeight: 800, color: style.color,
+            fontSize: '0.55rem', fontWeight: 800, color: tone(style.color, undefined, 5.6),
             letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
           }}>
             {style.label}
@@ -179,6 +180,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
+  const tone = useTextTone()
   const style = MOVE_STYLE.TR
   const teamClick = (id: number) => (e: React.MouseEvent) => {
     if (!onTeamClick) return
@@ -201,7 +203,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
         <Box component="span" sx={{
           px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
           bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
-          fontSize: '0.55rem', fontWeight: 800, color: style.color,
+          fontSize: '0.55rem', fontWeight: 800, color: tone(style.color, undefined, 5.6),
           letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
         }}>
           {style.label}
@@ -477,7 +479,7 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
       <Box sx={{ px: 0.5, py: 0.5 }}>
         {moves === null ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={22} sx={{ color: ACCENT }} />
+            <CircularProgress size={22} sx={{ color: ACCENT_TEXT }} />
           </Box>
         ) : top.length === 0 ? (
           <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'center', py: 2.5 }}>

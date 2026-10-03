@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.118.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'MLB easier to read in light mode',
+        full:  'Blue, green, red, orange and team-coloured text across MLB was hard to read on a light background. Every label, number and badge now meets the standard contrast for readability in both light and dark mode, including the team-coloured player and team cards.',
+      },
+      {
+        short: 'From Leaders to the full ranking',
+        full:  'Each card on MLB Leaders now ends in a link to the full ranking for that stat in the Table, with its own address you can share. On a phone, Leaders uses the same Stats and Filters controls as the Table, and players tied on a stat now share a place instead of getting different medals.',
+      },
+    ],
+  },
+  {
     version: '1.117.0',
     date:    '2026-10-02',
     changes: [

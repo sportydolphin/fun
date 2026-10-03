@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchStandings, fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
-import { TEAM_NICKNAME, ACCENT } from '../constants'
+import { TEAM_NICKNAME, ACCENT, ACCENT_TEXT } from '../constants'
 import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../lib/colorUtils'
 import { TeamLogo } from './Standings'
 import { chromePx, typePx } from '../../ui/scale'
@@ -237,7 +237,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
         <Typography sx={{
           flex: 1, minWidth: 0,
           fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase',
-          letterSpacing: typePx(1.2), color: ACCENT,
+          letterSpacing: typePx(1.2), color: ACCENT_TEXT,
         }}>
           {title}
         </Typography>

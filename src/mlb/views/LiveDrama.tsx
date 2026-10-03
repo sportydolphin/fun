@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { DramaEvent, DramaKind, fetchLiveDrama, ord } from '../lib/liveDrama'
 import { useDevDrama } from '../dev/devDrama'
 import { TEAM_NICKNAME } from '../constants'
-import { useIsDark } from '../lib/colorUtils'
+import { useIsDark, useTextTone } from '../lib/colorUtils'
 import { TeamLogo } from '../components/leaderboards'
 import { FinalGameSummary } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
@@ -37,6 +37,7 @@ const KIND_TAG: Record<DramaKind, string> = {
 }
 
 function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void }) {
+  const tone = useTextTone()
   const accent = KIND_ACCENT[event.kind]
   return (
     <Box
@@ -63,7 +64,7 @@ function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void })
           <Box component="span" sx={{
             px: 0.55, py: '1px', borderRadius: 999, flexShrink: 0,
             bgcolor: `${accent}1c`, border: `1px solid ${accent}55`,
-            fontSize: '0.5rem', fontWeight: 800, color: accent,
+            fontSize: '0.5rem', fontWeight: 800, color: tone(accent),
             letterSpacing: typePx(0.5), lineHeight: 1.4, whiteSpace: 'nowrap',
           }}>
             {KIND_TAG[event.kind]}
@@ -88,7 +89,7 @@ function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void })
         <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
           {event.away.score}–{event.home.score}
         </Typography>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: accent, lineHeight: 1.3 }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: tone(accent), lineHeight: 1.3 }}>
           {event.half === 'bottom' ? '▼' : '▲'} {ord(event.inning)}
         </Typography>
       </Box>

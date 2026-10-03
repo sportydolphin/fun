@@ -50,6 +50,14 @@ export { isMlbView } from '../routes'
 export type MlbOpenSource = 'header_search' | 'recent' | 'team_page'
 const OPEN_SOURCES = new Set<string>(['header_search', 'recent', 'team_page'])
 
+/** The Table's sort state for `key` on a board, or null when the key names no stat there (a stale
+ *  or hand-typed `sort=`), which leaves the board on its default rather than on nothing. */
+export function boardSortFor(group: 'hitting' | 'pitching', key: string | null | undefined): LbFullscreenState | null {
+  if (!key) return null
+  const def = (group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).find(d => d.key === key)
+  return def ? { def, group, sortKey: key, sortAsc: def.lowerIsBetter ?? false, entries: [] } : null
+}
+
 export function useMlbState() {
   const { user, openAuthDialog } = useAuth()
   // ─── Search ──────────────────────────────────────────────────────────────────
@@ -246,7 +254,13 @@ export function useMlbState() {
   const [lbData, setLbData] = useState<LeaderboardEntry[] | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
-  const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(null)
+  // Seeded from `sort=` so a Leaders card's link (and a shared address) lands on its stat.
+  const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(() => {
+    try {
+      const q = new URLSearchParams(window.location.search)
+      return boardSortFor(q.get('lb') === 'pitching' ? 'pitching' : 'hitting', q.get('sort'))
+    } catch { return null }
+  })
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
   const [lbQualified, setLbQualified] = useState(true)
   // All-time (career) mode for the Stats tab only — kept separate from vizSeason so
@@ -258,6 +272,10 @@ export function useMlbState() {
   const [statsAllTime, setStatsAllTime] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('season') === 'all' } catch { return false }
   })
+  // The Table's stat as the address spells it: null for the board's default, so the plain
+  // /mlb/stats stays the canonical spelling of the page most readers land on.
+  const sortParam = lbFullscreen && lbFullscreen.group === lbGroup && lbFullscreen.sortKey !== LB_FEATURED[lbGroup][0]
+    ? lbFullscreen.sortKey : null
 
   // ─── Career trends ────────────────────────────────────────────────────────────
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
@@ -537,8 +555,9 @@ export function useMlbState() {
     if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
+    if (view === 'stats' && sortParam) s.sort = sortParam
     return s
-  }, [player, team, season, statsView, view, lbGroup, statsAllTime, lbGameScope])
+  }, [player, team, season, statsView, view, lbGroup, statsAllTime, lbGameScope, sortParam])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -599,6 +618,27 @@ export function useMlbState() {
     setPlayer(null)
     setTeam(null)
   }, [player, season, statsView, stampCurrentEntry])
+
+  /** A Leaders card's "See all": the Table, ranked by that card's stat, over the same season,
+   *  games and qualifying bar the card showed. Its own history entry, so Back returns to Leaders;
+   *  it used to swap the view in place, which rewrote the Leaders entry as the Table's. */
+  const openStatsBoard = useCallback((statKey: string) => {
+    const next = boardSortFor(lbGroup, statKey)
+    if (!next) return
+    stampCurrentEntry()
+    pushEntry(
+      { view: 'stats', lb: lbGroup, allTime: false, games: lbGameScope, sort: statKey },
+      mlbUrlFor({ view: 'stats', lb: lbGroup, season: vizSeason, games: lbGameScope, sort: statKey }, CURRENT_SEASON),
+    )
+    // Leaders has no career board, so a career Table left over from before would be the wrong page.
+    setStatsAllTime(false)
+    setLbFullscreen(next)
+    setLbQualified(true)
+    setLbStatsLimit(50)
+    setStatsHighlightPlayerId(null)
+    setStatsHighlightStatKey(null)
+    setView('stats')
+  }, [lbGroup, lbGameScope, vizSeason, stampCurrentEntry])
 
   /** Leave the player or team page for a tab. Without it the player stays selected behind the
    *  tab, and the address and the history entry go on naming them rather than the tab on screen. */
@@ -727,14 +767,14 @@ export function useMlbState() {
     const snap: MlbSnapshot = player
       ? { view: 'search', playerId: player.id, playerName: player.fullName }
       : team ? { view: 'search', teamId: team.id }
-      : { view, lb: lbGroup, allTime: statsAllTime, season: vizSeason, games: lbGameScope }
+      : { view, lb: lbGroup, allTime: statsAllTime, season: vizSeason, games: lbGameScope, sort: sortParam }
     // Re-stamp the active entry with a self-describing snapshot of the view it now
     // shows (not just the URL). This is what makes Back work: whichever entry you later
     // land on carries an accurate description of its own screen, so popstate can restore
     // it directly. (popstate hands you the state of the entry you arrive at, never the
     // one you leave — so "where I came from" state is useless here.)
     writeAddress(keepSheetMarker(currentHistoryState()), snap)
-  }, [view, player, team, lbGroup, vizSeason, statsAllTime, lbGameScope, currentHistoryState])
+  }, [view, player, team, lbGroup, vizSeason, statsAllTime, lbGameScope, sortParam, currentHistoryState])
 
   // Restore state when the browser back button is pressed
   useEffect(() => {
@@ -773,6 +813,7 @@ export function useMlbState() {
         if (s.view === 'leaderboard' || s.view === 'stats') setLbGroup(s.lb === 'pitching' ? 'pitching' : 'hitting')
         if (s.view === 'stats') setStatsAllTime(!!s.allTime)
         if (s.view === 'leaderboard' || s.view === 'stats') setLbGameScope(isGameScope(s.games) ? s.games : 'regular')
+        if (s.view === 'stats') setLbFullscreen(boardSortFor(s.lb === 'pitching' ? 'pitching' : 'hitting', s.sort))
         return
       }
 
@@ -806,6 +847,7 @@ export function useMlbState() {
         setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
         const g = params.get('games')
         setLbGameScope(isGameScope(g) ? g : 'regular')
+        if (target.view === 'stats') setLbFullscreen(boardSortFor(params.get('lb') === 'pitching' ? 'pitching' : 'hitting', params.get('sort')))
       }
     }
     window.addEventListener('popstate', handlePop)
@@ -856,6 +898,7 @@ export function useMlbState() {
         snap.allTime = params.get('season') === 'all'
         const g = params.get('games')
         snap.games = isGameScope(g) ? g : 'regular'
+        if (initView === 'stats' && boardSortFor(snap.lb, params.get('sort'))) snap.sort = params.get('sort')
       }
       // At the canonical address, which matters on a legacy landing (`/mlb?view=standings`): the
       // sync above has already run for this render and nothing else may change to re-run it.
@@ -994,7 +1037,7 @@ export function useMlbState() {
     lbGroup, setLbGroup,
     lbData, loadingLb,
     lbSelectedKeys, setLbSelectedKeys,
-    lbFullscreen, setLbFullscreen,
+    lbFullscreen, setLbFullscreen, openStatsBoard,
     lbStatsLimit, setLbStatsLimit,
     lbQualified, setLbQualified,
     statsAllTime, setStatsAllTime,

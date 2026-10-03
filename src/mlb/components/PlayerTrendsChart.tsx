@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { CareerStatSplit, RecentGameEntry } from '../types'
-import { ACCENT, CURRENT_SEASON, TEAM_BG } from '../constants'
+import { ACCENT, ACCENT_TEXT, CURRENT_SEASON, TEAM_BG } from '../constants'
 import { parseIP } from '../lib/utils'
 import { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 import { RollingWindowChart } from './RollingWindowChart'
@@ -378,7 +378,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           </Box>
           {isRangeModified && (
             <Box onClick={() => { setRangeStart(null); setRangeEnd(null); setHovIdx(null) }}
-              sx={{ fontSize: '0.72rem', color: ACCENT, fontWeight: 600, cursor: 'pointer', '&:hover': { opacity: 0.7 } }}>
+              sx={{ fontSize: '0.72rem', color: ACCENT_TEXT, fontWeight: 600, cursor: 'pointer', '&:hover': { opacity: 0.7 } }}>
               Reset
             </Box>
           )}
@@ -409,7 +409,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               {currentDef.counting ? `Avg / yr` : `Career ${currentDef.label}`}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT_TEXT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
           </Box>
         )}
         <Box>
@@ -599,7 +599,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               })()}
               {hov.isPace ? (
                 <>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT_TEXT, mt: 0.25, lineHeight: 1 }}>
                     {currentDef.fmt(hov.value)} <Typography component="span" sx={{ fontSize: '0.65rem', color: 'text.disabled', fontWeight: 600 }}>pace</Typography>
                   </Typography>
                   <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
@@ -607,7 +607,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
                   </Typography>
                 </>
               ) : (
-                <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT_TEXT, mt: 0.25, lineHeight: 1 }}>
                   {currentDef.fmt(hov.value)}
                 </Typography>
               )}

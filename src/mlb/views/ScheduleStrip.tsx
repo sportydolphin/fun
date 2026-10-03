@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
-import { TEAM_ABBR, ACCENT } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
@@ -60,7 +60,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       {highlight && (
         <Box sx={{
           position: 'absolute', top: 0, left: 0, right: 0,
-          bgcolor: isLive       ? '#ef4444'
+          bgcolor: isLive       ? FILL.red
                  : isPostponed  ? 'rgba(128,128,128,0.5)'
                  : isActualToday ? teamColor
                  : `${teamColor}90`,
@@ -117,7 +117,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
           </Box>
         </>
       ) : isLive ? (
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#ef4444', lineHeight: 1 }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: TONE.red, lineHeight: 1 }}>
           {game.teamScore}–{game.opponentScore}
         </Typography>
       ) : isPostponed ? (
@@ -146,6 +146,7 @@ function useCountdownNow(): number {
 }
 
 function GameCountdown({ iso }: { iso: string }) {
+  const tone = useTextTone()
   const targetMs = new Date(iso).getTime()
   const now      = useCountdownNow()
   const diffMs   = targetMs - now
@@ -184,7 +185,7 @@ function GameCountdown({ iso }: { iso: string }) {
       )}
       <Typography sx={{
         fontSize: '0.62rem', fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap',
-        color: tint ?? 'text.disabled',
+        color: (tint && tone(tint)) ?? 'text.disabled',
       }}>
         in {text}
       </Typography>
@@ -209,6 +210,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   gmLabel?:     string                           // "GM 1"/"GM 2" badge for doubleheader days
   hideDate?:    boolean                          // 2nd+ game of a doubleheader — the date is already above
 }) {
+  const tone = useTextTone()
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
   const isWin   = game.isWin === true
@@ -296,7 +298,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
               const scoreTxt = (score: number | null) => (
                 <Typography sx={{
                   fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
-                  color: isLive ? '#ef4444' : 'text.primary',
+                  color: isLive ? TONE.red : 'text.primary',
                 }}>
                   {score ?? 0}
                 </Typography>
@@ -324,7 +326,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
             {logoCircle(game.opponentId, oppCol, 32)}
             <Typography sx={{
               fontSize: '1.05rem', fontWeight: 800, lineHeight: 1,
-              color: isLive ? '#ef4444' : 'text.primary',
+              color: isLive ? TONE.red : 'text.primary',
             }}>
               {game.teamScore}–{game.opponentScore}
             </Typography>
@@ -345,7 +347,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
           <Box component="span" sx={{
             ml: 1, flexShrink: 0, alignSelf: 'center',
             fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
-            color: labelColor ?? 'text.secondary', lineHeight: 1,
+            color: (labelColor && tone(labelColor)) ?? 'text.secondary', lineHeight: 1,
           }}>
             {label}
           </Box>
@@ -537,7 +539,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
         sx={{
           minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
-          '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT } : {},
+          '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT_TEXT } : {},
         }}
       >
         <Box sx={{
@@ -606,7 +608,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
         sx={{
           minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: onPlayerClick ? 'pointer' : 'default',
-          '&:hover .pmn': onPlayerClick ? { color: ACCENT } : {},
+          '&:hover .pmn': onPlayerClick ? { color: ACCENT_TEXT } : {},
         }}
       >
         {/* 26px frame matches the score-row logo width so the circles share a center line */}

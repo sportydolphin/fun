@@ -19,9 +19,29 @@ export function brightColor(hex: string): string {
   return `#${br.toString(16).padStart(2, '0')}${bg.toString(16).padStart(2, '0')}${bb.toString(16).padStart(2, '0')}`
 }
 
+export { textTone, contrastRatio, whiteAlphaOn } from './contrast'
+import { textTone } from './contrast'
+
+/** textTone bound to the current theme and its card surface. */
+/** `target` above 4.5 for text on a tint of its own colour (a "Signed" chip on 11% green), which
+ *  sits a little closer to the text than the plain card does. */
+export function useTextTone(): (hex: string, bg?: string, target?: number) => string {
+  const theme = useTheme()
+  const dark = theme.palette.mode === 'dark'
+  const paper = theme.palette.background.paper
+  const page = theme.palette.background.default
+  // With no surface named, pass on BOTH the card and the page: a lot of this text sits on a card
+  // with a transparent background, so the page is what is actually behind it.
+  return (hex, bg, target) => bg
+    ? textTone(hex, dark, bg, target)
+    : textTone(textTone(hex, dark, paper, target), dark, page, target)
+}
+
 // Team color appropriate for text/icons in the current theme.
+// Then held to AA on the theme's page: a club's raw primary is 4.2:1 on white for Baltimore, and
+// the brightened one can fall short on a dark card the same way. A colour that passes is untouched.
 export function accentColor(hex: string, isDark: boolean): string {
-  return isDark ? brightColor(hex) : hex
+  return textTone(isDark ? brightColor(hex) : hex, isDark, isDark ? undefined : '#f6f7f9')
 }
 
 // Team logo-bubble ring color for the current theme, from the per-team locked-in

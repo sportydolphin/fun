@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
+import { TEAM_BG, TEAM_ABBR, HEADSHOT, TONE } from '../constants'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, useTextTone } from '../lib/colorUtils'
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
@@ -285,6 +285,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
   teamId:   number
   onSelect?: (id: number) => void
 }) {
+  const tone = useTextTone()
   const isDark = useIsDark()
   const col    = TEAM_BG[teamId] ?? '#444'
   const accent = accentColor(col, isDark)
@@ -313,7 +314,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: accent, textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1 }}>
+        <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: tone(accent), textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1 }}>
           {label}
         </Typography>
         <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, lineHeight: 1.2, mt: 0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -743,7 +744,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
       sheet
       sheetFill
       eyebrow={
-        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: isLive ? '#ef4444' : 'inherit' }}>
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: isLive ? TONE.red : 'inherit' }}>
           {isLive && <LiveDot size={6} />}
           {statusText}
         </Box>

@@ -1,9 +1,30 @@
 import { StatDef, Palette } from './types'
 import { fmt, fmtDecimal } from './lib/utils'
+import { whiteAlphaOn, cardBgForWhite } from './lib/contrast'
 
 // ─── Design token ─────────────────────────────────────────────────────────────
 
 export const ACCENT = '#60a5fa'
+/** ACCENT for TEXT. ACCENT itself is blue-400, which is 6.8:1 on the dark page and about 2.5:1 on
+ *  the light one, so a sorted column or a leader's number printed in it all but vanished in light
+ *  mode. This token is the same blue in dark and a darker one in light (styles.css). Borders,
+ *  tints and dots stay on ACCENT, where they are decoration rather than something to read. */
+export const ACCENT_TEXT = 'var(--wpbl-accent-fg)'
+
+/** Status colours for TEXT, keyed by the raw hex's hue name, each a 4.5:1 value in its own theme
+ *  (styles.css, --mlb-tone-*). Use the raw hex for a fill, a bar or a tint; use this to print. */
+export const TONE = {
+  red: 'var(--mlb-tone-red)', green: 'var(--mlb-tone-green)', orange: 'var(--mlb-tone-orange)',
+  amber: 'var(--mlb-tone-amber)', yellow: 'var(--mlb-tone-yellow)', sky: 'var(--mlb-tone-sky)',
+  indigo: 'var(--mlb-tone-indigo)', violet: 'var(--mlb-tone-violet)', emerald: 'var(--mlb-tone-emerald)',
+  teal: 'var(--mlb-tone-teal)', rose: 'var(--mlb-tone-rose)', slate: 'var(--mlb-tone-slate)',
+  gray: 'var(--mlb-tone-gray)',
+} as const
+
+/** Status colours as a FILL under white text (a LIVE pill, a right/wrong pick dot). White on the raw
+ *  #ef4444 is 3.8:1 and on #22c55e 2.3:1, in either theme, since the pill carries its own
+ *  background; these are the nearest shades that clear 4.5:1 under white. */
+export const FILL = { red: '#dc2626', green: '#15803d' } as const
 
 // How many players you can follow at once. The Home "Your Players" card only shows
 // the first few (3 on mobile, 5 from sm up) behind a "View all" toggle, so the list
@@ -427,17 +448,25 @@ export const TEAM_ICON_STYLE_LIGHT: Record<number, TeamIconStyle> = {
   [MIL]: { bg: '#FFC52F', ring: '#12284B', highlight: '#12284B', logo: 'primary', zoom: 1.2 },
 }
 
+// A card's secondary text ("3rd in AL East", a jersey number, the W / L / PCT heads) was a fixed
+// 0.62 and 0.42 white, picked on navy. On the red clubs that is 2.1 to 3:1, so each palette now
+// takes the faintest white that still reads at 4.5:1 on ITS colour, keeping the 0.62 / 0.42 floor
+// wherever that already passes so the hierarchy survives on the dark cards. On the brightest reds
+// (Baltimore, Philadelphia) both collapse to solid white, and size and weight carry the hierarchy.
+const whiteOn = (bg: string, min: number) => `rgba(255,255,255,${whiteAlphaOn(bg, min)})`
+
 export const DEFAULT_PALETTE: Palette = {
   bg: 'hsl(220, 70%, 15%)',
   text: '#ffffff',
-  sub: 'rgba(255,255,255,0.58)',
-  rank: 'rgba(255,255,255,0.42)',
+  sub: whiteOn('hsl(220, 70%, 15%)', 0.58),
+  rank: whiteOn('hsl(220, 70%, 15%)', 0.42),
   divider: 'rgba(255,255,255,0.14)',
 }
 
 export function teamPalette(teamId?: number): Palette {
-  const bg = (teamId != null && TEAM_BG[teamId]) || DEFAULT_PALETTE.bg
-  return { bg, text: '#ffffff', sub: 'rgba(255,255,255,0.62)', rank: 'rgba(255,255,255,0.42)', divider: 'rgba(255,255,255,0.16)' }
+  // A shade deeper only where white cannot read on the club colour itself (cardBgForWhite).
+  const bg = cardBgForWhite((teamId != null && TEAM_BG[teamId]) || DEFAULT_PALETTE.bg)
+  return { bg, text: '#ffffff', sub: whiteOn(bg, 0.62), rank: whiteOn(bg, 0.42), divider: 'rgba(255,255,255,0.16)' }
 }
 
 // ─── 2026 Payroll data ────────────────────────────────────────────────────────
@@ -481,11 +510,14 @@ export function randomPalette(): Palette {
   const sat = 65 + Math.floor(Math.random() * 30)
   const dark = Math.random() > 0.3
   const lightness = dark ? 10 + Math.floor(Math.random() * 28) : 62 + Math.floor(Math.random() * 20)
+  const bg = `hsl(${hue}, ${sat}%, ${lightness}%)`
   return {
-    bg: `hsl(${hue}, ${sat}%, ${lightness}%)`,
+    bg,
     text: dark ? '#ffffff' : '#0a0a0a',
-    sub: dark ? 'rgba(255,255,255,0.58)' : 'rgba(0,0,0,0.52)',
-    rank: dark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.32)',
+    // A light random card is near-white under black text, where 0.52 / 0.32 black already reads;
+    // the dark ones get the same per-colour floor as a club's card.
+    sub: dark ? whiteOn(bg, 0.58) : 'rgba(0,0,0,0.66)',
+    rank: dark ? whiteOn(bg, 0.42) : 'rgba(0,0,0,0.58)',
     divider: dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)',
   }
 }

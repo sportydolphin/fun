@@ -138,12 +138,12 @@ export function ContractPanel({ contract, currentSeason }: {
                   <Box sx={{
                     flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
                     alignItems: 'center', gap: 0.4, cursor: 'default',
-                    opacity: isPast ? 0.42 : 1,       // seasons already paid out recede
-                    transition: 'opacity 0.15s',
                   }}>
                     <Typography sx={{
                       fontSize: '0.55rem', fontWeight: 800, lineHeight: 1,
-                      color: y.salary > 0 ? 'text.secondary' : 'transparent',
+                      // A paid-out season recedes by its colour, not by opacity: 0.42 over the whole
+                      // column took the figure and the year to 1.8:1.
+                      color: y.salary > 0 ? (isPast ? 'text.disabled' : 'text.secondary') : 'transparent',
                       whiteSpace: 'nowrap',
                     }}>
                       {money(y.salary)}
@@ -152,8 +152,9 @@ export function ContractPanel({ contract, currentSeason }: {
                       <Box sx={{
                         width: '100%', height: `${pct}%`, borderRadius: 0.75,
                         bgcolor: style.color,
-                        // Dashed-looking stub for years with no negotiated salary.
-                        opacity: y.salary > 0 ? 1 : 0.4,
+                        // Dashed-looking stub for years with no negotiated salary; a paid-out
+                        // season's bar recedes, which is where the dimming belongs.
+                        opacity: (y.salary > 0 ? 1 : 0.4) * (isPast ? 0.42 : 1),
                         outline: isNow ? `2px solid ${style.color}` : 'none',
                         outlineOffset: 2,
                       }} />

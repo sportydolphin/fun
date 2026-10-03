@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT, TEAM_NICKNAME } from '../constants'
+import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME, TONE } from '../constants'
 import { fmtGB, useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, highlightColor } from '../lib/colorUtils'
 import { fetchStandings } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
@@ -37,7 +37,7 @@ function computeWildCardIds(divisions: StandingsDivision[], leagueId: number): S
 function StreakCell({ code }: { code: string }) {
   if (!code) return <Box component="span" sx={{ color: 'text.disabled' }}>—</Box>
   return (
-    <Box component="span" sx={{ color: code.startsWith('W') ? '#22c55e' : '#ef4444', fontWeight: 700 }}>
+    <Box component="span" sx={{ color: code.startsWith('W') ? TONE.green : TONE.red, fontWeight: 700 }}>
       {code}
     </Box>
   )
@@ -55,7 +55,7 @@ function L10Cell({ value }: { value: string }) {
 
 function DiffCell({ diff }: { diff: number }) {
   return (
-    <Box component="span" sx={{ color: diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : 'text.secondary', fontWeight: 600 }}>
+    <Box component="span" sx={{ color: diff > 0 ? TONE.green : diff < 0 ? TONE.red : 'text.secondary', fontWeight: 600 }}>
       {diff > 0 ? `+${diff}` : diff}
     </Box>
   )
@@ -305,13 +305,13 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
           <Typography sx={{
             fontSize: '0.75rem', fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
-            color: gapNum > 0 ? '#22c55e' : gapNum < 0 ? '#ef4444' : 'text.disabled',
+            color: gapNum > 0 ? TONE.green : gapNum < 0 ? TONE.red : 'text.disabled',
           }}>{gbText}</Typography>
         </Box>
         {/* Streak */}
         <Typography sx={{
           fontSize: '0.74rem', fontWeight: 700, minWidth: '1.625rem', textAlign: 'right',
-          color: team.streakCode.startsWith('W') ? '#22c55e' : team.streakCode.startsWith('L') ? '#ef4444' : 'text.disabled',
+          color: team.streakCode.startsWith('W') ? TONE.green : team.streakCode.startsWith('L') ? TONE.red : 'text.disabled',
         }}>
           {team.streakCode || '—'}
         </Typography>
@@ -502,7 +502,7 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
         <PlayoffOddsBoard season={season} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
       ) : (
         <>
-          {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT }} /></Box>}
+          {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT_TEXT }} /></Box>}
           {!loading && error && <Box sx={{ textAlign: 'center', py: 8 }}><Typography sx={{ color: 'text.secondary' }}>Could not load standings. Please try again.</Typography></Box>}
 
           {!loading && !error && divisions.length > 0 && (

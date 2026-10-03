@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { Box, Typography, Tooltip, CircularProgress, IconButton } from '@mui/material'
 import { OpenInFull } from '@mui/icons-material'
 import { InfoTip } from './ui'
-import { ACCENT, TEAM_BG, HEADSHOT, TEAM_NICKNAME } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder, photoBorderAlpha } from '../lib/colorUtils'
+import { ACCENT, ACCENT_TEXT, TEAM_BG, HEADSHOT, TEAM_NICKNAME } from '../constants'
+import { useIsDark, useTextTone, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder, photoBorderAlpha } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, LINK_SX } from '../lib/links'
@@ -77,6 +77,7 @@ const LABEL_W = '3.5rem'
 export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
   row: LbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
 }) {
+  const tone = useTextTone()
   return (
     <Box
       {...teamLink(row.teamId, onSelect)}
@@ -111,14 +112,14 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
         <Box sx={{ height: chromePx(7), bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
           <Box sx={{ height: '100%', width: `${Math.max(row.barFraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />
         </Box>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: accent, textAlign: 'right', lineHeight: 1 }}>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: tone(accent), textAlign: 'right', lineHeight: 1 }}>
           {row.value}
         </Typography>
       </Box>
 
       {showLabel && (
         <Typography sx={{
-          fontSize: '0.54rem', fontWeight: 800, color: accent,
+          fontSize: '0.54rem', fontWeight: 800, color: tone(accent),
           width: LABEL_W, flexShrink: 0, textAlign: 'right',
           letterSpacing: typePx(0.3), lineHeight: 1.25,
           textTransform: 'uppercase',
@@ -175,7 +176,7 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
           </Box>
         ) : (
           <Tooltip title="View all teams" arrow placement="top">
-            <IconButton size="small" aria-label="Expand" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+            <IconButton size="small" aria-label="Expand" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT_TEXT } }}>
               <OpenInFull sx={{ fontSize: '1rem' }} />
             </IconButton>
           </Tooltip>
@@ -186,7 +187,7 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
       <Box sx={{ px: 0.5, py: 0.5 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={22} sx={{ color: ACCENT }} />
+            <CircularProgress size={22} sx={{ color: ACCENT_TEXT }} />
           </Box>
         ) : (
           top3.map((row, idx) => (
@@ -308,6 +309,7 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
   row: PlayerLbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
 }) {
   const isDark = useIsDark()
+  const tone = useTextTone()
   return (
     <Box
       {...playerLink(row.playerId, row.playerName, onSelect)}
@@ -350,14 +352,14 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
         <Box sx={{ height: chromePx(7), bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
           <Box sx={{ height: '100%', width: `${Math.max(row.barFraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />
         </Box>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: accent, textAlign: 'right', lineHeight: 1 }}>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: tone(accent), textAlign: 'right', lineHeight: 1 }}>
           {row.value}
         </Typography>
       </Box>
 
       {showLabel && (
         <Typography sx={{
-          fontSize: '0.54rem', fontWeight: 800, color: accent,
+          fontSize: '0.54rem', fontWeight: 800, color: tone(accent),
           width: LABEL_W, flexShrink: 0, textAlign: 'right',
           letterSpacing: typePx(0.3), lineHeight: 1.25,
           textTransform: 'uppercase',
@@ -396,7 +398,7 @@ export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipTe
           <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
         </Box>
         <Tooltip title="View all players" arrow placement="top">
-          <IconButton size="small" aria-label="Expand" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+          <IconButton size="small" aria-label="Expand" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT_TEXT } }}>
             <OpenInFull sx={{ fontSize: '1rem' }} />
           </IconButton>
         </Tooltip>
@@ -406,7 +408,7 @@ export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipTe
       <Box sx={{ px: 0.5, py: 0.5 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={22} sx={{ color: ACCENT }} />
+            <CircularProgress size={22} sx={{ color: ACCENT_TEXT }} />
           </Box>
         ) : top3.length === 0 ? (
           <Typography sx={{ textAlign: 'center', py: 2.5, fontSize: '0.72rem', color: 'text.disabled' }}>

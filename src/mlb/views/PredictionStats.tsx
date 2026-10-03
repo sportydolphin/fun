@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_ABBR, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { TEAM_ABBR, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, TONE } from '../constants'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { supabase } from '../../lib/supabase'
 import { fetchDeactivatedUserIds } from '../../lib/usernames'
@@ -315,7 +315,7 @@ function StatPill({ label, value, accent }: { label: string; value: string | num
     }}>
       <Typography sx={{
         fontSize: { xs: '1.35rem', sm: '1.65rem' }, fontWeight: 800, lineHeight: 1,
-        color: accent ? ACCENT : 'text.primary',
+        color: accent ? ACCENT_TEXT : 'text.primary',
       }}>
         {value}
       </Typography>
@@ -341,6 +341,7 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
   mainLabel: string
   subLabel?: string
 }) {
+  const tone = useTextTone()
   const [failed, setFailed] = useState(false)
   const isDark   = useIsDark()
   const col      = ringColor(teamId, isDark)
@@ -361,7 +362,7 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
           transition: 'box-shadow 0.2s',
         }}>
           {failed ? (
-            <Typography sx={{ color: col, fontWeight: 900, fontSize: logoSize * 0.28, lineHeight: 1 }}>
+            <Typography sx={{ color: tone(col), fontWeight: 900, fontSize: logoSize * 0.28, lineHeight: 1 }}>
               {teamAbbr}
             </Typography>
           ) : (
@@ -384,7 +385,8 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
           boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
           border: '1.5px solid', borderColor: 'background.paper',
         }}>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+          {/* Near-black, not white: white on the gold medal is 2.2:1, this is 6.6 to 9.7 on all three. */}
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#111827', lineHeight: 1 }}>
             {rank + 1}
           </Typography>
         </Box>
@@ -396,7 +398,7 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
       </Typography>
 
       {/* Main stat */}
-      <Typography sx={{ fontSize: rank === 0 ? '1.05rem' : '0.92rem', fontWeight: 800, color: col, lineHeight: 1 }}>
+      <Typography sx={{ fontSize: rank === 0 ? '1.05rem' : '0.92rem', fontWeight: 800, color: tone(col), lineHeight: 1 }}>
         {mainLabel}
       </Typography>
 
@@ -424,7 +426,7 @@ function TeamPodium({ title, teams, getMain, getSub }: {
       <Typography sx={{
         fontWeight: 800, fontSize: '0.62rem',
         textTransform: 'uppercase', letterSpacing: typePx(1.2),
-        color: ACCENT, mb: 1.25,
+        color: ACCENT_TEXT, mb: 1.25,
       }}>
         {title}
       </Typography>
@@ -459,7 +461,7 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
         }}>
           <Typography sx={{ fontSize: '1.35rem', lineHeight: 1 }}>🔥</Typography>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: '#f97316', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: TONE.orange, lineHeight: 1.2 }}>
               You're on a {stats.currentStreak}-game heater
             </Typography>
             <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary', lineHeight: 1.2 }}>
@@ -564,7 +566,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
             <Typography sx={{
               fontSize: '0.78rem', fontWeight: entry.isMe ? 800 : 500,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              color: entry.isMe ? ACCENT : 'text.primary', minWidth: 0,
+              color: entry.isMe ? ACCENT_TEXT : 'text.primary', minWidth: 0,
             }}>
               {entry.displayName}{entry.isMe ? ' (you)' : ''}
             </Typography>
@@ -572,7 +574,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
               <Box component="span" sx={{
                 flexShrink: 0, px: 0.5, py: '1px', borderRadius: 999,
                 bgcolor: '#f9731618', border: '1px solid #f9731655',
-                fontSize: '0.58rem', fontWeight: 800, color: '#f97316', lineHeight: 1.4,
+                fontSize: '0.58rem', fontWeight: 800, color: TONE.orange, lineHeight: 1.4,
                 whiteSpace: 'nowrap',
               }}>
                 🔥 {entry.currentStreak}
@@ -584,7 +586,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
           </Typography>
           <Typography sx={{
             fontSize: '0.78rem', fontWeight: 700, minWidth: '2.5rem', textAlign: 'right',
-            color: entry.isMe ? ACCENT : 'text.primary',
+            color: entry.isMe ? ACCENT_TEXT : 'text.primary',
           }}>
             {Math.round(entry.accuracy)}%
           </Typography>
@@ -712,7 +714,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
                       border: '1px solid',
                       borderColor: boardWindow === w ? ACCENT : 'divider',
                       bgcolor:     boardWindow === w ? `${ACCENT}14` : 'transparent',
-                      color:       boardWindow === w ? ACCENT : 'text.secondary',
+                      color:       boardWindow === w ? ACCENT_TEXT : 'text.secondary',
                       transition: 'all 0.12s',
                     }}
                   >

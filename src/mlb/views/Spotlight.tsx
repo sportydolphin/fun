@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { postseasonGameLabel } from '../postseason'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 
@@ -527,6 +527,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
+  const tone = useTextTone()
   const isDark     = useIsDark()
   const teamColor  = TEAM_BG[data.teamId] ?? '#444'
   const abbr       = TEAM_ABBR[data.teamId] ?? '—'
@@ -606,7 +607,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       }}>
         <Typography sx={{
           fontWeight: 900, fontSize: '0.68rem', textTransform: 'uppercase',
-          letterSpacing: typePx(1.2), color: labelColor, flex: 1, lineHeight: 1,
+          letterSpacing: typePx(1.2), color: (labelColor && tone(labelColor)), flex: 1, lineHeight: 1,
         }}>
           {mode === 'hot' ? '🔥 On Fire' : '🥶 Ice Cold'}
         </Typography>
@@ -614,7 +615,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
           px: 1, py: chromePx(3), borderRadius: 999,
           bgcolor: `${labelColor}20`, border: `1px solid ${labelColor}40`, flexShrink: 0,
         }}>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: labelColor, letterSpacing: typePx(0.3), lineHeight: 1 }}>
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: (labelColor && tone(labelColor)), letterSpacing: typePx(0.3), lineHeight: 1 }}>
             {data.period}
           </Typography>
         </Box>

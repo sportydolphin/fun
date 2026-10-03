@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Box, Typography, Popover, Tooltip, ClickAwayListener } from '@mui/material'
 import { KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
 import { RankMode, Palette, StatDef } from '../types'
-import { ACCENT } from '../constants'
+import { ACCENT, ACCENT_TEXT } from '../constants'
 import { statCols } from '../lib/utils'
 import { linkPress, pressable, hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { chromePx, typePx } from '../../ui/scale'
@@ -79,13 +79,13 @@ export function PillChip({ label, selected, onChange }: {
         border: '1.5px solid',
         borderColor: selected ? ACCENT : 'divider',
         bgcolor: selected ? `${ACCENT}20` : 'transparent',
-        color: selected ? ACCENT : 'text.secondary',
+        color: selected ? ACCENT_TEXT : 'text.secondary',
         fontSize: '0.75rem',
         fontWeight: 600,
         cursor: 'pointer',
         transition: 'all 0.15s',
         userSelect: 'none',
-        '&:hover': !selected ? { borderColor: ACCENT, color: ACCENT } : {},
+        '&:hover': !selected ? { borderColor: ACCENT, color: ACCENT_TEXT } : {},
       }}
     >
       {label}
@@ -106,7 +106,7 @@ export const pillActionSx = {
   color: 'text.secondary',
   transition: 'all 0.15s',
   userSelect: 'none' as const,
-  '&:hover': { borderColor: ACCENT, color: ACCENT },
+  '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
 }
 
 // Shared style for external link pills in the options bar
@@ -121,7 +121,7 @@ export const linkPillSx = {
   fontWeight: 600,
   textDecoration: 'none',
   transition: 'all 0.15s',
-  '&:hover': { borderColor: ACCENT, color: ACCENT },
+  '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
 }
 
 export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
@@ -174,9 +174,11 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
   return (
     <Box sx={{ textAlign: 'center' }}>
       <Typography sx={{
-        color: palette.text, fontWeight: 700,
+        // The palette's own secondary tone, which is tuned per card colour (teamPalette); a flat
+        // 0.85 opacity over white measured 3.4:1 on the Orioles' orange.
+        color: palette.sub, fontWeight: 700,
         fontSize: large ? { xs: '0.82rem', sm: '0.92rem' } : { xs: '0.74rem', sm: '0.82rem' },
-        letterSpacing: typePx(0.3), opacity: 0.85, mb: 0.4,
+        letterSpacing: typePx(0.3), mb: 0.4,
       }}>
         {label}
       </Typography>
@@ -233,10 +235,10 @@ export function StatPicker({ defs, selected, onToggle, label }: StatPickerProps)
           cursor: 'pointer',
           fontSize: '0.75rem',
           fontWeight: 600,
-          color: anchor ? ACCENT : 'text.secondary',
+          color: anchor ? ACCENT_TEXT : 'text.secondary',
           transition: 'all 0.15s',
           userSelect: 'none',
-          '&:hover': { borderColor: ACCENT, color: ACCENT },
+          '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
         }}
       >
         {label}

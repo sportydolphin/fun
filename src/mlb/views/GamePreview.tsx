@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, textTone } from '../lib/colorUtils'
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
@@ -134,7 +134,8 @@ function comparisonColors(awayId: number, homeId: number, isDark: boolean): [str
   const h = accentColor(TEAM_BG[homeId] ?? '#444', isDark)
   const gap = Math.abs(hexHue(a) - hexHue(h))
   const hueGap = Math.min(gap, 360 - gap)
-  return hueGap < MIN_HUE_GAP ? [FALLBACK_AWAY, FALLBACK_HOME] : [a, h]
+  // Held to AA like the club colours above them (accentColor): these are printed as the numbers.
+  return hueGap < MIN_HUE_GAP ? [textTone(FALLBACK_AWAY, isDark, isDark ? undefined : '#f6f7f9'), textTone(FALLBACK_HOME, isDark, isDark ? undefined : '#f6f7f9')] : [a, h]
 }
 
 // Head-to-head season splits for the two clubs. Each row is a diverging bar

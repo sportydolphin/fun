@@ -971,7 +971,8 @@ function AppInner() {
                             '100%': { backgroundPosition: '200% 50%' },
                           },
                         }
-                      : { background: ACCENT }),
+                      // The solid accent, not the raw #60a5fa: the white "MLB" on it measured 2.5:1.
+                      : { background: 'var(--wpbl-accent-solid)' }),
                   }} />
                 )
               })()}

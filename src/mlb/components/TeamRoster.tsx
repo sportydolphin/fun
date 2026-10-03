@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT, HEADSHOT, TEAM_BG } from '../constants'
+import { ACCENT, HEADSHOT, TEAM_BG, TONE } from '../constants'
 import { RosterEntry } from '../types'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, LINK_SX } from '../lib/links'
@@ -97,7 +97,7 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
         <Box sx={{
           flexShrink: 0, px: 0.6, height: chromePx(16), borderRadius: 0.75,
           display: 'inline-flex', alignItems: 'center',
-          bgcolor: '#ef444422', color: '#ef4444',
+          bgcolor: '#ef444422', color: TONE.red,
           fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.3),
         }}>
           IL

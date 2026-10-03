@@ -209,7 +209,7 @@ export function mlbTargetFromUrl(pathname: string, search: string): MlbTarget | 
 }
 
 /** The query names the legacy form spends, which the new paths make redundant. Everything else
- *  on a query (`open=`, `gamePk=`, `lb=`, `season=`) is carried through a redirect untouched. */
+ *  on a query (`open=`, `gamePk=`, `lb=`, `season=`, `sort=`) is carried through a redirect untouched. */
 export const MLB_LEGACY_PARAMS = ['view', 'pid', 'tid'] as const
 /** The same for a legacy game link, whose whole meaning moves into the path. */
 export const MLB_LEGACY_GAME_PARAMS = ['view', 'pid', 'tid', 'open', 'gamePk'] as const
@@ -227,6 +227,9 @@ export interface MlbSnapshot {
   season?: number | null
   /** Regular season (the default, left off the address), postseason, or both. */
   games?: 'regular' | 'post' | 'all'
+  /** The Table board's ranked stat. Left off when it is the board's default. On the address so
+   *  a Leaders card can link to "this stat, ranked in full" and a crawler can follow it. */
+  sort?: string | null
 }
 
 /** The full address of a snapshot: the path, plus the board filters the path cannot say. */
@@ -241,6 +244,7 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
     if (s.view === 'stats' && s.allTime) params.set('season', 'all')
     else if (s.season != null && currentSeason != null && s.season !== currentSeason) params.set('season', String(s.season))
     if (s.view !== 'viz' && s.games && s.games !== 'regular') params.set('games', s.games)
+    if (s.view === 'stats' && s.sort) params.set('sort', s.sort)
   }
   const qs = params.toString()
   return qs ? `${path}?${qs}` : path

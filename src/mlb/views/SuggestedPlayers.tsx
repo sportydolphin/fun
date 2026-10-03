@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT, CURRENT_SEASON } from '../constants'
+import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT, ACCENT_TEXT, CURRENT_SEASON, TONE } from '../constants'
 import { chromePx, typePx } from '../../ui/scale'
+import { useTextTone } from '../lib/colorUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
       rather than a compact chip. Bigger avatar + readable text. */
   large?:          boolean
 }) {
+  const tone = useTextTone()
   const col      = TEAM_BG[player.teamId] ?? '#444'
   // Show last name for brevity (keeps chips narrow)
   const lastName = player.fullName.split(' ').slice(1).join(' ') || player.fullName
@@ -125,7 +127,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
         <Typography sx={{ fontSize: large ? '0.68rem' : { xs: '0.56rem', sm: '0.64rem' }, color: 'text.secondary', lineHeight: large ? 1.3 : 1 }}>
           {player.position} · {player.teamAbbr}
           {player.isTeamPlayer && (
-            <Box component="span" sx={{ color: col, fontWeight: 800 }}> ★</Box>
+            <Box component="span" sx={{ color: tone(col), fontWeight: 800 }}> ★</Box>
           )}
         </Typography>
       </Box>
@@ -136,7 +138,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
           flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           border: '1.5px solid #22c55e60',
-          color: '#22c55e', fontSize: '0.6rem', fontWeight: 900, lineHeight: 1,
+          color: TONE.green, fontSize: '0.6rem', fontWeight: 900, lineHeight: 1,
         }}>
           ✓
         </Box>
@@ -177,7 +179,7 @@ export function SuggestedPlayersSection({ teamId, followedPlayerIds, onFollow }:
       }}>
         <Typography sx={{
           fontWeight: 800, fontSize: { xs: '0.65rem', sm: '0.72rem' },
-          textTransform: 'uppercase', letterSpacing: typePx(1.2), color: ACCENT,
+          textTransform: 'uppercase', letterSpacing: typePx(1.2), color: ACCENT_TEXT,
         }}>
           Suggested Players
         </Typography>

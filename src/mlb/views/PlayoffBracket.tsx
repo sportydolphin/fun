@@ -1,6 +1,6 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
-import { CURRENT_SEASON, TEAM_BG, TEAM_NICKNAME } from '../constants'
+import { CURRENT_SEASON, TEAM_BG, TEAM_NICKNAME, TONE } from '../constants'
 import { LogoBubble, LiveDot } from '../components/boxScore'
 import { useIsDark, borderAlpha } from '../lib/colorUtils'
 import { ModalShell } from '../../ui/ModalShell'
@@ -151,7 +151,7 @@ function SeriesCard({ s, onOpen, onTeamClick, compact = false }: {
           {status.live && <LiveDot size={6} />}
           <Typography sx={{
             fontSize: compact ? '0.64rem' : '0.7rem', fontWeight: status.decider ? 800 : 600, lineHeight: 1.35,
-            color: status.live ? '#ef4444' : status.decider ? '#f59e0b' : 'text.secondary',
+            color: status.live ? TONE.red : status.decider ? TONE.amber : 'text.secondary',
             ...(compact ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : {}),
           }}>
             {status.text}
@@ -214,7 +214,7 @@ function SeriesSheet({ s, onClose, onTeamClick, onPlayerClick }: {
               </Typography>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>{score}</Typography>
-                <Typography sx={{ fontSize: '0.7rem', color: g.state === 'live' ? '#ef4444' : 'text.secondary' }}>
+                <Typography sx={{ fontSize: '0.7rem', color: g.state === 'live' ? TONE.red : 'text.secondary' }}>
                   {when}{g.ifNecessary && g.state === 'preview' ? ' · if necessary' : ''}
                 </Typography>
               </Box>

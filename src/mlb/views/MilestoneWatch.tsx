@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT } from '../constants'
-import { useIsDark, highlightColor, defaultBorder } from '../lib/colorUtils'
+import { ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
+import { useIsDark, highlightColor, defaultBorder, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
@@ -60,7 +60,7 @@ const kindLabel = (item: MilestoneItem): string =>
 // could tick down (or the milestone fall) while you watch.
 function LiveBadge() {
   return (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 0.6, py: '1px', borderRadius: 999, bgcolor: LIVE_RED, flexShrink: 0 }}>
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 0.6, py: '1px', borderRadius: 999, bgcolor: FILL.red, flexShrink: 0 }}>
       <Box sx={{
         width: chromePx(4), height: chromePx(4), borderRadius: '50%', bgcolor: '#fff',
         '@keyframes msLiveDot': { '0%': { opacity: 1 }, '50%': { opacity: 0.2 }, '100%': { opacity: 1 } },
@@ -72,8 +72,9 @@ function LiveBadge() {
 }
 
 function Tag({ color, children }: { color: string; children: React.ReactNode }) {
+  const tone = useTextTone()
   return (
-    <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color, border: `1px solid ${color}55`, borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+    <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: tone(color), border: `1px solid ${color}55`, borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
       {children}
     </Typography>
   )
@@ -141,9 +142,9 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0, minWidth: chromePx(42) }}>
         {achieved ? (
-          <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1, color: ACHIEVED_GREEN }}>✓</Typography>
+          <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1, color: TONE.green }}>✓</Typography>
         ) : (<>
-          <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: isLive ? LIVE_RED : item.remaining <= 3 ? ACHIEVED_GREEN : 'text.primary' }}>
+          <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: isLive ? TONE.red : item.remaining <= 3 ? TONE.green : 'text.primary' }}>
             {item.remaining}
           </Typography>
           <Typography sx={{ mt: chromePx(2), fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', lineHeight: 1 }}>
@@ -203,9 +204,9 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
         {achieved ? (
-          <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: ACHIEVED_GREEN }}>✓</Typography>
+          <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: TONE.green }}>✓</Typography>
         ) : (<>
-          <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, color: item.remaining <= 3 ? ACHIEVED_GREEN : 'text.primary' }}>
+          <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, color: item.remaining <= 3 ? TONE.green : 'text.primary' }}>
             {item.remaining}
           </Typography>
           <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
@@ -240,6 +241,7 @@ const GROUP_FILTERS: { key: GroupFilter; label: string }[] = [
 function TabButton({ active, label, count, color, onClick }: {
   active: boolean; label: string; count: number; color: string; onClick: () => void
 }) {
+  const tone = useTextTone()
   return (
     <Box
       onClick={onClick}
@@ -250,8 +252,8 @@ function TabButton({ active, label, count, color, onClick }: {
         border: '1px solid', borderColor: active ? color : 'transparent',
       }}
     >
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: active ? color : 'text.secondary' }}>{label}</Typography>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: active ? color : 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>{count}</Typography>
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: active ? tone(color) : 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: active ? tone(color) : 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>{count}</Typography>
     </Box>
   )
 }
@@ -299,7 +301,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
                     border: '1px solid',
                     borderColor: groupFilter === f.key ? ACCENT : 'divider',
                     bgcolor: groupFilter === f.key ? `${ACCENT}18` : 'transparent',
-                    color: groupFilter === f.key ? ACCENT : 'text.secondary',
+                    color: groupFilter === f.key ? ACCENT_TEXT : 'text.secondary',
                     transition: 'all 0.12s',
                   }}
                 >
@@ -449,7 +451,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
             onClick={() => setModalOpen(true)}
             sx={{ px: 1.75, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', textAlign: 'center', '&:hover': { bgcolor: 'action.hover' } }}
           >
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT }}>
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT_TEXT }}>
               View all {total} →
             </Typography>
           </Box>

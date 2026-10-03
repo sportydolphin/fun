@@ -114,8 +114,40 @@
      AA as text in its own theme. NOT prefixed --wpbl-: the experiments flag is app-wide and
      the MLB section can mark a feature with the same chip. */
   --experimental-fg: #8a6200;
+  /* MLB's status colours AS TEXT: a win, a loss, a streak, a payroll, a move type. The dark values
+     are the section's Tailwind 400/500 originals (nudged lighter only where they missed 4.5:1);
+     the light ones are the same hues darkened by the least that reaches 4.5:1 on white, the page
+     and the zinc page, since the originals measure 1.9 to 3.8 there. Fills, bars and tints keep
+     the raw hex. Mirrored by TONE in src/mlb/constants.ts; textTone() in src/mlb/lib/contrast.ts
+     does the same arithmetic for a colour only known at runtime. */
+  --mlb-tone-red: #c93939;
+  --mlb-tone-green: #167e3c;
+  --mlb-tone-orange: #b35310;
+  --mlb-tone-amber: #986207;
+  --mlb-tone-yellow: #8c6b05;
+  --mlb-tone-sky: #23759a;
+  --mlb-tone-indigo: #5f68b8;
+  --mlb-tone-violet: #7561af;
+  --mlb-tone-emerald: #0b7e58;
+  --mlb-tone-teal: #0e7d71;
+  --mlb-tone-rose: #cd354f;
+  --mlb-tone-slate: #656f7d;
+  --mlb-tone-gray: #69707d;
 }
 [data-theme="dark"] {
+  --mlb-tone-red: #f04f4f;
+  --mlb-tone-green: #22c55e;
+  --mlb-tone-orange: #f97316;
+  --mlb-tone-amber: #f59e0b;
+  --mlb-tone-yellow: #eab308;
+  --mlb-tone-sky: #38bdf8;
+  --mlb-tone-indigo: #818cf8;
+  --mlb-tone-violet: #a78bfa;
+  --mlb-tone-emerald: #10b981;
+  --mlb-tone-teal: #14b8a6;
+  --mlb-tone-rose: #f44764;
+  --mlb-tone-slate: #94a3b8;
+  --mlb-tone-gray: #838994;
   --wpbl-accent-fg: #60a5fa;
   --wpbl-compare-lead: rgba(96, 165, 250, 0.20);
   --wpbl-pos: #22c55e;

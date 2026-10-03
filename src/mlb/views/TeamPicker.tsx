@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT, TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME } from '../constants'
+import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME } from '../constants'
 import { useIsDark, defaultBorder, ringColor } from '../lib/colorUtils'
 import { LogoBubble } from '../components/boxScore'
 import { ModalShell } from '../../ui/ModalShell'
@@ -51,7 +51,7 @@ export function FollowTeamPrompt({ onFollow, playing }: {
         <Box {...pressable(() => setOpen(true))} sx={{
           flexShrink: 0, px: 1.5, py: 0.75, minHeight: chromePx(36), borderRadius: 999,
           display: 'flex', alignItems: 'center',
-          border: `1px solid ${ACCENT}`, color: ACCENT, bgcolor: `${ACCENT}14`,
+          border: `1px solid ${ACCENT}`, color: ACCENT_TEXT, bgcolor: `${ACCENT}14`,
           fontSize: '0.74rem', fontWeight: 800, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
           ...hoverOnly({ bgcolor: `${ACCENT}26` }),
           ...FOCUS_RING,

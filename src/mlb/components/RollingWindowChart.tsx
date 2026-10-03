@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { RecentGameEntry } from '../types'
-import { ACCENT, CURRENT_SEASON } from '../constants'
+import { ACCENT, ACCENT_TEXT, CURRENT_SEASON } from '../constants'
 import { fmtR, parseIP } from '../lib/utils'
 import { fetchLeagueStatsBySeason, tooltipAnchorSx } from './trendChartUtils'
 import { chromePx, typePx } from '../../ui/scale'
@@ -303,7 +303,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
             <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               {isPitcher && !isStarter ? `Last ${currentPt.ip != null ? currentPt.ip.toFixed(1) : '—'} IP` : `Last ${currentPt.size} ${isPitcher ? 'starts' : 'games'}`}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT_TEXT, lineHeight: 1.2 }}>
               {fmt(currentPt.value)}
             </Typography>
           </Box>
@@ -313,7 +313,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
             <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               Season {label}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2, color: seasonComplete ? ACCENT : 'text.primary' }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2, color: seasonComplete ? ACCENT_TEXT : 'text.primary' }}>
               {fmt(seasonStat.stat)}
             </Typography>
           </Box>
@@ -424,7 +424,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
               <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>
                 {hov.isHome ? 'vs' : '@'} {hov.opp}
               </Typography>
-              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.3, lineHeight: 1 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT_TEXT, mt: 0.3, lineHeight: 1 }}>
                 {fmt(hov.value)}
               </Typography>
               <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.2 }}>

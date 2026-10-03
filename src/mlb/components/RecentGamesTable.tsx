@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT } from '../constants'
+import { ACCENT, ACCENT_TEXT, TONE } from '../constants'
 import { RecentGameEntry } from '../types'
 import { scrollBehavior } from '../../lib/motion'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
+import { useTextTone } from '../lib/colorUtils'
 
 const INIT = 5
 
@@ -29,6 +30,7 @@ const DEC_COLORS: Record<string, string> = {
 }
 
 function DecBadge({ s }: { s: any }) {
+  const tone = useTextTone()
   const d = decision(s)
   if (!d) return <Box component="span" sx={{ color: 'text.disabled' }}>—</Box>
   const c = DEC_COLORS[d]
@@ -36,7 +38,7 @@ function DecBadge({ s }: { s: any }) {
     <Box component="span" sx={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       width: chromePx(22), height: chromePx(22), borderRadius: '50%',
-      bgcolor: `${c}1e`, color: c, fontSize: '0.65rem', fontWeight: 800,
+      bgcolor: `${c}1e`, color: tone(c, undefined, 5.6), fontSize: '0.65rem', fontWeight: 800,
     }}>
       {d}
     </Box>
@@ -51,7 +53,7 @@ function Num({ v, accent, warn }: { v: any; accent?: boolean; warn?: boolean }) 
   if (v == null) return <Dim />
   return (
     <Box component="span" sx={{
-      color: accent ? ACCENT : warn ? '#ef4444' : 'inherit',
+      color: accent ? ACCENT_TEXT : warn ? TONE.red : 'inherit',
       fontWeight: (accent || warn) ? 700 : 400,
     }}>
       {String(v)}
@@ -211,7 +213,7 @@ function GameSection({ title, entries, cols, dataKey, highlightDate, onTeamClick
             mt: 1.25, cursor: 'pointer', userSelect: 'none',
             fontSize: '0.72rem', fontWeight: 600,
             color: 'text.disabled', display: 'inline-flex', alignItems: 'center', gap: 0.5,
-            '&:hover': { color: ACCENT }, transition: 'color 0.15s',
+            '&:hover': { color: ACCENT_TEXT }, transition: 'color 0.15s',
           }}
         >
           {expanded

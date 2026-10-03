@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   Box, Typography, Paper, CircularProgress, Popover, Tooltip, Switch,
 } from '@mui/material'
-import { Tune, KeyboardArrowDown, OpenInFull } from '@mui/icons-material'
-import { StatDef, LbFullscreenState, LeaderboardEntry } from '../types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
+import { Tune, KeyboardArrowDown } from '@mui/icons-material'
+import { StatDef, LeaderboardEntry } from '../types'
+import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { PillChip, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
@@ -13,6 +13,10 @@ import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUt
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { playerLink, LINK_SX } from '../lib/links'
+import { pressable, linkPress, FOCUS_RING } from '../../ui/interaction'
+import { rankMarks } from '../lib/statsBoard'
+import { mlbUrlFor } from '../routes'
+import { StatsFilterSheet, controlPill } from './StatsRankedList'
 
 export interface LeaderboardViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -28,7 +32,8 @@ export interface LeaderboardViewProps {
   isDesktop: boolean
   canHover: boolean
   handleLbPlayerClick: (playerId: number) => void
-  onOpenStats: (fullscreen: LbFullscreenState) => void
+  /** Open the Table ranked by this stat (useMlbState.openStatsBoard). */
+  onOpenStats: (statKey: string) => void
 }
 
 export function LeaderboardView({
@@ -38,6 +43,9 @@ export function LeaderboardView({
 }: LeaderboardViewProps) {
   const [lbPickerAnchor, setLbPickerAnchor] = useState<HTMLElement | null>(null)
   const [lbHoverId, setLbHoverId] = useState<number | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const statsPillRef = useRef<HTMLElement | null>(null)
+  const filtersSet = vizSeason !== CURRENT_SEASON || gameScope !== 'regular'
   const isDark = useIsDark()
 
   const lbAllDefs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).filter(d => d.leaderCategory)
@@ -55,8 +63,8 @@ export function LeaderboardView({
 
   return (
     <Box>
-      {/* Controls row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
+      {/* Desktop controls: room for every one of them in a row. */}
+      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
@@ -81,14 +89,14 @@ export function LeaderboardView({
             onClick={() => setLbSelectedKeys(lbShowAll ? [...lbFeatured] : allLbKeys)}
             sx={{ display: 'flex', alignItems: 'center', gap: 0.25, cursor: 'pointer', userSelect: 'none' }}
           >
-            <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: lbShowAll ? ACCENT : 'text.secondary' }}>
+            <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: lbShowAll ? ACCENT_TEXT : 'text.secondary' }}>
               Show all
             </Typography>
             <Switch
               size="small"
               checked={lbShowAll}
               onChange={() => setLbSelectedKeys(lbShowAll ? [...lbFeatured] : allLbKeys)}
-              sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: ACCENT }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: ACCENT } }}
+              sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: ACCENT_TEXT }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: ACCENT } }}
             />
           </Box>
           {/* Stats picker button */}
@@ -97,7 +105,7 @@ export function LeaderboardView({
             sx={{
               ...pillActionSx,
               borderColor: lbPickerAnchor ? ACCENT : lbIsDefault ? 'divider' : ACCENT,
-              color: lbPickerAnchor ? ACCENT : lbIsDefault ? 'text.secondary' : ACCENT,
+              color: lbPickerAnchor ? ACCENT_TEXT : lbIsDefault ? 'text.secondary' : ACCENT_TEXT,
               bgcolor: lbPickerAnchor || !lbIsDefault ? `${ACCENT}10` : 'transparent',
             }}
           >
@@ -105,63 +113,98 @@ export function LeaderboardView({
             Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
             <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
           </Box>
-          <Popover
-            open={Boolean(lbPickerAnchor)}
-            anchorEl={lbPickerAnchor}
-            onClose={() => setLbPickerAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: chromePx(280), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
-          >
-            {(() => {
-              const allLbSelected = allLbKeys.every(k => lbSelectedKeys.includes(k))
-              return (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
-                    Leaderboard stats
-                  </Typography>
-                  <Box
-                    onClick={() => setLbSelectedKeys(allLbSelected ? [...lbFeatured] : allLbKeys)}
-                    sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}
-                  >
-                    {allLbSelected ? 'Reset' : 'All'}
-                  </Box>
-                </Box>
-              )
-            })()}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.65 }}>
-              {lbSortedDefs.map((def, i) => {
-                const isFeatured = lbFeatured.includes(def.key)
-                const prevFeatured = i > 0 && lbFeatured.includes(lbSortedDefs[i - 1].key)
-                return (
-                  <React.Fragment key={def.key}>
-                    {!isFeatured && prevFeatured && (
-                      <Box sx={{ width: '100%', borderTop: '1px solid', borderColor: 'divider', my: 0.5 }} />
-                    )}
-                    <PillChip
-                      label={def.leaderLabel ?? def.label}
-                      selected={lbSelectedKeys.includes(def.key)}
-                      onChange={() => setLbSelectedKeys(prev =>
-                        prev.includes(def.key)
-                          ? prev.filter(k => k !== def.key)
-                          : [...prev, def.key]
-                      )}
-                    />
-                  </React.Fragment>
-                )
-              })}
-            </Box>
-            {!lbIsDefault && (
-              <Box
-                onClick={() => setLbSelectedKeys([...lbFeatured])}
-                sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.7rem', color: 'text.disabled', cursor: 'pointer', fontWeight: 600, '&:hover': { color: ACCENT } }}
-              >
-                ↩ Reset to featured
-              </Box>
-            )}
-          </Popover>
         </Box>
-      </Box>
+      </Box>}
+
+      {/* Phone controls, the Table's design: the switch that changes the whole board stays visible,
+          and everything else is a pill that says what it is set to and opens a sheet. The desktop
+          row wrapped onto three lines at 375px before a single leader was on screen. */}
+      {!isDesktop && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, flexWrap: 'wrap' }}>
+          <PillGroup
+            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+            value={lbGroup}
+            onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
+          />
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Box ref={statsPillRef} {...pressable(() => setLbPickerAnchor(statsPillRef.current))}
+              aria-haspopup="dialog" aria-expanded={!!lbPickerAnchor} sx={controlPill(!lbIsDefault)}>
+              Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
+              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+            </Box>
+            <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={controlPill(filtersSet)}>
+              Filters
+              {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
+              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+            </Box>
+          </Box>
+        </Box>
+      )}
+      {filtersOpen && !isDesktop && (
+        <StatsFilterSheet
+          allTime={false}
+          seasonValue={String(vizSeason)}
+          onSeason={v => setVizSeason(Number(v))}
+          scope={gameScope} scopes={GAME_SCOPES} onScope={setGameScope}
+          canQualify={false} qualified onQualified={() => {}}
+          onClose={() => setFiltersOpen(false)} />
+      )}
+
+      <Popover
+        open={Boolean(lbPickerAnchor)}
+        anchorEl={lbPickerAnchor}
+        onClose={() => setLbPickerAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: chromePx(280), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+      >
+        {(() => {
+          const allLbSelected = allLbKeys.every(k => lbSelectedKeys.includes(k))
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
+                Leaderboard stats
+              </Typography>
+              <Box
+                onClick={() => setLbSelectedKeys(allLbSelected ? [...lbFeatured] : allLbKeys)}
+                sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}
+              >
+                {allLbSelected ? 'Reset' : 'All'}
+              </Box>
+            </Box>
+          )
+        })()}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.65 }}>
+          {lbSortedDefs.map((def, i) => {
+            const isFeatured = lbFeatured.includes(def.key)
+            const prevFeatured = i > 0 && lbFeatured.includes(lbSortedDefs[i - 1].key)
+            return (
+              <React.Fragment key={def.key}>
+                {!isFeatured && prevFeatured && (
+                  <Box sx={{ width: '100%', borderTop: '1px solid', borderColor: 'divider', my: 0.5 }} />
+                )}
+                <PillChip
+                  label={def.leaderLabel ?? def.label}
+                  selected={lbSelectedKeys.includes(def.key)}
+                  onChange={() => setLbSelectedKeys(prev =>
+                    prev.includes(def.key)
+                      ? prev.filter(k => k !== def.key)
+                      : [...prev, def.key]
+                  )}
+                />
+              </React.Fragment>
+            )
+          })}
+        </Box>
+        {!lbIsDefault && (
+          <Box
+            onClick={() => setLbSelectedKeys([...lbFeatured])}
+            sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.7rem', color: 'text.disabled', cursor: 'pointer', fontWeight: 600, '&:hover': { color: ACCENT_TEXT } }}
+          >
+            ↩ Reset to featured
+          </Box>
+        )}
+      </Popover>
 
       {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
@@ -174,6 +217,8 @@ export function LeaderboardView({
       {!loadingLb && lbData && (() => {
         const defs = lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key))
         const MEDALS = ['🥇', '🥈', '🥉']
+        // A medal is a place nobody shares; a tie on the podium prints "T-2" like any other tie.
+        const medal = (m: { n: number; tied: boolean }) => m.n <= 3 && !m.tied
         const maxEntries = lbIsDefault && isDesktop ? 10 : 5
         // Qualification only applies to rate stats — otherwise a player with a
         // handful of ABs/IP could camp the top of AVG/ERA. Counting-stat boards
@@ -201,6 +246,10 @@ export function LeaderboardView({
                 .sort((a, b) => asc ? Number(a.sortVal) - Number(b.sortVal) : Number(b.sortVal) - Number(a.sortVal))
               const entries = allEntries.slice(0, maxEntries)
               if (!entries.length) return null
+              // Shared places, as the Table numbers them: two players on 45 home runs are both
+              // first, and a gold and a silver between them would say one of them leads.
+              const marks = rankMarks(entries.map(e => Number(e.sortVal)))
+              const tableHref = mlbUrlFor({ view: 'stats', lb: lbGroup, season: vizSeason, games: gameScope, sort: def.key }, CURRENT_SEASON)
               return (
                 <Paper key={def.key} elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
                   {/* Card header with gradient */}
@@ -221,22 +270,6 @@ export function LeaderboardView({
                         </Typography>
                       )}
                     </Box>
-                    <Tooltip title="Fullscreen">
-                      <Box
-                        onClick={(ev: React.MouseEvent) => {
-                          ev.stopPropagation()
-                          onOpenStats({ def, group: lbGroup, sortKey: def.key, sortAsc: def.lowerIsBetter ?? false, entries: allEntries.slice(0, 50) })
-                        }}
-                        sx={{
-                          cursor: 'pointer', color: 'text.disabled', ml: 1, p: 0.5, borderRadius: 1,
-                          display: 'flex', alignItems: 'center',
-                          '&:hover': { color: ACCENT, bgcolor: `${ACCENT}18` },
-                          transition: 'color 0.15s, background 0.15s',
-                        }}
-                      >
-                        <OpenInFull sx={{ fontSize: '0.8rem' }} />
-                      </Box>
-                    </Tooltip>
                   </Box>
 
                   {/* Player rows */}
@@ -264,15 +297,16 @@ export function LeaderboardView({
                         >
                           {/* Medal / rank indicator */}
                           <Typography sx={{
-                            fontSize: rank < 3 ? '1rem' : '0.82rem',
+                            fontSize: medal(marks[rank]) ? '1rem' : '0.82rem',
                             fontWeight: 800,
                             color: 'text.disabled',
-                            width: '1.375rem',
+                            // The Table's rank width: "T-10" is the widest thing it holds.
+                            width: '1.875rem', whiteSpace: 'nowrap',
                             flexShrink: 0,
                             textAlign: 'center',
                             lineHeight: 1,
                           }}>
-                            {rank < 3 ? MEDALS[rank] : `${rank + 1}`}
+                            {medal(marks[rank]) ? MEDALS[marks[rank].n - 1] : `${marks[rank].tied ? 'T-' : ''}${marks[rank].n}`}
                           </Typography>
 
                           {/* Portrait */}
@@ -296,7 +330,7 @@ export function LeaderboardView({
                             <Typography sx={{
                               fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.2,
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                              color: isHovered ? ACCENT : 'text.primary',
+                              color: isHovered ? ACCENT_TEXT : 'text.primary',
                               transition: 'color 0.18s',
                             }}>
                               {e.playerName}
@@ -329,7 +363,7 @@ export function LeaderboardView({
                           {/* Stat value */}
                           <Typography sx={{
                             fontSize: '0.9rem', fontWeight: 800, flexShrink: 0,
-                            color: rank === 0 ? ACCENT : isHovered ? ACCENT : 'text.primary',
+                            color: marks[rank].n === 1 ? ACCENT_TEXT : isHovered ? ACCENT_TEXT : 'text.primary',
                             transition: 'color 0.18s',
                           }}>
                             {def.format(e.val)}
@@ -337,6 +371,17 @@ export function LeaderboardView({
                         </Box>
                       )
                     })}
+                  </Box>
+                  {/* The way from a card to the whole ranking, as a real link (the Table's address
+                      carries the stat), where the old expand icon was a 13px target with no href. */}
+                  <Box {...linkPress(tableHref, () => onOpenStats(def.key))} sx={{
+                    ...LINK_SX, ...FOCUS_RING, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    px: 2, minHeight: 40, borderTop: '1px solid', borderColor: 'divider',
+                    fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+                    '&:hover': { bgcolor: `${ACCENT}0e` },
+                  }}>
+                    <span>All {allEntries.length} ranked</span>
+                    <span aria-hidden>→</span>
                   </Box>
                 </Paper>
               )

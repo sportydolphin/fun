@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT, TEAM_BG } from '../constants'
+import { ACCENT, ACCENT_TEXT, TEAM_BG } from '../constants'
 import { CareerStatSplit } from '../types'
 import { fmtR } from '../lib/utils'
 import { scrollBehavior } from '../../lib/motion'
@@ -121,7 +121,7 @@ function StatSection<T extends BaseRow>({
                     textAlign: 'left',
                     pl: isHighlighted ? { xs: chromePx(5), sm: chromePx(13) } : { xs: chromePx(8), sm: chromePx(16) },
                     fontWeight: 700,
-                    color: isHighlighted ? ACCENT : 'text.primary',
+                    color: isHighlighted ? ACCENT_TEXT : 'text.primary',
                     borderLeft: isHighlighted ? `3px solid ${ACCENT}` : undefined,
                   }}>
                     {r.season}

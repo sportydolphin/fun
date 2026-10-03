@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT, TEAM_ABBR, TEAM_NICKNAME } from '../constants'
-import { useIsDark, highlightColor, defaultBorder } from '../lib/colorUtils'
+import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_NICKNAME, TONE } from '../constants'
+import { useIsDark, highlightColor, defaultBorder, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
 import { searchPlayers } from '../api'
@@ -27,11 +27,12 @@ const RESULT_META: Record<SurvivorResult, { label: string; color: string }> = {
 }
 
 function ResultPill({ result }: { result: SurvivorResult }) {
+  const tone = useTextTone()
   const m = RESULT_META[result]
   return (
     <Box sx={{
       px: 1, py: chromePx(2), borderRadius: 999, bgcolor: `${m.color}22`,
-      fontSize: '0.62rem', fontWeight: 800, color: m.color,
+      fontSize: '0.62rem', fontWeight: 800, color: tone(m.color, undefined, 5.6),
       textTransform: 'uppercase', letterSpacing: typePx(0.5), whiteSpace: 'nowrap',
     }}>
       {m.label}
@@ -86,7 +87,7 @@ function HitterRow({ name, teamId, subtitle, disabled, onPick }: {
           {abbr}{subtitle ? ` · ${subtitle}` : ''}
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: disabled ? 'text.disabled' : ACCENT, whiteSpace: 'nowrap' }}>
+      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: disabled ? 'text.disabled' : ACCENT_TEXT, whiteSpace: 'nowrap' }}>
         {disabled ? 'Started' : 'Pick'}
       </Typography>
     </Box>
@@ -110,7 +111,7 @@ function LeaderRow({ entry }: { entry: SurvivorLeaderRow }) {
         {entry.displayName}{entry.isMe ? ' (you)' : ''}
       </Typography>
       {entry.currentStreak > 0 && (
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#f97316', whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: TONE.orange, whiteSpace: 'nowrap' }}>
           🔥 {entry.currentStreak}
         </Typography>
       )}
@@ -137,7 +138,7 @@ function SurvivorLeaderboardModal({ userId, onClose }: { userId: string | null; 
         </Box>
 
         {rows === null ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={28} sx={{ color: ACCENT }} /></Box>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={28} sx={{ color: ACCENT_TEXT }} /></Box>
         ) : rows.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
             <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
@@ -284,7 +285,7 @@ export function StreakSurvivorWidget() {
         onClick={() => setLbOpen(true)}
         sx={{ px: 1.75, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75, '&:hover': { bgcolor: 'action.hover' } }}
       >
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT }}>View leaderboard</Typography>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT_TEXT }}>View leaderboard</Typography>
       </Box>
     </Box>
   )
@@ -332,7 +333,7 @@ export function StreakSurvivorWidget() {
   let body: React.ReactNode
 
   if (loading) {
-    body = <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} sx={{ color: ACCENT }} /></Box>
+    body = <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} sx={{ color: ACCENT_TEXT }} /></Box>
   } else if (!user) {
     body = (
       <Box sx={{ px: 1.75, py: 1.75 }}>
@@ -341,7 +342,7 @@ export function StreakSurvivorWidget() {
         </Typography>
         <Box
           onClick={() => openAuthDialog('signin')}
-          sx={{ px: 1.5, py: chromePx(9), borderRadius: 2, bgcolor: ACCENT, color: '#fff', textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: '0.82rem', '&:hover': { opacity: 0.9 } }}
+          sx={{ px: 1.5, py: chromePx(9), borderRadius: 2, bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: '0.82rem', '&:hover': { opacity: 0.9 } }}
         >
           Sign in to play
         </Box>
@@ -371,7 +372,7 @@ export function StreakSurvivorWidget() {
         {!pickLocked && myPick.result === 'pending' && (
           <Box
             onClick={() => setChanging(true)}
-            sx={{ mt: 1, px: 1.25, py: chromePx(7), borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 700, color: 'text.secondary', '&:hover': { borderColor: ACCENT, color: ACCENT } }}
+            sx={{ mt: 1, px: 1.25, py: chromePx(7), borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center', cursor: 'pointer', fontSize: '0.76rem', fontWeight: 700, color: 'text.secondary', '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT } }}
           >
             Change pick
           </Box>

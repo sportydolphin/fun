@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Box, Typography, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
-import { ACCENT } from './mlb/constants'
+import { ACCENT, ACCENT_TEXT } from './mlb/constants'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
 import { hoverOnly, FOCUS_RING } from './ui/interaction'
 import { requestDeepLink } from './mlb/state/deepLink'
@@ -440,11 +440,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           isDesktop={isDesktop}
           canHover={canHover}
           handleLbPlayerClick={state.handleLbPlayerClick}
-          onOpenStats={(fullscreen) => {
-            state.setLbFullscreen(fullscreen)
-            state.setLbStatsLimit(50)
-            state.setView('stats')
-          }}
+          onOpenStats={state.openStatsBoard}
         />
       )}
 
@@ -569,7 +565,10 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           onChange={k => goTab(k as NavKey)}
           onMore={() => setMoreOpen(true)}
           moreOpen={moreOpen}
-          accent={ACCENT}
+          // The active tab is a label, so it takes the text-safe accent: the raw #60a5fa read at
+          // 2.5:1 on the light bar. The "new" dot is a fill, which wants the solid one.
+          accent={ACCENT_TEXT}
+          badgeColor="var(--wpbl-accent-solid)"
           label="MLB sections"
           moreLabel="More MLB pages"
         />

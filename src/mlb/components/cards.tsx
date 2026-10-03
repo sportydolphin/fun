@@ -3,8 +3,8 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
-import { useIsDark, accentColor, borderAlpha, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
+import { useIsDark, accentColor, borderAlpha, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone, textTone } from '../lib/colorUtils'
 import { StatGrid } from './ui'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
@@ -324,6 +324,7 @@ export function FeaturedMiniCard({
   awardLabel: string
   highlightStat: string
 }) {
+  const tone = useTextTone()
   const isStarter = entry.isPitcher && entry.gamesStarted >= 3
   const isCloser  = entry.isPitcher && !isStarter && entry.saves >= 3
 
@@ -363,7 +364,7 @@ export function FeaturedMiniCard({
       }}>
         <Typography sx={{
           fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase',
-          letterSpacing: typePx(0.8), color: accent, lineHeight: 1,
+          letterSpacing: typePx(0.8), color: tone(accent, undefined, 5.6), lineHeight: 1,
         }}>
           {awardLabel}
         </Typography>
@@ -400,7 +401,7 @@ export function FeaturedMiniCard({
           alignItems: 'center', justifyContent: 'center',
           bgcolor: `${teamColor}22`, mb: 1.25,
         }}>
-          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: accent, letterSpacing: typePx(0.5) }}>
+          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: tone(accent, undefined, 5.6), letterSpacing: typePx(0.5) }}>
             {posLabel}
           </Typography>
         </Box>
@@ -430,12 +431,12 @@ export function FeaturedMiniCard({
                 <Typography sx={{
                   fontSize: isAward ? '1.05rem' : '0.9rem',
                   fontWeight: 800, lineHeight: 1,
-                  color: isElite ? ACCENT : isAward ? 'text.primary' : 'text.secondary',
+                  color: isElite ? ACCENT_TEXT : isAward ? 'text.primary' : 'text.secondary',
                 }}>
                   {value}
                 </Typography>
                 {isElite && (
-                  <Typography sx={{ fontSize: '0.5rem', color: ACCENT, fontWeight: 700, mt: 0.3, lineHeight: 1 }}>
+                  <Typography sx={{ fontSize: '0.5rem', color: ACCENT_TEXT, fontWeight: 700, mt: 0.3, lineHeight: 1 }}>
                     #{rank + 1}
                   </Typography>
                 )}
@@ -462,6 +463,8 @@ export function DivisionStandingsCard({
   const teamColor = TEAM_BG[highlightTeamId] ?? ACCENT
   const isDark2   = useIsDark()
   const accent2   = accentColor(teamColor, isDark2)
+  // As text on the highlighted row's own team tint, which sits closer to it than the page does.
+  const accent2Text = textTone(accent2, isDark2, undefined, 5.6)
 
   const hdrSx = {
     fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase' as const,
@@ -514,7 +517,7 @@ export function DivisionStandingsCard({
             ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
           }}>
             {/* Rank */}
-            <Typography sx={{ ...cellSx, color: isHL ? accent2 : 'text.disabled', fontWeight: isHL ? 800 : 600 }}>
+            <Typography sx={{ ...cellSx, color: isHL ? accent2Text : 'text.disabled', fontWeight: isHL ? 800 : 600 }}>
               {t.divisionRank}
             </Typography>
             {/* Logo */}
@@ -538,7 +541,7 @@ export function DivisionStandingsCard({
             {/* GB */}
             <Typography sx={{
               ...cellSx, textAlign: 'right',
-              color: t.divisionLeader ? (isHL ? accent2 : ACCENT) : 'text.disabled',
+              color: t.divisionLeader ? (isHL ? accent2Text : ACCENT_TEXT) : 'text.disabled',
               fontWeight: t.divisionLeader ? 800 : 600,
             }}>
               {fmtGB(t.gamesBack)}

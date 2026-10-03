@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN, isRealClub, CURRENT_SEASON } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, isRealClub, CURRENT_SEASON, TONE, FILL } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
@@ -248,7 +248,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
         <Box sx={{
           position: 'absolute', top: chromePx(5), right: chromePx(5),
           width: chromePx(17), height: chromePx(17), borderRadius: '50%',
-          bgcolor: correct ? '#22c55e' : '#ef4444',
+          bgcolor: correct ? FILL.green : FILL.red,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '0.62rem', color: '#fff', fontWeight: 900, lineHeight: 1,
           userSelect: 'none',
@@ -334,7 +334,7 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
         )}
         <Typography sx={{
           fontSize: { xs: '0.62rem', sm: '0.74rem' }, fontWeight: 700, letterSpacing: typePx(0.5), lineHeight: 1,
-          color: game.state === 'live' ? '#ef4444' : game.state === 'postponed' ? '#f59e0b' : 'text.secondary',
+          color: game.state === 'live' ? TONE.red : game.state === 'postponed' ? TONE.amber : 'text.secondary',
           textTransform: 'uppercase',
         }}>
           {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.state === 'postponed' ? 'PPD' : game.note ? `${game.note} · ${game.gameTime}` : game.gameTime}
@@ -807,7 +807,7 @@ export function PredictorWidget({ onPicksSettled }: {
                 },
               }} />
             )}
-            <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: typePx(1.5), color: ACCENT }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: typePx(1.5), color: ACCENT_TEXT }}>
               🎯 Predictions
             </Typography>
             {(isTomorrow || isLater) && !idle && (
@@ -825,7 +825,7 @@ export function PredictorWidget({ onPicksSettled }: {
                   px: 1.25, py: 0.5, borderRadius: 999,
                   border: '1px solid', borderColor: 'divider',
                   cursor: 'pointer', transition: 'all 0.12s',
-                  '&:hover': { bgcolor: 'action.hover', borderColor: `${ACCENT}40`, color: ACCENT },
+                  '&:hover': { bgcolor: 'action.hover', borderColor: `${ACCENT}40`, color: ACCENT_TEXT },
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -836,7 +836,7 @@ export function PredictorWidget({ onPicksSettled }: {
               onClick={() => canOpen && setModalOpen(true)}
               sx={{
                 fontSize: '0.68rem', fontWeight: 700,
-                color: canOpen ? ACCENT : 'text.disabled',
+                color: canOpen ? ACCENT_TEXT : 'text.disabled',
                 px: 1.5, py: 0.5, borderRadius: 999,
                 border: '1px solid',
                 borderColor: canOpen ? `${ACCENT}40` : 'divider',
@@ -858,7 +858,7 @@ export function PredictorWidget({ onPicksSettled }: {
             bgcolor: '#f9731612', borderBottom: '1px solid', borderColor: 'divider',
           }}>
             <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>🔥</Typography>
-            <Typography sx={{ fontSize: '0.74rem', fontWeight: 700, color: '#f97316', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: '0.74rem', fontWeight: 700, color: TONE.orange, lineHeight: 1.2 }}>
               You're on a {heaterStreak}-game heater, keep it rolling
             </Typography>
           </Box>
@@ -904,7 +904,7 @@ export function PredictorWidget({ onPicksSettled }: {
             </Typography>
           ) : previewCount > 0 && remainingCount > 0 ? (
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
-              <Box component="span" sx={{ color: ACCENT, fontWeight: 800 }}>{remainingCount}</Box>
+              <Box component="span" sx={{ color: ACCENT_TEXT, fontWeight: 800 }}>{remainingCount}</Box>
               {' '}{remainingCount === 1 ? 'game' : 'games'} left to predict
               {pickedPreviewCount > 0 && (
                 <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, fontSize: '0.78rem' }}>
@@ -914,7 +914,7 @@ export function PredictorWidget({ onPicksSettled }: {
             </Typography>
           ) : previewCount > 0 ? (
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
-              <Box component="span" sx={{ color: '#22c55e', fontWeight: 800 }}>✓</Box>
+              <Box component="span" sx={{ color: TONE.green, fontWeight: 800 }}>✓</Box>
               {' '}All {previewCount === 1 ? 'prediction' : 'predictions'} made
             </Typography>
           ) : allDone && finalized.length > 0 ? (
@@ -962,7 +962,7 @@ export function PredictorWidget({ onPicksSettled }: {
                 onClick={() => canOpen && setModalOpen(true)}
                 sx={{
                   alignSelf: 'center', mt: 0.4, px: 1, py: 0.3,
-                  fontSize: '0.68rem', fontWeight: 700, color: ACCENT,
+                  fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT,
                   cursor: 'pointer', borderRadius: 999,
                   '&:hover': { bgcolor: `${ACCENT}12` },
                 }}

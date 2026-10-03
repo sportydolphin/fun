@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Typography, Paper, CircularProgress } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
+import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from '../lib/gameScope'
@@ -11,7 +11,7 @@ import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { sortBoard, ascFor, isBestFirst } from '../lib/statsBoard'
-import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable } from './StatsRankedList'
+import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable, controlPill } from './StatsRankedList'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
 
 export interface StatsViewProps {
@@ -174,16 +174,7 @@ export function StatsView({
   const boardSubtitle = `${allTime ? 'All-Time · Career' : `${vizSeason} MLB`}${scopeNote}${populationNote}`
   const filtersSet = allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
 
-  const pill = (on: boolean) => ({
-    ...FOCUS_RING,
-    display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
-    cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-    minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
-    border: '1px solid', transition: 'all 0.15s',
-    borderColor: on ? ACCENT : 'divider',
-    bgcolor: on ? `${ACCENT}12` : 'transparent',
-    color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
-  })
+  const pill = controlPill
 
   return (
     <Box>
@@ -255,7 +246,7 @@ export function StatsView({
               sx={{
                 ...pillActionSx,
                 borderColor: lbQualified ? ACCENT : 'divider',
-                color: lbQualified ? ACCENT : 'text.secondary',
+                color: lbQualified ? ACCENT_TEXT : 'text.secondary',
                 bgcolor: lbQualified ? `${ACCENT}12` : 'transparent',
                 cursor: 'pointer', userSelect: 'none',
                 display: 'flex', alignItems: 'center', gap: 0.4,
@@ -363,8 +354,8 @@ export function StatsView({
                           boxShadow: isActive ? `inset 0 0 0 9999px ${ACCENT}14` : 'none',
                           borderBottom: isActive ? `2px solid ${ACCENT}` : '2px solid',
                           borderColor: isActive ? ACCENT : 'divider',
-                          color: isActive ? ACCENT : 'text.disabled',
-                          '&:hover': { boxShadow: `inset 0 0 0 9999px ${ACCENT}18`, color: ACCENT },
+                          color: isActive ? ACCENT_TEXT : 'text.disabled',
+                          '&:hover': { boxShadow: `inset 0 0 0 9999px ${ACCENT}18`, color: ACCENT_TEXT },
                           transition: 'background 0.15s, color 0.15s',
                           userSelect: 'none',
                         }}>
@@ -453,7 +444,7 @@ export function StatsView({
                             bgcolor: isFocused ? `${ACCENT}28` : isActive ? `${ACCENT}08` : undefined,
                             fontSize: isActive || isFocused ? '0.88rem' : '0.78rem',
                             fontWeight: isActive || isFocused ? 800 : 400,
-                            color: isFocused ? ACCENT : isActive ? ACCENT : 'text.primary',
+                            color: isFocused ? ACCENT_TEXT : isActive ? ACCENT_TEXT : 'text.primary',
                             // Inset ring (not `outline`): an outline paints in a late phase and
                             // escapes this border-collapse table's stacking, so it bled over the
                             // sticky player-name column when the row scrolled under it. An inset
@@ -484,7 +475,7 @@ export function StatsView({
                   cursor: 'pointer', userSelect: 'none',
                   fontSize: '0.72rem', fontWeight: 700,
                   color: 'text.disabled',
-                  '&:hover': { color: ACCENT }, transition: 'color 0.15s',
+                  '&:hover': { color: ACCENT_TEXT }, transition: 'color 0.15s',
                 }}
               >
                 Load 50 more ↓

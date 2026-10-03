@@ -198,6 +198,20 @@ export function StatsRankedList({
   )
 }
 
+/** A phone control that opens a sheet ("Sort OPS ▾", "Filters ▾"). `on` lights it: the Sort pill
+ *  always, Filters only when something is off its default, so a filter is never silently on.
+ *  Shared by the Table and Leaders so the two boards' phone controls are one design. */
+export const controlPill = (on: boolean) => ({
+  ...FOCUS_RING,
+  display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
+  cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+  minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
+  border: '1px solid', transition: 'all 0.15s',
+  borderColor: on ? ACCENT : 'divider',
+  bgcolor: on ? `${ACCENT}12` : 'transparent',
+  color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
+} as const)
+
 // ── The sheets ───────────────────────────────────────────────────────────────────────────
 //
 // EVERY TARGET IN HERE IS AT LEAST 52PX TALL, because these are what a thumb has to hit, and a
@@ -303,7 +317,7 @@ export function StatsSortSheet({ statDefs, group, sortKey, asc, reversible, onPi
 }
 
 export function StatsFilterSheet({
-  seasonValue, onSeason, scope, scopes, onScope, canQualify, qualified, onQualified, onClose,
+  seasonValue, onSeason, scope, scopes, onScope, canQualify, qualified, onQualified, onClose, allTime = true,
 }: {
   /** 'all' for All-Time, otherwise a season. */
   seasonValue: string
@@ -316,6 +330,8 @@ export function StatsFilterSheet({
   qualified: boolean
   onQualified: () => void
   onClose: () => void
+  /** Leaders has no career board, so it leaves the All-Time option out. */
+  allTime?: boolean
 }) {
   return (
     <MlbSheet sheet eyebrow="Filter" onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
@@ -328,7 +344,7 @@ export function StatsFilterSheet({
               ...FOCUS_RING, width: '100%', minHeight: 52, px: 1.25, borderRadius: 2, fontSize: '0.9rem', fontWeight: 700,
               fontFamily: 'inherit', color: 'text.primary', bgcolor: 'transparent', border: '1px solid', borderColor: CARD_BORDER,
             }}>
-            <option value="all">All-Time</option>
+            {allTime && <option value="all">All-Time</option>}
             {TEAM_SEASONS.map(y => <option key={y} value={String(y)}>{y}</option>)}
           </Box>
         </SheetGroup>
