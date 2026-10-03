@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
-import { Box, Typography, InputBase, Tooltip, ClickAwayListener, Popper } from '@mui/material'
+import { Box, Typography, Tooltip, ClickAwayListener, Popper } from '@mui/material'
 import { Player, RecentGameEntry } from '../types'
 import {
   TEAM_BG, TEAM_ABBR, ACCENT, ACCENT_TEXT, HEADSHOT, CURRENT_SEASON,
@@ -682,18 +682,24 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
 
         {/* Inline search input — takes over the title area */}
         {adding && (
-          <InputBase
+          // A plain input, not MUI's InputBase: this is the only text field on Home, and InputBase
+          // brought the whole form-control stack (3.7 kB gzip) into every Home landing for a box
+          // that appears after a tap on "+ Add".
+          <Box
+            component="input"
             autoFocus
+            aria-label="Search player"
             placeholder="Search player…"
             value={addQuery}
-            onChange={e => setAddQuery(e.target.value)}
-            onKeyDown={e => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddQuery(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
               if (e.key === 'Escape') { setAdding(false); setAddQuery(''); setAddResults([]) }
             }}
             sx={{
-              flex: 1,
-              fontSize: compact ? '0.8rem' : '0.875rem',
-              '& input': { p: 0 },
+              flex: 1, minWidth: 0, p: 0, border: 0, outline: 0, bgcolor: 'transparent',
+              color: 'text.primary', fontFamily: 'inherit', fontWeight: 400,
+              fontSize: compact ? '0.8rem' : '0.875rem', lineHeight: 1.4375,
+              '&::placeholder': { color: 'text.secondary', opacity: 1 },
             }}
           />
         )}

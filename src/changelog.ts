@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.119.0',
+    date:    '2026-10-02',
+    changes: [
+      {
+        short: 'MLB Home loads faster',
+        full:  'The MLB home page now downloads about a tenth less before it appears. Game Center, the full predictions board and your prediction stats load when you open them instead of with the page, and are fetched in the background shortly after, so they still open straight away.',
+      },
+      {
+        short: 'WPBL tab bar easier to read',
+        full:  'On a phone in light mode, the selected tab in the WPBL bar at the bottom of the screen is now a darker blue that is easy to read.',
+      },
+    ],
+  },
+  {
     version: '1.118.0',
     date:    '2026-10-02',
     changes: [

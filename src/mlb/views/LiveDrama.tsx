@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
 import { DramaEvent, DramaKind, fetchLiveDrama, ord } from '../lib/liveDrama'
 import { useDevDrama } from '../dev/devDrama'
@@ -6,10 +6,13 @@ import { TEAM_NICKNAME } from '../constants'
 import { useIsDark, useTextTone } from '../lib/colorUtils'
 import { TeamLogo } from '../components/leaderboards'
 import { FinalGameSummary } from './FinalGames'
-import { GameCenterModal } from './LiveGameCenter'
 import { stampOverlay, clearOverlayIf } from '../state/homeOverlay'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { chromePx, typePx } from '../../ui/scale'
+
+// Lazy, as in FinalGames and GameRoute: Game Center opens on a tap, and a static import put all
+// of it in the Home landing for a reader who may never open a game.
+const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
 // ─── "Happening Now" — live drama card ────────────────────────────────────────
 // Appears on Home only while something dramatic is live (no-hitter, walk-off
@@ -175,12 +178,14 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
       </Box>
 
       {openGame && (
-        <GameCenterModal
-          game={openGame}
-          onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
-          onPlayerClick={onPlayerClick ? stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick) : undefined}
-          onTeamClick={onTeamClick ? stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick) : undefined}
-        />
+        <Suspense fallback={null}>
+          <GameCenterModal
+            game={openGame}
+            onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
+            onPlayerClick={onPlayerClick ? stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick) : undefined}
+            onTeamClick={onTeamClick ? stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick) : undefined}
+          />
+        </Suspense>
       )}
     </Box>
   )

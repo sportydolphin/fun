@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect, lazy, Suspense } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
-import { GameCenterModal } from './LiveGameCenter'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { LiveGameCard } from '../components/LiveGameCard'
 import {
@@ -18,6 +17,10 @@ import { scrollBehavior } from '../../lib/motion'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { chromePx, chromeScale, typePx } from '../../ui/scale'
 import { gameLink, LINK_SX } from '../lib/links'
+
+// Lazy, as in FinalGames and GameRoute: Game Center opens on a tap, and a static import put all
+// of it in the Home landing for a reader who may never open a game.
+const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
 // ─── GameChip ─────────────────────────────────────────────────────────────────
 
@@ -1040,12 +1043,14 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       })()}
 
       {boxScoreGame && (
-        <GameCenterModal
-          game={boxScoreGame}
-          onClose={() => { setBoxScoreGame(null); clearOverlayIf('teamRecap') }}
-          onPlayerClick={stampOverlay({ kind: 'teamRecap', game: boxScoreGame }, onPlayerClick)}
-          onTeamClick={stampOverlay({ kind: 'teamRecap', game: boxScoreGame }, onTeamClick)}
-        />
+        <Suspense fallback={null}>
+          <GameCenterModal
+            game={boxScoreGame}
+            onClose={() => { setBoxScoreGame(null); clearOverlayIf('teamRecap') }}
+            onPlayerClick={stampOverlay({ kind: 'teamRecap', game: boxScoreGame }, onPlayerClick)}
+            onTeamClick={stampOverlay({ kind: 'teamRecap', game: boxScoreGame }, onTeamClick)}
+          />
+        </Suspense>
       )}
     </>
   )

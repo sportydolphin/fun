@@ -57,9 +57,15 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    page, light and dark, phone and desktop) found nothing under 4.5:1 afterwards. Pinned in
    `__tests__/contrast.test.ts`. WPBL's bottom bar still passes its raw `#60a5fa` as the active
    tab colour, the same 2.5:1 MLB's had.
-5. **Home's own weight** (item 5). A Home landing costs 132 kB gzip of MLB code against 67 to 82 kB
-   for any other page, because the Predictor, Live Game Center and the report cards load with it
-   rather than on use.
+5. ✅ **Home's own weight** (item 5, Oct 2, v1.119.0). A Home landing was 130.6 kB gzip of MLB code against
+   68 to 82 kB for any other page; it is now 115.7. What came out is what only opens on a tap:
+   Game Center was a static import in Live drama and the team schedule strip (FinalGames and
+   GameRoute already had it lazy), the Predictor's full board and its stats sheet rode in with
+   the small Home widget (`views/PredictorModal.tsx` is the board, split out; both are warmed 4s
+   after landing so the first tap is not a fetch), and the followed-players "+ Add" box used
+   MUI's InputBase, which brought the form-control stack for one field. What is left is the cards
+   Home actually draws (the HomeView chunk, 31 kB, plus the bracket and report-card code); their
+   pop-ups (milestones, survivor leaderboard, roster moves) are a few kB together and stay put.
 6. **Let the address drive `useMlbState`** (item 4's open note). It reads the address but is not
    driven by it.
 7. **Swipe pager with kept-alive tabs** (item 3's open note). Views unmount and refetch on every
