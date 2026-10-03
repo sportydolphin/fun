@@ -250,6 +250,35 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
   return qs ? `${path}?${qs}` : path
 }
 
+/** Everything an address says, as the snapshot `mlbUrlFor` would have written it from: the page,
+ *  plus the board filters on the query. Null when it is not an MLB page. The inverse of
+ *  `mlbUrlFor`, so the section can be put on any address it can produce, and the one reader of
+ *  the query: landing, Back, Forward and the shell's navigate() all go through it, where each used
+ *  to read its own subset and Back never read the season at all. `season` is null for the current
+ *  season, which the address leaves off. A game's address names the scoreboard, as
+ *  `mlbTargetFromPath` does; the page under an open sheet is its history entry's to say. */
+export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapshot | null {
+  const target = mlbTargetFromUrl(pathname, search)
+  if (!target) return null
+  if (target.playerId) return { view: 'search', playerId: target.playerId }
+  if (target.teamId) return { view: 'search', teamId: target.teamId }
+  const snap: MlbSnapshot = { view: target.view }
+  const v = target.view
+  if (v !== 'leaderboard' && v !== 'stats' && v !== 'viz') return snap
+  const q = new URLSearchParams(search)
+  snap.lb = q.get('lb') === 'pitching' ? 'pitching' : 'hitting'
+  const season = q.get('season')
+  const n = Number(season)
+  snap.allTime = v === 'stats' && season === 'all'
+  snap.season = Number.isInteger(n) && n > 0 ? n : null
+  if (v !== 'viz') {
+    const g = q.get('games')
+    snap.games = g === 'post' || g === 'all' ? g : 'regular'
+  }
+  if (v === 'stats') snap.sort = q.get('sort') || null
+  return snap
+}
+
 /** Every page with a fixed address, for the sitemap and the tests that pin it to the redirects. */
 export const MLB_STATIC_PATHS: readonly string[] = [
   ...Object.values(MLB_VIEW_PATHS),

@@ -66,8 +66,15 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    MUI's InputBase, which brought the form-control stack for one field. What is left is the cards
    Home actually draws (the HomeView chunk, 31 kB, plus the bracket and report-card code); their
    pop-ups (milestones, survivor leaderboard, roster moves) are a few kB together and stay put.
-6. **Let the address drive `useMlbState`** (item 4's open note). It reads the address but is not
-   driven by it.
+6. ✅ **Let the address drive `useMlbState`** (item 4's open note, Oct 3, v1.119.2). Landing, Back,
+   Forward and the shell's `navigate()` now all go through one reader, `mlbSnapshotFromUrl` in
+   `routes.ts` (the inverse of `mlbUrlFor`), and the address wins over the history entry.
+   `restoreTarget` reads the entry for only what an address cannot carry: a player page's season
+   and card, and the page under a game sheet. It was the other way round, the entry first, with
+   each path reading its own part of the query, and none of them read the season: Back onto an
+   earlier season's board drew this season and the URL sync rewrote the address to match. Every
+   initial value now comes from the landing address in its initializer, so a pitching board no
+   longer draws and fetches hitting first. Pinned in `__tests__/addressState.test.ts`.
 7. **Swipe pager with kept-alive tabs** (item 3's open note). Views unmount and refetch on every
    tab change.
 8. **House rules sweep** (item 7). About 500 em dashes in 62 MLB files (the ones meaning "no
@@ -77,7 +84,7 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.
 
-**Tests**: 9 files and 89 cases under `src/mlb/__tests__/`, against 126 files in WPBL. Each item
+**Tests**: 15 files and 133 cases under `src/mlb/__tests__/`, against 126 files in WPBL. Each item
 above should leave a test behind, as items 0, 4 and 5b did.
 
 ## Aligning with WPBL (Sep 27, 2026) 🎯⚙️
@@ -98,13 +105,13 @@ goes first and the rest is winter work.
 | Phone nav | ✅ *Fixed Sep 28 (item 3).* Was 6 pills in a sideways scroller; at 375px Stats and Search are off screen, no swipe, and the player page lights no tab | Bottom bar + More sheet, swipe pager, visited tabs kept mounted |
 | Overlays | ✅ *Fixed Sep 28 to 30 (item 4).* Were 10 hand-rolled `position: fixed` boxes: centred, 26px close, `backdropFilter` blur (the cost WPBL removed), not portalled | `ModalShell`: portalled, a bottom sheet on a phone with drag to dismiss |
 | Back | ✅ *Fixed Sep 28 (item 4).* Back with Game Center open leaves the section entirely (lands on `/wpbl`), because no MLB modal is a history entry | Every modal is a history entry; Back closes it |
-| URLs, SEO | 🟡 *Paths done Oct 2 (item 4); hrefs and headings open (item 7).* Was one URL, `/mlb?view=&pid=`, so one title and nothing indexable; 8 `href`s against 201 `onClick`s (the scoreboard's "Box →" is a plain div); no `<h1>` | A path per tab, player, game and team; `linkTo()`; `PageHeading` |
+| URLs, SEO | ✅ *Paths done Oct 2 (item 4), hrefs and headings Oct 2 (item 7), the address driving the state Oct 3.* Was one URL, `/mlb?view=&pid=`, so one title and nothing indexable; 8 `href`s against 201 `onClick`s (the scoreboard's "Box →" is a plain div); no `<h1>` | A path per tab, player, game and team; `linkTo()`; `PageHeading` |
 | Requests | ✅ *Fixed Sep 28 (item 5).* Was **107 on Home mount**, 60 of them per-team stats (`fetchTeamRankings`, 30 clubs x 2 groups) that `/teams/stats?sportIds=1` answers in 2 | 24 on Home |
 | Loading | ✅ *Chunk per view in v1.115.1; skeletons on Scores, Standings, the bracket and the predictor (item 5).* Was no skeletons, "Loading…" text, all views in one chunk | Skeletons, lazy modals, last-good seeds |
 | Stats on a phone | Open (item 7). A wide spreadsheet in a nested scroller (`maxHeight: calc(100vh - 280px)`); sorted by OPS with the OPS column off screen | Ranked list with a sort sheet |
 | Desktop | ✅ *Fixed in v1.115.0*: off `zoom: 1.4`, onto the same 1.25 ramp as WPBL | `--app-type` / `--app-chrome`, `chromePx()` |
 | Measurement | ✅ *5 `mlb_*` events since Sep 28 (item 1).* Was 3 events | 71 |
-| Tests | 9 files, 89 cases (was 0) | 126 files |
+| Tests | 15 files, 133 cases (was 0) | 126 files |
 | House rules | Open (item 7). 525 em dashes in 62 files; ~~a Yankees example in `HomeView.tsx`~~ (removed Oct 2); BOM and mojibake in `MlbStats.tsx` | |
 | Polling | ✅ *Fixed in v1.99.2*: `useForegroundInterval` moved to `src/lib` and every MLB poll uses it | |
 
@@ -149,7 +156,7 @@ goes first and the rest is winter work.
    Charts & payroll through deep links their owners already listen for. Not done: the swipe pager.
    MLB's views unmount on a tab change and refetch, so keeping them mounted side by side is a
    separate job from the bar.
-4. 🟡 **Overlays and URLs.** *Done Sep 28:* Game Center and the game preview are `ModalShell`
+4. ✅ **Overlays and URLs.** *Done Sep 28:* Game Center and the game preview are `ModalShell`
    sheets (drag down to close on a phone) and history entries, so Back closes them instead of
    leaving the section (`state/sheetHistory.ts`, pinned in `__tests__/sheetHistory.test.tsx`). A
    link out of a sheet replaces its entry, so Back from that player lands where the sheet opened.
@@ -178,8 +185,8 @@ goes first and the rest is winter work.
    with its clubs, score and date (`state/gameSeo.ts`). The edge 404s a pk that is no game the
    scoreboard shows and 301s the old `open=game` push links; games stay out of the sitemap, as
    players do. The game-start push now opens any game, where the team card used to drop one
-   that was not the followed club's. *Open:* `useMlbState` reads the address but is not yet
-   driven by it.
+   that was not the followed club's. *Done Oct 3 (v1.119.2):* the address drives `useMlbState`
+   (Handoff item 6).
    *Done Oct 2 (v1.113.0), Regular / Playoffs / All* on the Leaders and Table boards
    (`lib/gameScope.ts`, `games=` on the address). StatsAPI serves the postseason as `gameType=P`
    and has no combined pool, so All is summed per player with every rate rebuilt from its counts.

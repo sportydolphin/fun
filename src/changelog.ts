@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.119.2',
+    date:    '2026-10-03',
+    changes: [
+      {
+        short: 'Back keeps the MLB stats season',
+        full:  'Going Back to an MLB stats board now shows the season it was on. Before, a board for an earlier season could come back showing this season and change its own address to match.',
+      },
+    ],
+  },
+  {
     version: '1.119.1',
     date:    '2026-10-03',
     changes: [

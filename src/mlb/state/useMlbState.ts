@@ -33,9 +33,8 @@ import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
 import { careerSpan } from '../lib/utils'
 import { track, EVENTS } from '../../lib/analytics'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
-import { mlbTargetFromUrl, mlbUrlFor, MLB_PATH_EVENT } from '../routes'
+import { mlbSnapshotFromUrl, mlbGamePkFromPath, mlbUrlFor, isMlbView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot } from '../routes'
-import { isGameScope } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
 import type { CardInnerProps } from '../components/cards'
 import type { TeamCardInnerProps } from '../components/cards'
@@ -56,6 +55,33 @@ export function boardSortFor(group: 'hitting' | 'pitching', key: string | null |
   if (!key) return null
   const def = (group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).find(d => d.key === key)
   return def ? { def, group, sortKey: key, sortAsc: def.lowerIsBetter ?? false, entries: [] } : null
+}
+
+/** Where a Back, a Forward or the shell's navigate() puts the section: THE ADDRESS DECIDES. The
+ *  entry's own snapshot is read for two things only, neither of which the address can say: which
+ *  season and which card a player page was showing, and, on a game's address, the page under the
+ *  sheet (the address names the game; the entry was stamped with the page it opened over).
+ *
+ *  It used to be the other way round, the snapshot first and the address only when an entry had
+ *  none, with each path reading its own subset of the query. Neither ever restored a board's
+ *  season, so Back from a player opened off a 2023 stat card landed on the 2025 Table drawing
+ *  2023, and the URL sync then rewrote that entry's address to say 2023 as well. */
+export function restoreTarget(pathname: string, search: string, entry: Record<string, any> | null): {
+  snap: MlbSnapshot; playerSeason?: number; statsView?: 'season' | 'career'
+} | null {
+  let snap = mlbSnapshotFromUrl(pathname, search)
+  if (!snap) return null
+  if (mlbGamePkFromPath(pathname) != null && entry && isMlbView(entry.view)) {
+    // Through the page's own address, so the entry is read by the same rules as any other.
+    const page = new URL(mlbUrlFor(entry as MlbSnapshot, CURRENT_SEASON), 'https://x')
+    snap = mlbSnapshotFromUrl(page.pathname, page.search) ?? snap
+  }
+  if (snap.playerId == null || entry?.playerId !== snap.playerId) return { snap }
+  return {
+    snap,
+    playerSeason: typeof entry.season === 'number' ? entry.season : undefined,
+    statsView: entry.statsView === 'career' || entry.statsView === 'season' ? entry.statsView : undefined,
+  }
 }
 
 export function useMlbState() {
@@ -226,14 +252,16 @@ export function useMlbState() {
   }, [user?.id, recentSearches])
 
   // ─── View & navigation ────────────────────────────────────────────────────────
-  const [view, setView] = useState<MlbView>(() => {
-    try {
-      // The address decides, old spelling or new; Home for everyone else, since a no-team
-      // visitor still gets the league feed and the team picker there.
-      return mlbTargetFromUrl(window.location.pathname, window.location.search)?.view ?? 'home'
-    } catch { return 'home' }
+  // The address this section was landed on, read once, and every initial value below comes from
+  // it. Read in the initializers rather than by an effect after the first render, which drew the
+  // hitting board first and fetched it, then switched to the pitching board the address named.
+  const [landing] = useState<MlbSnapshot | null>(() => {
+    try { return mlbSnapshotFromUrl(window.location.pathname, window.location.search) } catch { return null }
   })
-  const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
+  // Home for an address that names nothing, since a no-team visitor still gets the league feed
+  // and the team picker there.
+  const [view, setView] = useState<MlbView>(landing?.view ?? 'home')
+  const [vizSeason, setVizSeason] = useState(landing?.season ?? CURRENT_SEASON)
   const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('report-card')
 
   // ─── Local-dev-only settings ────────────────────────────────────────────────
@@ -250,28 +278,19 @@ export function useMlbState() {
   const [statsHighlightStatKey,  setStatsHighlightStatKey]  = useState<string | null>(null)
 
   // ─── Leaderboard ─────────────────────────────────────────────────────────────
-  const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>('hitting')
+  const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>(landing?.lb ?? 'hitting')
   const [lbData, setLbData] = useState<LeaderboardEntry[] | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
   // Seeded from `sort=` so a Leaders card's link (and a shared address) lands on its stat.
-  const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(() => {
-    try {
-      const q = new URLSearchParams(window.location.search)
-      return boardSortFor(q.get('lb') === 'pitching' ? 'pitching' : 'hitting', q.get('sort'))
-    } catch { return null }
-  })
+  const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(() => boardSortFor(landing?.lb ?? 'hitting', landing?.sort))
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
   const [lbQualified, setLbQualified] = useState(true)
   // All-time (career) mode for the Stats tab only — kept separate from vizSeason so
   // it never leaks into the Leaderboard/Viz tabs, which share vizSeason.
   // Regular season, postseason or both, for the Leaders and Table boards. On the URL as `games=`.
-  const [lbGameScope, setLbGameScope] = useState<GameScope>(() => {
-    try { const g = new URLSearchParams(window.location.search).get('games'); return isGameScope(g) ? g : 'regular' } catch { return 'regular' }
-  })
-  const [statsAllTime, setStatsAllTime] = useState(() => {
-    try { return new URLSearchParams(window.location.search).get('season') === 'all' } catch { return false }
-  })
+  const [lbGameScope, setLbGameScope] = useState<GameScope>(landing?.games ?? 'regular')
+  const [statsAllTime, setStatsAllTime] = useState(!!landing?.allTime)
   // The Table's stat as the address spells it: null for the board's default, so the plain
   // /mlb/stats stays the canonical spelling of the page most readers land on.
   const sortParam = lbFullscreen && lbFullscreen.group === lbGroup && lbFullscreen.sortKey !== LB_FEATURED[lbGroup][0]
@@ -295,7 +314,6 @@ export function useMlbState() {
   const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
   const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
   const autoLoadedRef = useRef(false)
-  const urlViewReadRef = useRef(false)
   const prevPlayerIdRef = useRef<number | null>(null)
 
   // ─── Simple toggles ───────────────────────────────────────────────────────────
@@ -555,9 +573,12 @@ export function useMlbState() {
     if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
+    // The board's season, which only a game sheet's entry is ever read for (restoreTarget): every
+    // other entry's address already says it.
+    if (view === 'leaderboard' || view === 'stats' || view === 'viz') s.season = vizSeason
     if (view === 'stats' && sortParam) s.sort = sortParam
     return s
-  }, [player, team, season, statsView, view, lbGroup, statsAllTime, lbGameScope, sortParam])
+  }, [player, team, season, statsView, view, lbGroup, statsAllTime, lbGameScope, sortParam, vizSeason])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -776,109 +797,69 @@ export function useMlbState() {
     writeAddress(keepSheetMarker(currentHistoryState()), snap)
   }, [view, player, team, lbGroup, vizSeason, statsAllTime, lbGameScope, sortParam, currentHistoryState])
 
-  // Restore state when the browser back button is pressed
+
+  // Put the section on the address it has just been moved to: Back, Forward, or the shell's
+  // navigate() (the bell, a link from the other section), which pushes a bare entry and fires
+  // popstate. restoreTarget says what that is; this only sets it.
   useEffect(() => {
     const handlePop = (e: PopStateEvent) => {
       // A pop that closes a sheet lands on the entry the sheet opened over, which already shows
       // the right view. Restoring it would refetch whatever is underneath. See sheetHistory.ts.
       if (sheetOpen()) return
-      // Primary path: restore from the self-describing snapshot stamped on this entry
-      // (see currentHistoryState + the URL-sync effect). Each entry describes the screen
-      // it IS, so we can rebuild it exactly — this is what makes Back land where you'd
-      // expect regardless of how you got there.
-      const s = e.state as Record<string, any> | null
-      if (s && (s.playerId || s.teamId || s.view)) {
-        // Player snapshot — restore the exact player, season, and season/career toggle.
-        if (s.playerId) {
-          setStatsHighlightPlayerId(null)
-          setStatsHighlightStatKey(null)
-          setView('search')
-          fetchPlayerDetails(s.playerId).then(p => {
-            if (p) selectPlayer(p, { season: s.season, statsView: s.statsView })
-          }).catch(() => {})
-          return
-        }
-        // Team snapshot.
-        if (s.teamId) {
-          setView('search')
-          const t = allTeams.find(t => t.id === s.teamId)
-          if (t) { blockDropdownRef.current = true; setQuery(t.name); selectTeam(t) }
-          else { setPlayer(null); setTeam(null) }
-          return
-        }
-        // Plain view snapshot (home / standings / viz / leaderboard / stats / empty search).
-        setView(s.view)
-        setPlayer(null)
-        setTeam(null)
-        if (s.view === 'leaderboard' || s.view === 'stats') setLbGroup(s.lb === 'pitching' ? 'pitching' : 'hitting')
-        if (s.view === 'stats') setStatsAllTime(!!s.allTime)
-        if (s.view === 'leaderboard' || s.view === 'stats') setLbGameScope(isGameScope(s.games) ? s.games : 'regular')
-        if (s.view === 'stats') setLbFullscreen(boardSortFor(s.lb === 'pitching' ? 'pitching' : 'hitting', s.sort))
-        return
-      }
-
-      // Fallback: read the address. That is an entry with no snapshot: the shell's navigate, a
-      // notification in the bell, an entry written before the snapshots existed. The legacy
-      // `?view=` form is read too, and there `view` wins over an id, as it always did.
-      const params = new URLSearchParams(window.location.search)
-      const target = mlbTargetFromUrl(window.location.pathname, window.location.search)
+      const target = restoreTarget(window.location.pathname, window.location.search, e.state as Record<string, any> | null)
       if (!target) return
-      if (target.teamId) {
-        const t = allTeams.find(t => t.id === target.teamId)
-        if (t) {
-          blockDropdownRef.current = true
-          setQuery(t.name)
-          setView('search')
-          selectTeam(t)
-        }
-        return
-      }
-      if (target.playerId) {
+      const { snap } = target
+      if (snap.playerId) {
+        setStatsHighlightPlayerId(null)
+        setStatsHighlightStatKey(null)
         setView('search')
-        fetchPlayerDetails(target.playerId)
-          .then(p => { if (p) selectPlayer(p) })
-          .catch(() => {})
+        fetchPlayerDetails(snap.playerId).then(p => {
+          if (p) selectPlayer(p, { season: target.playerSeason, statsView: target.statsView })
+        }).catch(() => {})
         return
       }
-      setView(target.view)
+      if (snap.teamId) {
+        const t = allTeams.find(t => t.id === snap.teamId)
+        if (!t) return
+        blockDropdownRef.current = true
+        setQuery(t.name)
+        setView('search')
+        selectTeam(t)
+        return
+      }
+      setView(snap.view)
       setPlayer(null)
       setTeam(null)
-      if (target.view === 'leaderboard' || target.view === 'stats') {
-        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
-        const g = params.get('games')
-        setLbGameScope(isGameScope(g) ? g : 'regular')
-        if (target.view === 'stats') setLbFullscreen(boardSortFor(params.get('lb') === 'pitching' ? 'pitching' : 'hitting', params.get('sort')))
+      if (snap.view !== 'leaderboard' && snap.view !== 'stats' && snap.view !== 'viz') return
+      const group = snap.lb ?? 'hitting'
+      setLbGroup(group)
+      // Career has no season of its own: the season board behind it keeps the one it had.
+      if (!snap.allTime) setVizSeason(snap.season ?? CURRENT_SEASON)
+      if (snap.view === 'viz') return
+      setLbGameScope(snap.games ?? 'regular')
+      if (snap.view === 'stats') {
+        setStatsAllTime(!!snap.allTime)
+        setLbFullscreen(boardSortFor(group, snap.sort))
       }
     }
     window.addEventListener('popstate', handlePop)
     return () => window.removeEventListener('popstate', handlePop)
   }, [allTeams, selectTeam, selectPlayer])
 
-  // Auto-load from URL on first render
+  // Load the player or club the landing address names. The filters it names are already in state
+  // (the initializers above), so this is only what needs a fetch.
   useEffect(() => {
     if (autoLoadedRef.current) return
-    const params = new URLSearchParams(window.location.search)
-    const target = mlbTargetFromUrl(window.location.pathname, window.location.search)
-
-    if (!urlViewReadRef.current) {
-      urlViewReadRef.current = true
-      const lbParam = params.get('lb')
-      if (lbParam === 'pitching') setLbGroup('pitching')
-      const seasonParam = params.get('season')
-      if (seasonParam === 'all') setStatsAllTime(true)
-      else if (seasonParam) setVizSeason(Number(seasonParam))
-    }
-
-    if (target?.playerId) {
+    if (landing?.playerId) {
       autoLoadedRef.current = true
-      fetchPlayerDetails(target.playerId).then(p => { if (p) selectPlayer(p) }).catch(() => {})
-    } else if (target?.teamId) {
+      fetchPlayerDetails(landing.playerId).then(p => { if (p) selectPlayer(p) }).catch(() => {})
+    } else if (landing?.teamId) {
       // Wait for the team list before resolving a team page: this effect re-runs once
       // allTeams arrives. Until then, leave autoLoadedRef false so the URL-sync effect
       // can't rewrite the address before selectTeam runs.
       if (allTeams.length > 0) {
         autoLoadedRef.current = true
-        const t = allTeams.find(t => t.id === target.teamId)
+        const t = allTeams.find(t => t.id === landing.teamId)
         if (t) selectTeam(t)
       }
     } else {
@@ -888,24 +869,13 @@ export function useMlbState() {
       // cross-link click (followed player, standout, spotlight, …) leaves the URL
       // unchanged, so the browser Back button can't return to Home.
       autoLoadedRef.current = true
-      // Stamp the landing entry with a self-describing snapshot so a later Back that
-      // returns here restores it. Built from the URL, not React state, which may not have
-      // caught up with it yet.
-      const initView = target?.view ?? view
-      const snap: Record<string, any> = { view: initView }
-      if (initView === 'leaderboard' || initView === 'stats') {
-        snap.lb = params.get('lb') === 'pitching' ? 'pitching' : 'hitting'
-        snap.allTime = params.get('season') === 'all'
-        const g = params.get('games')
-        snap.games = isGameScope(g) ? g : 'regular'
-        if (initView === 'stats' && boardSortFor(snap.lb, params.get('sort'))) snap.sort = params.get('sort')
-      }
-      // At the canonical address, which matters on a legacy landing (`/mlb?view=standings`): the
-      // sync above has already run for this render and nothing else may change to re-run it.
-      const season = Number(params.get('season'))
-      writeAddress(snap, { ...snap, view: initView, season: Number.isFinite(season) && season > 0 ? season : null })
+      // Stamped with the landing snapshot and moved to its canonical address, which matters on a
+      // legacy landing (`/mlb?view=standings`): the sync above has already run for this render and
+      // nothing else may change to re-run it.
+      const snap: MlbSnapshot = landing ?? { view }
+      writeAddress({ ...snap }, snap)
     }
-  }, [allTeams, selectPlayer, selectTeam, view])
+  }, [allTeams, selectPlayer, selectTeam, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Memos: derived data ──────────────────────────────────────────────────────
 
