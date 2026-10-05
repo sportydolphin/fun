@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, textTone } from '../lib/colorUtils'
@@ -11,6 +12,7 @@ import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
+import { MlbCopyLink } from '../components/CopyLink'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, SectionLabel } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
@@ -143,9 +145,11 @@ function comparisonColors(awayId: number, homeId: number, isDark: boolean): [str
 // against each other and against MLB at a glance. Bars always grow toward
 // "better", including for ERA/WHIP/BAA where the lower number wins.
 // Purely informational, so a failed fetch renders nothing rather than an error.
-function TeamComparison({ away, home }: {
+export function TeamComparison({ away, home, sx }: {
   away: { teamId: number; abbr: string }
   home: { teamId: number; abbr: string }
+  /** The series sheet sets its own gutter and divider; the preview keeps these. */
+  sx?: SxProps<Theme>
 }) {
   const isDark = useIsDark()
   const [stats, setStats] = useState<Map<number, TeamSeasonStats> | null>(null)
@@ -270,7 +274,7 @@ function TeamComparison({ away, home }: {
   )
 
   return (
-    <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
+    <Box sx={[{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }, ...(Array.isArray(sx) ? sx : [sx])]}>
       <Box sx={{ mb: 1 }}>
         <SectionLabel>Season Comparison</SectionLabel>
       </Box>
@@ -464,18 +468,21 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
       eyebrow={unplayed
         ? (game.reason ? `${game.statusText} · ${game.reason}` : game.statusText)
         : `Preview · ${game.statusText}`}
-      actions={(onPrev || onNext) && (
-        <Box sx={{ display: 'flex', gap: 0.25 }}>
-          <Box onClick={onPrev} aria-label="Previous game" role="button"
-            sx={{ ...navArrowSx, visibility: onPrev ? 'visible' : 'hidden' }}>
-            <ChevronLeft sx={{ fontSize: '1.2rem' }} />
-          </Box>
-          <Box onClick={onNext} aria-label="Next game" role="button"
-            sx={{ ...navArrowSx, visibility: onNext ? 'visible' : 'hidden' }}>
-            <ChevronRight sx={{ fontSize: '1.2rem' }} />
-          </Box>
+      actions={
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          <MlbCopyLink target={{ kind: 'game', gamePk: game.gamePk }} title="Copy a link to this game" />
+          {(onPrev || onNext) && <>
+            <Box onClick={onPrev} aria-label="Previous game" role="button"
+              sx={{ ...navArrowSx, visibility: onPrev ? 'visible' : 'hidden' }}>
+              <ChevronLeft sx={{ fontSize: '1.2rem' }} />
+            </Box>
+            <Box onClick={onNext} aria-label="Next game" role="button"
+              sx={{ ...navArrowSx, visibility: onNext ? 'visible' : 'hidden' }}>
+              <ChevronRight sx={{ fontSize: '1.2rem' }} />
+            </Box>
+          </>}
         </Box>
-      )}
+      }
     >
       {/* While the sheet is up the game is the page (PageHeading.tsx). */}
       <MlbHiddenH1>{heading}</MlbHiddenH1>

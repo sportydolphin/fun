@@ -52,6 +52,7 @@ describe('schedule reads include the postseason', () => {
   const REGULAR_SEASON_ON_PURPOSE: Record<string, string> = {
     'src/mlb/api.ts': 'strength of the remaining regular-season schedule, for playoff odds',
     'src/mlb/reportCardData.ts': 'streak report cards count regular-season games',
+    'src/mlb/seriesDetail.ts': 'how two playoff clubs met over the regular season',
     'src/mlb/views/Spotlight.tsx': 'byDateRange has no postseason data, so the lookback cannot use it',
     'shared/mlbSeason.js': 'asks whether a regular-season makeup is still to be played',
     'scripts/simulate-playoff-odds.mjs': 'simulates the remaining regular season',

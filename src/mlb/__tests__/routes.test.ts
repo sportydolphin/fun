@@ -13,10 +13,13 @@ import { TEAM_ABBR } from '../constants'
 import {
   MLB_VIEW_PATHS, MLB_CLUBS, MLB_STATIC_PATHS, mlbTeamPath, mlbPlayerPath, mlbPlayerIdFromPath,
   mlbTargetFromPath, mlbTargetFromUrl, mlbLegacyTarget, mlbUrlFor, isMlbPath,
-  mlbGamePath, mlbGamePkFromPath, mlbLegacyGamePk,
+  mlbGamePath, mlbGamePkFromPath, mlbLegacyGamePk, mlbSeriesPath, mlbSeriesFromPath, isMlbSheetPath, MLB_SERIES_SLUGS,
 } from '../routes'
+import { SERIES_ORDER } from '../postseason'
 import { pushEntry } from '../state/sheetHistory'
 import { onRequestGet } from '../../../functions/mlb/index'
+import { onRequestGet as onShortGet } from '../../../functions/m/[[code]]'
+import { mlbShortPath, mlbShortTargetFromPath } from '../routes'
 
 describe('reading an address', () => {
   it('round-trips every tab', () => {
@@ -51,6 +54,20 @@ describe('reading an address', () => {
     }
     expect(mlbLegacyGamePk('?view=home&open=game&gamePk=849844')).toBe(849844)
     expect(mlbLegacyGamePk('?open=predictor&gamePk=849844')).toBeNull()
+  })
+
+  // A series is a sheet over Standings, named by season and bracket slot, never by its clubs.
+  it('reads a series as Standings with the series over it', () => {
+    expect(mlbSeriesPath(2026, 'D_1')).toBe('/mlb/postseason/2026/alds-1')
+    expect(mlbTargetFromPath('/mlb/postseason/2026/alds-1/')).toEqual({ view: 'standings', series: { season: 2026, id: 'D_1' } })
+    expect(isMlbSheetPath('/mlb/postseason/2026/world-series')).toBe(true)
+    expect(isMlbSheetPath('/mlb/standings')).toBe(false)
+    // Every series the bracket draws has a slot, and every slot round-trips.
+    expect(Object.keys(MLB_SERIES_SLUGS).sort()).toEqual([...SERIES_ORDER].sort())
+    for (const id of SERIES_ORDER) expect(mlbSeriesFromPath(mlbSeriesPath(2025, id))).toEqual({ season: 2025, id })
+    for (const p of ['/mlb/postseason', '/mlb/postseason/2026', '/mlb/postseason/2026/D_1', '/mlb/postseason/2021/alds-1', '/mlb/postseason/26/alds-1', '/mlb/postseason/2026/alds-1/x']) {
+      expect(mlbSeriesFromPath(p), p).toBeNull()
+    }
   })
 
   it('is null for anything that is not an MLB page, so the shell 404s it', () => {
@@ -110,6 +127,7 @@ describe('every page is routable in production', () => {
   it('routes players and games by wildcard and nothing else under /mlb that way', () => {
     expect(redirects).toMatch(/^\/mlb\/players\/\*\s+\/\s+200\s*$/m)
     expect(redirects).toMatch(/^\/mlb\/games\/\*\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/mlb\/postseason\/\*\s+\/\s+200\s*$/m)
     expect(redirects).not.toMatch(/^\/mlb\/\*/m)
     expect(redirects).not.toMatch(/^\/mlb\/teams\/\*/m)
   })
@@ -130,6 +148,13 @@ describe('every page is discoverable and distinct', () => {
   it('keeps player and game pages out of the sitemap', () => {
     expect(sitemap).not.toContain('/mlb/players/')
     expect(sitemap).not.toContain('/mlb/games/')
+  })
+
+  // Series are in, as played; each listed one must be an address the edge serves.
+  it('lists only real series addresses', () => {
+    const series = [...sitemap.matchAll(/<loc>https:\/\/sportydolphin\.fun(\/mlb\/postseason\/[^<]*)<\/loc>/g)].map(m => m[1])
+    expect(series.length).toBeGreaterThan(0)
+    for (const p of series) expect(mlbSeriesFromPath(p), p).not.toBeNull()
   })
 
   it('has tags of its own in seo.ts', () => {
@@ -218,6 +243,18 @@ describe('the edge function', () => {
     expect((await onRequestGet(ctx('https://sportydolphin.fun/mlb/games/2'))).status).toBe(404)
   })
 
+  it('serves a series slot, and 404s one that names no series', async () => {
+    const c = ctx('https://sportydolphin.fun/mlb/postseason/2026/alds-1')
+    await onRequestGet(c)
+    expect(c.next).toHaveBeenCalled()
+    for (const p of ['2026/alds-3', '2021/alds-1', '2026', `${new Date().getUTCFullYear() + 2}/alcs`]) {
+      expect((await onRequestGet(ctx(`https://sportydolphin.fun/mlb/postseason/${p}`))).status, p).toBe(404)
+    }
+    const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/postseason/2026/alcs/'))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/postseason/2026/alcs')
+  })
+
   it('folds the trailing slash, and serves the game when StatsAPI cannot be asked', async () => {
     const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/games/849844/'))
     expect(res.status).toBe(301)
@@ -226,5 +263,54 @@ describe('the edge function', () => {
     const c = ctx('https://sportydolphin.fun/mlb/games/849844')
     await onRequestGet(c)
     expect(c.next).toHaveBeenCalled()
+  })
+})
+
+// /m/<code>: the id re-encoded, so a share fits a post. Each target has exactly one code.
+describe('short links', () => {
+  it('round-trips a player, a game and every series slot', () => {
+    expect(mlbShortPath({ kind: 'player', id: 660271 })).toBe('/m/pe5gv')
+    expect(mlbShortPath({ kind: 'game', gamePk: 849824 })).toBe('/m/gi7q8')
+    expect(mlbShortPath({ kind: 'series', season: 2026, id: 'D_1' })).toBe('/m/s26d1')
+    expect(mlbShortTargetFromPath('/m/pe5gv')).toEqual({ kind: 'player', id: 660271 })
+    expect(mlbShortTargetFromPath('/m/gi7q8/')).toEqual({ kind: 'game', gamePk: 849824 })
+    for (const id of SERIES_ORDER) {
+      expect(mlbShortTargetFromPath(mlbShortPath({ kind: 'series', season: 2022, id }))).toEqual({ kind: 'series', season: 2022, id })
+    }
+    for (const p of ['/m', '/m/', '/m/x1', '/m/p0e5gv', '/m/pE5GV', '/m/p', '/m/s21d1', '/m/s26d5', '/m/pe5gv/x', '/m/g-1']) {
+      expect(mlbShortTargetFromPath(p), p).toBeNull()
+    }
+  })
+
+  const ctx = (url: string) => ({
+    request: new Request(url),
+    env: { ASSETS: { fetch: vi.fn(async () => new Response('404 page', { status: 200 })) } },
+    next: vi.fn(async () => new Response('shell', { status: 200 })),
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('302s each kind onto its canonical page, marked for the open count', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ people: [{ fullName: 'Shohei Ohtani' }] })))
+    const player = await onShortGet(ctx('https://sportydolphin.fun/m/pe5gv'))
+    expect(player.status).toBe(302)
+    expect(player.headers.get('location')).toBe('https://sportydolphin.fun/mlb/players/shohei-ohtani-660271?ref=short')
+    expect((await onShortGet(ctx('https://sportydolphin.fun/m/gi7q8'))).headers.get('location'))
+      .toBe('https://sportydolphin.fun/mlb/games/849824?ref=short')
+    expect((await onShortGet(ctx('https://sportydolphin.fun/m/s26w1'))).headers.get('location'))
+      .toBe('https://sportydolphin.fun/mlb/postseason/2026/world-series?ref=short')
+  })
+
+  it('404s a malformed code or a player who does not exist, and lands on the bare id when StatsAPI is down', async () => {
+    expect((await onShortGet(ctx('https://sportydolphin.fun/m/zzz'))).status).toBe(404)
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ people: [] })))
+    expect((await onShortGet(ctx('https://sportydolphin.fun/m/p1'))).status).toBe(404)
+    vi.restoreAllMocks()
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'))
+    expect((await onShortGet(ctx('https://sportydolphin.fun/m/pe5gv'))).headers.get('location'))
+      .toBe('https://sportydolphin.fun/mlb/players/660271?ref=short')
+  })
+
+  it('reaches the Functions worker', () => {
+    expect(routesJson.include).toContain('/m/*')
   })
 })

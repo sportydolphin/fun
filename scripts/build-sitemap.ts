@@ -23,7 +23,7 @@ import {
   WPBL_TEAMS_BASE, teamSlug,
 } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
-import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE } from '../src/mlb/routes'
+import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE, MLB_SERIES_SLUGS, MLB_FIRST_BRACKET_SEASON, MLB_POSTSEASON_BASE, mlbSeriesPath, type MlbSeriesId } from '../src/mlb/routes'
 
 const SITE = 'https://sportydolphin.fun'
 // Relative to the repo root, NOT to this file: `npm run sitemap` bundles it into
@@ -207,7 +207,47 @@ const mlbEntries: Entry[] = [
   ...MLB_CLUBS.map(c => ({ loc: `${MLB_TEAMS_BASE}/${c.slug}`, changefreq: 'daily', priority: '0.5' })),
 ]
 
-const entries = [...STATIC, ...teamEntries, ...players, ...gameEntries, ...mlbEntries]
+/**
+ * Every MLB postseason series that has been PLAYED, one URL each, from 2022 (the first 12-club
+ * bracket) to now. Unlike a player or a game, a series is a page people search for by name
+ * ("2025 ALDS") and there are only eleven a year, so it earns an entry the way a WPBL final does:
+ * once its first game is final. A slot whose clubs are not decided yet is a page of stand-ins.
+ *
+ * StatsAPI down must not cost the WPBL half of the file its daily rebuild, nor quietly drop every
+ * series from it: a failed season keeps whatever series URLs the current file already lists.
+ */
+async function readMlbSeries(existingXml: string): Promise<Entry[]> {
+  const thisYear = new Date().getUTCFullYear()
+  const out: Entry[] = []
+  for (let season = MLB_FIRST_BRACKET_SEASON; season <= thisYear; season++) {
+    const entry = (id: MlbSeriesId): Entry => ({
+      loc: mlbSeriesPath(season, id),
+      // A finished October does not change again.
+      changefreq: season < thisYear ? 'yearly' : 'daily',
+      priority: '0.6',
+    })
+    try {
+      const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule/postseason/series?season=${season}&sportId=1&fields=series,id,games,status,abstractGameState`)
+      if (!res.ok) throw new Error(`statsapi ${res.status}`)
+      const body = await res.json() as { series?: { series?: { id?: string }; games?: { status?: { abstractGameState?: string } }[] }[] }
+      const played = new Set((body.series ?? [])
+        .filter(s => (s.games ?? []).some(g => g.status?.abstractGameState === 'Final'))
+        .map(s => s.series?.id))
+      for (const id of Object.keys(MLB_SERIES_SLUGS) as MlbSeriesId[]) if (played.has(id)) out.push(entry(id))
+    } catch (e) {
+      const prefix = `${SITE}${MLB_POSTSEASON_BASE}/${season}/`
+      const kept = [...existingXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]).filter(l => l.startsWith(prefix))
+      console.warn(`sitemap: could not read the ${season} postseason (${(e as Error).message}); keeping ${kept.length} listed series`)
+      out.push(...kept.map(l => ({ ...entry('W_1'), loc: l.slice(SITE.length) })))
+    }
+  }
+  return out
+}
+
+const existingXml = existsSync(OUT) ? readFileSync(OUT, 'utf8') : ''
+const seriesEntries = await readMlbSeries(existingXml)
+
+const entries = [...STATIC, ...teamEntries, ...players, ...gameEntries, ...mlbEntries, ...seriesEntries]
 
 // Rewrite ONLY when the set of URLs actually changed.
 //
@@ -218,7 +258,7 @@ const entries = [...STATIC, ...teamEntries, ...players, ...gameEntries, ...mlbEn
 //
 // So lastmod here means "when this URL set last changed", which is a claim the file can
 // actually keep. A new player, or a retired one, moves it; a quiet Tuesday does not.
-const existing = existsSync(OUT) ? readFileSync(OUT, 'utf8') : ''
+const existing = existingXml
 const locsIn = (xmlText: string) => [...xmlText.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]).join('\n')
 const wanted = entries.map(e => `${SITE}${e.loc}`).join('\n')
 
@@ -227,5 +267,5 @@ if (existing && locsIn(existing) === wanted) {
 } else {
   const lastmod = new Date().toISOString().slice(0, 10)
   writeFileSync(OUT, xml(entries, lastmod), 'utf8')
-  console.log(`sitemap: ${entries.length} URLs (${teamEntries.length} clubs, ${players.length} players, ${gameEntries.length} games) -> public/sitemap.xml`)
+  console.log(`sitemap: ${entries.length} URLs (${teamEntries.length} clubs, ${players.length} players, ${gameEntries.length} games, ${seriesEntries.length} MLB series) -> public/sitemap.xml`)
 }

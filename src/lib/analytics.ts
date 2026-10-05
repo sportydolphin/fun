@@ -197,6 +197,9 @@ export const EVENTS = {
   MLB_TAB_VIEWED:      'mlb_tab_viewed',      // switched MLB tab, props {view, via: pill|link, from}
   MLB_PLAYER_OPENED:   'mlb_player_opened',   // opened an MLB player, props {playerId, from}
   MLB_TEAM_OPENED:     'mlb_team_opened',     // opened an MLB team, props {teamId, from}
+  // Short links (/m/<code>), the MLB half of the WPBL pair above: made, and landed from.
+  MLB_SHARE_COPIED:    'mlb_share_copied',    // tapped Copy link, props {kind: series|game|player, path}
+  MLB_SHARE_OPENED:    'mlb_share_opened',    // arrived via a short link, props {kind}
   // A Home card as a pair. SEEN is an impression when the card scrolls into view, not when it
   // renders: MLB Home is one long column on a phone, so "rendered" would be every card on every
   // visit and say nothing about the ones below the fold. USED is the first click anywhere inside

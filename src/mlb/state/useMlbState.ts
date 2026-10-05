@@ -33,7 +33,7 @@ import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
 import { careerSpan } from '../lib/utils'
 import { track, EVENTS } from '../../lib/analytics'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
-import { mlbSnapshotFromUrl, mlbGamePkFromPath, mlbUrlFor, isMlbView, MLB_PATH_EVENT } from '../routes'
+import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot } from '../routes'
 import type { GameScope } from '../lib/gameScope'
 import type { CardInnerProps } from '../components/cards'
@@ -75,7 +75,7 @@ export function restoreTarget(pathname: string, search: string, entry: Record<st
 } | null {
   let snap = mlbSnapshotFromUrl(pathname, search)
   if (!snap) return null
-  if (mlbGamePkFromPath(pathname) != null && entry && isMlbView(entry.view)) {
+  if (isMlbSheetPath(pathname) && entry && isMlbView(entry.view)) {
     // Through the page's own address, so the entry is read by the same rules as any other.
     const page = new URL(mlbUrlFor(entry as MlbSnapshot, CURRENT_SEASON), 'https://x')
     snap = mlbSnapshotFromUrl(page.pathname, page.search) ?? snap

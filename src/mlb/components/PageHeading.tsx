@@ -1,5 +1,5 @@
 import React, { useSyncExternalStore } from 'react'
-import { mlbGamePkFromPath, MLB_PATH_EVENT } from '../routes'
+import { isMlbSheetPath, MLB_PATH_EVENT } from '../routes'
 import { usePanelActive } from '../../lib/panelActive'
 
 // The ONE <h1> per MLB page, and who owns it.
@@ -31,7 +31,7 @@ function subscribe(cb: () => void) {
     window.removeEventListener(MLB_PATH_EVENT, cb)
   }
 }
-const isGamePage = () => mlbGamePkFromPath(window.location.pathname) != null
+const isGamePage = () => isMlbSheetPath(window.location.pathname)
 
 /** False while a game sheet is the page, and in a tab kept mounted behind the one on screen
  *  (lib/panelActive.ts), which would otherwise give the page a second h1 under `display: none`. */

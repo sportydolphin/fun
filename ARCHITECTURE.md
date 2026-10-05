@@ -98,7 +98,7 @@ Client-side routing in [`src/App.tsx`](src/App.tsx) (no framework router; matche
 ```mermaid
 flowchart LR
     subgraph Main["Main sections (lazy chunks)"]
-        mlb["/mlb + /mlb/{scores,standings,leaders,stats,charts,teams}<br/>+ /mlb/teams/&lt;club&gt; + /mlb/players/&lt;name&gt;-&lt;id&gt;<br/>+ /mlb/games/&lt;pk&gt;<br/>MlbStats.tsx"]
+        mlb["/mlb + /mlb/{scores,standings,leaders,stats,charts,teams}<br/>+ /mlb/teams/&lt;club&gt; + /mlb/players/&lt;name&gt;-&lt;id&gt;<br/>+ /mlb/games/&lt;pk&gt; + /mlb/postseason/&lt;season&gt;/&lt;slot&gt;<br/>MlbStats.tsx"]
         wpbl["/wpbl + /wpbl/{schedule,standings,stats,teams}<br/>wpbl/WpblApp.tsx"]
         wplayers["/wpbl/players<br/>+ /wpbl/players/&lt;slug&gt;"]
         wleague["/wpbl/league<br/>LeaguePage.tsx (About the league)"]
@@ -162,7 +162,9 @@ flowchart LR
   decides; the name is cosmetic and the edge 301s a stale one), and a game per `/mlb/games/<pk>`,
   which is the address of Game Center's SHEET rather than a page: it rides on the sheet's history
   entry (`src/mlb/state/sheetHistory.ts`) and `src/mlb/views/GameRoute.tsx` opens the sheet over
-  Scores when the address is reached directly. The shell asks `isMlbPath`, the
+  Scores when the address is reached directly. A postseason series is the same arrangement at
+  `/mlb/postseason/<season>/<slot>` (`alds-1`, `world-series`: the bracket slot, never the clubs),
+  opened over Standings by `src/mlb/views/SeriesRoute.tsx`. The shell asks `isMlbPath`, the
   section reads and writes the address in `useMlbState` and fires `MLB_PATH_EVENT` so the shell's
   path (and so `seo.ts`) follows. [`functions/mlb/`](functions/mlb/index.ts) 301s the old
   `/mlb?view=` / `?pid=` / `?tid=` / `?open=game` forms and 404s a player or game URL that names
@@ -747,6 +749,11 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   `wpbl_share_copied` on the copy button, so the funnel counts human opens and never the crawler
   fetches that unfurl the card. `302` not `301`: a slug can change if a namesake later joins, and
   a short link carries no ranking signal to preserve (not indexed, not in the sitemap).
+  **MLB's are `/m/<code>`** ([`functions/m/[[code]].ts`](functions/m/%5B%5Bcode%5D%5D.ts)), copied
+  by the series, game and player Copy link controls: `p`/`g` plus the player id or gamePk in base
+  36, or `s` plus the two-digit season and the series id (`/m/s26d1`). The code IS the id, so
+  there is nothing to store or resolve; the edge reads only a player's name, to land on the
+  canonical slug in one hop. Counted as `mlb_share_copied` / `mlb_share_opened`.
 - **Discord bot:** [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) is a second
   Pages Function, serving the `/player` slash command as an HTTP interactions endpoint,
   Discord POSTs the command and takes the reply from the response body, so there is no
@@ -785,7 +792,8 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   no games index, so the bare path falls through to the 404.
 - **`public/sitemap.xml` is generated** by `npm run sitemap`
   ([`scripts/build-sitemap.ts`](scripts/build-sitemap.ts)): the static routes, one URL per
-  player, and one per game that has been PLAYED, all read live. A scheduled game is left out
+  player, one per game that has been PLAYED, and one per MLB postseason series with a final
+  in it since 2022 (StatsAPI; a season it cannot read keeps the series already listed), all read live. A scheduled game is left out
   until it is final, because until then its page is a preview with no box score. It warns
   loudly if two players share a slug, since that is the one case where a player's URL is not
   simply their name. Re-run it when the roster or the results change; a hand-edit is lost.

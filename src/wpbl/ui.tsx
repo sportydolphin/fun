@@ -14,6 +14,7 @@ import { scrollBehavior } from '../lib/motion'
 import { useWpblPlayerLink } from './LinkContext'
 import { hoverOnly, TAPPABLE, tappableIf, pressable, FOCUS_RING } from '../ui/interaction'
 import { chromePx } from '../ui/scale'
+import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
 export { ModalShell } from '../ui/ModalShell'
 
@@ -1257,80 +1258,10 @@ export function SectionLabel({ children, strong }: { children: React.ReactNode; 
   )
 }
 
-// A share affordance for the modal header's `actions` slot: copies a link to whatever the
-// modal is showing, and says so. Deliberately reports failure rather than swallowing it:
-// the whole point of the control is that the reader walks away holding a URL, so a silent
-// no-op is the one outcome that must never look like success.
-//
-// The clipboard API needs a secure context. https and localhost both qualify, so the only
-// realistic gap is a plain-http host on a LAN, which is why the execCommand path is still
-// here as a fallback rather than being retired as legacy.
-export function CopyLinkButton({ url, title = 'Copy link', onCopy }: {
-  url: string
-  title?: string
-  /** Fired once on a SUCCESSFUL copy, for the caller to log a share. Not fired on failure:
-   *  a copy that did not happen is not a share. */
-  onCopy?: () => void
-}) {
-  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
-
-  const copy = useCallback(async () => {
-    const ok = await writeClipboard(url)
-    setState(ok ? 'copied' : 'failed')
-    if (ok) onCopy?.()
-    setTimeout(() => setState('idle'), ok ? 1600 : 2400)
-  }, [url, onCopy])
-
-  const isDarkCopy = useWpblDark()
-  const label = state === 'copied' ? 'Copied' : state === 'failed' ? "Couldn't copy" : 'Copy link'
-  return (
-    <Box
-      onClick={copy}
-      role="button"
-      tabIndex={0}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy() } }}
-      title={title}
-      aria-label={label}
-      sx={{
-        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
-        height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-        // Confirmation is the accent, failure is the theme's error colour, and idle recedes
-        // to match the close button beside it.
-        color: state === 'copied' ? wpblAccentFg(isDarkCopy) : state === 'failed' ? 'error.main' : 'text.disabled',
-        ...hoverOnly({ bgcolor: 'action.hover', color: state === 'idle' ? 'text.primary' : undefined }),
-        transition: 'color 0.15s',
-      }}
-    >
-      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1 }} aria-hidden>
-        {state === 'copied' ? '✓' : state === 'failed' ? '!' : '🔗'}
-      </Typography>
-      <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
-        lineHeight: 1, whiteSpace: 'nowrap',
-      }}>
-        {label}
-      </Typography>
-    </Box>
-  )
-}
-
-/** Clipboard write with the pre-secure-context fallback. Resolves false if both routes fail. */
-async function writeClipboard(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true }
-  } catch { /* fall through to the textarea route */ }
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    // Keep it off-screen and non-focusable-looking so the page doesn't visibly jump.
-    ta.setAttribute('readonly', '')
-    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0'
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
-  } catch { return false }
+// The share chip for a sheet header, shared with MLB (src/ui/CopyLinkButton.tsx). WPBL confirms
+// a copy in its own accent.
+export function CopyLinkButton(props: { url: string; title?: string; onCopy?: () => void }) {
+  return <CopyLinkButtonBase {...props} copiedColor={wpblAccentFg(useWpblDark())} />
 }
 
 // ModalShell lives in src/ui/ModalShell.tsx (shared with MLB); re-exported above.

@@ -4,7 +4,7 @@ import {
   List, ListItemButton, Divider, ClickAwayListener,
   Popover, Menu, MenuItem, Tooltip, useMediaQuery,
 } from '@mui/material'
-import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert } from '@mui/icons-material'
+import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert, Link as LinkIcon, Check, PriorityHigh } from '@mui/icons-material'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, PlayerContract } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
@@ -25,6 +25,8 @@ import { mlbPlayerPath } from '../routes'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { MlbPageH1 } from '../components/PageHeading'
+import { useCopyLink, copyLabel } from '../../ui/CopyLinkButton'
+import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
 
 export interface SearchViewProps {
   // Search
@@ -457,8 +459,10 @@ export function SearchView({
                   )}
                 </>)
               })()}
-              {/* Card actions, collapsed into a single ⋮ menu */}
-              <Box sx={{ position: 'absolute', top: chromePx(8), right: chromePx(8) }}>
+              {/* Card actions: Copy link on its own, since it is the one a reader reaches for, and
+                  the rest collapsed into a single ⋮ menu. */}
+              <Box sx={{ position: 'absolute', top: chromePx(8), right: chromePx(8), display: 'flex', gap: 0.5 }}>
+                {player && <PlayerCopyLink id={player.id} name={player.fullName} />}
                 <Tooltip title={downloading ? 'Saving…' : 'Card options'}>
                   <Box
                     onClick={e => setCardMenuAnchor(e.currentTarget as HTMLElement)}
@@ -958,5 +962,28 @@ export function SearchView({
         </Typography>
       )}
     </>
+  )
+}
+
+/** Copy link for a player page, drawn to match the card's ⋮ beside it rather than the sheets'
+ *  text chip, since it sits on the card's own colour. A sibling of the card, so a downloaded
+ *  image never carries it. */
+function PlayerCopyLink({ id, name }: { id: number; name: string }) {
+  const target = { kind: 'player', id } as const
+  const { state, copy } = useCopyLink(mlbShareUrl(target), () => trackMlbShare(target))
+  const Icon = state === 'copied' ? Check : state === 'failed' ? PriorityHigh : LinkIcon
+  return (
+    <Tooltip title={state === 'idle' ? `Copy a link to ${name}` : copyLabel(state)}>
+      <Box role="button" tabIndex={0} aria-label={copyLabel(state)} onClick={copy}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy() } }}
+        sx={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', p: 0.5, borderRadius: 1.5,
+          bgcolor: 'rgba(0,0,0,0.22)', color: state === 'idle' ? 'rgba(255,255,255,0.7)' : '#fff', cursor: 'pointer',
+          '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
+          transition: 'background 0.15s, color 0.15s',
+        }}>
+        <Icon sx={{ fontSize: '0.95rem' }} />
+      </Box>
+    </Tooltip>
   )
 }

@@ -6,6 +6,7 @@ import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
+import { MlbCopyLink } from '../components/CopyLink'
 import { FinalGameSummary } from './FinalGames'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import {
@@ -743,6 +744,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
       maxWidth={chromePx(560)}
       sheet
       sheetFill
+      actions={<MlbCopyLink target={{ kind: 'game', gamePk: game.gamePk }} title="Copy a link to this game" />}
       eyebrow={
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: isLive ? TONE.red : 'inherit' }}>
           {isLive && <LiveDot size={6} />}

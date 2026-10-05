@@ -7,7 +7,7 @@
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
 import { WPBL_RULES } from './wpbl/glossary'
-import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, mlbGamePkFromPath } from './mlb/routes'
+import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, mlbGamePkFromPath, mlbSeriesFromPath } from './mlb/routes'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -316,6 +316,12 @@ const MLB_GAME_SEO: Seo = {
   description: 'An MLB game: the box score, every play, the line score and the win probability, live or final.',
 }
 
+// Until the bracket arrives and the sheet names the clubs (useSeriesSeo in SeriesSheet.tsx).
+const MLB_SERIES_SEO: Seo = {
+  title: 'MLB postseason series: every game, starters and leaders | sportydolphin.fun',
+  description: 'An MLB postseason series: every game, the next starters, the series leaders and how the two clubs compare.',
+}
+
 function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`)
   if (!el) {
@@ -350,7 +356,7 @@ export function useSeo(path: string) {
   useEffect(() => {
     const base = path.split('?')[0].replace(/\/+$/, '') || '/'
     const seo = (dynamicSeo?.path === base ? dynamicSeo.seo : null) ?? ROUTES[base]
-      ?? (mlbGamePkFromPath(base) ? MLB_GAME_SEO : null) ?? DEFAULT
+      ?? (mlbGamePkFromPath(base) ? MLB_GAME_SEO : null) ?? (mlbSeriesFromPath(base) ? MLB_SERIES_SEO : null) ?? DEFAULT
     const url = `${SITE}${base === '/' ? '/wpbl' : base}`
     // The canonical is the route's own URL unless it names another to consolidate onto (the
     // comparison's alphabetical spelling). og:url follows the canonical, which is the whole point

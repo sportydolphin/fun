@@ -95,6 +95,10 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    and "these guys" in two board explainers. *Open:* the emoji leading MLB headings and sheet
    titles (Milestone Watch, Roster moves, Predictions, Streak Survivor, On Fire / Ice Cold, the
    live card's "🎉 Run Scored!"), which WPBL never had; kept for now, a call still to make.
+9. ✅ **Series pages and short links** (v1.121.0, Oct 5). A postseason series opens a sheet
+   (`views/SeriesSheet.tsx`, data in `seriesDetail.ts`) at `/mlb/postseason/<season>/<slot>`, in
+   the sitemap once a game in it is final. Series, games and players copy `/m/<code>` short links
+   (`functions/m`), WPBL's `/p` and `/g` for this section.
 
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.

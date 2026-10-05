@@ -199,6 +199,8 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   mlb_tab_viewed:         A('Switched MLB tab', 'MLB'),
   mlb_player_opened:      A('Opened an MLB player', 'MLB'),
   mlb_team_opened:        A('Opened an MLB team', 'MLB'),
+  mlb_share_copied:       A('Copied an MLB link', 'MLB'),
+  mlb_share_opened:       A('Arrived from an MLB short link', 'MLB'),
   mlb_card_used:          A('Used an MLB Home card', 'MLB'),
   // Read per card, against mlb_card_used, by the "MLB: what gets used" card (admin_mlb_usage).
   mlb_card_seen:          I('MLB Home card seen', 'MLB'),

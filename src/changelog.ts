@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.121.0',
+    date:    '2026-10-05',
+    changes: [
+      {
+        short: 'Every MLB playoff series has its own page',
+        full:  'Tap a series in the bracket for every game with its winning and losing pitchers, the next game's starters and TV, the series leaders, how the two clubs met over the summer, and who the winner plays next. Each series has a link of its own you can share.',
+      },
+      {
+        short: 'Copy a short link to MLB games and players',
+        full:  'MLB series, games (upcoming and finished) and player pages have a Copy link button, and the link it copies is short enough for a post.',
+      },
+    ],
+  },
+  {
     version: '1.120.1',
     date:    '2026-10-05',
     changes: [

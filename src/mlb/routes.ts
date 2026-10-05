@@ -161,10 +161,114 @@ export function mlbLegacyGamePk(search: string): number | null {
   return Number.isInteger(pk) && pk > 0 ? pk : null
 }
 
+// ─── Postseason series ────────────────────────────────────────────────────────
+//
+// /mlb/postseason/<season>/<slot>: the series sheet, a sheet over Standings exactly as a game is a
+// sheet over Scores. The SLOT, not the clubs: the bracket is published before most of its clubs are
+// known, so "alds-1" is the only name the series has from the day the field is set, and it never
+// changes. The slots are StatsAPI's series ids (postseason.ts), restated here because this file
+// imports nothing. The season is in the path so a link shared in October still means that October
+// the following spring.
+
+export const MLB_POSTSEASON_BASE = '/mlb/postseason'
+
+/** StatsAPI series id to slot. The 12-club format these ids describe began in 2022. */
+export const MLB_SERIES_SLUGS = {
+  F_1: 'al-wild-card-1', F_2: 'al-wild-card-2', F_3: 'nl-wild-card-1', F_4: 'nl-wild-card-2',
+  D_1: 'alds-1', D_2: 'alds-2', D_3: 'nlds-1', D_4: 'nlds-2',
+  L_1: 'alcs', L_2: 'nlcs', W_1: 'world-series',
+} as const
+export type MlbSeriesId = keyof typeof MLB_SERIES_SLUGS
+export const MLB_FIRST_BRACKET_SEASON = 2022
+
+export interface MlbSeriesRef { season: number; id: MlbSeriesId }
+
+export function mlbSeriesPath(season: number, id: MlbSeriesId): string {
+  return `${MLB_POSTSEASON_BASE}/${season}/${MLB_SERIES_SLUGS[id]}`
+}
+
+/** The series a path names, or null. Not checked against the calendar: the edge does that. */
+export function mlbSeriesFromPath(pathname: string): MlbSeriesRef | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${MLB_POSTSEASON_BASE}/`)) return null
+  const m = /^(\d{4})\/([a-z0-9-]+)$/.exec(p.slice(MLB_POSTSEASON_BASE.length + 1))
+  if (!m) return null
+  const season = Number(m[1])
+  const id = (Object.keys(MLB_SERIES_SLUGS) as MlbSeriesId[]).find(k => MLB_SERIES_SLUGS[k] === m[2])
+  return id && season >= MLB_FIRST_BRACKET_SEASON ? { season, id } : null
+}
+
+/** A sheet with an address of its own (a game, a series) is on top, rather than a page. */
+export const isMlbSheetPath = (pathname: string): boolean =>
+  mlbGamePkFromPath(pathname) != null || mlbSeriesFromPath(pathname) != null
+
+// ─── Short links ──────────────────────────────────────────────────────────────
+//
+// /m/<code>, for a share that has to fit a post: WPBL's /p and /g for the MLB section, and the
+// same arrangement (functions/m/[[code]].ts 302s to the canonical path, which is what a reader
+// lands on, Google indexes and an unfurler reads). One prefix for three kinds, told apart by the
+// code's first letter, because the WPBL section already holds the two obvious ones.
+//
+//   p + the player id in base 36     /m/pe5gv     -> /mlb/players/<name>-660271
+//   g + the gamePk in base 36        /m/gi7q8     -> /mlb/games/849824
+//   s + yy + the series id           /m/s26d1     -> /mlb/postseason/2026/alds-1
+//
+// NOTHING IS STORED. Every code is the id it stands for, re-encoded, so there is no table to keep,
+// nothing to mint at share time, and a code cannot go stale or be reused; the edge proves the
+// target exists exactly as it does for the long form.
+
+export const MLB_SHORT_BASE = '/m'
+
+export type MlbShortTarget =
+  | { kind: 'player'; id: number }
+  | { kind: 'game'; gamePk: number }
+  | { kind: 'series'; season: number; id: MlbSeriesId }
+
+/** The two-character series code: F_1 -> f1. */
+const seriesCode = (id: MlbSeriesId) => id.replace('_', '').toLowerCase()
+
+export function mlbShortPath(t: MlbShortTarget): string {
+  if (t.kind === 'player') return `${MLB_SHORT_BASE}/p${t.id.toString(36)}`
+  if (t.kind === 'game') return `${MLB_SHORT_BASE}/g${t.gamePk.toString(36)}`
+  return `${MLB_SHORT_BASE}/s${String(t.season % 100).padStart(2, '0')}${seriesCode(t.id)}`
+}
+
+/** What a short path names, or null. One segment, lower-case base 36, no leading zero, so each
+ *  target has exactly one code. */
+export function mlbShortTargetFromPath(pathname: string): MlbShortTarget | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${MLB_SHORT_BASE}/`)) return null
+  const code = p.slice(MLB_SHORT_BASE.length + 1)
+  const num = /^([pg])([1-9a-z][0-9a-z]{0,7})$/.exec(code)
+  if (num) {
+    const n = parseInt(num[2], 36)
+    if (!Number.isSafeInteger(n) || n <= 0) return null
+    return num[1] === 'p' ? { kind: 'player', id: n } : { kind: 'game', gamePk: n }
+  }
+  const ser = /^s(\d{2})([fdlw]\d)$/.exec(code)
+  if (!ser) return null
+  const id = (Object.keys(MLB_SERIES_SLUGS) as MlbSeriesId[]).find(k => seriesCode(k) === ser[2])
+  const season = 2000 + Number(ser[1])
+  return id && season >= MLB_FIRST_BRACKET_SEASON ? { kind: 'series', season, id } : null
+}
+
+/** Where a short target lands. A player lands on the bare id, which the /mlb edge 301s onto the
+ *  current name unless the caller knows it already. */
+export function mlbShortDestination(t: MlbShortTarget, playerName?: string | null): string {
+  if (t.kind === 'player') return mlbPlayerPath({ id: t.id, fullName: playerName })
+  if (t.kind === 'game') return mlbGamePath(t.gamePk)
+  return mlbSeriesPath(t.season, t.id)
+}
+
+/** The marker the edge adds to the landing URL, so the section can count the open; the same
+ *  spelling as WPBL's (WPBL_SHORT_REF_PARAM), restated because neither section imports the other. */
+export const MLB_SHORT_REF_PARAM = 'ref'
+export const MLB_SHORT_REF_VALUE = 'short'
+
 // ─── Reading an address ───────────────────────────────────────────────────────
 
-/** What a URL asks the section to show. `gamePk` is a game sheet over that view. */
-export interface MlbTarget { view: MlbView; playerId?: number; teamId?: number; gamePk?: number }
+/** What a URL asks the section to show. `gamePk` and `series` are a sheet over that view. */
+export interface MlbTarget { view: MlbView; playerId?: number; teamId?: number; gamePk?: number; series?: MlbSeriesRef }
 
 /** The target a pathname names, or null if it is not an MLB page at all. Null rather than a
  *  fallback to Home so the shell can tell an MLB page from a typo under /mlb, which 404s. */
@@ -180,6 +284,8 @@ export function mlbTargetFromPath(pathname: string): MlbTarget | null {
   }
   const gamePk = mlbGamePkFromPath(p)
   if (gamePk) return { view: 'scores', gamePk }
+  const series = mlbSeriesFromPath(p)
+  if (series) return { view: 'standings', series }
   const playerId = mlbPlayerIdFromPath(p)
   return playerId ? { view: 'search', playerId } : null
 }

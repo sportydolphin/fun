@@ -20,17 +20,22 @@
 //    not show (spring training, an exhibition, another sport's) is a 404 too, since the page
 //    would open nothing. And the game-start push's old `/mlb?open=game&gamePk=…` folds onto it.
 //
+// 4. THE SAME FOR /mlb/postseason/*, a bracket slot in a season. No StatsAPI read: the slots are a
+//    fixed list and the season is checked against the calendar, which is all the evidence a 404
+//    needs. A season whose bracket is not out yet is let through, and the page steps off it.
+//
 // It cannot break the page: StatsAPI slow, down or answering something unexpected all fall
 // through to the untouched shell, which resolves the player or game on its own. A 404 is only
 // ever answered on positive evidence that there is no such player or game.
 import {
   mlbLegacyGamePk, mlbLegacyTarget, mlbGamePath, mlbGamePkFromPath, mlbPlayerIdFromPath, mlbPlayerPath,
-  mlbUrlFor, MLB_GAMES_BASE, MLB_LEGACY_GAME_PARAMS, MLB_LEGACY_PARAMS, MLB_PLAYERS_BASE,
+  mlbUrlFor, mlbSeriesFromPath, mlbSeriesPath, MLB_GAMES_BASE, MLB_LEGACY_GAME_PARAMS, MLB_LEGACY_PARAMS,
+  MLB_PLAYERS_BASE, MLB_POSTSEASON_BASE,
 } from '../../src/mlb/routes'
 import { SCORED_GAME_TYPES } from '../../src/mlb/gameStatus'
 
 interface Env { ASSETS?: { fetch: (req: Request) => Promise<Response> } }
-interface Ctx { request: Request; env: Env; next: () => Promise<Response> }
+export interface Ctx { request: Request; env: Env; next: () => Promise<Response> }
 
 const STATSAPI_TIMEOUT_MS = 2500
 
@@ -69,6 +74,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   }
 
   if (path.startsWith(`${MLB_GAMES_BASE}/`)) return game(context, url, path)
+  if (path.startsWith(`${MLB_POSTSEASON_BASE}/`)) return series(context, url, path)
   if (!path.startsWith(`${MLB_PLAYERS_BASE}/`)) return next()
 
   const id = mlbPlayerIdFromPath(path)
@@ -110,6 +116,20 @@ async function game(context: Ctx, url: URL, path: string): Promise<Response> {
   return exists ? context.next() : notFound(context)
 }
 
+function series(context: Ctx, url: URL, path: string): Promise<Response> | Response {
+  const ref = mlbSeriesFromPath(path)
+  // A season that has not started cannot have a bracket. Next year is allowed for the few hours
+  // around New Year where the edge's clock and a reader's disagree.
+  if (!ref || ref.season > new Date().getUTCFullYear() + 1) return notFound(context)
+  const canonical = mlbSeriesPath(ref.season, ref.id)
+  if (url.pathname !== canonical) {
+    const to = new URL(url)
+    to.pathname = canonical
+    return Response.redirect(to.toString(), 301)
+  }
+  return context.next()
+}
+
 /** Whether StatsAPI has this game as one the scoreboard shows. A throw is "could not ask". */
 async function gameExists(pk: number): Promise<boolean> {
   const ctrl = new AbortController()
@@ -133,7 +153,7 @@ async function gameExists(pk: number): Promise<boolean> {
 
 /** The player's name, null when StatsAPI says there is no such player, or a throw when it could
  *  not be asked, which the caller treats as "serve the page". */
-async function readPlayerName(id: number): Promise<string | null> {
+export async function readPlayerName(id: number): Promise<string | null> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), STATSAPI_TIMEOUT_MS)
   try {
@@ -156,7 +176,7 @@ async function readPlayerName(id: number): Promise<string | null> {
   }
 }
 
-async function notFound(context: Ctx): Promise<Response> {
+export async function notFound(context: Ctx): Promise<Response> {
   const url = new URL(context.request.url)
   url.pathname = '/404.html'
   url.search = ''

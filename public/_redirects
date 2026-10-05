@@ -194,6 +194,9 @@
 # The same arrangement for games, every gamePk StatsAPI has: the function 404s a pk that names no
 # game the scoreboard shows, and folds the trailing slash. No /mlb/games index either.
 /mlb/games/*     /  200
+# A postseason series, by season and bracket slot (/mlb/postseason/2026/alds-1). The function 404s
+# a slot or season that names no series. No index at /mlb/postseason.
+/mlb/postseason/*  /  200
 /privacy       /  200
 /terms         /  200
 /delete-account /  200

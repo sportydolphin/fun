@@ -10,6 +10,14 @@ import { requestDeepLink } from './mlb/state/deepLink'
 import type { DeepLink } from './mlb/state/deepLink'
 import { FinalGamesSection } from './mlb/views/FinalGames'
 import { GameRoute } from './mlb/views/GameRoute'
+import { SeriesRoute } from './mlb/views/SeriesRoute'
+import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './mlb/routes'
+
+// `?ref=short` means a short link (functions/m) sent this reader here. Read when the chunk loads,
+// before the section's first address rewrite drops the query, and counted once on mount. Only a
+// human load runs this, so it counts opens and never the crawler fetches behind an unfurl.
+let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_REF_PARAM) === MLB_SHORT_REF_VALUE
+const arrivedAt = window.location.pathname
 import { SegControl } from './mlb/components/ui'
 import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
@@ -111,6 +119,12 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const isMobileView = useMediaQuery('(max-width:600px)')
   const swipeNav = useSwipeNav()
   const pagerOn = isMobileView && swipeNav
+  useEffect(() => {
+    if (!arrivedViaShort) return
+    arrivedViaShort = false
+    const t = mlbTargetFromPath(arrivedAt)
+    track(EVENTS.MLB_SHARE_OPENED, { kind: t?.series ? 'series' : t?.gamePk ? 'game' : t?.playerId ? 'player' : 'other' })
+  }, [])
   const canHover = useMediaQuery('(hover: hover)')
   // The query alone. This section PUBLISHES the rest of the bridge, so subscribing to all of it
   // re-rendered the section on its own every publish.
@@ -616,6 +630,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
       {/* Game Center reached by its address, /mlb/games/<pk>, over whichever tab is up. */}
       <GameRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} />
+      {/* A postseason series reached by its address, /mlb/postseason/<season>/<slot>. */}
+      <SeriesRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} />
 
       </Box>
 
