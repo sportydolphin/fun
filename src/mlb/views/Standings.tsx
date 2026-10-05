@@ -14,7 +14,7 @@ import { teamLink, rowClick, LINK_SX } from '../lib/links'
 
 type Mode = 'bracket' | 'divisions' | 'playoffs' | 'odds'
 
-// Dev-only icon tuner — lazy so it's stripped from production builds.
+// Dev-only icon tuner, lazy so it's stripped from production builds.
 const IconStudio = import.meta.env.DEV ? lazy(() => import('../dev/IconStudio')) : null
 
 // ─── Division display order ───────────────────────────────────────────────────
@@ -61,7 +61,7 @@ function DiffCell({ diff }: { diff: number }) {
   )
 }
 
-// ─── Team logo — a team-color ring framing a logo, adapted per theme so it reads
+// ─── Team logo: a team-color ring framing a logo, adapted per theme so it reads
 // for all 30 teams in both modes:
 //   • Light mode: full-color primary logo on a white center.
 //   • Dark mode: per-team locked-in bg / ring / logo (TEAM_ICON_STYLE).
@@ -137,14 +137,14 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
 
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
-      {/* Division header — prominent label */}
+      {/* Division header, a prominent label */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>
           {division.divisionName}
         </Typography>
       </Box>
 
-      {/* Full-width table — no horizontal scroll */}
+      {/* Full-width table, no horizontal scroll */}
       <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%' }}>
         <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper' }}>
           <Box component="tr">

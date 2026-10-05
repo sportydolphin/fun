@@ -7,8 +7,8 @@ import { useEffect } from 'react'
 // modals close out of the order they opened).
 //
 // Usage:
-//   useScrollLock()          — in a modal that is only mounted while open
-//   useScrollLock(open)      — in a modal that stays mounted and toggles via a prop
+//   useScrollLock():         in a modal that is only mounted while open
+//   useScrollLock(open):     in a modal that stays mounted and toggles via a prop
 let lockCount = 0
 let savedOverflow = ''
 

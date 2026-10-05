@@ -10,7 +10,7 @@ import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTIN
 import { PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
 import { FullscreenEntry } from '../components/MlbSheet'
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
-// ~1,000-line chart module — lazy so it only loads once a player card is open.
+// ~1,000-line chart module, lazy so it only loads once a player card is open.
 const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
 // Team schedule (live/next game cards + full-schedule modal, today highlighted). Lazy so
 // the ScheduleStrip module only loads when a team page is actually opened.
@@ -194,8 +194,8 @@ export function SearchView({
   }, [team, selectPlayer])
 
   // Position of the card's year text (relative to the card's positioned wrap), so the
-  // prev/next-year arrows sit right beside the value they're changing — vertically
-  // centered on it and flanking it left/right — instead of pinned to the card edges.
+  // prev/next-year arrows sit right beside the value they're changing (vertically
+  // centered on it and flanking it left/right) instead of pinned to the card edges.
   const cardWrapRef = useRef<HTMLDivElement>(null)
   const [yearRect, setYearRect] = React.useState<{ top: number; left: number; right: number } | null>(null)
   useLayoutEffect(() => {
@@ -206,7 +206,7 @@ export function SearchView({
       if (!yearEl) { setYearRect(null); return }
       const wr = wrap.getBoundingClientRect()
       // The year text is centered inside a full-width block, so the element's own
-      // getBoundingClientRect() returns the whole (wide) box, not the digits — a Range
+      // getBoundingClientRect() returns the whole (wide) box, not the digits. A Range
       // over its text content gives the tight bounds of the actual rendered glyphs.
       const range = document.createRange()
       range.selectNodeContents(yearEl)
@@ -311,7 +311,7 @@ export function SearchView({
 
       {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
 
-      {/* Nothing selected yet — prompt to search instead of auto-loading a player */}
+      {/* Nothing selected yet: prompt to search instead of auto-loading a player */}
       {!hasStats && !loadingStats && (
         <Box sx={{ textAlign: 'center', py: { xs: 6, sm: 10 }, px: 2, color: 'text.disabled' }}>
           <Search sx={{ fontSize: '2.6rem', opacity: 0.5, mb: 1 }} />
@@ -324,7 +324,7 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Unified season / career selector — dropdown by default; year pills when the
+      {/* Unified season / career selector: dropdown by default; year pills when the
           dev setting flips it to 'buttons'. Career is always its own emphasized toggle. */}
       {(hasStats || loadingStats) && (() => {
         const hasCareer = player && (careerHittingTotals != null || careerPitchingTotals != null)
@@ -423,7 +423,7 @@ export function SearchView({
                 {playerCardProps && <CardInner {...playerCardProps} />}
                 {teamCardProps && <TeamCardInner {...teamCardProps} />}
               </Paper>
-              {/* Prev/next-year arrows — player season card only (hidden on career).
+              {/* Prev/next-year arrows, player season card only (hidden on career).
                   Siblings of the Paper so they're excluded from the image export.
                   Flank the big year title directly (yearRect), rather than pinning to
                   the card's outer edges. */}
@@ -457,7 +457,7 @@ export function SearchView({
                   )}
                 </>)
               })()}
-              {/* Card actions — collapsed into a single ⋮ menu */}
+              {/* Card actions, collapsed into a single ⋮ menu */}
               <Box sx={{ position: 'absolute', top: chromePx(8), right: chromePx(8) }}>
                 <Tooltip title={downloading ? 'Saving…' : 'Card options'}>
                   <Box
@@ -615,7 +615,7 @@ export function SearchView({
               </Popover>
             </Box>
 
-            {/* Links — desktop only, left column below card */}
+            {/* Links: desktop only, left column below card */}
             {(player || team) && (
               <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.6, flexWrap: 'wrap', mt: 1.5 }}>
                 {player && (<>
@@ -632,7 +632,7 @@ export function SearchView({
               </Box>
             )}
 
-            {/* Contract — directly under the card it describes on the wide layout.
+            {/* Contract, directly under the card it describes on the wide layout.
                 Absent for anyone FanGraphs doesn't list (minors, retired). When the
                 page stacks it renders at the bottom instead (see below). */}
             {!stacked && contractBlock}
@@ -673,7 +673,7 @@ export function SearchView({
               )}
               </Box>
 
-              {/* Career Year-by-Year — shown when in career mode (always after the graph) */}
+              {/* Career Year-by-Year, shown when in career mode (always after the graph) */}
               {player && statsView === 'career' && (careerSplits?.length ?? 0) > 0 && (
                 <Box sx={{ order: 3 }}>
                   <Box
@@ -704,7 +704,7 @@ export function SearchView({
                 </Box>
               )}
 
-              {/* Recent Games — shown when in season mode. order 1 when stacked lifts it
+              {/* Recent Games, shown when in season mode. order 1 when stacked lifts it
                   above the graph on mobile; 2 on desktop keeps it below. */}
               {player && statsView === 'season' && (loadingRecent || recentGames.length > 0) && (
                 <Box sx={{ order: stacked ? 1 : 2 }}>
@@ -762,7 +762,7 @@ export function SearchView({
                 </Box>
               )}
 
-              {/* Award leader cards — 2×2 grid */}
+              {/* Award leader cards in a 2×2 grid */}
               {showFeaturedRight && (
                 <Box>
                   <Box sx={{ mb: 1.25 }}><SectionLabel>Team Leaders</SectionLabel></Box>
@@ -793,7 +793,7 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Team schedule — full-width, live/next game cards (today's game highlighted)
+      {/* Team schedule: full-width, live/next game cards (today's game highlighted)
           with a full-schedule modal. Team pages only. */}
       {hasStats && !!team && (
         <Box sx={{ mb: 2 }}>
@@ -838,7 +838,7 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Team roster — full-width, below the card + standings/leaders grid */}
+      {/* Team roster: full-width, below the card + standings/leaders grid */}
       {hasStats && !!team && teamRoster.length > 0 && (
         <Box sx={{ mb: 2 }}>
           <Box
@@ -863,7 +863,7 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Career year-by-year fallback — player only, when Trends column not shown and career mode */}
+      {/* Career year-by-year fallback: player only, when Trends column not shown and career mode */}
       {hasStats && player && !showTrends && statsView === 'career' && (careerSplits?.length ?? 0) > 0 && (
         <Box sx={{ mb: 2 }}>
           <Box
@@ -893,7 +893,7 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Recent games fallback — player only, when Trends column not shown and season mode */}
+      {/* Recent games fallback: player only, when Trends column not shown and season mode */}
       {hasStats && player && !showTrends && statsView === 'season' && (loadingRecent || recentGames.length > 0) && (
         <Box sx={{ mb: 2 }}>
           <Box
@@ -928,14 +928,14 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Contract — bottom slot for the stacked layout (see contractBlock). Renders here
+      {/* Contract: bottom slot for the stacked layout (see contractBlock). Renders here
           instead of under the portrait so mobile reads card → recent games → graph →
           contract. mb keeps it clear of the links below. */}
       {hasStats && stacked && contractBlock && (
         <Box sx={{ mb: 2 }}>{contractBlock}</Box>
       )}
 
-      {/* Links — bottom of page */}
+      {/* Links at the bottom of the page */}
       {hasStats && (player || team) && (
         <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 0.6, flexWrap: 'wrap', mb: 3 }}>
           {player && (<>

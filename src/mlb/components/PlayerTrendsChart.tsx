@@ -67,7 +67,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
     setLeagueAvgPts(new Map())
   }, [splits]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch per-year league averages (must be before any early return — React hook rule)
+  // Fetch per-year league averages (must be before any early return: React hook rule)
   useEffect(() => {
     const defs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
     const def = defs.find(d => d.key === statKey) ?? defs[0]
@@ -93,7 +93,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
     return () => { cancelled = true }
   }, [group, statKey, rangeStart, rangeEnd, splits, chartMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Touch drag support — non-passive so we can preventDefault scroll while dragging along the chart
+  // Touch drag support. Non-passive so we can preventDefault scroll while dragging along the chart
   useEffect(() => {
     const svg = svgRef.current
     if (!svg || !boxRef.current) return
@@ -154,7 +154,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
     return sorted[Math.floor(sorted.length / 2)]
   })() : null
 
-  // Build data points — project current-season counting stats to full-season pace
+  // Build data points, projecting current-season counting stats to full-season pace
   const pts = splits
     .map(s => {
       const stat = group === 'hitting' ? s.hitting : s.pitching
@@ -200,7 +200,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
     )
   }
 
-  // Season range — null means "use full extent"
+  // Season range: null means "use full extent"
   const allSeasonsList = pts.map(p => p.season)
   const minSeason = allSeasonsList[0], maxSeason = allSeasonsList[allSeasonsList.length - 1]
   const effStart = rangeStart ?? minSeason
@@ -209,7 +209,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const fptsRaw = pts.filter(p => p.season >= effStart && p.season <= effEnd)
   const fpts = fptsRaw.length >= 2 ? fptsRaw : pts // fall back to all if range too narrow
 
-  // SVG layout — tight gutters (just enough for the axis labels) with a taller
+  // SVG layout: tight gutters (just enough for the axis labels) with a taller
   // body so the plot fills more of the card.
   const W = 560, H = 272
   const m = { t: 20, r: 16, b: 30, l: 42 }
@@ -248,7 +248,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   // A point is "short" if it has volume data that falls below the threshold (and isn't a pace projection)
   const isShort = (p: typeof fpts[0]) => !p.isPace && p.vol != null && p.vol < shortThreshold
 
-  // Line segments — switch to dashed + faded when either endpoint is a short season
+  // Line segments switch to dashed + faded when either endpoint is a short season
   const lineSegs = fpts.slice(1).map((_, rawI) => {
     const i = rawI + 1
     return {
@@ -257,7 +257,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
     }
   })
 
-  // Fill area — uses full polyline regardless of short seasons (background only)
+  // Fill area uses the full polyline regardless of short seasons (background only)
   const fillD = `${fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${sx(0).toFixed(1)},${(m.t + iH).toFixed(1)} Z`
 
   // Career avg for summary row (player's own weighted avg for rate stats, mean for counting)
@@ -275,7 +275,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const volLabel = group === 'hitting' ? 'AB' : 'IP'
   const avgY = showHorizAvg ? sy(avg!) : 0
 
-  // niceTicks needs to be imported from utils — use it via inline import at top of file
+  // niceTicks needs to be imported from utils: use it via inline import at top of file
   const niceTicks = (dataMin: number, dataMax: number, target = 5): number[] => {
     if (!isFinite(dataMin) || !isFinite(dataMax) || dataMin >= dataMax) {
       return isFinite(dataMin) ? [dataMin] : []
@@ -320,7 +320,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   }
 
   const hov = hovIdx != null ? fpts[hovIdx] : null
-  // Best season — never a pace projection or a short/injury season
+  // Best season: never a pace projection or a short/injury season
   const bestIdx = (() => {
     const cands = fpts.map((p, i) => ({ i, v: p.value, p })).filter(c => !c.p.isPace && !isShort(c.p))
     const pool = cands.length ? cands : fpts.map((p, i) => ({ i, v: p.value, p })) // fallback: all points
@@ -461,12 +461,12 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {/* Fill */}
           <path d={fillD} fill={`url(#${gradId})`} />
 
-          {/* Horizontal avg line — counting stats only (label drawn on top, later) */}
+          {/* Horizontal avg line, counting stats only (label drawn on top, later) */}
           {showHorizAvg && (
             <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
           )}
 
-          {/* League avg line — rate stats, one point per season (label drawn on top, later) */}
+          {/* League avg line for rate stats, one point per season (label drawn on top, later) */}
           {showLeagueAvgLine && (
             <path
               d={fpts.map((p, i) => {
@@ -477,7 +477,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             />
           )}
 
-          {/* Line — solid for normal seasons, dashed+faded when either endpoint is a short season */}
+          {/* Line: solid for normal seasons, dashed+faded when either endpoint is a short season */}
           {lineSegs.map((seg, i) => (
             <path key={i} d={seg.d} fill="none"
               stroke={ACCENT} strokeWidth={2.5} strokeLinecap="round"
@@ -486,7 +486,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             />
           ))}
 
-          {/* Dots — endpoints touch the axes, so skip their static marker (the line
+          {/* Dots. Endpoints touch the axes, so skip their static marker (the line
               still reaches the axis; hover still shows a dot). */}
           {fpts.map((p, i) => {
             const isHov = hovIdx === i
@@ -507,7 +507,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             )
           })}
 
-          {/* Avg / league-avg labels — drawn here (after the trendline) so their
+          {/* Avg / league-avg labels are drawn here (after the trendline) so their
               halo sits on top of the line and stays legible. */}
           {showHorizAvg && (
             <text x={m.l + 4} y={avgY - 6} fill="#f59e0b" fillOpacity={1} fontSize={10.5} fontWeight={700} {...labelHalo}>avg {currentDef.fmt(avg!)}</text>
@@ -522,7 +522,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             )
           })()}
 
-          {/* Best season star annotation — anchor to the nearest edge so it never
+          {/* Best season star annotation, anchored to the nearest edge so it never
               runs past the y-axis when the best year is the first/last point */}
           {!hov && (
             <text x={sx(bestIdx)} y={sy(fpts[bestIdx].value) - 14}
@@ -556,7 +556,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             </g>
           ))}
 
-          {/* X ticks — always show every year as 2-digit label ('24) */}
+          {/* X ticks: always show every year as 2-digit label ('24) */}
           {fpts.map((p, i) => (
             <g key={p.season}>
               <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
@@ -567,7 +567,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           ))}
         </svg>
 
-        {/* Tooltip — always above the hovered point (see tooltipAnchorSx) */}
+        {/* Tooltip, always above the hovered point (see tooltipAnchorSx) */}
         {hov && (() => {
           return (
             <Box sx={{

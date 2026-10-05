@@ -99,7 +99,7 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, o
     <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
         onMouseLeave={() => { setHovered(null); onHoverTeam?.(null) }}>
-        {/* Quadrant fills — top = low ERA = good pitching */}
+        {/* Quadrant fills: top = low ERA = good pitching */}
         <rect x={m.l} y={m.t} width={ax - m.l} height={ay - m.t} fill="#3b82f6" fillOpacity={0.05} />
         <rect x={ax} y={m.t} width={m.l + iW - ax} height={ay - m.t} fill="#22c55e" fillOpacity={0.07} />
         <rect x={m.l} y={ay} width={ax - m.l} height={m.t + iH - ay} fill="#ef4444" fillOpacity={0.05} />
@@ -335,7 +335,7 @@ export function PayrollWinsPlot({
   const xMin = Math.min(...payVals) - payPad,  xMax = Math.max(...payVals) + payPad
   const yMin = Math.min(...wpVals)  - wpPad,   yMax = Math.max(...wpVals)  + wpPad
 
-  // SVG helpers — win% higher = higher on chart (flip y)
+  // SVG helpers: win% higher = higher on chart (flip y)
   const sx = (v: number) => m.l + ((v - xMin) / (xMax - xMin)) * iW
   const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
 
@@ -433,7 +433,7 @@ export function PayrollWinsPlot({
           Win % ↑
         </text>
 
-        {/* Team bubbles — highlighted on top */}
+        {/* Team bubbles, highlighted on top */}
         {[...pts]
           .sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0))
           .map(team => (

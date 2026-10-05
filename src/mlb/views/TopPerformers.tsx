@@ -10,7 +10,7 @@ import type { FinalGameSummary } from './FinalGames'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
-// Loaded on first Box Score click — keeps the Game Center out of the home bundle.
+// Loaded on first Box Score click, which keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
 const CYCLE_MS = 15000
@@ -78,7 +78,7 @@ export function TopPerformers({
 
   // Refs mirror the latest state so advance() below stays correct no matter
   // which render's closure ends up captured (the interval, or the touch
-  // handlers' useCallback) — avoids the classic stale-closure trap.
+  // handlers' useCallback), which avoids a stale closure.
   useEffect(() => { activeIdxRef.current = activeIdx }, [activeIdx])
   useEffect(() => { slideRef.current = slide }, [slide])
   useEffect(() => { performersRef.current = performers }, [performers])
@@ -151,7 +151,7 @@ export function TopPerformers({
   }, [performers.length])
 
   const go = (delta: 1 | -1) => {
-    // Manual navigation stops the auto-cycle for good — the user is browsing on their own now.
+    // Manual navigation stops the auto-cycle for good: the user is browsing on their own now.
     pausedRef.current = true
     advance(delta)
   }
@@ -207,11 +207,11 @@ export function TopPerformers({
     '&:hover': { color: 'text.primary' },
   }
 
-  // Renders one performer's content pane (photo + stats + box score) — shared
+  // Renders one performer's content pane (photo + stats + box score), shared
   // by the idle single-pane view and the two-pane slide track, so every pane
   // in the "filmstrip" is identical whether at rest or mid-slide. The header
   // above (title + nav stepper) is rendered once, outside this track, and
-  // never slides — see the return below.
+  // never slides (see the return below).
   const renderContent = (entry: PerformerEntry, widthPct: string) => {
     const teamColor  = TEAM_BG[entry.teamId] ?? '#888'
     const abbr       = TEAM_ABBR[entry.teamId] ?? '—'
@@ -301,7 +301,7 @@ export function TopPerformers({
               ))}
             </Box>
 
-            {/* Box score — resolves this performance's game and opens the existing recap viewer */}
+            {/* Box score: resolves this performance's game and opens the existing recap viewer */}
             <Box
               onClick={(e) => { e.stopPropagation(); viewBoxScore(entry) }}
               sx={{
@@ -323,13 +323,13 @@ export function TopPerformers({
   }
 
   // Idle: one pane at 100% width. Sliding: the from/to pair at 50% each,
-  // ALWAYS in [from, to] DOM order regardless of direction — the currently
+  // ALWAYS in [from, to] DOM order regardless of direction: the currently
   // active pane (`from`) must stay at array position 0 across the
   // idle→sliding transition, or React has to move its DOM node from
   // position 0 to 1 to satisfy a swapped key order. That move happens in
   // the same commit as the initial (pre-shift) paint, which can collapse
   // the two-phase reveal into a single frame and skip the transition
-  // entirely — exactly the "prev" direction snapping instead of sliding.
+  // entirely, which is exactly the "prev" direction snapping instead of sliding.
   // The "prev" case gets its mirrored layout via flexDirection below
   // instead of reordering children.
   const trackChildren = !slide
@@ -348,7 +348,7 @@ export function TopPerformers({
   // The label + count swap to the incoming performer the instant a slide kicks
   // off (not just once it completes). The border and background gradient, by
   // contrast, crossfade from the outgoing team's color to the incoming one over
-  // the slide — see the card box below.
+  // the slide (see the card box below).
   const headerIdx      = slide ? slide.toIdx : activeIdx
   const headerEntry     = performers[headerIdx]
   const headerTeamColor = TEAM_BG[headerEntry.teamId] ?? '#888'
@@ -381,7 +381,7 @@ export function TopPerformers({
         {/* Team-color background wash. A CSS gradient can't be transitioned, so
             two stacked layers TRUE-crossfade: the outgoing team's gradient fades
             out as the incoming one fades in. Both washes are translucent, so
-            they must not both be visible at full opacity — that would composite
+            they must not both be visible at full opacity, which would composite
             into a darker double-wash mid-slide and then snap lighter when it
             collapses back to one layer at rest. Fading out the base keeps
             exactly one layer's worth of color on screen throughout. */}
@@ -397,7 +397,7 @@ export function TopPerformers({
           opacity: sliding ? 1 : 0,
           transition: sliding ? `opacity ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
         }} />
-        {/* Header — self-labeling "Single-Game Standout · <date>" on the left,
+        {/* Header: self-labeling "Single-Game Standout · <date>" on the left,
             nav stepper on the right. Static: it never slides. */}
         <Box sx={{
           position: 'relative', zIndex: 1,
@@ -436,7 +436,7 @@ export function TopPerformers({
           </Box>
         </Box>
 
-        {/* Content — the only part that slides horizontally between performers. */}
+        {/* Content: the only part that slides horizontally between performers. */}
         <Box sx={{ position: 'relative', zIndex: 1, overflow: 'hidden' }}>
           <Box sx={{
             display: 'flex',

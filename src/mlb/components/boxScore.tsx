@@ -1,4 +1,4 @@
-// Shared box-score UI + parsing — the line score and batting/pitching tables,
+// Shared box-score UI + parsing: the line score and batting/pitching tables,
 // plus the team-logo bubble and live dot. Rendered by both the Scores scoreboard
 // (FinalGames) and the Game Center (LiveGameCenter); parseBoxScoreData turns a raw
 // StatsAPI linescore + boxscore into the typed BoxScore these components take.

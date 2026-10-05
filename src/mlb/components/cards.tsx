@@ -90,7 +90,7 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
         </Typography>
       )}
 
-      {/* Season/Career — the big, prominent value the arrows & dropdown drive */}
+      {/* Season/Career: the big, prominent value the arrows & dropdown drive */}
       <Typography data-card-year sx={{
         color: palette.text, fontWeight: 900,
         fontSize: large ? { xs: '2.2rem', sm: '2.6rem' } : { xs: '1.7rem', sm: '2rem' },
@@ -100,7 +100,7 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
       </Typography>
 
       {/* Career view: the seasons those totals cover. "Career" alone says nothing
-          about *whose* career era it was — this dates the numbers. */}
+          about *whose* career era it was, which dates the numbers. */}
       {careerSpan && (
         <Typography sx={{
           color: palette.sub, fontWeight: 700,
@@ -116,7 +116,7 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
 
   return (
     <>
-      {/* Identity header — portrait on the left, name/subtitle/year stacked to the right.
+      {/* Identity header: portrait on the left, name/subtitle/year stacked to the right.
           The portrait always sits centered inside a fixed left-50% slot so its horizontal
           position never shifts regardless of how many stat columns render below. */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: large ? 2.5 : 2 }}>
@@ -251,7 +251,7 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
           )}
         </>
       ) : (
-        /* Normal: horizontal header — logo left, name/record right */
+        /* Normal: horizontal header, logo left, name/record right */
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           {logoEl}
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -406,7 +406,7 @@ export function FeaturedMiniCard({
           </Typography>
         </Box>
 
-        {/* Stat columns — first stat is the award stat, shown slightly larger */}
+        {/* Stat columns. The first stat is the award stat, shown slightly larger */}
         <Box sx={{ display: 'flex', width: '100%' }}>
           {statDefs.map((def, i) => {
             const value = def.format(def.getValue(entry.stat))

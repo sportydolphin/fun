@@ -37,7 +37,7 @@ export async function savePrefsToSupabase(
 // ─── Recent searches (cross-device) ──────────────────────────────────────────
 // Kept separate from the followed-team/players helpers above so that a missing
 // `recent_searches` column (migration not run yet) degrades gracefully: recents
-// simply fall back to localStorage while everything else keeps syncing.
+// fall back to localStorage while everything else keeps syncing.
 
 export async function loadRecentSearchesFromSupabase(userId: string): Promise<RecentSearchItem[] | null> {
   const { data, error } = await supabase
@@ -45,7 +45,7 @@ export async function loadRecentSearchesFromSupabase(userId: string): Promise<Re
     .select('recent_searches')
     .eq('user_id', userId)
     .maybeSingle()
-  if (error) return null   // column may not exist yet — caller keeps localStorage
+  if (error) return null   // column may not exist yet, so the caller keeps localStorage
   const arr = (data as any)?.recent_searches
   return Array.isArray(arr) ? (arr as RecentSearchItem[]) : null
 }
@@ -56,7 +56,7 @@ export async function saveRecentSearchesToSupabase(userId: string, items: Recent
   const { error } = await supabase
     .from('user_preferences')
     .upsert({ user_id: userId, recent_searches: items, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-  if (error) { /* column may not exist yet — localStorage still holds them */ }
+  if (error) { /* column may not exist yet, and localStorage still holds them */ }
 }
 
 export function getLocalFollowedTeamId(): number | null {
@@ -83,7 +83,7 @@ export function getLocalFollowedPlayerIds(): number[] {
 // This exists because the Settings switch used to toggle the push SUBSCRIPTION itself, which
 // conflated two different things: whether this device can receive pushes at all, and whether
 // the user wants this particular notification. Every other feature that needs to send a push
-// creates a subscription too — the WPBL game-start bell most of all — so subscribing for one
+// creates a subscription too (the WPBL game-start bell most of all), so subscribing for one
 // silently enrolled you in the other. Worse, switching it off deleted the subscription and
 // took the user's WPBL and game-start reminders down with it.
 
@@ -97,7 +97,7 @@ export function setLocalPickReminderPref(enabled: boolean) {
   try { localStorage.setItem(PICK_REMINDERS_KEY, enabled ? '1' : '0') } catch {}
 }
 
-/** null when the column isn't there yet — the caller keeps whatever localStorage said. */
+/** null when the column isn't there yet, and the caller keeps whatever localStorage said. */
 export async function loadPickReminderPrefFromSupabase(userId: string): Promise<boolean | null> {
   const { data, error } = await supabase
     .from('user_preferences')
@@ -117,7 +117,7 @@ export async function savePickReminderPrefToSupabase(userId: string, enabled: bo
       notify_pick_reminders: enabled,
       updated_at:            new Date().toISOString(),
     }, { onConflict: 'user_id' })
-  if (error) { /* column may not exist yet — localStorage still holds it */ }
+  if (error) { /* column may not exist yet, and localStorage still holds it */ }
 }
 
 // ─── Game-start reminder preference ───────────────────────────────────────────
@@ -156,7 +156,7 @@ export async function loadGameStartPrefFromSupabase(userId: string): Promise<Gam
     .select('notify_game_start, game_start_lead_min')
     .eq('user_id', userId)
     .maybeSingle()
-  if (error || !data) return null   // columns may not exist yet — caller keeps localStorage
+  if (error || !data) return null   // columns may not exist yet, so the caller keeps localStorage
   const leadMin = (data as any).game_start_lead_min
   return {
     enabled: !!(data as any).notify_game_start,
@@ -175,7 +175,7 @@ export async function saveGameStartPrefToSupabase(userId: string, pref: GameStar
       game_start_lead_min: pref.leadMin,
       updated_at:          new Date().toISOString(),
     }, { onConflict: 'user_id' })
-  if (error) { /* columns may not exist yet — localStorage still holds them */ }
+  if (error) { /* columns may not exist yet, and localStorage still holds them */ }
 }
 
 // ─── Milestone-alert preference ───────────────────────────────────────────────

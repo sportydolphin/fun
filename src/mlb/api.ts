@@ -6,7 +6,7 @@ import { seasonIsOver } from './seasonPhase'
 import { combineEntries, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from './lib/gameScope'
 import type { GameScope } from './lib/gameScope'
 
-// Public API surface split across sibling modules — re-exported so existing
+// Public API surface split across sibling modules, re-exported here so existing
 // `from '../api'` imports across the app keep resolving unchanged.
 export { fetchSeasonPlayerStats } from './apiSeasonStats'
 export * from './reportCardData'
@@ -18,7 +18,7 @@ export async function searchPlayers(name: string): Promise<Player[]> {
   const r = await fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(name)}&sportId=1&hydrate=currentTeam`)
   const d = await r.json()
   const people: Player[] = d.people ?? []
-  // Active players first, retired players after — covers the full modern era
+  // Active players first, retired players after, which covers the full modern era
   return people.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
 }
 
@@ -148,7 +148,7 @@ export async function fetchAllTeams(): Promise<Team[]> {
 // the team page's league ranks (fetchTeamRankings) and the Visualize charts each want all thirty,
 // so opening a followed team's card fired 60 requests before anything drew. `/teams/stats` returns
 // the same stat object for every club (checked field for field, current and past seasons), so a
-// single team's line is simply looked up in it.
+// single team's line is looked up in it.
 //
 // A failed read is evicted rather than cached, so a network blip on one visit is not an empty
 // ranking for the rest of the session.
@@ -204,7 +204,7 @@ export async function fetchLeaderboardData(
 
 
 // ─── All-time (career) leaderboard ──────────────────────────────────────────────
-// The career-stats endpoint holds ~22k players — far too many to fetch and sort
+// The career-stats endpoint holds ~22k players, far too many to fetch and sort
 // client-side. Instead we ask the API for the true career leaders of each headline
 // stat (server-sorted) and union the results into one pool the Stats table can
 // re-sort locally. Rate stats use the Qualified pool (career PA/IP thresholds) so
@@ -215,8 +215,8 @@ export async function fetchLeaderboardData(
 // The pool only contains leaders, so re-sorting it backwards locally would answer
 // the wrong question: not "who has the worst career AVG" but "which of these
 // leaders is weakest at AVG". For rate stats the *real* answer is worth having and
-// the API can give it — sorted ascending within the Qualified pool it returns
-// George McBride (.218) and Mark Belanger (.228), a genuine worst-hitters board —
+// the API can give it: sorted ascending within the Qualified pool it returns
+// George McBride (.218) and Mark Belanger (.228), a real worst-hitters board,
 // so we fetch that direction too and the reversed sort becomes truthful.
 //
 // Counting stats get no such treatment, because there is no meaningful answer to
@@ -306,7 +306,7 @@ export function fetchAllTimeLeaderboardData(group: 'hitting' | 'pitching', scope
         .catch(() => ({ spec, splits: [] as any[] }))
     )).then(results => {
       // Union by playerId. Career stat objects are complete regardless of which sort
-      // surfaced a player, so first-wins dedup is safe for the stats themselves —
+      // surfaced a player, so first-wins dedup is safe for the stats themselves,
       // but `qualified` must OR across every request, since a player can arrive
       // first via an All-pool counting sort and only later via a Qualified one.
       const byId = new Map<number, AllTimeEntry>()
@@ -707,7 +707,7 @@ async function _buildSosEntries(season: number): Promise<SosEntry[]> {
   return entries.sort((a, b) => b.oppWinPct - a.oppWinPct)
 }
 
-// The standings endpoint returns division objects with only {id, link} — no name field.
+// The standings endpoint returns division objects with only {id, link} and no name field.
 // Hard-code names by the stable MLB division IDs.
 const DIVISION_NAMES: Record<number, string> = {
   200: 'AL West', 201: 'AL East', 202: 'AL Central',
@@ -824,7 +824,7 @@ async function computeRosterMoves(): Promise<RosterMove[]> {
   const d = await r.json()
   const moves: RosterMove[] = []
   // A trade shares one transaction id across both sides (one row per player, from/to
-  // swapped), so dedupe on id+person — not id alone, which would drop the other player.
+  // swapped), so dedupe on id+person, not id alone, which would drop the other player.
   const seen = new Set<string>()
   for (const t of d.transactions ?? []) {
     if (!NOTABLE_MOVE_TYPES.has(t.typeCode) || !t.person?.id) continue
@@ -832,7 +832,7 @@ async function computeRosterMoves(): Promise<RosterMove[]> {
     if (seen.has(key)) continue
     const fromId = t.fromTeam?.id && TEAM_ABBR[t.fromTeam.id] ? Number(t.fromTeam.id) : null
     const toId   = t.toTeam?.id   && TEAM_ABBR[t.toTeam.id]   ? Number(t.toTeam.id)   : null
-    // The feed includes minor-league paper moves — keep only moves touching an MLB club.
+    // The feed includes minor-league paper moves. Keep only moves touching an MLB club.
     if (fromId == null && toId == null) continue
     seen.add(key)
     moves.push({
@@ -852,12 +852,12 @@ async function computeRosterMoves(): Promise<RosterMove[]> {
 // ─── Served-suspension check ──────────────────────────────────────────────────
 //
 // The transactions feed logs a suspension (SU) but has no matching reinstatement
-// event when it ends — reinstatements simply never appear. So anywhere an SU move
+// event when it ends. Reinstatements never appear. So anywhere an SU move
 // is presented as *current state* (the followed-players badge), it would stick
 // for the full 14-day window even after the player was back playing.
 //
 // The 40-man roster carries the live status instead: `SU` while the player is
-// still serving, `A` once reinstated. Note the asymmetry below — a player missing
+// still serving, `A` once reinstated. Note the asymmetry below: a player missing
 // from the roster entirely (suspended off the 40-man, restricted list) is
 // "unknown", not "served", so the badge stays rather than being wrongly cleared.
 
@@ -908,7 +908,7 @@ export async function fetchServedSuspensionIds(moves: RosterMove[]): Promise<Set
 // ─── Team season stats + league ranks ─────────────────────────────────────────
 //
 // Powers the game-preview matchup comparison. The league-wide endpoint returns
-// all 30 clubs in one request per group, which is what makes ranks possible —
+// all 30 clubs in one request per group, which is what makes ranks possible:
 // per-team requests would give values with nothing to rank them against. Two
 // fetches total, module-cached for the session (season totals barely move
 // day to day, and every preview card reuses the same numbers).
@@ -919,7 +919,7 @@ export interface TeamStatValue {
   display: string
   rank:    number     // 1 = best in MLB, ties share the better rank
   // Where the value sits in the league's range, 0 = worst, 1 = best. Already
-  // direction-aware, so a long bar always means "good" — including for ERA and
+  // direction-aware, so a long bar always means "good", including for ERA and
   // the other lower-is-better stats.
   pct:     number
 }
@@ -982,7 +982,7 @@ async function computeTeamSeasonStats(): Promise<Map<number, TeamSeasonStats>> {
     fetchLeagueTeamSplits('pitching'),
   ])
 
-  // Raw numeric value per team per stat — ranked below, then formatted for display.
+  // Raw numeric value per team per stat, ranked below, then formatted for display.
   const raw = new Map<TeamStatKey, Map<number, number>>()
   const put = (key: TeamStatKey, teamId: number, value: number) => {
     if (!Number.isFinite(value)) return
@@ -998,7 +998,7 @@ async function computeTeamSeasonStats(): Promise<Map<number, TeamSeasonStats>> {
     put('slg', id, Number(st.slg))
     put('ops', id, Number(st.ops))
     put('hr',  id, Number(st.homeRuns))
-    // Runs per game, not total runs — clubs sit on different game counts.
+    // Runs per game, not total runs, since clubs sit on different game counts.
     if (Number(st.gamesPlayed) > 0) put('rpg', id, Number(st.runs) / Number(st.gamesPlayed))
   }
 
@@ -1027,7 +1027,7 @@ async function computeTeamSeasonStats(): Promise<Map<number, TeamSeasonStats>> {
     if (!values) continue
     // Sort best-first, then walk assigning ranks; equal values share a rank.
     const sorted = [...values].sort((a, b) => def.better === 'high' ? b[1] - a[1] : a[1] - b[1])
-    // League range for the bar scale — best and worst are the sorted ends.
+    // League range for the bar scale: best and worst are the sorted ends.
     const best  = sorted[0][1]
     const worst = sorted[sorted.length - 1][1]
     const span  = Math.abs(best - worst)
@@ -1051,7 +1051,7 @@ async function computeTeamSeasonStats(): Promise<Map<number, TeamSeasonStats>> {
 // ─── Playoff odds ─────────────────────────────────────────────────────────────
 
 // One team's row from the nightly Monte Carlo. Shape mirrors the objects written
-// by scripts/simulate-playoff-odds.mjs — keep the two in sync.
+// by scripts/simulate-playoff-odds.mjs. Keep the two in sync.
 export interface PlayoffOddsRow {
   teamId: number
   abbr: string
@@ -1071,8 +1071,8 @@ export interface PlayoffOddsRow {
 
 // A GitHub Action reruns the sim nightly (scripts/simulate-playoff-odds.mjs →
 // playoff_odds table, one jsonb row per season). Unlike the streak boards there's
-// no in-browser fallback — a full-schedule Monte Carlo is too heavy for the client
-// — so a missing or stale row just means "odds unavailable" and callers hide the
+// no in-browser fallback (a full-schedule Monte Carlo is too heavy for the client),
+// so a missing or stale row just means "odds unavailable" and callers hide the
 // UI. The offseason sim aborts (no remaining games), leaving computed_at frozen,
 // which is exactly when we want the stale check to hide last season's numbers.
 const PLAYOFF_ODDS_STALE_MS = 72 * 3600 * 1000
@@ -1088,14 +1088,14 @@ export async function fetchPlayoffOdds(season: number): Promise<PlayoffOddsRow[]
     if (row?.data && Date.now() - new Date(row.computed_at).getTime() < PLAYOFF_ODDS_STALE_MS) {
       return row.data as PlayoffOddsRow[]
     }
-  } catch { /* table missing or unreachable — treat as unavailable */ }
+  } catch { /* table missing or unreachable: treat as unavailable */ }
   return null
 }
 
 // ─── Milestone watch ──────────────────────────────────────────────────────────
 
 // One active player's live milestone chase. Shape mirrors the objects written by
-// scripts/update-milestones.mjs — keep the two in sync.
+// scripts/update-milestones.mjs. Keep the two in sync.
 export interface MilestoneItem {
   playerId:   number
   playerName: string
@@ -1107,9 +1107,9 @@ export interface MilestoneItem {
   current:    number
   target:     number
   remaining:  number
-  window?:    number     // watch window for this stat — how far out the chase was picked up; drives the proximity meter
+  window?:    number     // watch window for this stat: how far out the chase was picked up; drives the proximity meter
   kind:       'career' | 'season' | 'record'
-  achievedOn?: string    // YYYY-MM-DD — present only on recently-reached milestones
+  achievedOn?: string    // YYYY-MM-DD, present only on recently-reached milestones
 }
 
 // The card reads both the upcoming chases and the milestones just reached; the nightly
@@ -1121,8 +1121,8 @@ export interface MilestoneData {
 }
 
 // A GitHub Action recomputes this nightly (scripts/update-milestones.mjs →
-// milestone_watch, one jsonb row per season). No in-browser fallback — recomputing
-// would mean fetching every active player's career stats — so a missing or stale
+// milestone_watch, one jsonb row per season). No in-browser fallback: recomputing
+// would mean fetching every active player's career stats, so a missing or stale
 // row just hides the card. Items arrive pre-sorted (records, then marquee, then by
 // closeness). Once the regular season is over the job stops (scripts/mlb-job-due.mjs) and its last
 // row is the season's final word, so an old row is read rather than hidden: it is what Milestone
@@ -1144,11 +1144,11 @@ export async function fetchMilestoneData(season: number): Promise<MilestoneData 
       // the archive existed, so an un-migrated row still shows something under Reached.
       return { items: d.items ?? [], recent: d.recent ?? [], reached: d.reached ?? d.recent ?? [] }
     }
-  } catch { /* table missing or unreachable — treat as unavailable */ }
+  } catch { /* table missing or unreachable: treat as unavailable */ }
   return null
 }
 
-// Chases only — kept for the milestone notification source, which doesn't care about
+// Chases only, kept for the milestone notification source, which doesn't care about
 // the recently-reached list.
 export async function fetchMilestoneWatch(season: number): Promise<MilestoneItem[] | null> {
   const d = await fetchMilestoneData(season)

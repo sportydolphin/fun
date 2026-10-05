@@ -11,7 +11,7 @@ export interface Player {
   currentTeam?: { id: number; name: string }
   currentAge?: number
   primaryNumber?: string
-  mlbDebutDate?: string   // e.g. "2001-04-02" — used to show a career span for retired players
+  mlbDebutDate?: string   // e.g. "2001-04-02", used to show a career span for retired players
   lastPlayedDate?: string // e.g. "2019-03-21"
 }
 
@@ -171,12 +171,12 @@ export interface SosEntry {
 
 // ─── Player contracts ─────────────────────────────────────────────────────────
 
-/** One season of a contract — or of team control beyond it (arb years, free agency). */
+/** One season of a contract, or of team control beyond it (arb years, free agency). */
 export interface ContractYear {
   season: number
   /** Normalised at scrape time; see normaliseYearType in scripts/update-payrolls.mjs. */
   kind:   'guaranteed' | 'arb' | 'pre-arb' | 'option' | 'free-agent' | 'other'
-  /** FanGraphs' own label, e.g. "CLUB OPTION" — shown on hover. */
+  /** FanGraphs' own label, e.g. "CLUB OPTION", shown on hover. */
   label:  string
   /** Whole dollars. Zero for future arb/FA years, which aren't yet negotiated. */
   salary: number
@@ -193,7 +193,7 @@ export interface PlayerContract {
   startSeason:     number | null
   endSeason:       number | null
   serviceTime:     string | null   // "5.028" = 5 years, 28 days
-  /** Null when the deal ends on an option — the market date depends on the decision. */
+  /** Null when the deal ends on an option: the market date depends on the decision. */
   freeAgentSeason: number | null
   description:     string | null   // "6 yr, $170M (2026-31); can opt out after 2030"
   years:           ContractYear[]

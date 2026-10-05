@@ -1,7 +1,7 @@
 // ─── Icon Studio (dev-only) ───────────────────────────────────────────────────
 // A visual tuner for each team's four icon-styling values: bubble background,
 // ring color, standings-row highlight, and logo art variant. Tunes light and
-// dark mode separately — the ☀/🌙 toggle switches which mode you're editing and
+// dark mode separately: the ☀/🌙 toggle switches which mode you're editing and
 // previewing. Pick from each team's official palette, switch logos, then Export
 // a copy-paste block of the locked-in values for the active mode.
 //
@@ -43,7 +43,7 @@ interface IconStyle {
 
 type ModeStyles = { dark: Record<number, IconStyle>; light: Record<number, IconStyle> }
 
-// Team ids in numeric order (108…158) — stable, matches TEAM_ABBR insertion.
+// Team ids in numeric order (108…158): stable, matches TEAM_ABBR insertion.
 const TEAM_IDS = Object.keys(TEAM_ABBR).map(Number).sort((a, b) => a - b)
 
 // Baseline for a mode = the locked-in style for that mode if present, else the

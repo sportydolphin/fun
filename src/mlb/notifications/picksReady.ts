@@ -1,7 +1,7 @@
 // ─── "Your picks are ready" notification source ───────────────────────────────
 //
 // The in-site twin of the daily Web Push reminder (scripts/send-reminders.mjs):
-// same catalog builder, same wording, same id — so if a user gets the push and
+// same catalog builder, same wording, same id, so if a user gets the push and
 // then opens the site, they see one notification, not two.
 //
 // Derived, not an event: it recomputes today's open games minus the user's picks

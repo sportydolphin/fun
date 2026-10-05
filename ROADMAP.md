@@ -88,9 +88,13 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    Standouts carousel and the Charts board's Report card / Graphs swipe take `data-swipe-lock`.
    Each tab has its own error boundary and Suspense, as WPBL's do. Pinned in
    `__tests__/keptAliveTabs.test.tsx`.
-8. **House rules sweep** (item 7). About 500 em dashes in 62 MLB files (the ones meaning "no
-   value" stay), and the BOM plus mojibake in `MlbStats.tsx` (`â†’` in a comment). The Yankees
-   examples were removed Oct 2.
+8. ✅ **House rules sweep** (item 7, Oct 5). Every em dash in MLB prose is gone (about 390, nearly
+   all in comments; the "no value" glyph stays), along with the BOM and the `â†’` mojibake in
+   `MlbStats.tsx`. The same pass took out what read as generated rather than written:
+   filler intensifiers in comments ("simply", "genuinely"), "Chasing history" on Milestone Watch,
+   and "these guys" in two board explainers. *Open:* the emoji leading MLB headings and sheet
+   titles (Milestone Watch, Roster moves, Predictions, Streak Survivor, On Fire / Ice Cold, the
+   live card's "🎉 Run Scored!"), which WPBL never had; kept for now, a call still to make.
 
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.
@@ -123,7 +127,7 @@ goes first and the rest is winter work.
 | Desktop | ✅ *Fixed in v1.115.0*: off `zoom: 1.4`, onto the same 1.25 ramp as WPBL | `--app-type` / `--app-chrome`, `chromePx()` |
 | Measurement | ✅ *5 `mlb_*` events since Sep 28 (item 1).* Was 3 events | 71 |
 | Tests | 16 files, 137 cases (was 0) | 126 files |
-| House rules | Open (item 7). 525 em dashes in 62 files; ~~a Yankees example in `HomeView.tsx`~~ (removed Oct 2); BOM and mojibake in `MlbStats.tsx` | |
+| House rules | ✅ *Swept Oct 5 (Handoff item 8).* Was 525 em dashes in 62 files, a Yankees example, a BOM and mojibake in `MlbStats.tsx` | |
 | Polling | ✅ *Fixed in v1.99.2*: `useForegroundInterval` moved to `src/lib` and every MLB poll uses it | |
 
 ### The plan, in order

@@ -1,11 +1,11 @@
-// Season-wide player stats — one cached network request per (group, season),
+// Season-wide player stats: one cached network request per (group, season),
 // shared by the leaderboard, per-stat rankings, the trends chart, and the
 // report-card data module. Lives on its own so those consumers share it without
 // importing back through the api.ts barrel (which would create a cycle).
 
 // Cache the full "every player in a season" payload so the many consumers that
-// need it — leaderboard, per-stat rankings, and the trends chart's league
-// averages — all share a single network request per (group, season).
+// need it (leaderboard, per-stat rankings, and the trends chart's league
+// averages) all share a single network request per (group, season).
 const seasonStatsCache = new Map<string, Promise<any[]>>()
 
 /** `gameType` 'R' is the regular season, which is also what StatsAPI answers with none; 'P' is

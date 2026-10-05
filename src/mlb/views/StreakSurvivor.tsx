@@ -267,7 +267,7 @@ export function StreakSurvivorWidget() {
         {user && <StreakBadge current={stats.currentStreak} longest={stats.longestStreak} />}
       </Box>
       {children}
-      {/* Recent form — last few graded picks, oldest-left */}
+      {/* Recent form: last few graded picks, oldest-left */}
       {user && recentForm.length > 0 && (
         <Box sx={{ px: 1.75, py: chromePx(8), borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled' }}>Recent</Typography>

@@ -2,8 +2,8 @@
 // Lets local development flip the whole page into a simulated phone: the app is
 // re-loaded inside a phone-sized <iframe>, so CSS media queries, MUI breakpoints
 // and `window.innerWidth` all see a real mobile viewport. A CSS transform or a
-// narrow wrapper can't do that — media queries always resolve against the actual
-// viewport — which is why this uses a nested document rather than a container.
+// narrow wrapper can't do that: media queries always resolve against the actual
+// viewport, which is why this uses a nested document rather than a container.
 //
 // Same module-singleton pattern as devSim / devDrama: DevSettings mutates it,
 // MobilePreview reads it, and every call site is gated behind import.meta.env.DEV

@@ -138,7 +138,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
 
 // ─── Countdown ────────────────────────────────────────────────────────────────
 
-// Ticks every second — cheap since at most one or two of these mount at a time.
+// Ticks every second, which is cheap since at most one or two of these mount at a time.
 function useCountdownNow(): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -211,7 +211,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   scoreRef?:    React.Ref<HTMLDivElement>        // measure the score/time block for cross-card alignment
   scoreMinWidth?: number                         // mobile: min width so stacked cards' rightSlots line up
   gmLabel?:     string                           // "GM 1"/"GM 2" badge for doubleheader days
-  hideDate?:    boolean                          // 2nd+ game of a doubleheader — the date is already above
+  hideDate?:    boolean                          // 2nd+ game of a doubleheader, whose date is already above
 }) {
   const tone = useTextTone()
   const isFinal = game.state === 'final'
@@ -228,7 +228,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   const homeCol    = ringColor(homeTeamId, isDark)
   const oppCol     = ringColor(game.opponentId, isDark)
 
-  // Small clickable logo circle — ringCol overrides border for W/L ring on the followed team
+  // Small clickable logo circle. ringCol overrides border for W/L ring on the followed team
   const logoCircle = (teamId: number, col: string, size: number, ringCol?: string) => (
     <Box
       onClick={e => { e.stopPropagation(); onTeamClick?.(teamId) }}
@@ -288,7 +288,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         )}
       </Box>
 
-      {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height.
+      {/* Score / time row: fixed minHeight so both FINAL and NEXT GAME rows are the same height.
           On mobile, rightSlot (the pitcher lines) sits just to the right of the score. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: chromePx(26), sm: chromePx(32) } }}>
         <Box ref={scoreRef} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: chromePx(COMPACT_ROW_MAX), flexShrink: 0, minWidth: scoreMinWidth ? { xs: `${scoreMinWidth}px`, sm: 0 } : 0 }}>
@@ -335,7 +335,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
             </Typography>
           </>
         ) : (
-          // Preview / postponed: game time (+ live countdown) — team logos live in CompactPitcherRow below
+          // Preview / postponed: game time (+ live countdown). Team logos live in CompactPitcherRow below
           <>
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: game.state === 'postponed' ? 'text.disabled' : 'text.primary', lineHeight: 1 }}>
               {game.state === 'postponed' ? (game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD') : game.gameTime}
@@ -389,7 +389,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   const [canScrollRight, setCanScrollRight]  = useState(true)
 
   // The chip to highlight: the next game still to be played. On a doubleheader day
-  // whose opener is already final, that's the nightcap — not the finished game.
+  // whose opener is already final, that's the nightcap, not the finished game.
   const nextGame = games.find(g => g.date >= today && g.state !== 'final')
     ?? games.find(g => g.date >= today)
     ?? games[games.length - 1]
@@ -513,7 +513,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
 }
 
 // ─── CompactPitcherRow ────────────────────────────────────────────────────────
-// Two-pitcher inline bar for the home card — much smaller than PitcherPanel
+// Two-pitcher inline bar for the home card, much smaller than PitcherPanel
 
 function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, loading, onPlayerClick, inline }: {
   awayPitcher:   ProbablePitcher | null
@@ -587,7 +587,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
 }
 
 // ─── CompactPerformerRow ──────────────────────────────────────────────────────
-// Featured performers from a completed game — mirrors CompactPitcherRow layout
+// Featured performers from a completed game, mirroring CompactPitcherRow layout
 
 function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }: {
   finalDetails:   GameFinalDetails
@@ -769,17 +769,17 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
 
   // ── Slot selection ────────────────────────────────────────────────────────
   // Three slots, each holding a whole day so doubleheaders stay intact:
-  //   primary  — the current day (first date on/after today, else the last played)
-  //   last     — the most recent completed day before it (shown only when the
+  //   primary:   the current day (first date on/after today, else the last played)
+  //   last:      the most recent completed day before it (shown only when the
   //              primary day still has a game to come)
-  //   upcoming — the next day with games (shown only once the primary day is done)
+  //   upcoming:  the next day with games (shown only once the primary day is done)
   const slots = useMemo(() => {
     const empty = { primary: [] as ScheduleGame[], last: [] as ScheduleGame[], upcoming: [] as ScheduleGame[] }
     if (!games.length) return empty
 
     const primaryDate = (games.find(g => g.date >= today) ?? games[games.length - 1]).date
     const primary     = gamesOnDate(games, primaryDate)
-    // A day is "done" only when every one of its games is over — a doubleheader
+    // A day is "done" only when every one of its games is over: a doubleheader
     // with the nightcap still to play keeps today as the primary focus.
     const primaryDone = primary.every(g => g.state === 'final' || g.state === 'postponed')
 
@@ -799,7 +799,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const isLive   = liveGame !== null
 
   // Fetch the supporting detail (recap performers / probable starters) for every
-  // game currently on screen — both halves of a doubleheader, not just the first.
+  // game currently on screen: both halves of a doubleheader, not just the first.
   useEffect(() => {
     if (collapsed) return   // nothing is on screen to fill in
     const shown = [...slots.last, ...slots.primary, ...slots.upcoming]
@@ -851,7 +851,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
 
   const showLast     = slots.last.length > 0
   const showUpcoming = slots.upcoming.length > 0
-  // The primary day is "done" whenever there's an upcoming day beside it — that's
+  // The primary day is "done" whenever there's an upcoming day beside it. That's
   // the same condition, and it drives the mobile score alignment between the two.
   const alignScores  = showUpcoming
 
@@ -873,7 +873,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
     const awayId    = preview?.away.teamId ?? (g.isHome ? g.opponentId : teamId)
     const homeId    = preview?.home.teamId ?? (g.isHome ? teamId : g.opponentId)
 
-    // Recap performers (final) or probable starters (preview). Rendered twice —
+    // Recap performers (final) or probable starters (preview). Rendered twice:
     // inline beside the score on mobile, on its own line from sm up.
     const detailRow = (inline: boolean) => isFinal && details ? (
       <CompactPerformerRow

@@ -92,7 +92,7 @@ const salaryCache = new Map<number, Promise<SalaryRow[]>>()
  * rather than the deal's AAV: this is the money actually paid that year, which a
  * backloaded or deferred contract can push well above or below its average.
  *
- * Contracts are only scraped for the live season, so — like team payrolls — this
+ * Contracts are only scraped for the live season, so, like team payrolls, this
  * is meaningful for the current year only. Returns [] on any failure (missing
  * table before the migration runs, FanGraphs 403 leaving the table empty, etc).
  */
@@ -114,7 +114,7 @@ async function loadTopSalaries(season: number): Promise<SalaryRow[]> {
       const salary = years.find(y => Number(y.season) === season)?.salary ?? 0
       const teamId = Number(r.team_id) || 0
       const playerId = Number(r.mlbam_id) || 0
-      // Skip rows with no salary line for this season — pre-arb minors, future
+      // Skip rows with no salary line for this season: pre-arb minors, future
       // arb/FA years that aren't negotiated yet (recorded as 0), or stale rows.
       if (playerId > 0 && salary > 0) {
         rows.push({

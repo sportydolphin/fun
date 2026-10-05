@@ -199,7 +199,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
       {celebration && (
         <LiveCelebration key={celebration.id} type={celebration.type} teamColor={myCol} />
       )}
-      {/* Score row: [away logo] AWAY  X — Y  HOME [home logo]   ● LIVE Game Center */}
+      {/* Score row: [away logo] AWAY  X–Y  HOME [home logo]   ● LIVE Game Center */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         {logo(awayTeamId, awayCol)}
         <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', minWidth: '1.875rem', textAlign: 'center' }}>
@@ -292,7 +292,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
             )}
           </Box>
 
-          {/* Right column: inning + diamond + outs/count — the game "situation".
+          {/* Right column: inning + diamond + outs/count, the game "situation".
               Between innings none of those apply, so just show "End of the 4th". */}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.1, flexShrink: 0 }}>
             {betweenInnings ? (

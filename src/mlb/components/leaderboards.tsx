@@ -8,7 +8,7 @@ import { MlbSheet } from './MlbSheet'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, LINK_SX } from '../lib/links'
 
-// ─── Leaderboard row model — shared by every Report Card board ───────────────
+// ─── Leaderboard row model, shared by every Report Card board ───────────────
 
 export interface LbRow {
   teamId: number
@@ -17,7 +17,7 @@ export interface LbRow {
   sub?: string
   value: string
   barFraction: number   // 0..1
-  label?: string        // snarky verdict — only shown in the 3-row mini card
+  label?: string        // snarky verdict, only shown in the 3-row mini card
 }
 
 export interface Board {
@@ -131,7 +131,7 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
   )
 }
 
-// ─── Mini card — top 3 rows + snarky labels ───────────────────────────────────
+// ─── Mini card: top 3 rows + snarky labels ───────────────────────────────────
 
 export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam, expandLabel }: Omit<Board, 'id'> & {
   onExpand: () => void
@@ -200,7 +200,7 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
   )
 }
 
-// ─── Fullscreen modal — full scrollable ranking, no snarky labels ─────────────
+// ─── Fullscreen modal: full scrollable ranking, no snarky labels ─────────────
 
 /** The sheet both fullscreen boards open in. */
 function BoardSheet({ onClose, icon, title, subtitle, children }: {
@@ -241,7 +241,7 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
   )
 }
 
-// ─── Player report cards — headshot rows for the active-streak boards ─────────
+// ─── Player report cards: headshot rows for the active-streak boards ─────────
 
 export interface PlayerLbRow {
   playerId: number
@@ -250,7 +250,7 @@ export interface PlayerLbRow {
   teamAbbr: string
   value: string
   barFraction: number   // 0..1
-  label?: string        // snarky verdict — only shown in the 3-row mini card
+  label?: string        // snarky verdict, only shown in the 3-row mini card
 }
 
 export interface PlayerBoard {

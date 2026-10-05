@@ -1,4 +1,4 @@
-// Game preview modal — the pre-game matchup card (probable pitchers, weather,
+// Game preview modal: the pre-game matchup card (probable pitchers, weather,
 // season-stat comparison bars) shown from the Scores scoreboard and the team
 // ScheduleStrip. Extracted from FinalGames.tsx.
 
@@ -39,7 +39,7 @@ interface GamePreviewData {
 
 // Minimal game shape the shared preview modal needs. FinalGameSummary satisfies this
 // structurally (scoreboard), and the team ScheduleStrip builds one from its own game
-// objects — so both surfaces render the exact same preview card.
+// objects, so both surfaces render the exact same preview card.
 export interface PreviewGame {
   gamePk:     number
   statusText: string
@@ -121,7 +121,7 @@ function hexHue(hex: string): number {
   return (h * 60 + 360) % 360
 }
 
-// Plenty of matchups are two navy clubs (MIN/CLE) or two red ones (BOS/STL) —
+// Plenty of matchups are two navy clubs (MIN/CLE) or two red ones (BOS/STL), and
 // team colors would then be indistinguishable, and color is doing real work
 // here. When the hues are too close, both sides fall back to a colorblind-safe
 // blue/orange pair instead.
@@ -239,7 +239,7 @@ function TeamComparison({ away, home }: {
     )
   }
 
-  // A hairline rule with the group name set into it — separates Offense from
+  // A hairline rule with the group name set into it, separating Offense from
   // Pitching without another heavy all-caps header competing with the labels.
   const groupBlock = (group: 'hitting' | 'pitching', label: string) => (
     <Box sx={{ mt: 1 }}>
@@ -256,7 +256,7 @@ function TeamComparison({ away, home }: {
     </Box>
   )
 
-  // Team chip — a colored dot tying the abbr to its bars.
+  // Team chip: a colored dot tying the abbr to its bars.
   const teamChip = (abbr: string, color: string, align: 'right' | 'left') => (
     <Box sx={{
       flex: 1, display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
@@ -311,7 +311,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   const close = useSheetHistory(onClose, mlbGamePath(game.gamePk))
   const heading = useGameSeo({ ...game, state: 'preview' })
   // Tag the loaded data with the game it belongs to. When `game` switches (‹ › nav) the
-  // tag no longer matches, so `loading` flips true immediately — the skeleton shows in the
+  // tag no longer matches, so `loading` flips true immediately and the skeleton shows in the
   // very first frame instead of briefly re-showing the previous game's pitchers.
   const [entry, setEntry] = useState<{ pk: number; data: GamePreviewData | null } | null>(null)
   useEffect(() => {
@@ -334,7 +334,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
 
   const isDark = useIsDark()
 
-  // Shimmer placeholder block — reserves the pitcher card's full height while probable
+  // Shimmer placeholder block that reserves the pitcher card's full height while probable
   // starters load, so stepping between games with ‹ › doesn't collapse then re-expand.
   const shimmerSx = {
     bgcolor: 'action.hover', borderRadius: 0.75,
@@ -397,7 +397,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
           </Box>
         )}
 
-        {/* Stat row — real numbers, shimmer cells while loading, or nothing for a TBD starter */}
+        {/* Stat row: real numbers, shimmer cells while loading, or nothing for a TBD starter */}
         {loading ? (
           <Box sx={{ display: 'flex', gap: 1.25, justifyContent: 'center' }}>
             {[0, 1, 2, 3].map(i => (
@@ -486,7 +486,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
           {teamSide(game.home)}
         </Box>
 
-        {/* Venue + weather — one line. While loading, a placeholder occupies exactly one
+        {/* Venue + weather on one line. While loading, a placeholder occupies exactly one
             text line-box (fontSize × line-height) so the card height doesn't grow the
             few px a raw-height bar would miss when the real text arrives. */}
         {loading ? (

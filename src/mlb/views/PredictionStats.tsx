@@ -127,7 +127,7 @@ async function fetchPersonalStats(userId: string): Promise<PersonalStats | null>
     ? Math.round(correctPredictions / finalizedCount * 100)
     : null
 
-  // Current streak — count consecutive correct from the most recent result
+  // Current streak: count consecutive correct from the most recent result
   let currentStreak = 0
   for (let i = finalizedResults.length - 1; i >= 0; i--) {
     if (finalizedResults[i]) currentStreak++
@@ -181,9 +181,9 @@ async function upsertMyPredStats(userId: string, displayName: string, stats: Per
     }
     const { error } = await supabase.from('prediction_stats')
       .upsert({ ...base, current_streak: stats.currentStreak, best_streak: stats.bestStreak }, { onConflict: 'user_id' })
-    // Streak columns pending migration — still save the rest so stats keep updating.
+    // Streak columns pending migration: still save the rest so stats keep updating.
     if (error) await supabase.from('prediction_stats').upsert(base, { onConflict: 'user_id' })
-  } catch { /* non-fatal — table may not exist yet */ }
+  } catch { /* non-fatal, the table may not exist yet */ }
 }
 
 // Wilson score lower bound (95% confidence) for a correct/total ratio.
@@ -210,7 +210,7 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
       : withStreak.data
 
     // Resolve names at read time from the `usernames` table so the board always
-    // reflects each user's *current* username — the cached `display_name` on the
+    // reflects each user's *current* username. The cached `display_name` on the
     // stats row is only rewritten when that user reopens My Stats, so it goes
     // stale (e.g. shows the email prefix a user had before setting a username).
     // Users without a username row (notably the prediction bots) fall back to the
@@ -232,7 +232,7 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
 
     // Rank by confidence-adjusted accuracy (Wilson lower bound), tie-breaking by
     // volume. Everyone stays on the board; the raw accuracy % below is unchanged
-    // — only the ordering accounts for sample size.
+    // and only the ordering accounts for sample size.
     const ranked: LeaderEntry[] = (data ?? [])
       .filter((row: any) => !deactivated.has(row.user_id))
       .map((row: any) => ({
@@ -253,7 +253,7 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
       }))
 
     // Show the top 25, but always append the current user's own row (with their
-    // true global rank) if they fall outside it — so they see their score instantly.
+    // true global rank) if they fall outside it, so they see their score instantly.
     const top = ranked.slice(0, 25)
     if (!top.some(e => e.isMe)) {
       const me = ranked.find(e => e.isMe)
@@ -277,7 +277,7 @@ async function fetchWindowBoard(window: 'all' | 'week' | 'month', myUserId: stri
       .limit(1)
     const entries = (data?.[0]?.data as { entries?: any[] } | undefined)?.entries ?? []
 
-    // The board is precomputed nightly, so a just-deactivated user can still be in it —
+    // The board is precomputed nightly, so a just-deactivated user can still be in it, so
     // filter them at read time too, not only in the precompute script.
     const deactivated = await fetchDeactivatedUserIds(entries.map((e: any) => e.userId))
 
@@ -453,7 +453,7 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
 
-      {/* Heater banner — only when a streak is genuinely hot */}
+      {/* Heater banner, only when a streak is hot */}
       {onHeater && (
         <Box sx={{
           display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1,

@@ -14,7 +14,7 @@ export function chipDate(d: string) {
   return `${MONTHS_SHORT[m - 1]} ${day}`
 }
 
-// Today / Yesterday / Tomorrow when close by, otherwise the plain "Mon D" date —
+// Today / Yesterday / Tomorrow when close by, otherwise the plain "Mon D" date,
 // used where the opponent is already shown via logos, so the date line doesn't
 // need to repeat it.
 export function relativeChipDate(d: string) {
@@ -92,7 +92,7 @@ export interface LiveGameData {
   currentInning:        number | null
   currentInningOrdinal: string | null
   inningHalf:           'top' | 'bottom' | null
-  inningState:          string | null   // "Top" | "Middle" | "Bottom" | "End" — "Middle"/"End" = between innings
+  inningState:          string | null   // "Top" | "Middle" | "Bottom" | "End"; "Middle"/"End" = between innings
   outs:                 number | null
   balls:                number | null
   strikes:              number | null
@@ -170,7 +170,7 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
       })
     }
   }
-  // Doubleheaders share a date, so game number breaks the tie — the strip and the
+  // Doubleheaders share a date, so game number breaks the tie: the strip and the
   // team card both rely on this list being in true chronological order.
   return games.sort((a, b) => a.date.localeCompare(b.date) || a.gameNumber - b.gameNumber)
 }
@@ -184,7 +184,7 @@ export function gamesOnDate(games: ScheduleGame[], date: string): ScheduleGame[]
   return games.filter(g => g.date === date)
 }
 
-/** "GM 1" / "GM 2" badge — only when the day actually has more than one game. */
+/** "GM 1" / "GM 2" badge, only when the day actually has more than one game. */
 export function gmLabel(day: ScheduleGame[], g: ScheduleGame): string | undefined {
   return day.length > 1 ? `GM ${g.gameNumber}` : undefined
 }

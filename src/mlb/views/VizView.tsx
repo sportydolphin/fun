@@ -14,7 +14,7 @@ import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetch
 import { chromePx, typePx } from '../../ui/scale'
 
 
-// ─── VizSubNav — in-page tab switcher ────────────────────────────────────────
+// ─── VizSubNav: in-page tab switcher ────────────────────────────────────────
 
 type VizTab = 'graphs' | 'report-card'
 
@@ -87,26 +87,26 @@ export function VizView({
   const [sosData, setSosData]       = useState<SosEntry[]>([])
   const [loadingSos, setLoadingSos] = useState(false)
 
-  // ─── Report Card fullscreen state — one board open at a time ─────────────
+  // ─── Report Card fullscreen state: one board open at a time ─────────────
   const [expandedBoard, setExpandedBoard] = useState<string | null>(null)
 
   // ─── Team age state ───────────────────────────────────────────────────────
   const [ageEntries, setAgeEntries]   = useState<AgeEntry[]>([])
   const [loadingAges, setLoadingAges] = useState(false)
 
-  // ─── Payroll state — live from Supabase, falls back to hardcoded constant ─
+  // ─── Payroll state: live from Supabase, falls back to hardcoded constant ─
   const [payrolls, setPayrolls] = useState<Record<number, number>>(TEAM_PAYROLLS_2026)
 
-  // ─── Active-streak state — the player report cards (computed from game logs) ─
+  // ─── Active-streak state: the player report cards (computed from game logs) ─
   const [streaks, setStreaks]             = useState<StreakLeaders | null>(null)
   const [loadingStreaks, setLoadingStreaks] = useState(false)
   const [expandedPlayerBoard, setExpandedPlayerBoard] = useState<string | null>(null)
 
-  // ─── Pitches per PA — a season rate, so it loads for any season ────────────
+  // ─── Pitches per PA: a season rate, so it loads for any season ────────────
   const [pitchPa, setPitchPa]             = useState<PitchPaLeaders | null>(null)
   const [loadingPitchPa, setLoadingPitchPa] = useState(false)
 
-  // ─── Top salaries — from player_contracts, so current season only ──────────
+  // ─── Top salaries: from player_contracts, so current season only ──────────
   const [salaries, setSalaries]             = useState<SalaryRow[]>([])
   const [loadingSalaries, setLoadingSalaries] = useState(false)
 
@@ -151,7 +151,7 @@ export function VizView({
     return () => { cancelled = true }
   }, [vizSeason, showSos])
 
-  // Active streaks only make sense for the live season — past seasons are over,
+  // Active streaks only make sense for the live season. Past seasons are over,
   // so their "current" streak is just wherever the player finished the year.
   useEffect(() => {
     if (!showSos) { setStreaks(null); setExpandedPlayerBoard(null); return }
@@ -175,7 +175,7 @@ export function VizView({
   }, [vizSeason])
 
   // Salaries come from the current-season contract scrape, so gate on showSos
-  // like team payrolls — a past year has no per-player salary data to show.
+  // like team payrolls: a past year has no per-player salary data to show.
   useEffect(() => {
     if (!showSos) { setSalaries([]); return }
     let cancelled = false
@@ -204,7 +204,7 @@ export function VizView({
   const fraudTooltip = 'How many more games a team has won than its scoring says it should. The bar weighs the standings in too, so a contender getting lucky ranks above a last-place team with the same gap. They\'re fooling more people.'
   const cursedTooltip = 'How many fewer games a team has won than its scoring says it should. The bar weighs the standings in too, so a last-place team getting robbed ranks above a contender with the same gap. A contender is still fine.'
 
-  // ─── Report Card boards — every leaderboard follows the same shape ────────
+  // ─── Report Card boards: every leaderboard follows the same shape ────────
   const boards: Board[] = [
     {
       id: 'fraud', icon: '🚨', title: 'Top Frauds', accent: '#f97316',
@@ -238,7 +238,7 @@ export function VizView({
         rows: buildSosRows(sosData, 'easiest'), loading: loadingSos,
       },
     ] : []),
-    // Payroll boards only for the current season — we don't have historical payroll
+    // Payroll boards only for the current season. We don't have historical payroll
     // data, so a past year would otherwise show today's numbers.
     ...(showSos ? [
       {
@@ -256,7 +256,7 @@ export function VizView({
 
   const activeBoard = boards.find(b => b.id === expandedBoard) ?? null
 
-  // ─── Player report cards — active streaks (current season only) ────────────
+  // ─── Player report cards: active streaks (current season only) ────────────
   // Both pitch boards share the "who counts as qualified" line
   const QUALIFIED_NOTE = 'Only counts regulars with enough playing time to qualify for a league leaderboard.'
 
@@ -295,13 +295,13 @@ export function VizView({
     {
       id: 'pitches-most', icon: '⏳', title: 'Grinders', accent: '#14b8a6',
       subtitle: 'Most pitches seen per plate appearance',
-      tooltipText: `Pitches a hitter sees per trip to the plate. These are the guys who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}`,
+      tooltipText: `Pitches a hitter sees per trip to the plate. The hitters who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'most'), loading: loadingPitchPa,
     },
     {
       id: 'pitches-fewest', icon: '⚡', title: 'Free Swingers', accent: '#f43f5e',
       subtitle: 'Fewest pitches seen per plate appearance',
-      tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These guys jump on an early strike instead of working the count. ${QUALIFIED_NOTE}`,
+      tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These hitters jump on an early strike instead of working the count. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa,
     },
   ]
@@ -432,11 +432,11 @@ export function VizView({
                   <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} />
                 </Box>
 
-                {/* Payroll vs Performance — current season only */}
+                {/* Payroll vs Performance, current season only */}
                 {showSos && (
                   <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Payroll vs. Performance</Typography>
+                        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Payroll vs Performance</Typography>
                         <InfoTip size={0.95} text={
                           <>
                             <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
@@ -483,7 +483,7 @@ export function VizView({
         <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No team stats available for {vizSeason}.</Typography>
       )}
 
-      {/* ── Report Card fullscreen modal — shared by every board ──────────── */}
+      {/* ── Report Card fullscreen modal, shared by every board ──────────── */}
       <LeaderboardModal
         open={activeBoard != null}
         onClose={() => setExpandedBoard(null)}

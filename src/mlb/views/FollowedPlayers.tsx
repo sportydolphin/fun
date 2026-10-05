@@ -33,7 +33,7 @@ interface FollowedPlayerInfo {
 // ─── Game log (shared fetch) ──────────────────────────────────────────────────
 //
 // Both the sparkline and today's stat line read the same season game log, so it's
-// fetched once per player and shared. `fresh` bypasses the cache — used by the
+// fetched once per player and shared. `fresh` bypasses the cache and is used by the
 // live poll so an in-progress game's line keeps ticking.
 
 const _gameLogCache = new Map<string, Promise<RecentGameEntry[]>>()
@@ -49,14 +49,14 @@ function loadGameLog(id: number, isPitcher: boolean, fresh = false): Promise<Rec
   return _gameLogCache.get(key)!
 }
 
-// Local calendar date — a west-coast night game is still "today" until local midnight.
+// Local calendar date: a west-coast night game is still "today" until local midnight.
 function todayISO(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // Today's line, aggregated across both ends of a doubleheader. Returns null when the
-// player hasn't appeared today — callers fall back to season stats.
+// player hasn't appeared today, and callers fall back to season stats.
 function todayStatCells(games: RecentGameEntry[], isPitcher: boolean): StatCell[] | null {
   const today = todayISO()
   const todays = games.filter(g => g.date === today && (isPitcher ? g.pitching : g.hitting) != null)
@@ -99,11 +99,11 @@ const pillSx = (color = ACCENT, compact = false) => ({
 
 // ─── Recent-form sparkline ──────────────────────────────────────────────────────
 //
-// A tiny, label-less line of the player's rolling form over their recent games — a
+// A tiny, label-less line of the player's rolling form over their recent games: a
 // quick "heating up or cooling off" read that fills the gap between the name and the
 // season stats. Hitters: rolling OPS over a trailing 5-game window across their last
 // ~15 games. Pitchers: rolling ERA over a trailing 3 outings across their last ~12,
-// negated so that — like the hitter line — a rising line always means "performing
+// negated so that, like the hitter line, a rising line always means "performing
 // better". Stroke color encodes momentum (recent half vs. earlier half): green
 // rising, red falling, gray flat. A faint dashed line marks the league average, so
 // the form line reads as above / below the league norm.
@@ -241,7 +241,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
   const svg = (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
       style={{ width: '100%', height: chromePx(22), display: 'block', overflow: 'visible' }}>
-      {/* League-average baseline — faint dashed reference behind the form line */}
+      {/* League-average baseline: faint dashed reference behind the form line */}
       {baseline != null && (
         <line x1={0} y1={y(baseline)} x2={W} y2={y(baseline)}
           stroke="currentColor" strokeOpacity={0.32} strokeWidth={1}
@@ -252,7 +252,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
     </svg>
   )
 
-  // Brief plain-language explainer — opens on hover (desktop) or tap (mobile).
+  // Brief plain-language explainer that opens on hover (desktop) or tap (mobile).
   return (
     <ClickAwayListener onClickAway={() => setTipOpen(false)}>
       <Tooltip
@@ -308,7 +308,7 @@ async function fetchFollowedPlayerData(id: number, fresh = false): Promise<Follo
       ]
     }
 
-    // If they've played today, that line is the more interesting number — it takes
+    // If they've played today, that line is the more interesting number, so it takes
     // over the stat cells and the season totals step aside until tomorrow.
     const today = todayStatCells(await loadGameLog(id, isPitcher, fresh), isPitcher)
     if (today) stats = today
@@ -389,7 +389,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
         '&:hover': { bgcolor: isSelected ? `${ACCENT}1e` : 'action.hover' },
       }}
     >
-      {/* Selection circle — edit mode */}
+      {/* Selection circle (edit mode) */}
       {editMode && (
         <Box sx={{
           flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
@@ -430,9 +430,9 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
         )}
       </Box>
 
-      {/* Name + pos/team — grows to absorb the gap so the sparkline can stay narrow */}
+      {/* Name + pos/team. Grows to absorb the gap so the sparkline can stay narrow */}
       <Box ref={nameBoxRef} sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
-        {/* Hidden full-name measurer — decides whether to crop the first name */}
+        {/* Hidden full-name measurer: decides whether to crop the first name */}
         <Box component="span" ref={fullNameRef} aria-hidden sx={{
           ...nameSx, position: 'absolute', top: 0, left: 0,
           visibility: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none',
@@ -491,7 +491,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
           No {CURRENT_SEASON} games
         </Typography>
       ) : (<>
-      {/* Recent-form sparkline — fixed narrow width so the trend's slope reads clearly.
+      {/* Recent-form sparkline: fixed narrow width so the trend's slope reads clearly.
           Extra right margin sets it apart from the stat columns. */}
       <Box sx={{ flexShrink: 0, width: { xs: chromePx(46), sm: chromePx(62) }, mr: { xs: 1, sm: 1.5 }, display: 'flex', alignItems: 'center' }}>
         {data && <PlayerSparkline id={id} isPitcher={data.isPitcher} />}
@@ -535,12 +535,12 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const [playerData, setPlayerData]     = useState<Record<number, FollowedPlayerInfo>>({})
   const [adding, setAdding]             = useState(false)
 
-  // Recent notable moves keyed by player — badge source. fetchRosterMoves is
+  // Recent notable moves keyed by player, the badge source. fetchRosterMoves is
   // module-cached, so this shares the Roster Moves card's single fetch. Moves
   // arrive newest-first; the first one seen per player wins.
   //
   // Unlike the Roster Moves card (a historical log, where "Suspended on Jul 12"
-  // stays true forever), this badge reads as the player's *current* state — so
+  // stays true forever), this badge reads as the player's *current* state, so
   // suspensions the player has already served are dropped first, letting an
   // older move surface in their place.
   const [playerMoves, setPlayerMoves] = useState<Map<number, RosterMove>>(new Map())
@@ -566,8 +566,8 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const dropdownRef = useRef<HTMLDivElement>(null)   // portaled search/suggestions Popper content
   const isDark = useIsDark()
 
-  // Only a preview of the list shows by default — 3 rows on phones (vertical space is
-  // precious) and 5 from sm up — behind a "View all" toggle. Which rows are dropped is
+  // Only a preview of the list shows by default (3 rows on phones, where vertical space is
+  // precious, and 5 from sm up), behind a "View all" toggle. Which rows are dropped is
   // decided in CSS per breakpoint rather than by slicing, so the card reflows on resize
   // without a media-query hook. Edit mode force-expands so every player is selectable.
   const showAll     = expanded || editMode
@@ -584,7 +584,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
     }
   }, [followedPlayerIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // While a followed player's team is playing, their line is today's box score — so
+  // While a followed player's team is playing, their line is today's box score, so
   // refresh just those players on a slow poll. The hook re-reads the callback every render,
   // so new data never restarts the timer. Paused while the tab is hidden and pulled at once on return: see useForegroundInterval.
   useForegroundInterval(() => {
@@ -618,7 +618,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
     const handle = (e: MouseEvent) => {
       const target = e.target as Node
       // The dropdown is portaled out of the card (to escape overflow:hidden), so a
-      // click on a result isn't inside headerRef — check the dropdown too, or the
+      // click on a result isn't inside headerRef: check the dropdown too, or the
       // result would unmount on mousedown before its click could register.
       const inHeader   = headerRef.current?.contains(target)
       const inDropdown = dropdownRef.current?.contains(target)
@@ -664,7 +664,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
         gap: 0.5, minHeight: chromePx(40),
         position: 'relative',
       }}>
-        {/* Title — hidden while search is open */}
+        {/* Title, hidden while search is open */}
         {!adding && (
           <Typography sx={{
             fontWeight: 800,
@@ -680,7 +680,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           </Typography>
         )}
 
-        {/* Inline search input — takes over the title area */}
+        {/* Inline search input, which takes over the title area */}
         {adding && (
           // A plain input, not MUI's InputBase: this is the only text field on Home, and InputBase
           // brought the whole form-control stack (3.7 kB gzip) into every Home landing for a box
@@ -726,7 +726,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 </Box>
               )}
               {atLimit && !adding ? (
-                /* Following cap reached — the pill turns into a quiet counter */
+                /* Following cap reached: the pill turns into a quiet counter */
                 <Tooltip arrow placement="top"
                   title={`You can follow up to ${MAX_FOLLOWED_PLAYERS} players. Remove one to add another.`}>
                   <Box sx={{
@@ -750,7 +750,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           )}
         </Box>
 
-        {/* Search + suggestions dropdown — portaled via Popper so the card's
+        {/* Search + suggestions dropdown, portaled via Popper so the card's
             overflow:hidden can't clip it (it used to get cut off on short cards). */}
         <Popper
           open={adding && (addResults.length > 0 || addSearching || (addQuery.length < 2 && suggestions.length > 0))}
@@ -890,7 +890,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           </Box>
         )}
 
-        {/* View all / show less — hidden at a breakpoint where nothing is being cut off,
+        {/* View all / show less, hidden at a breakpoint where nothing is being cut off,
             and while editing (edit mode already shows the full list). */}
         {!editMode && overflowsXs && (
           <Box

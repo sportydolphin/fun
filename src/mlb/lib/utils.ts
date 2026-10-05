@@ -24,7 +24,7 @@ export const fmtR = (v: number, d: number) => { const s = v.toFixed(d); return s
  * silently shorten the span. StatsAPI omits lastPlayedDate for active players,
  * which is what distinguishes an open-ended career from a closed one.
  *
- * Returns null when the debut is unknown — better to show nothing than a
+ * Returns null when the debut is unknown: better to show nothing than a
  * half-invented range.
  */
 export function careerSpan(player: {
@@ -49,7 +49,7 @@ export function parseIP(ip: any): number {
   return whole + outs / 3
 }
 
-// Filter a leaderboard pool down to "qualified" players — enough plate
+// Filter a leaderboard pool down to "qualified" players: enough plate
 // appearances (hitting) or innings pitched (pitching) relative to the season's
 // leader, so a player with 3 ABs can't camp the top of a rate-stat board.
 //

@@ -14,8 +14,8 @@ import type { NotificationPayload } from '../../../shared/notifications'
 import type { NotificationContext, NotificationSource } from '../../lib/notifications'
 import { getLocalFollowedPlayerIds, getLocalMilestonePref } from '../storage/prefs'
 
-// Only ping when it's genuinely imminent, so the bell isn't noisy about a player
-// who's 40 hits away. Records get a slightly wider window — they're rare enough to
+// Only ping when it's imminent, so the bell isn't noisy about a player
+// who's 40 hits away. Records get a slightly wider window, since they're rare enough to
 // be worth flagging sooner.
 const NEAR = 3
 const NEAR_RECORD = 10

@@ -1,4 +1,4 @@
-// Report Card data layer — active-streak, iron-man, and pitches-per-PA leaders,
+// Report Card data layer: active-streak, iron-man, and pitches-per-PA leaders,
 // all derived from per-player game logs (MLB StatsAPI has no streak stat type).
 // Split out of api.ts; re-exported from there so '../api' imports still resolve.
 
@@ -18,7 +18,7 @@ import { fetchSeasonPlayerStats } from './apiSeasonStats'
 //   · Catchers, platoon bats and anyone back from the IL sit well outside the
 //     top 50 by games played while still running long hitting streaks.
 //   · The top 50 by innings pitched are *all starters*, so scoreless-inning
-//     streaks — overwhelmingly a reliever stat — could never appear at all.
+//     streaks, overwhelmingly a reliever stat, could never appear at all.
 // Measured mid-2026, 16 of the true top 25 hitting streaks were invisible.
 //
 // So eligibility is now a participation threshold that scales with how far into
@@ -64,7 +64,7 @@ function fetchGameLog(id: number, group: 'hitting' | 'pitching', season: number)
 // ─── Games-played (iron man) streaks ─────────────────────────────────────────
 // The other three boards only need a player's own game log: the streak lives
 // entirely inside the games he appeared in. A consecutive-games-played streak is
-// the opposite — it's broken by a game he *isn't* in, which his log can't show.
+// the opposite: it's broken by a game the player *isn't* in, which their log can't show.
 // So we need the team's schedule as the spine and the player's appearances laid
 // against it.
 //
@@ -184,12 +184,12 @@ const IRONMAN_MIN_GAMES    = 10
 // Eligibility thresholds, expressed as a fraction of the current league leader
 // so they scale with season progress (in April, half of 20 games is 10).
 const STREAK_MIN_GP_PCT = 0.5    // hitters: ~half your team's games
-const STREAK_MIN_IP_PCT = 0.2    // pitchers: a fifth of the innings leader — keeps relievers in
+const STREAK_MIN_IP_PCT = 0.2    // pitchers: a fifth of the innings leader, which keeps relievers in
 const STREAK_MIN_GP      = 10    // floors, so opening week isn't wide open
 const STREAK_MIN_IP      = 5
 
 // Safety bound on game-log fetches. The nightly precompute (update-streaks.mjs)
-// uses a much larger cap — it runs once on CI, where hundreds of fetches are
+// uses a much larger cap: it runs once on CI, where hundreds of fetches are
 // fine. This lower cap only applies to the in-browser fallback below, which is
 // a best-effort approximation; the precomputed board is the authoritative one.
 const STREAK_CANDIDATES = 200
@@ -204,7 +204,7 @@ export function fetchStreakLeaders(season: number): Promise<StreakLeaders> {
 // A GitHub Action precomputes the boards nightly (scripts/update-streaks.mjs →
 // streak_leaders table, one jsonb row per season) so most visitors get one
 // Supabase read instead of ~100 game-log fetches. Stale or missing rows fall
-// back to the live computation below — keep the script's logic in sync with it.
+// back to the live computation below. Keep the script's logic in sync with it.
 //
 // EXCEPT ONCE THE REGULAR SEASON IS OVER. The job stops two days after the last game (it is gated
 // to the regular season, see scripts/mlb-job-due.mjs), so from then until spring the row is days
@@ -229,7 +229,7 @@ async function loadStreakLeaders(season: number): Promise<StreakLeaders> {
       // throwing away a good row and recomputing everything.
       return { ...stored, gamesPlayed: await computeGamesPlayedLeaders(season) }
     }
-  } catch { /* table missing or unreachable — compute live */ }
+  } catch { /* table missing or unreachable: compute live */ }
   return computeStreakLeaders(season)
 }
 
@@ -395,7 +395,7 @@ async function computeStreakLeaders(season: number): Promise<StreakLeaders> {
 
 // ─── Pitches per plate appearance (grinders vs. free swingers) ───────────────
 // Who makes pitchers work and who swings at the first thing they see. Both boards
-// come from one request against `playerPool=qualified` — MLB's own 3.1-PA-per-
+// come from one request against `playerPool=qualified`, MLB's own 3.1-PA-per-
 // team-game cutoff, so a bench bat with 30 trips can't win either end. That pool is
 // ~150 rows, far cheaper than filtering the cached 2000-player "All" payload, and
 // it's the same qualification a fan would see on a league leaderboard.

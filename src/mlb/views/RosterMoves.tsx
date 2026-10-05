@@ -11,7 +11,7 @@ import { useDeepLink } from '../state/deepLink'
 import { typePx, chromePx } from '../../ui/scale'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
 
-// ─── Roster Moves — trades, DFAs, claims, signings from the transactions feed ─
+// ─── Roster Moves: trades, DFAs, claims, signings from the transactions feed ─
 //
 // Home "Around the League" card showing the last two weeks of notable roster
 // moves (fetchRosterMoves filters the churn), with a trade-deadline countdown
@@ -54,7 +54,7 @@ function deadlineInfo(): { label: string; hot: boolean } | null {
 //
 // The transactions feed lists a trade once per player, all sharing one transaction
 // id (from/to swapped between the sides). Grouping by that id lets a swap show both
-// players — and handles multi-player and multi-team deals — instead of a lone row.
+// players (and handles multi-player and multi-team deals) instead of a lone row.
 // Everything else stays a single-player move.
 
 interface TradeGroup {
@@ -172,7 +172,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
   )
 }
 
-// ─── Trade block — both (or all) players in one deal ──────────────────────────
+// ─── Trade block: both (or all) players in one deal ──────────────────────────
 
 function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: {
   group: TradeGroup
@@ -262,7 +262,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
   )
 }
 
-// ─── Fullscreen modal — every move in the window, grouped by day ──────────────
+// ─── Fullscreen modal: every move in the window, grouped by day ──────────────
 
 function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick, onTeamClick }: {
   open: boolean
@@ -274,13 +274,13 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
 }) {
   const isDark = useIsDark()
   // Filter to one club (null = all) and per-day collapse. Both survive close/
-  // reopen within a visit — the selected chip and chevrons make the state visible.
+  // reopen within a visit. The selected chip and chevrons make the state visible.
   const [filterTeam, setFilterTeam]       = useState<number | null>(null)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
 
   if (!open) return null
 
-  // Cross-links leave Home, which unmounts this modal — stamp the overlay so
+  // Cross-links leave Home, which unmounts this modal, so stamp the overlay so
   // the Back button can reopen it.
   const stampedPlayer = onPlayerClick ? stampOverlay({ kind: 'rosterMoves' }, onPlayerClick) : undefined
   const stampedTeam   = onTeamClick   ? stampOverlay({ kind: 'rosterMoves' }, onTeamClick)   : undefined

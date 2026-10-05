@@ -71,7 +71,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
     return long / chrono.length >= 0.5
   })()
 
-  // Fixed window sizes — no growing logic
+  // Fixed window sizes, no growing logic
   const HIT_WINDOW   = 10        // hitters: last 10 games
   const SP_WINDOW    = 5         // starters: last 5 starts
   const RP_IP_TARGET = 15        // relievers: last ~15 innings
@@ -128,7 +128,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
         const value = ip > 0 ? (er * 9) / ip : null
         return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: SP_WINDOW, ip }
       } else {
-        // RP: rolling ~15-inning window — go back until we've accumulated RP_IP_TARGET IP
+        // RP: rolling ~15-inning window: go back until we've accumulated RP_IP_TARGET IP
         const cumIP = chrono.slice(0, i + 1).reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
         if (cumIP < RP_MIN_IP) return null
         let winIP = 0, winStart = i
@@ -192,11 +192,11 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const label     = isPitcher ? 'ERA' : 'OPS'
   const fmt       = isPitcher ? (v: number) => v.toFixed(2) : (v: number) => fmtR(v, 3)
   const currentPt = pts[pts.length - 1]
-  // A past season is finished — its trailing window is just the end of the year,
+  // A past season is finished, so its trailing window is just the end of the year,
   // not "recent form", so drop the "Last N games/starts" summary tile.
   const seasonComplete = season < CURRENT_SEASON
 
-  // SVG layout — matches the career chart's tight gutters + taller body
+  // SVG layout matches the career chart's tight gutters + taller body
   const W = 560, H = 224
   const m = { t: 18, r: 16, b: 30, l: 42 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
@@ -242,7 +242,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
     })
   })()
 
-  // Y ticks — pick the step from a candidate list that gives ~6 lines
+  // Y ticks: pick the step from a candidate list that gives ~6 lines
   const yTicks = (() => {
     if (yMin >= yMax) return [yMin]
     const range = yMax - yMin
@@ -366,7 +366,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
           {/* Line */}
           <path d={linePath} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Dots — only on hover; the line runs edge-to-edge with no endpoint markers */}
+          {/* Dots only on hover; the line runs edge-to-edge with no endpoint markers */}
           {pts.map((p, i) => {
             if (hovIdx !== i) return null
             return (
@@ -375,7 +375,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
             )
           })}
 
-          {/* League-avg label — drawn after the trendline so its halo sits on top */}
+          {/* League-avg label, drawn after the trendline so its halo sits on top */}
           {leagueAvg != null && (
             <text x={m.l + 5} y={sy(leagueAvg) - 5} fill="#f59e0b" fillOpacity={1} fontSize={10} fontWeight={700} {...labelHalo}>
               lg avg {fmt(leagueAvg)}
@@ -410,7 +410,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
           })}
         </svg>
 
-        {/* Tooltip — always above the hovered point (see tooltipAnchorSx) */}
+        {/* Tooltip, always above the hovered point (see tooltipAnchorSx) */}
         {hov && (
             <Box sx={{
               position: 'absolute',

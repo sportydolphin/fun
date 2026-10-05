@@ -21,7 +21,7 @@ function fmtWcGap(gap: number): string {
   return gap > 0 ? `+${s}` : `-${s}`
 }
 
-// Playoff-odds percent shown next to each team — matches the Odds board's phrasing so
+// Playoff-odds percent shown next to each team. Matches the Odds board's phrasing so
 // a near-lock reads >99% and a live long shot reads <1%.
 function fmtOddsPct(p: number): string {
   const pct = p * 100
@@ -156,7 +156,7 @@ function wildcardRows(divisions: StandingsDivision[], leagueId: number, highligh
   const gapFromCutoff = (t: StandingsTeamRecord) =>
     cutoff ? ((t.wins - cutoff.wins) + (cutoff.losses - t.losses)) / 2 : 0
 
-  // 5-team window ending at the followed team once it's past row 5 — so the team
+  // 5-team window ending at the followed team once it's past row 5, so the team
   // sits at the bottom and the rows above show the spots it's chasing (the 3rd/last
   // wild card spot included). Teams inside the top 5 just show the top 5.
   const teamIdx = Math.max(0, wcTeams.findIndex(t => t.teamId === highlightId))
@@ -196,7 +196,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
   }, [season])
 
   // Playoff odds for every team, keyed by id, so each row can show its own number.
-  // Missing/stale precompute just leaves the map empty and the odds column drops out —
+  // Missing/stale precompute just leaves the map empty and the odds column drops out:
   // no fallback, same as the Odds board.
   useEffect(() => {
     let cancelled = false
@@ -229,7 +229,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
       borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
       bgcolor: 'background.paper', overflow: 'hidden',
     }}>
-      {/* Header — column labels mirror the row's right-aligned cells (record is unlabeled) */}
+      {/* Header: column labels mirror the row's right-aligned cells (record is unlabeled) */}
       <Box sx={{
         px: 1.5, py: 1.1, borderBottom: '1px solid', borderColor: 'divider',
         display: 'flex', alignItems: 'baseline', gap: 1,

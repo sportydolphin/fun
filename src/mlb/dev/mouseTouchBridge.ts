@@ -4,7 +4,7 @@
 // horizontal drag) do nothing when you click-drag inside the phone frame. This
 // synthesizes TouchEvents from the mouse so a click-drag reads as a one-finger swipe.
 //
-// Only installed in the *framed* app instance (isInsideDeviceFrame) and only in DEV —
+// Only installed in the *framed* app instance (isInsideDeviceFrame) and only in DEV:
 // see App.tsx, which lazy-imports it so it never ships to production.
 
 function makeTouch(target: EventTarget, x: number, y: number): Touch {
@@ -31,7 +31,7 @@ export function installMouseTouchBridge(): () => void {
 
   // A mouse-drag starts a text selection; a finger-drag never does. Kill selection
   // across the whole framed document (a phone doesn't casually select on drag either)
-  // via a persistent stylesheet — bulletproof, unlike toggling user-select per-drag,
+  // via a persistent stylesheet rather than by toggling user-select per-drag,
   // which lost the race with selection start. Inputs/textareas stay selectable so the
   // search box still works.
   const style = document.createElement('style')

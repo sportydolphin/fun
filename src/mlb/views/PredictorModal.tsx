@@ -57,7 +57,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
         </Box>
       )}
 
-      {/* Team logo — click votes (bubbles to parent) */}
+      {/* Team logo: a click votes (bubbles to parent) */}
       <Box
         sx={{
           width: { xs: chromePx(44), sm: chromePx(54) }, height: { xs: chromePx(44), sm: chromePx(54) }, borderRadius: '50%',
@@ -85,7 +85,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
         {nickname}
       </Typography>
 
-      {/* Pitcher — display only, whole card half is the pick target */}
+      {/* Pitcher: display only, the whole card half is the pick target */}
       {team.pitcher ? (
         <Box sx={{ textAlign: 'center' }}>
           <Typography sx={{ fontSize: { xs: '0.66rem', sm: '0.78rem' }, color: 'text.secondary', lineHeight: 1.3 }}>

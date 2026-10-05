@@ -1,8 +1,8 @@
 // ─── Dev-only mobile device preview ───────────────────────────────────────────
 // Renders the whole app again inside a phone-sized <iframe>, wrapped in a device
 // bezel, over a dimmed backdrop. Because the iframe is a real nested document,
-// everything that keys off viewport width — CSS media queries, MUI `sx`
-// breakpoints, useMediaQuery, window.innerWidth — resolves against the phone's
+// everything that keys off viewport width (CSS media queries, MUI `sx`
+// breakpoints, useMediaQuery, window.innerWidth) resolves against the phone's
 // dimensions rather than the desktop window's.
 //
 // Lazy-loaded and gated behind import.meta.env.DEV; see devDevice.ts.
@@ -28,7 +28,7 @@ export default function MobilePreview() {
   const w = device.landscape ? preset.h : preset.w
   const h = device.landscape ? preset.w : preset.h
 
-  // The framed app navigates independently, so the src is fixed at mount time —
+  // The framed app navigates independently, so the src is fixed at mount time:
   // recomputing it on every outer navigation would blow away the inner state.
   const src = useMemo(() => {
     const url = new URL(window.location.href)

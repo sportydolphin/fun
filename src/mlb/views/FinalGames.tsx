@@ -18,7 +18,7 @@ import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../g
 import { chromePx, typePx } from '../../ui/scale'
 import { useMlbHeadingTag } from '../components/PageHeading'
 
-// Loaded on first game click — keeps the Game Center out of the home bundle.
+// Loaded on first game click, which keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -33,20 +33,20 @@ export interface FinalTeam {
   hits:     number
   errors:   number
   isWinner: boolean
-  record?:  string          // "54-38" — season record as of this game
+  record?:  string          // "54-38": season record as of this game
 }
 
 export interface FinalGameSummary {
   gamePk:     number
   state:      GameState
-  startMs:    number                 // scheduled first pitch (epoch ms) — drives chronological order
+  startMs:    number                 // scheduled first pitch (epoch ms), drives chronological order
   statusText: string                 // "Final"/"Final/10", live inning ("▲ 5th"), or start time
   home:       FinalTeam
   away:       FinalTeam
   winPitcher:  string | null
   losePitcher: string | null
   savePitcher: string | null
-  reason?:     string                // "Rain"/"Snow"/... — only set for postponed games
+  reason?:     string                // "Rain"/"Snow"/..., only set for postponed games
   /** Postseason only: the game's place in the bracket ("NLWC Gm 3"), and whether it decides the
    *  series. The score card printed "PHI 1-1, ATL 1-1" over a winner-take-all game and said nothing
    *  else; the series records were there, the stakes were not. */
@@ -55,7 +55,7 @@ export interface FinalGameSummary {
 
 
 
-// ─── Date helpers (local, not UTC — avoids evening off-by-one) ──────────────────
+// ─── Date helpers (local, not UTC, which avoids an evening off-by-one) ──────────────────
 
 function toISO(d: Date): string {
   const y = d.getFullYear()
@@ -83,7 +83,7 @@ function dateLabel(iso: string): string {
 
 // In-memory cache of resolved games per date. Past/future dates are static
 // (a Final result never changes, a Preview's start time rarely does) so once
-// fetched they're safe to reuse for the rest of the session — this is what
+// fetched they're safe to reuse for the rest of the session. This is what
 // makes date-nav feel instant after the first visit to a date. "Today" is
 // deliberately never cached since a live game's score/inning keeps changing.
 const gamesCache = new Map<string, FinalGameSummary[]>()
@@ -143,7 +143,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
         statusText = game.status?.detailedState ?? 'Live'
       }
     } else {
-      // Preview / scheduled — show start time, or a notable status (Postponed, etc.)
+      // Preview / scheduled: show start time, or a notable status (Postponed, etc.)
       const detailed = game.status?.detailedState ?? ''
       if (detailed && !['Scheduled', 'Pre-Game', 'Warmup'].includes(detailed)) {
         statusText = detailed
@@ -211,7 +211,7 @@ export async function fetchGameSummary(gamePk: number): Promise<FinalGameSummary
 
 // Fetches a whole date range in one request and primes gamesCache with every
 // date in it (again skipping "today", for the same live-score reason as
-// above) — this is what lets date-nav resolve the target date's games from
+// above). This is what lets date-nav resolve the target date's games from
 // cache instead of a second round trip after jumping.
 async function primeGamesCache(startISO: string, endISO: string): Promise<Map<string, FinalGameSummary[]>> {
   const map = new Map<string, FinalGameSummary[]>()
@@ -228,7 +228,7 @@ async function primeGamesCache(startISO: string, endISO: string): Promise<Map<st
       map.set(iso, games)
       if (games.length > 0 && iso !== today) gamesCache.set(iso, games)
     }
-  } catch { /* best-effort — findAdjacentGameDate just sees an empty map */ }
+  } catch { /* best-effort: findAdjacentGameDate just sees an empty map */ }
   return map
 }
 
@@ -254,7 +254,7 @@ const clampISO = (iso: string, bounds: SeasonBounds) =>
 
 // A ~month-wide window comfortably covers any real in-season gap (All-Star
 // break, a playoff off-day) in a single request, while also priming the
-// cache for that whole stretch — so stepping through several dates in a row
+// cache for that whole stretch, so stepping through several dates in a row
 // after the first click costs no further network calls.
 const NAV_WINDOW_DAYS = 30
 
@@ -282,7 +282,7 @@ async function findAdjacentGameDate(fromDateISO: string, dir: 1 | -1, season: nu
     if (found) return found
   }
 
-  // Rare: no games anywhere in the ~month window — sweep the rest of the
+  // Rare: no games anywhere in the ~month window: sweep the rest of the
   // season in one more request rather than giving up.
   start = clampISO(dir === 1 ? windowEdge : bounds.start, bounds)
   end   = clampISO(dir === 1 ? bounds.end : windowEdge, bounds)
@@ -424,8 +424,8 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
     fetchSeasonBounds(CURRENT_SEASON).then(setBounds)
   }, [])
 
-  // Arrows skip straight to the nearest date with games — never landing on a
-  // dead date — and clamp to the season's actual start/end.
+  // Arrows skip straight to the nearest date with games, never landing on a
+  // dead date, and clamp to the season's actual start/end.
   const shift = async (dir: 1 | -1) => {
     if (navigatingRef.current) return
     navigatingRef.current = true
@@ -479,7 +479,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
         <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>›</Typography>
       </Box>
 
-      {/* Only shown when not already viewing today — jumps straight back. */}
+      {/* Only shown when not already viewing today. Jumps straight back. */}
       {dateISO !== toISO(new Date()) && (
         <Box
           onClick={() => onChange(toISO(new Date()))}
@@ -618,7 +618,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
     c.scrollBy({ left: dir === 'right' ? amount : -amount, behavior: scrollBehavior() })
   }, [])
 
-  // Hover (mouse/trackpad only — gated on the `hover` media feature so touch
+  // Hover (mouse/trackpad only, gated on the `hover` media feature so touch
   // taps never trigger a runaway auto-scroll): glide continuously while the
   // pointer stays over the arrow, stop the moment it leaves.
   const autoScrollDirRef  = useRef<'left' | 'right' | null>(null)
@@ -645,7 +645,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
   useEffect(() => stopAutoScroll, [stopAutoScroll])
 
   // Window resize (or phone rotation) changes clientWidth without touching `games`
-  // or firing a scroll event — re-check arrow visibility so it doesn't go stale.
+  // or firing a scroll event: re-check arrow visibility so it doesn't go stale.
   useEffect(() => {
     window.addEventListener('resize', handleStripScroll)
     return () => window.removeEventListener('resize', handleStripScroll)
@@ -726,8 +726,8 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
     return () => { cancelled = true }
   }, [thinToday, dateISO])
 
-  // Re-check arrow visibility whenever the game list (re)renders — new date, new
-  // width, etc. — since scrollWidth/clientWidth only settle after paint.
+  // Re-check arrow visibility whenever the game list (re)renders (new date, new
+  // width, etc.), since scrollWidth/clientWidth only settle after paint.
   useEffect(() => {
     const t = setTimeout(handleStripScroll, 50)
     return () => clearTimeout(t)
@@ -737,7 +737,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
   //   1. Followed team's game is always first, no matter what.
   //   2. Then by state: live → final → upcoming → postponed.
   //   3. Chronological (first pitch) within each state group.
-  // No division/league weighting — it scattered the day's slate unpredictably.
+  // No division/league weighting: it scattered the day's slate unpredictably.
   const STATE_ORDER: Record<GameState, number> = { live: 0, final: 1, preview: 2, postponed: 3 }
   const isMine = (g: FinalGameSummary) =>
     followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
@@ -808,7 +808,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
           </Box>
         ) : (
           <Box sx={{ position: 'relative' }}>
-            {/* ◀ / ▶ columnar edge arrows — full-height gradient bars.
+            {/* ◀ / ▶ columnar edge arrows, full-height gradient bars.
                 Desktop: hovering glides the strip continuously (see startAutoScroll).
                 Mobile: no hover to speak of, so a tap just jumps one page. */}
             <Box
@@ -912,7 +912,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
 
       {openGame && (openGame.state === 'preview' || openGame.state === 'postponed') ? (() => {
         // ‹ › steps through the other upcoming games in the current scoreboard list.
-        // Postponed games open the matchup preview too (never a box score — there's no game).
+        // Postponed games open the matchup preview too (never a box score, since there's no game).
         const previews = sortedGames.filter(g => g.state === 'preview')
         const idx = previews.findIndex(g => g.gamePk === openGame.gamePk)
         return (

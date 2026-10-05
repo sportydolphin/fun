@@ -9,7 +9,7 @@ import {
   fetchPitchesPerPa, PitchPaLeaders,
   fetchTopSalaries, SalaryRow,
 } from '../api'
-// ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
+// ~1,400-line schedule module, lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { useIsDark, borderAlpha, cardGradient135, fmtGB } from '../lib/colorUtils'
@@ -56,7 +56,7 @@ async function fetchLiveTeamIds(): Promise<Set<number>> {
     const ids = new Set<number>()
     for (const dateObj of d.dates ?? []) {
       for (const game of dateObj.games ?? []) {
-        // Warmup reports abstractGameState "Live" ~20 min before first pitch — skip it.
+        // Warmup reports abstractGameState "Live" ~20 min before first pitch. Skip it.
         if (game.status?.abstractGameState === 'Live' && game.status?.detailedState !== 'Warmup') {
           const hid = game.teams?.home?.team?.id
           const aid = game.teams?.away?.team?.id
@@ -162,7 +162,7 @@ function HomeViewInner({
   const [teamSummaries,    setTeamSummaries]    = useState<TeamSummary[]>([])
   const [loadingBoard,     setLoadingBoard]     = useState(true)
 
-  // ── Report-card datasets — fetched lazily, only when the day's pair needs one ──
+  // ── Report-card datasets, fetched lazily, only when the day's pair needs one ──
   const [ages,      setAges]      = useState<AgeEntry[]>([])
   const [sosData,   setSosData]   = useState<SosEntry[]>([])
   const [streaks,   setStreaks]   = useState<StreakLeaders | null>(null)
@@ -184,7 +184,7 @@ function HomeViewInner({
   // moving the element, so the widget never unmounts and refetches.
   //
   // Starts optimistic (top). The slate and picks take a moment to load, and on a
-  // fresh visit there are almost always picks outstanding — so assuming "pending"
+  // fresh visit there are almost always picks outstanding, so assuming "pending"
   // means the common case settles with no visible shift at all.
   const [picksPending, setPicksPending] = useState(true)
   const placementLatched = useRef(false)
@@ -241,7 +241,7 @@ function HomeViewInner({
   // ── Daily report cards ────────────────────────────────────────────────────────
   // Two cards rotate daily: each day picks a distinct pair from the pool, keyed to
   // the day, so the two always differ from each other and both change day to day.
-  // The pool is every Report Card board — team boards *and* player boards — so
+  // The pool is every Report Card board (team boards *and* player boards), so
   // anything featured on the Visualize page can surface here too. Selection is
   // deterministic, so we fetch only the data the day's two boards actually need
   // (see the effects below) instead of loading every dataset up front.
@@ -271,8 +271,8 @@ function HomeViewInner({
     { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: streakSub('Longest active scoreless-inning runs'),     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
     { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: streakSub('Longest active hitless droughts'),          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. The cold flip side of the hitting streaks board. Games with no official at-bat are skipped.' },
     { id: 'games-played',    kind: 'player', icon: '🦾', title: 'Iron Men',          subtitle: streakSub('Longest active games-played streaks'),      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the run reaches back further than we searched, so it\'s even longer than shown.' },
-    { id: 'pitches-most',    kind: 'player', icon: '⏳', title: 'Grinders',          subtitle: 'Most pitches seen per plate appearance',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. These are the guys who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}` },
-    { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Free Swingers',     subtitle: 'Fewest pitches seen per plate appearance', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These guys jump on an early strike instead of working the count. ${QUALIFIED_NOTE}` },
+    { id: 'pitches-most',    kind: 'player', icon: '⏳', title: 'Grinders',          subtitle: 'Most pitches seen per plate appearance',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. The hitters who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}` },
+    { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Free Swingers',     subtitle: 'Fewest pitches seen per plate appearance', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These hitters jump on an early strike instead of working the count. ${QUALIFIED_NOTE}` },
     { id: 'top-salary',      kind: 'player', icon: '🤑', title: 'Top Earners',       subtitle: `Highest ${CURRENT_SEASON} salaries`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
   ]
   // "Toughest remaining opponents" has no remaining opponents to rank once the season is over.
@@ -318,7 +318,7 @@ function HomeViewInner({
     }
   }
 
-  // ── Lazy dataset fetches — each fires only on a day whose pair needs it ────────
+  // ── Lazy dataset fetches: each fires only on a day whose pair needs it ────────
   const needAges     = neededDeps.has('ages')
   const needSos      = neededDeps.has('sos')
   const needStreaks  = neededDeps.has('streaks')
@@ -435,7 +435,7 @@ function HomeViewInner({
 
   return (
     <Box>
-      {/* ── Scoreboard — full-width header, always visible ─────────────────────── */}
+      {/* ── Scoreboard: full-width header, always visible ─────────────────────── */}
       {/* Every card on this page is a TrackedCard: seen, then used. See TrackedCard.tsx. */}
       {showScores && (
         <TrackedCard card="scoreboard" sx={{ mb: 2 }}>
@@ -449,7 +449,7 @@ function HomeViewInner({
         <PlayoffBracketCard compact onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
       </TrackedCard>
 
-      {/* ── Happening Now — only renders while live drama is brewing ───────────── */}
+      {/* ── Happening Now: only renders while live drama is brewing ───────────── */}
       <TrackedCard card="live_drama">
         <LiveDramaCard onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
       </TrackedCard>
@@ -466,7 +466,7 @@ function HomeViewInner({
         alignItems: 'start',
       }}>
 
-        {/* ═══ Personal column — My Feed ═══════════════════════════════════════ */}
+        {/* ═══ Personal column: My Feed ═══════════════════════════════════════ */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
           {followedTeamId ? (
@@ -483,7 +483,7 @@ function HomeViewInner({
                   background: cardGradient135(bg, isDark),
                   display: 'flex', flexDirection: 'column',
                 }}>
-                  {/* Team header — name+standing | buttons. px matches the schedule
+                  {/* Team header: name+standing | buttons. px matches the schedule
                       strip's 2.5 below so the name/record align with the game text. */}
                   <Box sx={{ px: 2.5, pt: 1.25, pb: teamQuiet ? 1.25 : 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -561,7 +561,7 @@ function HomeViewInner({
               </TrackedCard>
               )}
 
-              {/* Your players — capped so a long list doesn't dominate; scrolls internally */}
+              {/* Your players, capped so a long list doesn't dominate; scrolls internally */}
               <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: chromePx(460) } }}>
                 <FollowedPlayersSection
                   followedPlayerIds={followedPlayerIds}
@@ -574,7 +574,7 @@ function HomeViewInner({
                 />
               </TrackedCard>
 
-              {/* Predictor — under the team card while picks are open, else last */}
+              {/* Predictor: under the team card while picks are open, else last */}
               <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
                 <PredictorWidget onPicksSettled={handlePicksSettled} />
               </TrackedCard>
@@ -587,7 +587,7 @@ function HomeViewInner({
                 </TrackedCard>
               )}
 
-              {/* Streak Survivor — daily hitter-streak game */}
+              {/* Streak Survivor: daily hitter-streak game */}
               <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
                 <StreakSurvivorWidget />
               </TrackedCard>
@@ -620,7 +620,7 @@ function HomeViewInner({
                 </TrackedCard>
               )}
 
-              {/* Streak Survivor — daily hitter-streak game */}
+              {/* Streak Survivor: daily hitter-streak game */}
               <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
                 <StreakSurvivorWidget />
               </TrackedCard>
@@ -628,7 +628,7 @@ function HomeViewInner({
           )}
         </Box>
 
-        {/* ═══ Discovery column — Around the League ════════════════════════════ */}
+        {/* ═══ Discovery column: Around the League ════════════════════════════ */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
           {/* Standout performances: the postseason's once the regular season is over */}
@@ -638,7 +638,7 @@ function HomeViewInner({
             </TrackedCard>
           )}
 
-          {/* Roster moves — trades, DFAs, claims, signings; deadline countdown in July */}
+          {/* Roster moves: trades, DFAs, claims, signings; deadline countdown in July */}
           <TrackedCard card="roster_moves">
             <RosterMovesCard followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
           </TrackedCard>
@@ -652,7 +652,7 @@ function HomeViewInner({
           )}
 
 
-          {/* Featured spotlight — hot / cold. No floating section title; the
+          {/* Featured spotlight, hot / cold. No floating section title; the
               On Fire / Ice Cold cards below are self-labeling. */}
           <Box>
             {loadingSpotlight && !hotGuy && (
@@ -674,7 +674,7 @@ function HomeViewInner({
             </Box>
           </Box>
 
-          {/* Daily report cards — two cards drawn from the full pool (team + player
+          {/* Daily report cards: two cards drawn from the full pool (team + player
               boards), rotating day to day. Each carries its own heading. */}
           {seasonOver != null && selectedMetas.map(m => {
             const { rows, loading } = rowsForBoard(m)

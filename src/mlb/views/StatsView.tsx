@@ -71,25 +71,25 @@ export function StatsView({
 
   // ── What a reversed sort means in all-time mode ───────────────────────
   // The career pool is a union of per-stat *leaders*, not the ~22k-player
-  // population, so reversing a sort locally doesn't find the league's worst — it
+  // population, so reversing a sort locally doesn't find the league's worst. It
   // finds the weakest leader, which is a number about nothing.
   //
   // Rate stats escape this: api.ts also fetches the worst-qualified end of each
-  // one, so the ascending pool holds the players who genuinely belong there.
-  // Counting stats don't and can't — the bottom of career home runs is thousands
-  // of players tied on zero — so their sort is locked to the leaders' direction.
+  // one, so the ascending pool holds the players who belong there.
+  // Counting stats don't and can't (the bottom of career home runs is thousands
+  // of players tied on zero), so their sort is locked to the leaders' direction.
   const reversible = !allTime || activeDef.isRate
   const effectiveAsc = reversible ? sortAsc : (activeDef.lowerIsBetter ?? false)
 
   // ── Qualification filter ──────────────────────────────────────────────
   // Only meaningful for rate stats (AVG, ERA…). Counting stats (SB, HR, saves…)
-  // must never be qualified — a part-time player can legitimately lead them.
+  // must never be qualified: a part-time player can legitimately lead them.
   const qualifiedPool = (() => {
     const all = lbData ?? []
     // All-time rate stats: restrict to the career Qualified pool. Players who
     // arrived via a counting-stat sort carry no PA/IP guarantee, and one of them
     // slipping in would quietly corrupt both ends of the board. filterQualified
-    // can't do this job — its thresholds are season-based and would nuke everyone
+    // can't do this job: its thresholds are season-based and would nuke everyone
     // when measured against career totals.
     if (allTime) return activeDef.isRate ? all.filter(e => e.qualified) : all
     return lbQualified && activeDef.isRate ? filterQualified(all, lbGroup, gameScope) : all
@@ -131,7 +131,7 @@ export function StatsView({
     setHighlightStatKey?.(null)
   }
 
-  // Total players with a valid value — used for rank numbering and the footer count
+  // Total players with a valid value, used for rank numbering and the footer count
   const totalInDataset = rankedAll.length
 
   // ── Phones get a ranked list, not the grid ────────────────────────────
@@ -238,7 +238,7 @@ export function StatsView({
               {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </Box>
-          {/* Qualified / All toggle — only meaningful for rate stats; the all-time pool
+          {/* Qualified / All toggle, only meaningful for rate stats; the all-time pool
               is already curated per stat, so the toggle is hidden there */}
           {activeDef.isRate && !allTime && (
             <Box

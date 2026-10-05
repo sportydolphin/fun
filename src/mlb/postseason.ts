@@ -14,7 +14,7 @@ import { isUnplayed, hasStartTime } from './gameStatus'
 // in W_1; and D_1 and D_3 are hosted by each league's 1 seed. That gives every seed without a
 // standings read: F_1/F_3 are 3 vs 6, F_2/F_4 are 4 vs 5, D_1/D_3 host the 1 seed and D_2/D_4
 // the 2. If the league ever publishes a different set of ids, `buildBracket` returns null and the
-// card simply does not draw, rather than drawing a wrong bracket with confidence.
+// card does not draw, rather than drawing a wrong bracket with confidence.
 
 export type SeriesId = 'F_1' | 'F_2' | 'F_3' | 'F_4' | 'D_1' | 'D_2' | 'D_3' | 'D_4' | 'L_1' | 'L_2' | 'W_1'
 export type Round = 'wc' | 'ds' | 'lcs' | 'ws'

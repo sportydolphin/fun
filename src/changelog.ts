@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.120.1',
+    date:    '2026-10-05',
+    changes: [
+      {
+        short: 'Plainer wording on MLB',
+        full:  'A few MLB labels and explanations were reworded to say what they mean more plainly, including the Milestone Watch subtitle and the notes on the pitches-per-plate-appearance boards.',
+      },
+    ],
+  },
+  {
     version: '1.120.0',
     date:    '2026-10-03',
     changes: [

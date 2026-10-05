@@ -1,4 +1,4 @@
-// ─── Report Card row builders — each turns raw data into a fully-sorted,
+// ─── Report Card row builders: each turns raw data into a fully-sorted,
 // display-ready row array for one leaderboard board. No JSX lives here; the
 // card components that render these rows are in ./leaderboards.
 
@@ -9,7 +9,7 @@ import type { LbRow, PlayerLbRow } from './leaderboards'
 
 export interface AgeEntry { teamId: number; abbr: string; avgAge: number }
 
-// ─── Streak row builder — StreakRow[] (from the API) → display PlayerLbRow[] ───
+// ─── Streak row builder: StreakRow[] (from the API) → display PlayerLbRow[] ───
 
 const HIT_STREAK_LABELS = ['ON FIRE', 'LOCKED IN', 'HEATING UP']
 const HITLESS_LABELS    = ['ICE COLD', 'LOST IT', 'IN A FUNK']
@@ -93,7 +93,7 @@ export function buildSalaryRows(rows: SalaryRow[]): PlayerLbRow[] {
   }))
 }
 
-// ─── Team row builders — one per board, each producing a fully-sorted LbRow[] ──
+// ─── Team row builders, one per board, each producing a fully-sorted LbRow[] ──
 
 export function buildFraudRows(data: TeamSummary[], nameMap: Map<number, string>, type: 'fraud' | 'cursed'): LbRow[] {
   const isFraud = type === 'fraud'

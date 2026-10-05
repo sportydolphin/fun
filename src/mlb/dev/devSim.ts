@@ -29,7 +29,7 @@ export interface DevSimState {
 const TEAM_IDS = Object.keys(TEAM_ABBR).map(Number)
 
 // Fake gamePks live in a high range so they can never collide with real MLB
-// gamePks — keeps simulated picks in localStorage from polluting a real day.
+// gamePks, which keeps simulated picks in localStorage from polluting a real day.
 const FAKE_PK_BASE = 9_000_000
 
 function load(): DevSimState {

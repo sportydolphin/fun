@@ -10,14 +10,14 @@
 // user to exactly the same place, with no second mechanism to keep in sync.
 //
 // Two arrival paths, one parser:
-//   cold — a push (or a shared link) opens /mlb?…&open=predictor. Parsed at module
+//   cold: a push (or a shared link) opens /mlb?…&open=predictor. Parsed at module
 //          load, below, and picked up by whichever component mounts to honour it.
-//   warm — the bell is clicked while the app is already running. The bell parses
+//   warm: the bell is clicked while the app is already running. The bell parses
 //          the same url and publishes the intent; subscribers react immediately.
 //
-// Intents are consumed by kind, not first-come — several components subscribe and
+// Intents are consumed by kind, not first-come: several components subscribe and
 // each takes only what it owns, so ordering between them doesn't matter. An intent
-// nothing claims simply expires unread, which is the right failure mode: a stale
+// nothing claims expires unread, which is the right failure mode: a stale
 // link should be inert, not send the user somewhere arbitrary.
 //
 // Module singleton, matching devSim / devDrama / homeOverlay elsewhere. Distinct
@@ -64,7 +64,7 @@ export function parseDeepLink(url: string): DeepLink | null {
 
 // Seeded from the launch URL so a cold start from a push is honoured. The MLB
 // view's URL-sync effect rewrites the address bar moments after boot and drops
-// the `open` param — reading it once here, at module load, gets in ahead of that.
+// the `open` param. Reading it once here, at module load, gets in ahead of that.
 let pending: DeepLink | null =
   typeof window !== 'undefined' ? parseDeepLink(window.location.search) : null
 
@@ -92,7 +92,7 @@ export function subscribeDeepLink(fn: () => void): () => void {
 }
 
 /**
- * Run `handler` whenever a deep link of `kind` is pending — on mount (cold start)
+ * Run `handler` whenever a deep link of `kind` is pending: on mount (cold start)
  * and on every later publish (bell click while mounted). The intent is consumed,
  * so it fires once per request.
  */

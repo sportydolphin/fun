@@ -1,4 +1,4 @@
-// Streak Survivor — data layer. Picks live in `survivor_picks` (one per user per
+// Streak Survivor data layer. Picks live in `survivor_picks` (one per user per
 // day); the nightly resolver (scripts/resolve-survivor.mjs) grades them and keeps
 // each user's running streak in `survivor_stats`, so the leaderboard and the "your
 // streak" header are single cheap reads rather than a client-side walk of everyone's
@@ -144,7 +144,7 @@ export async function fetchSurvivorLeaderboard(myUserId: string | null, limit = 
   }))
 }
 
-// Hot-hitter suggestions come straight off the precomputed hitting-streak board —
+// Hot-hitter suggestions come straight off the precomputed hitting-streak board:
 // players who've hit in the most consecutive games are the natural survivor picks,
 // and it's the same single-row read the report cards already use.
 export async function fetchHotHitters(season: number, limit = 8): Promise<HotHitter[]> {
@@ -167,7 +167,7 @@ export async function fetchPickableTeams(date: string): Promise<Set<number>> {
     for (const g of games) {
       if (g.state === 'preview') { open.add(g.home.teamId); open.add(g.away.teamId) }
     }
-  } catch { /* schedule unreachable — caller treats as locked */ }
+  } catch { /* schedule unreachable: caller treats as locked */ }
   return open
 }
 

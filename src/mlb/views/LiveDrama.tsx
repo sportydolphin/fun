@@ -14,7 +14,7 @@ import { chromePx, typePx } from '../../ui/scale'
 // of it in the Home landing for a reader who may never open a game.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
-// ─── "Happening Now" — live drama card ────────────────────────────────────────
+// ─── "Happening Now": live drama card ────────────────────────────────────────
 // Appears on Home only while something dramatic is live (no-hitter, walk-off
 // watch, cycle watch, free baseball). One card, events stacked by severity;
 // tapping a row opens the Game Center. Detection lives in ../liveDrama.ts; in
@@ -126,7 +126,7 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
   const topAccent = KIND_ACCENT[shown[0].kind]
 
   const openEvent = (e: DramaEvent) => {
-    // Simulated events point at games that don't exist — nothing to open.
+    // Simulated events point at games that don't exist, so there is nothing to open.
     if (e.gamePk >= 9_000_000) return
     const side = (s: 'away' | 'home') => ({
       teamId: e[s].id, abbr: e[s].abbr,

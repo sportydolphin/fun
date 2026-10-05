@@ -1,4 +1,4 @@
-﻿import React, { memo, Suspense, useEffect, useCallback, useRef, useState } from 'react'
+import React, { memo, Suspense, useEffect, useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Box, Typography, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
@@ -28,7 +28,7 @@ import { PanelActiveContext } from './lib/panelActive'
 // ─── Navigation ───────────────────────────────────────────────────────────────
 //
 // FIVE TABS, THE SAME SHAPE AS WPBL (Sep 28, 2026). There were six pills in a sideways scroller,
-// and at 375px wide two of them (Stats, Search) were simply off the screen. Now:
+// and at 375px wide two of them (Stats, Search) were off the screen. Now:
 //   - Scores and Teams are tabs of their own; neither had one.
 //   - Leaderboard, Stats and Visualize were three tabs over the same numbers. They are the three
 //     BOARDS of one Stats tab. They stay separate views underneath, each with its own address
@@ -116,7 +116,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // re-rendered the section on its own every publish.
   const bridgeQuery = useSearchBridgeQuery()
 
-  // Sync query typed in the toolbar â†’ useMlbState debounced search
+  // Sync query typed in the toolbar → useMlbState debounced search
   useEffect(() => {
     state.setQuery(bridgeQuery)
   }, [bridgeQuery]) // eslint-disable-line react-hooks/exhaustive-deps

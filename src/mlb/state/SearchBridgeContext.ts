@@ -31,7 +31,7 @@ export interface ToolbarSuggestion {
 
 // A self-describing toolbar search result. Produced by whichever section owns search
 // so the always-loaded toolbar can render it WITHOUT statically importing that section's
-// lazy chunk — the avatar is described by primitive data (image URL + colors), never a
+// lazy chunk. The avatar is described by primitive data (image URL + colors), never a
 // component or ReactNode. The MLB side keeps its own richer player/team dropdown
 // (playerResults/teamResults above); the WPBL section drives this generic `resultRows`
 // path instead, since its ids, headshots, and logos are its own (not StatsAPI-shaped).
@@ -59,7 +59,7 @@ export interface SearchBridgeState {
   handleSelectPlayer: ((p: PlayerBridgeItem) => void) | null
   handleSelectTeam: ((t: TeamBridgeItem) => void) | null
   isRegistered: boolean
-  // Which section currently owns the toolbar search — decides how the results dropdown
+  // Which section currently owns the toolbar search, which decides how the results dropdown
   // renders ('mlb' = the player/team fields above; 'wpbl' = the generic `resultRows`).
   source: 'mlb' | 'wpbl' | null
   resultRows: SearchResultRow[]

@@ -56,7 +56,7 @@ const kindLabel = (item: MilestoneItem): string =>
 
 // ─── Shared bits ────────────────────────────────────────────────────────────────
 
-// Pulsing red "LIVE" pill — the player's team is in a game right now, so the number
+// Pulsing red "LIVE" pill: the player's team is in a game right now, so the number
 // could tick down (or the milestone fall) while you watch.
 function LiveBadge() {
   return (
@@ -95,7 +95,7 @@ function MeterBar({ fill, color, live, height = 4 }: { fill: number; color: stri
   )
 }
 
-// ─── Featured chase — the big card treatment (up to 3 on the card) ───────────────
+// ─── Featured chase: the big card treatment (up to 3 on the card) ───────────────
 
 function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
   item: MilestoneItem
@@ -156,7 +156,7 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
   )
 }
 
-// ─── Compact row — used inside the View-all modal ────────────────────────────────
+// ─── Compact row, used inside the View-all modal ────────────────────────────────
 
 function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
   item: MilestoneItem
@@ -288,7 +288,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
             <TabButton active={tab === 'chasing'} label="Chasing" count={items.length} color={ACCENT} onClick={() => setTab('chasing')} />
             <TabButton active={tab === 'reached'} label="Reached" count={reached.length} color={ACHIEVED_GREEN} onClick={() => setTab('reached')} />
           </Box>
-          {/* Hitting / pitching filter — only worth showing when both are present */}
+          {/* Hitting / pitching filter, only worth showing when both are present */}
           {hasPitching && hasHitting && (
             <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
               {GROUP_FILTERS.map(f => (
@@ -391,8 +391,8 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
     if (pendingOpen && ((items && items.length) || reached.length)) { setModalOpen(true); setPendingOpen(false) }
   }, [pendingOpen, items, reached])
 
-  // While loading, or when the row is missing/stale/empty, render nothing — the
-  // card simply isn't part of the feed rather than flashing a spinner that then
+  // While loading, or when the row is missing/stale/empty, render nothing: the
+  // card isn't part of the feed rather than flashing a spinner that then
   // vanishes. (fetchMilestoneData resolves to null for a missing table, so the
   // loading flag is what distinguishes "still fetching" from "nothing to show".)
   // A season total cannot be reached once the season is over; a career mark or a record carries
@@ -403,8 +403,8 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
 
   const isLive = (it: MilestoneItem) => !!liveTeamIds?.has(it.teamId)
 
-  // Float chases whose team is playing right now to the front — those are the ones
-  // that could actually fall tonight — while keeping the precomputed records-then-
+  // Float chases whose team is playing right now to the front (those are the ones
+  // that could actually fall tonight) while keeping the precomputed records-then-
   // closeness order within each group.
   const orderedChases = [...chases].sort((a, b) => Number(isLive(b)) - Number(isLive(a)))
 
@@ -415,7 +415,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   const leading = seasonOver ? [...reached].sort(byNotability) : recent
   const recentCap = orderedChases.length ? RECENT_ON_CARD : FEATURED
   const featured = [...leading.slice(0, recentCap), ...orderedChases].slice(0, FEATURED)
-  // The modal holds both tabs — every chase plus the whole season's reached archive
+  // The modal holds both tabs: every chase plus the whole season's reached archive
   // (recent ⊂ reached, so no double count). That's the "View all" universe.
   const total = chases.length + reached.length
   const anyLiveFeatured = featured.some(isLive)
@@ -428,7 +428,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
       ? 'Playing now, and closing in.'
       : recent.length
         ? 'Just reached, and closing in.'
-        : 'Chasing history, closest first.'
+        : 'Closest first.'
 
   return (
     <>

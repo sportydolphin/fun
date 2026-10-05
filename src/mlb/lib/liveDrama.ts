@@ -1,12 +1,12 @@
 // ─── Live drama detection ─────────────────────────────────────────────────────
 // Scans today's live games for moments worth interrupting the home page for:
 //
-//   • No-hitter watch — a team still hitless after 5 complete innings batting
+//   • No-hitter watch: a team still hitless after 5 complete innings batting
 //     (upgraded to "Perfect game" when the boxscore confirms zero baserunners)
-//   • Walk-off watch — bottom of the 9th or later, home team tied or with the
+//   • Walk-off watch: bottom of the 9th or later, home team tied or with the
 //     winning run reachable in one swing
-//   • Cycle watch — a batter three legs into the cycle (or done with it)
-//   • Free baseball — any game that reaches the 11th inning
+//   • Cycle watch: a batter three legs into the cycle (or done with it)
+//   • Free baseball: any game that reaches the 11th inning
 //
 // One schedule+linescore call covers every live game; boxscores are fetched only
 // for games that need a deeper look (no-hit candidates + cycle scans from the
@@ -167,7 +167,7 @@ async function fetchLiveGames(): Promise<LiveGame[]> {
   const out: LiveGame[] = []
   for (const dateObj of d.dates ?? []) {
     for (const g of dateObj.games ?? []) {
-      // Warmup reports abstractGameState "Live" ~20 min before first pitch — skip it.
+      // Warmup reports abstractGameState "Live" ~20 min before first pitch. Skip it.
       if (g.status?.abstractGameState !== 'Live' || g.status?.detailedState === 'Warmup') continue
       const ls = g.linescore
       if (!ls?.currentInning) continue
@@ -192,7 +192,7 @@ async function fetchLiveGames(): Promise<LiveGame[]> {
   return out
 }
 
-// Trimmed boxscore — enough for the perfect-game check, pitcher names, and the
+// Trimmed boxscore: enough for the perfect-game check, pitcher names, and the
 // cycle scan. Fetched only for games that need it.
 function fetchDramaBoxscore(gamePk: number): Promise<any | null> {
   return fetch(
@@ -235,7 +235,7 @@ async function detectGame(g: LiveGame): Promise<DramaEvent[]> {
     }))
   }
 
-  // Cycle watch — either side, any batter with 3+ legs
+  // Cycle watch: either side, any batter with 3+ legs
   if (box && wantsCycleScan) {
     for (const s of ['away', 'home'] as const) {
       const players = box.teams?.[s]?.players ?? {}
@@ -261,7 +261,7 @@ async function detectGame(g: LiveGame): Promise<DramaEvent[]> {
     }
   }
 
-  // Walk-off watch — bottom (or about to be bottom) of the 9th+, home not ahead
+  // Walk-off watch: bottom (or about to be bottom) of the 9th+, home not ahead
   if (g.inning >= 9 && (g.half === 'Bottom' || g.half === 'Middle') && g.home.score <= g.away.score) {
     const deficit = g.away.score - g.home.score
     let inReach = deficit <= 1
@@ -273,14 +273,14 @@ async function detectGame(g: LiveGame): Promise<DramaEvent[]> {
         ).then(r => r.json())
         const runners = ['first', 'second', 'third'].filter(b => ls?.offense?.[b]?.id).length
         inReach = deficit <= runners + 1
-      } catch { /* runners unknown — stay conservative */ }
+      } catch { /* runners unknown, stay conservative */ }
     }
     if (inReach) {
       events.push(makeWalkoffEvent({ gamePk: g.gamePk, inning: g.inning, away: g.away, home: g.home }))
     }
   }
 
-  // Free baseball — 11th inning on; redundant when a walk-off row exists for the game
+  // Free baseball: 11th inning on; redundant when a walk-off row exists for the game
   if (g.inning >= 11 && !events.some(e => e.kind === 'walkoff')) {
     events.push(makeMarathonEvent({ gamePk: g.gamePk, inning: g.inning, half, away: g.away, home: g.home }))
   }

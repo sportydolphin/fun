@@ -29,7 +29,7 @@ export function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pit
 
 // ─── Hover-tooltip anchoring (shared by both chart tooltips) ─────────────────
 //
-// Always anchored above the hovered/touched point — never below — per design:
+// Always anchored above the hovered/touched point, never below, by design:
 // a tooltip below the point gets covered by a finger on touch, and showing it
 // on one side sometimes and the other side other times reads as inconsistent.
 // The gap between the point and the tooltip differs by input: on touch, a

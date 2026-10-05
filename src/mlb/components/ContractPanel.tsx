@@ -1,7 +1,7 @@
 // ─── Contract & team control panel ────────────────────────────────────────────
 //
 // Shown under the player card. The money is the obvious half; the more useful
-// half is *control* — how many seasons the club holds him for, and when he can
+// half is *control*: how many seasons the club holds the player, and when they can
 // leave. FanGraphs' year rows carry both, and they run past the guaranteed money
 // into future arbitration and free agency, so even a minimum-salary rookie with
 // no contract to speak of gets a meaningful timeline.
@@ -27,7 +27,7 @@ const KIND_STYLE: Record<ContractYear['kind'], { color: string; label: string }>
   other:        { color: '#6b7280', label: 'Other' },
 }
 
-/** $170M / $7.7M / $810K — contract figures span five orders of magnitude. */
+/** $170M / $7.7M / $810K: contract figures span five orders of magnitude. */
 function money(dollars: number | null | undefined): string {
   if (!dollars || dollars <= 0) return '—'
   if (dollars >= 1_000_000) {
@@ -60,7 +60,7 @@ export function ContractPanel({ contract, currentSeason }: {
   const remaining = years.filter(y => y.season >= currentSeason && y.kind !== 'free-agent').length
   const st        = serviceTime(contract.serviceTime)
 
-  // Only the kinds actually present — a legend listing states this player can't
+  // Only the kinds actually present. A legend listing states this player can't
   // be in is noise.
   const kindsShown = [...new Set(years.map(y => y.kind))]
 
@@ -83,7 +83,7 @@ export function ContractPanel({ contract, currentSeason }: {
       borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
       bgcolor: 'background.paper', overflow: 'hidden',
     }}>
-      {/* Deal summary — FanGraphs' own sentence, which already reads better than
+      {/* Deal summary: FanGraphs' own sentence, which already reads better than
           anything we'd assemble from the parts ("6 yr, $170M (2026-31); can opt
           out after 2030"). */}
       {contract.description && (

@@ -43,7 +43,7 @@ import type { TeamCardInnerProps } from '../components/cards'
 export type { MlbView } from '../routes'
 export { isMlbView } from '../routes'
 
-/** Where an open came from when it is not simply the tab on screen. See `openFrom`. The
+/** Where an open came from when it is not the tab on screen. See `openFrom`. The
  *  default is the view, and the player and team pages are the view called 'search', so the header
  *  search needs a name of its own. */
 export type MlbOpenSource = 'header_search' | 'recent' | 'team_page'
@@ -160,7 +160,7 @@ export function useMlbState() {
   const followPlayer = useCallback((id: number) => {
     setFollowedPlayerIds(prev => {
       if (prev.includes(id)) return prev
-      if (prev.length >= MAX_FOLLOWED_PLAYERS) return prev   // hard cap — UI greys out "+ Add" at the limit
+      if (prev.length >= MAX_FOLLOWED_PLAYERS) return prev   // hard cap. The UI greys out "+ Add" at the limit
       const next = [...prev, id]
       try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(next)) } catch {}
       return next
@@ -200,7 +200,7 @@ export function useMlbState() {
     if (uid === prevUserIdRef.current) return   // same user (or still logged out), skip
     prevUserIdRef.current = uid
 
-    if (!uid) return  // logged out — keep using localStorage as-is
+    if (!uid) return  // logged out: keep using localStorage as-is
 
     loadPrefsFromSupabase(uid).then(row => {
       if (row) {
@@ -212,7 +212,7 @@ export function useMlbState() {
         setLocalFollowedTeamId(tid)
         try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(pids)) } catch {}
       } else {
-        // No row yet — push current local state to create one
+        // No row yet: push current local state to create one
         savePrefsToSupabase(uid, followedTeamId, followedPlayerIds)
       }
     })
@@ -223,7 +223,7 @@ export function useMlbState() {
         setRecentSearches(remote)
         setLocalRecentSearches(remote)
       } else {
-        // Nothing stored server-side yet — seed it from whatever's local.
+        // Nothing stored server-side yet, so seed it from whatever's local.
         const local = getLocalRecentSearches()
         if (local.length > 0) saveRecentSearchesToSupabase(uid, local)
       }
@@ -271,7 +271,7 @@ export function useMlbState() {
   // ─── Local-dev-only settings ────────────────────────────────────────────────
   // Player-card season selector style: 'dropdown' (default) or 'buttons' (year pills).
   // Toggled from the consolidated dev gear (import.meta.env.DEV only). Lives in a
-  // module singleton (devSeasonSelector) so the gear — now rendered app-wide — and
+  // module singleton (devSeasonSelector) so the gear (now rendered app-wide) and
   // this MLB state stay in sync; setSeasonSelectorStyle re-exported for the menu.
   const seasonSelectorStyle = useDevSeasonSelector()
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
@@ -290,7 +290,7 @@ export function useMlbState() {
   const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(() => boardSortFor(landing?.lb ?? 'hitting', landing?.sort))
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
   const [lbQualified, setLbQualified] = useState(true)
-  // All-time (career) mode for the Stats tab only — kept separate from vizSeason so
+  // All-time (career) mode for the Stats tab only, kept separate from vizSeason so
   // it never leaks into the Leaderboard/Viz tabs, which share vizSeason.
   // Regular season, postseason or both, for the Leaders and Table boards. On the URL as `games=`.
   const [lbGameScope, setLbGameScope] = useState<GameScope>(landing?.games ?? 'regular')
@@ -517,10 +517,10 @@ export function useMlbState() {
   }, [])
 
   // `opts` carries two independent concerns:
-  //  • season/statsView — a browser-history pop reopening the exact view the user had
+  //  • season/statsView: a browser-history pop reopening the exact view the user had
   //    active (rather than selectPlayer's "most sensible default"); the popstate handler
   //    is the only caller that passes these.
-  //  • recordRecent — add this player to the top-bar's recent searches. ONLY the explicit
+  //  • recordRecent: add this player to the top-bar's recent searches. ONLY the explicit
   //    search-bar selection passes it; cross-links (followed players, spotlight, rosters,
   //    box scores, standings, …) must NOT pollute recents with players merely clicked
   //    through from elsewhere.
@@ -587,7 +587,7 @@ export function useMlbState() {
   // ─── History snapshots ────────────────────────────────────────────────────────
   // Each history entry stores a self-describing snapshot of the view it represents.
   // This is deliberate: popstate delivers the state of the entry you navigate TO, not
-  // the one you leave — so an entry must describe ITSELF (not "where it came from") for
+  // the one you leave, so an entry must describe ITSELF (not "where it came from") for
   // Back to restore the right screen. See the popstate handler + URL-sync effect below.
   const currentHistoryState = useCallback((): Record<string, any> => {
     // The VIEW names the screen; a player or team only does when the view is their page. Off it,
@@ -643,7 +643,7 @@ export function useMlbState() {
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
     // Stamp the player entry we're leaving with its full snapshot (exact player, season,
     // and season/career toggle) so a single Back from the stats leaderboard returns
-    // right here — then push the destination 'stats' entry.
+    // right here, then push the destination 'stats' entry.
     stampCurrentEntry()
     pushEntry({ view: 'stats', lb: group, allTime }, mlbUrlFor({ view: 'stats', lb: group, allTime, season }, CURRENT_SEASON))
     setView('stats')
@@ -752,7 +752,7 @@ export function useMlbState() {
 
   // Contract + team control. Cached per player in api.ts, and resolves to null
   // for anyone we have no row for (minor leaguers, retired players), so the panel
-  // simply doesn't render rather than showing an error.
+  // doesn't render rather than showing an error.
   useEffect(() => {
     if (!player) { setPlayerContract(null); return }
     let cancelled = false
@@ -816,7 +816,7 @@ export function useMlbState() {
     // shows (not just the URL). This is what makes Back work: whichever entry you later
     // land on carries an accurate description of its own screen, so popstate can restore
     // it directly. (popstate hands you the state of the entry you arrive at, never the
-    // one you leave — so "where I came from" state is useless here.)
+    // one you leave, so "where I came from" state is useless here.)
     writeAddress(keepSheetMarker(currentHistoryState()), snap)
   }, [view, player, team, lbGroup, vizSeason, statsAllTime, lbGameScope, sortParam, currentHistoryState])
 
@@ -910,11 +910,11 @@ export function useMlbState() {
 
     const result: Array<TeamPlayerStat & { isPitcher: boolean; awardLabel: string; highlightStat: string }> = []
 
-    // Highest OPS — hitters already sorted by OPS desc from the API
+    // Highest OPS. Hitters already sorted by OPS desc from the API
     const topOps = hitters[0]
     if (topOps) result.push({ ...topOps, isPitcher: false, awardLabel: 'Highest OPS', highlightStat: 'ops' })
 
-    // Lowest ERA — prefer starters (≥3 GS), pitchers already sorted by ERA asc
+    // Lowest ERA. Prefer starters (≥3 GS), pitchers already sorted by ERA asc
     const topEra = pitchers.find(p => p.gamesStarted >= 3) ?? pitchers[0]
     if (topEra) result.push({ ...topEra, isPitcher: true, awardLabel: 'Lowest ERA', highlightStat: 'era' })
 
@@ -947,7 +947,7 @@ export function useMlbState() {
     hitLeaders: statsView === 'career' ? new Map<string, number[]>() : hitLeaders,
     pitLeaders: statsView === 'career' ? new Map<string, number[]>() : pitLeaders,
     palette, season: statsView === 'career' ? 'Career' : season,
-    // Only in career view — on a season card the year above already says it.
+    // Only in career view: on a season card the year above already says it.
     careerSpan: statsView === 'career' ? careerSpan(player) : null,
     teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber,
     selectedHitStats, selectedPitStats,

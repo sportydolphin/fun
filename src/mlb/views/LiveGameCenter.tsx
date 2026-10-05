@@ -42,7 +42,7 @@ interface GcSituation {
   balls:          number
   strikes:        number
   outs:           number
-  betweenInnings: boolean   // Middle/End of inning — count/outs/bases don't apply; batter+pitcher are "due up"
+  betweenInnings: boolean   // Middle/End of inning: count/outs/bases don't apply; batter+pitcher are "due up"
   battingTeamId:  number
   fieldingTeamId: number
 }
@@ -88,7 +88,7 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
     const ls = ld.linescore ?? {}
 
     const abs = gd.status?.abstractGameState
-    // Warmup reports "Live" ~20 min before first pitch — treat as preview.
+    // Warmup reports "Live" ~20 min before first pitch, so treat it as a preview.
     const state: GameCenterData['state'] =
       abs === 'Final' ? 'final'
       : abs === 'Live' && gd.status?.detailedState !== 'Warmup' ? 'live'
@@ -149,7 +149,7 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
         return {
           id:    Number(raw.id),
           name:  raw.fullName ?? '—',
-          // Due up: one line — game stats once they've batted (incl. a walk), else season stats.
+          // Due up, one line: game stats once they've batted (incl. a walk), else season stats.
           line1: between ? (played ? gameLine : seasonLine) : (played ? gameLine : 'First AB'),
           line2: between ? '' : seasonLine,
         }
@@ -237,7 +237,7 @@ function BasesDiamond({ onFirst, onSecond, onThird, color, size = 22 }: {
   onFirst: boolean; onSecond: boolean; onThird: boolean; color: string; size?: number
 }) {
   // Cell pitch: diagonally-adjacent bases touch at size/√2 center spacing; the 1.06
-  // factor leaves a hair of gap so they're practically — not quite — touching.
+  // factor leaves a hair of gap so they're practically, but not quite, touching.
   const unit = (size / Math.SQRT2) * 1.06
   const sq = (occupied: boolean) => (
     <Box sx={{
@@ -359,7 +359,7 @@ function SituationPanel({ sit, onPlayerClick }: {
   return (
     <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
       {sit.betweenInnings && (
-        // Between innings there's no live count/outs/bases — just flag who's due up.
+        // Between innings there's no live count/outs/bases, so just flag who's due up.
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.25 }}>
           <Box sx={{ width: chromePx(6), height: chromePx(6), borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
           <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.8) }}>
@@ -592,7 +592,7 @@ function PlaysList({ plays, away, home, scoringOnly }: {
   )
 }
 
-// ─── Full box score — side-by-side columns on desktop, team toggle on mobile ──
+// ─── Full box score: side-by-side columns on desktop, team toggle on mobile ──
 
 function TeamBoxColumns({ box, onPlayerClick }: {
   box: BoxScore
@@ -617,7 +617,7 @@ function TeamBoxColumns({ box, onPlayerClick }: {
     </Box>
   )
 
-  // One team at a time with a toggle, at every width — keeps the modal from having to
+  // One team at a time with a toggle, at every width, which keeps the modal from having to
   // widen for a side-by-side layout.
   return (
     <Box>
@@ -752,7 +752,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
     >
       {/* While the sheet is up the game is the page (PageHeading.tsx). */}
       <MlbHiddenH1>{heading}</MlbHiddenH1>
-        {/* Score summary — during live play the bases/count/outs sit between the teams */}
+        {/* Score summary. During live play the bases/count/outs sit between the teams */}
         <Box sx={{ px: 2, pt: 2.5, pb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           {teamHeader(away, home)}
           {isLive && data?.situation && !data.situation.betweenInnings ? (
@@ -788,7 +788,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
               <SituationPanel sit={data.situation} onPlayerClick={selectPlayer} />
             )}
 
-            {/* Line score — always shown in the regular view */}
+            {/* Line score, always shown in the regular view */}
             <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
               <Box sx={{ mb: 1 }}><SectionLabel>Line Score</SectionLabel></Box>
               <LineScoreTable box={data.box} />

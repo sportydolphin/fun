@@ -1,4 +1,4 @@
-// Recent searches — the players and teams a user has opened, most-recent first.
+// Recent searches: the players and teams a user has opened, most-recent first.
 // Stored in localStorage (works logged-out / offline) and, when signed in, mirrored
 // to the user_preferences.recent_searches column so they sync across devices.
 

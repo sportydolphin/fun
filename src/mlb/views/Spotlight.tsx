@@ -275,10 +275,10 @@ function scoreHitterGame(stat: any): number {
   return score
 }
 
-// The bar for actually appearing as a single-game standout — distinct from the score
+// The bar for actually appearing as a single-game standout, distinct from the score
 // above, which only ranks the ones that clear it. Without this a thin slate (a day
 // with just a game or two final) would crown a merely-decent line as "the standout"
-// simply because it was the best of a tiny sample. A day with no standout contributes
+// because it was the best of a tiny sample. A day with no standout contributes
 // nothing, so the carousel falls back to the most recent day that had one.
 function isStandoutHitterGame(stat: any): boolean {
   const h   = Number(stat.hits        ?? 0)
@@ -335,7 +335,7 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
 
     const gameDays: string[] = []
     for (const dateObj of [...(schedRes?.dates ?? [])].reverse()) {
-      // Postponed games carry abstractGameState "Final" but produced no stats — don't
+      // Postponed games carry abstractGameState "Final" but produced no stats, so don't
       // let an all-postponed day burn a lookback slot that yields no performers.
       const hasFinal = (dateObj.games ?? []).some((g: any) =>
         g.status?.abstractGameState === 'Final' && g.status?.detailedState !== 'Postponed')

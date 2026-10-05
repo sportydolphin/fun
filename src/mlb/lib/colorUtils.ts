@@ -60,7 +60,7 @@ export function teamLogoBg(teamId: number, isDark: boolean): string {
   return TEAM_ICON_STYLE_LIGHT[teamId]?.bg ?? '#fff'
 }
 
-// Team logo image source — the per-team locked-in logo variant for the mode.
+// Team logo image source: the per-team locked-in logo variant for the mode.
 // Dark falls back to cap-on-dark, light falls back to the full-color primary.
 export function teamLogoSrc(teamId: number, isDark: boolean): string {
   if (isDark) return teamLogoUrl(teamId, TEAM_ICON_STYLE[teamId]?.logo ?? 'capDark')
@@ -86,7 +86,7 @@ export function borderAlpha(hex: string, isDark: boolean): string {
   return `${hex}${isDark ? 'cc' : '45'}`
 }
 
-// Default (non-team-colored) card border — darker than MUI's default 'divider'
+// Default (non-team-colored) card border, darker than MUI's default 'divider'
 // (~12% opacity) so plain card outlines read more defined.
 export function defaultBorder(isDark: boolean): string {
   return isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)'

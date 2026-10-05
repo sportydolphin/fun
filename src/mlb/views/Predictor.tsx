@@ -34,7 +34,7 @@ export interface TodayGame {
   gameTime: string
   state:    'preview' | 'live' | 'final' | 'postponed'
   /** Postseason only: "Gm 3", plus "if nec." for a game the series may never reach. A pick on
-   *  that game simply never resolves if it is not played, so the reader should know. */
+   *  that game never resolves if it is not played, so the reader should know. */
   note?:    string
   home: { teamId: number; abbr: string; name: string; pitcher: TodayPitcher | null }
   away: { teamId: number; abbr: string; name: string; pitcher: TodayPitcher | null }
@@ -154,7 +154,7 @@ const longDay  = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString
 
 // How far ahead the widget looks for the next day with a game to pick. The longest gap inside a
 // season is the All-Star break (four days) and inside a postseason the wait before the World Series
-// (five or six); two weeks clears both with room, and past it the season is simply over.
+// (five or six); two weeks clears both with room, and past it the season is over.
 const SLATE_LOOKAHEAD_DAYS = 14
 
 /**
@@ -415,7 +415,7 @@ export function PredictorWidget({ onPicksSettled }: {
   const [predsLoaded, setPredsLoaded] = useState(false)
 
   // Dev-only: when the simulator is enabled, drive the widget off a fabricated
-  // slate instead of the real schedule (see devSim.ts). Inert in production —
+  // slate instead of the real schedule (see devSim.ts). Inert in production:
   // `import.meta.env.DEV` is false there, so this collapses to the real fetch.
   const devSim    = useDevSim()
   const simActive = import.meta.env.DEV && devSim.enabled
@@ -542,7 +542,7 @@ export function PredictorWidget({ onPicksSettled }: {
     })
     saveLocalPred(slateDate, gamePk, teamId)
     if (user) savePredToSb(user.id, slateDate, gamePk, teamId).then(() => fetchVotesByGame(slateDate).then(setAllVotes))
-    // Every pick (anon or signed-in) funnels through here — the one clean spot to
+    // Every pick (anon or signed-in) funnels through here, the one clean spot to
     // record engagement with the predictions game. `changed` distinguishes a fresh
     // pick from switching an existing one so both don't read as new activity.
     track(EVENTS.PREDICTION_MADE, { league: 'mlb', gamePk, teamId, changed: prevTeamId != null }, user?.id ?? null)
@@ -552,7 +552,7 @@ export function PredictorWidget({ onPicksSettled }: {
   const finalized         = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
   const correctCount      = finalized.filter(g => predictions[g.gamePk] === g.winnerId).length
   const pct               = finalized.length ? Math.round(correctCount / finalized.length * 100) : null
-  // Predicted games not yet decided — "N to go" once results start coming in.
+  // Predicted games not yet decided: "N to go" once results start coming in.
   const pendingPicked     = games.filter(g => g.state !== 'final' && predictions[g.gamePk] !== undefined).length
   const previewGames      = games.filter(g => g.state === 'preview')
   const previewCount      = previewGames.length
@@ -568,7 +568,7 @@ export function PredictorWidget({ onPicksSettled }: {
   }, [settled, remainingCount, onPicksSettled])
 
   // Clicking a "your picks are ready" notification opens the full board here.
-  // Queued until the slate has loaded — opening onto an empty modal would look
+  // Queued until the slate has loaded, since opening onto an empty modal would look
   // like the notification lied.
   const [pendingOpen, setPendingOpen] = useState(false)
   useDeepLink('predictor', () => setPendingOpen(true))
@@ -635,7 +635,7 @@ export function PredictorWidget({ onPicksSettled }: {
           </Box>
         </Box>
 
-        {/* Heater banner — the user is on a hot correct-pick streak */}
+        {/* Heater banner: the user is on a hot correct-pick streak */}
         {heaterStreak >= PREDICTION_HEATER_MIN && (
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 0.75, px: 2.5, py: 0.9,
@@ -648,7 +648,7 @@ export function PredictorWidget({ onPicksSettled }: {
           </Box>
         )}
 
-        {/* Summary line — click to open the modal */}
+        {/* Summary line. A click opens the modal */}
         <Box
           onClick={() => canOpen && setModalOpen(true)}
           sx={{
@@ -674,7 +674,7 @@ export function PredictorWidget({ onPicksSettled }: {
           ) : games.length === 0 ? (
             <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No upcoming games</Typography>
           ) : finalized.length > 0 && !allDone ? (
-            // Results are coming in — lead with the running record + how many are left.
+            // Results are coming in: lead with the running record + how many are left.
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
               <Box component="span" sx={{ color: correctCount / finalized.length >= 0.5 ? '#22c55e' : '#ef4444', fontWeight: 800 }}>
                 {correctCount} / {finalized.length}
@@ -729,7 +729,7 @@ export function PredictorWidget({ onPicksSettled }: {
           </Box>
         )}
 
-        {/* Inline quick picks — up to 3 open matchups, tap a logo to pick right here */}
+        {/* Inline quick picks: up to 3 open matchups, tap a logo to pick right here */}
         {!loading && quickPicks.length > 0 && (
           <Box sx={{ px: 2.5, pb: 1.75, pt: 0.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {quickPicks.map(g => (

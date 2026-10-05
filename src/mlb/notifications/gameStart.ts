@@ -1,7 +1,7 @@
 // ─── "Your team's game is starting" notification source ───────────────────────
 //
 // The in-site twin of the game-start Web Push (scripts/send-game-start.mjs):
-// same catalog builder, same id — so a user who gets the push and then opens the
+// same catalog builder, same id, so a user who gets the push and then opens the
 // site sees one notification, not two.
 //
 // Derived, not an event: every refresh it recomputes whether the followed team's
@@ -10,7 +10,7 @@
 // underway (or if the user turns the reminder off). See src/lib/notifications.ts
 // for the derived-vs-event distinction.
 //
-// Scope is the *followed team's* next game only — no followed team, no reminder —
+// Scope is the *followed team's* next game only (no followed team, no reminder),
 // matching how the rest of the app personalises. Opt-in + lead time live in
 // Settings (src/mlb/prefs.ts).
 
@@ -39,7 +39,7 @@ export const gameStartSource: NotificationSource = {
     const teamId = getLocalFollowedTeamId()
     if (!teamId) return []
 
-    // One team, one day — a tiny response, so no field filtering needed.
+    // One team, one day: a tiny response, so no field filtering needed.
     const res = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${todayStr()}` +
       `&teamId=${teamId}&gameType=${SCHEDULE_GAME_TYPES}`

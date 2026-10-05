@@ -40,7 +40,7 @@ function RosterHeadshot({ playerId, teamId }: { playerId: number; teamId: number
 }
 
 function isInjured(statusCode: string) {
-  // Anything that isn't plain Active — IL (D7/D10/D60), bereavement, paternity, etc.
+  // Anything that isn't plain Active: IL (D7/D10/D60), bereavement, paternity, etc.
   return statusCode !== 'A'
 }
 

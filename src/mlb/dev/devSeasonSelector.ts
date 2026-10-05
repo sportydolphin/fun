@@ -3,7 +3,7 @@
 // as devSim/devDrama so the consolidated dev gear (now rendered app-wide, on both
 // the MLB and WPBL sections) and the MLB SearchView stay in sync no matter which
 // section is mounted. Every call site is gated behind import.meta.env.DEV, so the
-// control tree-shakes out of production — only the persisted value is read there.
+// control tree-shakes out of production. Only the persisted value is read there.
 
 import { useSyncExternalStore } from 'react'
 

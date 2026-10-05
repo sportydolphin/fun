@@ -33,7 +33,7 @@ export const MAX_FOLLOWED_PLAYERS = 20
 export const FOLLOWED_PREVIEW_XS = 3
 export const FOLLOWED_PREVIEW_SM = 5
 
-// MLB StatsAPI numeric team IDs, named for readability — mirrors TEAM_ABBR below.
+// MLB StatsAPI numeric team IDs, named for readability. Mirrors TEAM_ABBR below.
 // Plain constants (not an enum) so call sites can write the bare name, e.g.
 // `[BOS]: ...` as a computed object key.
 export const LAA = 108, ARI = 109, BAL = 110, BOS = 111, CHC = 112
@@ -140,7 +140,7 @@ function rememberedOpeningDay(year: number): string | null {
 export const CURRENT_SEASON = displaySeasonOn(new Date(), rememberedOpeningDay(new Date().getFullYear()))
 export const TEAM_SEASONS = Array.from({ length: CURRENT_SEASON - 2000 + 1 }, (_, i) => CURRENT_SEASON - i)
 
-// Correct picks in a row before a prediction streak counts as a "heater" — the bar
+// Correct picks in a row before a prediction streak counts as a "heater": the bar
 // for the 🔥 leaderboard badge and the heater banner. Shared by the stats board and
 // the home Predictor card so they agree.
 export const PREDICTION_HEATER_MIN = 3
@@ -269,7 +269,7 @@ export const TEAM_BG: Record<number, string> = {
   [MIL]: '#12284B',
 }
 
-// Secondary / accent colors — used as the contrasting foreground on team-color backgrounds
+// Secondary / accent colors, used as the contrasting foreground on team-color backgrounds
 export const TEAM_SECONDARY: Record<number, string> = {
   [LAA]: '#B8CBE4',  // light blue
   [ARI]: '#E3D4AD',  // sand
@@ -312,7 +312,7 @@ export const TEAM_SECONDARY: Record<number, string> = {
 // Fallback bubble background when a team has no TEAM_ICON_STYLE entry.
 export const DEFAULT_ICON_BG_DARK = '#2e2e2e'
 
-// Logo art variants MLB serves — verified to exist for all 30 clubs
+// Logo art variants MLB serves, verified to exist for all 30 clubs
 export type LogoVariantKey = 'primary' | 'capDark' | 'capLight' | 'primDark' | 'primLight'
 export const LOGO_VARIANTS: { key: LogoVariantKey; label: string; url: (id: number) => string }[] = [
   { key: 'primary',   label: 'Primary',          url: id => `https://www.mlbstatic.com/team-logos/${id}.svg` },

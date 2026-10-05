@@ -17,7 +17,7 @@ function fmtPct(p: number): string {
 }
 
 // Green when a team is comfortably in, amber in the thick of the race, muted once
-// it's a long shot — a quick read down the column before any numbers register.
+// it's a long shot: a quick read down the column before any numbers register.
 function pctColor(p: number): string {
   if (p >= 0.85) return '#22c55e'
   if (p >= 0.25) return '#eab308'
@@ -62,7 +62,7 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
         </Typography>
       </Box>
 
-      {/* Make playoffs — the headline number, with a slim meter under it */}
+      {/* Make playoffs: the headline number, with a slim meter under it */}
       <Box sx={{ minWidth: chromePx(60), textAlign: 'right' }}>
         <Typography sx={{ fontSize: '0.86rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: pctColor(row.makePlayoffs), lineHeight: 1.2 }}>
           {fmtPct(row.makePlayoffs)}
@@ -72,7 +72,7 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
         </Box>
       </Box>
 
-      {/* Win the division — secondary, hidden on the narrowest screens */}
+      {/* Win the division: secondary, hidden on the narrowest screens */}
       <Box sx={{ minWidth: chromePx(42), textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: row.winDivision > 0 ? 'text.secondary' : 'text.disabled' }}>
           {fmtPct(row.winDivision)}

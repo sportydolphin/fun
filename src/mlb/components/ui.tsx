@@ -284,7 +284,7 @@ export interface StatGridProps {
   mt?: number
   bigYear?: boolean     // show the season year large & bright, without the group word
   showHeader?: boolean  // false suppresses the header entirely (e.g. 2nd section of a two-way card)
-  sectionLabel?: string // when set, header shows just this group label (no season) — used by the player card, which shows the year separately up top
+  sectionLabel?: string // when set, header shows just this group label (no season), used by the player card, which shows the year separately up top
 }
 
 export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, leaders, season, label, large, onToggle, mt, bigYear, showHeader = true, sectionLabel }: StatGridProps) {

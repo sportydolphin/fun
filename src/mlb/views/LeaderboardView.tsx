@@ -220,7 +220,7 @@ export function LeaderboardView({
         // A medal is a place nobody shares; a tie on the podium prints "T-2" like any other tie.
         const medal = (m: { n: number; tied: boolean }) => m.n <= 3 && !m.tied
         const maxEntries = lbIsDefault && isDesktop ? 10 : 5
-        // Qualification only applies to rate stats — otherwise a player with a
+        // Qualification only applies to rate stats. Otherwise a player with a
         // handful of ABs/IP could camp the top of AVG/ERA. Counting-stat boards
         // (SB, HR, saves…) must include everyone, since part-time players can
         // still lead them.
