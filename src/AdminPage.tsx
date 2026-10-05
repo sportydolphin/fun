@@ -8,7 +8,7 @@ import { PlayerPortrait } from './wpbl/ui'
 // The gesture the win probability and standings charts already use. It lives under wpbl/
 // because `data-swipe-lock` exists for that section's tab pager, but nothing in it is
 // league-specific, and this file already reaches across for PlayerPortrait.
-import { useChartScrub } from './wpbl/chartScrub'
+import { useChartScrub } from './ui/chartScrub'
 import {
   fetchAnalytics, localTz, deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,

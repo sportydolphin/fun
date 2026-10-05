@@ -167,7 +167,7 @@ export function LiveDot({ size = 6 }: { size?: number }) {
 function StatHead({ children, w = 26 }: { children: React.ReactNode; w?: number }) {
   return (
     <Box component="th" sx={{
-      fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled',
+      fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
       textTransform: 'uppercase', letterSpacing: typePx(0.4),
       textAlign: 'right', px: 0.4, py: 0.5, minWidth: chromePx(w),
     }}>
@@ -179,8 +179,8 @@ function StatHead({ children, w = 26 }: { children: React.ReactNode; w?: number 
 function StatCell({ children, bold = false }: { children: React.ReactNode; bold?: boolean }) {
   return (
     <Box component="td" sx={{
-      fontSize: '0.72rem', fontWeight: bold ? 800 : 600, color: 'text.primary',
-      textAlign: 'right', px: 0.4, py: 0.45, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
+      fontSize: '0.76rem', fontWeight: bold ? 800 : 600, color: 'text.primary',
+      textAlign: 'right', px: 0.4, py: 0.55, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
     }}>
       {children}
     </Box>
@@ -245,10 +245,12 @@ export function LineScoreTable({ box }: { box: BoxScore }) {
 function BattingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
   return (
     <Box data-swipe-ignore="true" sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
+      {/* On a phone the table fits the width and a long name wraps; at max-content the pitching
+          table ran past a 375px screen and its last column scrolled out of sight. */}
+      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: { xs: 0, sm: 'max-content' } }}>
         <Box component="thead">
           <Box component="tr">
-            <Box component="th" sx={{ minWidth: '8.25rem', textAlign: 'left', fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
+            <Box component="th" sx={{ minWidth: { xs: '6.5rem', sm: '8.25rem' }, textAlign: 'left', fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
               Batters
             </Box>
             <StatHead>AB</StatHead><StatHead>R</StatHead><StatHead>H</StatHead>
@@ -259,19 +261,19 @@ function BattingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: 
         <Box component="tbody">
           {team.batters.map(b => (
             <Box component="tr" key={b.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <Box component="td" sx={{ px: 0.4, py: 0.45 }}>
+              <Box component="td" sx={{ px: 0.4, py: 0.55 }}>
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                   <Typography
                     {...playerLink(b.id, b.name, onPlayerClick)}
                     sx={{
-                      ...LINK_SX, fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.2,
+                      ...LINK_SX, fontSize: '0.76rem', fontWeight: 600, lineHeight: 1.2,
                       pl: b.isSub ? 1 : 0,
                       ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
                     }}
                   >
                     {b.name}
                   </Typography>
-                  <Typography sx={{ fontSize: '0.56rem', color: 'text.disabled', lineHeight: 1 }}>{b.pos}</Typography>
+                  <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>{b.pos}</Typography>
                 </Box>
               </Box>
               <StatCell>{b.ab}</StatCell><StatCell>{b.r}</StatCell><StatCell bold>{b.h}</StatCell>
@@ -288,10 +290,10 @@ function BattingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: 
 function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
   return (
     <Box data-swipe-ignore="true" sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
+      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: { xs: 0, sm: 'max-content' } }}>
         <Box component="thead">
           <Box component="tr">
-            <Box component="th" sx={{ minWidth: '8.25rem', textAlign: 'left', fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
+            <Box component="th" sx={{ minWidth: { xs: '6.5rem', sm: '8.25rem' }, textAlign: 'left', fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
               Pitchers
             </Box>
             <StatHead w={32}>IP</StatHead><StatHead>H</StatHead><StatHead>R</StatHead>
@@ -303,19 +305,19 @@ function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?:
         <Box component="tbody">
           {team.pitchers.map(p => (
             <Box component="tr" key={p.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <Box component="td" sx={{ px: 0.4, py: 0.45 }}>
+              <Box component="td" sx={{ px: 0.4, py: 0.55 }}>
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                   <Typography
                     {...playerLink(p.id, p.name, onPlayerClick)}
                     sx={{
-                      ...LINK_SX, fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.2,
+                      ...LINK_SX, fontSize: '0.76rem', fontWeight: 600, lineHeight: 1.2,
                       ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
                     }}
                   >
                     {p.name}
                   </Typography>
                   {p.note && (
-                    <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, color: 'primary.main', lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'primary.main', lineHeight: 1 }}>
                       {p.note}
                     </Typography>
                   )}
@@ -336,7 +338,7 @@ function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?:
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
-      fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled',
+      fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
       textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1,
     }}>
       {children}

@@ -99,6 +99,12 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    (`views/SeriesSheet.tsx`, data in `seriesDetail.ts`) at `/mlb/postseason/<season>/<slot>`, in
    the sitemap once a game in it is final. Series, games and players copy `/m/<code>` short links
    (`functions/m`), WPBL's `/p` and `/g` for this section.
+10. ✅ **Game Center aligned with WPBL** (v1.122.0, Oct 5). Wider from `lg`, line score as the
+   header, Summary / Box Score / Plays tabs. Summary: series band, WPBL's win probability chart
+   (team territories from `chartPairColors`, scrub via the shared `src/ui/chartScrub.ts`), top
+   performers, biggest swings, game info (`views/GameSummary.tsx`). Plays fold by half-inning with
+   a remembered Expand all. One type ramp (`views/gameType.ts`). *Open:* opening a player from a
+   game closes it, so Back lands on Scores rather than the game.
 
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.

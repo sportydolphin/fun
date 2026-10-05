@@ -4,6 +4,28 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.122.0',
+    date:    '2026-10-05',
+    changes: [
+      {
+        short: 'A roomier MLB game page',
+        full:  'MLB games open wider on a computer, with the line score as the header and three tabs: Summary, Box Score (both teams side by side) and Plays.',
+      },
+      {
+        short: 'More on the game summary',
+        full:  'The summary now shows where a playoff game sits in its series with a link to the series, the top performers, the biggest swings marked on the win probability chart, and the venue, attendance, weather and game length.',
+      },
+      {
+        short: 'Win probability in team colors',
+        full:  'The MLB win probability chart now matches the WPBL one: each team\'s share is shaded in its own color, and you can hover or hold the chart to read any play.',
+      },
+      {
+        short: 'Fold plays by half-inning',
+        full:  'On the Plays tab, All groups plays by half-inning with the runs and score for each, and Expand all or Collapse all opens or closes them at once.',
+      },
+    ],
+  },
+  {
     version: '1.121.0',
     date:    '2026-10-05',
     changes: [
