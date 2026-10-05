@@ -19,7 +19,7 @@
  * Run through scripts/make-visual.ts (`npm run visual -- <slug> --n <number>`).
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Resvg } from '@resvg/resvg-js'
@@ -302,4 +302,14 @@ export async function fetchAll<T>(table: string, select: string, order: string):
     rows.push(...page)
     if (page.length < PAGE) return rows
   }
+}
+
+/**
+ * A table from the committed season archive (archive/wpbl-2026), for a visual about the finished
+ * 2026 season. Same rows the anonymous client reads, frozen and digest-checked weekly, so the
+ * image can be rebuilt byte for byte next year without a .env, and its numbers match the public
+ * record anyone can audit. A visual about something still moving uses fetchAll instead.
+ */
+export function readArchive<T>(table: string): T[] {
+  return JSON.parse(readFileSync(join('archive', 'wpbl-2026', `${table}.json`), 'utf8')) as T[]
 }

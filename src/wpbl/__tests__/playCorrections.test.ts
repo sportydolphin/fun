@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyPlayCorrections } from '../api'
+import { applyPlayCorrections } from '../corrections'
 import type { WpblCorrectionSource } from '../types'
 
 // Corrections are matched on (game_id, sequence), the feed's own identifier for a play, and

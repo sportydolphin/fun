@@ -1050,6 +1050,10 @@ post to the site page it comes from, which is also the backlink work in docs/BAC
 - 🎞️ **Tug of war** for each game of the final, a rope that moves on every lead change.
 - 🎞️ **Hear the game.** The final's win probability as a rising and falling tone, a click on each
   run. A video with sound.
+- 🖼️ **Where every ball went.** ✅ *Built Oct 5, 2026, not yet posted: `npm run visual -- every-ball`.*
+  The season's balls in play on two fields, right-handed hitters beside left-handed, shaded by the
+  scorer's eleven zones (no dots: the league records no coordinates). The gap zones read low, 3-4%,
+  because the scorer writes "left center" almost only on hits; an out there is filed to lf or cf.
 - 🖼️ **What every play is worth.** The league's own linear weights; the sacrifice bunt was worth
   -0.00 runs across 14 attempts (August figure).
 - 🖼️ **Hall of Firsts timeline.** First hit, home run, win, save, walk-off, as one poster.
