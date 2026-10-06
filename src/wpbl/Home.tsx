@@ -2885,6 +2885,20 @@ function offseasonByCalendar(now = Date.now()): boolean {
   return !!last && now > Date.parse(`${last}T00:00:00Z`) + 30 * 3600_000
 }
 
+/**
+ * Whether a Home landing will read the season's box-score lines, judged by the calendar for a
+ * caller that runs before the schedule has arrived (the warm-up in WpblApp). Once there is a
+ * champion and the award results are off the page, the only cards that drew from them (Compare
+ * and the ballot) are gone, and the lines are the heaviest read in the section.
+ *
+ * A HINT, NOT THE GATE. Home decides for itself from the real schedule (`needsLines` in WpblHome).
+ * The calendar is wrong in spring until POSTSEASON_SCHEDULE is updated for the new season, and the
+ * cost of that is only a lost head start: Home still fetches the lines once it has mounted.
+ */
+export function homeLandingReadsLines(now = Date.now()): boolean {
+  return !(offseasonByCalendar(now) && !awardsResultsShowOnHome(now))
+}
+
 export function WpblHomeSkeleton() {
   // THE OFFSEASON HOME IS A DIFFERENT PAGE, and a skeleton of the in-season one swapped for it
   // moved everything: the scoreboard strip became the taller gallery and the two-by-two grid a
@@ -3145,21 +3159,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     return () => window.removeEventListener(DISCORD_DEV_SHOW_EVENT, onShow)
   }, [])
 
-  // Full load once, then revalidate on later mounts only when the cache is cold or stale:
-  // a quick swipe back to a warm Home is instant and silent. Players are static for the
-  // session; lines seed the leaders, and the tracked-game-id list drives the new-batch banner.
-  useEffect(() => {
-    if (wpblHomeCacheAgeMs() < 30_000) return
-    let cancelled = false
-    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblTrackedGameIds()])
-      .then(([p, l, ids]) => {
-        if (cancelled) return
-        setPlayers(p); setLines(l); setTrackedGameIds(ids); setLoadingLeaders(false)
-      })
-      .catch(() => { if (!cancelled) setLoadingLeaders(false) })
-    return () => { cancelled = true }
-  }, [])
-
   // The MVP race's data, on its own. Failure is silent and the card just never appears, which
   // is the right outcome for a card that is a bonus rather than the page: nothing above it
   // depends on this resolving.
@@ -3255,6 +3254,35 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // dev-simulated champion counts, so the offseason preview shows the offseason Home.
   const realChampion = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
   const seasonDone = !!realChampion || !!devChampTeam
+
+  // Whether anything on this render reads the box-score lines. Off only on the offseason Home once
+  // the award results have come down: Compare and the ballot are filtered out of `seasonCards`
+  // below on these same two conditions, and nothing else on the page takes `lines` or
+  // `batSeasons`. A live game turns it back on for LiveHero's sake. Decided from the real
+  // schedule, which Home always has by the time it mounts; see homeLandingReadsLines for the
+  // calendar guess the warm-up makes before then.
+  const needsLines = !seasonDone || awardsResultsShowOnHome() || !!liveGame
+
+  // Full load once, then revalidate on later mounts only when the cache is cold or stale:
+  // a quick swipe back to a warm Home is instant and silent. Players are static for the
+  // session; lines seed the leaders, and the tracked-game-id list drives the new-batch banner.
+  // The lines are left out when nothing on the page reads them (see needsLines), which is every
+  // offseason visit: ~73KB gzipped and ~340KB of JSON to parse, for no card at all.
+  useEffect(() => {
+    if (needsLines && wpblHomeCacheAgeMs() < 30_000) return
+    let cancelled = false
+    Promise.all([
+      fetchWpblAllPlayers(),
+      needsLines ? fetchWpblAllLines() : Promise.resolve(null),
+      fetchWpblTrackedGameIds(),
+    ])
+      .then(([p, l, ids]) => {
+        if (cancelled) return
+        setPlayers(p); if (l) setLines(l); setTrackedGameIds(ids); setLoadingLeaders(false)
+      })
+      .catch(() => { if (!cancelled) setLoadingLeaders(false) })
+    return () => { cancelled = true }
+  }, [needsLines])
 
   // What the top-of-page banner draws, or null for none. The real one is up only until the end of
   // the day after the title was clinched (see championBannerUntil), then the season card carries

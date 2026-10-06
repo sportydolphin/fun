@@ -43,7 +43,28 @@ export interface TodayGame {
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-export async function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
+// One read per date shared by everything that asks at once. Home mounts the Predictor and Streak
+// Survivor side by side and the toolbar bell asks too, so a cold /mlb load sent the schedule read
+// and the probable pitchers' stats read twice each, a few milliseconds apart. Ten seconds is long
+// enough to fold those together and short enough that a game crossing first pitch is never
+// reported as still pickable for long; the Predictor's own refresh is every three minutes.
+const TODAY_GAMES_TTL_MS = 10_000
+const todayGamesCache = new Map<string, { at: number; p: Promise<TodayGame[]> }>()
+
+export function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
+  const hit = todayGamesCache.get(dateStr)
+  let p: Promise<TodayGame[]>
+  if (hit && Date.now() - hit.at < TODAY_GAMES_TTL_MS) p = hit.p
+  else {
+    p = readTodayGames(dateStr)
+    todayGamesCache.set(dateStr, { at: Date.now(), p })
+  }
+  // A copy each: callers merge into and keep these objects, and one caller's edit must not
+  // surface in another's state.
+  return p.then(gs => structuredClone(gs))
+}
+
+async function readTodayGames(dateStr: string): Promise<TodayGame[]> {
   try {
     const r = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${dateStr}` +

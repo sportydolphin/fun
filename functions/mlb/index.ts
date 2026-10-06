@@ -24,6 +24,12 @@
 //    fixed list and the season is checked against the calendar, which is all the evidence a 404
 //    needs. A season whose bracket is not out yet is let through, and the page steps off it.
 //
+// 5. DROP THE WPBL PRELOADS FROM THE SHELL. index.html is shared, and it carries modulepreload
+//    links for the WPBL section because /wpbl is where most traffic lands
+//    (scripts/vite-plugin-wpbl-preload.mjs). On /mlb they only compete with the MLB chunks for
+//    the connection and the phone's CPU, so every page this function hands through goes out
+//    without them (`shell`).
+//
 // It cannot break the page: StatsAPI slow, down or answering something unexpected all fall
 // through to the untouched shell, which resolves the player or game on its own. A 404 is only
 // ever answered on positive evidence that there is no such player or game.
@@ -40,7 +46,8 @@ export interface Ctx { request: Request; env: Env; next: () => Promise<Response>
 const STATSAPI_TIMEOUT_MS = 2500
 
 export async function onRequestGet(context: Ctx): Promise<Response> {
-  const { request, next } = context
+  const { request } = context
+  const next = () => shell(context)
   const url = new URL(request.url)
   const path = url.pathname.replace(/\/+$/, '') || '/'
 
@@ -111,9 +118,9 @@ async function game(context: Ctx, url: URL, path: string): Promise<Response> {
   try {
     exists = await gameExists(pk)
   } catch {
-    return context.next()
+    return shell(context)
   }
-  return exists ? context.next() : notFound(context)
+  return exists ? shell(context) : notFound(context)
 }
 
 function series(context: Ctx, url: URL, path: string): Promise<Response> | Response {
@@ -127,7 +134,7 @@ function series(context: Ctx, url: URL, path: string): Promise<Response> | Respo
     to.pathname = canonical
     return Response.redirect(to.toString(), 301)
   }
-  return context.next()
+  return shell(context)
 }
 
 /** Whether StatsAPI has this game as one the scoreboard shows. A throw is "could not ask". */
@@ -183,4 +190,30 @@ export async function notFound(context: Ctx): Promise<Response> {
   const page = await context.env.ASSETS?.fetch(new Request(url.toString(), { headers: context.request.headers }))
   if (!page) return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } })
   return new Response(page.body, { status: 404, headers: page.headers })
+}
+
+/** What the WPBL preload plugin marks its links with. See item 5 at the top. */
+export const WPBL_PRELOAD_SELECTOR = 'link[data-section="wpbl"]'
+
+/**
+ * The app shell as it would have been served, minus the WPBL section's modulepreload links.
+ *
+ * Only an HTML response is touched, and only where the Workers runtime provides HTMLRewriter (the
+ * test runner has none), so anything unexpected passes through exactly as before. The links are a
+ * hint: without them WpblApp still loads the moment someone flips to WPBL, and the shell's hover
+ * and idle prefetch warms it ahead of that.
+ */
+async function shell(context: Ctx): Promise<Response> {
+  const res = await context.next()
+  if (typeof HTMLRewriter === 'undefined') return res
+  if (!(res.headers.get('content-type') ?? '').includes('text/html')) return res
+  return new HTMLRewriter()
+    .on(WPBL_PRELOAD_SELECTOR, { element(el) { el.remove() } })
+    .transform(res)
+}
+
+// The one Workers global this file touches; see the same declaration in functions/wpbl/index.ts.
+declare class HTMLRewriter {
+  on(selector: string, handlers: { element(el: { remove(): void }): void }): HTMLRewriter
+  transform(response: Response): Response
 }

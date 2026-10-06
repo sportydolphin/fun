@@ -20,6 +20,7 @@ let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_
 const arrivedAt = window.location.pathname
 import { SegControl } from './mlb/components/ui'
 import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, preloadAllMlbViews } from './mlb/views/lazyViews'
+import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
@@ -210,7 +211,10 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // Warm every other view once this one has had the network to itself, on the same few-second
   // footing as App.tsx's warming of the other section, so a later tab tap does not wait on a chunk.
+  // Skipped under Data Saver, as that one is: a tab tap then waits on its chunk, which is the trade
+  // the reader asked for.
   useEffect(() => {
+    if (saveDataOn()) return
     const t = window.setTimeout(preloadAllMlbViews, 4000)
     return () => window.clearTimeout(t)
   }, [])

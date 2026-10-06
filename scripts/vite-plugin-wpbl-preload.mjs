@@ -9,13 +9,13 @@
 // proportionally worse. A modulepreload link moves the request up beside the entry chunk
 // so the two download together.
 //
-// This preloads WPBL on every route, including /mlb. That is deliberate: /wpbl is the
-// default section (`/` redirects there, it is the canonical URL, and it is the PWA's
-// start_url), so it is the right guess for almost all traffic. The cost of guessing wrong
-// is that an /mlb visitor speculatively fetches ~60 KB they may not use; the cost of not
-// guessing is a serialized round trip for everyone else. index.html is one static file
-// shared by both sections, so there is no place to make this decision per-route without
-// pushing asset hashes into the edge function that serves /wpbl.
+// This goes into the one index.html every route shares, because /wpbl is where almost all
+// traffic lands (`/` redirects there, it is the canonical URL, and it is the PWA's start_url).
+// The /mlb Pages Function (functions/mlb/index.ts) strips the links back out of the page it
+// serves, keyed on the `data-section` attribute below: an /mlb visitor used to download the
+// whole WPBL section at first paint (WpblApp alone is ~220 KB, ~400 KB with what it imports),
+// in parallel with the MLB chunks that page actually needed. Rename the attribute here and that
+// strip silently stops matching, so src/mlb/__tests__/routes.test.ts pins the pair.
 const WPBL_ENTRY = 'src/wpbl/WpblApp.tsx'
 
 export function wpblPreload() {
@@ -61,7 +61,7 @@ export function wpblPreload() {
         )
         return files.map(fileName => ({
           tag: 'link',
-          attrs: { rel: 'modulepreload', crossorigin: true, href: `/${fileName}` },
+          attrs: { rel: 'modulepreload', crossorigin: true, href: `/${fileName}`, 'data-section': 'wpbl' },
           injectTo: 'head',
         }))
       },

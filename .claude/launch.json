@@ -34,6 +34,19 @@
       ],
       "port": 4173,
       "autoPort": true
+    },
+    {
+      "name": "wrangler-pages",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "wrangler@3",
+        "pages",
+        "dev",
+        "dist",
+        "--port",
+        "8788"
+      ],
+      "port": 8788
     }
   ]
 }

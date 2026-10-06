@@ -17,7 +17,8 @@ import {
 } from '../routes'
 import { SERIES_ORDER } from '../postseason'
 import { pushEntry } from '../state/sheetHistory'
-import { onRequestGet } from '../../../functions/mlb/index'
+import { onRequestGet, WPBL_PRELOAD_SELECTOR } from '../../../functions/mlb/index'
+import wpblPreloadPlugin from '../../../scripts/vite-plugin-wpbl-preload.mjs?raw'
 import { onRequestGet as onShortGet } from '../../../functions/m/[[code]]'
 import { mlbShortPath, mlbShortTargetFromPath } from '../routes'
 
@@ -312,5 +313,14 @@ describe('short links', () => {
 
   it('reaches the Functions worker', () => {
     expect(routesJson.include).toContain('/m/*')
+  })
+})
+
+describe('the WPBL preloads an /mlb page leaves out', () => {
+  // The plugin marks the links and the function strips by that mark. Neither fails if the other
+  // renames it: /mlb just goes back to downloading the WPBL section at first paint, unseen.
+  it('strips by the attribute the plugin writes', () => {
+    expect(WPBL_PRELOAD_SELECTOR).toBe('link[data-section="wpbl"]')
+    expect(wpblPreloadPlugin).toContain(`'data-section': 'wpbl'`)
   })
 })

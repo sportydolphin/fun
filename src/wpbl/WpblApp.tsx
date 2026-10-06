@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
-  fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblArticles, fetchWpblSiteGames, fetchWpblFanPhotoIndex,
+  fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblArticles, fetchWpblSiteGames, fetchWpblFanPhotoIndex, fetchWpblVideos,
   getCachedWpblTeams, getCachedWpblSchedule, getCachedWpblSiteGames,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
@@ -10,7 +10,7 @@ import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
 import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
-import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
+import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
 import { jerseyQuery, jerseyOf } from './playerSearch'
@@ -21,7 +21,7 @@ import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
-import WpblHome, { WpblHomeSkeleton } from './Home'
+import WpblHome, { WpblHomeSkeleton, homeLandingReadsLines } from './Home'
 import WpblStatsView, { carryStatsParams, type WpblStatsFocus } from './StatsView'
 import SeasonShapeCard from './SeasonShapeCard'
 import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
@@ -1461,18 +1461,23 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Deliberately scoped to a Home landing. Deep links (a shared ?game=, or ?view=stats) open
   // a view that wants a different, smaller slice, so this should not be speculative. The
   // whole-season play log is not warmed here: it is the most expensive read on the section and
-  // Home fetches it last on purpose (see the play-log effect in Home.tsx).
+  // Home fetches it last on purpose (see the play-log effect in Home.tsx). Nor are the box-score
+  // lines when the calendar says Home will not draw them (homeLandingReadsLines): warming a read
+  // nothing consumes is the whole cost and none of the benefit.
   const landsOnHome = useRef(view === 'home')
   useEffect(() => {
     if (!landsOnHome.current) return
     void Promise.all([
-      fetchWpblAllLines(),
+      homeLandingReadsLines() ? fetchWpblAllLines() : null,
       fetchWpblTrackedGameIds(),
       fetchWpblArticles(),
       // The gallery, which leads Home in the offseason and so is the card most in need of the
-      // head start. Videos used to be here for Home's media shelf; the shelf is gone and nothing
-      // on Home reads them now.
+      // head start.
       fetchWpblFanPhotoIndex(),
+      // The Watch card's posters. It sits on Home in both halves of the year and second from the
+      // top in the offseason, and without this its read queued behind the Home chunk, starting
+      // half a second after everything else.
+      fetchWpblVideos(),
     ]).catch(() => { /* Home's own effect surfaces failures; this is only a head start */ })
   }, [])
 
@@ -1592,8 +1597,17 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // rather than the landing-view warm-up below, because search works from every tab and that
   // warm-up only runs when the section opens on Home. fetchWpblAllLines is deduped and cached
   // app-wide, so asking again here costs nothing once anything else has asked.
+  //
+  // NOT UNTIL THE SEARCH IS FOCUSED. Every box-score line of the season is the largest read in the
+  // section (~340KB of JSON, ~73KB gzipped), and this effect used to pull it on every tab for every
+  // visitor, most of whom never search. Focus comes a few hundred ms before the first typed letter,
+  // which is about what the read takes, and until it lands a row falls back to the roster's own
+  // position label rather than showing nothing.
   const [positionIndex, setPositionIndex] = useState<Map<string, PrimaryPosition>>(() => new Map())
+  const [searchUsed, setSearchUsed] = useState(false)
+  useEffect(() => onFirstSearchFocus(() => setSearchUsed(true)), [])
   useEffect(() => {
+    if (!searchUsed) return
     let cancelled = false
     fetchWpblAllLines()
       .then(l => { if (!cancelled) setPositionIndex(buildPositionIndex(l.batting, games)) })
@@ -1603,7 +1617,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // live poll, and rebuilding a map of 118 names to hand every search row a new object thirty
     // times an hour buys nothing. What the index actually needs from the schedule is which
     // games to leave out, and that only moves when the schedule gains a game.
-  }, [games.length])
+  }, [games.length, searchUsed])
 
   // Recent searches: the players and teams opened from the header search, newest first, so
   // the empty-query dropdown has something to show (opening a player page is the retention

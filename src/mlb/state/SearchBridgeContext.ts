@@ -120,6 +120,30 @@ export function useSearchBridge(): SearchBridgeState {
   return useSyncExternalStore(_subscribe, _snapshot)
 }
 
+// The toolbar search has been focused at least once this session. Kept OUT of the bridge state on
+// purpose: it changes once, and a field there would re-render every subscriber for a fact only a
+// section's lazy data loading cares about. Sticky, so a section that mounts after the first focus
+// still learns of it.
+let _searchFocused = false
+const _focusListeners = new Set<() => void>()
+
+/** Called by the shell when the toolbar search input takes focus. */
+export function noteSearchFocus(): void {
+  if (_searchFocused) return
+  _searchFocused = true
+  _focusListeners.forEach(l => l())
+  _focusListeners.clear()
+}
+
+/** Runs `cb` once, the first time the search is focused (at once if it already has been). Returns
+ *  an unsubscribe. For data a section's search rows want but nothing else on the page does, so
+ *  only readers who actually search pay for it. */
+export function onFirstSearchFocus(cb: () => void): () => void {
+  if (_searchFocused) { cb(); return () => {} }
+  _focusListeners.add(cb)
+  return () => { _focusListeners.delete(cb) }
+}
+
 const _querySnapshot = () => _state.query
 
 /** Only the typed query: a component that publishes the rest of the bridge should read just this,

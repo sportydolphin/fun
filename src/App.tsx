@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useR
 import { createPortal } from 'react-dom'
 import { Typography, Box, IconButton, AppBar, Toolbar, Button, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
-import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
+import { useSearchBridge, setSearchQuery, noteSearchFocus } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { APP_VERSION } from './version'
@@ -11,6 +11,7 @@ import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { isMlbPath, MLB_PATH_EVENT } from './mlb/routes'
 import { preloadMlbViewFor } from './mlb/views/lazyViews'
+import { saveDataOn } from './lib/saveData'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { EraBasisProvider } from './wpbl/EraBasisContext'
@@ -528,6 +529,10 @@ function AppInner() {
   // only for the two routes that have another section to go to.
   useEffect(() => {
     if (!isMlbPath(path) && !isWpblSection(path)) return
+    // Not for a reader who has asked the browser to save data: about 300 KB of a section most
+    // visitors never open, on a timer. The hover and focus prefetch still covers a reader who
+    // reaches for the switch.
+    if (saveDataOn()) return
     // NOT ON THE FIRST IDLE MOMENT. The page goes idle while it waits on the network, so an idle
     // callback alone fired at ~0.7s on production, and ~100 KB of the other section went out
     // right beside the first data reads, on the connection and the phone CPU the page still
@@ -1047,6 +1052,7 @@ function AppInner() {
                     value={bridge.query}
                     onChange={(e: any) => setSearchQuery(e.target.value)}
                     onFocus={() => {
+                      noteSearchFocus()
                       setToolbarInputFocused(true)
                       if (querySearchable) setToolbarDropdownOpen(true)
                     }}

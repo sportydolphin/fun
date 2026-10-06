@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.123.1',
+    date:    '2026-10-06',
+    changes: [
+      {
+        short: 'Faster first load',
+        full:  'WPBL and MLB pages download less when they open: the MLB section no longer loads the WPBL app alongside it, the full season of WPBL box scores waits until you search, and nothing is fetched ahead of time when your browser is set to save data.',
+      },
+    ],
+  },
+  {
     version: '1.123.0',
     date:    '2026-10-06',
     changes: [
