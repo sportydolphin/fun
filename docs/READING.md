@@ -81,7 +81,8 @@ These Two Guys Race to Eat a Hot Dog, Slowly."* The surface is called **Reading*
 | Surface | Component | Shows when |
 |---|---|---|
 | `/wpbl/reading`, every post with writer and club filters | `ReadingPage` + `ReadingLead` / `ReadingCard` | any posts exist |
-| Home, one line: the latest headline and "All N posts" | `LatestReadingCard` (Home.tsx) | any posts exist |
+| Home in season, one line: the latest headline and "All N posts" | `LatestReadingCard` (Home.tsx) | any posts exist |
+| Home in the offseason, above Watch: three cards, each writer's newest guaranteed a place | `ReadingHomeCard` (Home.tsx) | any posts exist |
 | Game center, under the highlight reel | `GameStoryCard` | a final has a matched post |
 | Player page, under the stat blocks | `WrittenAbout` | a post names that player |
 

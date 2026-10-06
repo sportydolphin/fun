@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Box, Typography, Skeleton, Switch, alpha } from '@mui/material'
 import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined, EmojiEventsOutlined } from '@mui/icons-material'
 import { useAuth } from '../AuthContext'
@@ -13,7 +13,8 @@ import {
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
-import { readMinutes, sourceOf } from './derive/articles'
+import { readMinutes, sourceOf, SOURCES } from './derive/articles'
+import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
@@ -2328,6 +2329,88 @@ function LatestReadingCard() {
   )
 }
 
+/** How many posts the offseason Reading card shows: one row of three on a desktop. */
+const READING_HOME_COUNT = 3
+
+/**
+ * The newest posts for the offseason Reading card, newest first, with each writer's latest
+ * guaranteed a place. Straight recency would let whichever writer filed last fill the row, and
+ * the card exists to put both in front of a reader who has nothing else new to look at.
+ */
+export function readingHomePicks(articles: WpblArticle[], n = READING_HOME_COUNT): WpblArticle[] {
+  const firsts = SOURCES
+    .map(src => articles.find(a => sourceOf(a.source).key === src.key))
+    .filter((a): a is WpblArticle => !!a)
+  const picked = [...firsts, ...articles.filter(a => !firsts.includes(a))].slice(0, n)
+  return picked.sort((a, b) => b.published_at.localeCompare(a.published_at) || b.post_id - a.post_id)
+}
+
+/**
+ * Reading, in the offseason: the newest posts from both writers as cards, above Watch.
+ *
+ * WHY NOT THE ONE LINE. LatestReadingCard was sized for a season, where it sat under a page of
+ * games and only had to answer "is there anything new". With no games left, the gallery, the
+ * videos and the writing are the whole of what changes on Home, and a single headline at the foot
+ * of the page undersold the one of the three that is still being written.
+ *
+ * THE CREDIT LINE IS NOT DECORATION. Readers have mistaken mary mustard for the person who runs
+ * this site (docs/READING.md §1), so the footer names each writer with their publication, and every
+ * card names its writer too (ReadingCard). Renders nothing until there is a post.
+ */
+function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
+  const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
+  useEffect(() => {
+    let live = true
+    fetchWpblArticles().then(a => { if (live) setArticles(a) }).catch(() => { /* renders nothing */ })
+    return () => { live = false }
+  }, [])
+  const picks = useMemo(() => readingHomePicks(articles), [articles])
+  const writers = useMemo(
+    () => SOURCES.filter(src => articles.some(a => sourceOf(a.source).key === src.key)),
+    [articles],
+  )
+  const shown = useRef(false)
+  useEffect(() => {
+    if (shown.current || picks.length === 0) return
+    shown.current = true
+    trackImpression(EVENTS.WPBL_READING_SHOWN, { count: articles.length, from: 'home' }, 'home')
+  }, [picks.length, articles.length])
+  if (picks.length === 0) return null
+
+  const all = linkTo(WPBL_READING_PAGE)
+  return (
+    <Box sx={{
+      border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,
+      px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1,
+    }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+        <Typography sx={{
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+          textTransform: 'uppercase', color: 'text.secondary',
+        }}>Reading</Typography>
+        <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
+          sx={{
+            flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-solid)',
+            textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+          }}>All {articles.length} posts ›</Box>
+      </Box>
+      {/* Rows on a phone and cards from `sm` up, which is ReadingCard's own switch: three
+          cover-on-top cards stacked in one column would fill a tablet screen. */}
+      <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: `repeat(${READING_HOME_COUNT}, minmax(0, 1fr))` } }}>
+        {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home" />)}
+      </Box>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
+        Written by {writers.map((w, i) => (
+          <Fragment key={w.key}>
+            {i > 0 && (i === writers.length - 1 ? ' and ' : ', ')}
+            {w.authorName} for <Box component="span" sx={{ fontStyle: 'italic' }}>{w.publicationName}</Box>
+          </Fragment>
+        ))}, featured with permission.
+      </Typography>
+    </Box>
+  )
+}
+
 /**
  * One line on Home pointing at /wpbl/league, where Reading, Highlights and the archive live.
  *
@@ -2919,9 +3002,12 @@ export function WpblHomeSkeleton() {
 // The Watch card's height, for both skeletons: a row of 9:16 posters, so it grows with the width.
 // Measured at 375px and at 1400px (Sep 29, 2026); a desktop narrower than that is a little shorter.
 const WATCH_CARD_SKELETON_H = { xs: '13.8rem', md: '22rem' }
+// The offseason Reading card's: three rows on a phone, one row of 16:9 cover cards from `sm` up.
+// Measured at 375px, 700px and 1400px (Oct 6, 2026).
+const READING_CARD_SKELETON_H = { xs: '25rem', sm: '21.3rem', md: '22.2rem' }
 
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see the
- *  render below): the header, the gallery in the scoreboard's slot, the Watch card, the Discord
+ *  render below): the header, the gallery in the scoreboard's slot, the Reading and Watch cards, the Discord
  *  invite on a phone, one row of the season card and the award results (the season card alone once
  *  the results come off), then the bracket and the two single-line cards. Heights measured off the
  *  real page. */
@@ -2949,6 +3035,9 @@ function OffseasonHomeSkeleton() {
       </Box>
 
       <FanPhotoHomeCardSkeleton />
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
+      </Box>
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
       </Box>
@@ -3417,6 +3506,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           only parts of an offseason Home with something new in them, and the videos were sitting
           under a finished bracket that no longer changes. During a season it stays below (see
           the stack at the bottom), behind the cards about games. */}
+      {/* Reading leads Watch in the offseason: of the three things still changing on an offseason
+          Home, the writing is the one still being written, and it stood as a single line at the
+          foot of the page. LatestReadingCard keeps that slot during a season. */}
+      {seasonDone && <Box sx={{ mt: 1.5 }}><ReadingHomeCard teamById={teamMap} /></Box>}
       {seasonDone && <Box sx={{ mt: 1.5 }}><WatchCard from="home" /></Box>}
 
       {/* Discord invite, mobile only. Sits between the scoreboard and the feed. Hidden at md+
@@ -3535,7 +3628,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
       <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {!seasonDone && <WatchCard from="home" />}
-        <LatestReadingCard />
+        {!seasonDone && <LatestReadingCard />}
         <LeagueCard />
       </Box>
 

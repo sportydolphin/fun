@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.123.0',
+    date:    '2026-10-06',
+    changes: [
+      {
+        short: 'Reading on WPBL Home',
+        full:  'With the season over, WPBL Home shows the newest posts from mary mustard and D.A. Espinoza above the videos, with a link to every post.',
+      },
+    ],
+  },
+  {
     version: '1.122.0',
     date:    '2026-10-05',
     changes: [
