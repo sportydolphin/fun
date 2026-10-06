@@ -574,6 +574,13 @@ function AppInner() {
 
   // ── Toolbar search bridge ─────────────────────────────────────────────────
   const bridge = useSearchBridge()
+  // The search box (and on a phone, the icon that opens it) is drawn from the ROUTE, not from the
+  // section registering with the bridge. Registration happens when the section's lazy chunk mounts,
+  // about half a second into a cold load, and gating on it made the box appear late and shove every
+  // icon beside it sideways on each refresh: the one layout shift left in the toolbar. The route is
+  // known on the first frame, and the two sections that answer a search are exactly the ones that
+  // mount below. A query typed in that half second waits in the bridge and is answered on arrival.
+  const searchShown = bridge.isRegistered || rendersWpblApp(path) || isMlbPath(path)
   // STABLE, because MlbStats is memoized on it. This shell re-renders on every toolbar change (it
   // reads the search bridge), and with an inline footer here the whole MLB section re-rendered
   // with it: opening a team page from Home went round MlbStats and this shell three times, about
@@ -1020,7 +1027,7 @@ function AppInner() {
           </Box>
 
           {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
-          {bridge.isRegistered && (isDesktop || mobileSearchExpanded) && (
+          {searchShown && (isDesktop || mobileSearchExpanded) && (
             <ClickAwayListener onClickAway={() => {
               setToolbarDropdownOpen(false)
               setToolbarInputFocused(false)
@@ -1170,7 +1177,7 @@ function AppInner() {
           {/* Right-side icons — flex:1 on desktop so they balance the brand and keep search centered */}
           <Box sx={{ flex: isDesktop ? 1 : undefined, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
             {/* Mobile: search icon when not expanded */}
-            {bridge.isRegistered && !isDesktop && !mobileSearchExpanded && (
+            {searchShown && !isDesktop && !mobileSearchExpanded && (
               <IconButton size="small" aria-label="Search" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary', mr: 0.25 }}>
                 <Search />
               </IconButton>

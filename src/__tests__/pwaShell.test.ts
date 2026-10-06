@@ -17,6 +17,8 @@ import offlineSource from '../../public/offline.html?raw'
 import assetLinksSource from '../../public/.well-known/assetlinks.json?raw'
 import aasaSource from '../../public/.well-known/apple-app-site-association?raw'
 import headersSource from '../../public/_headers?raw'
+import indexHtml from '../../index.html?raw'
+import appSource from '../App.tsx?raw'
 
 const manifest = JSON.parse(manifestSource) as {
   id: string
@@ -409,5 +411,15 @@ describe('universal links', () => {
     const rule = []
     for (let i = at + 1; i < lines.length && /^\s+\S/.test(lines[i]); i++) rule.push(lines[i].trim())
     expect(rule).toContain('Content-Type: application/json')
+  })
+})
+
+describe('the toolbar placeholder in index.html', () => {
+  // It paints before React and is replaced by the real bar, so any number of its own shows up as
+  // the bar changing size on every refresh. The scale is the one it cannot read from the app.
+  it('stamps the same desktop scale App.tsx uses', () => {
+    const app = appSource.match(/export const DESKTOP_SCALE = ([\d.]+)/)?.[1]
+    expect(app).toBeTruthy()
+    expect(indexHtml).toContain(`setProperty('--app-scale-desktop', '${app}')`)
   })
 })

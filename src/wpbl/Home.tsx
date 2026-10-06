@@ -2358,12 +2358,14 @@ export function readingHomePicks(articles: WpblArticle[], n = READING_HOME_COUNT
  * card names its writer too (ReadingCard). Renders nothing until there is a post.
  */
 function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
-  const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
+  // Null until the read answers, which is not the same as no posts: see the placeholder below.
+  const [loaded, setLoaded] = useState<WpblArticle[] | null>(() => getCachedWpblArticles())
   useEffect(() => {
     let live = true
-    fetchWpblArticles().then(a => { if (live) setArticles(a) }).catch(() => { /* renders nothing */ })
+    fetchWpblArticles().then(a => { if (live) setLoaded(a) }).catch(() => { if (live) setLoaded([]) /* renders nothing */ })
     return () => { live = false }
   }, [])
+  const articles = useMemo(() => loaded ?? [], [loaded])
   const picks = useMemo(() => readingHomePicks(articles), [articles])
   const writers = useMemo(
     () => SOURCES.filter(src => articles.some(a => sourceOf(a.source).key === src.key)),
@@ -2375,6 +2377,11 @@ function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
     shown.current = true
     trackImpression(EVENTS.WPBL_READING_SHOWN, { count: articles.length, from: 'home' }, 'home')
   }, [picks.length, articles.length])
+  // HOLDS ITS HEIGHT WHILE THE READ IS IN FLIGHT, as the gallery above it does (FanPhotoHomeCard's
+  // `reserve`). It sits above Watch and the season card, so rendering nothing and then 400px of
+  // cards pushed the page down under a reader on any load where the articles answered after Home
+  // mounted: measured once at 0.23 of layout shift on a phone, over twice Google's "poor" line.
+  if (loaded === null) return <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
   if (picks.length === 0) return null
 
   const all = linkTo(WPBL_READING_PAGE)
@@ -3017,8 +3024,9 @@ export function WpblHomeSkeleton() {
 // Measured at 375px and at 1400px (Sep 29, 2026); a desktop narrower than that is a little shorter.
 const WATCH_CARD_SKELETON_H = { xs: '13.8rem', md: '22rem' }
 // The offseason Reading card's: three rows on a phone, one row of 16:9 cover cards from `sm` up.
-// Measured at 375px, 700px and 1400px (Oct 6, 2026).
-const READING_CARD_SKELETON_H = { xs: '25rem', sm: '21.3rem', md: '22.2rem' }
+// Measured at 375px, 700px, 1024px and 1400px (Oct 6, 2026). The covers are 16:9 of a third of the
+// width, so the card grows with the window; lg is where it reaches the column's cap.
+const READING_CARD_SKELETON_H = { xs: '25rem', sm: '21.3rem', md: '19.8rem', lg: '22.2rem' }
 
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see the
  *  render below): the header, the gallery in the scoreboard's slot, the Reading and Watch cards, the Discord
@@ -3538,7 +3546,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           Home, the writing is the one still being written, and it stood as a single line at the
           foot of the page. LatestReadingCard keeps that slot during a season. */}
       {seasonDone && <Box sx={{ mt: 1.5 }}><ReadingHomeCard teamById={teamMap} /></Box>}
-      {seasonDone && <Box sx={{ mt: 1.5 }}><WatchCard from="home" /></Box>}
+      {seasonDone && (
+        <Box sx={{ mt: 1.5 }}>
+          <WatchCard from="home" placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
+        </Box>
+      )}
 
       {/* Discord invite, mobile only. Sits between the scoreboard and the feed. Hidden at md+
           because the desktop feed is a two-column subgrid with shared row boundaries that a

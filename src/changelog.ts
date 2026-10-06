@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.123.2',
+    date:    '2026-10-06',
+    changes: [
+      {
+        short: 'A steadier page while it loads',
+        full:  'The top bar no longer changes size when a page first opens, the search button is there from the start instead of nudging the other icons aside, and the Reading and Watch cards on WPBL Home hold their place while they load so nothing jumps down the page.',
+      },
+    ],
+  },
+  {
     version: '1.123.1',
     date:    '2026-10-06',
     changes: [

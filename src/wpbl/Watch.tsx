@@ -26,18 +26,24 @@ import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
  * through a page to keep it would be the four-steps-to-the-fourteenth-post problem Reading was
  * built to fix. Renders nothing until there is a clip.
  */
-export function WatchCard({ from, eyebrow = true }: {
+export function WatchCard({ from, eyebrow = true, placeholder }: {
   /** Which surface drew it, for the WATCH events: 'home' or 'recap'. */
   from: string
   /** Its own "Watch" label. Off where a section heading above it already says so. */
   eyebrow?: boolean
+  /** Drawn while the videos are in flight, where the card sits ABOVE other content (the offseason
+   *  Home): there, nothing and then a row of posters pushes the page down by the card's height.
+   *  Lower down it can keep rendering nothing, since nothing under it is on screen yet. */
+  placeholder?: React.ReactNode
 }) {
-  const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
+  // Null until the read answers, which is not the same as no videos.
+  const [loaded, setLoaded] = useState<WpblVideo[] | null>(() => getCachedWpblVideos())
   useEffect(() => {
     let live = true
-    fetchWpblVideos().then(v => { if (live) setVideos(v) }).catch(() => { /* renders nothing */ })
+    fetchWpblVideos().then(v => { if (live) setLoaded(v) }).catch(() => { if (live) setLoaded([]) /* renders nothing */ })
     return () => { live = false }
   }, [])
+  const videos = useMemo(() => loaded ?? [], [loaded])
   const { clips, gameIds } = useMemo(() => watchShelves(videos), [videos])
   // Only where the reader can play one: the broadcasts are blocked in the US, and the list here
   // has already had what this reader cannot play taken out (fetchWpblVideos).
@@ -50,6 +56,7 @@ export function WatchCard({ from, eyebrow = true }: {
     shown.current = true
     trackImpression(EVENTS.WPBL_WATCH_SHOWN, { count: videos.length, from }, from)
   }, [clips.length, videos.length, from])
+  if (loaded === null && placeholder) return <>{placeholder}</>
   if (clips.length === 0) return null
 
   const all = linkTo(WPBL_WATCH_PAGE)

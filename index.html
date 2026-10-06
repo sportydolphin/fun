@@ -21,6 +21,16 @@
           r.setAttribute('data-skin', localStorage.getItem('themeSkin') || 'charcoal');
           r.style.colorScheme = t; // native form controls + scrollbars match too
         } catch (e) { /* storage off — fall through to CSS defaults */ }
+        // The section's desktop scale, for the same reason: App.tsx sets this attribute in a layout
+        // effect, which is too late for the toolbar placeholder below, so on a refresh the bar
+        // painted at 1 and then grew by a quarter when React took over. 1.25 is DESKTOP_SCALE in
+        // App.tsx (pinned together in pwaShell.test.ts); `/` is the shell for /wpbl.
+        var p = location.pathname;
+        var sec = p === '/' || /^\/wpbl(\/|$)/.test(p) ? 'wpbl' : /^\/mlb(\/|$)/.test(p) ? 'mlb' : null;
+        if (sec) {
+          document.documentElement.setAttribute('data-app-scale', sec);
+          document.documentElement.style.setProperty('--app-scale-desktop', '1.25');
+        }
       })();
     </script>
     <style>
@@ -37,19 +47,32 @@
          purpose, so until React mounted there was nothing on screen at all: Lighthouse's mobile run
          put the first paint at 4.3s, all of it the wait for the app's JavaScript. This is the logo
          where the real bar puts it, on the page's own background (styles.css sets it per theme), so
-         the first frame is the site rather than a blank, and React replaces it in place. */
-      .sd-shell { height: 56px; display: flex; align-items: center; padding: 0 16px;
-        border-bottom: 1px solid rgba(0,0,0,0.08); }
-      [data-theme="dark"] .sd-shell { border-bottom-color: rgba(255,255,255,0.08); }
-      .sd-shell img { display: block; height: 32px; width: auto; }
+         the first frame is the site rather than a blank, and React replaces it in place.
+
+         EVERY NUMBER HERE IS THE REAL BAR'S, and has to stay so. The real one is MUI's dense
+         Toolbar (48px, gutters 16px then 24px from 600px) with a 32px logo, all multiplied by
+         --app-chrome, which is the section's desktop scale from 900px. This placeholder used its own
+         numbers (56px, 32px, always the wordmark), and on a desktop refresh the bar visibly grew by
+         a quarter the moment React replaced it. The scale is recomputed here as --sd-s rather than
+         read from --app-chrome, so it holds before the stylesheet does and under `npm run dev`,
+         where the stylesheet arrives by JavaScript. Borders are the theme's `divider`. */
+      .sd-shell { --sd-s: 1; box-sizing: content-box; height: calc(48px * var(--sd-s));
+        display: flex; align-items: center; gap: calc(6px * var(--sd-s)); padding: 0 calc(16px * var(--sd-s));
+        border-bottom: 1px solid rgba(0,0,0,0.20); }
+      @media (min-width: 600px) { .sd-shell { padding: 0 calc(24px * var(--sd-s)); } }
+      @media (min-width: 900px) { :root[data-app-scale] .sd-shell { --sd-s: var(--app-scale-desktop, 1); } }
+      [data-theme="dark"] .sd-shell { border-bottom-color: rgba(255,255,255,0.22); }
+      .sd-shell img { display: block; height: calc(32px * var(--sd-s)); width: auto; }
       [data-theme="dark"] .sd-shell img { filter: invert(1); }
-      /* THE NAME AS TEXT, not only the logo. Text paints on the first frame after this stylesheet,
-         with nothing to download; the logo is an image the browser must fetch and decode first, and
-         on production the app's code arrived in that window and ran for two seconds before the next
-         frame, so the logo alone did not paint until the app did. System font on purpose: waiting
-         on Inter here would put the wait straight back. */
-      .sd-shell span { margin-left: 10px; font: 800 1.05rem/1 system-ui, -apple-system, 'Segoe UI', sans-serif;
-        letter-spacing: -0.3px; color: var(--text-color, #111); }
+      /* THE NAME AS TEXT, not only the logo, at the widths the real wordmark shows (960px, or 1200px
+         where the section is scaled; BRAND_WORDMARK_MIN in App.tsx). Text paints on the first frame
+         after this stylesheet, with nothing to download, while the logo is an image to fetch and
+         decode first. Inter where it is already loaded, the system face until then, which is what
+         the real one does too (font-display: swap). */
+      .sd-shell span { display: none; font: 700 calc(20px * var(--sd-s))/1.6 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        white-space: nowrap; color: var(--text-color, #111); }
+      @media (min-width: 960px) { .sd-shell span { display: block; } }
+      @media (min-width: 900px) and (max-width: 1199.95px) { :root[data-app-scale] .sd-shell span { display: none; } }
     </style>
     <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
