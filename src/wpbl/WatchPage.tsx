@@ -106,7 +106,7 @@ export default function WatchPage({ onOpenGame }: {
                 own bleed then resolves to nothing, since its 50% is already the screen. Sits under
                 whatever chrome is pinned above it, which on a phone is none (see PINNED_CHROME). */}
             <Box ref={shelfBar} sx={{
-              position: 'sticky', top: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))', zIndex: 5,
+              position: 'sticky', top: 'var(--app-header-h, 0px)', zIndex: 5,
               bgcolor: 'background.default', py: 1, mb: 1, mt: -1,
               mx: { xs: 'calc(50% - 50vw)', sm: 0 }, px: { xs: 'calc(50vw - 50%)', sm: 0 },
             }}>

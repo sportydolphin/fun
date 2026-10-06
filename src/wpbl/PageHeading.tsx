@@ -40,39 +40,6 @@ export function useWpblHeadingTag(): 'h1' | 'div' {
   return owned && onScreen ? 'h1' : 'div'
 }
 
-// Whether the section's nav sits at the FOOT of the screen (the mobile bottom bar) rather than as
-// the pill row above the content.
-//
-// It is the one fact HIDE_ON_PHONE below depends on and cannot see for itself. Every tab heading is
-// clipped on a phone BECAUSE a nav overhead already names it (see that note); move the nav to the
-// foot and that justification is gone, so the heading becomes the page's top-of-screen label and is
-// drawn. A context for the same reason OwnsHeading is one: five tab headings would otherwise each
-// need the flag threaded through WpblApp's panel map.
-const NavAtBottom = createContext(false)
-
-export function WpblNavAtBottomProvider({ value, children }: { value: boolean; children: React.ReactNode }) {
-  return <NavAtBottom.Provider value={value}>{children}</NavAtBottom.Provider>
-}
-
-/** Whether the section's nav is the foot-of-screen bottom bar. For the few spots that need the bare
- *  fact rather than the heading `sx` (e.g. the gap Home opens under its now-drawn h1). */
-export function useWpblNavAtBottom(): boolean {
-  return useContext(NavAtBottom)
-}
-
-/**
- * The `sx` a TAB heading spreads to hide itself on a phone. Spread this in place of `HIDE_ON_PHONE`
- * on the five tab titles: it returns `HIDE_ON_PHONE` while the pill nav is overhead, and NOTHING
- * (drawn at every width) once the nav has moved to the foot of the screen, where the heading is the
- * only thing left naming the page at the top.
- *
- * NOT for a within-page section label like "Scoreboard", which the nav never named and which stays
- * on the plain `HIDE_ON_PHONE`: revealing it would stack a redundant heading under the tab title.
- */
-export function useTabHeadingPhoneSx() {
-  return useContext(NavAtBottom) ? {} : HIDE_ON_PHONE
-}
-
 /**
  * The page heading for a surface whose real heading is a graphic rather than a line of text.
  *
@@ -93,10 +60,7 @@ export function WpblVisuallyHiddenH1({ children }: { children: React.ReactNode }
  * this whole module exists to prevent.
  *
  * Every unit is a STRING, because MUI's `sx` reads a bare `width: 1` as 100%. That makes this
- * safe to spread into an `sx` as well as into a `style`, which Home does at the phone
- * breakpoint: its `h1` is the league's full name, and on a phone that is the third thing above
- * the fold saying WPBL after the toolbar's own league switch and the section nav. Hidden there
- * and drawn from `sm` up, where it pairs with the club chips and costs nothing.
+ * safe to spread into an `sx` (HIDE_ON_PHONE below) as well as into a `style`.
  */
 export const VISUALLY_HIDDEN = {
   position: 'absolute', width: '1px', height: '1px',
@@ -107,16 +71,12 @@ export const VISUALLY_HIDDEN = {
 /**
  * Spread into a heading's `sx` to keep it for machines and drop it for a phone.
  *
- * WHY EVERY TAB HEADING IN THE SECTION USES THIS. The five tabs are titled WPBL Scores, WPBL
- * Standings, WPBL Stats, WPBL Teams and the league's full name, and directly above every one of
- * them sits a nav reading Home / Schedule / Standings / Stats / Teams with the current tab lit,
- * under a toolbar with a live MLB/WPBL switch with WPBL lit. On a phone the heading is a third
- * statement of a fact the reader has been given twice, and it costs about 40px at the top of a
- * page whose whole job is the first card. On a desktop it is kept: the viewport is not the
- * constraint, and the page is a grid where section headings are what tell the columns apart.
- *
- * Not for a heading that names something the nav does not: a club's page, the glossary. Those
- * are the only text on screen saying what you are looking at.
+ * FOR A SECTION LABEL WITHIN A PAGE, never a tab's title. Home's "Scoreboard" is the one user: a
+ * row of tiles with dates, clubs and scores already reads as a scoreboard, and on a phone the word
+ * costs room above the first card. The five tab titles used this too while the phone's tabs were
+ * a pill row at the top naming the page; since the bottom bar replaced that row (Sep 14, 2026) the
+ * title is the only thing at the top of a phone saying where you are, so TabTitle draws it at
+ * every width.
  *
  * The literal is what MUI's `down('sm')` compiles to, and the same one `isPhone` uses in
  * RecapCard, so nothing in the section disagrees about where a phone ends.
@@ -127,13 +87,12 @@ export const HIDE_ON_PHONE = { '@media (max-width:599.95px)': VISUALLY_HIDDEN } 
  * A tab's title, as the tab draws it AND as its loading state draws it. One component so the two
  * cannot disagree: the title needs no data, so the skeleton shows the real words in the real place
  * and the only thing that changes when the tab arrives is the grey blocks under it. `sx` is the
- * tab's own spacing; the phone rule is applied last, since when it hides it has to win.
+ * tab's own spacing. Drawn at every width; see HIDE_ON_PHONE for why it once was not.
  */
 export function TabTitle({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
   const headingTag = useWpblHeadingTag()
-  const hidePhone = useTabHeadingPhoneSx()
   return (
-    <Typography component={headingTag} sx={[TAB_TITLE_SX, ...(Array.isArray(sx) ? sx : [sx]), hidePhone]}>
+    <Typography component={headingTag} sx={[TAB_TITLE_SX, ...(Array.isArray(sx) ? sx : [sx])]}>
       {children}
     </Typography>
   )

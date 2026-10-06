@@ -19,7 +19,7 @@
 //
 // A SIBLING PATH, not a section of /wpbl/league, on the same reasoning routes.ts records for the
 // glossary: a distinct URL is what somebody can cite, and one page cannot carry two intents.
-// No nav pill. The footer is the crawl path that has actually worked.
+// No tab of its own. The footer is the crawl path that has actually worked.
 import { Box, Typography } from '@mui/material'
 import { WPBL_SOURCES, SOURCE_GROUPS } from './sources'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, hoverOnly } from './ui'

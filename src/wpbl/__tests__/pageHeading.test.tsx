@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { render, screen } from '@testing-library/react'
 import { Typography } from '@mui/material'
-import { WpblHeadingOwnerProvider, WpblNavAtBottomProvider, useWpblHeadingTag, useTabHeadingPhoneSx, WpblVisuallyHiddenH1 } from '../PageHeading'
+import { WpblHeadingOwnerProvider, useWpblHeadingTag, WpblVisuallyHiddenH1, TabTitle } from '../PageHeading'
+import { PanelActiveContext } from '../../lib/panelActive'
 
 // A player page and a game page are real pages with their own URL, title and canonical, drawn
 // as a modal over whichever tab they were opened from. Before this, the tab underneath kept
@@ -44,57 +45,47 @@ describe('who owns the page heading', () => {
   })
 })
 
-// A tab title is clipped-but-in-DOM on a phone because the nav overhead already names it. Move the
-// nav to the foot of the screen (the mobile bottom bar) and that justification is gone: the title
-// becomes the page's only top-of-screen label and must be drawn. The failure is invisible in the
-// browser and worse than the heading-level one, because it leaves the phone opening onto unlabelled
-// content with no sign anything is wrong.
-function PhoneSxProbe() {
-  const sx = useTabHeadingPhoneSx() as Record<string, unknown>
-  return <span data-testid="sx">{Object.keys(sx).length === 0 ? 'drawn' : 'hidden-on-phone'}</span>
-}
+// A tab title is the only thing at the top of a phone saying which page this is: the section nav
+// there is the bottom bar. Hiding it on a phone (as every title once did, while the phone's tabs
+// were a pill row at the top naming the page) leaves the phone opening onto unlabelled content,
+// and it renders fine on a desktop, so only this catches it coming back.
+describe('every tab title is drawn on a phone', () => {
+  const TAB_TITLE_FILES = [
+    'src/wpbl/StatsView.tsx',
+    'src/wpbl/TeamsGrid.tsx',
+    'src/wpbl/WpblApp.tsx', // Scores and Standings both live here
+  ]
 
-describe('a tab title hides on a phone only while the nav is overhead', () => {
-  it('hides on a phone by default, where the pill nav sits above it', () => {
-    render(<PhoneSxProbe />)
-    expect(screen.getByTestId('sx')).toHaveTextContent('hidden-on-phone')
+  it.each(TAB_TITLE_FILES)('%s draws its title through TabTitle', (file) => {
+    expect(readFileSync(file, 'utf8')).toContain('<TabTitle')
   })
 
-  it('is drawn on a phone once the nav has moved to the foot of the screen', () => {
-    render(<WpblNavAtBottomProvider value><PhoneSxProbe /></WpblNavAtBottomProvider>)
-    expect(screen.getByTestId('sx')).toHaveTextContent('drawn')
+  it('TabTitle spreads nothing that hides it', () => {
+    const src = readFileSync('src/wpbl/PageHeading.tsx', 'utf8')
+    const body = src.slice(src.indexOf('export function TabTitle'))
+    expect(body).not.toMatch(/HIDE_ON_PHONE|VISUALLY_HIDDEN|hidePhone/)
   })
 
-  it('hides again where the bottom bar is off (desktop, and the shipped top-nav phone)', () => {
-    render(<WpblNavAtBottomProvider value={false}><PhoneSxProbe /></WpblNavAtBottomProvider>)
-    expect(screen.getByTestId('sx')).toHaveTextContent('hidden-on-phone')
+  it("Home's title, which is not a TabTitle, spreads nothing that hides it either", () => {
+    const src = readFileSync('src/wpbl/Home.tsx', 'utf8')
+    const at = src.indexOf("Women's Pro Baseball League\n          </Typography>")
+    expect(at).toBeGreaterThan(-1)
+    const tag = src.slice(src.lastIndexOf('<Typography', at), at)
+    expect(tag).not.toMatch(/HIDE_ON_PHONE|VISUALLY_HIDDEN|hidePhone/)
   })
 })
 
-// The source counterpart to the behaviour above: every tab title has to go through the hook, or its
-// own title silently stays hidden on a phone under the bottom bar while the other four appear. A
-// bare `...HIDE_ON_PHONE` spread back onto a title is exactly that regression, and it renders fine
-// on a desktop and in a top-nav phone, so nothing but this catches it.
-describe('every tab title reveals itself when the nav moves to the foot', () => {
-  const TAB_TITLE_FILES = [
-    'src/wpbl/Home.tsx',
-    'src/wpbl/StatsView.tsx',
-    'src/wpbl/TeamsGrid.tsx',
-    'src/wpbl/WpblApp.tsx', // Schedule and Standings both live here
-  ]
-
-  // Through TabTitle, which applies the hook itself, or (Home's title row, which is not a TabTitle)
-  // by spreading it directly.
-  it.each(TAB_TITLE_FILES)('%s draws its title through TabTitle or the hook', (file) => {
-    const src = readFileSync(file, 'utf8')
-    expect(src.includes('<TabTitle') || (src.includes('useTabHeadingPhoneSx') && src.includes('...hidePhone'))).toBe(true)
+// A tab the pager keeps mounted behind the one on screen is not the page, so its title steps down
+// to a div; left as an h1, every visited tab added a heading to the page.
+describe('a kept-alive tab off screen', () => {
+  it('draws its title as a div', () => {
+    render(<PanelActiveContext.Provider value={false}><TabTitle>WPBL Teams</TabTitle></PanelActiveContext.Provider>)
+    expect(screen.getByText('WPBL Teams').tagName).toBe('DIV')
   })
 
-  it('TabTitle applies the hook, last', () => {
-    const src = readFileSync('src/wpbl/PageHeading.tsx', 'utf8')
-    const body = src.slice(src.indexOf('export function TabTitle'))
-    expect(body).toContain('useTabHeadingPhoneSx()')
-    expect(body).toMatch(/sx=\{\[TAB_TITLE_SX, .*hidePhone\]\}/)
+  it('and as the h1 once it is on screen', () => {
+    render(<PanelActiveContext.Provider value><TabTitle>WPBL Teams</TabTitle></PanelActiveContext.Provider>)
+    expect(screen.getByText('WPBL Teams').tagName).toBe('H1')
   })
 })
 

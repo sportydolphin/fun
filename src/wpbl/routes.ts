@@ -529,7 +529,7 @@ export function isCanonicalComparePath<T extends WpblSluggable>(
 //
 // A real path and NOT a tab, which is a deliberate middle state rather than an oversight: it
 // is spelled in _redirects, seo.ts and the sitemap like every other page, and it is absent
-// from WPBL_NAV, so the pills and the mobile pager never grow a sixth destination. It earns
+// from WPBL_NAV, so the tabs and the mobile pager never grow a sixth destination. It earns
 // one from the events or it does not get one. Reached from the footer, which is the link
 // Google actually followed to /privacy and /terms.
 export const WPBL_LEAGUE_PAGE = `${WPBL_BASE}/league`
@@ -548,7 +548,7 @@ export const isWpblLeaguePage = (pathname: string) =>
 // publish how a pitcher earns a win, and this page does), so burying them under someone else's
 // title spends the one thing they have going for them.
 //
-// No nav pill, same as the league page and for the same reasons: the footer is the proven
+// No tab of its own, same as the league page and for the same reasons: the footer is the proven
 // crawl path, and a sixth pill has to be earned from the events.
 export const WPBL_GLOSSARY_PAGE = `${WPBL_BASE}/glossary`
 
@@ -566,7 +566,7 @@ export const isWpblGlossaryPage = (pathname: string) =>
 // or transcriber when asking them to link back (docs/BACKLINKS.md: inbound links are the site's
 // remaining constraint), and an anchor inside somebody else's page is not a thing you send.
 //
-// No nav pill, same as the other two: the footer is the crawl path that has actually worked.
+// No tab of its own, same as the other two: the footer is the crawl path that has actually worked.
 export const WPBL_SOURCES_PAGE = `${WPBL_BASE}/sources`
 
 export const isWpblSourcesPage = (pathname: string) =>
@@ -575,7 +575,7 @@ export const isWpblSourcesPage = (pathname: string) =>
 // ─── The season recap page ─────────────────────────────────────────────────────
 //
 // A fourth sibling, on the same footing as the league, glossary and sources pages: a real path
-// linked from the footer and absent from WPBL_NAV, so the pills never grow a destination it has
+// linked from the footer and absent from WPBL_NAV, so the tabs never grow a destination it has
 // not earned from the events. It is the one page here whose whole subject is the season as a
 // finished thing rather than as a set of live games, which is why it wants its own URL rather
 // than a card on Home: once the feed stops it is the READ of the record the archive keeps, and a
@@ -592,7 +592,7 @@ export const isWpblSeasonPage = (pathname: string) =>
 // ─── The scorigami page ─────────────────────────────────────────────────────────
 //
 // A fifth sibling, on the same footing as the league, glossary, sources and season pages: a real
-// path linked from the footer and absent from WPBL_NAV, so the pills never grow a destination they
+// path linked from the footer and absent from WPBL_NAV, so the tabs never grow a destination they
 // have not earned. It is a single durable visual (every final score the league has produced) and a
 // share image, which is what earns a URL of its own rather than a card that scrolls away under Home.
 // Indexable because "WPBL scorigami" is a term a fan of the format types, and no other site covering
@@ -616,7 +616,7 @@ export const isWpblMatchupsPage = (pathname: string) =>
 // ─── The fan photos gallery ─────────────────────────────────────────────────────
 //
 // A sixth sibling, on the same footing as the league, glossary, sources, season and scorigami
-// pages: a real path linked from the footer and absent from WPBL_NAV, so the pills never grow a
+// pages: a real path linked from the footer and absent from WPBL_NAV, so the tabs never grow a
 // destination this has not earned from the events (docs/FAN_PHOTOS.md settles that the player
 // page is where the photos matter and a rail has the archive's near-zero numbers as its prior).
 // Its own URL because it is a browse-all surface with a subject filter, indexable and shareable,

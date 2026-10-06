@@ -86,7 +86,7 @@
          40px row of their own below it; on a phone they are the bottom bar, which has no copy
          here because nothing sits under it to be pushed. The icons on the right are not copied:
          they appear in place without moving anything. */
-      .sd-bar .sd-sw { display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; padding: 2px; border-radius: 999px;
+      .sd-bar .sd-sw { display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; margin-left: calc(6px * var(--sd-s)); padding: 2px; border-radius: 999px;
         border: 1px solid #60a5fa55; background: #60a5fa14; }
       .sd-bar .sd-sw b { padding: 3px calc(8px * var(--sd-s)); border-radius: 999px; text-align: center; letter-spacing: 0.3px;
         font: 800 calc(10.56px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -99,16 +99,16 @@
         padding: 0 calc(10px * var(--sd-s)); font: 600 calc(13.6px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         font-style: normal; white-space: nowrap; color: rgba(0,0,0,0.6); }
       .sd-bar nav i.on { color: rgba(0,0,0,0.87); }
-      .sd-bar nav i.on::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 0; height: 3px;
+      .sd-bar nav i.on::after { content: ''; position: absolute; left: calc(10px * var(--sd-s)); right: calc(10px * var(--sd-s)); bottom: 0; height: 3px;
         border-radius: 3px 3px 0 0; background: #1565c0; }
       .sd-bar nav small { font-size: calc(9.6px * var(--sd-s) * var(--sd-t, 1)); }
       [data-theme="dark"] .sd-bar .sd-sw b:not(.on), [data-theme="dark"] .sd-bar nav i { color: rgba(255,255,255,0.7); }
       [data-theme="dark"] .sd-bar nav i.on { color: #fff; }
       .sd-bar .sd-row { justify-content: center; height: calc(40px * var(--sd-s)); }
       @media (min-width: 600px) and (max-width: 1023.95px) { .sd-bar .sd-row { display: flex; } }
-      /* 16px from the brand in the real bar, less the shell's own 6px gap, which the real bar's
+      /* 14px from the brand in the real bar, less the shell's own 6px gap, which the real bar's
          brand group does not put between itself and the tabs. */
-      @media (min-width: 1024px) { .sd-bar .sd-shell nav { display: flex; margin-left: calc(10px * var(--sd-s)); } }
+      @media (min-width: 1024px) { .sd-bar .sd-shell nav { display: flex; margin-left: calc(8px * var(--sd-s)); } }
     </style>
     <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />

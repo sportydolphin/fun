@@ -86,9 +86,11 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
     transition: 'color 0.15s',
     ...hoverOnly({ color: 'text.primary' }),
     // The indicator sits on the toolbar's bottom hairline, the way a tab strip's does, and grows
-    // from the centre rather than snapping in. Ornament, so raw px.
+    // from the centre rather than snapping in. Inset by the tab's own padding, so it is exactly as
+    // wide as the label at every scale; a fixed 8px overhung it by 4.5px on a desktop. Its 3px
+    // thickness is ornament and stays raw.
     '&::after': {
-      content: '""', position: 'absolute', left: 8, right: 8, bottom: 0, height: 3,
+      content: '""', position: 'absolute', left: 'calc(10px * var(--app-chrome, 1))', right: 'calc(10px * var(--app-chrome, 1))', bottom: 0, height: 3,
       borderRadius: '3px 3px 0 0', background: UNDERLINE,
       transform: on ? 'scaleX(1)' : 'scaleX(0)', transition: 'transform 0.2s ease',
     },

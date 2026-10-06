@@ -63,8 +63,9 @@ const WpblApp = lazy(loadWpbl)
  *  THE SWITCH USED TO GO BLANK FOR A THIRD OF A SECOND. Both sections are lazy, so flipping the
  *  league switch unmounted one section's tab bar, showed a spinner while the other's chunk came
  *  over the wire, and then mounted the new bar: measured at 330ms one way and 580ms the other,
- *  on localhost. What a reader sees is the pill bar under the toolbar vanishing and coming back
- *  somewhere slightly different, which reads as the page jumping even though nothing moved.
+ *  on localhost. What a reader saw was the section's tab row vanishing and coming back somewhere
+ *  slightly different, which reads as the page jumping even though nothing moved. (The tabs live
+ *  in the toolbar now, drawn from static lists, so they no longer wait on a section's chunk.)
  *
  *  The module registry caches by specifier, so calling the same dynamic import ahead of time
  *  makes React.lazy resolve on the spot and the switch render in one commit with no fallback.
@@ -524,6 +525,12 @@ function AppInner() {
   const roomForSearch = useMediaQuery(`(min-width: ${TOOLBAR_SEARCH_INLINE_MIN}px)`)
   const roomForUsername = useMediaQuery(`(min-width: ${TOOLBAR_USERNAME_MIN}px)`)
   const searchCollapsed = !isDesktop || (hasToolbarNav && !roomForSearch)
+  const showHandle = isDesktop && (!hasToolbarNav || roomForUsername) && !!(username || user?.user_metadata?.full_name)
+  // TOOLBAR SPACING, one scale, measured on the visible edges rather than the boxes: 7.5px inside
+  // the brand lockup (logo to name), 15 from the name to the MLB/WPBL switch, and 30 between
+  // groups (switch to the first tab, the search field to the first icon) and at both screen
+  // edges, which is the bar's own gutter. Tab labels sit 25 apart, from their padding, and the
+  // icons 10. All at the 1.25 desktop scale; index.html's static bar carries the same numbers.
 
   // Publish the toolbar's pinned height as --app-header-h, so anything further down the page
   // that wants to stick can sit below it without hard-coding a number that would drift.
@@ -582,7 +589,7 @@ function AppInner() {
       //
       // The rect rather than `offsetHeight`, which rounds to a whole pixel: a bar 43.67px
       // tall published itself as 44 and left a sub-pixel crack under it for whatever sticks
-      // below (see --wpbl-nav-h in WpblApp). Fractional CSS pixels are what the browser is
+      // below. Fractional CSS pixels are what the browser is
       // laying out in, so hand it those.
       document.documentElement.style.setProperty(
         '--app-header-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
@@ -1004,6 +1011,9 @@ function AppInner() {
               // width regardless of label length — otherwise MLB would be narrower
               // than WPBL and the 50% thumb wouldn't line up with either segment.
               position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', flexShrink: 0,
+              // Twice the lockup's own gap: the switch is a control of its own, and at the lockup's
+              // spacing it read as part of the name. See TOOLBAR SPACING below.
+              ml: 0.75,
               p: '2px', borderRadius: 999, cursor: 'pointer',
               border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
             }}>
@@ -1081,7 +1091,9 @@ function AppInner() {
                 display: 'none',
                 // Reach through the bar's own vertical padding so the lit tab's stripe sits on
                 // the bar's bottom hairline.
-                [NAV_INLINE]: { display: 'flex', ml: 2, my: -0.5 },
+                // 1.75 plus a tab's own 1.25 of padding puts "Home" one GROUP gap (30px at the
+                // desktop scale) from the switch. See TOOLBAR SPACING.
+                [NAV_INLINE]: { display: 'flex', ml: 1.75, my: -0.5 },
               }}
             />
           )}
@@ -1104,6 +1116,9 @@ function AppInner() {
                 // field nobody can read across: centre it at a width a name fits in.
                 ...(searchCollapsed && isDesktop && { maxWidth: 'calc(560px * var(--app-chrome, 1))' }),
                 mx: !searchCollapsed ? 1.5 : searchCollapsed && isDesktop ? 'auto' : 0,
+                // Beside the tabs, one group gap to the first icon: 2.5 plus that button's 5px of
+                // padding. Elsewhere the field is centred and keeps 1.5 both sides.
+                ...(!searchCollapsed && hasToolbarNav && { mr: 2.5 }),
               }}>
                 <Box sx={{
                   display: 'flex', alignItems: 'center', gap: 0.75,
@@ -1241,11 +1256,17 @@ function AppInner() {
           )}
 
           {/* Right-side icons — flex:1 on desktop so they balance the brand and keep search centered */}
-          <Box sx={{ flex: isDesktop && !hasToolbarNav ? 1 : undefined, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+          {/* Pulled out by the last button's own padding (and the handle pill's, when it shows),
+              so the avatar's edge sits the bar's gutter from the screen edge, as the logo does on
+              the left. It sat 5px further in. See TOOLBAR SPACING. */}
+          <Box sx={{
+            flex: isDesktop && !hasToolbarNav ? 1 : undefined, display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+            mr: user && showHandle ? '-10px' : '-5px',
+          }}>
             {/* Search icon wherever the field is folded away (a phone, or beside the tabs on a
                 narrower desktop), until it is opened */}
             {searchShown && searchCollapsed && !mobileSearchExpanded && (
-              <IconButton size="small" aria-label="Search" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary', mr: 0.25 }}>
+              <IconButton size="small" aria-label="Search" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary' }}>
                 <Search />
               </IconButton>
             )}
@@ -1283,12 +1304,14 @@ function AppInner() {
                   aria-expanded={accountOpen}
                   sx={{
                     display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer',
-                    pl: isDesktop ? 1 : 0, pr: isDesktop ? 0.5 : 0, py: 0.25, borderRadius: 999,
+                    // Room for the handle only when the handle is drawn. Beside the tabs below
+                    // TOOLBAR_USERNAME_MIN it is not, and the padding left a lopsided hover pill.
+                    pl: showHandle ? 1 : 0, pr: showHandle ? 0.5 : 0, py: 0.25, borderRadius: 999,
                     '&:hover': { bgcolor: 'action.hover' },
                     ...FOCUS_RING,
                   }}
                 >
-                  {isDesktop && (!hasToolbarNav || roomForUsername) && (username || user.user_metadata?.full_name) && (
+                  {showHandle && (
                     <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
                       {username ? (
                         // The Roboto/Arial "@" dips toward the baseline and reads as sitting
@@ -1571,9 +1594,10 @@ function AppInner() {
           )}
           {path === '/wpbl/api' && (
             <Box>
-              {/* Align the back control to the docs column (same maxWidth/px as WpblApiDocs)
-                  so on desktop it sits by the content, not stranded at the far-left page edge. */}
-              <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2 }}>
+              {/* Aligned to the docs column (same maxWidth/px as WpblApiDocs). Phones only, as on
+                  the other standalone WPBL pages (see WpblPage): above 600px the toolbar's tabs
+                  are the way back. */}
+              <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2, display: { xs: 'block', sm: 'none' } }}>
                 <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>

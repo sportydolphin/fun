@@ -47,7 +47,7 @@ import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
 import { WPBL_MORE_PAGES } from './morePages'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import { PanelActiveContext } from '../lib/panelActive'
-import { WpblHeadingOwnerProvider, WpblNavAtBottomProvider, TabTitle } from './PageHeading'
+import { WpblHeadingOwnerProvider, TabTitle } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
 import { AppErrorBoundary } from '../AppErrorBoundary'
@@ -308,8 +308,8 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
 
   // Open on the current point in the season by *ordering*, not scrolling: the previous
   // game's date leads, then the next/live game and everything upcoming; earlier completed
-  // games follow under an "Earlier" divider. Nothing moves the window, so the top pill nav
-  // stays put when switching tabs (it isn't sticky on desktop).
+  // games follow under an "Earlier" divider. Nothing moves the window, so switching to this tab
+  // never scrolls the page under the reader.
   //
   // Fill the calendar gaps between the first and last game so off-days show up as a slim
   // "no games" marker: it reads as a continuous run of days, making the rhythm of when
@@ -887,8 +887,8 @@ function viewFromLocation(): string | null {
 
 // The WPBL pages that are not tabs. The footer links them, which is a fine crawl path and a poor
 // way for a reader to find anything, so this menu is one discovery surface for all of them,
-// WITHOUT a sixth nav pill: WPBL_NAV, the pager and the mobile bottom bar all stay at five, because
-// a sixth pill does not fit a phone (see BottomNav.tsx and the note on WPBL_LEAGUE_PAGE).
+// WITHOUT a sixth tab: WPBL_NAV, the pager and the mobile bottom bar all stay at five, because a
+// sixth does not fit a phone's bar (see BottomNav.tsx and the note on WPBL_LEAGUE_PAGE).
 //
 // Not a tab and switches nothing in the pager: it opens a menu (the toolbar's, src/ToolbarNav.tsx,
 // above a phone; the sheet below on one). Each item is a real <a href> via linkTo, so it is
@@ -897,10 +897,9 @@ function viewFromLocation(): string | null {
 // about what a reader is offered.
 const useMorePages = () => WPBL_MORE_PAGES
 
-// The mobile counterpart to NavMore: the same non-tab pages, reached from the bottom bar's
-// More slot as a bottom sheet instead of a dropdown. The bottom bar replaces the top pill nav on a
-// phone (so NavMore is not on screen there); this is how those pages stay reachable without a
-// footer scroll. Every row is a real <a href> (linkTo), so it is crawlable and cmd/long-press opens
+// The phone's counterpart to the toolbar's More menu (ToolbarNav): the same non-tab pages, reached
+// from the bottom bar's More slot as a bottom sheet instead of a dropdown. The toolbar carries no
+// tabs on a phone; this is how those pages stay reachable without a footer scroll. Every row is a real <a href> (linkTo), so it is crawlable and cmd/long-press opens
 // a new tab, the same rule the footer and the menu follow.
 function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pages = useMorePages()
@@ -1084,8 +1083,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [loading, setLoading] = useState(() => !(getCachedWpblTeams() && getCachedWpblSchedule()))
   // `noSsr` so this is right on the FIRST render, not one tick late. Without it MUI returns `false`
   // on the initial client render and corrects in an effect, so the bottom bar would be absent from
-  // the first paint and inserted a frame later into an already laid-out page, with the pill nav
-  // flashing in its place. Reading matchMedia synchronously keeps the bar in the initial layout.
+  // the first paint and inserted a frame later into an already laid-out page. Reading matchMedia synchronously keeps the bar in the initial layout.
   const isMobileView = useMediaQuery('(max-width:600px)', { noSsr: true })
   // Bottom tab bar, phones only. Above a phone the tabs are in the shell's toolbar instead (see
   // the publish below selectTab), because a bottom bar is wrong at 1280px.
@@ -1833,10 +1831,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     {/* While a player or game modal is open it IS the page, so the tab underneath stops
         rendering an <h1> and the modal supplies it. See PageHeading.tsx. */}
     <WpblHeadingOwnerProvider owned={!detailPlayer && !detailGame}>
-    <WpblNavAtBottomProvider value={bottomNav}>
-    {/* Cap + center on wide screens (site convention); full width on mobile.
-        On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav: the
-        toolbar already sits right above it, so the extra gap just reads as dead space at rest. */}
+    {/* Cap + center on wide screens (site convention); full width on mobile. */}
     {/* THE COLUMN TRACKS THE SCALE, it is not a fixed screen width. What a text column is
         designed against is its own type, so pinning it at a screen width while the desktop
         scale moves makes every row wider than the words in it: club names on the left of a
@@ -1845,18 +1840,16 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         purpose and DO spend extra width, on another chip and more columns; a list has nothing
         to spend it on. `chromePx` keeps the ratio the design was drawn at whatever the scale
         becomes. */}
-    {/* The -1.5 on a phone pulls the sticky PILL BAR up close under the toolbar, where a sticky
-        bar wants to sit. With the bottom bar on, that bar is gone and the first block (the
-        scoreboard) would otherwise inherit the tuck and sit ~4px under the toolbar, so it gets
-        real breathing room instead. */}
-    <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: bottomNav ? 0.5 : -1.5, sm: 0 } }}>
+    {/* A little room under the toolbar on a phone, where the first block (the scoreboard) would
+        otherwise sit ~4px from it. A -1.5 tuck lived here for the pill row the phone used to pin
+        up there, which the bottom bar replaced. */}
+    <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: 0.5, sm: 0 } }}>
       {/* No tab row here: on a phone the tabs are the bottom bar, and above that the shell's
           toolbar draws them from what this section publishes (src/sectionNav.ts). */}
 
       {/* Floor the view height on mobile so even a short tab (e.g. Standings) is tall enough to
-          scroll the app toolbar fully off — leaving room for roughly the sticky pill nav's
-          height means the page can still scroll the toolbar away and keep it hidden (matching
-          the tucked state the tab pager restores), instead of springing the toolbar back. */}
+          scroll the app toolbar fully off, so the page can keep it hidden (matching the tucked
+          state the tab pager restores) instead of springing the toolbar back. */}
       <Box sx={{
         minHeight: { xs: 'calc(100dvh - 24px)', sm: 'auto' },
         // Scroll room under the floating bar, plus the device's own safe-area inset, so the
@@ -1927,8 +1920,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         <WpblBottomNav
           items={[
             ...NAV.map(n => ({ key: n.key, label: n.label, badge: navBadge(n.key) })),
-            // The sixth slot: opens the sheet of non-tab pages (the mobile counterpart to NavMore,
-            // which is on the top pill nav that the bottom bar replaces here).
+            // The sixth slot: opens the sheet of non-tab pages (the phone's counterpart to the
+            // toolbar's More menu).
             { key: MORE_KEY, label: 'More' },
           ]}
           value={view}
@@ -1967,7 +1960,6 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         </Suspense>
       )}
     </Box>
-    </WpblNavAtBottomProvider>
     </WpblHeadingOwnerProvider>
     </WpblLinkProvider>
   )

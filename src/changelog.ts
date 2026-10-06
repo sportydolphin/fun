@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.124.1',
+    date:    '2026-10-06',
+    changes: [
+      {
+        short: 'Tidier top bar',
+        full:  'The top bar now has even spacing throughout: the MLB and WPBL switch has room from the site name, the tabs, search and icons sit evenly apart, both ends of the bar are the same distance from the edge, and the line under the current tab is exactly as wide as its name.',
+      },
+      {
+        short: 'No more Back to WPBL button on desktop',
+        full:  'Pages like Reading, Watch and the season recap no longer show a Back to WPBL button on a computer or tablet, since the WPBL tabs are right there in the top bar. Phones keep it.',
+      },
+    ],
+  },
+  {
     version: '1.124.0',
     date:    '2026-10-06',
     changes: [

@@ -16,7 +16,7 @@ import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PATH_EVENT,
 import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
-import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
+import { useWpblHeadingTag, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from '../lib/foregroundInterval'
@@ -2922,9 +2922,9 @@ export function WpblHomeSkeleton() {
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={[homeWideSx, FLAT_CARDS_DARK]}>
       {/* The h1 row, and the club chips that sit beside it from sm up. Same flex, same gaps,
           so the heading lands on the pixel it is about to occupy. */}
-      {/* No margin under it on a phone, where the row has nothing left in it: the club chips
-          are already `sm`-only and the heading is now hidden there too, so 20px of margin
-          under an empty box would be the whole saving given back. */}
+      {/* No margin under it on a phone, where the loaded row has 12px: the scoreboard block below
+          makes up the difference, and the two measure the same at 375px. Check any change to
+          either against the loaded page (see "Loading states" in CLAUDE.md). */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
@@ -3118,10 +3118,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // is no feed game to address, so this is a plain modal that closes on X/Escape.
   const [matchup, setMatchup] = useState<MatchupPreviewArg | null>(null)
   const headingTag = useWpblHeadingTag()
-  // Both read the same fact (the nav is at the foot of the screen): the h1's sx reveals it on a
-  // phone, and `navAtBottom` opens the gap under it. See useTabHeadingPhoneSx.
-  const hidePhone = useTabHeadingPhoneSx()
-  const navAtBottom = useWpblNavAtBottom()
 
   // Leaders + tracking data, fetched here so only the home view pays for it. Seeded from the
   // shared session cache so swiping back to Home (the default tab, so the most re-entered)
@@ -3432,14 +3428,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
       {/* Slim league header. On mobile it's just the title; on wider screens the club chips
           sit inline to the right. */}
-      {/* No margin under it on a phone with the PILL NAV up top, where the row has nothing left
-          in it: the chips are `sm`-only and the h1 is hidden there because the nav already names
-          the league, so 20px under an empty box would be the whole saving given back. With the
-          BOTTOM BAR that nav is gone, the h1 is drawn (below), and the row needs a gap under it. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
-        mb: { xs: navAtBottom ? 1.5 : 0, sm: HEADER_GAP },
+        mb: { xs: 1.5, sm: HEADER_GAP },
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* The page's one <h1>. It carries the full league name (an exact match for that
@@ -3451,24 +3443,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               "Scoreboard" rather than as the top of anything. Size alone does not make a title
               on this page: the heaviest ink on it is the club names at display/800, and a title
               has to be in that conversation to win. */}
-          {/* READ BUT NOT DRAWN ON A PHONE WITH THE PILL NAV, where a phone reader has already
-              been told twice: the toolbar carries a live MLB/WPBL switch with WPBL lit, and the
-              section nav under it is a league's nav and nothing else's. The desktop keeps it,
-              where it pairs with the club chips on the same row and costs nothing.
-
-              It stays in the DOM and in the accessibility tree, clipped rather than
-              `display: none` (see VISUALLY_HIDDEN): this is the page's one `h1`, it is an exact
-              match for the search people type for this league, and Google indexes the MOBILE
-              DOM. Deleting it, or hiding it in a way that removes it, would cost the brand term.
-              Game Center makes the same call for the same reason. */}
-          {/* DRAWN ON A PHONE WITH THE BOTTOM BAR. With no section nav overhead naming the
-              league, the phone would open onto bare scoreboard tiles with no idea which league it
-              is looking at, so the page's own h1 becomes the top label. It fits one line at this
-              size on a 375px phone. Desktop and the pill-nav layout keep it clipped-but-in-DOM. */}
-          <Typography component={headingTag} sx={{
-            ...TAB_TITLE_SX,
-            ...hidePhone,
-          }}>
+          {/* DRAWN AT EVERY WIDTH. On a phone the section nav is the bottom bar, so nothing at the
+              top of the screen names the league but this; without it Home opened onto bare
+              scoreboard tiles. It fits one line on a 375px phone. Never delete it: it is the page's
+              one h1, an exact match for the search people type for this league, and Google indexes
+              the mobile DOM. */}
+          <Typography component={headingTag} sx={TAB_TITLE_SX}>
             Women's Pro Baseball League
           </Typography>
         </Box>

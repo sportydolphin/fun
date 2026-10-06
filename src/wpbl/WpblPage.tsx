@@ -41,13 +41,19 @@ export default function WpblPage({ title, standfirst, maxWidth = '56.25rem', chi
     <Box sx={{ maxWidth, mx: 'auto', px: { xs: 0, sm: 3 }, pb: 6 }}>
       {/* Back to the section, not to a fixed /wpbl: `navBack` returns the reader to wherever they
           opened this from (a tab, a player), and only falls back to the section root when they
-          arrived cold. A real <a href> so a crawler follows it and cmd-click opens a new tab. */}
+          arrived cold. A real <a href> so a crawler follows it and cmd-click opens a new tab.
+
+          PHONES ONLY. Above 600px the toolbar carries the section's tabs on these pages too
+          (ToolbarNav), so a pill saying "back to the section" sat directly under the section's
+          own nav. On a phone the tabs are the bottom bar, which is WpblApp's and absent here, so
+          this is still the way back, and an installed app has no browser Back button to fall
+          back on. */}
       <Box
         component="a"
         href="/wpbl"
         onClick={e => { if (!isModified(e)) { e.preventDefault(); navBack('/wpbl') } }}
         sx={{
-          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2,
+          textDecoration: 'none', display: { xs: 'inline-flex', sm: 'none' }, alignItems: 'center', gap: 0.5, mb: 2,
           color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 700,
           px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
           bgcolor: 'background.paper',

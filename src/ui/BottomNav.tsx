@@ -11,9 +11,10 @@ import {
 } from '@mui/icons-material'
 
 // Floating bottom tab bar for a league section, phones only. Shared by /wpbl and /mlb (moved out of
-// src/wpbl on Sep 28, 2026, when MLB took the same shell): the section passes its own accent. It replaces the sticky top pill nav
-// on mobile, because the top of a tall phone screen is the least reachable place to put the
-// section's destinations.
+// src/wpbl on Sep 28, 2026, when MLB took the same shell): the section passes its own accent. It
+// replaced a sticky row of tab pills at the top, because the top of a tall phone screen is the
+// least reachable place to put the section's destinations. Above a phone the tabs are in the
+// toolbar (src/ToolbarNav.tsx).
 //
 // DELIBERATELY NOT GLASS. A backdrop-filter over a long scrolling stats table costs a compositing
 // layer (the classic source of scroll jank on mid-range Android) to buy a slightly translucent
@@ -263,7 +264,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                   often enough that a zoom on it is noise. */}
               <Box sx={{ position: 'relative', width: ICON_PX, height: ICON_PX, flexShrink: 0 }}>
                 {/* Sits on the icon's top-right corner, outside its box so it never
-                    overlaps the glyph. Same static dot as the pill nav. */}
+                    overlaps the glyph. Same static dot as the toolbar tab's. */}
                 {item.badge && (
                   <Box aria-hidden sx={{
                     position: 'absolute', top: -1, right: -3, zIndex: 1,

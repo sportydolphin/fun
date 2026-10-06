@@ -504,12 +504,12 @@ interface Row {
 // Capped so it doesn't sprawl on huge monitors.
 const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 
-// The chrome pinned above this view.
-//
-// At most one of the two terms is non-zero: the toolbar is sticky only on desktop. On a phone
-// both are 0, because the section nav there is the fixed bottom bar and pins nothing at the top;
-// what it takes at the BOTTOM is `BOTTOM_NAV_SPACE`, which the board's cap subtracts on its own.
-const PINNED_CHROME = 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))'
+// The chrome pinned above this view: the toolbar, which above a phone carries the section's tabs
+// too (ToolbarNav), so its height is the whole of it. 0 on a phone, where the toolbar scrolls away
+// and the section nav is the fixed bottom bar, pinning nothing at the top; what that takes at the
+// BOTTOM is `BOTTOM_NAV_SPACE`, which the board's cap subtracts on its own. There was a second term
+// for the WPBL pill row until v1.124.0 moved the tabs into the toolbar.
+const PINNED_CHROME = 'var(--app-header-h, 0px)'
 const fullBleedSx = {
   width: FULL_BLEED_W,
   position: 'relative',
@@ -1616,7 +1616,7 @@ export default function WpblStatsView({
 
   // THE BAR PUBLISHES ITS OWN HEIGHT, because the board below pins to the BOTTOM of it and
   // nothing else on the page can know where that is: the shell reports its own chrome
-  // (`--app-header-h`, `--wpbl-nav-h`) and this bar pins under that, wrapping to two rows on a
+  // (`--app-header-h`) and this bar pins under that, wrapping to two rows on a
   // narrow screen and back to one when the filters fold away. Same shape as the shell's own
   // variables, and read the same way.
   useEffect(() => {
@@ -2217,7 +2217,7 @@ export default function WpblStatsView({
             maxHeight: 'calc(100dvh - 260px)',
             // THE BOTTOM NAV IS BELOW EVERYTHING ELSE, as padding the shell reserves so the footer
             // clears it (`BOTTOM_NAV_SPACE` plus the home-indicator inset, in WpblApp). It is not
-            // pinned at the TOP, so `--wpbl-nav-h` reads 0 on a phone and says nothing about it.
+            // pinned at the TOP, so PINNED_CHROME reads 0 on a phone and says nothing about it.
             // Leaving it out made the board 76px too tall (about 110px on an iPhone), and at the
             // bottom of the page the column headers slid up behind the control bar.
             '@media (max-width:600px)': {

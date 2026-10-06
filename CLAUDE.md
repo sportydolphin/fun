@@ -337,22 +337,20 @@ Each of these has already cost someone a debugging session, and none of them fai
   the seeding race (v1.59.0) all came out from behind it, and the mobile bottom nav shipped to
   every phone on Sep 14, 2026, so anything still describing those as experimental is stale.
 
-- **`--app-header-h` / `--wpbl-nav-h` are the pinned chrome's height, in plain screen pixels.**
-  Both are spent as a sticky `top`. Use the **rect**, never `offsetHeight`: it rounds to a whole
-  pixel, and a bar 43.67px tall publishing itself as 44 leaves a sub-pixel crack under it that
-  the page scrolls through, one device pixel of a stats row at a time. Consumers add them and
-  spend the sum (`PINNED_CHROME` in [`StatsView.tsx`](src/wpbl/StatsView.tsx)); at most one is
-  non-zero, and **on a phone both are 0**: the toolbar is sticky only on desktop, and since Sep
-  14, 2026 the phone's section nav is the fixed BOTTOM bar, which pins nothing at the top. What
-  the bottom bar takes is reserved as padding under the page (`BOTTOM_NAV_SPACE` plus the
-  safe-area inset), and anything sized to fit the screen has to subtract that itself: the stats
-  table's cap did not, and for twelve days its column headers slid behind the control bar at the
-  bottom of the page. This has regressed three times, once in each direction, every time by a
-  scale being applied at one end of the sum and not the other. **Since v1.124.0 nothing publishes
-  `--wpbl-nav-h`**: above a phone both sections' tabs live inside the toolbar
-  ([`ToolbarNav.tsx`](src/ToolbarNav.tsx), fed by [`sectionNav.ts`](src/sectionNav.ts)), so
-  `--app-header-h` already includes them, two rows of it below 1024px. The consumers still add it
-  and read 0.
+- **`--app-header-h` is the pinned chrome's height, in plain screen pixels,** spent as a sticky
+  `top` (`PINNED_CHROME` in [`StatsView.tsx`](src/wpbl/StatsView.tsx)). Above a phone it is the
+  WHOLE of the pinned chrome: both sections' tabs live inside the toolbar
+  ([`ToolbarNav.tsx`](src/ToolbarNav.tsx), fed by [`sectionNav.ts`](src/sectionNav.ts)), two rows
+  of it below 1024px. There was a second variable for WPBL's own pill row until v1.124.0 removed
+  that row. Use the **rect**, never `offsetHeight`: it rounds to a whole pixel, and a bar 43.67px
+  tall publishing itself as 44 leaves a sub-pixel crack under it that the page scrolls through,
+  one device pixel of a stats row at a time. **On a phone it is 0**: the toolbar scrolls away
+  there, and the section nav is the fixed BOTTOM bar, which pins nothing at the top. What the
+  bottom bar takes is reserved as padding under the page (`BOTTOM_NAV_SPACE` plus the safe-area
+  inset), and anything sized to fit the screen has to subtract that itself: the stats table's cap
+  did not, and for twelve days its column headers slid behind the control bar at the bottom of the
+  page. This has regressed three times, once in each direction, every time by a scale being
+  applied at one end of a sum and not the other.
 
 - **A video missing from the site may be missing on purpose: `fetchWpblVideos` drops what the
   reader's country cannot play.** The league's full-game broadcasts are blocked in the US (28 of 41

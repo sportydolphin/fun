@@ -14,7 +14,7 @@
 // own toggle, split by the same `countsInStandings`, so a bracket run never lands in a
 // regular-season square.
 //
-// NO NAV PILL, like the league, glossary and sources pages beside it: a real path linked from the
+// NO TAB OF ITS OWN, like the league, glossary and sources pages beside it: a real path linked from the
 // footer, which is the crawl path that has actually worked. See WPBL_SEASON_PAGE in routes.ts.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'

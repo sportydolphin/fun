@@ -11,9 +11,8 @@
 // THE URL STAYS /wpbl/league. It is indexed and linked; renaming the page is a title change, and
 // renaming the URL would cost a redirect and the links pointing at it.
 //
-// NO NAV PILL, DELIBERATELY. The top pills are already the least reachable part of an 812px phone
-// and a sixth would sit off-screen entirely (see BottomNav.tsx); the More menu and the footer link
-// it (morePages.ts).
+// NO TAB OF ITS OWN, DELIBERATELY. The phone's bottom bar holds five tabs and More, and a sixth tab
+// does not fit (see BottomNav.tsx); the More menu and the footer link it (morePages.ts).
 //
 // EVERY PLAYER NAME IS STILL A REAL LINK IN THE DOCUMENT. The hometown lists are hidden with
 // `display: none` rather than unmounted when their country is not picked, so the 118 anchors this

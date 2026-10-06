@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ReactNode, RefObject } from 'react'
+import type { ReactNode } from 'react'
 import { useMediaQuery } from '@mui/material'
 import { useSwipeNav } from '../AccessibilityContext'
 
@@ -80,7 +80,6 @@ interface Props {
   panels: ReactNode[]
   onIndexChange: (i: number) => void
   minHeight?: string // floors the container so short tabs stay swipeable in their empty space
-  stickyNavRef?: RefObject<HTMLElement | null> // the pinned tab menu, to land the new tab just under it
   padX?: number // horizontal inset (px) applied *inside* each pane, so the container can run
                 // full-bleed to the screen edge while content keeps its gutter: a pane then
                 // slides all the way off-screen instead of clipping at a padded barrier.
@@ -100,7 +99,7 @@ interface Props {
   keepAlive?: boolean
 }
 
-export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef, padX = 0, mode = 'window', keepAlive = false }: Props) {
+export default function SwipeableViews({ index, panels, onIndexChange, minHeight, padX = 0, mode = 'window', keepAlive = false }: Props) {
   const paneMode = mode === 'pane'
   const isMobile = useMediaQuery('(max-width:600px)')
   // Accessibility opt-out. With swiping off, the pager takes exactly the same path desktop
@@ -145,16 +144,16 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   const commitScrollY = useRef<number | null>(null)
 
   // Where a freshly-entered (never-scrolled) tab should land: stay put if we're near the
-  // top, otherwise snap up to just below the pinned nav so the tab reads from its start
-  // with the app toolbar tucked away. Mirrors the old commit-time reset.
+  // top, otherwise snap up to the tab's start with the app toolbar tucked away. Nothing is
+  // pinned above it on a phone (the section nav is the bottom bar), so that start is the target;
+  // the offset for a pinned tab row went with the row. Mirrors the old commit-time reset.
   const freshTarget = (curY: number) => {
     const el = containerRef.current
     if (!el) return curY
     const contentTop = el.getBoundingClientRect().top + window.scrollY
-    const stickyOffset = stickyNavRef?.current?.offsetHeight ?? 0
-    return Math.min(curY, Math.max(0, contentTop - stickyOffset))
+    return Math.min(curY, Math.max(0, contentTop))
   }
-  // Split scroll into two parts so the pill nav never jumps vertically when swiping tabs:
+  // Split scroll into two parts so the page chrome never jumps vertically when swiping tabs:
   //   • chrome offset: how far the app toolbar has scrolled away, 0…T (T = the "tucked" line
   //     where the nav is fully pinned). This governs the nav's on-screen position.
   //   • content offset: scroll past T, i.e. how deep into the tab's own content you are.
