@@ -45,10 +45,11 @@ export interface TodayGame {
 
 // One read per date shared by everything that asks at once. Home mounts the Predictor and Streak
 // Survivor side by side and the toolbar bell asks too, so a cold /mlb load sent the schedule read
-// and the probable pitchers' stats read twice each, a few milliseconds apart. Ten seconds is long
-// enough to fold those together and short enough that a game crossing first pitch is never
-// reported as still pickable for long; the Predictor's own refresh is every three minutes.
-const TODAY_GAMES_TTL_MS = 10_000
+// and the probable pitchers' stats read twice each, a few milliseconds apart. A minute also covers
+// the section remounting when the reader comes back from WPBL (see lib/readCache.ts), and it cannot
+// leave a started game pickable: StatsAPI stops calling a game 'Preview' at warmup, about twenty
+// minutes before first pitch. The Predictor's own refresh is every three minutes.
+const TODAY_GAMES_TTL_MS = 60_000
 const todayGamesCache = new Map<string, { at: number; p: Promise<TodayGame[]> }>()
 
 export function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
@@ -680,7 +681,9 @@ export function PredictorWidget({ onPicksSettled }: {
           }}
         >
           {loading ? (
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading the schedule…</Typography>
+            // At the size of the summary that replaces it ("3 games left to predict"), so the
+            // line under it does not move when the slate lands.
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.4, color: 'text.disabled' }}>Loading the schedule…</Typography>
           ) : idle?.kind === 'between-rounds' ? (
             <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.45 }}>
               The next games open for picks once their matchups are set.

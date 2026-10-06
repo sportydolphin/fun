@@ -375,6 +375,15 @@ export const TYPE_SCALE = {
   nano: '0.5rem',
 } as const
 
+/** A tab's own title, Home's league name included. ONE STYLE FOR ALL FIVE because they are read in
+ *  sequence: with the tabs in the toolbar there is no pill row between them to absorb a change,
+ *  so Home's display-size title next to four smaller ones read as the page jumping on every switch.
+ *  The size of a standalone page's (WpblPage) on a desktop, a step down on a phone. */
+export const TAB_TITLE_SX = {
+  fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page },
+  fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15,
+} as const
+
 /**
  * WEIGHT HAS A CEILING AT THE BOTTOM OF THIS SCALE, and it is the opposite of the instinct.
  *

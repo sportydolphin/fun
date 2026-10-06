@@ -1,11 +1,10 @@
 import React, { memo, Suspense, useEffect, useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Box, Typography, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
+import { Box, Typography, useMediaQuery, SwipeableDrawer } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
 import { ACCENT, ACCENT_TEXT } from './mlb/constants'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
-import { hoverOnly, FOCUS_RING } from './ui/interaction'
 import { requestDeepLink } from './mlb/state/deepLink'
 import type { DeepLink } from './mlb/state/deepLink'
 import { FinalGamesSection } from './mlb/views/FinalGames'
@@ -24,7 +23,7 @@ import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
-import { MLB_VIEW_PATHS, mlbUrlFor, mlbPlayerPath } from './mlb/routes'
+import { MLB_VIEW_PATHS, MLB_NAV, mlbUrlFor, mlbPlayerPath, type MlbNavKey } from './mlb/routes'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
@@ -33,6 +32,7 @@ import SwipeableViews from './ui/SwipeableViews'
 import { useSwipeNav } from './AccessibilityContext'
 import { AppErrorBoundary } from './AppErrorBoundary'
 import { PanelActiveContext } from './lib/panelActive'
+import { publishSectionNav, clearSectionNav } from './sectionNav'
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 //
@@ -47,14 +47,8 @@ import { PanelActiveContext } from './lib/panelActive'
 //     moves) or a mode of another tab (Odds, Charts) is one tap away under More.
 // On a phone the tabs are WPBL's floating bottom bar (src/ui/BottomNav); above that, pills.
 
-type NavKey = 'home' | 'scores' | 'standings' | 'stats' | 'teams'
-const NAV: { key: NavKey; label: string }[] = [
-  { key: 'home',      label: 'Home' },
-  { key: 'scores',    label: 'Scores' },
-  { key: 'standings', label: 'Standings' },
-  { key: 'stats',     label: 'Stats' },
-  { key: 'teams',     label: 'Teams' },
-]
+type NavKey = MlbNavKey
+const NAV = MLB_NAV
 const STATS_BOARDS: { view: MlbView; label: string }[] = [
   { view: 'leaderboard', label: 'Leaders' },
   { view: 'stats',       label: 'Table' },
@@ -281,15 +275,32 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }
 
   const [moreOpen, setMoreOpen] = useState(false)
-  const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null)
   const openMore = (item: MoreItem) => {
-    setMoreOpen(false); setMoreAnchor(null)
+    setMoreOpen(false)
     if (item.charts) state.setVizDefaultTab('graphs')
     if (item.view !== state.view) go(item.view, 'link')
     // Published after the view change: the board's owner takes it when it mounts, or at once if
     // it already is. See useDeepLink.
     if (item.link) requestDeepLink(item.link)
   }
+
+  // THE TOOLBAR'S TABS ON A DESKTOP. The shell draws them (src/sectionNav.ts); this says which is
+  // lit, where Stats currently points, and routes a tap through goTab so the tab change is tracked
+  // and a player page closes the way a pill tap always closed it. Keyed on the two values that can
+  // change, not on a fresh object per render, since every publish re-renders the shell.
+  const selectNav = useLatest((k: string) => goTab(k as NavKey))
+  const selectMore = useLatest((key: string) => { const m = MORE.find(x => x.key === key); if (m) openMore(m) })
+  const statsHref = viewHref(tabView('stats'))
+  useEffect(() => {
+    publishSectionNav({
+      section: 'mlb',
+      tabs: NAV.map(n => ({ key: n.key, label: n.label, href: n.key === 'stats' ? statsHref : viewHref(n.key) })),
+      active: activeTab,
+      onSelect: selectNav,
+      more: MORE.map(m => ({ key: m.key, label: m.label, hint: m.hint, onSelect: () => selectMore(m.key) })),
+    })
+  }, [activeTab, statsHref, selectNav, selectMore])
+  useEffect(() => () => clearSectionNav('mlb'), [])
 
   // ONE IDENTITY FOR THE LIFE OF THE SECTION, calling whatever the handler is now. The real
   // handlers are rebuilt whenever what they close over changes, and opening a team does exactly
@@ -453,61 +464,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       {/* The dev-settings gear + mobile-device preview now live app-wide in App.tsx
           (src/dev/DevSettings.tsx) so they cover both the MLB and WPBL sections. */}
 
-      {/* Tab pills, above a phone's width. On a phone the bottom bar replaces them: two navs for
-          the same five destinations would be worse than either. */}
-      {/* WPBL's nav row, laid out the same way so the switch between the sections moves nothing:
-          the same 720 column (scaled on a desktop), the pills centred in it and More pinned to its
-          right edge, a lighter bordered chip with a ▾ so it reads as a menu rather than a sixth tab.
-          See NavMore in WpblApp.tsx. The menu keeps MLB's one-line hints, which WPBL's desktop menu
-          drops: "Streak Survivor" or "Milestone Watch" says nothing on its own, and both sections'
-          phone sheets already carry a hint under every item. */}
-      {!bottomNav && (
-        <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
-            <SegControl
-              options={NAV.map(n => ({ value: n.key, label: n.label, href: viewHref(tabView(n.key)) }))}
-              value={activeTab}
-              onChange={v => goTab(v as NavKey)}
-            />
-          </Box>
-          <Box
-            component="button"
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={!!moreAnchor}
-            aria-label="More MLB pages"
-            onClick={e => setMoreAnchor(e.currentTarget)}
-            sx={{
-              ...FOCUS_RING,
-              flexShrink: 0,
-              display: 'inline-flex', alignItems: 'center', gap: 0.25,
-              px: 1.25, py: 0.5, borderRadius: 999, cursor: 'pointer',
-              border: '1px solid', borderColor: 'divider', bgcolor: 'transparent',
-              color: moreAnchor ? 'text.primary' : 'text.secondary',
-              fontSize: '0.75rem', fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
-              ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
-            }}
-          >
-            More
-            <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▾</Box>
-          </Box>
-          <Menu
-            anchorEl={moreAnchor}
-            open={!!moreAnchor}
-            onClose={() => setMoreAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            MenuListProps={{ dense: true }}
-          >
-            {MORE.map(m => (
-              <MenuItem key={m.key} onClick={() => openMore(m)} sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.35 }}>{m.label}</Typography>
-                <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1.35 }}>{m.hint}</Typography>
-              </MenuItem>
-            ))}
-          </Menu>
-        </Box>
-      )}
+      {/* No tab row here above a phone's width: the shell's toolbar draws the tabs and More there,
+          from what the effect above publishes (src/sectionNav.ts). */}
 
       {/* THE TAB'S CONTENT, AT LEAST A SCREEN TALL. On a phone the site footer renders inside it
           (withFooter), so while a tab is still loading the footer sat just under a few lines of

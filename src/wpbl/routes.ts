@@ -30,7 +30,10 @@ export type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'teams'
 /** Tab order, which is also the order the mobile pager swipes through. */
 export const WPBL_NAV: { key: WpblView; label: string }[] = [
   { key: 'home',      label: 'Home' },
-  { key: 'schedule',  label: 'Schedule' },
+  // "Scores", as MLB's is, over the same `schedule` key and path: the page is the season's games
+  // with their results, and a reader looking for last night's score reads the tab bar for that
+  // word. The path stays /wpbl/schedule, the URL the search engines have indexed.
+  { key: 'schedule',  label: 'Scores' },
   { key: 'standings', label: 'Standings' },
   { key: 'stats',     label: 'Stats' },
   { key: 'teams',     label: 'Teams' },

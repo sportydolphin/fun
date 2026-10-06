@@ -1,4 +1,8 @@
 import React, { createContext, useContext } from 'react'
+import { Typography } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
+import { TAB_TITLE_SX } from './ui'
+import { usePanelActive } from '../lib/panelActive'
 
 // Which element on screen is the PAGE's heading, when the section is a tab with a modal
 // sometimes laid over it.
@@ -28,7 +32,12 @@ export function WpblHeadingOwnerProvider({ owned, children }: { owned: boolean; 
  * about how it looks changes either way.
  */
 export function useWpblHeadingTag(): 'h1' | 'div' {
-  return useContext(OwnsHeading) ? 'h1' : 'div'
+  // Both, and both hooks always called. A tab the pager keeps mounted behind the one on screen is
+  // not the page either (lib/panelActive.ts), and left as an h1 it gave the page a second heading
+  // for every tab the reader had visited.
+  const owned = useContext(OwnsHeading)
+  const onScreen = usePanelActive()
+  return owned && onScreen ? 'h1' : 'div'
 }
 
 // Whether the section's nav sits at the FOOT of the screen (the mobile bottom bar) rather than as
@@ -98,7 +107,7 @@ export const VISUALLY_HIDDEN = {
 /**
  * Spread into a heading's `sx` to keep it for machines and drop it for a phone.
  *
- * WHY EVERY TAB HEADING IN THE SECTION USES THIS. The five tabs are titled WPBL Schedule, WPBL
+ * WHY EVERY TAB HEADING IN THE SECTION USES THIS. The five tabs are titled WPBL Scores, WPBL
  * Standings, WPBL Stats, WPBL Teams and the league's full name, and directly above every one of
  * them sits a nav reading Home / Schedule / Standings / Stats / Teams with the current tab lit,
  * under a toolbar with a live MLB/WPBL switch with WPBL lit. On a phone the heading is a third
@@ -113,3 +122,19 @@ export const VISUALLY_HIDDEN = {
  * RecapCard, so nothing in the section disagrees about where a phone ends.
  */
 export const HIDE_ON_PHONE = { '@media (max-width:599.95px)': VISUALLY_HIDDEN } as const
+
+/**
+ * A tab's title, as the tab draws it AND as its loading state draws it. One component so the two
+ * cannot disagree: the title needs no data, so the skeleton shows the real words in the real place
+ * and the only thing that changes when the tab arrives is the grey blocks under it. `sx` is the
+ * tab's own spacing; the phone rule is applied last, since when it hides it has to win.
+ */
+export function TabTitle({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
+  const headingTag = useWpblHeadingTag()
+  const hidePhone = useTabHeadingPhoneSx()
+  return (
+    <Typography component={headingTag} sx={[TAB_TITLE_SX, ...(Array.isArray(sx) ? sx : [sx]), hidePhone]}>
+      {children}
+    </Typography>
+  )
+}

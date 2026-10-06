@@ -1,3 +1,5 @@
+// First, before anything that might capture `fetch` at import time. See the file.
+import { devMountDelay } from './dev/slowLoad'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -46,7 +48,9 @@ if (rootEl) {
     // the moment the app itself drew, with the shell already in the DOM the whole time.
     // `setTimeout` inside the rAF runs after that frame is painted. The 200ms fallback is for a tab
     // opened in the background, where frames do not run at all and rAF alone would never boot it.
-    if (document.visibilityState === 'visible' && typeof requestAnimationFrame === 'function') {
+    if (devMountDelay > 0) {
+      setTimeout(boot, devMountDelay)
+    } else if (document.visibilityState === 'visible' && typeof requestAnimationFrame === 'function') {
       let booted = false
       const go = () => { if (!booted) { booted = true; boot() } }
       requestAnimationFrame(() => setTimeout(go, 0))

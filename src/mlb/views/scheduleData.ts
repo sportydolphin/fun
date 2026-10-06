@@ -1,6 +1,7 @@
 import { TEAM_ABBR } from '../constants'
 import { SCHEDULE_GAME_TYPES, isUnplayed, unplayedLabel, hasStartTime } from '../gameStatus'
 import { PreviewGame } from './GamePreview'
+import { cachedJson, FRESH_SHORT_MS } from '../lib/readCache'
 
 // Data layer for the team schedule strip: types, StatsAPI fetches, and the small
 // date/name formatters shared across the strip's card components. Split out of
@@ -129,12 +130,13 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
   const end   = new Date(today); end.setDate(end.getDate() + 21)
   const toISO = (d: Date) => d.toISOString().split('T')[0]
 
-  const r = await fetch(
+  // A minute, under the 90s the strip polls at during a live game (see readCache.ts).
+  const d = await cachedJson<any>(
     `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
     `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=${SCHEDULE_GAME_TYPES}` +
-    `&fields=dates,date,games,gamePk,gameDate,gameNumber,status,abstractGameState,codedGameState,detailedState,startTimeTBD,teams,home,away,team,id,name,score,isWinner`
+    `&fields=dates,date,games,gamePk,gameDate,gameNumber,status,abstractGameState,codedGameState,detailedState,startTimeTBD,teams,home,away,team,id,name,score,isWinner`,
+    FRESH_SHORT_MS,
   )
-  const d = await r.json()
 
   const games: ScheduleGame[] = []
   for (const dateObj of d.dates ?? []) {

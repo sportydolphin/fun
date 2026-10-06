@@ -14,6 +14,7 @@
 // fabricate events that render identically to real ones.
 
 import { TEAM_ABBR, TEAM_NICKNAME } from '../constants'
+import { cachedJson, FRESH_LIVE_MS } from './readCache'
 
 export type DramaKind = 'perfect' | 'nohitter' | 'walkoff' | 'cycle' | 'marathon'
 
@@ -157,13 +158,14 @@ function completedBattingInnings(side: 'away' | 'home', inning: number, half: st
 }
 
 async function fetchLiveGames(): Promise<LiveGame[]> {
-  const r = await fetch(
+  // Seconds only, well under the 60s poll (see readCache.ts).
+  const d = await cachedJson<any>(
     `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${localYmd(new Date())}` +
     `&hydrate=linescore` +
     `&fields=dates,games,gamePk,status,abstractGameState,detailedState,teams,home,away,team,id,score,` +
-    `linescore,currentInning,inningHalf,runs,hits,errors`
+    `linescore,currentInning,inningHalf,runs,hits,errors`,
+    FRESH_LIVE_MS,
   )
-  const d = await r.json()
   const out: LiveGame[] = []
   for (const dateObj of d.dates ?? []) {
     for (const g of dateObj.games ?? []) {

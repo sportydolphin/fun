@@ -31,6 +31,12 @@
           document.documentElement.setAttribute('data-app-scale', sec);
           document.documentElement.style.setProperty('--app-scale-desktop', '1.25');
         }
+        // The reader's Large text setting, which multiplies every rem in the real bar
+        // (TEXT_SCALE_FACTOR in AccessibilityContext). The tab labels below are type, so without it
+        // a Large-text reader's tabs would grow by an eighth the moment React took over.
+        try {
+          if (localStorage.getItem('a11yTextScale') === 'large') document.documentElement.style.setProperty('--sd-t', '1.125');
+        } catch (e) { /* default size */ }
       })();
     </script>
     <style>
@@ -56,12 +62,12 @@
          a quarter the moment React replaced it. The scale is recomputed here as --sd-s rather than
          read from --app-chrome, so it holds before the stylesheet does and under `npm run dev`,
          where the stylesheet arrives by JavaScript. Borders are the theme's `divider`. */
-      .sd-shell { --sd-s: 1; box-sizing: content-box; height: calc(48px * var(--sd-s));
-        display: flex; align-items: center; gap: calc(6px * var(--sd-s)); padding: 0 calc(16px * var(--sd-s));
-        border-bottom: 1px solid rgba(0,0,0,0.20); }
+      .sd-bar { --sd-s: 1; border-bottom: 1px solid rgba(0,0,0,0.20); }
+      .sd-shell { box-sizing: content-box; height: calc(48px * var(--sd-s));
+        display: flex; align-items: center; gap: calc(6px * var(--sd-s)); padding: 0 calc(16px * var(--sd-s)); }
       @media (min-width: 600px) { .sd-shell { padding: 0 calc(24px * var(--sd-s)); } }
-      @media (min-width: 900px) { :root[data-app-scale] .sd-shell { --sd-s: var(--app-scale-desktop, 1); } }
-      [data-theme="dark"] .sd-shell { border-bottom-color: rgba(255,255,255,0.22); }
+      @media (min-width: 900px) { :root[data-app-scale] .sd-bar { --sd-s: var(--app-scale-desktop, 1); } }
+      [data-theme="dark"] .sd-bar { border-bottom-color: rgba(255,255,255,0.22); }
       .sd-shell img { display: block; height: calc(32px * var(--sd-s)); width: auto; }
       [data-theme="dark"] .sd-shell img { filter: invert(1); }
       /* THE NAME AS TEXT, not only the logo, at the widths the real wordmark shows (960px, or 1200px
@@ -69,10 +75,40 @@
          after this stylesheet, with nothing to download, while the logo is an image to fetch and
          decode first. Inter where it is already loaded, the system face until then, which is what
          the real one does too (font-display: swap). */
-      .sd-shell span { display: none; font: 700 calc(20px * var(--sd-s))/1.6 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      .sd-shell .sd-wm { display: none; font: 700 calc(20px * var(--sd-s))/1.6 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         white-space: nowrap; color: var(--text-color, #111); }
-      @media (min-width: 960px) { .sd-shell span { display: block; } }
-      @media (min-width: 900px) and (max-width: 1199.95px) { :root[data-app-scale] .sd-shell span { display: none; } }
+      @media (min-width: 960px) { .sd-shell .sd-wm { display: block; } }
+      @media (min-width: 900px) and (max-width: 1199.95px) { :root[data-app-scale] .sd-shell .sd-wm { display: none; } }
+      /* THE LEAGUE SWITCH AND THE SECTION TABS, filled in by the script under the bar. Same rule as
+         everything above: every number is the real one's (App.tsx's switch, ToolbarNav's tabs), type
+         in px times the scale and the reader's text size (--sd-t), structure in px times the scale.
+         Above a phone the tabs sit beside the brand from 1024px (TOOLBAR_NAV_INLINE_MIN) and in a
+         40px row of their own below it; on a phone they are the bottom bar, which has no copy
+         here because nothing sits under it to be pushed. The icons on the right are not copied:
+         they appear in place without moving anything. */
+      .sd-bar .sd-sw { display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; padding: 2px; border-radius: 999px;
+        border: 1px solid #60a5fa55; background: #60a5fa14; }
+      .sd-bar .sd-sw b { padding: 3px calc(8px * var(--sd-s)); border-radius: 999px; text-align: center; letter-spacing: 0.3px;
+        font: 800 calc(10.56px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        color: rgba(0,0,0,0.6); }
+      .sd-bar .sd-sw b.on { color: #fff; background: #1565c0; }
+      .sd-bar .sd-sw b.on.rb { background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #5856d6, #af52de, #ff3b30);
+        background-size: 200% 100%; text-shadow: 0 1px 1px rgba(0,0,0,0.35); }
+      .sd-bar nav { display: none; align-self: stretch; }
+      .sd-bar nav i { position: relative; display: inline-flex; align-items: center; gap: calc(4px * var(--sd-s));
+        padding: 0 calc(10px * var(--sd-s)); font: 600 calc(13.6px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-style: normal; white-space: nowrap; color: rgba(0,0,0,0.6); }
+      .sd-bar nav i.on { color: rgba(0,0,0,0.87); }
+      .sd-bar nav i.on::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 0; height: 3px;
+        border-radius: 3px 3px 0 0; background: #1565c0; }
+      .sd-bar nav small { font-size: calc(9.6px * var(--sd-s) * var(--sd-t, 1)); }
+      [data-theme="dark"] .sd-bar .sd-sw b:not(.on), [data-theme="dark"] .sd-bar nav i { color: rgba(255,255,255,0.7); }
+      [data-theme="dark"] .sd-bar nav i.on { color: #fff; }
+      .sd-bar .sd-row { justify-content: center; height: calc(40px * var(--sd-s)); }
+      @media (min-width: 600px) and (max-width: 1023.95px) { .sd-bar .sd-row { display: flex; } }
+      /* 16px from the brand in the real bar, less the shell's own 6px gap, which the real bar's
+         brand group does not put between itself and the tabs. */
+      @media (min-width: 1024px) { .sd-bar .sd-shell nav { display: flex; margin-left: calc(10px * var(--sd-s)); } }
     </style>
     <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
@@ -170,7 +206,32 @@
          its name, with no login required — this is what Google's OAuth homepage
          verification reads. React replaces this content once it mounts. -->
     <div id="app">
-      <div class="sd-shell" aria-hidden="true"><img src="/logo-mark.png" alt="" /><span>sportydolphin</span></div>
+      <div class="sd-bar" aria-hidden="true"><div class="sd-shell"><img src="/logo-mark.png" alt="" /><span class="sd-wm">sportydolphin</span></div></div>
+      <script>
+        // The switch and the tabs for the section this URL opens, with the lit one lit. The labels
+        // are WPBL_NAV and MLB_NAV (src/wpbl/routes.ts, src/mlb/routes.ts), and the lit tab is the
+        // one ToolbarNav lights from the path before the section mounts; pinned in pwaShell.test.ts.
+        (function () {
+          var sec = document.documentElement.getAttribute('data-app-scale');
+          var bar = document.querySelector('.sd-bar');
+          if (!sec || !bar) return;
+          var p = location.pathname.replace(/\/+$/, '') || '/';
+          var tabs = sec === 'wpbl'
+            ? ['Home', 'Scores', 'Standings', 'Stats', 'Teams']
+            : ['Home', 'Scores', 'Standings', 'Stats', 'Teams'];
+          var lit = sec === 'wpbl'
+            ? (p === '/' || p === '/wpbl' ? 'Home' : (p.match(/^\/wpbl\/(schedule|standings|stats|teams)$/) || [])[1])
+            : (p === '/mlb' ? 'Home' : /^\/mlb\/(leaders|stats|charts)$/.test(p) ? 'Stats'
+              : /^\/mlb\/teams(\/|$)/.test(p) ? 'Teams' : (p.match(/^\/mlb\/(scores|standings)$/) || [])[1]);
+          lit = lit && lit.charAt(0).toUpperCase() + lit.slice(1);
+          var nav = '';
+          for (var i = 0; i < tabs.length; i++) nav += '<i' + (tabs[i] === lit ? ' class="on"' : '') + '>' + tabs[i] + '</i>';
+          nav += '<i>More<small>\u25BE</small></i>';
+          bar.firstChild.insertAdjacentHTML('beforeend',
+            '<span class="sd-sw"><b' + (sec === 'mlb' ? ' class="on"' : '') + '>MLB</b><b' + (sec === 'wpbl' ? ' class="on rb"' : '') + '>WPBL</b></span><nav>' + nav + '</nav>');
+          bar.insertAdjacentHTML('beforeend', '<nav class="sd-row">' + nav + '</nav>');
+        })();
+      </script>
       <main style="max-width:640px;margin:72px auto;padding:0 24px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
         <h1 style="font-size:1.9rem;font-weight:800;margin:0 0 12px;color:var(--text-color,#111);">sportydolphin.fun</h1>
         <p style="font-size:1.05rem;line-height:1.6;color:var(--text-color,#374151);opacity:0.85;margin:0 0 16px;">

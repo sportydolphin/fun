@@ -7,9 +7,9 @@ import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
 import type { WpblTeam, WpblGame, WpblStandingRow, WpblBattingLine, WpblPitchingLine, WpblPitchPlay } from './types'
-import { TeamSpecRadar, TeamSpecPlaceholder } from './TeamSpecRadar'
-import { teamSpecs, specLeagueGames, TEAM_SPEC_AXES } from './derive/teamSpec'
-import { useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
+import { TeamSpecRadar, TeamSpecPlaceholder, TeamSpecRadarSkeleton } from './TeamSpecRadar'
+import { teamSpecs, specLeagueGames, TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES } from './derive/teamSpec'
+import { TabTitle } from './PageHeading'
 
 /**
  * The Teams tab's landing screen: one card per club, in standings order.
@@ -219,8 +219,6 @@ export default function TeamsGrid({ teams, games, onSelect }: {
     () => new Map(teams.map(t => [t.id, fixtureFor(t.id, games, byId)])),
     [teams, games, byId])
   const ranked = rows.some(r => r.wins + r.losses > 0)
-  const headingTag = useWpblHeadingTag()
-  const hidePhone = useTabHeadingPhoneSx()
   const isDark = useWpblDark()
 
   // The spec chart needs league-wide box-score lines AND every plate appearance's pitch
@@ -244,6 +242,13 @@ export default function TeamsGrid({ teams, games, onSelect }: {
     () => lines && pitchPlays ? teamSpecs(teamIds, lines.batting, lines.pitching, games, pitchPlays) : null,
     [lines, pitchPlays, teamIds, games])
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
+  // WHETHER THE CHART IS COMING, decided from the schedule alone, which is here before either
+  // fetch. `teamSpecs` draws nothing until every club has TEAM_SPEC_MIN_GAMES, and that count is
+  // `specGames`, so a qualifying league means the chart will land and its box is drawn now, grey,
+  // at the chart's own size. The card used to hold a one-line "Loading." here and then grow 210px
+  // under the reader when the chart arrived.
+  const chartComing = specGames >= TEAM_SPEC_MIN_GAMES
+  const chartPending = chartComing && (lines == null || pitchPlays == null)
 
   return (
     // Flat cards in dark mode, Home's surface (see FLAT_CARDS_DARK), so the tab a reader reaches
@@ -251,9 +256,7 @@ export default function TeamsGrid({ teams, games, onSelect }: {
     <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 2 }, FLAT_CARDS_DARK]}>
       {/* The page's one <h1>: /wpbl/teams. A selected team renders TeamPage instead, which
           carries the club name as its own heading. */}
-      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, ...hidePhone }}>
-        WPBL Teams
-      </Typography>
+      <TabTitle>WPBL Teams</TabTitle>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
         {rows.map((r, i) => (
           <TeamCard
@@ -274,11 +277,11 @@ export default function TeamsGrid({ teams, games, onSelect }: {
         <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1.5 }}>
           <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, mb: 0.25 }}>Club profiles</Typography>
           <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mb: 1 }}>
-            {specs
-              ? `Each trait against the league average, through ${specs.minGames} games. The middle ring is average.`
+            {specs || chartPending
+              ? `Each trait against the league average, through ${specs?.minGames ?? specGames} games. The middle ring is average.`
               : 'How each club scores on six traits.'}
           </Typography>
-          {specs ? (
+          {specs || chartPending ? (
             <>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
                 {rows.map(r => (
@@ -288,7 +291,7 @@ export default function TeamsGrid({ teams, games, onSelect }: {
                   </Box>
                 ))}
               </Box>
-              <TeamSpecRadar specs={specs} teams={teams} radius={110} />
+              {specs ? <TeamSpecRadar specs={specs} teams={teams} radius={110} /> : <TeamSpecRadarSkeleton radius={110} />}
               <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.5 }}>
                 {TEAM_SPEC_AXES.map(a => `${a.label}: ${a.stat}`).join(' · ')}
               </Typography>

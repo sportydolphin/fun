@@ -17,7 +17,7 @@ import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, useTabHeadingPhoneSx, useWpblNavAtBottom, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import PlayoffBracket from './PlayoffBracket'
@@ -2885,7 +2885,7 @@ function ChampionBanner({ champion, season, runnerUp, champWins, rivalWins, dev,
  * published for the final. A final decided before its last scheduled date leaves the skeleton on
  * the in-season shape for those few days, which is the same page it drew before this existed.
  */
-function offseasonByCalendar(now = Date.now()): boolean {
+export function offseasonByCalendar(now = Date.now()): boolean {
   const dates = Object.values(POSTSEASON_SCHEDULE).flat().map(g => g.date).sort()
   const last = dates[dates.length - 1]
   // The end of that day in the league's zone, generously: 06:00Z the next morning.
@@ -3466,7 +3466,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               is looking at, so the page's own h1 becomes the top label. It fits one line at this
               size on a 375px phone. Desktop and the pill-nav layout keep it clipped-but-in-DOM. */}
           <Typography component={headingTag} sx={{
-            fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15,
+            ...TAB_TITLE_SX,
             ...hidePhone,
           }}>
             Women's Pro Baseball League

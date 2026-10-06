@@ -22,6 +22,7 @@ import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { SiteFooter } from './SiteFooter'
 import { pressable, FOCUS_RING } from './wpbl/ui'
 import { NotificationBell } from './NotificationBell'
+import { ToolbarNav } from './ToolbarNav'
 import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
@@ -155,6 +156,18 @@ const isWpblSection = (p: string) =>
 // two read as one unit, and the wordmark is held back until the viewport can show it
 // without the ellipsis biting into it. See the toolbar brand block for the math.
 const BRAND_LOGO_H = 32
+// Where the toolbar holds the section tabs, the widths at which the search field and the handle
+// beside the account icon come back inline. Measured, at the 1.25 desktop scale, with WPBL's
+// tabs (the longer set, with the Stats dot) and the wordmark showing: brand, tabs, field and
+// icons come to about 1420px with the field at its narrower width below, so 1480 leaves a gap
+// that reads as one rather than a field parked against More.
+const TOOLBAR_SEARCH_INLINE_MIN = 1480
+// Below this the tabs take a second row of the same bar: logo, switch, five tabs, More and four
+// icons come to about 920px at the scale, and the theme's `md` (900) would butt More against the
+// search icon. A raw query, not a theme breakpoint, for the reason given at BRAND_WORDMARK_MIN.
+const TOOLBAR_NAV_INLINE_MIN = 1024
+const NAV_INLINE = `@media (min-width:${TOOLBAR_NAV_INLINE_MIN}px)`
+const TOOLBAR_USERNAME_MIN = 1680
 // TWO THRESHOLDS, BECAUSE THE TOOLBAR IS NOW TWO SIZES. The test never changed: does the
 // toolbar have room to show the lockup whole. What changed is what "the toolbar" measures.
 //
@@ -502,6 +515,15 @@ function AppInner() {
   const [confetti, setConfetti] = useState<{ key: number; x: number; y: number } | null>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
   const isDesktop = useMediaQuery('(min-width: 600px)')
+  // THE SECTION TABS LIVE IN THIS BAR above a phone's width (ToolbarNav, src/sectionNav.ts), and
+  // they share it with the search field. Both fit inline only on a wide screen; below that the
+  // field folds to an icon that opens it across the bar, the way a phone's does. In SCREEN pixels,
+  // so the 1.25 desktop scale is already inside the number.
+  const navSection = isWpblSection(path) ? 'wpbl' as const : isMlbPath(path) ? 'mlb' as const : null
+  const hasToolbarNav = isDesktop && navSection !== null
+  const roomForSearch = useMediaQuery(`(min-width: ${TOOLBAR_SEARCH_INLINE_MIN}px)`)
+  const roomForUsername = useMediaQuery(`(min-width: ${TOOLBAR_USERNAME_MIN}px)`)
+  const searchCollapsed = !isDesktop || (hasToolbarNav && !roomForSearch)
 
   // Publish the toolbar's pinned height as --app-header-h, so anything further down the page
   // that wants to stick can sit below it without hard-coding a number that would drift.
@@ -594,6 +616,25 @@ function AppInner() {
     />
   ), [])
   const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  // "/" opens the search, as on GitHub and YouTube. It matters more now that the field folds to
+  // an icon beside the tabs on most laptop widths: a reader with a keyboard should not have to
+  // reach for the mouse to find it. Never while typing somewhere, and never under a modal, where
+  // it would open a field the reader cannot see.
+  useEffect(() => {
+    if (!searchShown) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      if (document.documentElement.hasAttribute('data-modal-open')) return
+      e.preventDefault()
+      if (searchCollapsed) setMobileSearchExpanded(true)
+      else searchInputRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [searchShown, searchCollapsed])
   const [toolbarDropdownOpen, setToolbarDropdownOpen] = useState(false)
   const [toolbarInputFocused, setToolbarInputFocused] = useState(false)
 
@@ -856,9 +897,11 @@ function AppInner() {
             raw it was the one thing in here that did not scale on the section whose root
             carries the scale, and the bar came out 10px shorter there than on the other one:
             the two sections are supposed to be indistinguishable above the content. */}
-        <Toolbar variant="dense" sx={{ minHeight: 'calc(48px * var(--app-chrome, 1))', py: 0.5 }}>
+        <Toolbar variant="dense" sx={{
+          minHeight: 'calc(48px * var(--app-chrome, 1))', py: 0.5,
+        }}>
           {/* Close button — mobile search mode only */}
-          {!isDesktop && mobileSearchExpanded && (
+          {searchCollapsed && mobileSearchExpanded && (
             <IconButton size="small" aria-label="Close search" onClick={() => { setMobileSearchExpanded(false); setSearchQuery('') }} sx={{ mr: 0.5, flexShrink: 0 }}>
               <Close fontSize="small" />
             </IconButton>
@@ -867,7 +910,8 @@ function AppInner() {
           {/* Brand name — hidden while mobile search is expanded. Version + What's
               new now live in the site footer. */}
           <Box sx={{
-            flex: 1, minWidth: 0, display: mobileSearchExpanded && !isDesktop ? 'none' : 'flex',
+            flex: 1, minWidth: 0, ...(hasToolbarNav && { [NAV_INLINE]: { flex: '0 0 auto' } }),
+            display: mobileSearchExpanded && searchCollapsed ? 'none' : 'flex',
             alignItems: 'center', gap: 0.75,
           }}>
             {/* Logo mark. The art is a black plate with the dolphin knocked out of it,
@@ -1026,19 +1070,40 @@ function AppInner() {
             </Box>
           </Box>
 
+          {/* The section tabs, beside the brand on a wide screen. Narrower than that the bar cannot
+              hold brand, tabs and icons on one line, and the tabs take a row of their own under
+              this one (below the Toolbar). */}
+          {hasToolbarNav && !(searchCollapsed && mobileSearchExpanded) && (
+            <ToolbarNav
+              section={navSection!}
+              path={path}
+              sx={{
+                display: 'none',
+                // Reach through the bar's own vertical padding so the lit tab's stripe sits on
+                // the bar's bottom hairline.
+                [NAV_INLINE]: { display: 'flex', ml: 2, my: -0.5 },
+              }}
+            />
+          )}
+          {hasToolbarNav && !mobileSearchExpanded && <Box sx={{ flex: 1, display: 'none', [NAV_INLINE]: { display: 'block' } }} />}
+
           {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
-          {searchShown && (isDesktop || mobileSearchExpanded) && (
+          {searchShown && (!searchCollapsed || mobileSearchExpanded) && (
             <ClickAwayListener onClickAway={() => {
               setToolbarDropdownOpen(false)
               setToolbarInputFocused(false)
-              if (!isDesktop) { setMobileSearchExpanded(false); setSearchQuery('') }
+              if (searchCollapsed) { setMobileSearchExpanded(false); setSearchQuery('') }
             }}>
               <Box sx={{
                 position: 'relative',
                 // Structure, same as the bar's height: this is a fixed box holding a field.
-                width: isDesktop ? 'calc(260px * var(--app-chrome, 1))' : undefined,
-                flex: !isDesktop ? 1 : undefined,
-                mx: isDesktop ? 1.5 : 0,
+                // Narrower beside the tabs, where the bar has a fourth thing to hold.
+                width: !searchCollapsed ? `calc(${hasToolbarNav ? 220 : 260}px * var(--app-chrome, 1))` : undefined,
+                flex: searchCollapsed ? 1 : undefined,
+                // Opened from the icon on a desktop it takes the bar, but a field 1200px wide is a
+                // field nobody can read across: centre it at a width a name fits in.
+                ...(searchCollapsed && isDesktop && { maxWidth: 'calc(560px * var(--app-chrome, 1))' }),
+                mx: !searchCollapsed ? 1.5 : searchCollapsed && isDesktop ? 'auto' : 0,
               }}>
                 <Box sx={{
                   display: 'flex', alignItems: 'center', gap: 0.75,
@@ -1055,7 +1120,8 @@ function AppInner() {
                   }
                   <Box
                     component="input"
-                    autoFocus={mobileSearchExpanded && !isDesktop}
+                    ref={searchInputRef}
+                    autoFocus={mobileSearchExpanded && searchCollapsed}
                     value={bridge.query}
                     onChange={(e: any) => setSearchQuery(e.target.value)}
                     onFocus={() => {
@@ -1068,7 +1134,7 @@ function AppInner() {
                         setSearchQuery('')
                         setToolbarDropdownOpen(false)
                         setToolbarInputFocused(false)
-                        if (!isDesktop) setMobileSearchExpanded(false)
+                        if (searchCollapsed) setMobileSearchExpanded(false)
                       }
                     }}
                     placeholder="Search player or team…"
@@ -1175,9 +1241,10 @@ function AppInner() {
           )}
 
           {/* Right-side icons — flex:1 on desktop so they balance the brand and keep search centered */}
-          <Box sx={{ flex: isDesktop ? 1 : undefined, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-            {/* Mobile: search icon when not expanded */}
-            {searchShown && !isDesktop && !mobileSearchExpanded && (
+          <Box sx={{ flex: isDesktop && !hasToolbarNav ? 1 : undefined, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+            {/* Search icon wherever the field is folded away (a phone, or beside the tabs on a
+                narrower desktop), until it is opened */}
+            {searchShown && searchCollapsed && !mobileSearchExpanded && (
               <IconButton size="small" aria-label="Search" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary', mr: 0.25 }}>
                 <Search />
               </IconButton>
@@ -1221,7 +1288,7 @@ function AppInner() {
                     ...FOCUS_RING,
                   }}
                 >
-                  {isDesktop && (username || user.user_metadata?.full_name) && (
+                  {isDesktop && (!hasToolbarNav || roomForUsername) && (username || user.user_metadata?.full_name) && (
                     <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
                       {username ? (
                         // The Roboto/Arial "@" dips toward the baseline and reads as sitting
@@ -1386,6 +1453,22 @@ function AppInner() {
           )}
           </Box>
         </Toolbar>
+        {/* THE TABS' OWN ROW below TOOLBAR_NAV_INLINE_MIN: a separate, fixed-height row rather than
+            the toolbar wrapping. A wrapped row is as tall as the tallest thing on its first line,
+            which is an icon button whose size MUI decides, so the bar came out 78px at one width and
+            95px at another, and index.html's static copy of it (which has no icons to measure)
+            could not know which. Fixed rows are two numbers that copy can hold: 48 and 40, times
+            the scale. See "Loading states" in CLAUDE.md. */}
+        {hasToolbarNav && (
+          <ToolbarNav
+            section={navSection!}
+            path={path}
+            sx={{
+              justifyContent: 'center', height: 'calc(40px * var(--app-chrome, 1))',
+              [NAV_INLINE]: { display: 'none' },
+            }}
+          />
+        )}
       </AppBar>
 
       {/* Dev-only: re-render the whole app inside a simulated phone viewport. At the

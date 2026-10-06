@@ -83,10 +83,18 @@ describe('every tab title reveals itself when the nav moves to the foot', () => 
     'src/wpbl/WpblApp.tsx', // Schedule and Standings both live here
   ]
 
-  it.each(TAB_TITLE_FILES)('%s spreads useTabHeadingPhoneSx into its title', (file) => {
+  // Through TabTitle, which applies the hook itself, or (Home's title row, which is not a TabTitle)
+  // by spreading it directly.
+  it.each(TAB_TITLE_FILES)('%s draws its title through TabTitle or the hook', (file) => {
     const src = readFileSync(file, 'utf8')
-    expect(src).toContain('useTabHeadingPhoneSx')
-    expect(src).toContain('...hidePhone')
+    expect(src.includes('<TabTitle') || (src.includes('useTabHeadingPhoneSx') && src.includes('...hidePhone'))).toBe(true)
+  })
+
+  it('TabTitle applies the hook, last', () => {
+    const src = readFileSync('src/wpbl/PageHeading.tsx', 'utf8')
+    const body = src.slice(src.indexOf('export function TabTitle'))
+    expect(body).toContain('useTabHeadingPhoneSx()')
+    expect(body).toMatch(/sx=\{\[TAB_TITLE_SX, .*hidePhone\]\}/)
   })
 })
 
@@ -105,6 +113,13 @@ describe('no tab hardcodes its heading level', () => {
   it.each(TAB_VIEWS)('%s asks the context instead', (file) => {
     const src = readFileSync(file, 'utf8')
     expect(src).not.toContain('component="h1"')
-    expect(src).toContain('component={headingTag}')
+    expect(src.includes('component={headingTag}') || src.includes('<TabTitle')).toBe(true)
+  })
+
+  it('TabTitle asks the context too', () => {
+    const src = readFileSync('src/wpbl/PageHeading.tsx', 'utf8')
+    const body = src.slice(src.indexOf('export function TabTitle'))
+    expect(body).toContain('useWpblHeadingTag()')
+    expect(body).toContain('component={headingTag}')
   })
 })

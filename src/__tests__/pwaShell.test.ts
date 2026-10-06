@@ -19,6 +19,8 @@ import aasaSource from '../../public/.well-known/apple-app-site-association?raw'
 import headersSource from '../../public/_headers?raw'
 import indexHtml from '../../index.html?raw'
 import appSource from '../App.tsx?raw'
+import { WPBL_NAV } from '../wpbl/routes'
+import { MLB_NAV } from '../mlb/routes'
 
 const manifest = JSON.parse(manifestSource) as {
   id: string
@@ -421,5 +423,21 @@ describe('the toolbar placeholder in index.html', () => {
     const app = appSource.match(/export const DESKTOP_SCALE = ([\d.]+)/)?.[1]
     expect(app).toBeTruthy()
     expect(indexHtml).toContain(`setProperty('--app-scale-desktop', '${app}')`)
+  })
+
+  // The static bar draws each section's tabs from its own copy of the labels, since it runs before
+  // any module does. A tab renamed or added in one place and not the other is a bar whose tabs
+  // change width, or change altogether, the moment React replaces it.
+  it("draws each section's tabs with the labels the real bar uses", () => {
+    expect(indexHtml).toContain(`['${WPBL_NAV.map(n => n.label).join("', '")}']`)
+    expect(indexHtml).toContain(`['${MLB_NAV.map(n => n.label).join("', '")}']`)
+  })
+
+  // Where the tabs move from their own row up beside the brand.
+  it('moves the tabs into the bar at the width App.tsx does', () => {
+    const app = appSource.match(/const TOOLBAR_NAV_INLINE_MIN = (\d+)/)?.[1]
+    expect(app).toBeTruthy()
+    expect(indexHtml).toContain(`(min-width: ${app}px)`)
+    expect(indexHtml).toContain(`(max-width: ${Number(app) - 0.05}px)`)
   })
 })

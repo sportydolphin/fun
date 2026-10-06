@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
+import { Box, Typography, CircularProgress, Skeleton, useMediaQuery } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameCount,
@@ -29,7 +29,7 @@ import {
 import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
-import { useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
+import { TabTitle } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 import { BOTTOM_NAV_SPACE } from './BottomNav'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
@@ -696,6 +696,21 @@ function SubViewFallback() {
   )
 }
 
+/** This tab while the section's first read is in flight: its title, its control bar and its table,
+ *  at the same full-bleed measure the loaded tab draws them at, so nothing moves when it lands.
+ *  Desktop measurements over the 1.25 scale, in chromePx. See TabSkeleton in WpblApp.tsx. */
+export function StatsSkeleton() {
+  return (
+    <Box sx={{ flexGrow: 1 }}>
+      <TabTitle sx={{ ...fullBleedSx, mb: 1 }}>WPBL Stats</TabTitle>
+      {/* The bar and the table touch: the table's top border tucks under the bar's last pixel. */}
+      {/* A phone stacks the board tabs over the filters, so its bar is its own number. */}
+      <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '95px', sm: chromePx(94) }, borderRadius: 2 }} />
+      <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: chromePx(546) }, borderRadius: 2, mt: '-1px' }} />
+    </Box>
+  )
+}
+
 export default function WpblStatsView({
   teams, games, focus, active = true, newBoards, onBoardSeen, onOpenPlayer, onOpenTeam,
   onOpenGame,
@@ -732,8 +747,6 @@ export default function WpblStatsView({
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
   const shortName = useWpblName(0)
   const playerLink = useWpblPlayerLink()
-  const headingTag = useWpblHeadingTag()
-  const hidePhone = useTabHeadingPhoneSx()
   const isNarrow = useMediaQuery('(max-width:600px)')
   const { basis: eraBasis, offLeague: eraOffLeague, fmtEra } = useEraBasis()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -1789,16 +1802,10 @@ export default function WpblStatsView({
           and the table beneath it and read as floating. Same measure as the table
           (`fullBleedSx`), not the bar's, which is deliberately wider still and gives the
           difference back as padding, so the two agree on where content starts. */}
-      <Typography component={headingTag} sx={{
-        ...fullBleedSx,
-        fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1,
-        // Spread LAST: when it hides, it is absolute positioning at 1px square and has to beat the
-        // width and negative margins the full-bleed rule above just set. Drawn on a phone once the
-        // nav is at the foot of the screen (see useTabHeadingPhoneSx), same as every tab title.
-        ...hidePhone,
-      }}>
-        WPBL Stats
-      </Typography>
+      {/* Spacing only: TabTitle applies the phone rule LAST, since when it hides it is absolute
+          positioning at 1px square and has to beat the width and margins the full-bleed rule
+          sets. Drawn on a phone once the nav is at the foot of the screen, as every tab title. */}
+      <TabTitle sx={{ ...fullBleedSx, mb: 1 }}>WPBL Stats</TabTitle>
       {/* The control bar, pinned, so a long table never scrolls every control off the top. It
           offsets by PINNED_CHROME, whose note explains both terms. Above the table's own
           sticky header, which pins inside the scroll box below it. */}

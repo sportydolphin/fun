@@ -38,6 +38,19 @@ Violating these creates real problems. Treat them as hard constraints.
   with `npm run migrate -- new "add foo table"`. Needs `SUPABASE_DB_URL` in `.env`. The 33
   legacy `scripts/*.sql` files are the pre-runner baseline: applied by hand, left alone,
   never re-run.
+- **Loading states: every one is the loaded page drawn empty, so nothing moves when content
+  lands.** That covers index.html's static toolbar, each tab's skeleton, and any card's own
+  loading branch. Each must take exactly the box its content will: the same title in the same
+  place (a title needs no data, so draw the real words), the same padding, badge sizes and row
+  heights. Build them from the components the loaded view uses (`TabTitle`, `SectionLabel`,
+  `radarBox`), not from hand-picked numbers. A one-line "Loading." in a card that will hold a
+  chart is a jump. Where the shape depends on data nothing has yet, reserve the most likely
+  shape; the calendar alone can tell the offseason (`offseasonByCalendar`). **Measure it; don't
+  judge it by eye.** Load with `?devSlowMount=3000` (the static bar) or `?devSlow=2500` (the
+  skeletons; 8s trips the request timeout and shows "No teams yet"), see
+  [`src/dev/slowLoad.ts`](src/dev/slowLoad.ts), and compare element rects against the loaded
+  page at 375, 760, 960 and 1440. A hidden browser pane records no layout-shift entries, so
+  compare rects rather than trusting CLS.
 - **Never commit secrets.** Client build vars live in Cloudflare Pages env plus `.env`;
   edge-function and cron secrets live in Supabase and GitHub Actions (table in
   ARCHITECTURE §9).
@@ -335,7 +348,11 @@ Each of these has already cost someone a debugging session, and none of them fai
   safe-area inset), and anything sized to fit the screen has to subtract that itself: the stats
   table's cap did not, and for twelve days its column headers slid behind the control bar at the
   bottom of the page. This has regressed three times, once in each direction, every time by a
-  scale being applied at one end of the sum and not the other.
+  scale being applied at one end of the sum and not the other. **Since v1.124.0 nothing publishes
+  `--wpbl-nav-h`**: above a phone both sections' tabs live inside the toolbar
+  ([`ToolbarNav.tsx`](src/ToolbarNav.tsx), fed by [`sectionNav.ts`](src/sectionNav.ts)), so
+  `--app-header-h` already includes them, two rows of it below 1024px. The consumers still add it
+  and read 0.
 
 - **A video missing from the site may be missing on purpose: `fetchWpblVideos` drops what the
   reader's country cannot play.** The league's full-game broadcasts are blocked in the US (28 of 41

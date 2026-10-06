@@ -17,6 +17,7 @@ import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 import { chromePx, typePx } from '../../ui/scale'
 import { useMlbHeadingTag } from '../components/PageHeading'
+import { cachedJson, FRESH_LIVE_MS, FRESH_LONG_MS } from '../lib/readCache'
 
 // Loaded on first game click, which keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -181,11 +182,13 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
     if (cached) return cached
   }
   try {
-    const r = await fetch(
+    // Today is held for seconds only, under the 30s the scoreboard polls at, so every tick is
+    // still a real read; it is there for the section remounting on a switch back from WPBL.
+    const d = await cachedJson<any>(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${dateISO}` +
-      `&hydrate=linescore,decisions`
+      `&hydrate=linescore,decisions`,
+      FRESH_LIVE_MS,
     )
-    const d = await r.json()
     const out: FinalGameSummary[] = []
     for (const dateObj of d.dates ?? []) out.push(...parseScheduleDateGames(dateObj))
     if (cacheable) gamesCache.set(dateISO, out)
@@ -216,11 +219,12 @@ export async function fetchGameSummary(gamePk: number): Promise<FinalGameSummary
 async function primeGamesCache(startISO: string, endISO: string): Promise<Map<string, FinalGameSummary[]>> {
   const map = new Map<string, FinalGameSummary[]>()
   try {
-    const r = await fetch(
+    // A month of finals, read on every mount to find the last game day: minutes are fine.
+    const d = await cachedJson<any>(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${startISO}&endDate=${endISO}` +
-      `&hydrate=linescore,decisions`
+      `&hydrate=linescore,decisions`,
+      FRESH_LONG_MS,
     )
-    const d = await r.json()
     const today = toISO(new Date())
     for (const dateObj of d.dates ?? []) {
       const iso   = dateObj.date as string
@@ -700,7 +704,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
   // Scores tab built from the same list, stood still for as long as the page was open. Today only,
   // and only while something on the slate is live or still to come: a finished day is final. The
   // date is re-checked when the read lands, so stepping to another day mid-flight cannot paint
-  // today's games over it. `fetchFinalGames` never caches today, so every tick is a real read.
+  // today's games over it. `fetchFinalGames` holds today for seconds only, under this poll, so every tick is a real read.
   const dateRef = useRef(dateISO)
   dateRef.current = dateISO
   const pollToday = dateISO === toISO(new Date()) && games.some(g => g.state === 'live' || g.state === 'preview')

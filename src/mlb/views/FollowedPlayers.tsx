@@ -11,6 +11,7 @@ import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedP
 import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { chromePx, typePx } from '../../ui/scale'
+import { cachedJson, FRESH_LONG_MS } from '../lib/readCache'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -282,10 +283,13 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
 async function fetchFollowedPlayerData(id: number, fresh = false): Promise<FollowedPlayerInfo | null> {
   try {
     const season = CURRENT_SEASON
+    // `fresh` is the live poll asking: it always reads, and what it reads is what the next mount
+    // gets. Otherwise a season line is good for minutes (see readCache.ts).
+    const ms = fresh ? 0 : FRESH_LONG_MS
     const [detRes, hitRes, pitRes] = await Promise.all([
-      fetch(`https://statsapi.mlb.com/api/v1/people/${id}?hydrate=currentTeam`).then(r => r.json()),
-      fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=season&group=hitting&season=${season}`).then(r => r.json()).catch(() => null),
-      fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=season&group=pitching&season=${season}`).then(r => r.json()).catch(() => null),
+      cachedJson<any>(`https://statsapi.mlb.com/api/v1/people/${id}?hydrate=currentTeam`, ms),
+      cachedJson<any>(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=season&group=hitting&season=${season}`, ms).catch(() => null),
+      cachedJson<any>(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=season&group=pitching&season=${season}`, ms).catch(() => null),
     ])
     const p = detRes.people?.[0]
     if (!p) return null

@@ -3,7 +3,6 @@ import type { MouseEvent } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
   HomeOutlined, Home,
-  CalendarMonthOutlined, CalendarMonth,
   FormatListNumberedOutlined, FormatListNumbered,
   BarChartOutlined, BarChart,
   GroupsOutlined, Groups,
@@ -35,7 +34,7 @@ export interface BottomNavItem {
 // bar still reads correctly for anyone who can't distinguish the accent colour.
 const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
   home:      { on: Home,                off: HomeOutlined },
-  schedule:  { on: CalendarMonth,       off: CalendarMonthOutlined },
+  schedule:  { on: Scoreboard,          off: ScoreboardOutlined },  // WPBL's Scores tab, MLB's icon
   standings: { on: FormatListNumbered,  off: FormatListNumberedOutlined },
   stats:     { on: BarChart,            off: BarChartOutlined },
   teams:     { on: Groups,              off: GroupsOutlined },
@@ -208,7 +207,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
           pointerEvents: 'none',
         }}>
           {/* Wraps the ICON, not the whole slot. A full-slot bubble is one fifth of the bar wide,
-              which leaves the longest labels ("Standings", "Schedule") within a few pixels of its
+              which leaves the longest label ("Standings") within a few pixels of its
               edge. Sized to the icon, label width stops mattering, and it is the same
               active-indicator shape Material uses. */}
           <Box sx={{

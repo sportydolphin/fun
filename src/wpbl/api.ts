@@ -269,6 +269,18 @@ const BULK_FRESH_MS = 20_000
 
 const isFresh = (c: { at: number } | null): boolean => !!c && Date.now() - c.at < BULK_FRESH_MS
 
+// THE TABLES THAT CHANGE OVER DAYS, NOT DURING A GAME, held for minutes instead. The 20s window
+// above is about the fan-out within one load; for these it also meant that a reader who opened
+// Reading from Home and came back a minute later re-pulled the gallery, every video, the league
+// calendar, the roster and a scan of the tracking table, all of it identical, because Home
+// remounts when it comes back from a page the section does not render. A fan photo is approved
+// by hand, a video or an article arrives on a cron, TrackMan lands in batches days after the game:
+// five minutes late is invisible for any of them. Everything a live game moves (lines, plays,
+// recaps, the schedule) stays on BULK_FRESH_MS.
+const SLOW_FRESH_MS = 5 * 60_000
+
+const isFreshSlow = (c: { at: number } | null): boolean => !!c && Date.now() - c.at < SLOW_FRESH_MS
+
 export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
@@ -397,7 +409,7 @@ export function wpblHomeCacheAgeMs(): number {
 // Every player in the league (all four rosters): the name pool for search, for slugs, and for
 // any surface that names a player off a box-score line.
 export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
-  if (isFresh(allPlayersCache)) return Promise.resolve(allPlayersCache!.data)
+  if (isFreshSlow(allPlayersCache)) return Promise.resolve(allPlayersCache!.data)
   return once('allPlayers', async () => {
     const data = await safe('fetchWpblAllPlayers', () =>
       supabase.from('wpbl_players').select('*'),
@@ -481,7 +493,7 @@ export function fetchWpblBattedBalls(): Promise<WpblSprayPlay[]> {
 let trackedGamesCache: { data: number | null; at: number } | null = null
 
 export function fetchWpblTrackedGameCount(): Promise<number | null> {
-  if (isFresh(trackedGamesCache)) return Promise.resolve(trackedGamesCache!.data)
+  if (isFreshSlow(trackedGamesCache)) return Promise.resolve(trackedGamesCache!.data)
   return once('trackedGameCount', async () => {
     const rows = await safe<{ tracked_game_count: number | null }[]>('fetchWpblTrackedGameCount', () =>
       supabase.from('wpbl_tracking_watch').select('tracked_game_count').limit(1), [])
@@ -926,7 +938,7 @@ const numOrNull = (v: unknown): number | null => {
 }
 
 export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
-  if (isFresh(allTrackingCache)) return Promise.resolve(allTrackingCache!.data)
+  if (isFreshSlow(allTrackingCache)) return Promise.resolve(allTrackingCache!.data)
   return once('allTracking', async () => {
   const PAGE = 1000
   const out: WpblTrackRow[] = []
@@ -983,7 +995,7 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
  * outgrows one page.
  */
 export function fetchWpblTrackedGameIds(): Promise<string[]> {
-  if (isFresh(trackedGameIdsCache)) return Promise.resolve(trackedGameIdsCache!.data)
+  if (isFreshSlow(trackedGameIdsCache)) return Promise.resolve(trackedGameIdsCache!.data)
   return once('trackedGameIds', async () => {
     const rows = await fetchAllPaged<{ game_id: string }>('fetchWpblTrackedGameIds', (from, to) =>
       supabase.from('wpbl_pitch_tracking').select('game_id')
@@ -1033,7 +1045,7 @@ export function fetchWpblRecaps(): Promise<WpblGameRecap[]> {
 // from that day a bare select would drop the OLDEST uploads without an error. `video_id` breaks
 // the tie between two uploads stamped the same second, which is what keeps the pages disjoint.
 export function fetchWpblVideos(): Promise<WpblVideo[]> {
-  if (isFresh(allVideosCache)) return Promise.resolve(allVideosCache!.data)
+  if (isFreshSlow(allVideosCache)) return Promise.resolve(allVideosCache!.data)
   return once('allVideos', async () => {
     const countryLookup = viewerCountry()
     const data = await fetchAllPaged<WpblVideo>('fetchWpblVideos', (from, to) =>
@@ -1060,7 +1072,7 @@ export function fetchWpblVideos(): Promise<WpblVideo[]> {
  */
 export function fetchWpblVideoTags(fresh = false): Promise<Map<string, WpblVideoTag>> {
   // `fresh` for /admin's tag editor, which must not edit over another tab's older copy.
-  if (!fresh && isFresh(videoTagsCache)) return Promise.resolve(videoTagsCache!.data)
+  if (!fresh && isFreshSlow(videoTagsCache)) return Promise.resolve(videoTagsCache!.data)
   return once(fresh ? 'videoTagsFresh' : 'videoTags', async () => {
     const rows = await fetchAllPaged<WpblVideoTag>('fetchWpblVideoTags', (from, to) =>
       supabase.from('wpbl_video_tags')
@@ -1090,7 +1102,7 @@ export function fetchWpblVideoTags(fresh = false): Promise<Map<string, WpblVideo
  * read.
  */
 export function fetchWpblSiteGames(): Promise<WpblSiteGame[]> {
-  if (isFresh(siteGamesCache)) return Promise.resolve(siteGamesCache!.data)
+  if (isFreshSlow(siteGamesCache)) return Promise.resolve(siteGamesCache!.data)
   return once('siteGames', async () => {
     const data = await safe<WpblSiteGame[]>('fetchWpblSiteGames', () =>
       supabase.from('wpbl_site_games')
@@ -1108,7 +1120,7 @@ export function fetchWpblSiteGames(): Promise<WpblSiteGame[]> {
 // Tiny table, read once app-wide and shared by the Home rail, the game card, and the player
 // and team pages, exactly like the videos read above it.
 export function fetchWpblArticles(): Promise<WpblArticle[]> {
-  if (isFresh(allArticlesCache)) return Promise.resolve(allArticlesCache!.data)
+  if (isFreshSlow(allArticlesCache)) return Promise.resolve(allArticlesCache!.data)
   return once('allArticles', async () => {
     const data = await safe<WpblArticle[]>('fetchWpblArticles', () =>
       supabase.from('wpbl_articles')
@@ -1142,7 +1154,7 @@ export function fetchWpblArticles(): Promise<WpblArticle[]> {
 // order is total (see fetchAllPaged for what a non-deterministic order costs a paged read;
 // this table is far too small to page, but the habit is cheap).
 export function fetchWpblPhotos(): Promise<WpblPhoto[]> {
-  if (isFresh(allPhotosCache)) return Promise.resolve(allPhotosCache!.data)
+  if (isFreshSlow(allPhotosCache)) return Promise.resolve(allPhotosCache!.data)
   return once('allPhotos', async () => {
     const data = await safe<WpblPhoto[]>('fetchWpblPhotos', () =>
       supabase.from('wpbl_photos')
@@ -1184,7 +1196,7 @@ export function fetchWpblPhotos(): Promise<WpblPhoto[]> {
 const FAN_PHOTO_COLUMNS = 'id,card_url,full_url,width,height,caption,credit,taken_on,game_id,sort_order,category_key,approved'
 
 export function fetchWpblFanPhotos(): Promise<WpblFanPhoto[]> {
-  if (isFresh(fanPhotosCache)) return Promise.resolve(fanPhotosCache!.data)
+  if (isFreshSlow(fanPhotosCache)) return Promise.resolve(fanPhotosCache!.data)
   return once('fanPhotos', async () => {
     const data = await fetchAllPaged<WpblFanPhoto>('fetchWpblFanPhotos', (from, to) =>
       supabase.from('wpbl_fan_photos')
@@ -1201,7 +1213,7 @@ export function fetchWpblFanPhotos(): Promise<WpblFanPhoto[]> {
 }
 
 export function fetchWpblFanPhotoSubjects(): Promise<WpblPhotoSubject[]> {
-  if (isFresh(fanPhotoSubjectsCache)) return Promise.resolve(fanPhotoSubjectsCache!.data)
+  if (isFreshSlow(fanPhotoSubjectsCache)) return Promise.resolve(fanPhotoSubjectsCache!.data)
   return once('fanPhotoSubjects', async () => {
     const data = await fetchAllPaged<WpblPhotoSubject>('fetchWpblFanPhotoSubjects', (from, to) =>
       supabase.from('wpbl_photo_subjects')
@@ -1216,7 +1228,7 @@ export function fetchWpblFanPhotoSubjects(): Promise<WpblPhotoSubject[]> {
 }
 
 export function fetchWpblFanPhotoFigures(): Promise<WpblPhotoFigure[]> {
-  if (isFresh(fanPhotoFiguresCache)) return Promise.resolve(fanPhotoFiguresCache!.data)
+  if (isFreshSlow(fanPhotoFiguresCache)) return Promise.resolve(fanPhotoFiguresCache!.data)
   return once('fanPhotoFigures', async () => {
     const data = await fetchAllPaged<WpblPhotoFigure>('fetchWpblFanPhotoFigures', (from, to) =>
       supabase.from('wpbl_photo_figures')
@@ -1234,7 +1246,7 @@ const FAN_PHOTO_CATEGORY_COLUMNS = 'key,name,blurb,sort_order'
 
 // A handful of rows, so one read rather than paged; ordered by the curator's sequence, then name.
 export function fetchWpblFanPhotoCategories(): Promise<WpblPhotoCategory[]> {
-  if (isFresh(fanPhotoCategoriesCache)) return Promise.resolve(fanPhotoCategoriesCache!.data)
+  if (isFreshSlow(fanPhotoCategoriesCache)) return Promise.resolve(fanPhotoCategoriesCache!.data)
   return once('fanPhotoCategories', async () => {
     const data = await safe<WpblPhotoCategory[]>('fetchWpblFanPhotoCategories', () =>
       supabase.from('wpbl_photo_categories').select(FAN_PHOTO_CATEGORY_COLUMNS)

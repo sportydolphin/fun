@@ -5,6 +5,7 @@ import { fetchSeasonPlayerStats } from './apiSeasonStats'
 import { seasonIsOver } from './seasonPhase'
 import { combineEntries, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from './lib/gameScope'
 import type { GameScope } from './lib/gameScope'
+import { cachedJson, cachedRead, FRESH_LONG_MS } from './lib/readCache'
 
 // Public API surface split across sibling modules, re-exported here so existing
 // `from '../api'` imports across the app keep resolving unchanged.
@@ -139,9 +140,8 @@ export async function fetchAndRankPlayers(
 }
 
 export async function fetchAllTeams(): Promise<Team[]> {
-  const r = await fetch('https://statsapi.mlb.com/api/v1/teams?sportId=1&activeStatus=Active')
-  const d = await r.json()
-  return (d.teams ?? []).sort((a: Team, b: Team) => a.name.localeCompare(b.name))
+  const d = await cachedJson<{ teams?: Team[] }>('https://statsapi.mlb.com/api/v1/teams?sportId=1&activeStatus=Active', FRESH_LONG_MS)
+  return [...(d.teams ?? [])].sort((a: Team, b: Team) => a.name.localeCompare(b.name))
 }
 
 // EVERY CLUB'S SEASON LINE IN ONE READ, per group. This was one request per club per group, and
@@ -1131,12 +1131,17 @@ const MILESTONE_STALE_MS = 72 * 3600 * 1000
 
 export async function fetchMilestoneData(season: number): Promise<MilestoneData | null> {
   try {
-    const { data } = await supabase
-      .from('milestone_watch')
-      .select('data, computed_at')
-      .eq('season', season)
-      .limit(1)
-    const row = data?.[0]
+    // Written once a night, so held for minutes (see lib/readCache.ts). An error is thrown out of
+    // the cache rather than stored, and lands in the catch below as before.
+    const row = await cachedRead(`milestone_watch:${season}`, FRESH_LONG_MS, async () => {
+      const { data, error } = await supabase
+        .from('milestone_watch')
+        .select('data, computed_at')
+        .eq('season', season)
+        .limit(1)
+      if (error) throw error
+      return (data?.[0] ?? null) as { data: unknown; computed_at: string } | null
+    })
     const fresh = !!row && Date.now() - new Date(row.computed_at).getTime() < MILESTONE_STALE_MS
     if (row?.data && (fresh || await seasonIsOver(season))) {
       const d = row.data as { items?: MilestoneItem[]; recent?: MilestoneItem[]; reached?: MilestoneItem[] }

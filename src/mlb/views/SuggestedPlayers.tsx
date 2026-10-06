@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT, ACCENT_TEXT, CURRENT_SEASON, TONE } from '../constants'
 import { chromePx, typePx } from '../../ui/scale'
 import { useTextTone } from '../lib/colorUtils'
+import { cachedJson, FRESH_LONG_MS } from '../lib/readCache'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,9 +25,8 @@ export async function fetchSuggestions(teamId: number, followedIds: number[]): P
   // Skipped with no team: the toolbar asks with `followedTeamId ?? 0`, and team 0's roster is a
   // request on every load that can only come back empty.
   if (teamId > 0) try {
-    const res = await fetch(
-      `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?season=${CURRENT_SEASON}&rosterType=active`
-    ).then(r => r.json())
+    const res = await cachedJson<any>(
+      `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?season=${CURRENT_SEASON}&rosterType=active`, FRESH_LONG_MS)
     const teamAbbr = TEAM_ABBR[teamId] ?? '?'
     const picks = ((res.roster ?? []) as any[])
       .filter((p: any) => !followedIds.includes(Number(p.person?.id)))
@@ -47,10 +47,9 @@ export async function fetchSuggestions(teamId: number, followedIds: number[]): P
 
   // ── League OPS leaders (outside the followed team) ────────────────────────
   try {
-    const res = await fetch(
+    const res = await cachedJson<any>(
       `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=onBasePlusSlugging` +
-      `&season=${CURRENT_SEASON}&limit=30&sportId=1&statGroup=hitting`
-    ).then(r => r.json())
+      `&season=${CURRENT_SEASON}&limit=30&sportId=1&statGroup=hitting`, FRESH_LONG_MS)
     const leaders: any[] = res?.leagueLeaders?.[0]?.leaders ?? []
     leaders
       .filter((p: any) => {

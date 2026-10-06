@@ -47,7 +47,8 @@ const ROUTES: Record<string, Seo> = {
   // canonical for the whole section and so exactly one page Google could rank. Titles lead
   // with the term someone would actually type, since that is the half a result list shows.
   '/wpbl/schedule': {
-    title: "WPBL Schedule 2026: Women's Pro Baseball League | sportydolphin.fun",
+    // Both words: the tab reads "Scores", and "WPBL schedule" is what people search.
+    title: "WPBL Scores & Schedule 2026: Women's Pro Baseball League | sportydolphin.fun",
     description:
       "The full 2026 Women's Pro Baseball League schedule: every WPBL game, date, and first pitch time, with final scores as they land.",
   },

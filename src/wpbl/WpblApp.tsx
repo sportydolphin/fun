@@ -9,7 +9,7 @@ import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFi
 import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
+import { SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
@@ -21,8 +21,8 @@ import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
-import WpblHome, { WpblHomeSkeleton, homeLandingReadsLines } from './Home'
-import WpblStatsView, { carryStatsParams, type WpblStatsFocus } from './StatsView'
+import WpblHome, { WpblHomeSkeleton, homeLandingReadsLines, offseasonByCalendar } from './Home'
+import WpblStatsView, { StatsSkeleton, carryStatsParams, type WpblStatsFocus } from './StatsView'
 import SeasonShapeCard from './SeasonShapeCard'
 import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
 import { useRowFlip, useRowDividers } from './rowFlip'
@@ -41,11 +41,13 @@ import {
   type WpblView,
 } from './routes'
 import { linkTo } from '../nav'
+import { publishSectionNav, clearSectionNav } from '../sectionNav'
 import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
 import { WPBL_MORE_PAGES } from './morePages'
 import { useForegroundInterval } from '../lib/foregroundInterval'
-import { WpblHeadingOwnerProvider, WpblNavAtBottomProvider, useWpblHeadingTag, useTabHeadingPhoneSx } from './PageHeading'
+import { PanelActiveContext } from '../lib/panelActive'
+import { WpblHeadingOwnerProvider, WpblNavAtBottomProvider, TabTitle } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
 import { AppErrorBoundary } from '../AppErrorBoundary'
@@ -121,27 +123,102 @@ const NAV = WPBL_NAV
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
-// Shown while the first teams/schedule read is in flight, for every tab EXCEPT Home, which has
-// its own (WpblHomeSkeleton, beside the layout it copies). This one is drawn inside the section's
-// 720px page column, and Home is the single view that breaks out of that column, so it could
-// never match Home's width or height.
-function ViewSkeleton() {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-      <Skeleton variant="rounded" height={40} />
-      <Skeleton variant="rounded" height={112} />
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' }, columnGap: 2.5, rowGap: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Skeleton variant="rounded" height={64} />
-          <Skeleton variant="rounded" height={220} />
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Skeleton variant="rounded" height={200} />
-          <Skeleton variant="rounded" height={160} />
-        </Box>
-      </Box>
-    </Box>
+// SHOWN WHILE THE FIRST TEAMS/SCHEDULE READ IS IN FLIGHT, ONE PER TAB, and each is its tab drawn
+// empty: the real title (TabTitle, which needs no data) over grey blocks the size of what replaces
+// them, so the only change when the tab lands is grey turning into content. Home has its own
+// (WpblHomeSkeleton) and so does Stats (StatsSkeleton, beside the full-bleed rule it shares).
+//
+// One generic dashboard shape served all four until Oct 2026 and matched none of them: no title,
+// and its first block 20px below where every tab's title sits, so every cold load jumped. The
+// schedule's is built from the schedule's own pieces (SectionLabel, the card's padding and badge);
+// the rest are desktop measurements over the 1.25 scale, in chromePx, which holds on a phone too.
+// Check any change with `?devSlow=2500` (src/dev/slowLoad.ts) against the loaded tab.
+function TabSkeleton({ view }: { view: WpblView }) {
+  const block = (height: unknown, key?: number) => (
+    <Skeleton key={key} variant="rounded" sx={{ height, borderRadius: 2 }} />
   )
+  switch (view) {
+    case 'schedule': {
+      // The schedule's own pieces, empty: a date label over a game card, with the card's padding,
+      // gap and badge size. A postseason game carries a series strip under the matchup.
+      const gameCard = (strip: boolean) => (
+        <Box sx={{
+          display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25,
+          borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
+        }}>
+          {[0, 1].map(row => (
+            <Box key={row} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Skeleton variant="circular" sx={{ width: chromePx(26), height: chromePx(26), flexShrink: 0 }} />
+              <Typography sx={{ fontSize: '0.9rem', flex: 1 }}><Skeleton width="9rem" /></Typography>
+            </Box>
+          ))}
+          {strip && (
+            <Box sx={{ pt: 0.6, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography sx={{ fontSize: '0.72rem' }}><Skeleton width="14rem" /></Typography>
+              {/* The series line wraps under its label on a phone. */}
+              <Typography sx={{ fontSize: '0.72rem', mt: 0.75, display: { xs: 'block', sm: 'none' } }}><Skeleton width="10rem" /></Typography>
+            </Box>
+          )}
+        </Box>
+      )
+      const day = (key: number, body: React.ReactNode) => (
+        <Box key={key}>
+          <SectionLabel><Skeleton width="5.5rem" /></SectionLabel>
+          {body}
+        </Box>
+      )
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+          <TabTitle sx={{ mb: 0.25 }}>WPBL Scores</TabTitle>
+          {offseasonByCalendar() ? (
+            // THE OFFSEASON LIST OPENS DIFFERENTLY, and the calendar alone knows it (see
+            // offseasonByCalendar): today, which has no games, then the day of the final, whose
+            // card carries the series strip, then everything earlier under its own label.
+            <>
+              {day(0, (
+                <Box sx={{ px: 1.25, py: 0.6, borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, display: 'flex', justifyContent: 'center' }}>
+                  <Typography sx={{ fontSize: '0.72rem' }}><Skeleton width="4rem" /></Typography>
+                </Box>
+              ))}
+              {day(1, gameCard(true))}
+              <SectionLabel>Earlier</SectionLabel>
+              {[2, 3, 4].map(i => day(i, gameCard(false)))}
+            </>
+          ) : [0, 1, 2, 3, 4].map(i => day(i, gameCard(false)))}
+        </Box>
+      )
+    }
+    case 'standings':
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TabTitle>WPBL Standings</TabTitle>
+          {/* The table's caption, which says this before any data has arrived too. */}
+          <Typography sx={{ mb: -1.25, fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled' }}>
+            Current standings
+          </Typography>
+          {block(chromePx(193))}
+          {/* The chart card wraps its subtitle and summary lines on a phone, so it is taller there. */}
+          {block({ xs: '388px', sm: chromePx(337) })}
+        </Box>
+      )
+    case 'teams':
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TabTitle>WPBL Teams</TabTitle>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+            {[0, 1, 2, 3].map(i => block(chromePx(96), i))}
+          </Box>
+          {/* Club profiles, at the height it has once its chart is drawn (TeamsGrid draws the
+              chart's box grey until then), and Head to head. Taller on a phone, where the chart
+              is near the card's full width and so near its full height. Both are there only once the season
+              has a result, which every season since the first week has. */}
+          {block({ xs: '404px', sm: chromePx(329.6) })}
+          {block(chromePx(261))}
+        </Box>
+      )
+    default:
+      return null
+  }
 }
 
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
@@ -186,8 +263,6 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const isDark = useWpblDark()
   const gameLink = useWpblGameLink()
-  const headingTag = useWpblHeadingTag()
-  const hidePhone = useTabHeadingPhoneSx()
   // A postseason placeholder opened as a matchup preview. These have no feed game row to open,
   // so this is a local modal rather than a history-managed page: season comparison and the two
   // rosters, which is what a seeded-but-unplayed fixture can answer.
@@ -497,9 +572,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
       {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. Demoted to
           a plain div while a game or player modal is the page; see PageHeading.tsx. */}
-      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25, ...hidePhone }}>
-        WPBL Schedule
-      </Typography>
+      <TabTitle sx={{ mb: 0.25 }}>WPBL Scores</TabTitle>
       {lead.map(renderDate)}
       {earlier.length > 0 && <SectionLabel>Earlier</SectionLabel>}
       {earlier.map(renderDate)}
@@ -568,8 +641,6 @@ function StandingsView({ teams, games, onOpenTeam }: {
       ? `As of ${new Date(`${date}T00:00:00`).toLocaleDateString([], { month: 'long', day: 'numeric' })}`
       : 'Before opening day'
   })()
-  const headingTag = useWpblHeadingTag()
-  const hidePhone = useTabHeadingPhoneSx()
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
   }
@@ -608,9 +679,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
     {/* The page's one <h1>. This is /wpbl/standings, a distinct route with its own title, so
         it gets a heading that names the term someone would search ("WPBL standings"). */}
-    <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, ...hidePhone }}>
-      WPBL Standings
-    </Typography>
+    <TabTitle>WPBL Standings</TabTitle>
     {/* WHICH DAY THIS TABLE IS. Always drawn, never toggled, and that is the whole design: a
         note that appears when you point at the chart would move the table down 20px under the
         finger doing the pointing, on every scrub, which is worse than the note is good. So the
@@ -821,77 +890,12 @@ function viewFromLocation(): string | null {
 // WITHOUT a sixth nav pill: WPBL_NAV, the pager and the mobile bottom bar all stay at five, because
 // a sixth pill does not fit a phone (see BottomNav.tsx and the note on WPBL_LEAGUE_PAGE).
 //
-// Not a tab and switches nothing in the pager: it opens a menu. Each item is a real <a href> via
-// linkTo, so it is crawlable and cmd/middle-click opens it in a new tab. The list itself lives in
-// morePages.ts, shared with the footer, so the desktop menu, the phone sheet and the footer cannot
-// disagree about what a reader is offered.
+// Not a tab and switches nothing in the pager: it opens a menu (the toolbar's, src/ToolbarNav.tsx,
+// above a phone; the sheet below on one). Each item is a real <a href> via linkTo, so it is
+// crawlable and cmd/middle-click opens it in a new tab. The list itself lives in morePages.ts,
+// shared with the footer, so the desktop menu, the phone sheet and the footer cannot disagree
+// about what a reader is offered.
 const useMorePages = () => WPBL_MORE_PAGES
-
-function NavMore() {
-  const pages = useMorePages()
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-  const open = Boolean(anchor)
-  return (
-    <>
-      {/* Deliberately LIGHTER than a nav pill: a bordered, transparent chip against the pills'
-          filled active state, so it reads as a way out of the five rather than a sixth peer. */}
-      <Box
-        component="button"
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="More WPBL pages"
-        onClick={e => setAnchor(e.currentTarget)}
-        sx={{
-          ...FOCUS_RING,
-          display: 'inline-flex', alignItems: 'center', gap: 0.25,
-          px: 1.25, py: 0.5, borderRadius: 999, cursor: 'pointer',
-          border: '1px solid', borderColor: 'divider', bgcolor: 'transparent',
-          color: open ? 'text.primary' : 'text.secondary',
-          fontSize: '0.75rem', fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap',
-          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
-        }}
-      >
-        More
-        <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▾</Box>
-      </Box>
-      <Menu
-        anchorEl={anchor}
-        open={open}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        MenuListProps={{ dense: true }}
-      >
-        {/* One flat list, no subheaders: see morePages.ts for why the groups went. */}
-        {pages.map(l => {
-          const props = linkTo(l.href)
-          return (
-            <MenuItem
-              key={l.href}
-              {...props}
-              // linkTo handles the navigation and lets a modified click through to the browser;
-              // the menu only has to close itself once a plain click has been taken. A tracked
-              // item also records the open through the same funnel its other entry points use.
-              onClick={e => {
-                const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-                if (l.event && !modified) track(l.event, l.eventProps ?? {})
-                props.onClick(e)
-                if (e.defaultPrevented) setAnchor(null)
-              }}
-              sx={{ fontSize: '0.82rem', fontWeight: 600, ...UNSTYLED_MENU_LINK }}
-            >
-              {l.label}
-            </MenuItem>
-          )
-        })}
-      </Menu>
-    </>
-  )
-}
-
-// An anchor carries a browser underline and link colour; a MenuItem should look like a menu row.
-const UNSTYLED_MENU_LINK = { textDecoration: 'none', color: 'text.primary' } as const
 
 // The mobile counterpart to NavMore: the same non-tab pages, reached from the bottom bar's
 // More slot as a bottom sheet instead of a dropdown. The bottom bar replaces the top pill nav on a
@@ -1083,53 +1087,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // the first paint and inserted a frame later into an already laid-out page, with the pill nav
   // flashing in its place. Reading matchMedia synchronously keeps the bar in the initial layout.
   const isMobileView = useMediaQuery('(max-width:600px)', { noSsr: true })
-  const navRef = useRef<HTMLDivElement>(null)
-  // Bottom tab bar, phones only. It REPLACES the sticky top pills rather than sitting alongside
-  // them: two navs for the same five destinations would be worse than either alone. Desktop keeps
-  // the pills regardless, because a bottom bar is wrong at 1280px.
+  // Bottom tab bar, phones only. Above a phone the tabs are in the shell's toolbar instead (see
+  // the publish below selectTab), because a bottom bar is wrong at 1280px.
   const bottomNav = isMobileView
   // The bottom bar's More sheet (the mobile way into the non-tab pages). Owned here, not in the
   // bar, because the sheet renders above the bar and outlives a tab swipe.
   const [moreSheetOpen, setMoreSheetOpen] = useState(false)
-
-  // Mobile: once the page scrolls and the sticky pill bar pins to the top, give it a
-  // hairline + soft shadow so content reads as sliding *under* a bar rather than under a
-  // dead grey band. Cheap window-scroll listener, passive.
-  const [navStuck, setNavStuck] = useState(false)
-
-  // Publish this bar's pinned height as --wpbl-nav-h, the mobile counterpart to the
-  // toolbar's --app-header-h. Exactly one of the two is sticky at a time (the toolbar on
-  // desktop, this bar on mobile), so a view that wants to pin something of its own below
-  // the chrome can offset by the sum and be right on both. Keyed off the computed position
-  // (and re-measured on resize) so the static desktop case reports 0 rather than a height
-  // nothing is actually holding: on desktop the bottom bar is absent and the top pills are
-  // sticky instead, so this collapses to 0 on its own.
-  useEffect(() => {
-    const el = navRef.current
-    const publish = () => {
-      const pinned = el && getComputedStyle(el).position === 'sticky'
-      // The RECT height, not offsetHeight, which rounds to a whole pixel. A bar 43.67px tall would
-      // publish itself as 44, so anything sticking at that offset sits a third of a pixel below this
-      // one's bottom edge and the page scrolls through the crack: one device pixel of a stats row,
-      // running along under the nav the whole way down. Fractional CSS pixels are what the browser is
-      // laying out in, so hand it those. No division: this section scales in CSS rather than under a
-      // `zoom`, so a rect and a sticky `top` are the same pixel here.
-      document.documentElement.style.setProperty(
-        '--wpbl-nav-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
-    }
-    publish()
-    const ro = new ResizeObserver(publish)
-    if (el) ro.observe(el)
-    window.addEventListener('resize', publish)
-    return () => { ro.disconnect(); window.removeEventListener('resize', publish) }
-  }, [bottomNav, isMobileView])
-
-  useEffect(() => {
-    const onScroll = () => setNavStuck(window.scrollY > 4)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
 
   // Toolbar search bridge: WpblApp owns the shared header search while /wpbl is mounted.
   const bridge = useSearchBridge()
@@ -1360,6 +1323,23 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const backToRoot = v === view && via === 'pill'
     push({ view: v, team: backToRoot ? null : selectedTeam, game: null, player: null })
   }, [push, selectedTeam, view])
+  // THE TOOLBAR'S TABS ABOVE A PHONE. The shell draws them (src/sectionNav.ts); this says which is
+  // lit, carries the Stats dot, and routes a tap through selectTab so it is tracked as a pill and
+  // a second tap on Teams still returns to the grid. The handler goes through a ref so the publish
+  // is keyed on the two values that change, not on a fresh closure per render: every publish
+  // re-renders the shell.
+  const selectTabRef = useRef(selectTab)
+  selectTabRef.current = selectTab
+  const statsBadge = navBadge('stats')
+  useEffect(() => {
+    publishSectionNav({
+      section: 'wpbl',
+      tabs: NAV.map(n => ({ key: n.key, label: n.label, href: wpblPathFor(n.key), badge: n.key === 'stats' && statsBadge })),
+      active: view,
+      onSelect: k => selectTabRef.current(k as WpblView, 'pill'),
+    })
+  }, [view, statsBadge])
+  useEffect(() => () => clearSectionNav('wpbl'), [])
   // Every team-page open in the section funnels through here, so it is the only place that can
   // count them all: the Teams grid, the standings table, the Stats table, the bracket and the
   // header search all reach a team page through it.
@@ -1870,53 +1850,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         scoreboard) would otherwise inherit the tuck and sit ~4px under the toolbar, so it gets
         real breathing room instead. */}
     <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: bottomNav ? 0.5 : -1.5, sm: 0 } }}>
-      {/* Section nav: shared SegControl pill bar, matching the MLB tab bar. */}
-      {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
-          when swiping to a tab or when the schedule snaps to the next game. */}
-      <Box ref={navRef} sx={{
-        display: bottomNav ? { xs: 'none', sm: 'block' } : 'block',
-        position: { xs: 'sticky', sm: 'static' }, top: { xs: 0, sm: 'auto' }, zIndex: 3,
-        bgcolor: 'background.default',
-        // Tight opaque bar that hugs the pills; the breathing gap below is transparent
-        // margin (not painted), so content scrolls right up under the pills with no slab.
-        // Equal padding above and below the pills so the bar sits symmetric around them.
-        pt: { xs: 0.75, sm: 0 }, pb: { xs: 0.75, sm: 0 }, mb: { xs: 0.75, sm: 0 },
-        // Full-bleed the bar (bg + hairline) to the screen edge on mobile; SegNav sits
-        // flush inside and supplies its own resting inset via scroll padding.
-        mx: { xs: -2, sm: 0 },
-        transition: 'box-shadow 0.2s, border-color 0.2s',
-        borderBottom: '1px solid',
-        borderColor: navStuck ? 'divider' : 'transparent',
-        boxShadow: navStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
-      }}>
-        {/* href per pill: these are five separate URLs now, and a crawler only finds the
-            other four by following a real link from this bar. The "More" control beside it is
-            NOT a sixth pill (see NavMore): the pills stay centred in the flex-1 track, and More
-            is pinned to the right edge of the nav column, out of the pager and out of WPBL_NAV.
-            It anchors to the column edge, not to Home's team badges: those live on Home's wider
-            breakout row and on no other tab, so chasing them would leave More floating against
-            nothing everywhere else. The column edge is the one right edge every tab shares. */}
-        {/* The gap below the nav to the content lives HERE, on the row, not on SegNav's own
-            `mb`. With alignItems:center that bottom margin gets folded into SegNav's margin box
-            and centred with it, floating the pills ~15px up off More, which is what read as More
-            "hanging halfway below the pill bar". Zero SegNav's margin (mb=0) so pills and More
-            share one marginless row and centre on the same line; the row carries the gap. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { sm: 3 } }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <SegNav
-              options={NAV.map(n => ({
-                value: n.key, label: n.label, badge: navBadge(n.key), href: wpblPathFor(n.key),
-              }))}
-              value={view}
-              onChange={v => selectTab(v as WpblView, 'pill')}
-              mb={0}
-            />
-          </Box>
-          <Box sx={{ flexShrink: 0, pr: { xs: 2, sm: 0 } }}>
-            <NavMore />
-          </Box>
-        </Box>
-      </Box>
+      {/* No tab row here: on a phone the tabs are the bottom bar, and above that the shell's
+          toolbar draws them from what this section publishes (src/sectionNav.ts). */}
 
       {/* Floor the view height on mobile so even a short tab (e.g. Standings) is tall enough to
           scroll the app toolbar fully off — leaving room for roughly the sticky pill nav's
@@ -1929,7 +1864,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,
       }}>
       {loading
-        ? (view === 'home' ? <WpblHomeSkeleton /> : <ViewSkeleton />)
+        ? (view === 'home' ? <WpblHomeSkeleton /> : view === 'stats' ? <StatsSkeleton /> : <TabSkeleton view={view} />)
         : (
           // One panel per nav tab, in NAV order, so mobile can swipe between them. The `active` flag lets a
           // view react to becoming current after a swipe reuses its already-mounted node (e.g. Schedule
@@ -1942,8 +1877,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             index={NAV.findIndex(n => n.key === view)}
             onIndexChange={i => selectTab(NAV[i].key, 'swipe')}
             minHeight={isMobileView ? 'calc(100dvh - 24px)' : undefined}
-            stickyNavRef={navRef}
             padX={isMobileView ? 16 : 0}
+            // KEPT ALIVE ON A DESKTOP TOO, as MLB's are. Without it the pager renders the active tab
+            // alone above a phone's width, so every switch to Home threw away the gallery, Reading,
+            // Watch and the rest and rebuilt them from their fetches: a waste the reader saw, since
+            // each card redrew from its skeleton. A hidden tab neither polls nor holds the <h1>
+            // (PanelActiveContext below, lib/panelActive.ts).
+            keepAlive
             panels={NAV.map(n => {
               // EACH TAB HOLDS ITS OWN ERRORS. The pager keeps every visited tab mounted, so without
               // this a crash in one board took the bottom nav and the other four tabs down with it.
@@ -1961,8 +1901,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
               // footer off-screen) and a partial swipe that springs back moves nothing; no shared footer
               // reflows or pops mid-swipe. `mt: auto` pins it to the bottom of the floored pane on short tabs,
               // right after content on tall ones.
-              if (!isMobileView || !renderFooter) return content
-              return (
+              const panel = (body: React.ReactNode) => (
+                <PanelActiveContext.Provider key={n.key} value={n.key === view}>{body}</PanelActiveContext.Provider>
+              )
+              if (!isMobileView || !renderFooter) return panel(content)
+              return panel(
                 // Short tabs (Standings) don't scroll, so the footer pinned to the bottom of this
                 // floored column landed underneath the floating bar. Shorten the floor by the
                 // bar's height when it's on, so the footer comes to rest just above it.

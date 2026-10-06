@@ -41,6 +41,29 @@ export const MLB_VIEW_PATHS: Record<Exclude<MlbView, 'search'>, string> = {
   teams:       MLB_TEAMS_BASE,
 }
 
+/** The five tabs. Here rather than in MlbStats because the shell's toolbar draws them on a
+ *  desktop (see src/sectionNav.ts) and must be able to before the section's chunk has loaded. */
+export type MlbNavKey = 'home' | 'scores' | 'standings' | 'stats' | 'teams'
+export const MLB_NAV: { key: MlbNavKey; label: string }[] = [
+  { key: 'home',      label: 'Home' },
+  { key: 'scores',    label: 'Scores' },
+  { key: 'standings', label: 'Standings' },
+  { key: 'stats',     label: 'Stats' },
+  { key: 'teams',     label: 'Teams' },
+]
+
+/** The tab a path lights before the section has said so itself. The three Stats boards are one
+ *  tab; a player, game or series page lights nothing until the section knows where it came from. */
+export function mlbNavKeyFromPath(pathname: string): MlbNavKey | null {
+  const p = pathname.replace(/\/+$/, '') || '/'
+  if (p === MLB_BASE) return 'home'
+  if (p === MLB_VIEW_PATHS.scores) return 'scores'
+  if (p === MLB_VIEW_PATHS.standings) return 'standings'
+  if (p === MLB_VIEW_PATHS.leaderboard || p === MLB_VIEW_PATHS.stats || p === MLB_VIEW_PATHS.viz) return 'stats'
+  if (p === MLB_TEAMS_BASE || p.startsWith(`${MLB_TEAMS_BASE}/`)) return 'teams'
+  return null
+}
+
 // ─── Clubs ────────────────────────────────────────────────────────────────────
 //
 // WRITTEN OUT, NOT DERIVED FROM THE API. The edge, the sitemap and seo.ts all need a club's URL

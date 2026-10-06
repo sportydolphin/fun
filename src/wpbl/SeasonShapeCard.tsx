@@ -5,7 +5,6 @@ import { useChartScrub } from './chartScrub'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { wpblAccent, wpblFullName } from './constants'
 import { SectionCard, chromePx, pressable, FOCUS_RING, useWpblDark, CARD_BORDER } from './ui'
-import { prefersReducedMotion } from '../lib/motion'
 
 // The standings plotted against the calendar.
 //
@@ -23,10 +22,9 @@ import { prefersReducedMotion } from '../lib/motion'
 // it is the same chart with the cursor jumping instead of sliding, and the scrubber does
 // everything the button does.
 //
-// THE DRAW-IN IS THE ONE PIECE OF DECORATION AND IT IS ON A TIMER, not a scroll trigger. A
-// chart that animates every time it re-enters the viewport is a chart you cannot read while
-// scrolling past it twice. It plays once per mount, and `prefersReducedMotion` skips it to the
-// finished state rather than shortening it.
+// THERE IS NO DRAW-IN. The chart is painted finished, every time. It used to wipe in once per
+// mount, and Standings remounts it on every visit to the tab, so the one chart a reader comes back
+// to most was the one they waited 1.1s for each time. The play button is the only motion.
 //
 // TWO PIXEL RULES, both from CLAUDE.md and both invisible when broken. The SVG is a unit box
 // stretched by CSS, so nothing inside it is a pixel and stroke widths carry
@@ -176,15 +174,6 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
   // to a standings table frozen on a day in August.
   useEffect(() => () => onPreview({ live: null, settled: null }), [onPreview])
 
-  const reduce = prefersReducedMotion()
-  // The draw-in, once per mount. `drawn` starts true under reduced motion so the finished
-  // chart is the first thing painted rather than a chart that appears a frame later.
-  const [drawn, setDrawn] = useState(reduce)
-  useEffect(() => {
-    if (drawn) return
-    const t = setTimeout(() => setDrawn(true), 30)
-    return () => clearTimeout(t)
-  }, [drawn])
 
   // Where playback resumes from, read at the start of a run rather than tracked through it: the
   // effect must not restart every time the column advances, or it resets its own clock.
@@ -299,7 +288,7 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
     >
       <Chart
         shape={shape} col={col} scrub={scrub}
-        colX={colX} overY={overY} dark={dark} drawn={drawn} reduce={reduce}
+        colX={colX} overY={overY} dark={dark}
       />
 
       {/* NO SECOND READOUT HERE. The scrub already updates the standings table directly above,
@@ -377,15 +366,13 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
 // AND A MOUSE IS NOT A FINGER. Hover reads the chart with no press at all, which is what a
 // desktop reader expects and what a hold-to-engage rule would make worse; the hook routes
 // pointer events by `pointerType` for exactly that.
-function Chart({ shape, col, scrub, colX, overY, dark, drawn, reduce }: {
+function Chart({ shape, col, scrub, colX, overY, dark }: {
   shape: SeasonShape
   col: number
   scrub: ReturnType<typeof useChartScrub>
   colX: (i: number) => number
   overY: (over: number) => number
   dark: boolean
-  drawn: boolean
-  reduce: boolean
 }) {
   const last = shape.columns.length - 1
 
@@ -409,13 +396,6 @@ function Chart({ shape, col, scrub, colX, overY, dark, drawn, reduce }: {
       <Box component="svg" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none"
         aria-hidden sx={{
           display: 'block', width: '100%', height: '100%', overflow: 'visible',
-          // THE DRAW-IN IS A WIPE, not four lines drawing themselves. A dash offset needs a
-          // normalised `pathLength` to make lines of different lengths finish together, and
-          // `pathLength` is exactly the thing the non-uniform stretch above makes unreliable.
-          // A wipe also says something truer: the season is revealed left to right, in the
-          // order it happened, which is the same thing the play button does.
-          clipPath: drawn ? 'inset(0 0 0 0)' : 'inset(0 100% 0 0)',
-          ...(reduce ? null : { transition: 'clip-path 1100ms ease-out' }),
         }}>
         {/* .500. The one gridline, because it is the only value on this axis that means
             something without being read off a scale. Horizontal, so its dashes stretch along
@@ -460,8 +440,6 @@ function Chart({ shape, col, scrub, colX, overY, dark, drawn, reduce }: {
               borderRadius: '50%',
               bgcolor: wpblAccent(track.team.id, dark),
               border: '2px solid', borderColor: 'background.paper',
-              opacity: drawn ? 1 : 0,
-              ...(reduce ? null : { transition: 'opacity 400ms ease-out 900ms' }),
             }}
           />
         ))}

@@ -36,6 +36,7 @@ import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { useDevNoTeam } from '../dev/devSeasonPhase'
 import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
+import { cachedJson, FRESH_LIVE_MS } from '../lib/readCache'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,11 +49,12 @@ function ordinal(n: number): string {
 async function fetchLiveTeamIds(): Promise<Set<number>> {
   try {
     const today = new Date().toISOString().split('T')[0]
-    const r = await fetch(
+    // Seconds only: whether a game is live (see lib/readCache.ts).
+    const d = await cachedJson<any>(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gameType=${SCHEDULE_GAME_TYPES}&date=${today}` +
-      `&fields=dates,games,status,abstractGameState,detailedState,teams,home,away,team,id`
+      `&fields=dates,games,status,abstractGameState,detailedState,teams,home,away,team,id`,
+      FRESH_LIVE_MS,
     )
-    const d = await r.json()
     const ids = new Set<number>()
     for (const dateObj of d.dates ?? []) {
       for (const game of dateObj.games ?? []) {

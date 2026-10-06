@@ -4,6 +4,32 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.124.0',
+    date:    '2026-10-06',
+    changes: [
+      {
+        short: 'Section tabs in the top bar on desktop',
+        full:  'On a computer or tablet the section tabs now sit in the top bar beside the MLB and WPBL switch, instead of in a row of their own under it. They stay on screen as you scroll, and they are there on every WPBL page, Reading, Watch and Photos included. Search folds to an icon when the bar is narrow, and the / key opens it. Phones keep the bottom bar.',
+      },
+      {
+        short: 'WPBL Schedule is now Scores',
+        full:  'The WPBL tab that lists every game and its result is now called Scores, as it is on MLB, with the same scoreboard icon.',
+      },
+      {
+        short: 'Switching tabs no longer reloads them',
+        full:  'Going back to a WPBL tab you have already opened now shows it exactly as you left it instead of loading it again, and switching between MLB and WPBL reuses what was already loaded, refreshing only live scores.',
+      },
+      {
+        short: 'Pages hold still while they load',
+        full:  'Each WPBL tab now shows its own title and a placeholder the size of what is coming while it loads, and the top bar is drawn at its final size from the first moment, so nothing jumps when the content arrives. All five tab titles are now the same size.',
+      },
+      {
+        short: 'Standings chart drawn at once',
+        full:  'The Standings by date chart on WPBL Standings is now drawn in full as soon as the tab opens. It only animates when you press Play.',
+      },
+    ],
+  },
+  {
     version: '1.123.2',
     date:    '2026-10-06',
     changes: [
