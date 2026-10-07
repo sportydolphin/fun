@@ -23,6 +23,15 @@
 // pushed at that URL and remembers it as `mlbSheetUrl`, which is what tells useMlbState's URL sync
 // to leave the bar alone while the entry is on top. Without it the sync restamps the entry with the
 // page underneath, and the game's address lasts one render. Back pops it like any other sheet.
+//
+// A SHEET CAN BE THE DESKTOP SIDE PANEL (Oct 2026, `panel`), which leaves the page clickable beside
+// it, and that adds two rules. A game clicked on the page while a panel is open SWAPS the panel: the
+// new sheet takes the old one's entry and depth and replaces its address, so Back closes the panel in
+// one step however many rows were looked at. Without it every row would push, and Back would walk
+// them all. And a navigation FROM the page (a tab, a player, a search result) closes the panel
+// without a Back of its own: pushEntry replaces the panel's entry, so Back from the new page lands
+// where the panel was opened. Left open, the panel would sit over a page it has nothing to do with,
+// holding a sheet marker that makes the section's popstate handler stand down on the next Back.
 
 import { useEffect, useRef, useCallback } from 'react'
 import { MLB_PATH_EVENT } from '../routes'
@@ -35,6 +44,29 @@ const holdUrl = (url: string, by: 1 | -1) => {
   const n = (openUrls.get(url) ?? 0) + by
   if (n > 0) openUrls.set(url, n)
   else openUrls.delete(url)
+}
+
+/** Every open sheet, for finding the side panels among them. `panel` is read live: a window
+ *  resized across `md` turns a panel into a dialog under an open sheet. */
+type OpenSheet = { depth: () => number; panel: () => boolean; dismiss: () => void }
+const sheets = new Set<OpenSheet>()
+
+/**
+ * When a side panel last unmounted, and whose entry it held, for telling a SWAP from a fresh
+ * opening. A sheet that seeds its state once (Game Center) changes game by remounting, and React
+ * runs the old one's cleanup in the same commit as the new one's mount, so "a panel whose entry is
+ * still on top went a moment ago" is a swap. A genuine close is a Back, which is a popstate a task
+ * later, or a link out, which has already replaced the entry with one carrying no marker. Panels
+ * only, and matched on the entry's address too: a dialog on a phone cannot be swapped from the page,
+ * and a looser test once read a sheet stacked over another as replacing it.
+ */
+let lastGone: { depth: number; url: string | undefined; at: number } | null = null
+const SWAP_MS = 50
+
+/** Close every side panel without touching history. For a navigation from the page beside them,
+ *  which replaces the panel's entry rather than stacking on it (see pushEntry). */
+export function dismissPanels(): void {
+  for (const s of [...sheets]) if (s.panel()) s.dismiss()
 }
 
 /** True while any MLB sheet is open. */
@@ -65,6 +97,7 @@ export const onSheetEntry = (): boolean =>
  * the page being left is a tap that goes nowhere.
  */
 export function pushEntry(state: Record<string, unknown>, url: string = window.location.href): void {
+  dismissPanels()
   if (onSheetEntry()) window.history.replaceState(state, '', url)
   else window.history.pushState(state, '', url)
 }
@@ -90,21 +123,41 @@ export function sheetEntryUrl(): string | null {
  *
  * `url` gives the sheet an address of its own (see the top of the file). It may change while the
  * sheet is up (the preview's ‹ › arrows step to another game), and the entry follows it.
+ *
+ * `panel` says the sheet is drawing as the desktop side panel right now (see the top of the file).
  */
-export function useSheetHistory(onClose: () => void, url?: string): () => void {
+export function useSheetHistory(onClose: () => void, url?: string, { panel = false }: { panel?: boolean } = {}): () => void {
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const depthRef = useRef(0)
   const urlRef = useRef(url)
+  const panelRef = useRef(panel)
+  panelRef.current = panel
 
   useEffect(() => {
     openSheets += 1
-    const depth = openSheets
-    depthRef.current = depth
+    let depth = openSheets
     const own = urlRef.current
     const st = (window.history.state ?? {}) as Record<string, unknown>
+    // A panel another opener is still showing, whose entry is on top: a game clicked on Home's
+    // schedule strip while one from the drama feed is up. It is swapped out like a remount.
+    const shown = panelRef.current
+      ? [...sheets].find(s => s.panel() && s.depth() === st.mlbSheet)
+      : undefined
+    const swap = shown != null
+      || (panelRef.current && lastGone != null && performance.now() - lastGone.at < SWAP_MS
+        && st.mlbSheet === lastGone.depth && st.mlbSheetUrl === lastGone.url)
     if (st.mlbSheet === depth && (!own || st.mlbSheetUrl === own)) {
       // Adopted as it stands: a double-mount, or an entry seated for this sheet.
+    } else if (swap) {
+      // Take the old sheet's place: its depth and its entry, now at this address. Its cleanup
+      // takes back the count this mount just added, so the two still agree.
+      depth = Number(st.mlbSheet)
+      shown?.dismiss()
+      const next: Record<string, unknown> = { ...st, mlbSheet: depth }
+      if (own) next.mlbSheetUrl = own
+      else delete next.mlbSheetUrl
+      window.history.replaceState(next, '', own ?? window.location.href)
     } else if (own && st.mlbSheetUrl === own) {
       // Forward onto a game that was opened deeper in a stack nobody has rebuilt: take the entry
       // at the depth this sheet really has, or Back would find a marker it does not expect.
@@ -116,6 +169,7 @@ export function useSheetHistory(onClose: () => void, url?: string): () => void {
       if (own) next.mlbSheetUrl = own
       window.history.pushState(next, '', own ?? window.location.href)
     }
+    depthRef.current = depth
     if (own) {
       holdUrl(own, 1)
       // A pushState fires no popstate, so the shell would keep the page's title under the sheet.
@@ -130,8 +184,16 @@ export function useSheetHistory(onClose: () => void, url?: string): () => void {
       if (now < depth || left) onCloseRef.current()
     }
     window.addEventListener('popstate', onPop)
+    const self: OpenSheet = {
+      depth: () => depthRef.current,
+      panel: () => panelRef.current,
+      dismiss: () => { sheets.delete(self); onCloseRef.current() },
+    }
+    sheets.add(self)
     return () => {
       window.removeEventListener('popstate', onPop)
+      sheets.delete(self)
+      if (panelRef.current) lastGone = { depth: depthRef.current, url: urlRef.current, at: performance.now() }
       openSheets = Math.max(0, openSheets - 1)
       if (urlRef.current) holdUrl(urlRef.current, -1)
     }

@@ -8,7 +8,7 @@ import type { SxProps, Theme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, textTone } from '../lib/colorUtils'
-import { ModalShell } from '../../ui/ModalShell'
+import { ModalShell, useOpensAsPanel } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
@@ -312,7 +312,9 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
 }) {
   // Back closes the sheet rather than leaving the section; see sheetHistory.ts. The entry carries
   // the game's address, and follows the ‹ › arrows from one game to the next.
-  const close = useSheetHistory(onClose, mlbGamePath(game.gamePk))
+  // On a desktop, the side panel, as Game Center is. See sheetHistory.ts for what that changes.
+  const asPanel = useOpensAsPanel()
+  const close = useSheetHistory(onClose, mlbGamePath(game.gamePk), { panel: asPanel })
   const heading = useGameSeo({ ...game, state: 'preview' })
   // Tag the loaded data with the game it belongs to. When `game` switches (‹ › nav) the
   // tag no longer matches, so `loading` flips true immediately and the skeleton shows in the
@@ -465,6 +467,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
       onClose={close}
       maxWidth={chromePx(480)}
       sheet
+      panel
+      openKey={game.gamePk}
       eyebrow={unplayed
         ? (game.reason ? `${game.statusText} · ${game.reason}` : game.statusText)
         : `Preview · ${game.statusText}`}

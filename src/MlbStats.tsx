@@ -31,6 +31,8 @@ import { MlbPageH1 } from './mlb/components/PageHeading'
 import SwipeableViews from './ui/SwipeableViews'
 import { useSwipeNav } from './AccessibilityContext'
 import { AppErrorBoundary } from './AppErrorBoundary'
+import { pushEntry } from './mlb/state/sheetHistory'
+import { panelShiftSx, useSidePanelOpen } from './ui/ModalShell'
 import { PanelActiveContext } from './lib/panelActive'
 import { publishSectionNav, clearSectionNav } from './sectionNav'
 
@@ -133,7 +135,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Push current result state + selection handlers up to the toolbar bridge
   const handleBridgeSelect = useCallback((fn: () => void, dest: Record<string, any>) => {
     state.stampCurrentEntry()
-    window.history.pushState(dest, '', mlbUrlFor(dest as { view: MlbView }))
+    pushEntry(dest, mlbUrlFor(dest as { view: MlbView }))
     fn()
     setSearchQuery('')
     state.setView('search')
@@ -257,8 +259,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     clearHomeOverlay()
     if (via !== 'link') tabVia.current = via
     state.stampCurrentEntry()
-    // The destination's own address, not the current one: see pushEntry in sheetHistory.ts.
-    window.history.pushState({ view: v }, '', viewHref(v))
+    // The destination's own address, not the current one, and through pushEntry, which closes a
+    // game side panel open beside the page and takes its entry. See sheetHistory.ts.
+    pushEntry({ view: v }, viewHref(v))
     // On a phone the pager returns each tab to where the reader left it, so a move from one tab to
     // another leaves the scroll to it. Everything else (a desktop, a board within Stats, a page that
     // is no tab) starts the destination at its top.
@@ -316,7 +319,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // The same footing as the handlers above: stampCurrentEntry is rebuilt with the view state.
   const openReportCards = useLatest(() => {
     state.stampCurrentEntry()
-    window.history.pushState({ view: 'viz' }, '', MLB_VIEW_PATHS.viz)
+    pushEntry({ view: 'viz' }, MLB_VIEW_PATHS.viz)
     state.clearSelection()
     state.setVizDefaultTab('report-card')
     state.setView('viz')
@@ -327,6 +330,11 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
   const containerMaxWidth = state.view === 'home' ? { xs: 640, md: HOME_W } : { xs: 640, md: PAGE_W }
+  // The page moves aside for a game's side panel as far as its left gutter allows (panelShiftSx).
+  // These columns are wide, so below about 1900px it barely moves and the panel covers their right
+  // edge, which is the trade WPBL's Home and stats table make too.
+  const panelOpen = useSidePanelOpen()
+  const shift = panelShiftSx(panelOpen, `${state.view === 'home' ? HOME_W : PAGE_W}px`)
   const onSearch = state.view === 'search'
   const tabIndex = NAV.findIndex(n => n.key === activeTab)
   // The pager mounts with the first tab the reader is shown, and stays mounted from then on.
@@ -455,7 +463,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   return (
     // Scaled up on a desktop by the root's --app-type / --app-chrome (styles.css), as WPBL is.
     <Box sx={{
-      maxWidth: containerMaxWidth, mx: 'auto', position: 'relative',
+      maxWidth: containerMaxWidth, mx: 'auto', ...shift,
       // Scroll room under the floating bar, plus the device's safe-area inset, so the last card and
       // the footer can always be scrolled clear of it.
       pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,

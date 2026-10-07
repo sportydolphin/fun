@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, HEADSHOT, TONE } from '../constants'
 import { useIsDark, accentColor, chartPairColors, inkOn, textTone, borderAlpha, photoBorderAlpha, useTextTone } from '../lib/colorUtils'
-import { ModalShell } from '../../ui/ModalShell'
+import { ModalShell, useOpensAsPanel } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
@@ -956,17 +956,32 @@ function Scoreboard({ box, decided, onTeam }: {
 
 // ─── Game Center modal ────────────────────────────────────────────────────────
 
-export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, initialTab }: {
+type GameCenterProps = {
   game: FinalGameSummary
   onClose: () => void
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
   initialTab?:    'summary' | 'box' | 'plays'
-}) {
+}
+
+/**
+ * Keyed by the game, so another game is a remount rather than a re-render. Its tabs, its folded
+ * half-innings and its data are all seeded once, and on a desktop the side panel swaps from one game
+ * to the next as the reader clicks down the scoreboard: re-rendered in place, the new game's header
+ * sat over the old game's box score until the fetch landed. sheetHistory reads the remount as a swap.
+ */
+export function GameCenterModal(props: GameCenterProps) {
+  return <GameCenterSheet key={props.game.gamePk} {...props} />
+}
+
+function GameCenterSheet({ game, onClose, onPlayerClick, onTeamClick, initialTab }: GameCenterProps) {
+  // On a desktop, the side panel beside the page rather than a dialog over it (ModalShell's
+  // `panel`), which changes how the history entry behaves. See sheetHistory.ts.
+  const asPanel = useOpensAsPanel()
   // Every way out (the close button, Escape, the backdrop, a drag down, Back) goes through this,
   // so Back closes the sheet instead of leaving the section. The sheet's entry carries the game's
   // own address, which is the page a shared link or a search result opens. See sheetHistory.ts.
-  const close = useSheetHistory(onClose, mlbGamePath(game.gamePk))
+  const close = useSheetHistory(onClose, mlbGamePath(game.gamePk), { panel: asPanel })
   const [data,        setData]        = useState<GameCenterData | null>(null)
   const [wp,          setWp]          = useState<WpPoint[]>([])
   const [loading,     setLoading]     = useState(true)
@@ -1089,6 +1104,8 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
       maxWidth={{ xs: chromePx(560), lg: chromePx(840) }}
       sheet
       sheetFill
+      panel
+      openKey={game.gamePk}
       actions={<MlbCopyLink target={{ kind: 'game', gamePk: game.gamePk }} title="Copy a link to this game" />}
       eyebrow={
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: isLive ? TONE.red : 'inherit' }}>

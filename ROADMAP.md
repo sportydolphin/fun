@@ -118,6 +118,14 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    replacing raw width queries with `usePhoneLayout()`, which inside the panel would otherwise see
    a desktop and draw the desktop layout into 525px; and a `layout="page"` arrangement for
    `LiveGameCenter.tsx`.
+   *Progress, Oct 6:* ✅ **Game Center and the preview are the side panel.** A game clicked on the
+   page while one is open swaps it (`useSheetHistory`'s `panel`: the new sheet takes the old one's
+   entry and depth), from the same list or another opener on the page; a navigation from the page
+   (`pushEntry`, which the tabs, search and the player links now all go through) closes it and
+   takes its entry. Game Center is keyed by game, so a swap is a remount rather than the old box
+   score under the new header. Pinned in `__tests__/sheetHistory.test.tsx`. *Next:* the player as
+   the panel (the big one: the player is the view `search`, fed by about seventy props from
+   `useMlbState`), then the full pages. Until then a player opened from the panel is still the page.
 
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.

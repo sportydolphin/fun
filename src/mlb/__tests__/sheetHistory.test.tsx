@@ -80,4 +80,54 @@ describe('sheet history', () => {
     expect(queryByText('scores')).toBeNull()
     expect(window.history.state).toEqual({ view: 'home' })
   })
+
+  // On a desktop Game Center is a side panel, which leaves the page clickable beside it. Clicking
+  // down the scoreboard must not push an entry per game, or Back walks every one of them.
+  describe('as the desktop side panel', () => {
+    // A push first drops any forward entries an earlier test's Back left, which a later push would
+    // drop anyway, so history.length is a count of entries from here.
+    beforeEach(() => { window.history.pushState({ view: 'home' }, '', '/mlb') })
+
+    function Panel({ pk, onClose }: { pk: number; onClose: () => void }) {
+      useSheetHistory(onClose, `/mlb/games/${pk}`, { panel: true })
+      return <div>game {pk}</div>
+    }
+    function Owner({ pk, onClose = () => {} }: { pk: number | null; onClose?: () => void }) {
+      return pk == null ? null : <Panel key={pk} pk={pk} onClose={onClose} />
+    }
+
+    it('another game swaps the panel in place: one entry, and Back closes it', async () => {
+      const before = window.history.length
+      const onClose = vi.fn()
+      const { rerender } = render(<Owner pk={1} onClose={onClose} />)
+      rerender(<Owner pk={2} onClose={onClose} />)
+      rerender(<Owner pk={3} onClose={onClose} />)
+      expect(window.history.length).toBe(before + 1)
+      expect(window.location.pathname).toBe('/mlb/games/3')
+      expect(window.history.state).toMatchObject({ mlbSheet: 1, mlbSheetUrl: '/mlb/games/3' })
+      await act(async () => { window.history.back(); await popped() })
+      expect(onClose).toHaveBeenCalledTimes(1)
+      expect(window.history.state).toEqual({ view: 'home' })
+    })
+
+    it('a game from another opener takes over the open panel rather than stacking', () => {
+      const before = window.history.length
+      const first = vi.fn()
+      const { rerender } = render(<><Owner pk={1} onClose={first} /><Owner pk={null} /></>)
+      rerender(<><Owner pk={1} onClose={first} /><Owner pk={2} /></>)
+      expect(first).toHaveBeenCalledTimes(1)
+      expect(window.history.length).toBe(before + 1)
+      expect(window.history.state).toMatchObject({ mlbSheet: 1, mlbSheetUrl: '/mlb/games/2' })
+    })
+
+    it('a navigation from the page closes the panel and takes its entry', () => {
+      const before = window.history.length
+      const onClose = vi.fn()
+      render(<Owner pk={1} onClose={onClose} />)
+      pushEntry({ view: 'standings' }, '/mlb/standings')
+      expect(onClose).toHaveBeenCalledTimes(1)
+      expect(window.history.length).toBe(before + 1)
+      expect(window.history.state).toEqual({ view: 'standings' })
+    })
+  })
 })

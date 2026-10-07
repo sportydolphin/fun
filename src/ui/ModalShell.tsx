@@ -412,12 +412,21 @@ type ModalShellProps = {
 }
 
 export function ModalShell(props: ModalShellProps) {
-  // MUI's `md`, read off the OUTER theme, because the panel's own content is rendered under
-  // PANEL_THEME and asking there would always say "phone". Material's `useTheme`, which falls back
-  // to the default theme where no provider is mounted (a test harness), rather than a theme
-  // callback in `useMediaQuery`, which gets an empty object there and throws.
-  const desktop = useMediaQuery(useTheme().breakpoints.up('md'))
+  const desktop = useOpensAsPanel()
   return props.panel && desktop ? <SidePanelShell {...props} /> : <DialogShell {...props} />
+}
+
+/**
+ * Whether a shell given `panel` opens as the side panel here, by ModalShell's own test, for a caller
+ * whose behaviour depends on it (MLB's sheet history swaps panels and stacks dialogs).
+ *
+ * MUI's `md`, read off the OUTER theme, because the panel's own content is rendered under
+ * PANEL_THEME and asking there would always say "phone". Material's `useTheme`, which falls back to
+ * the default theme where no provider is mounted (a test harness), rather than a theme callback in
+ * `useMediaQuery`, which gets an empty object there and throws.
+ */
+export function useOpensAsPanel(): boolean {
+  return useMediaQuery(useTheme().breakpoints.up('md'))
 }
 
 /**

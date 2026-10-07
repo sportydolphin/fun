@@ -22,6 +22,7 @@ import { ContractPanel } from '../components/ContractPanel'
 import { fetchPlayerDetails } from '../api'
 import { track, EVENTS } from '../../lib/analytics'
 import { mlbPlayerPath } from '../routes'
+import { pushEntry } from '../state/sheetHistory'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { MlbPageH1 } from '../components/PageHeading'
@@ -189,7 +190,7 @@ export function SearchView({
   const openPlayerFromTeam = React.useCallback((playerId: number) => {
     if (!team) return
     track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: 'team_page' })
-    window.history.pushState({ view: 'search', playerId }, '', mlbPlayerPath({ id: playerId }))
+    pushEntry({ view: 'search', playerId }, mlbPlayerPath({ id: playerId }))
     fetchPlayerDetails(playerId)
       .then(details => { if (details) selectPlayer(details) })
       .catch(() => {})
@@ -782,7 +783,7 @@ export function SearchView({
                         highlightStat={p.highlightStat}
                         onClick={() => {
                           track(EVENTS.MLB_PLAYER_OPENED, { playerId: p.playerId, from: 'team_page' })
-                          window.history.pushState({ view: 'search', playerId: p.playerId }, '', mlbPlayerPath({ id: p.playerId }))
+                          pushEntry({ view: 'search', playerId: p.playerId }, mlbPlayerPath({ id: p.playerId }))
                           fetchPlayerDetails(p.playerId)
                             .then(details => { if (details) selectPlayer(details) })
                             .catch(() => {})
