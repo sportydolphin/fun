@@ -16,7 +16,8 @@ import { hoverOnly, TAPPABLE, tappableIf, pressable, FOCUS_RING } from '../ui/in
 import { chromePx } from '../ui/scale'
 import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
-export { ModalShell } from '../ui/ModalShell'
+export { ModalShell, usePhoneLayout } from '../ui/ModalShell'
+import { useShellZ, usePhoneLayout } from '../ui/ModalShell'
 
 // ─── Name shortening ────────────────────────────────────────────────────────────
 // Compact a full name to "F. Last" once it's long enough to crowd a tight WPBL layout
@@ -187,7 +188,9 @@ export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
 // `mobileMaxLen` is the phone-width threshold; 0 means always abbreviate there. Desktop has
 // room for the whole name either way, so it keeps its own limit regardless.
 export function useWpblName(mobileMaxLen = 12): (name: string) => string {
-  const isMobile = useMediaQuery('(max-width:600px)')
+  // Through the theme, so a list inside the desktop side panel shortens like the phone it is laid
+  // out as. See usePhoneLayout.
+  const isMobile = usePhoneLayout()
   const maxLen = isMobile ? mobileMaxLen : 20
   return useCallback((name: string) => wpblShortName(name, maxLen), [maxLen])
 }
@@ -1018,7 +1021,11 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
   // `setOpen(o => !o)` would then flip that close straight back into an open, so a second tap
   // could never dismiss the tooltip. The press is the last moment nothing else has written.
   const openAtPress = useRef(false)
-  const slotProps = popperZIndex ? { popper: { sx: { zIndex: popperZIndex } } } : undefined
+  // And never below the shell it is in, whatever the caller asked for: the side panel rises over
+  // whatever dialog it was opened from, so its height is only known at run time (see ModalShell).
+  const shellZ = useShellZ()
+  const tipZ = Math.max(popperZIndex ?? 0, shellZ != null ? shellZ + 1 : 0)
+  const slotProps = tipZ ? { popper: { sx: { zIndex: tipZ } } } : undefined
 
   // Everything that should dismiss a tapped tooltip, registered only while one is open.
   useEffect(() => {

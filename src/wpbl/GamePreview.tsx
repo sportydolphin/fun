@@ -37,7 +37,7 @@ function ordinal(n: number): string {
 // Bar colors come from the shared team accent palette (constants.ts `wpblAccent`), which
 // exists for exactly this reason: the raw primaries are all near-black and unusable as
 // foreground. Keeping one source means a palette tweak lands everywhere at once.
-export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPlayer, compact, bare, rosters }: {
+export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPlayer, compact, bare, rosters, renderBoards }: {
   away: WpblTeam
   home: WpblTeam
   teams: WpblTeam[]
@@ -69,6 +69,10 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
    *  club legend STAYS, because it is the key to which colour is whose and the bars are
    *  unreadable without it. */
   bare?: boolean
+  /** With `rosters`, hand the three boards to the caller to lay out instead of drawing the toggle
+   *  that pages between them. For the full-page Game Center, which has room for all three at once
+   *  and puts each in its own section. */
+  renderBoards?: (boards: { matchup: React.ReactNode; leaders: React.ReactNode; rosters: React.ReactNode }) => React.ReactNode
 }) {
   const isDark = useWpblDark()
   const shortName = useWpblName()
@@ -415,6 +419,10 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
       Leaders appear once both clubs have played.
     </Typography>
   )
+
+  if (rosters && renderBoards) {
+    return <>{renderBoards({ matchup: comparisonView, leaders: leadersView, rosters: rostersView })}</>
+  }
 
   if (rosters) {
     return (

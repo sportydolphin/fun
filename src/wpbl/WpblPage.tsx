@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { navBack } from '../nav'
 import { useWpblHeadingTag } from './PageHeading'
 import { TYPE_SCALE, hoverOnly, FOCUS_RING } from './ui'
+import { panelShiftSx, useSidePanelOpen } from '../ui/ModalShell'
 import { trackImpression, EVENTS } from '../lib/analytics'
 
 // The shell every STANDALONE WPBL page wears: the league, the season recap, scorigami, the
@@ -31,6 +32,7 @@ export default function WpblPage({ title, standfirst, maxWidth = '56.25rem', chi
   children: React.ReactNode
 }) {
   const headingTag = useWpblHeadingTag()
+  const panelOpen = useSidePanelOpen()
   return (
     // NO SIDE PADDING OF ITS OWN ON A PHONE. The shell already pads every page 16px a side (App.tsx),
     // and this added another 16, so the standalone pages read in a 311px column on a 375px phone
@@ -38,7 +40,10 @@ export default function WpblPage({ title, standfirst, maxWidth = '56.25rem', chi
     // the widest tables. On a phone the shell's 16 is the gutter, the same one the tabs use; a block
     // that wants the screen's full width bleeds with `mx: { xs: -2 }` (the shell's padding) and insets
     // its own content, as Scorigami's grid and the matchups table do.
-    <Box sx={{ maxWidth, mx: 'auto', px: { xs: 0, sm: 3 }, pb: 6 }}>
+    //
+    // Moves aside for the side panel a player or a game opens in over these pages (see panelShiftSx),
+    // by the column's own width: nothing on these pages breaks out of it.
+    <Box sx={{ maxWidth, mx: 'auto', px: { xs: 0, sm: 3 }, pb: 6, ...panelShiftSx(panelOpen, typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth) }}>
       {/* Back to the section, not to a fixed /wpbl: `navBack` returns the reader to wherever they
           opened this from (a tab, a player), and only falls back to the section root when they
           arrived cold. A real <a href> so a crawler follows it and cmd-click opens a new tab.

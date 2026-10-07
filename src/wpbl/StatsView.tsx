@@ -32,6 +32,7 @@ import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 import { TabTitle } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 import { BOTTOM_NAV_SPACE } from './BottomNav'
+import { STATS_FULL_BLEED_W } from './layoutWidths'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
 // its own layout, not reachable without a deliberate tap. The draft-value model lives on
@@ -502,7 +503,7 @@ interface Row {
 // Break the table out of the 720px page column so every stat column is visible. The page
 // is horizontally centered, so centering a viewport-wide box on it reads as full-bleed.
 // Capped so it doesn't sprawl on huge monitors.
-const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
+const FULL_BLEED_W = STATS_FULL_BLEED_W
 
 // The chrome pinned above this view: the toolbar, which above a phone carries the section's tabs
 // too (ToolbarNav), so its height is the whole of it. 0 on a phone, where the toolbar scrolls away

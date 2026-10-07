@@ -7,7 +7,11 @@ import { computeWpblPlayerRanks, ordinal, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, 
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, hoverOnly, TAPPABLE } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, hoverOnly, TAPPABLE, CARD_BORDER } from './ui'
+import { ExpandButton } from '../ui/ExpandButton'
+import { DetailPageBar } from './DetailPageBar'
+import { WpblVisuallyHiddenH1 } from './PageHeading'
+import { PLAYER_PAGE_W } from './layoutWidths'
 import { SectionHead, ShowMoreButton, useRankInk } from './cardParts'
 import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
@@ -26,6 +30,7 @@ import { playerMatchups, playerPlayIds, type WpblMatchupLine } from './derive/ma
 import { fetchWpblAwardResults, fanAwardsWon } from './awardVotes'
 import type { WpblAward } from './awards'
 import { EmojiEvents } from '@mui/icons-material'
+import { useTheme as useMuiTheme } from '@mui/material/styles'
 import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
@@ -1011,7 +1016,7 @@ function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlaye
   )
 }
 
-export default function PlayerDetailModal({ player, teams, games, players, onClose, onOpenGame }: {
+export default function PlayerDetailModal({ player, teams, games, players, onClose, onOpenGame, panel = false, onBack, backLabel, layout = 'modal', onExpand }: {
   player: WpblPlayer
   teams: WpblTeam[]
   games: WpblGame[]
@@ -1024,6 +1029,17 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    *  reverse trip already builds (a player opened from a game sits on top of it). Optional only so
    *  a log still renders in a harness that has nowhere to send the click. */
   onOpenGame?: (game: WpblGame) => void
+  /** Open as the desktop side panel rather than a centred dialog. See ModalShell's `panel`. */
+  panel?: boolean
+  /** A back control in the panel's header, for a player opened from the Game Center panel. */
+  onBack?: () => void
+  backLabel?: string
+  /** `page` draws the player as a full desktop page instead of a modal: the desktop layout below
+   *  (every role in full, no role tabs), under the same bar the full Game Center has. The caller only
+   *  asks for it on a desktop. */
+  layout?: 'modal' | 'page'
+  /** Offer the side panel's "Expand" to the full page. Shown only while this IS the side panel. */
+  onExpand?: () => void
 }) {
   const isDark = useWpblDark()
 
@@ -1068,15 +1084,22 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    * plot rendered to be hidden. The pager exists precisely so that only the role on screen is
    * mounted (see SwipeableViews), and a hidden second tree hands that back.
    *
-   * `md`, spelled out, because this file's other breakpoints are MUI's and these two have to
-   * agree: the role pills and the pane's rate strip are still hidden with CSS at `md`, so a
-   * disagreement would show a phone control over a desktop layout. 900px is MUI's `md`.
+   * MUI's `md`, asked of the theme, because this file's other breakpoints are MUI's and these two
+   * have to agree: the role pills and the pane's rate strip are still hidden with CSS at `md`, so a
+   * disagreement would show a phone control over a desktop layout.
+   *
+   * NEVER WIDE IN THE SIDE PANEL. The panel renders this card's content under a theme with every
+   * breakpoint out of reach, so all of its CSS draws the phone layout there (see ModalShell's
+   * PANEL_THEME). This hook runs HERE, though, outside that provider, where the viewport is a
+   * desktop's; it has to be told, or it would build the desktop stack into a phone-width column
+   * and hide the role pills it needs. ModalShell opens the panel on exactly this same `md` test.
    */
-  const wide = useMediaQuery('(min-width:900px)')
+  const mdUp = useMediaQuery(useMuiTheme().breakpoints.up('md'))
+  const wide = mdUp && !panel
   // Each phone pane's copy of the band, and which of them are on screen. The header takes the
   // player's name when the ACTIVE pane's band has scrolled out, so a reader deep in a game log
-  // still sees whose it is. IntersectionObserver with the viewport as root honours the pane
-  // scroller's clipping, so "out" means scrolled out of the sheet, not merely off the page.
+  // still sees whose it is. Measured against each band's own scroller (see the observer below), so
+  // "out" means scrolled out of the sheet, not merely off the page or still sliding in.
   const bandEls = useRef<(HTMLDivElement | null)[]>([])
   const [bandHidden, setBandHidden] = useState<Record<number, boolean>>({})
   const { basis: eraBasis, fmtEra, fmtK, kLabel } = useEraBasis()
@@ -1196,7 +1219,26 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     setBatting(seed?.batting ?? []); setPitching(seed?.pitching ?? []); setFielding(seed?.fielding ?? [])
     setLoading(!seed)
     setPitchLocs(getCachedWpblPitcherLocations(feedKey) ?? [])
+    // The rest of what belongs to the PREVIOUS player. The side panel swaps players on every row
+    // clicked down a leaderboard, so a Playoffs scope or a scrolled-away band carried over would
+    // show the next player's card already filtered, or with the header naming nobody.
+    setScope('regular')
+    setBandHidden({})
   }
+  // And the scroll position, for the same reason: the next player opens at their name, not
+  // halfway down a game log at whatever depth the last one was read to. Every scroller in the
+  // shell's body, since on the phone layout each role pane scrolls on its own.
+  const contentRef = useRef<HTMLDivElement>(null)
+  const scrolledFor = useRef(player.id)
+  useEffect(() => {
+    if (scrolledFor.current === player.id) return
+    scrolledFor.current = player.id
+    const body = contentRef.current?.parentElement
+    if (!body) return
+    for (const el of [body, ...Array.from(body.querySelectorAll<HTMLElement>('*'))]) {
+      if (el.scrollTop > 0) el.scrollTop = 0
+    }
+  }, [player.id])
 
   useEffect(() => {
     let cancelled = false
@@ -1927,7 +1969,19 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     if (typeof IntersectionObserver === 'undefined') return
     const els = bandEls.current.filter((e): e is HTMLDivElement => !!e)
     if (els.length === 0) { setBandHidden({}); return }
-    const io = new IntersectionObserver(entries => {
+    // Each band is measured against ITS OWN SCROLLER, not the viewport. Against the viewport, a
+    // card on its way in is "scrolled out" for as long as it is off screen: the desktop panel
+    // slides in from the right edge and the phone sheet rises from the bottom, so for those 220ms
+    // the header named the player, then snapped back to the club once the card had landed. The
+    // scroller moves with the band, so the slide no longer reads as a scroll. A pane's scroller is
+    // still what clips it, so "out" keeps meaning scrolled out of the sheet.
+    const scrollerOf = (el: HTMLElement): HTMLElement | null => {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (/(auto|scroll)/.test(getComputedStyle(p).overflowY)) return p
+      }
+      return null
+    }
+    const onEntries = (entries: IntersectionObserverEntry[]) => {
       setBandHidden(prev => {
         let next = prev
         for (const e of entries) {
@@ -1940,9 +1994,20 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         }
         return next
       })
-    }, { threshold: [0, 0.15, 0.5, 1] })
-    els.forEach(e => io.observe(e))
-    return () => io.disconnect()
+    }
+    // One observer per scroller, since an observer has one root (on a phone each role pane scrolls
+    // itself; in the panel and the dialog the body does).
+    const byRoot = new Map<HTMLElement | null, HTMLDivElement[]>()
+    for (const el of els) {
+      const root = scrollerOf(el)
+      byRoot.set(root, [...(byRoot.get(root) ?? []), el])
+    }
+    const observers = [...byRoot].map(([root, group]) => {
+      const io = new IntersectionObserver(onEntries, { root, threshold: [0, 0.15, 0.5, 1] })
+      group.forEach(e => io.observe(e))
+      return io
+    })
+    return () => observers.forEach(io => io.disconnect())
     // Re-observed when the set of panes changes; the elements themselves are stable between.
   }, [bandPinned, player.id, twoWay, pitcherFirst, loading])
 
@@ -1980,55 +2045,41 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     )
   })
 
-
-  return (
-    <ModalShell
-      // Full club name where it fits, the nickname on a phone. The header row also carries the
-      // Compare and Copy-link chips and the close button, and "New York Heights" plus those two
-      // chips overran a 360px header and ellipsised the club to "New York Heig…". The nickname
-      // ("Heights") is the same fact, shorter, and clears the row; both are the club, so this
-      // reads as a compact label rather than a truncation.
-      eyebrow={!bandPinned && bandHidden[roleIndex] ? (
-        // The band has scrolled off: the header carries whose page this is instead. The NAME ALONE, in
-        // ordinary case: the header's small caps and letter-spacing are set for a club nickname, and
-        // "Denae Benites · Heights" in them truncated to "DENAE BENITE…" beside Compare and Copy link.
-        <Box component="span" sx={{
-          display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', fontWeight: 800, color: 'text.primary',
-        }}>
-          {player.name}
-        </Box>
-      ) : team ? (
-        <>
-          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{wpblFullName(team)}</Box>
-          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{team.name}</Box>
-        </>
-      ) : 'Player'}
-      onClose={onClose}
-      // A fixed pair rather than a value derived from the content, so the dialog cannot resize under
-      // the reader as the season totals land. The widest block on the card is the batting season
-      // line (about 666px), then the batting game log (about 600), both comfortably inside the md
-      // width; what the extra room buys is a fourteen-column log not read at its own minimum.
-      // Re-measure against the SEASON LINE if a column is ever added to it. Through `chromePx`
-      // because it is structure: spent raw against the desktop type scale it would wrap a long name
-      // onto two lines.
-      maxWidth={{ xs: chromePx(640), md: chromePx(880) }}
-      zIndex={1600}
-      actions={<>
-        <CompareChip player={player} roster={players} />
-        <CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`}
-          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', playerId: player.id })} />
-      </>}
-      // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a Home
-      // chip and a shared link, and a close button in the far top corner is the furthest point on a
-      // phone from the thumb holding it. So it comes up from the bottom edge with a handle and
-      // swipes back down. Above sm a centred dialog is right.
-      sheet
-      // Constant height while it is a sheet, so it does not leap up the screen when the season
-      // totals and game logs finish loading under the reader's thumb. Same reason as the game
-      // card, whose box score lands the same way.
-      sheetFill
-    >
+  // Full club name where it fits, the nickname on a phone. The header row also carries the
+  // Compare and Copy-link chips and the close button, and "New York Heights" plus those two
+  // chips overran a 360px header and ellipsised the club to "New York Heig…". The nickname
+  // ("Heights") is the same fact, shorter, and clears the row; both are the club, so this
+  // reads as a compact label rather than a truncation.
+  const eyebrow = !bandPinned && bandHidden[roleIndex] ? (
+    // The band has scrolled off: the header carries whose page this is instead. The NAME ALONE, in
+    // ordinary case: the header's small caps and letter-spacing are set for a club nickname, and
+    // "Denae Benites · Heights" in them truncated to "DENAE BENITE…" beside Compare and Copy link.
+    <Box component="span" sx={{
+      display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', fontWeight: 800, color: 'text.primary',
+    }}>
+      {player.name}
+    </Box>
+  ) : team ? (
+    // The side panel's header is as narrow as a phone's and carries the same two chips, but it
+    // renders outside the panel's phone theme (it is the shell's chrome, not the card), so its
+    // breakpoints see a desktop. It is told instead, or "San Francisco Firebells" ellipsises.
+    mdUp && panel ? team.name : (
+      <>
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{wpblFullName(team)}</Box>
+        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{team.name}</Box>
+      </>
+    )
+  ) : 'Player'
+  const actions = (
+    <>
+      <CompareChip player={player} roster={players} />
+      <CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`}
+        onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'player', playerId: player.id })} />
+    </>
+  )
+  const body = (
+    <>
       {/* Two sizings, because the sheet and the dialog are shaped differently, and the same
           arrangement the game card uses for the same reason.
           On a phone the sheet holds a definite height, so this fills it (`flex: 1`) and every
@@ -2038,7 +2089,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
           instead of forcing full height, and this is clamped rather than filled. `flex: 1`
           there would collapse the pane to nothing, since a flex item with a zero basis
           contributes nothing to an auto-height parent. */}
-      <Box sx={{
+      <Box ref={contentRef} sx={{
         display: 'flex', flexDirection: 'column', minHeight: 0,
         flex: { xs: '1 1 0%', sm: '0 1 auto' },
         maxHeight: { xs: 'none', sm: '100%' },
@@ -2141,6 +2192,57 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         </>
       )}
       </Box>
+    </>
+  )
+
+  // THE FULL PAGE: the desktop layout as a page in the section's flow rather than a dialog over it.
+  // Same card, same body, framed the way the full Game Center is (see DetailPageBar), at the width
+  // the desktop dialog was measured at. The header names the club in full: a page has the room the
+  // panel does not, and the band below already carries the name.
+  if (layout === 'page') return (
+    <Box component="article" sx={{ width: PLAYER_PAGE_W, ml: `calc((100% - ${PLAYER_PAGE_W}) / 2)`, pb: 4 }}>
+      <WpblVisuallyHiddenH1>{player.name}</WpblVisuallyHiddenH1>
+      <DetailPageBar onBack={onClose} eyebrow={team ? wpblFullName(team) : 'Player'} actions={actions} />
+      <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, overflow: 'hidden' }}>
+        {body}
+      </Box>
+    </Box>
+  )
+
+  return (
+    <ModalShell
+      eyebrow={eyebrow}
+      onClose={onClose}
+      // A fixed pair rather than a value derived from the content, so the dialog cannot resize under
+      // the reader as the season totals land. The widest block on the card is the batting season
+      // line (about 666px), then the batting game log (about 600), both comfortably inside the md
+      // width; what the extra room buys is a fourteen-column log not read at its own minimum.
+      // Re-measure against the SEASON LINE if a column is ever added to it. Through `chromePx`
+      // because it is structure: spent raw against the desktop type scale it would wrap a long name
+      // onto two lines.
+      maxWidth={{ xs: chromePx(640), md: chromePx(880) }}
+      zIndex={1600}
+      actions={<>
+        {panel && mdUp && onExpand && <ExpandButton onExpand={onExpand} title={`Open ${player.name}'s full page`} />}
+        {actions}
+      </>}
+      // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a Home
+      // chip and a shared link, and a close button in the far top corner is the furthest point on a
+      // phone from the thumb holding it. So it comes up from the bottom edge with a handle and
+      // swipes back down. Above sm a centred dialog is right.
+      sheet
+      // Constant height while it is a sheet, so it does not leap up the screen when the season
+      // totals and game logs finish loading under the reader's thumb. Same reason as the game
+      // card, whose box score lands the same way.
+      sheetFill
+      panel={panel}
+      // A different player is a new opening: the panel rises over any dialog opened since it
+      // first appeared, which is how a player picked in the series view lands on top of it.
+      openKey={player.id}
+      onBack={onBack}
+      backLabel={backLabel}
+    >
+      {body}
     </ModalShell>
   )
 }

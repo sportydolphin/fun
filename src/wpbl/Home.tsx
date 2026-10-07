@@ -47,6 +47,7 @@ import { seriesContext } from './derive/series'
 import { WatchCard } from './Watch'
 import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
+import { HOME_WIDE_W } from './layoutWidths'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
@@ -93,7 +94,6 @@ const HEADER_GAP = 1.5
 // the same column as the cards, and a grid wider than the strip above it reads as a mistake. `xs`
 // opts out: the page already fills a phone, and the transform would only fight the gutter
 // SwipeableViews hands each pane. Same device as StatsView's FULL_BLEED_W.
-const HOME_WIDE_W = 'min(1260px, calc(100vw - 24px))'
 const homeWideSx = {
   width: { xs: 'auto', md: HOME_WIDE_W },
   position: 'relative',

@@ -4,6 +4,8 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
+> Last updated: **Oct 6, 2026**, with #9 (desktop detail views: the side panel and the full pages
+> for games and players), built and not yet released.
 > Last reviewed for handoff: **Oct 2, 2026** (doc accuracy only; priorities unchanged since Sep 27).
 > Last checked against production: **Sep 24, 2026**. The season is over (40 finals, the last on
 > Sep 22), the feed has gone quiet, and every surface below is in its offseason shape.
@@ -146,6 +148,10 @@ Home's one player name currently opens a box score.)* The primer (#4) and SEO (#
 ---
 
 ## Next: in priority order
+
+**In progress, Oct 6, 2026: #9, desktop detail views.** Players and games open as a side panel
+on a desktop, and both have a full page. The WPBL half is built and not yet released; what is
+left is the MLB half (step 4), listed under #9.
 
 **The winter order, set Sep 27, 2026.** Every season-locked item below has shipped or missed its
 window. The one problem left is the one "Where the section stands" names: nothing gives a reader a
@@ -790,6 +796,99 @@ in the empty-query search dropdown~~ ✅ *shipped Aug 24, 2026 (see the log)*.
 Settings accent-color picker (the last open item from the Aug 6 "Sprint C"; shared with the
 MLB section).
 
+### 9. Desktop detail views: the side panel and the full page 🎯⚙️: 🚧 **WPBL built Oct 5 to 6, 2026, not yet released**
+
+**Why.** On a desktop a player or a game opened as a centred dialog over a dimmed page. It was
+about as wide as the 900px section column, so the gutters either side sat dimmed and unused, the
+list the reader came from was covered, and Game Center kept its phone tabs on a screen with room
+for every board at once. MLB opened players as a full page, so the two sections disagreed too.
+
+**What was decided, and on what** (researched Oct 5: Material's side sheets and canonical
+layouts, NN/g on modal and nonmodal dialogs and on tabs, Notion's side peek and full page):
+
+- **Peek, then page.** A nonmodal side panel for opening things from a list, where the reader is
+  working down rows and needs the list beside them; a full page for reading one game in depth. A
+  modal blocks exactly the context such a reader is checking against.
+- **The panel is the phone layout** in a phone-width column (`chromePx(420)`, 525px on screen).
+  It reuses the most-tested layout, so each card still has two layouts, not three.
+- **No tabs on the full page.** Tabs fail when the reader needs two panels at once, and a recap
+  read against its box score is that case.
+- **The dimmed centred dialog stays for short pickers** (Sort, Filter): a quick choice to make
+  before carrying on, which is the job it suits.
+
+**The plan and where it stands.**
+
+1. ✅ **The player as the side panel** (Oct 5). No scrim, no scroll lock, no focus trap: focus
+   moves in on open and back to the last row clicked on close, and Escape closes it. Clicking
+   another row swaps it in place and REPLACES the history entry, so Back closes the panel in one
+   step however many rows were looked at. It opens over any dialog it is reached from (the series
+   view, Game Center, the ballot): its z-index is measured against what is open each time it
+   opens or swaps. On the standalone pages the game overlay stays mounted under a player opened
+   from it.
+2. ✅ **Game Center as the side panel** (Oct 5). A player opened from it is a second panel drawn
+   exactly over it, with a "‹ Game" back control, so the two read as one panel that navigated.
+   Swapping games remounts Game Center (it seeds its tabs and data once); the panel tells a swap
+   from an opening and does not slide in again. Every layout question in Game Center now asks
+   `usePhoneLayout()`, and so does `useWpblName`.
+3. ✅ **The full-page Game Center** (Oct 5, `GameCenterPage` in [GameDetail.tsx](src/wpbl/GameDetail.tsx)).
+   Two columns from `lg`: the narrative on the left (Recap, or Live during a game, then the
+   play-by-play), the numbers on the right (both box scores stacked, then pitch data). One column
+   in reading order between `md` and `lg`, with the two box scores side by side once they fit
+   (about 1045px; see Open). A pinned
+   bar under the toolbar carries the score and jump links in place of the tabs. Reached by a game
+   URL arrived at from outside the section (a cold load, a shared link, a link from a standalone
+   page) and by "⤢ Expand" in the panel, which replaces the entry rather than pushing. Same URL
+   as the panel: which one renders is `gamePage` on WpblApp's history snapshot. A player opens
+   beside the page as the panel. Phones are unchanged throughout. The player's full page followed
+   on Oct 6 on the same terms (see Open).
+4. **MLB**: the same for `/mlb`. See Handoff item 11 in [ROADMAP.md](ROADMAP.md).
+
+**Open.**
+
+- ✅ **The full page during a live game and before one** (Oct 5). Live was checked on a real game
+  through the dev live simulator, and that found the situation card going three-across in the
+  page's 690px column with each name clipped to 6px; it now keys that layout on its own width (a
+  container query, `WIDE_CARD` in LiveGameView), which fixes the 650px dialog the same way. An
+  unplayed game now lays the preview's Matchup, Leaders and Rosters out as three boards rather than
+  behind a toggle, checked with a future game injected into the schedule from the console. Both
+  are pinned in `__tests__/gameCenterPage.test.tsx`.
+- ✅ **The panel header's name switch** (Oct 6), checked with screenshots forcing frames in the
+  hidden preview pane. The suspected flash was real and was on the phone sheet too: the band was
+  measured against the viewport, so a card still sliding in read as scrolled out and the header
+  named the player for 220ms. Each band is now measured against its own scroller.
+- ✅ **The page moves aside for the panel** (Oct 5). The column slides left as far as it needs to
+  and never further than its own left gutter allows, with no change of width, so nothing reflows
+  (`panelShiftSx` in ModalShell, which also publishes whether a panel is open, so a page that does
+  not own the panel hears about it). WpblApp reads each surface's real width from
+  [`layoutWidths.ts`](src/wpbl/layoutWidths.ts), so the wide ones (Home 1260, Stats 1540, the full
+  Game Center 1260) move a little or not at all instead of off the left edge. Schedule at 1440px:
+  the panel covered 260px of every row and now covers 13px; from 1536px it clears completely. The
+  standalone pages (season recap, scorigami, the league page and the rest) do the same through
+  `WpblPage`, by their own column width: the season recap moves 137px at 1440.
+- ✅ **Expand keeps the board** (Oct 5): from Box Score in the panel, the page opens scrolled to
+  the box score with `?tab=box`. A `?tab=` link holds its jump while the recap's videos load
+  above it, which had pushed a box score 560px below where it landed.
+- ✅ **A game link followed from the full page adds a history entry** (Oct 5), as a page should;
+  only the panel swaps in place.
+- **Box scores on the full page sit side by side from about a 1045px window**, not from `md`: the
+  widest table is 23.6rem and an auto-layout table cannot shrink below its capped name column, so
+  any lower floor scrolls one of them. Below that they stack, capped at 30rem.
+- ✅ **A player's full page** (Oct 6): `layout="page"` on PlayerDetailModal, the desktop layout
+  (every role in full) at the 1100px the desktop dialog was measured at, under the same
+  `DetailPageBar` as the full Game Center. Reached by the panel's Expand and by a player link
+  arrived at; a link naming a game too (`?game=`) keeps the game as the page and the player as the
+  panel. Its log opens games as pages, pushed, so Back walks page to page. `playerPage` on the
+  history snapshot, on `gamePage`'s terms.
+- ✅ **Where a click came from decides the history** (Oct 6). A row clicked on the PAGE while a
+  panel is open swaps the panel, whatever it held; a link followed INSIDE a card stacks, so Back
+  returns to the card. The cards get their own openers (`openPlayerFromGame`,
+  `openGameFromPlayer`; `fromCard` in App.tsx for the standalone pages). Before this, a player
+  clicked on the page with a game panel open landed over the game behind a "‹ Game" control.
+- ✅ **The ballot's ✕ and backdrop close the ballot** (Oct 6) with a player panel from it still
+  open, instead of closing the panel (Back would). Not checkable in the browser until the ballot
+  returns: it comes off Home after Oct 1, which also leaves `/wpbl/awards` opening onto a Home
+  with no ballot on it.
+
 ---
 
 ## Where new things go (decided Aug 27, 2026)
@@ -1236,6 +1335,21 @@ is retired.
 ---
 
 ## Shipped log
+
+### Oct 5, 2026: players and games open beside the page on desktop, and Game Center gets a full page (built, not yet released)
+
+Steps 1 to 3 of #9. On a desktop a player or a game now opens as a side panel down the right
+edge, under the toolbar, instead of a centred dialog over a dimmed page: the page stays usable
+beside it, the panel shows the card's phone layout, and clicking another row swaps it without
+adding history. A player opened from Game Center sits over it with "‹ Game". Game Center also has
+a full page with no tabs (recap and plays left, both box scores and pitch data right, a pinned
+bar of jump links), which is what a shared or cold game link lands on and what the panel's
+"⤢ Expand" opens. The mechanism is in [`src/ui/ModalShell.tsx`](src/ui/ModalShell.tsx): `panel`
+renders the content under `PANEL_THEME`, a theme with every breakpoint above `xs` out of reach, so
+a card's `{ xs, sm, md }` resolve to the phone layout without the card knowing; layout code asks
+`usePhoneLayout()` instead of a raw media query; and a registry of open shells stacks a panel
+above whatever it was opened from. Phones are unchanged. What is left, and what to check before
+release, is under #9.
 
 ### Sep 29, 2026: Watch, every WPBL video in one place (`/wpbl/watch`, v1.105.0 to v1.106.0)
 

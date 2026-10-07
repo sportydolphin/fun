@@ -1,8 +1,10 @@
-import React, { useEffect, useRef } from 'react'
+import React, { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useMediaQuery } from '@mui/material'
+import { ThemeProvider, createTheme, useTheme, type Theme } from '@mui/material/styles'
 import { useSwipeNav } from '../AccessibilityContext'
 import { pressable, hoverOnly, FOCUS_RING } from './interaction'
+import { chromePx } from './scale'
 
 // The modal shell both league sections open their detail views in: a portalled overlay, a centred
 // card on a desktop and, with `sheet`, a bottom sheet on a phone that can be dragged down to close.
@@ -350,7 +352,7 @@ let modalDepth = 0
  */
 const escapeStack: object[] = []
 
-export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, sheetFill, children }: {
+type ModalShellProps = {
   eyebrow: React.ReactNode
   onClose: () => void
   /** Responsive object as well as a plain number, because a modal that is the right size for
@@ -387,11 +389,86 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
    * them at 88% would be 200px of nothing under six options.
    */
   sheetFill?: boolean
+  /**
+   * On a desktop, open as a side panel down the right edge instead of a centred dialog. Phones are
+   * unaffected and still get the sheet. See SidePanelShell for what the panel does differently.
+   */
+  panel?: boolean
+  /**
+   * What the panel is showing, for a panel that swaps its content in place (a player panel moving
+   * down a leaderboard). Each new value is a new OPENING as far as stacking goes: the panel rises
+   * above whatever dialogs are open at that moment. See SidePanelShell's z-index.
+   */
+  openKey?: unknown
+  /**
+   * A back control at the left of the panel's header, for a panel opened over another panel (a
+   * player opened from Game Center). The two sit in exactly the same place, so to a reader this is
+   * one panel that navigated, and "back" is the only honest label for leaving it. Panel only: on a
+   * phone the same card is a sheet stacked on a sheet, and its header has no room to spare.
+   */
+  onBack?: () => void
+  backLabel?: string
   children: React.ReactNode
-}) {
+}
+
+export function ModalShell(props: ModalShellProps) {
+  // MUI's `md`, read off the OUTER theme, because the panel's own content is rendered under
+  // PANEL_THEME and asking there would always say "phone". Material's `useTheme`, which falls back
+  // to the default theme where no provider is mounted (a test harness), rather than a theme
+  // callback in `useMediaQuery`, which gets an empty object there and throws.
+  const desktop = useMediaQuery(useTheme().breakpoints.up('md'))
+  return props.panel && desktop ? <SidePanelShell {...props} /> : <DialogShell {...props} />
+}
+
+/**
+ * Every shell that is open, and where it sits in the stack.
+ *
+ * DIALOGS STACK BY A FIXED NUMBER and PANELS STACK BY WHEN THEY OPENED, and this is what lets the
+ * two meet. Dialogs have always carried their own z-index, chosen per card (Game Center 1500, a
+ * player dialog 1600, a photo 1700), which is how a cold link to a game with a player on it draws
+ * the player on top whichever of the two happened to load first. A panel cannot work that way: it
+ * opens over the page AND over whatever dialog a player was reached from (the series view, Game
+ * Center, the ballot), so the only right height for it is "just above what is open right now".
+ */
+type ShellEntry = { z: number; panel: boolean; el: () => HTMLElement | null }
+const openShells = new Map<object, ShellEntry>()
+
+function useRegisterShell(id: object, z: number, panel: boolean, ref: React.RefObject<HTMLElement | null>) {
+  // A layout effect, so every shell committed in the same render is registered before any panel
+  // reads the list in its passive effect: a Back that lands on a player over a game mounts both
+  // at once, and the panel has to see the game.
+  useLayoutEffect(() => {
+    openShells.set(id, { z, panel, el: () => ref.current })
+    return () => { openShells.delete(id) }
+  }, [id, z, panel, ref])
+}
+
+/**
+ * The z-index a shell is drawn at, for anything it opens that portals out of it. A tooltip is
+ * portalled to the body, so a shell's own stacking context does not lift it; it has to be told
+ * the number, and a panel's number is not known until it opens. See TapTip.
+ */
+const ShellZContext = createContext<number | null>(null)
+export const useShellZ = () => useContext(ShellZContext)
+
+/**
+ * Whether to lay out for a phone: below MUI's `sm`, OR inside a desktop side panel.
+ *
+ * THE ONE TO REACH FOR, rather than `useMediaQuery('(max-width:600px)')`. A raw query string
+ * measures the viewport, and inside the side panel the viewport is a desktop while the column is
+ * a phone's, so a component asking that way draws its desktop layout into 420px. This asks the
+ * theme, which the panel overrides (see PANEL_THEME), so it is right in both places. A raw query
+ * is still the right tool for what is genuinely about the DEVICE (touch, hover, swipe).
+ */
+export function usePhoneLayout(): boolean {
+  return useMediaQuery(useTheme().breakpoints.down('sm'))
+}
+
+/** Escape closes the newest shell only. Shared by both shells, so a dialog opened over a panel
+ *  takes the key before the panel does. */
+function useEscapeToClose(onClose: () => void, escapeId: object) {
   // Registered once, on mount, and separately from the listener: `onClose` is often a fresh
   // function every render, and re-registering with it would move an old shell to the top.
-  const escapeId = useRef({}).current
   useEffect(() => {
     escapeStack.push(escapeId)
     return () => {
@@ -406,6 +483,305 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, escapeId])
+}
+
+/** The eyebrow bar both shells share: the uppercase label, the caller's actions, and Close. */
+function ShellHeader({ eyebrow, actions, onClose, labelId, onBack, backLabel }: {
+  eyebrow: React.ReactNode
+  actions?: React.ReactNode
+  onClose: () => void
+  labelId?: string
+  onBack?: () => void
+  backLabel?: string
+}) {
+  return (
+    <Box sx={{
+      px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
+      display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0,
+    }}>
+      {onBack && (
+        <Box
+          {...pressable(onBack)}
+          aria-label={backLabel ? `Back to ${backLabel.toLowerCase()}` : 'Back'}
+          sx={{
+            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
+            ml: -0.75, px: 0.75, py: 0.25, borderRadius: 999, cursor: 'pointer',
+            fontSize: '0.72rem', fontWeight: 800, lineHeight: 1, color: 'text.secondary',
+            ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
+            ...FOCUS_RING,
+          }}
+        >
+          <Box component="span" aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>‹</Box>
+          {backLabel ?? 'Back'}
+        </Box>
+      )}
+      <Typography id={labelId} sx={{
+        flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
+        textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
+        {eyebrow}
+      </Typography>
+      {actions}
+      <Box
+        {...pressable(onClose)}
+        aria-label="Close"
+        sx={{
+          flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', color: 'text.disabled',
+          ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
+          ...FOCUS_RING,
+        }}
+      >
+        <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
+      </Box>
+    </Box>
+  )
+}
+
+/**
+ * The theme a side panel's content renders under: every breakpoint above `xs` moved out of reach.
+ *
+ * THE PANEL IS A PHONE-WIDTH COLUMN ON A DESKTOP SCREEN, and the cards that open in it were laid
+ * out for exactly that width already, as phone sheets. But every `{ xs, sm, md }` in them is a
+ * media query against the VIEWPORT, which here is a desktop, so left alone they would draw their
+ * desktop layout (wide tables, a side rail, tablet padding) into 420px and overflow it. Raising
+ * the breakpoints makes every one of those objects, in the card and in everything it renders,
+ * resolve to its phone value without any of them having to know a panel exists. A hook asking
+ * `theme.breakpoints.up('md')` gets the same answer, which is how a card picks which layout to
+ * BUILD (see PlayerDetail's `wide`). A raw query string like `useMediaQuery('(max-width:600px)')`
+ * does not go through the theme and still sees the desktop; those decide touch and swipe
+ * behaviour, which a mouse on a desktop should keep.
+ */
+const PANEL_BREAKPOINTS = createTheme({
+  breakpoints: { values: { xs: 0, sm: 1e6, md: 1e6, lg: 1e6, xl: 1e6 } },
+}).breakpoints
+const PANEL_THEME = (outer: Theme): Theme => ({ ...outer, breakpoints: PANEL_BREAKPOINTS })
+
+/**
+ * The desktop side panel: a card down the right edge, under the toolbar, that leaves the page
+ * usable.
+ *
+ * WHAT IT DOES NOT DO, AND WHY, since each omission is the point. A centred dialog is a poor fit
+ * for something a reader opens over and over from a list (a leaderboard, a roster): it dims the
+ * list, covers it, and has to be closed before the next row can be opened. So this has no scrim
+ * and no click-outside dismissal, it does not lock the page's scroll, and it does not trap focus.
+ * The page stays scrollable and clickable beside it, and opening another row swaps the panel's
+ * content in place (the caller replaces the history entry rather than pushing one, so Back still
+ * closes the panel rather than walking every row the reader looked at).
+ *
+ * It does not set `data-modal-open` either: that switches off the toolbar's blur on the grounds
+ * that a modal has dimmed the bar to nothing, which is not true of a panel.
+ *
+ * Z-INDEX: ABOVE WHATEVER IS OPEN WHEN IT OPENS. Over the bare page that is PANEL_Z, under the app
+ * bar (MUI's 1100), so the bar's search and account dropdowns, which live in the bar's own stacking
+ * context, still drop down over it. Opened from a dialog (the semifinal series view, Game Center,
+ * the ballot) it goes one above the highest dialog open, so the player the reader just asked for is
+ * on top rather than behind that dialog's scrim. Re-measured on every `openKey`, because a panel
+ * that is already open can be asked for again from a dialog opened after it: open a player, then
+ * the series view from the page, then a player in the series, and the panel has to come up over
+ * the series view, not stay where it first opened. Between openings it holds its height, so a clip
+ * or a photo opened FROM the panel (see DialogShell's `z`) stays on top of it.
+ */
+const PANEL_W = 420
+/** The panel's width on screen, for a page that moves aside to clear it (see panelShiftSx). */
+export const PANEL_WIDTH = `min(${chromePx(PANEL_W)}, 100vw)`
+
+/**
+ * Whether any side panel is open, for a page that moves aside for it.
+ *
+ * A STORE, NOT A PROP, because the page and the panel rarely share an owner: on WpblApp's tabs they
+ * do, but a standalone page (the season recap, scorigami) is drawn by App.tsx and the panel over it
+ * by an overlay host beside it, and neither knows the other exists. The count is kept by the panel
+ * itself, so whatever opened it, the page hears about it. A count rather than a flag, because a
+ * player panel opened from the Game Center panel is a second one over the first.
+ */
+let openPanelCount = 0
+const panelListeners = new Set<() => void>()
+function bumpOpenPanels(by: number) {
+  openPanelCount += by
+  panelListeners.forEach(l => l())
+}
+const subscribePanels = (l: () => void) => { panelListeners.add(l); return () => { panelListeners.delete(l) } }
+export function useSidePanelOpen(): boolean {
+  return useSyncExternalStore(subscribePanels, () => openPanelCount > 0, () => false)
+}
+
+/**
+ * Slide a centred page column left to clear the side panel: as far as it needs to, and never further
+ * than the room on its left allows. The page keeps its width, so nothing in it reflows.
+ *
+ * WHY THIS AND NOT A NARROWER PAGE. The panel covers the right of whatever the reader came from,
+ * which on WPBL's Schedule at 1440px is the score and status of every row they are working down.
+ * Sliding the column into the empty gutter on its left uncovers it. Narrowing the page would reflow
+ * every row under the reader each time the panel opens and closes, which is worse than covering it.
+ * A wide surface (WPBL's Home at 1260px, its stats table at 1540px) has little or no gutter, so the
+ * same rule moves it a little or not at all instead of pushing its left edge off the window.
+ *
+ * `contentW` is the widest thing in the column, as CSS. In CSS rather than measured, so it follows a
+ * resize with nothing listening: the first term is how far the content's right edge (plus a gap)
+ * reaches under the panel, the second is the gutter on its left less a margin, and clamp() floors
+ * the lot at 0 when there is no room at all. 50vw counts a classic scrollbar, which leaves the left
+ * margin a few pixels short of its nominal size.
+ *
+ * `left` on a relative box rather than a transform, which would make the column the containing
+ * block of every fixed element inside it. The panel's own slide timing, so the two move as one.
+ */
+export function panelShiftSx(open: boolean, contentW: string) {
+  const gap = chromePx(16)
+  const shift = `clamp(0px, calc(${PANEL_WIDTH} + (${contentW}) / 2 + ${gap} - 50vw), calc(50vw - (${contentW}) / 2 - ${gap}))`
+  return {
+    position: 'relative',
+    left: open ? `calc(-1 * ${shift})` : 0,
+    transition: 'left 220ms cubic-bezier(0.2, 0, 0, 1)',
+  } as const
+}
+const PANEL_Z = 1050
+
+/** One above every other open shell, never below PANEL_Z. Panels count too: a player opened from
+ *  the Game Center panel is a second panel drawn exactly over the first. */
+function panelZ(self: object): number {
+  let z = PANEL_Z
+  for (const [id, s] of openShells) if (id !== self) z = Math.max(z, s.z + 1)
+  return z
+}
+
+/**
+ * When the last panel closed, for telling an OPENING from a SWAP. A card that cannot change what
+ * it shows in place (Game Center seeds its tabs and data once) is swapped by remounting it, and
+ * the old panel's cleanup runs in the same commit as the new one's mount. Replaying the slide-in
+ * there would make every row clicked down a schedule look like a fresh open.
+ */
+let lastPanelGoneAt = -Infinity
+
+function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, backLabel, children }: ModalShellProps) {
+  const id = useRef({}).current
+  useEscapeToClose(onClose, id)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const labelId = useId()
+
+  // Seeded at render, so a panel opened over an already-open dialog is never painted under it for
+  // a frame; settled again after commit, once every shell mounted alongside it has registered.
+  const [z, setZ] = useState(() => panelZ(id))
+  useRegisterShell(id, z, true, panelRef)
+  // Tell any page that moves aside (see useSidePanelOpen). A layout effect, so a swap's unmount and
+  // mount land in one commit and the page never sees a frame with no panel and slides back.
+  useLayoutEffect(() => { bumpOpenPanels(1); return () => bumpOpenPanels(-1) }, [])
+  // A swap, not an opening: no slide. Before paint, so the first frame is already still.
+  useLayoutEffect(() => {
+    if (performance.now() - lastPanelGoneAt < 50 && panelRef.current) panelRef.current.style.animation = 'none'
+    return () => { lastPanelGoneAt = performance.now() }
+  }, [])
+  const firstOpen = useRef(true)
+  useEffect(() => {
+    setZ(panelZ(id))
+    // Coming to the top of the stack means coming to the top of Escape's stack as well, or the key
+    // would close the dialog underneath first. Not on the first run: mounting already pushed it.
+    if (firstOpen.current) { firstOpen.current = false; return }
+    const i = escapeStack.indexOf(id)
+    if (i >= 0) { escapeStack.splice(i, 1); escapeStack.push(id) }
+  }, [openKey, id])
+
+  /**
+   * Focus moves INTO the panel when it opens and goes back where it came from when it closes, the
+   * same as a dialog, but nothing holds it there: Tab can still leave for the page, which is what
+   * nonmodal means. "Where it came from" is the last thing focused OUTSIDE the panel, tracked live,
+   * because the reader may have clicked three different rows while it was open and the one to
+   * return to is the latest. Restored only if focus is in the panel or nowhere as it closes: if the
+   * reader has already moved on to something on the page, taking focus back would be a jump.
+   */
+  useEffect(() => {
+    const panel = panelRef.current
+    const active = document.activeElement
+    let lastOutside: HTMLElement | null = active instanceof HTMLElement && active !== document.body ? active : null
+    const onFocusIn = (e: FocusEvent) => {
+      if (e.target instanceof HTMLElement && panel && !panel.contains(e.target)) lastOutside = e.target
+    }
+    document.addEventListener('focusin', onFocusIn)
+    panel?.focus({ preventScroll: true })
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      const now = document.activeElement
+      const lost = !now || now === document.body || (!!panel && panel.contains(now))
+      if (lost && lastOutside?.isConnected) lastOutside.focus({ preventScroll: true })
+    }
+  }, [])
+
+  return createPortal((
+    <Box
+      ref={panelRef}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={labelId}
+      tabIndex={-1}
+      sx={{
+        position: 'fixed', right: 0, bottom: 0, zIndex: z,
+        // Under the sticky toolbar, which publishes its height (0 when it is not pinned).
+        top: 'var(--app-header-h, 0px)',
+        width: PANEL_WIDTH,
+        bgcolor: 'background.paper',
+        borderLeft: '1px solid', borderColor: 'divider',
+        // Shadow on the page side only: the panel is a layer over the page, not a slot in it.
+        boxShadow: '-16px 0 40px rgba(0,0,0,0.22)',
+        display: 'flex', flexDirection: 'column',
+        outline: 'none',
+        // Slides in from the edge it is anchored to, the desktop twin of the sheet coming up from
+        // the bottom. Only on open: swapping the player keeps this element mounted, so moving down
+        // a list does not replay it. Collapsed under prefers-reduced-motion by styles.css.
+        animation: 'sdPanelIn 220ms cubic-bezier(0.2, 0, 0, 1)',
+        '@keyframes sdPanelIn': {
+          from: { transform: 'translateX(100%)' },
+          to: { transform: 'translateX(0)' },
+        },
+      }}
+    >
+      <ShellHeader eyebrow={eyebrow} actions={actions} onClose={onClose} labelId={labelId} onBack={onBack} backLabel={backLabel} />
+      {/* A flex column with a definite height, which is what the phone sheet gives its content
+          too (see DialogShell's body), so the same chain resolves here: a card that fills it with
+          `flex: 1` gets a real height and its panes can scroll themselves. */}
+      <Box sx={{
+        flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain',
+        display: 'flex', flexDirection: 'column',
+        '&::-webkit-scrollbar': { width: 4 },
+        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
+      }}>
+        <ShellZContext.Provider value={z}>
+          <ThemeProvider theme={PANEL_THEME}>{children}</ThemeProvider>
+        </ShellZContext.Provider>
+      </Box>
+      {footer && (
+        <Box sx={{ flexShrink: 0, borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
+          {footer}
+        </Box>
+      )}
+    </Box>
+  ), document.body)
+}
+
+function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, actions, footer, fillHeight, sheet, sheetFill, children }: ModalShellProps) {
+  const id = useRef({}).current
+  useEscapeToClose(onClose, id)
+
+  /**
+   * A dialog opened FROM a side panel goes above it. The panel can be sitting at any height (see
+   * SidePanelShell), and a clip or a photo opened from the player in it at its own fixed 1600
+   * could land behind a panel that rose over a 1600 dialog. "From the panel" is read off focus at
+   * the moment this opens: clicking anything in the panel, even plain text, leaves focus inside it,
+   * because the panel itself is focusable. A dialog opened from the page, or arriving on a cold
+   * load with nothing clicked, keeps its own number, which is what still orders a game and the
+   * player on it correctly when the two load out of order.
+   */
+  const [fromPanelZ] = useState(() => {
+    const active = document.activeElement
+    let z = 0
+    for (const s of openShells.values()) {
+      const el = s.panel ? s.el() : null
+      if (el && active && el.contains(active)) z = Math.max(z, s.z + 1)
+    }
+    return z
+  })
+  const zIndex = Math.max(ownZ, fromPanelZ)
 
   // Freeze the page behind the modal for as long as it's open.
   useEffect(() => { lockBodyScroll(); return unlockBodyScroll }, [])
@@ -437,6 +813,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   // drift from the CSS breakpoint that decides whether this is a sheet at all. See SHEET_MQ.
   const swipeNav = useSwipeNav()
   useSheetDrag(!!sheet && swipeNav, cardRef, overlayRef, chromeRef, onClose)
+  useRegisterShell(id, zIndex, false, overlayRef)
 
   /**
    * PORTALLED TO THE BODY, AND IT HAS TO BE.
@@ -564,32 +941,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
           }} />
         )}
         {/* Sticky eyebrow header */}
-        <Box sx={{
-          px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0,
-        }}>
-          <Typography sx={{
-            flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
-            textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {eyebrow}
-          </Typography>
-          {actions}
-          <Box
-            {...pressable(onClose)}
-            aria-label="Close"
-            sx={{
-              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: 'text.disabled',
-              ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
-              ...FOCUS_RING,
-            }}
-          >
-            <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
-          </Box>
-        </Box>
+        <ShellHeader eyebrow={eyebrow} actions={actions} onClose={onClose} />
         </Box>
 
         {/* Scrollable body.
@@ -616,7 +968,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
           '&::-webkit-scrollbar': { width: 4 },
           '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
         }}>
-          {children}
+          <ShellZContext.Provider value={zIndex}>{children}</ShellZContext.Provider>
         </Box>
 
         {footer && (

@@ -104,7 +104,20 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    (team territories from `chartPairColors`, scrub via the shared `src/ui/chartScrub.ts`), top
    performers, biggest swings, game info (`views/GameSummary.tsx`). Plays fold by half-inning with
    a remembered Expand all. One type ramp (`views/gameType.ts`). *Open:* opening a player from a
-   game closes it, so Back lands on Scores rather than the game.
+   game closes it, so Back lands on Scores rather than the game. Item 11 closes this.
+11. **Side panel and full-page Game Center** (planned; WPBL's half built Oct 5, see #9 in
+   [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for the reasoning and the research behind it). On a desktop:
+   a player opens as a nonmodal side panel showing the phone layout, swapped in place as the reader
+   clicks down a list; Game Center opens as the same panel, with a player from it drawn over it
+   behind a "‹ Game" back control; and Game Center gets a full page with no tabs, reached from a
+   cold or shared game link and from the panel's Expand. MLB's player is a full page today (the
+   view `search`): it becomes the panel's Expand target rather than going away. The shell pieces
+   are shared already (`ModalShell`'s `panel`, `openKey` and `onBack`, `usePhoneLayout`,
+   `ExpandButton`, all in `src/ui`). What MLB needs is its own wiring: through `useSheetHistory`,
+   since a swap must REPLACE the entry or Back walks every row looked at; a pass of `src/mlb/views`
+   replacing raw width queries with `usePhoneLayout()`, which inside the panel would otherwise see
+   a desktop and draw the desktop layout into 525px; and a `layout="page"` arrangement for
+   `LiveGameCenter.tsx`.
 
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.

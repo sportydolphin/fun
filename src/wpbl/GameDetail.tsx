@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
+import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { track, EVENTS } from '../lib/analytics'
 import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblGameRevisions, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblRecaps, getCachedWpblRecaps, fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
@@ -22,7 +22,7 @@ import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
-import { ModalShell, SegNav, TapTip, TeamBadge, BaseDiamond, CopyLinkButton, pressable, hoverOnly, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
+import { ModalShell, usePhoneLayout, CARD_BORDER, SegNav, TapTip, TeamBadge, BaseDiamond, CopyLinkButton, pressable, hoverOnly, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay, endsInCalledThirdStrike, stateAfter, pitchingChanges } from './derive/playByPlay'
 import type { WpblRunValuePlay } from './types'
@@ -33,6 +33,11 @@ import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
 import FeedDelayNote from './FeedDelayNote'
+import { ExpandButton } from '../ui/ExpandButton'
+import { typePx } from '../ui/scale'
+import { scrollBehavior } from '../lib/motion'
+import { GAME_PAGE_W } from './layoutWidths'
+import { DetailPageBar } from './DetailPageBar'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
   WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle, WpblGameRecap, WpblGameDetails, WpblGameRevision,
@@ -376,7 +381,7 @@ function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
   away: WpblTeam; home: WpblTeam; game: WpblGame; awayWon: boolean; homeWon: boolean
   onOpenTeam?: (t: WpblTeam) => void
 }) {
-  const isMobile = useMediaQuery('(max-width:600px)')
+  const isMobile = usePhoneLayout()
   const isDark = useWpblDark()
   const decided = awayWon || homeWon
   // playedInnings drops the feed's phantom trailing inning (see innings.ts); the 7-column
@@ -492,7 +497,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const isDark = useWpblDark()
-  const isMobile = useMediaQuery('(max-width:600px)')
+  const isMobile = usePhoneLayout()
   const color = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
@@ -1814,6 +1819,253 @@ function EmptyBody({ title, hint }: { title: string; hint: string }) {
   )
 }
 
+// ─── Full page (desktop) ─────────────────────────────────────────────────────────
+
+/**
+ * Game Center as a desktop page: every board at once, no tabs.
+ *
+ * WHY NO TABS. The modal pages one board at a time because a phone has room for one, and that
+ * shape carried over to the desktop, where it is the wrong one: a box score is read against the
+ * recap that describes it, and tabs make a reader hold one in memory while they flip to the
+ * other. The side panel keeps the phone's shape (it is phone-width); this is where the width goes.
+ *
+ * TWO COLUMNS from `lg`: the narrative on the left (Recap, or Live while the game is on, then the
+ * play-by-play under it) and the numbers on the right (both box scores, stacked, then pitch data).
+ * Each column is its own stack, so a long play log never pushes the box score down. Between `md`
+ * and `lg` there is room for one column only, and the same four sections reflow into the order a
+ * reader wants them in (narrative, box score, plays, pitch data) through `display: contents`
+ * rather than a second tree.
+ *
+ * The tabs survive as JUMP LINKS in a pinned bar, so the boards a tab bar used to announce are
+ * still named in one place and one click away.
+ */
+const PAGE_W = GAME_PAGE_W
+// The page's boards: the modal's tabs, plus the three a game not yet played has (see the preview
+// at the foot of GameCenterPage).
+type Board = Tab | 'matchup' | 'leaders' | 'rosters'
+const sectionId = (v: Board) => `gc-${v}`
+const SECTION_LABEL: Record<Board, string> = {
+  recap: 'Recap', live: 'Live', box: 'Box score', plays: 'Play-by-play', pitch: 'Pitch data',
+  matchup: 'Matchup', leaders: 'Leaders', rosters: 'Rosters',
+}
+// Clears the toolbar and the jump bar pinned under it when a jump lands a section at the top.
+const SECTION_SCROLL_MARGIN = 'calc(var(--app-header-h, 0px) + 3.5rem)'
+
+/**
+ * The page's two columns from `lg`, one below it. `display: contents` on each column below `lg`
+ * hands its boards to the outer grid, where each board's `order` (see PageSection) puts all of
+ * them in reading order, so one tree serves both arrangements.
+ */
+function PageColumns({ left, right }: { left: React.ReactNode; right: React.ReactNode }) {
+  const col = { display: { xs: 'contents', lg: 'flex' }, flexDirection: 'column', gap: 2, minWidth: 0 } as const
+  return (
+    <Box sx={{
+      display: 'grid', gap: 2, alignItems: 'start',
+      gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1.25fr) minmax(0, 1fr)' },
+    }}>
+      <Box sx={col}>{left}</Box>
+      <Box sx={col}>{right}</Box>
+    </Box>
+  )
+}
+
+function PageSection({ v, order, children }: { v: Board; order: number; children: React.ReactNode }) {
+  return (
+    <Box component="section" id={sectionId(v)} aria-labelledby={`${sectionId(v)}-h`} sx={{
+      minWidth: 0, bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
+      borderRadius: 3, overflow: 'hidden', pb: 1.5, scrollMarginTop: SECTION_SCROLL_MARGIN,
+      order: { xs: order, lg: 0 },
+    }}>
+      <Typography id={`${sectionId(v)}-h`} component="h2" sx={{
+        px: 2, pt: 1.75, pb: 1, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase',
+        letterSpacing: typePx(0.8), color: 'text.secondary',
+      }}>
+        {SECTION_LABEL[v]}
+      </Typography>
+      {children}
+    </Box>
+  )
+}
+
+function GameCenterPage({
+  game, away, home, eyebrow, actions, onClose, loading, hasLines, final, live, header, paneFor, tabs,
+  landingTab, urlTab, teams, games, videos, onOpenTeam, onOpenPlayer, boxFor,
+}: {
+  game: WpblGame
+  away?: WpblTeam
+  home?: WpblTeam
+  eyebrow: React.ReactNode
+  actions: React.ReactNode
+  onClose: () => void
+  loading: boolean
+  hasLines: boolean
+  final: boolean
+  live: boolean
+  header: React.ReactNode
+  paneFor: (v: Tab) => React.ReactNode
+  tabs: Tab[]
+  landingTab: Tab
+  urlTab: Tab | null
+  teams: WpblTeam[]
+  games: WpblGame[]
+  videos: WpblVideo[]
+  onOpenTeam?: (t: WpblTeam) => void
+  onOpenPlayer?: (p: WpblPlayer) => void
+  boxFor: (team: WpblTeam) => React.ReactNode
+}) {
+  const has = (v: Tab) => tabs.includes(v)
+  // The narrative board: Live while the game is on, its Recap once it is final.
+  const main: Tab | null = has('live') ? 'live' : has('recap') ? 'recap' : null
+  const jumpTo: Tab[] = [...(main ? [main] : []), 'box', 'plays', ...(has('pitch') ? ['pitch' as Tab] : [])]
+
+  // A link that named a board (`?tab=box`) lands scrolled to it, once the boards exist. The modal
+  // opens on that tab instead; here every board is already open, so the link's job is the scroll.
+  // Held there while the page settles: the recap's videos, clips and stories arrive after the lines
+  // do and grow the boards above, which in one column pushed a box score 560px below where the jump
+  // had put it. Re-pinned on every resize for a few seconds, until the reader scrolls for themselves.
+  const landed = useRef(false)
+  const articleRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (landed.current || loading) return
+    landed.current = true
+    if (!urlTab || urlTab === landingTab || !tabs.includes(urlTab)) return
+    const pin = () => document.getElementById(sectionId(urlTab))?.scrollIntoView({ block: 'start' })
+    pin()
+    const article = articleRef.current
+    if (!article) return
+    const ro = new ResizeObserver(pin)
+    ro.observe(article)
+    const stop = () => {
+      ro.disconnect()
+      clearTimeout(timer)
+      for (const ev of ['wheel', 'touchstart', 'keydown', 'mousedown'] as const) window.removeEventListener(ev, stop)
+    }
+    const timer = setTimeout(stop, 4000)
+    for (const ev of ['wheel', 'touchstart', 'keydown', 'mousedown'] as const) window.addEventListener(ev, stop, { passive: true })
+    stopPinning.current = stop
+  }, [loading, urlTab, landingTab, tabs])
+  // On unmount only: `tabs` is a fresh array every render, so a cleanup on the effect above would
+  // stop the pin at the very re-render (a video list landing) it exists to survive.
+  const stopPinning = useRef<() => void>()
+  useEffect(() => () => stopPinning.current?.(), [])
+
+  const jump = (v: Tab) => (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    e.preventDefault()
+    document.getElementById(sectionId(v))?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
+  }
+
+  const cardSx = {
+    bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, overflow: 'hidden',
+  } as const
+
+  return (
+    // Wider than the section's 720px column, centred on it with a margin rather than a transform,
+    // so the jump bar below can still stick (see StatsView's FULL_BLEED_W for the same choice).
+    <Box component="article" ref={articleRef} sx={{ width: PAGE_W, ml: `calc((100% - ${PAGE_W}) / 2)`, pb: 4 }}>
+      {/* The page's <h1>, for the same reason the modal carries one. */}
+      <WpblVisuallyHiddenH1>{wpblGameCard(game, teams).ogTitle}</WpblVisuallyHiddenH1>
+
+      <DetailPageBar onBack={onClose} eyebrow={eyebrow} actions={actions} />
+
+      <Box sx={{ ...cardSx, pb: 1.5, mb: 1.5 }}>{header}</Box>
+
+      {/* The jump bar: the tab bar's list of boards, as links to where each one already is. Pinned
+          under the toolbar, with the score at its left, so a reader deep in the play log still sees
+          the score and can get back to any board in one click. */}
+      {hasLines && (
+        <Box component="nav" aria-label="Game Center sections" sx={{
+          position: 'sticky', top: 'var(--app-header-h, 0px)', zIndex: 3,
+          bgcolor: 'background.default', py: 1, mb: 1.5,
+          display: 'flex', alignItems: 'center', gap: 2,
+          borderBottom: '1px solid', borderColor: 'divider',
+        }}>
+          {(final || live) && away && home && (
+            <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              {away.abbr} {game.away_score ?? 0}
+              <Box component="span" sx={{ color: 'text.disabled', mx: 0.75 }}>·</Box>
+              {home.abbr} {game.home_score ?? 0}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto', flexWrap: 'wrap' }}>
+            {jumpTo.map(v => (
+              <Box key={v} component="a" href={`#${sectionId(v)}`} onClick={jump(v)} sx={{
+                px: 1.25, py: 0.5, borderRadius: 999, fontSize: '0.75rem', fontWeight: 700,
+                color: 'text.secondary', textDecoration: 'none',
+                ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
+                ...FOCUS_RING,
+              }}>
+                {SECTION_LABEL[v]}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
+      ) : hasLines && away && home ? (
+        <PageColumns
+          left={<>
+            {main && <PageSection v={main} order={1}>{paneFor(main)}</PageSection>}
+            <PageSection v="plays" order={3}>{paneFor('plays')}</PageSection>
+          </>}
+          right={<>
+            <PageSection v="box" order={2}>
+              {/* Both clubs, and neither behind a switch: a box score is two teams. Side by side when
+                  the section is wide enough for two tables (one column of page, between `md` and
+                  `lg`), one under the other in the right-hand column, which holds one. 24rem is the
+                  floor, in rem because it is room reserved for type, and it is MEASURED: the widest
+                  batting table is 23.6rem. It cannot be squeezed under that, because an auto-layout
+                  table ignores a cell's max-width and the capped name column still claims its
+                  full width, so a 22rem floor put the pair side by side at 1024px with one of them
+                  5px too wide and a scrollbar under it. They meet from about a 1045px window.
+                  Capped at 30rem when they stack below that: a box score stretched across the
+                  whole page leaves a gulf between a name and its numbers. */}
+              <Box sx={{ px: 2, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(24rem, 100%), 1fr))', columnGap: 2.5, rowGap: 2.5, alignItems: 'start' }}>
+                {[away, home].map(t => (
+                  <Box key={t.id} sx={{ minWidth: 0, maxWidth: '30rem' }}>
+                    <TeamHeading team={t} />
+                    {boxFor(t)}
+                  </Box>
+                ))}
+              </Box>
+            </PageSection>
+            {has('pitch') && <PageSection v="pitch" order={4}>{paneFor('pitch')}</PageSection>}
+          </>}
+        />
+      ) : final ? (
+        <Box sx={{ ...cardSx, p: 2 }}>
+          <EmptyBody title="Box score not available yet" hint="The feed has not posted a box score for this game." />
+          {videos.length > 0 && <Box sx={{ mt: 2 }}><GameHighlightCards videos={videos} /></Box>}
+          <GameClips gameId={game.id} />
+        </Box>
+      ) : away && home ? (
+        // A game not yet played gets the same treatment as one that has been: the preview's three
+        // boards laid out at once rather than behind its Matchup / Leaders / Rosters toggle, which
+        // is the modal's answer to having room for one. The season bars on the left, where the
+        // narrative goes on a played game; the two lists of people on the right.
+        <WpblGamePreview
+          away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer} rosters
+          renderBoards={b => (
+            <PageColumns
+              left={<PageSection v="matchup" order={1}><Box sx={{ px: 2 }}>{b.matchup}</Box></PageSection>}
+              right={<>
+                <PageSection v="leaders" order={2}><Box sx={{ px: 2 }}>{b.leaders}</Box></PageSection>
+                <PageSection v="rosters" order={3}><Box sx={{ px: 2 }}>{b.rosters}</Box></PageSection>
+              </>}
+            />
+          )}
+        />
+      ) : (
+        <Box sx={{ ...cardSx, p: 2 }}>
+          <EmptyBody title="This game has not been played yet" hint="Check back after first pitch." />
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 /**
  * One club's heading above its own box score, for the side-by-side layout at `lg`.
  *
@@ -1843,7 +2095,7 @@ function TeamSwitch({ away, home, value, onChange }: {
   value: 'away' | 'home'; onChange: (v: 'away' | 'home') => void
 }) {
   const isDark = useWpblDark()
-  const isMobile = useMediaQuery('(max-width:600px)')
+  const isMobile = usePhoneLayout()
   const tab = (side: 'away' | 'home', team: WpblTeam) => {
     const active = value === side
     const color = wpblAccent(team.id, isDark)
@@ -1876,7 +2128,7 @@ function TeamSwitch({ away, home, value, onChange }: {
 }
 
 // ─── Modal root ────────────────────────────────────────────────────────────────
-export default function GameDetailModal({ game: seed, initialTab, initialSide, teams, games = [], onClose, onOpenPlayer, onOpenTeam }: {
+export default function GameDetailModal({ game: seed, initialTab, initialSide, teams, games = [], onClose, onOpenPlayer, onOpenTeam, panel = false, layout = 'modal', onExpand }: {
   game: WpblGame
   /** The raw `?tab=` a shared link carried, captured by WpblApp at mount because `urlFor` has
    *  dropped it from the address bar by the time this mounts. Unvalidated on purpose: which
@@ -1893,7 +2145,21 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   /** Open a club's page from a team name here. Same shape as `onOpenPlayer`: the section
    *  closes this modal as it goes, so Back walks off the team page and lands on the game. */
   onOpenTeam?: (t: WpblTeam) => void
+  /** Open as the desktop side panel rather than a centred dialog. See ModalShell's `panel`. Its
+   *  content is the phone layout there, which is why every width question in this file goes
+   *  through `usePhoneLayout` rather than a raw media query. */
+  panel?: boolean
+  /** `page` draws the game as a full desktop page instead of a modal: every board at once, in two
+   *  columns, with no tabs. See GameCenterPage. The caller only asks for it on a desktop. */
+  layout?: 'modal' | 'page'
+  /** Offer the side panel's "Expand" to the full page. Shown only while this IS the side panel.
+   *  Given the board the reader is on (null for the landing one), so the page opens scrolled to
+   *  what they were reading rather than back at the top. */
+  onExpand?: (tab: string | null) => void
 }) {
+  // Whether the side panel is in effect, for the Expand control, which only makes sense there.
+  // ModalShell's own `md` test, asked out here where the viewport is still a desktop's.
+  const mdUp = useMediaQuery(useTheme().breakpoints.up('md'))
   const game = useLiveGame(seed)  // fresh score + live_state while the game is live
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const home = byId.get(game.home_team_id)
@@ -2294,12 +2560,31 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
     </>
   ) : null
 
-  return (
-    <ModalShell
-      // A final game says WHEN it was: the modal is opened from Home, from Schedule and from a
-      // shared link, and "Final" on its own is the one thing on the header that could belong
-      // to any night of the season. A live game does not, because a live game is now.
-      eyebrow={
+  const copyLink = (
+    <CopyLinkButton
+      url={`${window.location.origin}${wpblGameShortPath(game)}`}
+      title="Copy a link to this game"
+      onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'game', gameId: game.id })}
+    />
+  )
+
+  // The full page's header: the line score (or the bare matchup for a game not yet played), the
+  // series and the venue, and the delay note under them. The modal splits these between its fixed
+  // header and its tabs; the page has room for all of it once, at the top.
+  const pageHeader = (
+    <>
+      {!scoreboard && (
+        <Box sx={{ px: 2, pt: 2, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          {scoreLine(away, game.away_score, awayWon)}
+          {scoreLine(home, game.home_score, homeWon)}
+        </Box>
+      )}
+      {lineScoreBlock}
+      <Box sx={{ px: 2, pt: 1 }}><FeedDelayNote game={game} /></Box>
+    </>
+  )
+
+  const eyebrow = (
         final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''} · ${dateLabel}`
         // RED, and pulsing, because this is the one state of the header that is a claim about
         // RIGHT NOW rather than a label for a thing that happened. It is the same red and the
@@ -2319,18 +2604,138 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
           </Box>
         )
         : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`
-      }
+  )
+
+  // One board's content, by tab. The modal pages through these one at a time; the full page
+  // (`layout="page"`) lays several out side by side, so both read them from here and a board
+  // cannot come out different in the two.
+  const paneFor = (v: Tab): React.ReactNode => (
+                v === 'recap' && away && home ? (
+                  <>
+                    {/* The written recaps, at the top of their own tab rather than in the shared
+                        header above the tabs (see the note there). Borderless now, so it can ride
+                        up close under the tab switcher; `pb: 1.5` plus GameRecapView's own `pt: 0.5`
+                        keeps a 16px gap below so it stays clear of the win-probability chart. */}
+                    {(stories.length > 0 || recap) && (
+                      <Box sx={{ px: 2, pt: 0.25, pb: 1.5, display: 'grid', gap: 1 }}>
+                        {stories.map(st => <GameStoryCard key={st.post_id} article={st} />)}
+                        {recap && <GameRecapLinkCard recap={recap} />}
+                      </Box>
+                    )}
+                    <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} videos={final ? videos : []} onOpenPlayer={onOpenPlayer} />
+                    {/* Last, and only here: none of it is why anybody opens a game (see GameInfo). */}
+                    <GameInfo game={game} details={details} />
+                    {/* Under the info list, because the revision date there is the line this expands on. */}
+                    <RevisionLog revisions={revisions} gameId={game.id} away={away} home={home} names={names} onOpenPlayer={onOpenPlayer} />
+                  </>
+                ) : v === 'live' && away && home ? (
+                  <LiveGameView
+                    game={game} teams={byId} away={away} home={home} plays={plays}
+                    batting={lines.batting} pitching={lines.pitching} names={names}
+                    games={games} onOpenPlayer={onOpenPlayer}
+                    // The Live tab reads: situation, then the line score, then the win-probability
+                    // graph. FeedDelayNote rides just above the line score, where it explains the
+                    // scoreboard that has not moved.
+                    // Not on the full page, whose header already carries the line score and the delay note.
+                    lineScore={layout === 'page' ? undefined : <><Box sx={{ px: 2 }}><FeedDelayNote game={game} /></Box>{lineScoreBlock}</>}
+                  />
+                ) : v === 'box' && away && home ? (() => {
+                  const box = (team: WpblTeam) => (
+                    <TeamBox
+                      team={team}
+                      batting={lines.batting.filter(b => b.team_id === team.id)}
+                      pitching={lines.pitching.filter(p => p.team_id === team.id)}
+                      names={names}
+                      onOpenPlayer={onOpenPlayer}
+                    />
+                  )
+                  return (
+                    <Box sx={{ pb: 2, pt: 0 }}>
+                      {/* Line score on top of the box score, but only while the game is live: a
+                          final game still shows it in the fixed score header above the tabs, and
+                          drawing it here too would be twice on one screen. The line score alone,
+                          not the series/venue block: on the tab a reader opened for the numbers,
+                          the stakes and the stadium are clutter. */}
+                      {live && scoreboard && <Box sx={{ pb: 1.5 }}>{scoreboard}</Box>}
+                      <Box sx={{ px: 2 }}>
+                      {/* BOTH CLUBS AT ONCE once there is room, and the switch goes away with
+                          them. A box score is two teams, and the reason this ever showed one is
+                          width: at 520px the second could only live behind a control. Reading
+                          one club's half of a game and then tapping to see who they did it to
+                          is a worse way to read a box score than having both in front of you,
+                          and comparing the two starting pitchers took two taps and a memory.
+
+                          CSS rather than a media-query hook, so both are always in the DOM.
+                          That costs a second table of about thirteen rows and buys two things:
+                          no flash of the wrong club while a JS query settles on first paint,
+                          and the browser's own find-in-page reaching a player on the club you
+                          are not currently looking at, which on a phone it could not. */}
+                      <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+                        <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
+                      </Box>
+                      <Box sx={{
+                        display: 'grid', alignItems: 'start',
+                        gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: 2.5,
+                      }}>
+                      {/* Measured at the reader's Large text setting: two of these tables at
+                          490px each is tight, and one of the four ends up about 8px over and
+                          scrolls inside its own wrapper. That is the escape hatch this table
+                          was built with and the failure it is supposed to have, and it is not
+                          the name column doing it: capping the name harder does not move it,
+                          because it is nine columns of numbers at 12.5% larger type. Not worth
+                          narrowing the default layout for everyone to avoid. */}
+                        {([['away', away], ['home', home]] as const).map(([side, team]) => (
+                          <Box key={side} sx={{ minWidth: 0, display: { xs: boxTeam === side ? 'block' : 'none', lg: 'block' } }}>
+                            {/* The heading only exists where the switch does not. Below `lg`
+                                the switch IS the heading, and drawing both would name the club
+                                twice inside forty pixels. */}
+                            <Box sx={{ display: { xs: 'none', lg: 'block' } }}><TeamHeading team={team} /></Box>
+                            {box(team)}
+                          </Box>
+                        ))}
+                      </Box>
+                      </Box>
+                    </Box>
+                  )
+                })() : v === 'plays' ? (
+                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
+                ) : v === 'pitch' ? (
+                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} names={names} />
+                ) : null
+  )
+
+  if (layout === 'page') return (
+    <GameCenterPage
+      game={game} away={away} home={home} eyebrow={eyebrow} actions={copyLink} onClose={onClose}
+      loading={loading} hasLines={hasLines} final={final} live={live}
+      header={pageHeader} paneFor={paneFor} tabs={tabs.map(t => t.value)} landingTab={landingTab} urlTab={urlTab}
+      teams={teams} games={games} videos={videos} onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer}
+      boxFor={team => (
+        <TeamBox
+          team={team}
+          batting={lines.batting.filter(b => b.team_id === team.id)}
+          pitching={lines.pitching.filter(p => p.team_id === team.id)}
+          names={names}
+          onOpenPlayer={onOpenPlayer}
+        />
+      )}
+    />
+  )
+
+  return (
+    <ModalShell
+      // A final game says WHEN it was: the modal is opened from Home, from Schedule and from a
+      // shared link, and "Final" on its own is the one thing on the header that could belong
+      // to any night of the season. A live game does not, because a live game is now.
+      eyebrow={eyebrow}
       onClose={onClose}
       // The short /g share link, beside Close, so a game is as copy-able as a player. Built from
       // the current origin (functions/g 302s it to the canonical /wpbl/games/<slug> the address
       // bar shows and the OG rewrite unfurls), and needs only the id.
-      actions={
-        <CopyLinkButton
-          url={`${window.location.origin}${wpblGameShortPath(game)}`}
-          title="Copy a link to this game"
-          onCopy={() => track(EVENTS.WPBL_SHARE_COPIED, { kind: 'game', gameId: game.id })}
-        />
-      }
+      actions={<>
+        {panel && mdUp && onExpand && <ExpandButton onExpand={() => onExpand(tab === landingTab ? null : tab)} title="Open the full Game Center" />}
+        {copyLink}
+      </>}
       // Width in `chromePx`, so the dialog scales with the section's desktop ramp like everything
       // in it; a raw 520 would leave it a phone column inside a wide window, overflowing
       // vertically with room to spare horizontally.
@@ -2349,6 +2754,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
       // And a constant height while it is one, so the sheet does not grow 419px under the
       // reader's thumb when the box score lands, or resize every time they page a tab.
       sheetFill
+      panel={panel}
     >
       {/* Two sizings, because the sheet and the dialog are shaped differently.
           On a phone the sheet holds a definite height, so this fills it (`flex: 1`) and every
@@ -2462,99 +2868,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
               mode="pane"
               index={tabIndex}
               onIndexChange={i => selectTab(tabs[i].value, 'swipe')}
-              panels={tabs.map(t => (
-                t.value === 'recap' && away && home ? (
-                  <>
-                    {/* The written recaps, at the top of their own tab rather than in the shared
-                        header above the tabs (see the note there). Borderless now, so it can ride
-                        up close under the tab switcher; `pb: 1.5` plus GameRecapView's own `pt: 0.5`
-                        keeps a 16px gap below so it stays clear of the win-probability chart. */}
-                    {(stories.length > 0 || recap) && (
-                      <Box sx={{ px: 2, pt: 0.25, pb: 1.5, display: 'grid', gap: 1 }}>
-                        {stories.map(st => <GameStoryCard key={st.post_id} article={st} />)}
-                        {recap && <GameRecapLinkCard recap={recap} />}
-                      </Box>
-                    )}
-                    <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} videos={final ? videos : []} onOpenPlayer={onOpenPlayer} />
-                    {/* Last, and only here: none of it is why anybody opens a game (see GameInfo). */}
-                    <GameInfo game={game} details={details} />
-                    {/* Under the info list, because the revision date there is the line this expands on. */}
-                    <RevisionLog revisions={revisions} gameId={game.id} away={away} home={home} names={names} onOpenPlayer={onOpenPlayer} />
-                  </>
-                ) : t.value === 'live' && away && home ? (
-                  <LiveGameView
-                    game={game} teams={byId} away={away} home={home} plays={plays}
-                    batting={lines.batting} pitching={lines.pitching} names={names}
-                    games={games} onOpenPlayer={onOpenPlayer}
-                    // The Live tab reads: situation, then the line score, then the win-probability
-                    // graph. FeedDelayNote rides just above the line score, where it explains the
-                    // scoreboard that has not moved.
-                    lineScore={<><Box sx={{ px: 2 }}><FeedDelayNote game={game} /></Box>{lineScoreBlock}</>}
-                  />
-                ) : t.value === 'box' && away && home ? (() => {
-                  const box = (team: WpblTeam) => (
-                    <TeamBox
-                      team={team}
-                      batting={lines.batting.filter(b => b.team_id === team.id)}
-                      pitching={lines.pitching.filter(p => p.team_id === team.id)}
-                      names={names}
-                      onOpenPlayer={onOpenPlayer}
-                    />
-                  )
-                  return (
-                    <Box sx={{ pb: 2, pt: 0 }}>
-                      {/* Line score on top of the box score, but only while the game is live: a
-                          final game still shows it in the fixed score header above the tabs, and
-                          drawing it here too would be twice on one screen. The line score alone,
-                          not the series/venue block: on the tab a reader opened for the numbers,
-                          the stakes and the stadium are clutter. */}
-                      {live && scoreboard && <Box sx={{ pb: 1.5 }}>{scoreboard}</Box>}
-                      <Box sx={{ px: 2 }}>
-                      {/* BOTH CLUBS AT ONCE once there is room, and the switch goes away with
-                          them. A box score is two teams, and the reason this ever showed one is
-                          width: at 520px the second could only live behind a control. Reading
-                          one club's half of a game and then tapping to see who they did it to
-                          is a worse way to read a box score than having both in front of you,
-                          and comparing the two starting pitchers took two taps and a memory.
-
-                          CSS rather than a media-query hook, so both are always in the DOM.
-                          That costs a second table of about thirteen rows and buys two things:
-                          no flash of the wrong club while a JS query settles on first paint,
-                          and the browser's own find-in-page reaching a player on the club you
-                          are not currently looking at, which on a phone it could not. */}
-                      <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
-                        <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
-                      </Box>
-                      <Box sx={{
-                        display: 'grid', alignItems: 'start',
-                        gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: 2.5,
-                      }}>
-                      {/* Measured at the reader's Large text setting: two of these tables at
-                          490px each is tight, and one of the four ends up about 8px over and
-                          scrolls inside its own wrapper. That is the escape hatch this table
-                          was built with and the failure it is supposed to have, and it is not
-                          the name column doing it: capping the name harder does not move it,
-                          because it is nine columns of numbers at 12.5% larger type. Not worth
-                          narrowing the default layout for everyone to avoid. */}
-                        {([['away', away], ['home', home]] as const).map(([side, team]) => (
-                          <Box key={side} sx={{ minWidth: 0, display: { xs: boxTeam === side ? 'block' : 'none', lg: 'block' } }}>
-                            {/* The heading only exists where the switch does not. Below `lg`
-                                the switch IS the heading, and drawing both would name the club
-                                twice inside forty pixels. */}
-                            <Box sx={{ display: { xs: 'none', lg: 'block' } }}><TeamHeading team={team} /></Box>
-                            {box(team)}
-                          </Box>
-                        ))}
-                      </Box>
-                      </Box>
-                    </Box>
-                  )
-                })() : t.value === 'plays' ? (
-                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
-                ) : t.value === 'pitch' ? (
-                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} names={names} />
-                ) : null
-              ))}
+              panels={tabs.map(t => paneFor(t.value))}
             />
           </>
         ) : final ? (

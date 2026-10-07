@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import PlayerDetailModal from './PlayerDetail'
-import { findWpblPlayerBySlug } from './routes'
+import { findWpblPlayerBySlug, wpblPlayerPath } from './routes'
+import { navigate } from '../nav'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers,
   getCachedWpblTeams, getCachedWpblSchedule, getCachedWpblAllPlayers,
@@ -24,9 +25,11 @@ import type { WpblGame, WpblTeam, WpblPlayer } from './types'
 // worth. All three reads are app-wide cached, so on a reader who has been anywhere in the section
 // they resolve from memory and add no request; the roster in particular is already warm, because the
 // page that carried the link built its href from it.
-export default function WpblPlayerOverlayHost({ slug, onClose, onOpenGame }: {
+export default function WpblPlayerOverlayHost({ slug, onClose, onOpenGame, onBack }: {
   slug: string
   onClose: () => void
+  /** Set when this player sits over the game panel it was opened from: a "Game" back control. */
+  onBack?: () => void
   /** Open a game from the player's log, as an overlay over the same page (the shell decides push
    *  vs replace). The datasets come from here because this host is the only holder that has them. */
   onOpenGame: (game: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
@@ -59,6 +62,14 @@ export default function WpblPlayerOverlayHost({ slug, onClose, onOpenGame }: {
       players={players}
       onClose={onClose}
       onOpenGame={g => onOpenGame(g, { teams, games })}
+      // Always the side panel on a desktop, rising over the game overlay when it was opened from one.
+      panel
+      onBack={onBack}
+      backLabel="Game"
+      // Expand LEAVES the standalone page for the player's own URL, a real navigation the shell
+      // routes to WpblApp, which opens any player it is navigated to as the full page. Same as the
+      // game overlay's Expand.
+      onExpand={() => navigate(wpblPlayerPath(player, players))}
     />
   )
 }

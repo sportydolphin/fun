@@ -147,9 +147,29 @@ flowchart LR
   models via its `mode` prop: `window` for the section's own tabs (the page scrolls; each
   tab keeps its own `window.scrollY` and lands under the pinned nav) and `pane` for the
   Game Center's Live / Recap / Box Score / Play-by-Play / Pitch Data tabs, which sit in a
-  modal with the body locked, so each pane scrolls itself instead. **Live and Recap share one
-  slot**: Live exists only while the game is in progress and Recap only once it is final, so
-  the two swap in place when a game ends under an open modal.
+  modal or the desktop side panel, so each pane scrolls itself instead (the full desktop page
+  below has no tabs). **Live and Recap share one slot**: Live exists only while the game is in
+  progress and Recap only once it is final, so the two swap in place when a game ends under an
+  open modal.
+- **Detail views** ([`src/ui/ModalShell.tsx`](src/ui/ModalShell.tsx)): every card either section
+  opens is a `ModalShell` in one of three shapes: a centred dialog, a bottom sheet on a phone
+  (`sheet`, dragged down to close) and, since Oct 5, 2026, a nonmodal **side panel** on a desktop
+  (`panel`), used by WPBL's player and game cards. The panel has no scrim, no scroll lock and no
+  focus trap, and is swapped in place as the reader clicks down a list (the caller replaces the
+  history entry). It renders its content under `PANEL_THEME`, which puts every breakpoint above
+  `xs` out of reach, so the card draws its phone layout without knowing it is in a panel; layout
+  code asks `usePhoneLayout()` rather than a raw media query for that reason. Stacking comes from
+  a registry of open shells: a panel rises above whatever is open when it opens or swaps
+  (`openKey`), and a dialog opened from inside a panel rises above it. A click on the page swaps
+  whatever the panel holds; a link inside a card stacks on it. While a panel is open the
+  page slides left into its own gutter, never changing its width (`panelShiftSx`, keyed on
+  `useSidePanelOpen()`, a store the panel itself keeps): WpblApp by the current surface's width
+  (`src/wpbl/layoutWidths.ts`), every standalone page by its `WpblPage` column. Game Center also has a
+  **full page** (`layout="page"`, `GameCenterPage`), which WpblApp draws in place of the tabs
+  when its history snapshot says `gamePage`: a game URL arrived at from outside the section, or
+  the panel's "⤢ Expand". A player has one on the same terms (`playerPage`, PlayerDetailModal's
+  `layout="page"`), and both share `DetailPageBar`. Plan and status: #9 in ROADMAP-WPBL.md; MLB's
+  half is item 11 in ROADMAP.md.
 - **WPBL URLs are paths, not query strings** ([`src/wpbl/routes.ts`](src/wpbl/routes.ts)):
   one path per tab since Aug 21, 2026, so each has its own title, description and canonical
   and Google has five WPBL pages to rank instead of one. `/wpbl?view=<tab>` still resolves

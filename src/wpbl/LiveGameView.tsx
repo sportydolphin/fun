@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
-import { Box, Typography, useMediaQuery } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { deriveSituation, shortName, FeedAge, type Situation } from './Live'
 import { LazyWinProbCard } from './RecapCard'
 import { canonicalFeedName, matchFeedName } from './feedNames'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { battingStatline, pitchingStatline } from './derive/recap'
 import { wpblAccent, wpblFullName } from './constants'
-import { CARD_BORDER, FOCUS_RING, PlayerPortrait, TeamBadge, chromePx, pressable, useWpblDark, useWpblName } from './ui'
+import { CARD_BORDER, FOCUS_RING, PlayerPortrait, TeamBadge, chromePx, pressable, usePhoneLayout, useWpblDark, useWpblName } from './ui'
 import { useWpblPlayerLink, linkColor } from './LinkContext'
 import type {
   WpblBattingLine, WpblGame, WpblGamePlay, WpblPitchingLine, WpblPlayer, WpblTeam,
@@ -119,7 +119,7 @@ export default function LiveGameView({
 function ScoreHeader({ away, home, game, divider }: {
   away: WpblTeam; home: WpblTeam; game: WpblGame; divider?: boolean
 }) {
-  const isMobile = useMediaQuery('(max-width:600px)')
+  const isMobile = usePhoneLayout()
   const a = game.away_score ?? 0
   const h = game.home_score ?? 0
   const row = (team: WpblTeam, score: number, lead: boolean) => (
@@ -233,8 +233,10 @@ function SituationPanel({ game, s, away, home, last, teams, batting, pitching, n
       <Box sx={{
         display: 'grid',
         // The middle takes what the diamond and its runners need; the two players share
-        // everything left, equally, so the card stays symmetrical whatever the names are.
-        gridTemplateColumns: { xs: '1fr', sm: `1fr ${chromePx(290)} 1fr` },
+        // everything left, equally, so the card stays symmetrical whatever the names are. Only
+        // once the CARD is wide enough for that (see WIDE_CARD); stacked below it.
+        gridTemplateColumns: '1fr',
+        [WIDE_CARD]: { gridTemplateColumns: `1fr ${chromePx(290)} 1fr` },
         alignItems: 'stretch',
       }}>
         <PersonCard
@@ -255,16 +257,33 @@ function SituationPanel({ game, s, away, home, last, teams, batting, pitching, n
   )
 }
 
+/**
+ * The situation card's three-across layout (batter, bases, pitcher), keyed on the CARD's width.
+ *
+ * A CONTAINER QUERY, NOT A BREAKPOINT, because the viewport does not say how wide the card is: a
+ * phone sheet, the 525px side panel, the centred dialog (650px between `md` and `lg`, 1050 above),
+ * and the left column of the full-page Game Center, about 690px however wide the screen. Keyed on
+ * `sm` it went three-across in that page column and the narrow dialog, where each player got 141px
+ * beside a 362px diamond: a 90px portrait, its padding, and a name column 6px wide that clipped
+ * every name to nothing. Only the wide dialog has room for three-across.
+ * 48rem is what three-across needs at the desktop scale (the middle's 362px plus a portrait, its
+ * gutters and a surname either side), in rem so a reader on Large text, whose names are wider,
+ * gets the stacked card sooner.
+ */
+const WIDE_CARD = '@container wpbl-live-card (min-width: 48rem)'
+
 function Panel({ children }: { children: React.ReactNode }) {
   // On a phone the whole tab is already a bottom sheet, so a bordered rounded card inset inside
   // it is a box within a box; the line score directly below is full-bleed and borderless for the
   // same reason. So drop the outline here too and let it span the sheet, its own tinted count and
   // last-play bands carrying the structure the border used to. Desktop is a centred dialog, not a
   // sheet, so the card still earns its edges there.
-  const isMobile = useMediaQuery('(max-width:600px)')
+  const isMobile = usePhoneLayout()
   return (
     <Box sx={{
       overflow: 'hidden',
+      // The container WIDE_CARD measures. Named, so a container nested inside cannot answer for it.
+      containerType: 'inline-size', containerName: 'wpbl-live-card',
       ...(isMobile
         ? { mx: -2 }
         : { border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2 }),
@@ -390,9 +409,9 @@ function Bases({ s, accent, names }: { s: Situation; accent: string; names: Map<
     <Box sx={{
       // First on a phone, middle on a desktop. Behind the count, which is what somebody glances
       // at, and ahead of the two portraits, which answer the question after that one.
-      order: { xs: -1, sm: 0 },
-      px: 1.5, py: { xs: 1, sm: 1.5 }, minWidth: 0,
+      order: -1, px: 1.5, py: 1, minWidth: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.75,
+      [WIDE_CARD]: { order: 0, py: 1.5 },
     }}>
       <Diamond first={s.first} second={s.second} third={s.third} />
       <Runners s={s} accent={accent} names={names} />
@@ -502,9 +521,9 @@ function Runners({ s, accent, names }: { s: Situation; accent: string; names: Ma
  * about the moment between them, and at 44px they were an icon beside a label rather than a
  * face. 72px through `chromePx` is 90 on a desktop, which is what the side columns had spare.
  *
- * `mirror` turns the column around from `sm` up, portrait outward and text to the edge, so the
- * two of them frame the diamond instead of both pointing the same way. Desktop only: stacked on
- * a phone, a right-aligned column reads as a mistake rather than as symmetry.
+ * `mirror` turns the column around once the card is wide (WIDE_CARD), portrait outward and text to
+ * the edge, so the two of them frame the diamond instead of both pointing the same way. Stacked, a
+ * right-aligned column reads as a mistake rather than as symmetry.
  */
 function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
   label: string
@@ -528,9 +547,10 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
     <Box sx={{
       // A little breathing room on a phone, where the two players stack with nothing between
       // them any more, but not so much that the bases, batter and pitcher drift apart.
-      px: 1.5, py: { xs: 1, sm: 1.5 }, minWidth: 0,
+      px: 1.5, py: 1, minWidth: 0,
       display: 'flex', alignItems: 'center', gap: 1.5,
-      flexDirection: { xs: 'row', sm: mirror ? 'row-reverse' : 'row' },
+      flexDirection: 'row',
+      [WIDE_CARD]: { py: 1.5, flexDirection: mirror ? 'row-reverse' : 'row' },
       // `flex-start` in BOTH, and that is not a slip. The mirrored column is `row-reverse`, so
       // its main-start is the RIGHT edge: asking for `flex-end` there packs the pitcher against
       // the middle column instead of against the outside of the card, which is what an earlier
@@ -538,7 +558,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
       justifyContent: 'flex-start',
     }}>
       <PlayerPortrait name={shown} teamId={team.id} size={72} />
-      <Box sx={{ minWidth: 0, textAlign: mirror ? { xs: 'left', sm: 'right' } : 'left' }}>
+      <Box sx={{ minWidth: 0, textAlign: 'left', [WIDE_CARD]: { textAlign: mirror ? 'right' : 'left' } }}>
         <Typography sx={{
           fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
           color: 'text.disabled',

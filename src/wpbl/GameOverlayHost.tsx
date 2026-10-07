@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import GameDetailModal from './GameDetail'
 import { WpblLinkProvider } from './LinkContext'
-import { wpblPlayerPath, wpblTeamPath, findWpblGameBySlug } from './routes'
+import { wpblPlayerPath, wpblTeamPath, wpblGamePath, findWpblGameBySlug } from './routes'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers,
   getCachedWpblTeams, getCachedWpblSchedule, getCachedWpblAllPlayers,
@@ -60,6 +60,9 @@ export default function WpblGameOverlayHost({ slug, onClose, onOpenPlayerNav }: 
   return (
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
       <GameDetailModal
+        // Keyed: Game Center seeds its tabs and data from the game it mounts with, so a swap to
+        // another game is a remount (the side panel tells the two apart and does not slide again).
+        key={game.id}
         game={game}
         initialTab={query.get('tab')}
         initialSide={query.get('side')}
@@ -68,6 +71,11 @@ export default function WpblGameOverlayHost({ slug, onClose, onOpenPlayerNav }: 
         onClose={onClose}
         onOpenPlayer={p => onOpenPlayerNav(wpblPlayerPath(p, players))}
         onOpenTeam={t => navigate(wpblTeamPath(t, teams))}
+        panel
+        // Expand LEAVES the standalone page for the game's own URL, a real navigation the shell
+        // routes to WpblApp, which opens any game it is navigated to as the full page.
+        // The board rides along as `?tab=`, which WpblApp captures on arrival like any shared link's.
+        onExpand={tab => navigate(`${wpblGamePath(game, teams, games)}${tab ? `?tab=${tab}` : ''}`)}
       />
     </WpblLinkProvider>
   )

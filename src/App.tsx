@@ -461,27 +461,52 @@ function AppInner() {
   // player's log, another player from that game's box score, and Back walks the whole stack card by
   // card before returning to the page, because each entry rebuilds its own overlay from the URL. The
   // hosts resolve the slug and self-fetch (cached), so nothing but the slug has to be remembered.
-  const [overlay, setOverlay] = useState<{ base: string; kind: 'game' | 'player'; slug: string } | null>(null)
+  // `under` is the game a player panel was opened from, kept drawn beneath it. A player is a side
+  // panel on a desktop and rises over the dialog it came from rather than replacing it, so the game
+  // stays on screen under it, exactly as it does inside WpblApp. Stored on the history entry beside
+  // the base, so Back and Forward rebuild both.
+  const [overlay, setOverlay] = useState<{ base: string; kind: 'game' | 'player'; slug: string; under?: string } | null>(null)
   // The current overlay's base, read synchronously by an opener while stacking (so the new entry
   // hovers over the SAME page as the one below it). A ref because the opener needs it before the
   // state commit and it drives no render of its own.
   const overlayBaseRef = useRef<string | null>(null)
+  // What is open right now, for the opener below, which is a stable callback and cannot read state.
+  const overlayNowRef = useRef(overlay)
+  overlayNowRef.current = overlay
   // Open a card as an overlay from its URL, stacking a new history entry on whatever is below. The
   // base is the page the FIRST overlay opened over, carried down the stack so every card hovers over
   // it; the entry stores it so Back and Forward can rebuild the overlay without WpblApp mounting
   // under it. Not a plain navigate: no popstate fires, so the shell's `path` stays the base page.
-  const openOverlayUrl = useCallback((url: string) => {
+  //
+  // EXCEPT, on a desktop, a card opened from the PAGE while a card is already open, which REPLACES
+  // it. Both are the side panel, which leaves the page clickable so a reader can work down a list;
+  // stacking an entry per row would make Back walk all of them before closing the panel. A link
+  // followed INSIDE a card (`fromCard`: a player in the game's box score, a game in a player's log)
+  // is a trip from that card and stacks, so Back returns to it. Same rule as WpblApp's openers.
+  const openOverlayUrl = useCallback((url: string, fromCard = false) => {
     const target = overlayTargetFromUrl(url)
     if (!target) { navigate(url); return }
     const base = overlayBaseRef.current ?? readPath()
     overlayBaseRef.current = base
-    window.history.pushState({ ...window.history.state, wpblOverlayBase: base }, '', url)
-    setOverlay({ base, ...target })
+    const now = overlayNowRef.current
+    // Desktop only, where both cards are the panel: on a phone they are sheets, which stack as they
+    // always have. MUI's `md`, the same test ModalShell opens the panel on.
+    const desktop = window.matchMedia('(min-width:900px)').matches
+    const swap = desktop && !fromCard && !!now
+    // A player opened from the game panel keeps that game drawn under it, behind "‹ Game".
+    const under = desktop && fromCard && target.kind === 'player' && now?.kind === 'game' ? now.slug : undefined
+    window.history[swap ? 'replaceState' : 'pushState'](
+      { ...window.history.state, wpblOverlayBase: base, wpblOverlayUnder: under }, '', url)
+    setOverlay({ base, ...target, under })
   }, [])
   // Kept for the pages that open a game with the datasets in hand (season, scorigami): they build
   // the URL through it, and the host self-resolves the rest.
   const openOverlayGame = useCallback((game: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => {
     openOverlayUrl(wpblGamePath(game, ctx.teams, ctx.games))
+  }, [openOverlayUrl])
+  // The same, for a game picked from INSIDE the player card's log: a trip from the card, which stacks.
+  const openOverlayGameFromCard = useCallback((game: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => {
+    openOverlayUrl(wpblGamePath(game, ctx.teams, ctx.games), true)
   }, [openOverlayUrl])
   // The onNavigate handed to the standalone WPBL pages (and the game overlay's own player links): a
   // link to a player or game page opens it as an overlay OVER the current page instead of routing to
@@ -490,6 +515,11 @@ function AppInner() {
   // than by re-wiring anything here.
   const navigateFromStandalone = useCallback((to: string) => {
     if (overlayTargetFromUrl(to)) openOverlayUrl(to)
+    else navigate(to)
+  }, [openOverlayUrl])
+  // The game card's own player links, which stack (see openOverlayUrl's `fromCard`).
+  const navigateFromGameCard = useCallback((to: string) => {
+    if (overlayTargetFromUrl(to)) openOverlayUrl(to, true)
     else navigate(to)
   }, [openOverlayUrl])
   const [accountOpen,      setAccountOpen]      = useState(false)
@@ -802,7 +832,9 @@ function AppInner() {
       const target = base ? overlayTargetFromUrl(p) : null
       if (base && target) {
         overlayBaseRef.current = base
-        setOverlay({ base, ...target })
+        const under = target.kind === 'player'
+          ? (window.history.state?.wpblOverlayUnder as string | undefined) : undefined
+        setOverlay({ base, ...target, under })
         setPath(base as Route)   // keep the page beneath mounted; the overlay draws on top of it
         return
       }
@@ -1665,12 +1697,12 @@ function AppInner() {
           the page below (season, scorigami) stays mounted and visible behind it, rather than
           being replaced by WpblApp's Home. The X and Back both go through history.back, which
           `onPop` above turns into clearing this overlay. */}
-      {overlay?.kind === 'game' && (
+      {(overlay?.kind === 'game' || overlay?.under) && (
         <Suspense fallback={<Box sx={{ position: 'fixed', inset: 0, zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>}>
           <WpblGameOverlayHost
-            slug={overlay.slug}
+            slug={overlay.kind === 'game' ? overlay.slug : overlay.under!}
             onClose={() => window.history.back()}
-            onOpenPlayerNav={navigateFromStandalone}
+            onOpenPlayerNav={navigateFromGameCard}
           />
         </Suspense>
       )}
@@ -1683,7 +1715,8 @@ function AppInner() {
           <WpblPlayerOverlayHost
             slug={overlay.slug}
             onClose={() => window.history.back()}
-            onOpenGame={openOverlayGame}
+            onOpenGame={openOverlayGameFromCard}
+            onBack={overlay.under ? () => window.history.back() : undefined}
           />
         </Suspense>
       )}

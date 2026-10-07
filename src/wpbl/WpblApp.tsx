@@ -1,5 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
+import { useTheme as useMuiTheme } from '@mui/material/styles'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
   fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblArticles, fetchWpblSiteGames, fetchWpblFanPhotoIndex, fetchWpblVideos,
@@ -10,6 +11,8 @@ import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
 import { SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
+import { panelShiftSx, useSidePanelOpen } from '../ui/ModalShell'
+import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
@@ -135,6 +138,11 @@ const NAV = WPBL_NAV
 // schedule's is built from the schedule's own pieces (SectionLabel, the card's padding and badge);
 // the rest are desktop measurements over the 1.25 scale, in chromePx, which holds on a phone too.
 // Check any change with `?devSlow=2500` (src/dev/slowLoad.ts) against the loaded tab.
+/** The full game or player page while its chunk loads: the card's own outline, not a tab's. */
+function DetailPageSkeleton() {
+  return <Skeleton variant="rounded" sx={{ height: chromePx(480), borderRadius: 3, mt: 4.5 }} />
+}
+
 function TabSkeleton({ view }: { view: WpblView }) {
   const block = (height: unknown, key?: number) => (
     <Skeleton key={key} variant="rounded" sx={{ height, borderRadius: 2 }} />
@@ -868,6 +876,21 @@ type WpblSnap = {
    * entry means "closed", which is what it was.
    */
   awards?: boolean
+  /**
+   * The open game is drawn as the full desktop page rather than the side panel. Same URL either
+   * way: the address names the game, and how it is presented depends on how the reader got here.
+   * A game opened from inside the section is the panel, so the page they were on stays beside it;
+   * a game ARRIVED AT (a cold load, a shared link, a link from a page outside this component) is
+   * the page, because there is nothing beside it worth keeping. "Expand" turns one into the other.
+   * Ignored on a phone, where both are the sheet. Optional because old entries exist; see `awards`.
+   */
+  gamePage?: boolean
+  /**
+   * The open player is drawn as their full desktop page rather than the side panel, on the same
+   * terms as `gamePage`: same URL, chosen by how the reader got here (arrived at, or "Expand").
+   * Never alongside `gamePage`: a player over the full Game Center is the panel beside it.
+   */
+  playerPage?: boolean
 }
 const normalizeView = normalizeWpblView
 const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null, awards: false }
@@ -995,6 +1018,43 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [detailGame, setDetailGame] = useState<WpblGame | null>(() => seed().game)
   const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(() => seed().player)
   const [awardsOpen, setAwardsOpen] = useState<boolean>(() => !!seed().awards)
+  const [gamePage, setGamePage] = useState<boolean>(() => !!seed().gamePage)
+  const [playerPage, setPlayerPage] = useState<boolean>(() => !!seed().playerPage)
+  // Whether a player or a game opens as the desktop side panel: always, on a desktop, including from
+  // the ballot and the series view. ModalShell lifts the panel over whichever of those it was opened
+  // from, and a player opened from the Game Center panel lands exactly over it with a back control.
+  // The `md` test is ModalShell's own, so the two cannot disagree about which it is.
+  const playerAsPanel = useMediaQuery(useMuiTheme().breakpoints.up('md'))
+  // The full Game Center is a desktop layout; on a phone the same entry is the sheet.
+  const showGamePage = gamePage && !!detailGame && playerAsPanel
+  // The player's full page, the same way. The game page wins if both are somehow set: a player over
+  // it is the panel beside it, which is the arrangement every route into that state means.
+  const showPlayerPage = playerPage && !!detailPlayer && playerAsPanel && !showGamePage
+  // The page moves aside for the side panel (see panelShiftSx), by the width of the widest thing on
+  // the current surface: the column itself, or one of the surfaces that break out of it.
+  const panelOpen = useSidePanelOpen()
+  const contentW = showGamePage ? GAME_PAGE_W : showPlayerPage ? PLAYER_PAGE_W : view === 'home' ? HOME_WIDE_W : view === 'stats' ? STATS_FULL_BLEED_W : chromePx(720)
+  // The page takes the window's scroll, so it opens at its top and hands the tab back its place.
+  // Layout effect, so neither the page nor the returning tab paints a frame at the wrong depth.
+  // Keyed on the game as well: one page can lead to another (a player's log beside it), and the
+  // next game should open at its own top, not at the depth the last one was read to. Only the
+  // first page remembers the tab's depth, since that is where Back eventually lands.
+  const scrollBeforePage = useRef<number | null>(null)
+  // Either full page, by what it shows, so moving from one page to another lands at the new top.
+  const pageGameId = showGamePage ? `g:${detailGame?.id}` : showPlayerPage ? `p:${detailPlayer?.id}` : null
+  // The panel's board, handed to the page Expand turned it into (see expandGame). Spent once the
+  // page has mounted with it: Game Center reads its initial tab once, at mount.
+  const expandTab = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    if (pageGameId) {
+      expandTab.current = null
+      if (scrollBeforePage.current === null) scrollBeforePage.current = window.scrollY
+      window.scrollTo(0, 0)
+    } else if (scrollBeforePage.current !== null) {
+      window.scrollTo(0, scrollBeforePage.current)
+      scrollBeforePage.current = null
+    }
+  }, [pageGameId])
   // Mirror of the MLB game-center event, fired whenever the opened game changes. `from` is the
   // surface the game was tapped on: without it the busiest modal in the section is one flat
   // count that cannot say whether the Home scoreboard, the schedule grid or a team page is
@@ -1105,6 +1165,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     if (wasTracking) setStatsFocus(f => ({ group: 'tracking', token: f.token + 1 }))
     setView(v); setSelectedTeam(s.team); setDetailGame(s.game); setDetailPlayer(s.player)
     setAwardsOpen(!!s.awards)
+    setGamePage(!!s.gamePage)
+    setPlayerPage(!!s.playerPage)
   }, [])
   // The tab is the PATH (/wpbl/standings); the open modal stays a query param on top of it.
   // The two are different kinds of thing: a tab is a page worth indexing under its own
@@ -1383,16 +1445,79 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // `awards` rides along on both of these: a player opened from the ballot leaves the ballot
   // open underneath, so her X returns to /wpbl/awards rather than dropping the reader on Home
   // with the sheet shut and their place in it lost.
-  const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null, awards: awardsOpen }), [push, view, selectedTeam, awardsOpen])
+  //
+  // WHERE THE CLICK CAME FROM decides the history, on a desktop, because the side panel leaves the
+  // page clickable. A row clicked on the PAGE while a panel is open is the reader working down a
+  // list, so it SWAPS the panel (one entry, replaced, whatever was in it: a game or a player). A
+  // link followed INSIDE a card (a player in Game Center's box score, a game in a player's log) is
+  // a trip from that card, so it STACKS, and Back returns to the card. The cards are handed their
+  // own openers below (openPlayerFromGame, openGameFromPlayer) for that; everything else on the page
+  // calls these. Until Oct 6, 2026 a player clicked on the page with a game panel open landed over
+  // the game behind a "‹ Game" control, which went back to a game the reader had not come from.
+  const swapTo = useCallback((s: WpblSnap) => {
+    apply(s)
+    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+    window.dispatchEvent(new Event(WPBL_PATH_EVENT))
+  }, [apply, urlFor])
+  // A panel on screen right now, which a click on the page swaps rather than stacks on.
+  const panelShowing = playerAsPanel && ((!!detailPlayer && !showPlayerPage) || (!!detailGame && !showGamePage))
+  const openGameAt = useCallback((g: WpblGame, fromCard: boolean) => {
+    // From a full page, a game opens as a page too: another game from beside the Game Center (a
+    // player's log), or a game from the log on a player's own page. Page to page, so it pushes.
+    const s: WpblSnap = { view, team: selectedTeam, game: g, player: null, awards: awardsOpen, gamePage: (gamePage && !!detailGame) || showPlayerPage }
+    // Never from the full page, which is a PAGE: following a link from one page to another adds a
+    // step to Back everywhere else on the web, and a reader who went from game 4 of a series to
+    // game 5 expects Back to return to game 4, not to the schedule they started on.
+    if (!fromCard && panelShowing && !showGamePage) { swapTo(s); return }
+    push(s)
+  }, [push, swapTo, view, selectedTeam, awardsOpen, detailGame, gamePage, panelShowing, showGamePage, showPlayerPage])
+  const openGame = useCallback((g: WpblGame) => openGameAt(g, false), [openGameAt])
+  const openGameFromPlayer = useCallback((g: WpblGame) => openGameAt(g, true), [openGameAt])
+  /**
+   * The side panel's Expand: the same entry, now the full page. REPLACED rather than pushed, so
+   * Back from the page goes where Back from the panel would have, to the tab underneath, rather
+   * than shrinking the page back into a panel.
+   */
+  const expandGame = useCallback((tab: string | null) => {
+    if (!detailGame) return
+    // The board the panel was showing, so the page opens scrolled to it. A ref of its own rather
+    // than pendingGameTab, which a cold link fills and every later game would then inherit.
+    expandTab.current = tab
+    const s: WpblSnap = { view, team: selectedTeam, game: detailGame, player: null, awards: awardsOpen, gamePage: true }
+    apply(s)
+    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+    window.dispatchEvent(new Event(WPBL_PATH_EVENT))
+  }, [apply, urlFor, view, selectedTeam, detailGame, awardsOpen])
+  /** The player panel's Expand, on expandGame's terms: the same entry, now the full page, so Back
+   *  from the page goes where Back from the panel would have. Whatever the panel sat over (a game
+   *  panel, the ballot) goes with it: the page replaces the view, and a dialog over a page that has
+   *  replaced the tabs would be over nothing. */
+  const expandPlayer = useCallback(() => {
+    if (!detailPlayer) return
+    swapTo({ view, team: selectedTeam, game: null, player: detailPlayer, awards: false, playerPage: true })
+  }, [swapTo, view, selectedTeam, detailPlayer])
   // `from` defaults to the surface the reader is standing on, which is right for every in-page
   // link. The header search has to override it: search works from every tab, so left to the
   // default a player opened from the search box reports whichever tab happened to be behind it.
   // Opening a player page is the retention event, which makes that the one attribution error
   // here worth spending a parameter on.
-  const openPlayer = useCallback((p: WpblPlayer, from?: string) => {
-    track(EVENTS.WPBL_PLAYER_OPENED, { playerId: p.id, teamId: p.team_id, from: from ?? (detailGame ? 'game' : view) })
-    push({ view, team: selectedTeam, game: detailGame, player: p, awards: awardsOpen })
-  }, [push, view, selectedTeam, detailGame, awardsOpen])
+  const openPlayerAt = useCallback((p: WpblPlayer, from: string | undefined, fromCard: boolean) => {
+    track(EVENTS.WPBL_PLAYER_OPENED, { playerId: p.id, teamId: p.team_id, from: from ?? (fromCard || showGamePage ? 'game' : view) })
+    // The game stays under the player when the player came FROM it (the "‹ Game" panel), and when
+    // the game is the full page, which is still on screen beside the panel; closing the player
+    // then returns to the page rather than demoting the game to a panel. A player clicked on the
+    // page over a game PANEL replaces the game instead.
+    const keepGame = fromCard || showGamePage || !playerAsPanel
+    const s: WpblSnap = { view, team: selectedTeam, game: keepGame ? detailGame : null, player: p, awards: awardsOpen, gamePage: keepGame && gamePage }
+    // A player already open in the side panel is SWAPPED, not stacked: the panel leaves the page
+    // clickable precisely so a reader can go down a leaderboard row by row, and a push per row
+    // would make Back walk every one of them before it closed the panel. Replacing keeps the one
+    // entry the panel opened with, so Back (and the X, which is Back) closes it in one step.
+    if (!fromCard && panelShowing) { swapTo(s); return }
+    push(s)
+  }, [push, swapTo, view, selectedTeam, detailGame, awardsOpen, playerAsPanel, gamePage, panelShowing, showGamePage])
+  const openPlayer = useCallback((p: WpblPlayer, from?: string) => openPlayerAt(p, from, false), [openPlayerAt])
+  const openPlayerFromGame = useCallback((p: WpblPlayer) => openPlayerAt(p, undefined, true), [openPlayerAt])
   /**
    * Open the ballot, which is a push like any other modal so that Back closes it.
    *
@@ -1407,6 +1532,18 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
   // the same action and never fall out of sync.
   const closeTop   = useCallback(() => window.history.back(), [])
+  /**
+   * The ballot's own ✕ and backdrop, which on a desktop can be clicked while a player panel opened
+   * FROM the ballot is still on screen beside it. Plain Back would close the panel, the entry on
+   * top, and leave the ballot open: the control the reader pressed would be the one thing that did
+   * not close. Two steps instead, the player's entry and the ballot's under it, which is exactly
+   * how the two were opened (openPlayer pushes over the ballot and only ever replaces after that).
+   * Escape still takes the panel first, as the newest shell.
+   */
+  const closeAwards = useCallback(() => {
+    if (detailPlayer && playerAsPanel) window.history.go(-2)
+    else window.history.back()
+  }, [detailPlayer, playerAsPanel])
   usePreloadGameDetail()
 
   // ── Toolbar search ─────────────────────────────────────────────────────────────
@@ -1480,7 +1617,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     pendingGameSlug.current = null
     const g = slug ? findWpblGameBySlug(slug, games, teams) : games.find(gm => gm.id === id)
     if (!g) return
-    openFromLink({ view, team: selectedTeam, game: g, player: detailPlayer })
+    // A game arrived at, rather than opened from a row, is the full page. See WpblSnap.gamePage.
+    openFromLink({ view, team: selectedTeam, game: g, player: detailPlayer, gamePage: true })
   }, [games, teams, detailGame, view, selectedTeam, detailPlayer, openFromLink])
 
   // Open the player named by the URL, once the roster is available. Two spellings: the
@@ -1499,8 +1637,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     pendingPlayerId.current = null
     const p = slug ? findWpblPlayerBySlug(slug, players) : players.find(pl => pl.id === id)
     if (!p) return
-    openFromLink({ view, team: selectedTeam, game: detailGame, player: p })
-  }, [players, detailPlayer, view, selectedTeam, detailGame, openFromLink])
+    // Arrived at, so the full page, unless the link names a game as well (`?game=`): then the game
+    // is the page and the player the panel beside it, whichever of the two resolves first.
+    const withGame = !!detailGame || !!pendingGameSlug.current || !!pendingGameId.current
+    openFromLink({ view, team: selectedTeam, game: detailGame, player: p, gamePage, playerPage: !withGame })
+  }, [players, detailPlayer, view, selectedTeam, detailGame, gamePage, openFromLink])
 
   // A cold load on /wpbl/teams/<slug>: select that club once the clubs are in.
   //
@@ -1845,7 +1986,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     {/* A little room under the toolbar on a phone, where the first block (the scoreboard) would
         otherwise sit ~4px from it. A -1.5 tuck lived here for the pill row the phone used to pin
         up there, which the bottom bar replaced. */}
-    <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: 0.5, sm: 0 } }}>
+    <Box sx={{
+      maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: 0.5, sm: 0 },
+      ...panelShiftSx(panelOpen, contentW),
+    }}>
       {/* No tab row here: on a phone the tabs are the bottom bar, and above that the shell's
           toolbar draws them from what this section publishes (src/sectionNav.ts). */}
 
@@ -1858,8 +2002,47 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         // last card in a tab can always be scrolled clear of it.
         pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,
       }}>
+      {/* THE FULL GAME CENTER, in place of the tabs rather than over them. The pager below stays
+          mounted, hidden, so the tab a reader came from is exactly as they left it when Back
+          closes the page. */}
+      {showGamePage && detailGame && (
+        <AppErrorBoundary inline where="tab">
+          <Suspense fallback={<DetailPageSkeleton />}>
+            <GameDetailModal
+              key={detailGame.id}
+              layout="page"
+              game={detailGame}
+              initialTab={expandTab.current ?? pendingGameTab.current}
+              initialSide={pendingGameSide.current}
+              teams={teams}
+              games={games}
+              onClose={closeTop}
+              onOpenPlayer={openPlayer}
+              onOpenTeam={selectTeamFromGame}
+            />
+          </Suspense>
+        </AppErrorBoundary>
+      )}
+      {/* A PLAYER'S FULL PAGE, on the same terms. Its game log opens games as pages too (see
+          openGameAt), so a reader can go page to page and Back walks them in order. */}
+      {showPlayerPage && detailPlayer && (
+        <AppErrorBoundary inline where="tab">
+          <Suspense fallback={<DetailPageSkeleton />}>
+            <PlayerDetailModal
+              key={detailPlayer.id}
+              layout="page"
+              player={detailPlayer}
+              teams={teams}
+              games={games}
+              players={players}
+              onClose={closeTop}
+              onOpenGame={openGameFromPlayer}
+            />
+          </Suspense>
+        </AppErrorBoundary>
+      )}
       {loading
-        ? (view === 'home' ? <WpblHomeSkeleton /> : view === 'stats' ? <StatsSkeleton /> : <TabSkeleton view={view} />)
+        ? (showGamePage || showPlayerPage ? null : view === 'home' ? <WpblHomeSkeleton /> : view === 'stats' ? <StatsSkeleton /> : <TabSkeleton view={view} />)
         : (
           // One panel per nav tab, in NAV order, so mobile can swipe between them. The `active` flag lets a
           // view react to becoming current after a swipe reuses its already-mounted node (e.g. Schedule
@@ -1867,7 +2050,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
           // Full-bleed the swipe track to the screen edge on mobile (cancel the app's p:2 gutter), then hand
           // that 16px back to each pane via `padX`, so a swiped pane slides fully off-screen instead of
           // disappearing under a padded barrier.
-          <Box sx={{ mx: { xs: -2, sm: 0 } }}>
+          <Box sx={{ mx: { xs: -2, sm: 0 }, display: showGamePage || showPlayerPage ? 'none' : undefined }}>
           <SwipeableViews
             index={NAV.findIndex(n => n.key === view)}
             onIndexChange={i => selectTab(NAV[i].key, 'swipe')}
@@ -1884,7 +2067,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
               // this a crash in one board took the bottom nav and the other four tabs down with it.
               const content = <AppErrorBoundary inline where="tab">{(() => {
                 switch (n.key) {
-                  case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeTop} />
+                  case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeAwards} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} onOpenTeam={selectTeamFromSchedule} onOpenPlayer={openPlayer} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoards={newBoards} onBoardSeen={markBoardSeen} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} onOpenGame={openGame} />
@@ -1942,7 +2125,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
           onOpen={openAwards} onClose={closeTop} />
       )}
 
-      {detailPlayer && (
+      {detailPlayer && !showPlayerPage && (
         <Suspense fallback={<ModalChunkFallback />}>
           <PlayerDetailModal
             player={detailPlayer}
@@ -1950,22 +2133,32 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             games={games}
             players={players}
             onClose={closeTop}
-            onOpenGame={openGame}
+            onOpenGame={openGameFromPlayer}
+            panel={playerAsPanel}
+            // Over the Game Center panel, this is one panel that navigated: Back is the way out.
+            // Not beside the full page, which is still on screen and needs no way back to.
+            onBack={detailGame && playerAsPanel && !showGamePage ? closeTop : undefined}
+            backLabel="Game"
+            onExpand={expandPlayer}
           />
         </Suspense>
       )}
 
-      {detailGame && (
+      {detailGame && !showGamePage && (
         <Suspense fallback={<ModalChunkFallback />}>
           <GameDetailModal
+            // Keyed, so a swap to another game remounts it (see GameOverlayHost).
+            key={detailGame.id}
             game={detailGame}
             initialTab={pendingGameTab.current}
             initialSide={pendingGameSide.current}
             teams={teams}
             games={games}
             onClose={closeTop}
-            onOpenPlayer={openPlayer}
+            onOpenPlayer={openPlayerFromGame}
             onOpenTeam={selectTeamFromGame}
+            panel={playerAsPanel}
+            onExpand={expandGame}
           />
         </Suspense>
       )}

@@ -352,6 +352,22 @@ Each of these has already cost someone a debugging session, and none of them fai
   page. This has regressed three times, once in each direction, every time by a scale being
   applied at one end of a sum and not the other.
 
+- **Inside the desktop side panel the viewport lies, so layout code asks `usePhoneLayout()`.**
+  Since Oct 5, 2026 a WPBL player or game opens on a desktop as `ModalShell`'s `panel`, which
+  renders its content under `PANEL_THEME`, a theme with every breakpoint above `xs` out of reach,
+  so every `{ xs, sm, md }` in the card resolves to the phone layout in a 525px column. A raw
+  `useMediaQuery('(max-width:600px)')` does not go through the theme and still sees the desktop:
+  it draws the desktop layout into the panel and overflows it, with no error. Raw queries stay
+  right for the DEVICE (touch, hover, swipe). Two more of the same shape: a hook in the component
+  that RENDERS the shell runs outside the provider and has to be told (`wide = mdUp && !panel` in
+  `PlayerDetail`), and the panel's z-index is not a constant (it rises above whatever is open each
+  time it opens or swaps, so a tooltip portalled out of it reads `useShellZ()`). A swap REPLACES
+  the history entry. A game's or a player's full page is the same URL as its panel; which one
+  renders is `gamePage` / `playerPage` on WpblApp's history snapshot, never the address. And
+  whether a click swaps or stacks depends on WHERE it came from, not what it opens: a row on the
+  page swaps the panel, a link inside a card stacks, so a card's links must go through the card's
+  own opener (`openPlayerFromGame`, `openGameFromPlayer`, `fromCard` in App.tsx) or Back stops
+  returning to the card. See #9 in ROADMAP-WPBL.md.
 - **A video missing from the site may be missing on purpose: `fetchWpblVideos` drops what the
   reader's country cannot play.** The league's full-game broadcasts are blocked in the US (28 of 41
   as of Sep 29, 2026). The restriction is `region_allowed` / `region_blocked`, filled by the sync
