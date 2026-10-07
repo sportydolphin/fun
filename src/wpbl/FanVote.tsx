@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Box, Typography, Menu, MenuItem, ListItemIcon, useMediaQuery, type Theme } from '@mui/material'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Box, Typography, Menu, MenuItem, ListItemIcon, Skeleton, useMediaQuery, type Theme } from '@mui/material'
 import { EmojiEvents, IosShare, ContentCopy, Download } from '@mui/icons-material'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
@@ -860,7 +860,22 @@ function winnerShareData(
 /** How long each award waits behind the one above it before its confetti fires. */
 const WINNER_CONFETTI_STAGGER_MS = 180
 
-function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpenTeam }: {
+/** The rows a result is drawn with before there is one: a winner and two runners-up, the shape
+ *  every category with votes takes. Most Aura alone has no stat line, because its one figure is
+ *  the club and the result drops it as a repeat of the subtitle (see `stats` in AwardResult). The
+ *  words are never shown; they only give each skeleton bar a plausible width. */
+function placeholderResult(award: WpblAward): AwardCandidate[] {
+  const stats = award.id === 'aura' ? [] : [
+    { label: 'AVG', value: '.000' }, { label: 'HR', value: '00' }, { label: 'OPS', value: '0.000' },
+  ]
+  return [
+    { key: 'sk1', name: 'Placeholder Name', teamId: null, playerId: null, line: '', sub: 'Placeholder club', stats },
+    { key: 'sk2', name: 'Placeholder', teamId: null, playerId: null, line: '' },
+    { key: 'sk3', name: 'Placeholder', teamId: null, playerId: null, line: '' },
+  ]
+}
+
+function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpenTeam, skeleton = false }: {
   entry: AwardBallotEntry
   /** This award's position in the sheet, top-first, for the staggered confetti cascade. */
   index: number
@@ -869,6 +884,11 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   state: FanVoteState
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
+  /** The result drawn empty, for the sheet while the ballot's data is still in flight. The SAME
+   *  rows rather than a lookalike, so the box each one takes cannot drift from the loaded one:
+   *  the category title is real (it needs no data), and every figure is a bar over placeholder
+   *  text of the size that figure will be. */
+  skeleton?: boolean
 }) {
   const dark = useWpblDark()
   const short = useWpblName()
@@ -900,14 +920,18 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   const [menuOpen, setMenuOpen] = useState(false)
   const [sharing, setSharing] = useState<ShareAction | null>(null)
 
-  const winner = ranked[0] ?? null
-  const runnersUp = ranked.slice(1, 3)
+  const placeholder = useMemo(() => (skeleton ? placeholderResult(award) : []), [skeleton, award])
+  const winner = skeleton ? placeholder[0] : ranked[0] ?? null
+  const runnersUp = skeleton ? placeholder.slice(1) : ranked.slice(1, 3)
+  // Wraps one figure in a skeleton bar when drawing empty. MUI sizes a skeleton with children to
+  // the children and hides them, which is what makes the empty row exactly as tall as the full one.
+  const bar = (node: ReactNode, key?: string) => (skeleton ? <Skeleton key={key} sx={{ maxWidth: '100%', width: 'fit-content' }}>{node}</Skeleton> : node)
   // The winner as a share card, built through the shared resolver so this button and the
   // all-winners poster draw the same picture. Null until there is a winner, which is also the
   // guard the launcher renders behind.
   const shareData = useMemo(
-    () => (winner ? winnerShareData(entry, state, players, teams, fmtEra) : null),
-    [winner, entry, state, players, teams, fmtEra],
+    () => (winner && !skeleton ? winnerShareData(entry, state, players, teams, fmtEra) : null),
+    [winner, skeleton, entry, state, players, teams, fmtEra],
   )
   // The share buttons are about to be on screen, so fetch what a press will need now.
   useEffect(() => { if (shareData) preloadCapture() }, [shareData])
@@ -945,10 +969,11 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   const [origin, setOrigin] = useState<{ x: number; y: number; r: number } | null>(null)
   useLayoutEffect(() => {
     const root = rootRef.current, port = portraitRef.current
-    if (!winner || !root || !port) { setOrigin(null); return }
+    // No confetti for a placeholder: it would celebrate nobody, and then again for the real winner.
+    if (!winner || skeleton || !root || !port) { setOrigin(null); return }
     const rr = root.getBoundingClientRect(), pr = port.getBoundingClientRect()
     setOrigin({ x: pr.left - rr.left + pr.width / 2, y: pr.top - rr.top + pr.height / 2, r: pr.width / 2 })
-  }, [winner?.key])
+  }, [winner?.key, skeleton])
 
   // STAGGERED, TOP TO BOTTOM. All the winners are on screen when the sheet opens, so firing them at
   // once is one flat pop; delaying each by its position turns it into a cascade that draws the eye
@@ -987,7 +1012,16 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
           textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3, minWidth: 0,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{award.title}</Typography>
-        {winner && (
+        {winner && (skeleton ? (
+          // The Share pill's own box, hidden under a skeleton, so the heading row is the height
+          // the loaded one will be. Hidden children take no clicks and no focus.
+          <Skeleton variant="rounded" sx={{ borderRadius: 999, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(4), px: chromePx(8), py: chromePx(4), border: '1px solid' }}>
+              <IosShare sx={{ fontSize: TYPE_SCALE.body }} />
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800 }}>Share</Typography>
+            </Box>
+          </Skeleton>
+        ) : (
           <Box
             ref={shareBtnRef}
             {...pressable(() => {
@@ -1013,7 +1047,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
               {sharing ? '…' : 'Share'}
             </Typography>
           </Box>
-        )}
+        ))}
       </Box>
 
       {/* The desktop fallback menu: only reached where there is no native file share (the button
@@ -1081,7 +1115,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
                   pb: chromePx(isWinner ? 16 : 13),
                   // The winner alone gets the colour wash; the runners-up stay plain so the hero
                   // reads as the answer and they read as the field.
-                  bgcolor: isWinner ? `${rowAccent}1f` : 'transparent',
+                  bgcolor: isWinner && !skeleton ? `${rowAccent}1f` : 'transparent',
                   textDecoration: 'none', color: 'text.primary',
                   ...(rowExit ? { cursor: 'pointer', ...TAPPABLE, ...FOCUS_RING } : null),
                 }}
@@ -1099,19 +1133,21 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
                     winner's portrait is measured (ref) so the confetti above can fire from its
                     exact centre and rim. */}
                 <Box ref={isWinner ? portraitRef : undefined} sx={{ flexShrink: 0, display: 'flex' }}>
-                  {portrait(c, isWinner ? 56 : 30)}
+                  {skeleton
+                    ? <Skeleton variant="circular" sx={{ width: chromePx(isWinner ? 56 : 30), height: chromePx(isWinner ? 56 : 30) }} />
+                    : portrait(c, isWinner ? 56 : 30)}
                 </Box>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   {/* The winner's FULL name behind a trophy; the runners-up abbreviate to hold one
                       line. The hero name steps up on desktop so it stays the biggest thing on the
                       card, above the enlarged category heading. */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(6), minWidth: 0 }}>
-                    <Typography sx={{
+                    {bar(<Typography sx={{
                       fontSize: isWinner ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading } : TYPE_SCALE.body,
                       fontWeight: isWinner ? 800 : 700, lineHeight: 1.2, minWidth: 0,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{isWinner ? c.name : label(c)}</Typography>
-                    {isWinner && (
+                    }}>{isWinner ? c.name : label(c)}</Typography>)}
+                    {isWinner && !skeleton && (
                       // The one place the section spends a trophy: it marks the winner and nothing
                       // else on the sheet competes for the mark. After the name so it reads as a
                       // seal on it. Gold rather than the club accent, because a trophy reads as
@@ -1121,14 +1157,14 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
                       }} />
                     )}
                   </Box>
-                  {isWinner && detail && (
+                  {isWinner && detail && bar(
                     <Typography sx={{
                       // A step up on desktop, where the caption size was barely legible in the
                       // wide hero; still compact on a phone.
                       fontSize: { xs: TYPE_SCALE.caption, md: TYPE_SCALE.meta },
                       color: 'text.secondary', lineHeight: 1.35, mt: '2px',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{detail}</Typography>
+                    }}>{detail}</Typography>,
                   )}
                   {/* THE HEADLINE STAT LINE, on the winner only: the same figures the tile carded
                       her on, so the result says WHY as well as who. Empty for a write-in or an
@@ -1142,7 +1178,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
                       display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
                       columnGap: chromePx(10), rowGap: '2px', mt: '4px',
                     }}>
-                      {stats.map(s => (
+                      {stats.map(s => bar(
                         <Box key={s.label} sx={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                           <Typography component="span" sx={{
                             fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800,
@@ -1152,17 +1188,17 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
                             fontSize: { xs: TYPE_SCALE.caption, md: TYPE_SCALE.meta }, fontWeight: 700,
                             letterSpacing: 0.3, textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2,
                           }}>{s.label}</Typography>
-                        </Box>
+                        </Box>, s.label,
                       ))}
                     </Box>
                   )}
                 </Box>
                 <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
-                  <Typography sx={{
+                  {bar(<Typography sx={{
                     fontSize: isWinner ? TYPE_SCALE.heading : TYPE_SCALE.body,
                     fontWeight: isWinner ? 900 : 800, lineHeight: 1,
                     fontVariantNumeric: 'tabular-nums', color: rowAccent,
-                  }}>{pct(c)}%</Typography>
+                  }}>{skeleton ? '00%' : `${pct(c)}%`}</Typography>)}
                 </Box>
                 {/* THE SHARE BAR: full card width, same left edge and same 100% for every row, so
                     the lengths are comparable. It doubles as the divider between rows. */}
@@ -1182,7 +1218,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
 
 // ─── the sheet ───────────────────────────────────────────────────────────────────
 
-function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = false, voterCount = null, onClose, onOpenPlayer, onOpenTeam }: {
+function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = false, voterCount = null, loading = false, failed = false, onClose, onOpenPlayer, onOpenTeam }: {
   entries: AwardBallotEntry[]
   players: WpblPlayer[]
   teams: WpblTeam[]
@@ -1193,6 +1229,12 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
   testerPreview?: boolean
   /** Distinct people who voted, for the results header. Null until it loads. */
   voterCount?: number | null
+  /** The results are still in flight: draw each category's result empty (see AwardResult's
+   *  `skeleton`) so the sheet can open at once and nothing in it moves when they land. */
+  loading?: boolean
+  /** Everything has answered and there is still no ballot to draw. Says so, rather than leaving
+   *  the skeleton up forever or closing a sheet the reader asked for. */
+  failed?: boolean
   onClose: () => void
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
@@ -1249,14 +1291,19 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
             counts anyone who voted in more than one category; this is the distinct-voter number,
             the same one the admin panel reports (see fetchWpblAwardVoterCount). Only on the results
             view, and only once it is a real number, so it never flashes a zero while it loads. */}
-        {closed && voterCount != null && voterCount > 0 && (
-          <Typography sx={{
-            fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary', lineHeight: 1.3, mt: -1.5,
-            fontVariantNumeric: 'tabular-nums',
-          }}>
-            {voterCount.toLocaleString()} {voterCount === 1 ? 'fan' : 'fans'} voted
-          </Typography>
-        )}
+        {/* Reserved while it loads, since nearly every ballot has a voter: the line arriving
+            under the reader would push all five results down. */}
+        {closed && !failed && (voterCount == null || voterCount > 0) && (() => {
+          const line = (
+            <Typography sx={{
+              fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary', lineHeight: 1.3,
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              {voterCount == null ? '000 fans voted' : `${voterCount.toLocaleString()} ${voterCount === 1 ? 'fan' : 'fans'} voted`}
+            </Typography>
+          )
+          return <Box sx={{ mt: -1.5 }}>{voterCount == null ? <Skeleton>{line}</Skeleton> : line}</Box>
+        })()}
         {/* Owner-only, and it renders nothing for anyone else (the gate lives inside the component,
             so this file stays free of the role check the ballot must never carry). One poster of
             every winner, in the same card art as the per-result Share button. */}
@@ -1290,7 +1337,20 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
         {/* LOCKED READS AS A RESULTS PAGE, OPEN READS AS A BALLOT. Once voting is closed the even
             grid of tiles is the wrong shape (see AwardResult): there is a winner, so the sheet
             shows one per category instead of asking a question that is already answered. */}
-        {closed
+        {failed
+          ? (
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', lineHeight: 1.4 }}>
+              The results did not load. Try again in a moment.
+            </Typography>
+          )
+          : loading
+          // Keyed on the award id, the same key the loaded rows use, so React keeps each
+          // category's box and only swaps what is inside it.
+          ? fanVoteAwards().map((award, i) => (
+            <AwardResult key={award.id} entry={{ award, candidates: [], statsFor: () => [] }} index={i}
+              players={players} teams={teams} state={state} skeleton />
+          ))
+          : closed
           ? entries.map((e, i) => (
             <AwardResult key={e.award.id} entry={e} index={i} players={players} teams={teams} state={state}
               onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
@@ -1427,7 +1487,7 @@ export function FanAwardsCta({ onOpen, now = () => Date.now() }: {
 export default function FanVoteCard({
   players, teams, games, batting, pitching, race, plays = [], onOpenPlayer, onOpenTeam,
   fill, now = () => Date.now(),
-  open: openProp, onOpen, onClose,
+  open: openProp, onOpen, onClose, sheetOnly, settled = true,
 }: {
   players: WpblPlayer[]
   teams: WpblTeam[]
@@ -1459,6 +1519,14 @@ export default function FanVoteCard({
   open?: boolean
   onOpen?: () => void
   onClose?: () => void
+  /** The sheet without the card, for /wpbl/awards once Home has stopped drawing the card (see
+   *  FanAwardsSheet). Same component rather than a second one so the ballot, the results and
+   *  `drawable` stay one definition. */
+  sheetOnly?: boolean
+  /** Whether the caller's reads (players, lines, the play log) have all answered, for the
+   *  sheet-only mount: it opens before they do, and this is how it tells "still loading" from
+   *  "loaded and there is nothing to draw". */
+  settled?: boolean
 }) {
   const [openLocal, setOpenLocal] = useState(false)
   const controlled = openProp !== undefined
@@ -1499,10 +1567,16 @@ export default function FanVoteCard({
   // everybody, so there is no audience gate here: this stays exactly one call so the "gated by
   // nothing" invariant in routes.test.ts holds, and nothing below hides the ballot from anyone.
   const drawable = fanVoteIsWorthDrawing(entries)
-  const state = useFanVote(drawable)
-  const clockClosed = useMemo(
-    () => entries.length > 0 && entries.every(e => now() > Date.parse(e.award.closesAt)),
-    [entries, now])
+  // The sheet-only mount reads the tally at once rather than after the shortlists: it is on
+  // screen already, and the tally does not depend on them.
+  const state = useFanVote(drawable || !!sheetOnly)
+  // Read off the award list itself until the entries exist, which is only ever the sheet-only
+  // mount: there the sheet opens before the data does, and has to know it is a results sheet
+  // (its width, its wording, the voter count) before there is a single entry to ask.
+  const clockClosed = useMemo(() => {
+    const awards = entries.length > 0 ? entries.map(e => e.award) : sheetOnly ? fanVoteAwards() : []
+    return awards.length > 0 && awards.every(a => now() > Date.parse(a.closesAt))
+  }, [entries, now, sheetOnly])
 
   // A TESTER PREVIEW OF THE LOCKED BALLOT, and NOT a gate. Everyone still gets the full,
   // votable ballot (drawable is untouched, and this never suppresses a render); a tester sees
@@ -1539,12 +1613,37 @@ export default function FanVoteCard({
   const face = roomy ? 32 : 26
 
   useEffect(() => {
+    // The impression counts the CARD being seen; the bare sheet is a visit to the URL, not that.
+    if (sheetOnly) return
     if (drawable && state.loaded) trackImpression(EVENTS.WPBL_AWARD_SHOWN, { answered, categories: entries.length })
     // Once per load, not once per vote.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawable, state.loaded])
 
+  // THE SHEET OPENS WITH THE ADDRESS, NOT WITH THE DATA. Its shortlists wait on the play log, the
+  // heaviest read in the section, so waiting for them meant a second or two of plain Home under a
+  // URL that had promised the results. The results are drawn empty until then. Only the closed
+  // ballot has an empty shape; an open one (unreachable here today, since this mount only exists
+  // past the results date) still waits, as the card does.
+  if (sheetOnly) {
+    if (!open) return null
+    const pending = !drawable || !state.loaded
+    if (pending && !closed) return null
+    return (
+      <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}
+        testerPreview={testerPreview} voterCount={voterCount}
+        loading={pending && !(settled && !drawable)} failed={settled && !drawable}
+        onClose={() => setOpen(false)} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+    )
+  }
+
   if (!drawable) return null
+
+  const sheet = open && (
+    <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}
+      testerPreview={testerPreview} voterCount={voterCount}
+      onClose={() => setOpen(false)} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+  )
 
   return (
     <SectionCard
@@ -1728,11 +1827,7 @@ export default function FanVoteCard({
           )
         })}
       </Box>
-      {open && (
-        <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}
-          testerPreview={testerPreview} voterCount={voterCount}
-          onClose={() => setOpen(false)} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
-      )}
+      {sheet}
     </SectionCard>
   )
 }

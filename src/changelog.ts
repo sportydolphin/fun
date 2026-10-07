@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.124.2',
+    date:    '2026-10-06',
+    changes: [
+      {
+        short: 'Fan awards results stay one link away',
+        full:  'The WPBL fan awards link opens the results again now that the ballot card has left the home page, and the results sheet opens straight away, filling in as it loads instead of keeping you waiting on a blank page.',
+      },
+    ],
+  },
+  {
     version: '1.124.1',
     date:    '2026-10-06',
     changes: [

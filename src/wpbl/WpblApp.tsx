@@ -22,6 +22,8 @@ import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, ty
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton, homeLandingReadsLines, offseasonByCalendar } from './Home'
+import FanAwardsSheet from './FanAwardsSheet'
+import { awardsResultsShowOnHome } from './awards'
 import WpblStatsView, { StatsSkeleton, carryStatsParams, type WpblStatsFocus } from './StatsView'
 import SeasonShapeCard from './SeasonShapeCard'
 import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
@@ -1931,6 +1933,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         />
       )}
       {bottomNav && <MoreSheet open={moreSheetOpen} onClose={() => setMoreSheetOpen(false)} />}
+
+      {/* /wpbl/awards after the ballot card has left Home: see FanAwardsSheet. Before that date the
+          card draws the sheet itself, so exactly one of the two ever does. */}
+      {awardsOpen && !awardsResultsShowOnHome() && (
+        <FanAwardsSheet teams={teams} games={games} scheduleSettled={!loading}
+          onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome}
+          onOpen={openAwards} onClose={closeTop} />
+      )}
 
       {detailPlayer && (
         <Suspense fallback={<ModalChunkFallback />}>

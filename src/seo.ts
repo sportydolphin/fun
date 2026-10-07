@@ -208,9 +208,11 @@ const ROUTES: Record<string, Seo> = {
   // selling it), which is what kept a ballot no fan could open out of the index. All three
   // came off together, and routes.test.ts inverted with them.
   '/wpbl/awards': {
-    title: 'Vote: WPBL fan awards 2026 | sportydolphin.fun',
+    // Results, not "Vote": voting closed Sep 16, 2026 and the address has opened the closed
+    // ballot since. A title asking for a vote the page can no longer take is a broken promise.
+    title: 'WPBL fan awards 2026: the results | sportydolphin.fun',
     description:
-      'Vote in the inaugural Women\'s Pro Baseball League fan awards: MVP, Pitcher of the Year, Manager of the Year, Defensive Wizard and Most Aura.',
+      'The results of the inaugural Women\'s Pro Baseball League fan awards, as voted by the fans: MVP, Pitcher of the Year, Manager of the Year, Defensive Wizard and Most Aura.',
   },
   '/mlb': {
     title: 'MLB Stats — Live scores, player & team stats | sportydolphin.fun',
