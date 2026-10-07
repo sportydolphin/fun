@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress, useMediaQuery, type Theme } from '@mui/material'
-import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getCachedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, type WpblPitchLoc } from './api'
+import { startTransition, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Box, Typography, Skeleton, useMediaQuery, type Theme } from '@mui/material'
+import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getSeedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, getCachedWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, plateAppearances, hasPlateAppearance, fmtRate, fmtTwo } from './stats'
 import { scopedLines, inSeason, seasonsPlayed, latestSeason, gamesInSeason, type SeasonScope } from './season'
 import { computeWpblPlayerRanks, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, hoverOnly, CARD_BORDER } from './ui'
+import { ModalShell, AfterShellEnters, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, hoverOnly, CARD_BORDER } from './ui'
 import { ExpandButton } from '../ui/ExpandButton'
 import { DetailPageBar } from './DetailPageBar'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
@@ -16,7 +16,7 @@ import { SectionHead, useRankInk } from './cardParts'
 import {
   CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, FormStrip, CameoBlock, StatLogTable,
   PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, BATTING_BEST, PITCHING_BEST, isZeroStat, ZERO_SX, bleedSx,
-  useCollapsibleTable, ExpandToggle, thSx, tdSx, LOG_MAX_H, LOG_MAX_H_XS, TIP_Z, type StatCardEnv,
+  useCollapsibleTable, ExpandToggle, thSx, tdSx, LOG_MAX_H, LOG_MAX_H_XS, LOG_PREVIEW, TIP_Z, type StatCardEnv,
 } from '../ui/playerCard'
 import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
@@ -32,7 +32,7 @@ import type { WpblSprayPlay } from './types'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
 import { wpblPlayerShortPath, wpblCompareStartPath, wpblComparePath, WPBL_AWARDS_PATH } from './routes'
 import { playerMatchups, playerPlayIds, type WpblMatchupLine } from './derive/matchups'
-import { fetchWpblAwardResults, fanAwardsWon } from './awardVotes'
+import { fetchWpblAwardResults, getCachedWpblAwardResults, fanAwardsWon } from './awardVotes'
 import type { WpblAward } from './awards'
 import { EmojiEvents, CompareArrows } from '@mui/icons-material'
 import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from '../ui/headerBar'
@@ -328,6 +328,95 @@ function MatchupTable({ player, side, lines, players, scope, accent }: {
  *  one above the other open to the same height. */
 const MATCHUP_PREVIEW = 5
 
+/**
+ * Apply a read that resolved after the card mounted.
+ *
+ * A TRANSITION, because these land while the sheet is still rising. Each one re-renders the whole
+ * card, about 115ms on a mid-range phone, and an ordinary update does that in one block that the
+ * sheet's slide and the backdrop's fade have to wait out. A transition lets React do it in slices
+ * between frames. Together with handing back the previous value when nothing changed (most of
+ * these are cache hits returning what the card was seeded with), it keeps the slide smooth.
+ */
+const lateUpdate = startTransition
+
+function sameIds(a: { id: string }[], b: { id: string }[]): boolean {
+  return a.length === b.length && a.every((x, i) => x.id === b[i].id)
+}
+
+/** Same rows, field for field, for a re-read of rows the card already holds. Shallow: every field
+ *  on a line is a scalar. */
+function sameRows<T extends object>(a: T[], b: T[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  return a.every((x, i) => {
+    const y = b[i] as Record<string, unknown>
+    const xr = x as Record<string, unknown>
+    const keys = Object.keys(xr)
+    return keys.length === Object.keys(y).length && keys.every(k => xr[k] === y[k])
+  })
+}
+
+/** "Aug 21" for a game date. One formatter for the module: `toLocaleDateString` builds a new one
+ *  per call, and at one per game-log row it was 40ms of every render on a mid-range phone. */
+/**
+ * Which phone panes' bands have scrolled out of view, held OUTSIDE the card's state.
+ *
+ * The header swaps the club for the player's name once the band scrolls away, and that swap
+ * happens mid-scroll, by definition. Kept as card state it re-rendered the whole card at that
+ * moment: about 150ms of styling work on a mid-range phone, landing in the middle of the swipe
+ * that caused it, every time the band crossed the top in either direction. As a store only the
+ * header subscribes to (BandAwareEyebrow), the swap re-renders the header and nothing else.
+ */
+type BandStore = {
+  get: () => Record<number, boolean>
+  set: (next: Record<number, boolean> | ((prev: Record<number, boolean>) => Record<number, boolean>)) => void
+  subscribe: (l: () => void) => () => void
+  /** Back to "nothing hidden" without telling anyone, for the render that swaps the player: the
+   *  header re-renders in that same pass and reads it, and a notification during render would be
+   *  an update to another component mid-render. */
+  reset: () => void
+}
+function createBandStore(): BandStore {
+  let value: Record<number, boolean> = {}
+  const listeners = new Set<() => void>()
+  return {
+    get: () => value,
+    set: next => {
+      const v = typeof next === 'function' ? next(value) : next
+      if (v === value) return
+      value = v
+      listeners.forEach(l => l())
+    },
+    subscribe: l => { listeners.add(l); return () => { listeners.delete(l) } },
+    reset: () => { value = {} },
+  }
+}
+
+/** The sheet header: the club, or the player's name once the band has scrolled out. */
+function BandAwareEyebrow({ store, index, name, children }: { store: BandStore; index: number; name: string; children: React.ReactNode }) {
+  const hidden = useSyncExternalStore(store.subscribe, store.get, store.get)
+  if (!hidden[index]) return <>{children}</>
+  // The NAME ALONE, in ordinary case: the header's small caps and letter-spacing are set for a club
+  // nickname, and "Denae Benites · Heights" in them truncated to "DENAE BENITE…" beside Compare and
+  // Copy link.
+  return (
+    <Box component="span" sx={{
+      display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', fontWeight: 800, color: 'text.primary',
+    }}>
+      {name}
+    </Box>
+  )
+}
+
+const SHORT_DATE = new Intl.DateTimeFormat([], { month: 'short', day: 'numeric' })
+const shortDateCache = new Map<string, string>()
+function shortDate(gameDate: string): string {
+  let s = shortDateCache.get(gameDate)
+  if (s == null) { s = SHORT_DATE.format(new Date(`${gameDate}T00:00:00`)); shortDateCache.set(gameDate, s) }
+  return s
+}
+
 
 // ─── the modal ───────────────────────────────────────────────────────────────
 
@@ -395,11 +484,22 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // The fan awards this player won, for the ribbon under their name. The tally read is shared and
   // cached app-wide (Home reads it for the results card), and it fails to empty, so a player page
   // never waits on it or breaks for it: the ribbon simply arrives, or does not.
-  const [awards, setAwards] = useState<WpblAward[]>([])
+  //
+  // Seeded from the last tally that landed, so an award winner's band rises at its final height
+  // rather than growing a row of chips mid-slide; see lateUpdate for the rest of the rule.
+  const awardsFor = (id: string) => {
+    const r = getCachedWpblAwardResults()
+    return r ? fanAwardsWon(r, id) : []
+  }
+  const [awards, setAwards] = useState<WpblAward[]>(() => awardsFor(player.id))
   useEffect(() => {
     let cancelled = false
-    setAwards([])
-    fetchWpblAwardResults().then(r => { if (!cancelled) setAwards(fanAwardsWon(r, player.id)) })
+    setAwards(prev => sameIds(prev, awardsFor(player.id)) ? prev : awardsFor(player.id))
+    fetchWpblAwardResults().then(r => {
+      if (cancelled) return
+      const won = fanAwardsWon(r, player.id)
+      lateUpdate(() => setAwards(prev => (sameIds(prev, won) ? prev : won)))
+    })
     return () => { cancelled = true }
   }, [player.id])
 
@@ -415,7 +515,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   useEffect(() => {
     if (battedBalls.length > 0) return
     let cancelled = false
-    fetchWpblBattedBalls().then(rows => { if (!cancelled) setBattedBalls(rows) })
+    fetchWpblBattedBalls().then(rows => { if (!cancelled) lateUpdate(() => setBattedBalls(rows)) })
     return () => { cancelled = true }
   }, [battedBalls.length])
 
@@ -444,7 +544,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // still sees whose it is. Measured against each band's own scroller (see the observer below), so
   // "out" means scrolled out of the sheet, not merely off the page or still sliding in.
   const bandEls = useRef<(HTMLDivElement | null)[]>([])
-  const [bandHidden, setBandHidden] = useState<Record<number, boolean>>({})
+  // A store rather than state: see BandStore.
+  const bandStore = useMemo(createBandStore, [])
+  const setBandHidden = bandStore.set
   const { basis: eraBasis, fmtEra, fmtK, kLabel } = useEraBasis()
 
   // The SHORT /p/<code> form, for pasting into a DM or a post. functions/p 302s it to the readable
@@ -465,7 +567,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // spin again on every open, however recently the same season had been read. Lazy initialisers,
   // because `player` is a prop and is available before the first paint; the effect below still
   // runs and revalidates behind whatever this put on screen.
-  const seeded = getCachedWpblPlayerLines(player.id)
+  const seeded = getSeedWpblPlayerLines(player.id)
   const [loading, setLoading] = useState(!seeded)
   const [allBatting, setBatting] = useState<WpblBattingLine[]>(() => seeded?.batting ?? [])
   const [allPitching, setPitching] = useState<WpblPitchingLine[]>(() => seeded?.pitching ?? [])
@@ -541,7 +643,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   useEffect(() => {
     let cancelled = false
     fetchWpblPlayerMatchupPlays(player)
-      .then(p => { if (!cancelled) setMatchupPlays(p) })
+      .then(p => { if (!cancelled) lateUpdate(() => setMatchupPlays(p)) })
       .catch(() => { /* tables omit themselves */ })
     return () => { cancelled = true }
   }, [player])
@@ -555,7 +657,8 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // Home, so for most readers this is a cache hit and costs nothing; for the rest the ranks
   // simply appear a moment after the totals, and if it fails they never appear at all and the
   // page is exactly what it was before.
-  const [leagueLines, setLeagueLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  const [leagueLines, setLeagueLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(
+    () => getCachedWpblAllLines())
   // Posts that name this player. Seeded from the shared cache so reopening a player is
   // instant, then revalidated. Most players are never written about, and for them the
   // section below simply doesn't render.
@@ -563,9 +666,13 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 
   useEffect(() => {
     let cancelled = false
-    fetchWpblArticles().then(a => { if (!cancelled) setArticles(a) }).catch(() => { /* keep last-good */ })
+    fetchWpblArticles().then(a => { if (!cancelled) lateUpdate(() => setArticles(a)) }).catch(() => { /* keep last-good */ })
     fetchWpblAllLines()
-      .then(l => { if (!cancelled) setLeagueLines({ batting: l.batting, pitching: l.pitching }) })
+      .then(l => {
+        if (cancelled) return
+        // Usually the very arrays the initialiser was seeded with, in which case this is no change.
+        lateUpdate(() => setLeagueLines(prev => (prev && prev.batting === l.batting && prev.pitching === l.pitching ? prev : { batting: l.batting, pitching: l.pitching })))
+      })
       .catch(() => { /* no ranks; the totals stand on their own */ })
     return () => { cancelled = true }
   }, [])
@@ -598,7 +705,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   }
   if (shownPlayer !== player.id) {
     setShownPlayer(player.id)
-    const seed = getCachedWpblPlayerLines(player.id)
+    const seed = getSeedWpblPlayerLines(player.id)
     setBatting(seed?.batting ?? []); setPitching(seed?.pitching ?? []); setFielding(seed?.fielding ?? [])
     setLoading(!seed)
     setPitchLocs(getCachedWpblPitcherLocations(feedKey) ?? [])
@@ -607,7 +714,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // show the next player's card already filtered, or with the header naming nobody.
     setScope('regular')
     setPickedSeason(null)
-    setBandHidden({})
+    bandStore.reset()
   }
   // And the scroll position, for the same reason: the next player opens at their name, not
   // halfway down a game log at whatever depth the last one was read to. Every scroller in the
@@ -628,12 +735,19 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     let cancelled = false
     fetchWpblPlayerLines(player.id).then(({ batting, pitching, fielding }) => {
       if (cancelled) return
-      setBatting(batting); setPitching(pitching); setFielding(fielding); setLoading(false)
+      // A card seeded from the league-wide read gets the same rows back as new arrays; keeping the
+      // old ones when nothing differs is what stops that from re-rendering the card mid-slide.
+      lateUpdate(() => {
+        setBatting(prev => (sameRows(prev, batting) ? prev : batting))
+        setPitching(prev => (sameRows(prev, pitching) ? prev : pitching))
+        setFielding(prev => (sameRows(prev, fielding) ? prev : fielding))
+        setLoading(false)
+      })
     })
     // Pitch-location tracking keys on the feed id; empty for non-pitchers / unmapped players.
     // Every id she has held, not just the current one, so a trade does not erase the half of
     // her season she threw under the old club's id.
-    fetchWpblPitcherLocations(feedKey).then(locs => { if (!cancelled) setPitchLocs(locs) })
+    fetchWpblPitcherLocations(feedKey).then(locs => { if (!cancelled) lateUpdate(() => setPitchLocs(prev => (sameRows(prev, locs) ? prev : locs))) })
     return () => { cancelled = true }
   }, [player.id, feedKey])
 
@@ -755,8 +869,14 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 
   // The control only exists for a genuine two-way player. Everyone else gets her own numbers
   // with no chrome: a lone pill that cannot be switched away from is worse than no pill.
-  const [role, setRole] = useState<Role>(() => (pitcherFirst ? 'pitching' : 'batting'))
-  useEffect(() => { setRole(pitcherFirst ? 'pitching' : 'batting') }, [pitcherFirst])
+  //
+  // The reader's pick, or null for the primary role. DERIVED rather than copied into state by an
+  // effect, because an effect runs a commit late: the render where the lines land and make a
+  // pitcher's card lead with pitching would still hold the old 'batting', and the pager would draw
+  // the second pane for a frame before swinging back.
+  const [pickedRole, setRole] = useState<Role | null>(null)
+  const role: Role = pickedRole ?? (pitcherFirst ? 'pitching' : 'batting')
+  useEffect(() => { setRole(null) }, [pitcherFirst])
   const selectRole = (v: string, via: 'pill' | 'swipe') => {
     const next = v as Role
     if (next === role) return
@@ -784,7 +904,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     const isHome = g.home_team_id === forTeam
     const oppId = isHome ? g.away_team_id : g.home_team_id
     const opp = teamById.get(oppId)
-    const date = new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+    const date = shortDate(g.game_date)
     const abbr = opp?.abbr ?? oppId
     // `short` is the same fact with the spaces squeezed out, for the band's form strip, which
     // is competing for width with the name beside it rather than sitting in a table column.
@@ -924,7 +1044,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     setPickedSeason(y)
     setScope('regular')
   }
-  const lineCaption = (r: Role, scopeControl?: React.ReactNode) => {
+  const lineCaption = (r: Role, scopeControl?: React.ReactNode, metaOverride?: React.ReactNode) => {
     const noun = scope === 'postseason' ? 'postseason' : 'season'
     // The year comes off the SCHEDULE rather than the clock (see `season`): this card is a
     // permanent page with a shareable URL, and read next January a wall-clock year would relabel a
@@ -935,7 +1055,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         picker={season != null
           ? <SeasonPicker label={label} season={season} seasons={seasons} onChange={pickSeason} />
           : <Typography sx={{ ...sectionSx, mb: 0 }}>{label}</Typography>}
-        meta={r === 'pitching' ? pitchingMeta : battingMeta}
+        meta={metaOverride !== undefined ? metaOverride : r === 'pitching' ? pitchingMeta : battingMeta}
         control={scopeControl}
       />
     )
@@ -967,7 +1087,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             ranked, so a total-bases lead still reaches the card through the counting ranks.
             A stat in the headline keeps its rank there and not here, so no figure is ranked twice.
             SO carries no rank, ever: second in the league in strikeouts is not an achievement. */}
-        <SeasonLine cols={[
+        <SeasonLine headline={headline('batting').map(c => c.label)} cols={[
           { label: 'G', value: bt.g },
           { label: 'AB', value: bt.ab },
           { label: 'R', value: bt.r, rank: countRank(ranks?.battingCounts, 'c_r') },
@@ -1050,7 +1170,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             saying how hard the innings were, which the counting stats cannot (they say what was given
             up). Batters faced is not a column, being very nearly innings times three plus the
             baserunners already itemised; `pt.bf` is still read, by the role rule in positions.ts. */}
-        <SeasonLine cols={[
+        <SeasonLine headline={headline('pitching').map(c => c.label)} cols={[
           { label: 'W', value: pt.w, rank: countRank(ranks?.pitchingCounts, 'c_w') },
           { label: 'L', value: pt.l },
           { label: 'ERA', value: fmtEra(pt.era) },
@@ -1113,6 +1233,65 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       : null,
   }
 
+  /**
+   * THE LOADING STATE: this card drawn empty, in the same tree the loaded card uses.
+   *
+   * It used to be the band pinned over a spinner. When the lines landed the band moved from that
+   * pinned slot into the pane's scroller, so React threw the portrait away and drew it again, and
+   * everything under it arrived at once. Now the pane is the real pane holding samples (see
+   * FigureBar), so the band stays put, the portrait is the same element, and the bars under it
+   * become figures in place.
+   *
+   * THE MOST LIKELY SHAPE, where the shape depends on what has not loaded: one role, guessed off
+   * the filed position (a two-way player gains the role switch above the band when the lines say
+   * so); the Regular / Playoffs control, held invisibly, since every club in the league played in
+   * the postseason; the hitter's sample line under the caption, which a qualified pitcher's card
+   * does not have; and a game log long enough for its Show more control.
+   */
+  const skeletonPane = (r: Role) => {
+    // A rank on every sample holds a rank row open under each row of the line, which the loaded
+    // card nearly always has: every hitter measured led the league in something worth printing.
+    const sample = (labels: [string, string][]) => labels.map(([label, value]) => ({ label, value, rank: { rank: 1, of: 1 } }))
+    const lineCols = r === 'pitching'
+      ? sample([['W', '2'], ['L', '2'], ['ERA', '4.50'], ['G', '6'], ['GS', '5'], ['SV', '0'], ['IP', '20.0'], ['H', '20'],
+        ['R', '10'], ['ER', '10'], ['HR', '2'], ['BB', '10'], ['SO', '15'], ['WHIP', '1.50'], ['HBP', '1'], ['WP', '2'], ['P', '350']])
+      : sample([['G', '15'], ['AB', '50'], ['R', '10'], ['H', '15'], ['2B', '3'], ['3B', '1'], ['HR', '3'], ['RBI', '10'], ['BB', '6'],
+        ['SO', '8'], ['SB', '3'], ['CS', '1'], ['AVG', '.250'], ['OBP', '.350'], ['SLG', '.400'], ['OPS', '.750'], ['HBP', '1'], ['SF', '1']])
+    const head = r === 'pitching'
+      ? sample([['W-L', '2-2'], ['ERA', '4.50'], ['SO', '15'], ['WHIP', '1.50']])
+      : sample([['AVG', '.250'], ['HR', '3'], ['RBI', '10'], ['OPS', '.750']])
+    const logHeaders = r === 'pitching'
+      ? ['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']
+      : ['POS', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'TB']
+    const logCells = r === 'pitching' ? ['W', '5.0', '5', '2', '2', '1', '2', '5', '80'] : ['CF', '4', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2']
+    return {
+      hasLog: true,
+      profile: null,
+      matchups: null,
+      extras: null,
+      season: null,
+      line: () => (
+        <>
+          {lineCaption(r,
+            <Box aria-hidden sx={{ visibility: 'hidden' }}>{scopeNav}</Box>,
+            r === 'pitching' ? '' : <Skeleton variant="text" sx={{ display: 'inline-block', width: '3.5em' }} />)}
+          <Box sx={{ mb: 1.5 }}><RateStrip cells={head} placeholder /></Box>
+          <SeasonLine cols={lineCols} headline={head.map(c => c.label)} placeholder />
+        </>
+      ),
+      log: (
+        <StatLogTable
+          title="Game log"
+          statHeaders={logHeaders}
+          accent={color}
+          placeholder
+          rows={Array.from({ length: LOG_PREVIEW + 3 }, () => ({ lead: ['Aug 00', '@ BOS'], cells: logCells }))}
+        />
+      ),
+    }
+  }
+  const paneFor = (r: Role) => (loading ? skeletonPane(r) : r === 'pitching' ? pitchingPane : battingPane)
+
   // One control, drawn on the season caption at every width (see lineCaption).
   const scopeNav = (
     <SegNav
@@ -1138,9 +1317,13 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // else gets exactly one, which is what keeps a lone unswitchable pill off the page. A
   // one-panel pager is not a special case: it simply has no neighbour to reach, so a sideways
   // drag rubber-bands and lets go, which is the same answer the tab bar gives.
-  const roles: Role[] = twoWay
-    ? (pitcherFirst ? ['pitching', 'batting'] : ['batting', 'pitching'])
-    : [pitcherFirst ? 'pitching' : 'batting']
+  //
+  // While loading, the one role the filed position points to: see skeletonPane.
+  const roles: Role[] = loading
+    ? [/P/.test(player.position ?? '') ? 'pitching' : 'batting']
+    : twoWay
+      ? (pitcherFirst ? ['pitching', 'batting'] : ['batting', 'pitching'])
+      : [pitcherFirst ? 'pitching' : 'batting']
   const roleIndex = Math.max(0, roles.indexOf(role))
   // Fielding and the reading list belong to the PLAYER, not to a role, so they ride inside
   // whichever pane is on screen rather than sitting under the pager: a block below the panes
@@ -1168,7 +1351,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    * The phone keeps the pager and the pills, which is what a 375px column can hold.
    */
   const desktopRoleBlock = (r: Role, first: boolean, last: boolean) => {
-    const pane = r === 'pitching' ? pitchingPane : battingPane
+    const pane = paneFor(r)
     return (
       <Box key={r} sx={{ mb: last ? 0 : 3.5 }}>
         {/* Named only when there are two of them. On a single-role card the heading would be
@@ -1218,6 +1401,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const bandBlock = (ref?: (el: HTMLDivElement | null) => void) => (
     <PlayerBand
       bandRef={ref}
+      // A grab surface only while pinned; a pane's copy (the one handed a ref) scrolls natively.
+      // See PlayerBand.
+      grab={!ref}
       // The secondary washes OVER an opaque primary rather than being the last stop of a gradient
       // that runs out of colour. As a plain gradient the right-hand end would be `secondary` at low
       // alpha over whatever sits behind the card, which in light mode is white, so the band would
@@ -1237,7 +1423,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       // is most of what makes a player recognisable. One size at every width, deliberately: a JS
       // media query picking a size does not re-render on a live window resize the way the band's
       // CSS breakpoints do.
-      portrait={<PlayerPortrait name={player.name} teamId={clubId} square size={84} />}
+      portrait={<PlayerPortrait key={player.id} name={player.name} teamId={clubId} square size={84} priority />}
       // The page's <h1>. A player page is a modal over a tab but it is a real page with its own URL
       // and title, and the tab underneath stops rendering an h1 while this is open; see PageHeading.tsx.
       name={player.name}
@@ -1295,7 +1481,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // Pinned on a desktop (a dialog is not short of height), and pinned while there is nothing to
   // scroll (loading, or a player with no stats), since a scroller around a spinner buys nothing.
   const noStats = !loading && !hasBatting && !hasPitching && !hasFielding
-  const bandPinned = wide || loading || noStats
+  const bandPinned = wide || noStats
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return
     const els = bandEls.current.filter((e): e is HTMLDivElement => !!e)
@@ -1343,7 +1529,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   }, [bandPinned, player.id, twoWay, pitcherFirst, loading])
 
   const panels = roles.map((r, i) => {
-    const pane = r === 'pitching' ? pitchingPane : battingPane
+    const pane = paneFor(r)
     return (
       // `pt` answers to the role pills, because what sits directly under them is the rate strip:
       // full pane padding plus the optical space a large numeral carries above its digits would put
@@ -1360,18 +1546,22 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         {pane.season}
         {/* The desktop's order, for the reason given there. */}
         {pane.log}
-        {pane.matchups}
-        {pane.profile}
-        {pane.extras}
-        {/* Last among the stats, as on the desktop: see desktopRoleBlock. */}
-        {hasFielding && <FieldingLine ft={ft} positions={showTabs ? fieldedPositions : undefined} />}
-        {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
-            who has been written about but has not logged a game is exactly the case where this
-            is the most interesting thing on the page. Renders nothing when nobody has written
-            about the player, which is most of the roster. */}
-        <FanPhotoPlayerStrip playerId={player.id} players={players} />
-        <PlayerClips playerId={player.id} />
-        <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
+        {/* Everything under the log is below the first screen of a phone, so it mounts once the
+            sheet has finished rising instead of during it. See AfterShellEnters. */}
+        <AfterShellEnters>
+          {pane.matchups}
+          {pane.profile}
+          {pane.extras}
+          {/* Last among the stats, as on the desktop: see desktopRoleBlock. */}
+          {hasFielding && <FieldingLine ft={ft} positions={showTabs ? fieldedPositions : undefined} />}
+          {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
+              who has been written about but has not logged a game is exactly the case where this
+              is the most interesting thing on the page. Renders nothing when nobody has written
+              about the player, which is most of the roster. */}
+          <FanPhotoPlayerStrip playerId={player.id} players={players} />
+          <PlayerClips playerId={player.id} />
+          <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
+        </AfterShellEnters>
       </Box>
     )
   })
@@ -1381,17 +1571,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // chips overran a 360px header and ellipsised the club to "New York Heig…". The nickname
   // ("Heights") is the same fact, shorter, and clears the row; both are the club, so this
   // reads as a compact label rather than a truncation.
-  const eyebrow = !bandPinned && bandHidden[roleIndex] ? (
-    // The band has scrolled off: the header carries whose page this is instead. The NAME ALONE, in
-    // ordinary case: the header's small caps and letter-spacing are set for a club nickname, and
-    // "Denae Benites · Heights" in them truncated to "DENAE BENITE…" beside Compare and Copy link.
-    <Box component="span" sx={{
-      display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', fontWeight: 800, color: 'text.primary',
-    }}>
-      {player.name}
-    </Box>
-  ) : team ? (
+  const clubEyebrow = team ? (
     // The side panel's header is as narrow as a phone's and carries the same two chips, but it
     // renders outside the panel's phone theme (it is the shell's chrome, not the card), so its
     // breakpoints see a desktop. It is told instead, or "San Francisco Firebells" ellipsises.
@@ -1402,6 +1582,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       </>
     )
   ) : 'Player'
+  const eyebrow = bandPinned ? clubEyebrow : (
+    <BandAwareEyebrow store={bandStore} index={roleIndex} name={player.name}>{clubEyebrow}</BandAwareEyebrow>
+  )
   const actions = (
     <>
       <CompareChip player={player} roster={players} />
@@ -1420,7 +1603,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
           instead of forcing full height, and this is clamped rather than filled. `flex: 1`
           there would collapse the pane to nothing, since a flex item with a zero basis
           contributes nothing to an auto-height parent. */}
-      <Box ref={contentRef} sx={{
+      {/* Busy while the panes are samples: a screen reader is told the card is still arriving
+          rather than read a page of empty cells. */}
+      <Box ref={contentRef} aria-busy={loading || undefined} sx={{
         display: 'flex', flexDirection: 'column', minHeight: 0,
         flex: { xs: '1 1 0%', sm: '0 1 auto' },
         maxHeight: { xs: 'none', sm: '100%' },
@@ -1450,9 +1635,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
           stays a drag surface: at the top of the pane, where it is, a pull down closes the sheet. */}
       {bandPinned && band}
 
-      {loading ? (
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
-      ) : !hasBatting && !hasPitching && !hasFielding ? (
+      {/* No loading branch: while the lines are in flight the panes below are drawn from samples
+          (see skeletonPane), so the card has its finished shape from the first frame. */}
+      {noStats ? (
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
           <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
             <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>

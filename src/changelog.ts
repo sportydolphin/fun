@@ -4,6 +4,28 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.126.0',
+    date:    '2026-10-07',
+    changes: [
+      {
+        short: 'Player pages scroll like the rest of the site',
+        full:  'On a phone, a player page now scrolls under your finger with no lag, and a swipe starting on the player's name scrolls with momentum like any other. Swipe down from the top, or pull the bar at the very top, to close it; push back up mid-pull and the page scrolls instead.',
+      },
+      {
+        short: 'Smoother opening',
+        full:  'Player pages slide up without stutter: the background fades in smoothly, the stats are ready from the first frame when you open a player from a leaderboard or Home, and the photo loads once instead of twice.',
+      },
+      {
+        short: 'More stats above the fold',
+        full:  'On a phone, the season line under the four headline numbers no longer repeats them, and runs edge to edge like the game log: one row for most pitchers and two for hitters, where it used to take three or four.',
+      },
+      {
+        short: 'Loading looks like the page',
+        full:  'While a player's stats load, the page shows its finished layout with placeholders, so nothing jumps when the numbers arrive.',
+      },
+    ],
+  },
+  {
     version: '1.125.0',
     date:    '2026-10-07',
     changes: [

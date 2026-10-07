@@ -11,11 +11,12 @@
 // number is drawn in, and how high a rank has to be before it is printed.
 
 import React, { createContext, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, type Theme } from '@mui/material'
+import { Box, Skeleton, Typography, type Theme } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
 import { TapTip } from './TapTip'
 import { TAPPABLE, hoverOnly } from './interaction'
 import { chromePx } from './scale'
+import { usePhoneLayout } from './ModalShell'
 
 /** What a league supplies to the card parts. */
 export interface StatCardEnv {
@@ -255,6 +256,16 @@ const keepCase = (label: string) => (/[a-z]/.test(label) ? { textTransform: 'non
 export const isZeroStat = (v: string | number): boolean => v === 0 || v === '0'
 
 /**
+ * A figure not yet known, drawn as a bar the width of `sample`: the card's loading state passes
+ * typical values ("00", ".000", "00.0") so every column, fold and row comes out the size the real
+ * figures will make it. Inline and in the cell's own font, so the line box it sits in is exactly
+ * the height the figure's will be.
+ */
+function FigureBar({ sample }: { sample: string | number }) {
+  return <Skeleton variant="text" sx={{ display: 'inline-block', width: `${String(sample).length * 0.6 + 0.2}em` }} />
+}
+
+/**
  * How a zero is drawn, in the season line and every row table.
  *
  * A STEP BELOW `text.disabled`, not at it. That grey is also the game log's date column and every
@@ -322,7 +333,152 @@ export interface LineCol {
  * the whole row would be wrong for half of it. The group rule is what says these are two kinds
  * of column.
  */
-export function SeasonLine({ cols, lead }: { cols: LineCol[]; lead?: LineCol[] }) {
+export function SeasonLine({ cols, lead, headline, placeholder }: {
+  cols: LineCol[]
+  lead?: LineCol[]
+  /** The labels the headline strip above already shows, which a phone leaves out of the line. */
+  headline?: string[]
+  /** The loading state: every value is a sample, drawn as a bar of its width. See FigureBar. */
+  placeholder?: boolean
+}) {
+  const phone = usePhoneLayout()
+  if (!phone) return <FullSeasonLine cols={cols} lead={lead} placeholder={placeholder} />
+  const inHead = new Set(headline ?? [])
+  // W and L are the headline's "W-L".
+  const shown = cols.filter(c => !inHead.has(c.label) && !(inHead.has('W-L') && (c.label === 'W' || c.label === 'L')))
+  return <CompactSeasonLine cols={shown} placeholder={placeholder} />
+}
+
+/**
+ * THE LINE ON A PHONE: what the headline does not already say, edge to edge, in as few rows as fit.
+ *
+ * WHY IT IS NOT THE DESKTOP LINE FOLDED. Under the four-figure headline the full line folded into
+ * three or four rows at 375px (a pitching line is seventeen columns, a hitter's up to twenty), so
+ * the top of the card was five rows of numbers before the first game, and four of them were printed
+ * twice: large in the headline and again a few rows down. So the headline's figures are left out
+ * here (W and L with a "W-L"), and what remains runs the full width of the screen the way the game
+ * log under it does: the table bleeds, and its first and last columns take the gutter back so no
+ * figure sits on the edge of the glass. Above a phone the line is the whole standard line, as every
+ * stat site prints it, because there it is one row and the repeat costs nothing.
+ *
+ * FOLDED AS ONE TABLE, NOT A TABLE PER ROW. Each column is as wide as the widest cell stacked in it
+ * rather than every column as wide as the widest figure on the line, which is what lets a hitter's
+ * sixteen columns fold into two rows rather than three, and keeps the rows' rules lined up.
+ *
+ * MEASURED, before paint: each cell's natural width is read off a one-row pass, and the line takes
+ * the fewest rows whose stacked columns, plus the two gutters, fit the screen. Whether that is one
+ * row or two depends on the digits and on the reader's text size, so a fixed count would be wrong
+ * for somebody.
+ */
+function CompactSeasonLine({ cols, placeholder }: { cols: LineCol[]; placeholder?: boolean }) {
+  const { tip, ink } = useStatCard()
+  const boxRef = useRef<HTMLDivElement>(null)
+  // Columns per row, or null for the one-row measuring pass.
+  const [per, setPer] = useState<number | null>(null)
+  const sig = cols.map(c => `${c.label}:${c.value}:${c.rank?.rank ?? ''}`).join('|')
+  const [measuredFor, setMeasuredFor] = useState(sig)
+  if (measuredFor !== sig) { setMeasuredFor(sig); setPer(null) }
+  const measuredW = useRef(0)
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    if (per == null) {
+      const widths = Array.from(box.querySelectorAll('th')).map(th => th.getBoundingClientRect().width)
+      // The bleed's negative margin IS the gutter, in whatever px the chrome scale makes it.
+      const gutter = Math.abs(parseFloat(getComputedStyle(box).marginLeft)) || 0
+      const room = box.clientWidth
+      measuredW.current = room
+      const n = widths.length
+      let choice = n
+      for (let r = 1; r <= n; r++) {
+        const p = Math.ceil(n / r)
+        let total = 2 * gutter
+        for (let j = 0; j < p; j++) {
+          let w = 0
+          for (let k = j; k < n; k += p) w = Math.max(w, widths[k])
+          total += w
+        }
+        if (total <= room) { choice = p; break }
+      }
+      setPer(Math.max(1, choice))
+      return
+    }
+    // A new width (a rotated phone, the panel at another chrome scale) measures again from one row.
+    const ro = new ResizeObserver(() => {
+      if (Math.abs(box.clientWidth - measuredW.current) > 1) setPer(null)
+    })
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [per, sig])
+
+  const measuring = per == null
+  const p = per ?? cols.length
+  const rows: (LineCol | null)[][] = []
+  for (let i = 0; i < cols.length; i += p) {
+    const row: (LineCol | null)[] = cols.slice(i, i + p)
+    while (row.length < p) row.push(null)
+    rows.push(row)
+  }
+  // The gutter, on the outer columns only, once there is a layout to put it in. The measuring pass
+  // has none, so what it reads is each cell's own width.
+  const edge = (j: number) => (measuring ? {} : {
+    ...(j === 0 ? { pl: 2 } : {}),
+    ...(j === p - 1 ? { pr: 2 } : {}),
+  })
+  const rule = (row: (LineCol | null)[], j: number) => (row[j] && row[j + 1] ? colRuleSx(j, p) : {})
+
+  return (
+    <Box ref={boxRef} sx={{ mx: -2, overflowX: 'auto' }}>
+      <Box component="table" sx={{
+        width: measuring ? 'max-content' : '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums',
+      }}>
+        <Box component="tbody">
+          {rows.map((row, k) => (
+            <React.Fragment key={k}>
+              <Box component="tr">
+                {row.map((c, j) => c ? (
+                  <TapTip key={c.label} title={tip(c.label)} component="th" popperZIndex={TIP_Z}
+                    sx={{ ...lineThSx, ...COMPACT_CELL_SX, ...(k > 0 ? { pt: 1 } : {}), ...keepCase(c.label), ...rule(row, j), ...edge(j) }}>
+                    {c.label}
+                  </TapTip>
+                ) : <Box component="th" key={`pad${j}`} sx={{ ...lineThSx, borderBottomColor: 'transparent', ...edge(j) }} />)}
+              </Box>
+              <Box component="tr">
+                {row.map((c, j) => c ? (
+                  // The desktop line's three states: a top-five figure lit, a true zero dimmed.
+                  <Box component="td" key={c.label} sx={{
+                    ...lineTdSx, ...COMPACT_CELL_SX, ...COMPACT_FIGURE_SX, ...rule(row, j), ...edge(j),
+                    ...(placeholder ? {} : c.rank != null ? { color: ink, fontWeight: 800 } : isZeroStat(c.value) ? ZERO_SX : {}),
+                  }}>
+                    {placeholder ? <FigureBar sample={c.value} /> : c.value}
+                  </Box>
+                ) : <Box component="td" key={`pad${j}`} sx={edge(j)} />)}
+              </Box>
+              {row.some(c => c?.rank != null) && (
+                <Box component="tr">
+                  {row.map((c, j) => c ? (
+                    <Box component="td" key={c.label}
+                      sx={{ ...lineRankSx, ...COMPACT_CELL_SX, ...rule(row, j), ...edge(j), ...(c.rank != null && !placeholder ? { color: ink, fontWeight: 800 } : {}) }}>
+                      {/* A placeholder's rank only holds the row open: see skeletonPane. */}
+                      {placeholder ? ' ' : c.rank ? <RankText onRank={c.onRank} label={c.label}>{ordinal(c.rank.rank)}</RankText> : ''}
+                    </Box>
+                  ) : <Box component="td" key={`pad${j}`} sx={edge(j)} />)}
+                </Box>
+              )}
+            </React.Fragment>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
+/** The compact line's cells: a little less air than the desktop's, since the columns share the screen. */
+const COMPACT_CELL_SX = { px: 0.4 } as const
+/** A step under `figure`, so a pitching line fits the screen in one row. */
+const COMPACT_FIGURE_SX = { fontSize: '0.85rem' } as const
+
+function FullSeasonLine({ cols, lead, placeholder }: { cols: LineCol[]; lead?: LineCol[]; placeholder?: boolean }) {
   const { tip, ink, rankBar } = useStatCard()
   const heads = lead ?? []
   const all = [...heads, ...cols]
@@ -449,10 +605,10 @@ export function SeasonLine({ cols, lead }: { cols: LineCol[]; lead?: LineCol[] }
                   ...(isLead(offset + j) ? { ...TYPE.hero, lineHeight: 1.2, pt: 0.5 } : {}),
                   verticalAlign: 'baseline',
                   ...rule(j),
-                  ...(lit(c, offset + j) ? { color: ink, fontWeight: 800 }
+                  ...(placeholder ? {} : lit(c, offset + j) ? { color: ink, fontWeight: 800 }
                     : isZeroStat(c.value) ? ZERO_SX : {}),
                 }}>
-                {c.value}
+                {placeholder ? <FigureBar sample={c.value} /> : c.value}
               </Box>
             ) : <Box component="td" key={`pad${j}`} />)}
           </Box>
@@ -465,7 +621,7 @@ export function SeasonLine({ cols, lead }: { cols: LineCol[]; lead?: LineCol[] }
                 // mostly punctuation reads as missing data rather than as an annotation.
                 <Box component="td" key={c.label}
                   sx={{ ...lineRankSx, ...rule(j), ...(lit(c, offset + j) ? { color: ink, fontWeight: 800 } : {}) }}>
-                  {!c.rank ? '' : (
+                  {placeholder ? ' ' : !c.rank ? '' : (
                     <RankText onRank={c.onRank} label={c.label}>
                       {isLead(offset + j) ? `${ordinal(c.rank.rank)} of ${c.rank.of}` : ordinal(c.rank.rank)}
                     </RankText>
@@ -573,8 +729,10 @@ const lineRankSx = {
  * A full row rather than a centred headline pair, so nothing on the pane sits on an axis of its
  * own, and OBP and SLG are not left to be found further down.
  */
-export function RateStrip({ cells }: {
+export function RateStrip({ cells, placeholder }: {
   cells: { label: string; value: string; rank?: StatRank | null; onRank?: () => void }[]
+  /** The loading state: each value is a sample, drawn as a bar of its width. */
+  placeholder?: boolean
 }) {
   const { tip, ink, rankBar } = useStatCard()
   const isTopFive = (r: StatRank | null | undefined) => isLitRank(r, rankBar)
@@ -596,7 +754,7 @@ export function RateStrip({ cells }: {
             ...TYPE.hero, lineHeight: 1.15,
             fontVariantNumeric: 'tabular-nums',
             ...(isTopFive(c.rank) ? { color: ink } : {}),
-          }}>{c.value}</Typography>
+          }}>{placeholder ? <FigureBar sample={c.value} /> : c.value}</Typography>
           {/* Blank when the player is not ranked, matching the season line's rank row, and a
               non-breaking space rather than nothing so the strip is exactly as tall the day before
               they qualify as the day after. Four dashes in a row under four numbers that are right
@@ -609,7 +767,7 @@ export function RateStrip({ cells }: {
           <Typography sx={{
             ...TYPE.micro, fontVariantNumeric: 'tabular-nums',
             ...(isTopFive(c.rank) ? { color: ink, fontWeight: 800 } : { color: 'text.secondary' }),
-          }}>{c.rank ? <RankText onRank={c.onRank} label={c.label}>{`${ordinal(c.rank.rank)} of ${c.rank.of}`}</RankText> : ' '}</Typography>
+          }}>{c.rank && !placeholder ? <RankText onRank={c.onRank} label={c.label}>{`${ordinal(c.rank.rank)} of ${c.rank.of}`}</RankText> : ' '}</Typography>
         </Box>
       ))}
     </Box>
@@ -816,8 +974,11 @@ export interface StatLogRow {
   selected?: boolean
 }
 
-export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], statHeaders, rows, totals, totalsLabel = 'Season', best, accent, preview = LOG_PREVIEW, noun = ['game', 'games'], leadSx }: {
+export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], statHeaders, rows, totals, totalsLabel = 'Season', best, accent, preview = LOG_PREVIEW, noun = ['game', 'games'], leadSx, placeholder }: {
   title: string
+  /** The loading state: rows of samples, each cell drawn as a bar of its sample's width, and the
+   *  Show more control drawn invisibly so it still takes its height. Pass samples as the lead too. */
+  placeholder?: boolean
   /** On the heading's right, as every other section's. */
   caption?: React.ReactNode
   leadHeaders?: string[]
@@ -960,12 +1121,15 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                     the one column nobody came here to read. Emphasis on this card is for the figures. See
                     the best-game marks below and the ranks in the season line. */}
                 {r.lead.map((c, k) => (
-                  <Box component="td" key={`lead${k}`} sx={leadCellSx(k)}>{c}</Box>
+                  <Box component="td" key={`lead${k}`} sx={leadCellSx(k)}>
+                    {placeholder && (typeof c === 'string' || typeof c === 'number') ? <FigureBar sample={c} /> : c}
+                  </Box>
                 ))}
                 {r.cells.map((c, j) => {
                   // The rank ink, the card's one colour for a good number. Every
                   // column that can be marked is one where more is better, so it only ever lands
                   // on good news.
+                  if (placeholder) return <Box component="td" key={j} sx={tdSx}><FigureBar sample={c} /></Box>
                   const top = marks.get(j) != null && Number(c) === marks.get(j)
                   // A ZERO DIMS, exactly as it does in the season line above. It is the same
                   // argument and it bites harder here: a batting log is more than half zeros
@@ -1008,7 +1172,9 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
           )}
         </Box>
       </Box>
-      <ExpandToggle expanded={expanded} hidden={hidden} noun={noun} onToggle={toggle} accent={accent} />
+      {placeholder
+        ? <Box aria-hidden sx={{ visibility: 'hidden' }}><ExpandToggle expanded={false} hidden={hidden} noun={noun} onToggle={() => {}} accent={accent} /></Box>
+        : <ExpandToggle expanded={expanded} hidden={hidden} noun={noun} onToggle={toggle} accent={accent} />}
     </Box>
   )
 }
@@ -1087,9 +1253,20 @@ const BAND_INK = { name: '#fff', meta: 'rgba(255,255,255,0.88)', line: 'rgba(255
  *
  * `data-sheet-drag` makes this the phone sheet's grab surface: the card is taller than the sheet,
  * so its body is a scroller, and a scroller takes ownership of a touch before the drag handler can.
+ * Only while the band is PINNED above that scroller (see `grab`).
  */
-export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs = 'div', badge, meta, lines, chips, aside, ink = BAND_INK }: {
+export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs = 'div', badge, meta, lines, chips, aside, ink = BAND_INK, grab = true }: {
   bandRef?: (el: HTMLDivElement | null) => void
+  /**
+   * Be the sheet's grab surface. Off where the band scrolls WITH the content, as the first thing in
+   * a phone pane: the grab surface takes `touch-action: none`, so the browser never scrolls from it
+   * and the sheet moved the pane in JavaScript instead, a touchmove at a time with no momentum. A
+   * swipe that began on the band (the biggest thing at the top of the card) felt like dragging
+   * rather than scrolling, which is most of what made the player page feel unlike every other page.
+   * In the pane the band needs nothing special: at the top of the pane a pull down still closes the
+   * sheet by the rule any content follows.
+   */
+  grab?: boolean
   /** `backgroundColor` and, optionally, `backgroundImage`. */
   background: { color: string; image?: string }
   /** The 2px rule along the bottom, in the club's second colour. */
@@ -1111,7 +1288,7 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
   ink?: { name: string; meta: string; line: string }
 }) {
   return (
-    <Box ref={bandRef} data-sheet-drag sx={{
+    <Box ref={bandRef} data-player-band data-sheet-drag={grab ? '' : undefined} sx={{
       position: 'relative', flexShrink: 0,
       backgroundColor: background.color,
       ...(background.image ? { backgroundImage: background.image } : {}),

@@ -152,6 +152,10 @@ export function inningLabel(tag: Pick<WpblVideoTag, 'half' | 'inning'> | undefin
   return `${tag.half === 'bottom' ? 'Bottom' : 'Top'} ${ORDINAL(tag.inning)}`
 }
 
+// One formatter for every label: `toLocaleDateString` builds a new one per call, and a strip of
+// clips calls this once per clip on every render of the card it sits in.
+const CLIP_DATE = new Intl.DateTimeFormat([], { month: 'short', day: 'numeric' })
+
 /**
  * What a clip is from, as one line: "LA @ SF · Sep 16 · Top 3rd". `withGame` off where the game is
  * already on screen (Game Center), leaving the inning alone. Null when there is nothing to say.
@@ -164,7 +168,7 @@ export function clipLabel(tag: WpblVideoTag | undefined, gameById: Map<string, W
   if (withGame && game) {
     const abbr = (id: string) => teamById.get(id)?.abbr ?? id
     parts.push(`${abbr(game.away_team_id)} @ ${abbr(game.home_team_id)}`)
-    parts.push(new Date(`${game.game_date}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' }))
+    parts.push(CLIP_DATE.format(new Date(`${game.game_date}T12:00:00`)))
   }
   const inning = inningLabel(tag)
   if (inning) parts.push(inning)

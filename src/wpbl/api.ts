@@ -381,6 +381,33 @@ export const getCachedWpblRoster = rosterCache.get
 export const getCachedWpblLineupHistory = lineupsCache.get
 export const getCachedWpblPitchingUsage = usageCache.get
 export const getCachedWpblPlayerLines = playerLinesCache.get
+
+/**
+ * A player's lines for the first paint of their card: their own cached read, or else their slice
+ * of the league-wide read that Home and Stats have almost always made already.
+ *
+ * WHY THE SECOND SOURCE. A player opened for the first time had nothing in the per-player cache,
+ * so the card rose with a spinner under the band, and when the read landed the band moved from
+ * pinned into the scrolling pane, below a role switch that had not existed a moment before: the
+ * portrait remounted and the whole band dropped, mid-slide. The bulk read holds exactly these rows
+ * (the same table, the same `player_id`, every column but `created_at`), so a card opened from a
+ * leaderboard can draw its finished shape at once and let its own read revalidate behind it.
+ *
+ * Batting and pitching only decide whether to seed: the bulk fielding read is made by the awards
+ * ballot alone, so it is used when present and otherwise empty until the player's own read lands,
+ * which only adds the fielding line at the foot of the card.
+ */
+export function getSeedWpblPlayerLines(playerId: string): { batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; fielding: WpblFieldingLine[] } | null {
+  const own = playerLinesCache.get(playerId)
+  if (own) return own
+  const bulk = allLinesCache?.data
+  if (!bulk) return null
+  const batting = bulk.batting.filter(l => l.player_id === playerId)
+  const pitching = bulk.pitching.filter(l => l.player_id === playerId)
+  if (batting.length === 0 && pitching.length === 0) return null
+  const fielding = (allFieldingCache?.data ?? []).filter(l => l.player_id === playerId)
+  return { batting, pitching, fielding }
+}
 export const getCachedWpblPitcherLocations = pitchLocsCache.get
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */

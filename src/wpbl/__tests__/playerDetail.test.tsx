@@ -135,8 +135,12 @@ const logRows = (container: HTMLElement) => {
 // for any rather than exactly one. The two labels are disjoint across the panes: a batting
 // pane never says ERA and a pitching pane never says OPS, which is what makes them a test for
 // which pane is mounted.
-const pitchingShown = () => screen.queryAllByText('ERA').length > 0
-const battingShown = () => screen.queryAllByText('OPS').length > 0
+//
+// Loaded first: while the lines are in flight the card draws its loading state with the real
+// labels over sample bars, so a label alone no longer says the lines have landed.
+const loaded = () => !document.querySelector('[aria-busy="true"]')
+const pitchingShown = () => loaded() && screen.queryAllByText('ERA').length > 0
+const battingShown = () => loaded() && screen.queryAllByText('OPS').length > 0
 
 const rolePills = () => screen.queryAllByRole('button')
   .filter(el => el.hasAttribute('aria-pressed')
@@ -477,9 +481,9 @@ describe('PlayerDetail: the form strip', () => {
 // the pane copy are in the DOM at once and only CSS decides which one a reader sees. What is
 // testable, and worth pinning, is which block the numbers are IN and whose numbers they are.
 describe('PlayerDetail: the headline pair on the club band', () => {
-  // `data-sheet-drag` marks the block that names her: it is the sheet's grab surface on a
-  // phone and the club band everywhere, which makes it the one stable hook for "the band".
-  const band = (c: HTMLElement) => c.querySelector('[data-sheet-drag]') as HTMLElement
+  // `data-player-band` marks the block that names her. Not `data-sheet-drag`, which the band
+  // carries only while it is pinned (see PlayerBand's `grab`).
+  const band = (c: HTMLElement) => c.querySelector('[data-player-band]') as HTMLElement
 
   // THE BAND CARRIES NO STATS ANY MORE, which is what the desktop rebuild cost it and what
   // that rebuild was for. It could only ever show one role's numbers, and above `md` every
@@ -536,7 +540,7 @@ describe('PlayerDetail: the game log', () => {
   it('opens on five games and expands to the whole season', async () => {
     lines.batting = GAMES.map(g => bat({ game_id: g.id, ab: 2, h: 1, tb: 1 }))
     const { container } = show(player())
-    await waitFor(() => expect(logRows(container)).toHaveLength(5))
+    await waitFor(() => { expect(loaded()).toBe(true); expect(logRows(container)).toHaveLength(5) })
 
     fireEvent.click(screen.getByRole('button', { name: /show 5 more games/i }))
     expect(logRows(container)).toHaveLength(10)
@@ -549,7 +553,7 @@ describe('PlayerDetail: the game log', () => {
   it('folds back to five games', async () => {
     lines.batting = GAMES.map(g => bat({ game_id: g.id, ab: 2, h: 1, tb: 1 }))
     const { container } = show(player())
-    await waitFor(() => expect(logRows(container)).toHaveLength(5))
+    await waitFor(() => { expect(loaded()).toBe(true); expect(logRows(container)).toHaveLength(5) })
 
     fireEvent.click(screen.getByRole('button', { name: /show 5 more games/i }))
     const fewer = screen.getByRole('button', { name: /show fewer/i })

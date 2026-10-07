@@ -76,7 +76,9 @@ const GameDetailModal = lazy(() => import('./GameDetail'))
  */
 function usePreloadGameDetail() {
   useEffect(() => {
-    const warm = () => { void import('./GameDetail') }
+    // The player card too: it is reached from every leaderboard, roster and box score, and cold its
+    // chunk cost the first open a fetch, a Suspense tick and a parse before the sheet could move.
+    const warm = () => { void import('./GameDetail'); void import('./PlayerDetail') }
     const hasRIC = typeof window.requestIdleCallback === 'function'
     const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 2000 }) : window.setTimeout(warm, 800)
     return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }

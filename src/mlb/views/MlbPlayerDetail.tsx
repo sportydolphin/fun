@@ -15,7 +15,7 @@
 // handful of at-bats) is one line in the main role. Below the roles: the trend, fielding, the
 // contract and the outside links, which belong to the player rather than to a role.
 
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import React, { lazy, startTransition, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
 import { EmojiEvents, Star, StarBorder } from '@mui/icons-material'
 import {
@@ -110,13 +110,18 @@ const MLB_LOG_PREVIEW = 10
 // ─── Loading ─────────────────────────────────────────────────────────────────────
 
 /** The value `load` resolves to for `key`, or undefined until it lands. A late answer for a key the
- *  page has moved past is dropped; null as a key loads nothing. */
+ *  page has moved past is dropped; null as a key loads nothing.
+ *
+ *  Applied as a transition. The card makes nine of these reads and each answer re-renders all of
+ *  it, at whatever moment it lands; as an ordinary update every one is a block of main-thread work
+ *  that a sheet sliding up or a panel sliding in has to wait out. A transition lets React render it
+ *  between frames, the same rule WPBL's card follows (see lateUpdate in PlayerDetail). */
 function useLoaded<T>(key: string | null, load: () => Promise<T>): T | undefined {
   const [got, setGot] = useState<{ key: string; value: T } | null>(null)
   useEffect(() => {
     if (key == null) return
     let live = true
-    load().then(value => { if (live) setGot({ key, value }) }).catch(() => { /* the block omits itself */ })
+    load().then(value => { if (live) startTransition(() => setGot({ key, value })) }).catch(() => { /* the block omits itself */ })
     return () => { live = false }
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   return got && got.key === key ? got.value : undefined
@@ -616,7 +621,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       )}
       {lineCaption(r, first || !wide)}
       <Box sx={{ mb: 1.5 }}><RateStrip cells={headline(r)} /></Box>
-      <SeasonLine cols={seasonCols(r)} />
+      <SeasonLine cols={seasonCols(r)} headline={headline(r).map(c => c.label)} />
       {cameo(r)}
       {/* On the career, the year-by-year IS the log: it is what the line above adds up.
           THE TREND SITS UNDER THE LOG, once a page. It is the one picture on the card and the shape

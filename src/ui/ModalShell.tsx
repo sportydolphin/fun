@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import React, { createContext, startTransition, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Close } from '@mui/icons-material'
 import { HeaderBack, HEADER_EYEBROW_SX, HEADER_ICON_SX, headerChipSx } from './headerBar'
 import { createPortal } from 'react-dom'
@@ -122,6 +122,7 @@ const SHEET_MQ = '(max-width:600px)'
  */
 const DRAG_CLAIM_PX = 4        // movement before the touch is taken off the browser
 const DRAG_LOCK_PX = 10        // movement before deciding dismiss-drag vs scroll
+const DRAG_RELEASE_PX = 8      // back above the start by this much hands the touch to the scroll
 const DRAG_DISMISS_FRACTION = 0.25 // of the sheet's height, for a slow drag
 const DRAG_FLICK_VELOCITY = 0.5    // px/ms downward, which commits from anywhere
 const DRAG_FLICK_MIN_PX = 24
@@ -169,21 +170,24 @@ function visibleScroller(card: HTMLElement): HTMLElement | null {
   return onCentre ?? tallest
 }
 
-/** The scrollable box the finger is inside, if any, stopping at the sheet itself. */
-function scrollerUnder(target: EventTarget | null, stop: HTMLElement): HTMLElement | null {
+/** Every scrollable box the finger is inside, innermost first, stopping at the sheet itself. */
+function scrollersUnder(target: EventTarget | null, stop: HTMLElement): HTMLElement[] {
+  const out: HTMLElement[] = []
   let el = target instanceof HTMLElement ? target : null
   while (el && el !== stop.parentElement) {
-    const oy = getComputedStyle(el).overflowY
-    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) return el
+    if (el.scrollHeight > el.clientHeight + 1) {
+      const oy = getComputedStyle(el).overflowY
+      if (oy === 'auto' || oy === 'scroll') out.push(el)
+    }
     el = el.parentElement
   }
-  return null
+  return out
 }
 
 function useSheetDrag(
   enabled: boolean,
   cardRef: React.RefObject<HTMLDivElement | null>,
-  overlayRef: React.RefObject<HTMLDivElement | null>,
+  backdropRef: React.RefObject<HTMLDivElement | null>,
   chromeRef: React.RefObject<HTMLDivElement | null>,
   onClose: () => void,
 ) {
@@ -193,21 +197,22 @@ function useSheetDrag(
 
     let active = false, claimed = false, locked = false, eligible = false
     let startY = 0, startX = 0, dy = 0, lastY = 0, lastT = 0, vel = 0
+    // Whether the touchmove being handled is the sheet's, for the claimer below to cancel.
+    let ours = false
+    // The card's height, read once when a drag locks rather than on every move (each read after
+    // a style write is a forced layout), and the frame the next position is waiting for.
+    let height = 1, raf = 0
     // Set only for a drag that began on a pinned grab surface over a pane that is NOT at its
     // top. See the handoff in onMove.
     let bandScroller: HTMLElement | null = null
 
     // The backdrop clears as the sheet falls, so what is behind it is readable on the way
-    // out rather than at the end of it. Both halves of it: the dim AND the blur, since a
-    // sheet sliding off a page that is still frosted looks like the page is broken.
-    //
-    // By its own alpha and filter, never by `opacity`: the sheet is a child of the overlay,
-    // so fading the element would take the sheet down with it.
+    // out rather than at the end of it. By the backdrop layer's OPACITY, which the compositor
+    // can change without a repaint; see the backdrop in DialogShell for why it is its own layer.
     const setBackdrop = (progress: number) => {
-      const el = overlayRef.current
+      const el = backdropRef.current
       if (!el) return
-      const left = 1 - progress
-      el.style.backgroundColor = `rgba(0,0,0,${(0.6 * left).toFixed(3)})`
+      el.style.opacity = (1 - progress).toFixed(3)
     }
 
     const onStart = (e: TouchEvent) => {
@@ -240,15 +245,24 @@ function useSheetDrag(
       // at their top is what stops a drag dismissing the sheet while anything on screen still
       // has somewhere to scroll, without this having to correctly guess which one the reader
       // meant.
-      const local = scrollerUnder(e.target, card)
-      const main = onHandle ? null : visibleScroller(card)
+      //
+      // THE WALK OVER THE WHOLE CARD ONLY WHERE THERE IS NO OTHER WAY. A finger on the content has
+      // its scrollers above it in the tree, a handful of ancestors to check. `visibleScroller`
+      // reads every element in the card, which on the player page was about 45ms on a mid-range
+      // phone at the start of EVERY swipe, and the first touchmove, which this listener can still
+      // cancel, waited for it: a hitch each time a finger landed. Only a finger on pinned chrome,
+      // which has no scroller above it, needs the walk.
+      const chain = scrollersUnder(e.target, card)
+      const local = chain[0] ?? null
+      const main = onHandle ? null : chain.length > 0 ? chain[chain.length - 1] : visibleScroller(card)
       const atTop = (s: HTMLElement | null) => !s || s.scrollTop <= 0
-      eligible = onHandle || (atTop(local) && atTop(main))
+      eligible = onHandle || (chain.every(s => s.scrollTop <= 0) && atTop(main))
       // The pane a band drag scrolls: whichever of the two actually has somewhere to go.
       bandScroller = onBand && !eligible ? (local && local.scrollTop > 0 ? local : main) : null
     }
 
     const onMove = (e: TouchEvent) => {
+      ours = false
       if (!active) return
       const t = e.touches[0]
 
@@ -269,7 +283,6 @@ function useSheetDrag(
         if (bandScroller.scrollTop > 0 || step < 0) {
           bandScroller.scrollTop = Math.max(0, bandScroller.scrollTop - step)
           startY = t.clientY
-          e.preventDefault()
           return
         }
         // At the top and still pulling down. Hand over.
@@ -292,29 +305,59 @@ function useSheetDrag(
         }
         // Held from here on, so the touch stays ours and stays cancelable while the axis
         // settles. This is a no-op for the gesture itself: nothing here could have scrolled.
-        e.preventDefault()
+        ours = true
         // Commit, at DRAG_LOCK_PX, on movement big enough to mean something. A gesture that
         // reads sideways or upward on real distance is handed back rather than dragged.
         if (Math.abs(moveY) < DRAG_LOCK_PX && Math.abs(moveX) < DRAG_LOCK_PX) return
         if (Math.abs(moveX) > Math.abs(moveY) || moveY <= 0) { active = false; return }
         locked = true
+        height = Math.max(card.offsetHeight, 1)
         card.style.transition = 'none'
+        // ON THE COMPOSITOR FOR THE LENGTH OF THE DRAG. Without the hint each new transform
+        // repainted the whole card, measured on a Galaxy S24 at two paints and a style recalc per
+        // finger movement, three hundred a second, for a card that only needed moving.
+        card.style.willChange = 'transform'
+        if (backdropRef.current) backdropRef.current.style.willChange = 'opacity'
+      }
+      // BACK ABOVE WHERE IT STARTED: NOT A DISMISSAL ANY MORE. A drag that began as a pull at the
+      // top and turned into a push up is a reader who wants to scroll, and holding the gesture as a
+      // drag pinned at zero left the page frozen under the finger for the rest of the touch. The
+      // sheet goes back and the touch is handed to the browser from here.
+      if (moveY < -DRAG_RELEASE_PX) {
+        release()
+        card.style.transform = 'translateY(0)'
+        setBackdrop(0)
+        return
       }
       const now = performance.now()
       if (now > lastT) vel = (t.clientY - lastY) / (now - lastT)
       lastY = t.clientY; lastT = now
       dy = Math.max(0, moveY)
-      e.preventDefault()
-      card.style.transform = `translateY(${dy}px)`
-      setBackdrop(Math.min(1, dy / Math.max(card.offsetHeight, 1)))
+      ours = true
+      // One write a frame, however many touchmoves arrive in it.
+      if (!raf) raf = requestAnimationFrame(() => {
+        raf = 0
+        if (!locked) return
+        card.style.transform = `translateY(${dy}px)`
+        setBackdrop(Math.min(1, dy / height))
+      })
+    }
+
+    /** End the drag without deciding anything: the gesture is no longer the sheet's. */
+    const release = () => {
+      active = false; locked = false; ours = false
+      if (raf) { cancelAnimationFrame(raf); raf = 0 }
+      card.style.willChange = ''
+      if (backdropRef.current) backdropRef.current.style.willChange = ''
     }
 
     const onEnd = () => {
+      syncClaimer()
       if (!active) return
       active = false
       if (!locked) return
       locked = false
-      const height = Math.max(card.offsetHeight, 1)
+      if (raf) { cancelAnimationFrame(raf); raf = 0 }
       const go = dy > height * DRAG_DISMISS_FRACTION
         || (vel > DRAG_FLICK_VELOCITY && dy > DRAG_FLICK_MIN_PX)
       card.style.transition = `transform ${DRAG_ANIM_MS}ms ease-out`
@@ -326,19 +369,114 @@ function useSheetDrag(
         card.style.transform = 'translateY(0)'
         setBackdrop(0)
       }
+      // The hint comes off once the card has settled, so a sheet at rest is not held as a layer.
+      window.setTimeout(() => {
+        if (locked) return
+        card.style.willChange = ''
+        if (backdropRef.current) backdropRef.current.style.willChange = ''
+      }, DRAG_ANIM_MS)
+    }
+
+    /**
+     * THE SHEET NEVER STANDS BETWEEN A FINGER AND THE SCROLL.
+     *
+     * A touchmove listener that can cancel (`passive: false`) makes the browser wait for the page
+     * before it moves the content, every gesture, because it cannot know the listener will not
+     * cancel. Spread over a whole sheet of content that is exactly "the page lags behind my finger",
+     * and it only shows on a page as busy as the player card. So the logic above is PASSIVE, and
+     * the one thing it ever needs from a cancellable listener, taking a downward pull away from the
+     * browser, comes from `claimer`, which is attached only while every scroller in the sheet is at
+     * its top. That is the one state in which a pull down on the content is the sheet's: anywhere
+     * else the content simply scrolls, with nothing of ours in its way. The chrome needs no claimer
+     * at any depth: its `touch-action: none` means the browser never scrolls from it.
+     *
+     * Kept in step by the content's own scroll events (they do not bubble, so a capturing listener),
+     * and re-checked at the end of each touch, which catches a pane that went away (the other role
+     * of a two-way player) without scrolling back.
+     */
+    const claimer = (e: TouchEvent) => { if (ours && e.cancelable) e.preventDefault() }
+    const scrolled = new Set<HTMLElement>()
+    let claimerOn = false
+    function syncClaimer() {
+      for (const el of scrolled) if (!el.isConnected || el.scrollTop <= 0) scrolled.delete(el)
+      const want = scrolled.size === 0
+      if (want === claimerOn) return
+      claimerOn = want
+      // Always added after `onMove`, so on a shared event it runs second and sees `ours`.
+      if (want) card!.addEventListener('touchmove', claimer, { passive: false })
+      else card!.removeEventListener('touchmove', claimer)
+    }
+    const onScroll = (e: Event) => {
+      const el = e.target
+      if (!(el instanceof HTMLElement)) return
+      if (el.scrollTop > 0) scrolled.add(el)
+      else scrolled.delete(el)
+      syncClaimer()
     }
 
     card.addEventListener('touchstart', onStart, { passive: true })
-    card.addEventListener('touchmove', onMove, { passive: false })
-    card.addEventListener('touchend', onEnd)
-    card.addEventListener('touchcancel', onEnd)
+    card.addEventListener('touchmove', onMove, { passive: true })
+    card.addEventListener('touchend', onEnd, { passive: true })
+    card.addEventListener('touchcancel', onEnd, { passive: true })
+    card.addEventListener('scroll', onScroll, { capture: true, passive: true })
+    syncClaimer()
     return () => {
+      if (raf) cancelAnimationFrame(raf)
       card.removeEventListener('touchstart', onStart)
       card.removeEventListener('touchmove', onMove)
+      card.removeEventListener('touchmove', claimer)
       card.removeEventListener('touchend', onEnd)
       card.removeEventListener('touchcancel', onEnd)
+      card.removeEventListener('scroll', onScroll, { capture: true })
     }
-  }, [enabled, cardRef, overlayRef, chromeRef, onClose])
+  }, [enabled, cardRef, backdropRef, chromeRef, onClose])
+}
+
+/**
+ * Whether the shell has finished arriving: the phone sheet's rise or the panel's slide.
+ *
+ * THE SLIDE IS THE ONE THING ON THE SCREEN THAT MUST NOT STUTTER, and it runs on the compositor
+ * only for as long as nothing else needs the main thread. A card that mounts everything it has
+ * in the same frame spends the slide re-rendering: on a mid-range phone the player card's mount
+ * was a 130ms task, and the cached reads it fires resolved into a second 115ms render that landed
+ * mid-flight. Content below the first screen can wait the 260ms without anyone seeing it wait,
+ * so `AfterShellEnters` holds it until the shell is still. True from the start wherever nothing
+ * moves (a desktop dialog, a panel swapped in place), and true outside any shell.
+ */
+const EnteredContext = createContext(true)
+export const useShellEntered = () => useContext(EnteredContext)
+
+/** Render `children` once the shell around it has stopped moving. For content below the first
+ *  screen only: anything visible on arrival belongs in the first frame, or it pops in mid-slide. */
+export function AfterShellEnters({ children }: { children: React.ReactNode }) {
+  return useShellEntered() ? <>{children}</> : null
+}
+
+/**
+ * Watch `ref`'s own entry animation and report when it has finished.
+ *
+ * Read off the element's running animations rather than a hard-coded duration, so it follows the
+ * keyframes wherever they are tuned, collapses with them under prefers-reduced-motion, and is true
+ * at once where the media query gave the element no animation at all. The transition is so the
+ * deferred render that this releases is itself time-sliced: a drag that starts the instant the
+ * sheet lands still gets the frame.
+ */
+function useEntered(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [entered, setEntered] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    let done = false
+    const finish = () => { if (!done) { done = true; startTransition(() => setEntered(true)) } }
+    const anims = el && typeof el.getAnimations === 'function'
+      ? el.getAnimations().filter(a => a.playState === 'running')
+      : []
+    if (anims.length === 0) { finish(); return }
+    Promise.all(anims.map(a => a.finished)).then(finish, finish)
+    // A backstop for an animation that never reports (a hidden tab does not run them).
+    const t = window.setTimeout(finish, 600)
+    return () => { done = true; window.clearTimeout(t) }
+  }, [ref])
+  return entered
 }
 
 /** How many ModalShells are mounted. See the effect in ModalShell for what it is for. */
@@ -443,6 +581,10 @@ export function useOpensAsPanel(): boolean {
  */
 type ShellEntry = { z: number; panel: boolean; el: () => HTMLElement | null }
 const openShells = new Map<object, ShellEntry>()
+
+/** Whether any shell, dialog or panel, is open: for background work that should wait while the
+ *  reader is in one (see the tab warm-up in SwipeableViews). */
+export const anyShellOpen = (): boolean => openShells.size > 0
 
 function useRegisterShell(id: object, z: number, panel: boolean, ref: React.RefObject<HTMLElement | null>) {
   // A layout effect, so every shell committed in the same render is registered before any panel
@@ -647,6 +789,7 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
   useEscapeToClose(onClose, id)
   const panelRef = useRef<HTMLDivElement>(null)
   const labelId = useId()
+  const entered = useEntered(panelRef)
 
   // Seeded at render, so a panel opened over an already-open dialog is never painted under it for
   // a frame; settled again after commit, once every shell mounted alongside it has registered.
@@ -734,7 +877,9 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
         '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
       }}>
         <ShellZContext.Provider value={z}>
-          <ThemeProvider theme={PANEL_THEME}>{children}</ThemeProvider>
+          <EnteredContext.Provider value={entered}>
+            <ThemeProvider theme={PANEL_THEME}>{children}</ThemeProvider>
+          </EnteredContext.Provider>
         </ShellZContext.Provider>
       </Box>
       {footer && (
@@ -794,13 +939,15 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
   // A sheet on a phone can be pushed back down. See useSheetDrag for what that has to avoid
   // colliding with; above sm this is an ordinary centred dialog and none of it is bound.
   const overlayRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const chromeRef = useRef<HTMLDivElement>(null)
   // The phone test lives inside the gesture, where it is read live off `matchMedia` and cannot
   // drift from the CSS breakpoint that decides whether this is a sheet at all. See SHEET_MQ.
   const swipeNav = useSwipeNav()
-  useSheetDrag(!!sheet && swipeNav, cardRef, overlayRef, chromeRef, onClose)
+  useSheetDrag(!!sheet && swipeNav, cardRef, backdropRef, chromeRef, onClose)
   useRegisterShell(id, zIndex, false, overlayRef)
+  const entered = useEntered(cardRef)
 
   /**
    * PORTALLED TO THE BODY, AND IT HAS TO BE.
@@ -826,34 +973,41 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       sx={{
         position: 'fixed', inset: 0, zIndex,
-        // NO `backdrop-filter` HERE, AND THIS IS A PERFORMANCE RULE RATHER THAN A TASTE ONE. A
-        // full-viewport backdrop filter makes the browser rasterise and blur EVERYTHING painted beneath
-        // it, which is the whole page, every time anything invalidates the backdrop. Every tappable row
-        // in this section changes its background on hover (TAPPABLE), so moving the mouse across a
-        // sheet of tiles over a page of large portraits asks for that work on every small change,
-        // which is visible lag on a desktop. The dim alone reads the same at a glance. See the AppBar's
-        // blur in App.tsx, which is the other half of this and is suppressed while a modal is up.
-        bgcolor: 'rgba(0,0,0,0.6)',
         display: 'flex', justifyContent: 'center',
         alignItems: sheet ? { xs: 'flex-end', sm: 'center' } : 'center',
         p: sheet ? { xs: 0, sm: 2 } : { xs: 1, sm: 2 },
-        // The dim fades in over the same beat the sheet takes to travel, instead of snapping to
-        // full black the instant the card starts moving: a hard cut behind a sliding sheet reads
-        // as two unrelated events. Phones and `sheet` only, matching wpblSheetUp on the card, and
-        // an `animation` (not a transition) so styles.css's reduced-motion collapse covers it too.
-        // No `forwards`: the element's own 0.6 is the resting state the keyframe lands on.
+      }}
+    >
+      {/* THE DIM IS ITS OWN LAYER, AND IT FADES BY OPACITY. It used to be the overlay's own
+          background, animated as `background-color`, which is a paint property: every frame of the
+          fade repainted the whole viewport on the main thread, the same main thread the card below
+          is busy mounting on, so the dim stepped in visible jumps behind a sheet that was meant to
+          glide. Opacity is one of the two properties the compositor animates by itself (transform is
+          the other, and is what moves the sheet), so the fade now keeps time however busy the page
+          is. A sibling of the card rather than its parent, because fading a parent fades the card.
+
+          NO `backdrop-filter`, AND THIS IS A PERFORMANCE RULE RATHER THAN A TASTE ONE. A
+          full-viewport backdrop filter makes the browser rasterise and blur EVERYTHING painted beneath
+          it, which is the whole page, every time anything invalidates the backdrop. Every tappable row
+          in this section changes its background on hover (TAPPABLE), so moving the mouse across a
+          sheet of tiles over a page of large portraits asks for that work on every small change,
+          which is visible lag on a desktop. The dim alone reads the same at a glance. See the AppBar's
+          blur in App.tsx, which is the other half of this and is suppressed while a modal is up.
+
+          The fade runs over the same beat the sheet takes to travel, on phones and `sheet` only, as
+          an `animation` so styles.css's reduced-motion collapse covers it. */}
+      <Box ref={backdropRef} onClick={onClose} sx={{
+        position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.6)',
         ...(sheet ? {
           '@media (max-width: 599.95px)': {
             animation: 'wpblBackdropIn 260ms cubic-bezier(0.2, 0, 0, 1)',
-            '@keyframes wpblBackdropIn': {
-              from: { backgroundColor: 'rgba(0,0,0,0)' },
-              to: { backgroundColor: 'rgba(0,0,0,0.6)' },
-            },
+            '@keyframes wpblBackdropIn': { from: { opacity: 0 }, to: { opacity: 1 } },
           },
         } : {}),
-      }}
-    >
+      }} />
       <Box ref={cardRef} sx={{
+        // Positioned, so it paints over the absolutely placed dim beside it.
+        position: 'relative',
         width: '100%', maxWidth,
         bgcolor: 'background.paper',
         borderRadius: sheet ? { xs: '18px 18px 0 0', sm: 3 } : 3,
@@ -955,7 +1109,9 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
           '&::-webkit-scrollbar': { width: 4 },
           '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
         }}>
-          <ShellZContext.Provider value={zIndex}>{children}</ShellZContext.Provider>
+          <ShellZContext.Provider value={zIndex}>
+            <EnteredContext.Provider value={entered}>{children}</EnteredContext.Provider>
+          </ShellZContext.Provider>
         </Box>
 
         {footer && (

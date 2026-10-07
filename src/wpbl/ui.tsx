@@ -16,7 +16,7 @@ import { hoverOnly, TAPPABLE, tappableIf, pressable, FOCUS_RING } from '../ui/in
 import { chromePx } from '../ui/scale'
 import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
-export { ModalShell, usePhoneLayout } from '../ui/ModalShell'
+export { ModalShell, usePhoneLayout, AfterShellEnters } from '../ui/ModalShell'
 import { usePhoneLayout } from '../ui/ModalShell'
 
 // ─── Name shortening ────────────────────────────────────────────────────────────
@@ -582,8 +582,14 @@ export function BaseDiamond({ first, second, third, size = 34, scale, color = '#
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring, eager }: {
+export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring, eager, priority }: {
   name: string; teamId: string | null; size?: number
+  /** The face a card is ABOUT, drawn on arrival: the player card's band. Loads eagerly at high
+   *  priority, and shows the 128 copy (almost always already cached, by the list row the card was
+   *  opened from) until the full-size one has loaded. Without that the band rose into view with an
+   *  empty club-coloured square where the face would arrive a beat later, and a lazy image that
+   *  remounts paints blank for a frame before it finds its cached copy. */
+  priority?: boolean
   /** Override the ring colour, which defaults to the club's secondary. See TeamBadge's `ring`:
    *  for a card keyed on one team colour, so the portrait ring matches it instead of stacking a
    *  second hue outside it. */
@@ -605,12 +611,17 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
   const art: WpblPortraitSet | null =
     typeof given === 'string' ? { src: given } : (given ?? wpblPortraitSet(name))
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+  // With a srcset the `src` is the 128 copy (see wpblPortraitSet). Cleared once the chosen
+  // rendition has loaded, because these are cut-outs: left underneath, the soft copy would show
+  // through the transparent edge around the sharp one.
+  const placeholder = priority && art?.srcSet ? art.src : null
   return (
     <Box sx={{
       // Same as TeamBadge: art scales with the chrome, not with the reader's text size.
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
       borderRadius: square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
       bgcolor: wpblColor(teamId),
+      ...(placeholder ? { backgroundImage: `url(${placeholder})`, backgroundSize: 'cover' } : {}),
       border: `2px solid ${ring ?? wpblSecondary(teamId)}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
@@ -623,7 +634,12 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
             // the safe direction (a sharper file than needed); understating it would send a
             // 2x player page the 128.
             sizes={`${Math.ceil(size * 1.4)}px`}
-            alt={name} loading={eager ? 'eager' : 'lazy'}
+            alt={name} loading={eager || priority ? 'eager' : 'lazy'}
+            {...(priority ? { fetchpriority: 'high' } : {})}
+            onLoad={placeholder ? (e: React.SyntheticEvent<HTMLImageElement>) => {
+              const frame = e.currentTarget.parentElement
+              if (frame) frame.style.backgroundImage = 'none'
+            } : undefined}
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: '#fff' }}>{initials}</Typography>}

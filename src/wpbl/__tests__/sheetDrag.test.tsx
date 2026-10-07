@@ -131,6 +131,8 @@ describe('dragging the pinned band while the pane is scrolled', () => {
     for (let y = 110; y <= 400; y += 20) touch(band, 'touchmove', y)
 
     expect(pane.scrollTop).toBe(0)
+    // The card moves once a frame rather than once a touchmove, so let a frame pass.
+    act(() => { vi.advanceTimersByTime(20) })
     expect(card.style.transform).toMatch(/translateY\((\d+(\.\d+)?)px\)/)
     settle(band, 400)
     expect(onClose).toHaveBeenCalled()

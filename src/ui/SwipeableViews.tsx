@@ -2,6 +2,7 @@ import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMediaQuery } from '@mui/material'
 import { useSwipeNav } from '../AccessibilityContext'
+import { anyShellOpen } from './ModalShell'
 
 // Finger-tracking tab pager for touch devices. The active view and, during a drag, the
 // one neighbour in the drag direction translate 1:1 with the finger; releasing past a
@@ -37,6 +38,28 @@ const ANIM_MS = 260          // a swipe's release (commit or spring-back)
 // One screen means one duration, tuned to move in lockstep with the bottom bar's own indicator
 // (same length, same curve), so the page and the little selector bubble travel together.
 const TAP_MS = 300
+
+/**
+ * When the reader last touched, scrolled or wheeled anywhere, for the tab warm-up to keep clear of.
+ *
+ * Mounting a hidden tab is 100 to 250ms of main thread on a mid-range phone, and a scroll in
+ * progress needs that thread for every frame it does not hand to the compositor. Warmed on idle
+ * callbacks alone, the warm-up landed in the gaps BETWEEN a scroll's frames, which an idle callback
+ * counts as idle, so the first swipes of a session (and every swipe of a player sheet opened over
+ * the section) stuttered while Schedule, Teams and Standings were built underneath them.
+ */
+let lastInputAt = 0
+let inputWatched = false
+function watchInput() {
+  if (inputWatched || typeof window === 'undefined') return
+  inputWatched = true
+  const mark = () => { lastInputAt = performance.now() }
+  for (const e of ['touchstart', 'touchmove', 'scroll', 'wheel'] as const) {
+    window.addEventListener(e, mark, { passive: true, capture: true })
+  }
+}
+/** How long the screen has to have been still before a tab is warmed. */
+const WARM_QUIET_MS = 900
 // The one easing both the tap slide and a swipe's release use. It is the SAME curve the bottom
 // nav's indicator rides (see BottomNav), which is what lets the two stay in sync: a fast start and
 // a long, soft settle, so the page arrives without a hard stop.
@@ -324,8 +347,18 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     let k = 0
     const hasRIC = typeof window.requestIdleCallback === 'function'
     let id: number
+    let wait = 0
+    watchInput()
     const step = () => {
       if (cancelled) return
+      // Not while the reader is moving the page, and not under an open sheet or panel, whose
+      // reader is not about to swipe tabs. A pager INSIDE a sheet (the player card's roles) is the
+      // exception to the second: it is what the reader is looking at.
+      const sinceInput = performance.now() - lastInputAt
+      if (sinceInput < WARM_QUIET_MS || (!paneMode && anyShellOpen())) {
+        wait = window.setTimeout(step, Math.max(250, WARM_QUIET_MS - sinceInput))
+        return
+      }
       while (k < order.length && visited.current.has(order[k])) k++
       if (k >= order.length) return
       visited.current.add(order[k]); k++
@@ -333,8 +366,8 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       id = hasRIC ? window.requestIdleCallback(step, { timeout: 4000 }) : window.setTimeout(step, 200) as unknown as number
     }
     id = hasRIC ? window.requestIdleCallback(step, { timeout: 4000 }) : window.setTimeout(step, 500) as unknown as number
-    return () => { cancelled = true; if (hasRIC) window.cancelIdleCallback(id); else window.clearTimeout(id) }
-  }, [activeIndex, pagerOn, panels.length, warmUnlocked])
+    return () => { cancelled = true; window.clearTimeout(wait); if (hasRIC) window.cancelIdleCallback(id); else window.clearTimeout(id) }
+  }, [activeIndex, pagerOn, panels.length, warmUnlocked, paneMode])
 
   // Mirrors for the native (non-React) touch handlers, which close over stale state otherwise.
   const animRef = useRef(false); animRef.current = anim
@@ -352,9 +385,14 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     vel: 0, lastX: 0, lastT: 0, startT: 0,
   })
 
+  // NO GESTURE AT ALL WITH NOTHING TO SWIPE TO. A one-pane pager (a player who only hits) has no
+  // neighbour, so all a drag could ever do is rubber-band, and the price of offering that was a
+  // cancellable touchmove listener over the whole pane, which makes the browser consult the page
+  // before every scroll of it. See the claimer in ModalShell's useSheetDrag.
+  const gestures = pagerOn && panels.length > 1
   useEffect(() => {
     const el = containerRef.current
-    if (!el || !pagerOn) return
+    if (!el || !gestures) return
 
     const onStart = (e: TouchEvent) => {
       // A GESTURE THE PAGER DECLINES STILL HAS TO CLEAR THE LAST ONE, and this is the whole
@@ -399,7 +437,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         // an ordinary, slower drag; a hard flick falls through to the pager below.
         const dt = e.timeStamp - s.startT
         const flickV = dt > 0 ? Math.abs(dx) / dt : 0
-        if (flickV < SCROLLER_FLICK_VELOCITY && ownsHorizontalScroll(s.target, el, d)) {
+        // In pane mode a sideways scroller keeps even a hard flick: the listener there is passive
+        // (see below), so the table would scroll natively under a tab change it cannot cancel.
+        if ((paneMode || flickV < SCROLLER_FLICK_VELOCITY) && ownsHorizontalScroll(s.target, el, d)) {
           s.lock = 'v'; s.tracking = false; return
         }
         s.lock = 'h'
@@ -422,7 +462,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       }
 
       if (s.lock !== 'h') return
-      e.preventDefault() // we own this gesture now, so stop the page from also scrolling
+      // We own this gesture now, so stop the page from also scrolling. Not needed in pane mode,
+      // where the pane's `touch-action: pan-y` already keeps the browser off a horizontal drag.
+      if (!paneMode) e.preventDefault()
       // Smooth the finger's px/ms speed so onEnd knows how hard the release was flicked.
       // Weighted toward the newest sample so a late burst of speed (the flick) dominates.
       const dt = e.timeStamp - s.lastT
@@ -476,7 +518,14 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     }
 
     el.addEventListener('touchstart', onStart, { passive: true })
-    el.addEventListener('touchmove', onMove, { passive: false })
+    // PASSIVE IN PANE MODE, which is a pager inside a sheet (a two-way player's roles, Game
+    // Center's tabs). A cancellable touchmove makes the browser consult the page before every
+    // scroll of everything under it, and inside a sheet that is the content the reader is scrolling.
+    // It is not needed there: each pane is a scroll container with `touch-action: pan-y`, so the
+    // browser pans a drag that starts vertical and leaves one that starts horizontal entirely to
+    // this handler, without a preventDefault. The window-mode pager keeps its cancellable listener
+    // because the page it sits in is the window's scroll, whose touch-action it does not set.
+    el.addEventListener('touchmove', onMove, { passive: paneMode })
     el.addEventListener('touchend', onEnd, { passive: true })
     el.addEventListener('touchcancel', onEnd, { passive: true })
     return () => {
@@ -485,7 +534,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       el.removeEventListener('touchend', onEnd)
       el.removeEventListener('touchcancel', onEnd)
     }
-  }, [pagerOn, paneMode])
+  }, [gestures, paneMode])
 
   // A pane owns its own vertical scroll in pane mode (in window mode the page scrolls, so the
   // pane must not become a scroll container).
@@ -501,6 +550,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       height: '100%', overflowY: 'auto' as const,
       scrollbarGutter: 'stable' as const,
       WebkitOverflowScrolling: 'touch' as const,
+      // The pane is a scroll container, so its own touch-action is the one that governs touches in
+      // it (the container's `pan-y` stops at it). See the passive touchmove above.
+      touchAction: 'pan-y pinch-zoom' as const,
     }
     : {}
 

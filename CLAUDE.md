@@ -376,6 +376,18 @@ Each of these has already cost someone a debugging session, and none of them fai
   broadcast you can see on YouTube from abroad is correctly absent locally. Every surface reads
   the filtered list, so none of them needs to ask; do not add a second read of `wpbl_videos` that
   skips `playableIn`, or it will offer a player that says "Video unavailable".
+- **A cancellable touch listener over scrolling content makes the scroll wait for JavaScript.**
+  A `touchmove` listener with `passive: false` forces the browser to ask the page before it
+  scrolls anything under it, so on a busy page the content trails the finger, and nothing errors.
+  The player sheet felt like this until Oct 7, 2026 with two such listeners (the sheet's
+  drag-to-dismiss and the role pager), while Home felt fine. In [`ModalShell.tsx`](src/ui/ModalShell.tsx)
+  the drag logic is passive and its one cancelling listener (`claimer`) is attached only while every
+  scroller in the sheet is at its top; the pager in [`SwipeableViews.tsx`](src/ui/SwipeableViews.tsx)
+  is passive in pane mode, where each pane's `touch-action: pan-y` does the job `preventDefault`
+  did, and attaches nothing at all for a single pane. Do not add a `passive: false` touch listener
+  inside a sheet. Headless Chrome cannot show this (no display, so no real input latency); measure on
+  a phone: `adb` is in `~/.bubblewrap/android_sdk/platform-tools`, `adb reverse tcp:4173 tcp:4173`
+  with `vite preview --host 127.0.0.1` (preview binds IPv6 only by default, which `adb` cannot reach).
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))
   is loaded by three builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and

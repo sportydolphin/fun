@@ -44,11 +44,18 @@ export function fetchWpblAwardResults(): Promise<AwardResults> {
   if (resultsCache && Date.now() - resultsCache.at < RESULTS_TTL_MS) return resultsCache.p
   const p = readAwardResults()
   resultsCache = { p, at: Date.now() }
+  p.then(r => { lastResults = r })
   return p
 }
 
+/** The last tally that landed, whatever its age, for a first paint. The player card draws its
+ *  award ribbon from this so the band is its final height as it rises, instead of growing a row
+ *  under the reader when the read resolves; the read still runs and corrects it. */
+export function getCachedWpblAwardResults(): AwardResults | null { return lastResults }
+
 const RESULTS_TTL_MS = 15_000
 let resultsCache: { p: Promise<AwardResults>; at: number } | null = null
+let lastResults: AwardResults | null = null
 
 async function readAwardResults(): Promise<AwardResults> {
   const { data, error } = await supabase.rpc('wpbl_award_results')
