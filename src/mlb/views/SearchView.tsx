@@ -1,24 +1,19 @@
-import React, { useRef, useEffect, useLayoutEffect, lazy, Suspense } from 'react'
+import React, { useRef, useEffect, lazy, Suspense } from 'react'
 import {
   Box, Typography, Paper, CircularProgress,
   List, ListItemButton, Divider, ClickAwayListener,
-  Popover, Menu, MenuItem, Tooltip, useMediaQuery,
+  Popover, Menu, MenuItem, Tooltip,
 } from '@mui/material'
-import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert, Link as LinkIcon, Check, PriorityHigh } from '@mui/icons-material'
-import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, PlayerContract } from '../types'
-import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
-import { PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
+import { Search, Shuffle, FileDownload, OpenInFull, Tune, MoreVert } from '@mui/icons-material'
+import { Player, Team, Palette, RankMode, TeamPlayerStat, RosterEntry, StandingsDivision } from '../types'
+import { ACCENT, ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, TEAM_BG, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
+import { PillChip, linkPillSx, SectionLabel } from '../components/ui'
 import { FullscreenEntry } from '../components/MlbSheet'
-import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
-// ~1,000-line chart module, lazy so it only loads once a player card is open.
-const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
+import { TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
 // Team schedule (live/next game cards + full-schedule modal, today highlighted). Lazy so
 // the ScheduleStrip module only loads when a team page is actually opened.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
-import { RecentGamesTable } from '../components/RecentGamesTable'
 import { TeamRoster } from '../components/TeamRoster'
-import { CareerStatsTable } from '../components/CareerStatsTable'
-import { ContractPanel } from '../components/ContractPanel'
 import { fetchPlayerDetails } from '../api'
 import { track, EVENTS } from '../../lib/analytics'
 import { mlbPlayerPath } from '../routes'
@@ -26,8 +21,10 @@ import { pushEntry } from '../state/sheetHistory'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { MlbPageH1 } from '../components/PageHeading'
-import { useCopyLink, copyLabel } from '../../ui/CopyLinkButton'
-import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
+
+// THE TEAM PAGE. It was the player page too until Oct 2026, when the player moved to its own
+// self-fetching card (MlbPlayerDetail); the view is still called 'search' because that is the name
+// every history entry and address already carries for both.
 
 export interface SearchViewProps {
   // Search
@@ -44,7 +41,6 @@ export interface SearchViewProps {
   onTeamClick?: (id: number) => void
 
   // Display state
-  player: Player | null
   team: Team | null
   palette: Palette
   setPalette: (p: Palette) => void
@@ -52,64 +48,27 @@ export interface SearchViewProps {
   loadingStats: boolean
   hasStats: boolean | null
 
-  // Player display options
+  // Season selector
   rankMode: RankMode
   setRankMode: (m: RankMode) => void
-  showPosition: boolean
-  setShowPosition: (v: boolean | ((prev: boolean) => boolean)) => void
-  showTeam: boolean
-  setShowTeam: (v: boolean | ((prev: boolean) => boolean)) => void
-  showAge: boolean
-  setShowAge: (v: boolean | ((prev: boolean) => boolean)) => void
-  showNumber: boolean
-  setShowNumber: (v: boolean | ((prev: boolean) => boolean)) => void
-
-  // Season selector
-  statsView: 'season' | 'career'
-  setStatsView: (v: 'season' | 'career') => void
   currentAvailableSeasons: number[]
   handleSeasonChange: (s: number) => void
-  careerHittingTotals: any
-  careerPitchingTotals: any
   seasonSelectorStyle: 'dropdown' | 'buttons'
 
   // Stats
-  hittingStats: any
-  pitchingStats: any
   teamHitting: any
   teamPitching: any
-  selectedHitStats: string[]
-  setSelectedHitStats: (s: string[]) => void
-  selectedPitStats: string[]
-  setSelectedPitStats: (s: string[]) => void
   selectedTeamHitStats: string[]
   setSelectedTeamHitStats: (s: string[]) => void
   selectedTeamPitStats: string[]
   setSelectedTeamPitStats: (s: string[]) => void
-  toggleHitStat: (key: string) => void
-  togglePitStat: (key: string) => void
   toggleTeamHitStat: (key: string) => void
   toggleTeamPitStat: (key: string) => void
-  hitLeaders: Map<string, number[]>
-  pitLeaders: Map<string, number[]>
   teamHitLeaders: Map<string, number[]>
   teamPitLeaders: Map<string, number[]>
 
   // Card props
-  playerCardProps: CardInnerProps | null
   teamCardProps: TeamCardInnerProps | null
-
-  // Trends
-  showTrends: boolean
-  playerContract: PlayerContract | null
-  careerSplits: CareerStatSplit[] | null
-  loadingCareer: boolean
-  recentGames: RecentGameEntry[]
-  loadingRecent: boolean
-  recentGamesOpen: boolean
-  setRecentGamesOpen: (o: boolean | ((prev: boolean) => boolean)) => void
-  highlightedGameDate: string | null
-  setHighlightedGameDate: (d: string | null | ((prev: string | null) => string | null)) => void
 
   // Featured players (team view)
   showFeaturedRight: boolean
@@ -123,67 +82,25 @@ export interface SearchViewProps {
 export function SearchView({
   query, setQuery, playerResults, teamResults,
   searching, dropdownOpen, setDropdownOpen, selectPlayer, selectTeam, onTeamClick,
-  player, team, palette, setPalette, season, loadingStats, hasStats,
-  rankMode, setRankMode, showPosition, setShowPosition, showTeam, setShowTeam,
-  showAge, setShowAge, showNumber, setShowNumber,
-  statsView, setStatsView, currentAvailableSeasons, handleSeasonChange,
-  careerHittingTotals, careerPitchingTotals, seasonSelectorStyle,
-  hittingStats, pitchingStats, teamHitting, teamPitching,
-  selectedHitStats, setSelectedHitStats, selectedPitStats, setSelectedPitStats,
+  team, palette, setPalette, season, loadingStats, hasStats,
+  rankMode, setRankMode, currentAvailableSeasons, handleSeasonChange, seasonSelectorStyle,
+  teamHitting, teamPitching,
   selectedTeamHitStats, setSelectedTeamHitStats, selectedTeamPitStats, setSelectedTeamPitStats,
-  toggleHitStat, togglePitStat, toggleTeamHitStat, toggleTeamPitStat,
-  hitLeaders, pitLeaders, teamHitLeaders, teamPitLeaders,
-  playerCardProps, teamCardProps,
-  showTrends, playerContract, careerSplits, loadingCareer,
-  recentGames, loadingRecent, recentGamesOpen, setRecentGamesOpen,
-  highlightedGameDate, setHighlightedGameDate,
+  toggleTeamHitStat, toggleTeamPitStat,
+  teamHitLeaders, teamPitLeaders,
+  teamCardProps,
   showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders, divisionStandings,
   teamRoster,
 }: SearchViewProps) {
   const cardRef = useRef<HTMLDivElement>(null)
-  const isMobile = !useMediaQuery('(min-width: 600px)')
   const [fullscreen, setFullscreen] = React.useState(false)
   const exitFullscreen = useRef<(() => void) | null>(null)
   const [cardMenuAnchor, setCardMenuAnchor] = React.useState<HTMLElement | null>(null)
   const [downloading, setDownloading] = React.useState(false)
   const [cardOptionsAnchor, setCardOptionsAnchor] = React.useState<HTMLElement | null>(null)
-  const [highlightedCareerYear, setHighlightedCareerYear] = React.useState<number | null>(null)
-  const [careerTableOpen, setCareerTableOpen] = React.useState(true)
-  const [contractOpen, setContractOpen] = React.useState(true)
   const [rosterOpen, setRosterOpen] = React.useState(true)
   const [scheduleOpen, setScheduleOpen] = React.useState(true)
   const [showFullSchedule, setShowFullSchedule] = React.useState(false)
-  // The card/trends grid stacks into one column below md (900px). When stacked, the
-  // player page reorders to card → recent games → graph → contract (see contractBlock
-  // and the `order` values on the trends column).
-  const stacked = !useMediaQuery('(min-width: 900px)')
-
-  // Contract card. Sits under the portrait on the wide two-column layout; moves to the
-  // very bottom of the page when the layout stacks, so contract reads last on mobile.
-  // Only one of the two slots renders (they're gated on !stacked / stacked).
-  const contractBlock = player && playerContract ? (
-    <Box sx={{ mt: 1.5 }}>
-      <Box
-        onClick={() => setContractOpen(o => !o)}
-        sx={{
-          mb: contractOpen ? 1.25 : 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          cursor: 'pointer', userSelect: 'none',
-        }}
-      >
-        <SectionLabel strong>Contract</SectionLabel>
-        <Box sx={{
-          fontSize: '0.75rem', color: 'text.disabled',
-          transition: 'transform 0.18s',
-          transform: contractOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-        }}>▾</Box>
-      </Box>
-      {contractOpen && (
-        <ContractPanel contract={playerContract} currentSeason={CURRENT_SEASON} />
-      )}
-    </Box>
-  ) : null
-
   // Open a player from within a team page. Pushes the player's entry so the browser Back
   // button returns to this team (mirrors the Team Leaders cards below); the team's own entry
   // already carries its snapshot from the URL sync.
@@ -195,41 +112,6 @@ export function SearchView({
       .then(details => { if (details) selectPlayer(details) })
       .catch(() => {})
   }, [team, selectPlayer])
-
-  // Position of the card's year text (relative to the card's positioned wrap), so the
-  // prev/next-year arrows sit right beside the value they're changing (vertically
-  // centered on it and flanking it left/right) instead of pinned to the card edges.
-  const cardWrapRef = useRef<HTMLDivElement>(null)
-  const [yearRect, setYearRect] = React.useState<{ top: number; left: number; right: number } | null>(null)
-  useLayoutEffect(() => {
-    const wrap = cardWrapRef.current
-    if (!wrap) return
-    const measure = () => {
-      const yearEl = wrap.querySelector('[data-card-year]') as HTMLElement | null
-      if (!yearEl) { setYearRect(null); return }
-      const wr = wrap.getBoundingClientRect()
-      // The year text is centered inside a full-width block, so the element's own
-      // getBoundingClientRect() returns the whole (wide) box, not the digits. A Range
-      // over its text content gives the tight bounds of the actual rendered glyphs.
-      const range = document.createRange()
-      range.selectNodeContents(yearEl)
-      const yr = range.getBoundingClientRect()
-      // Spent as left/top in the same pixels the rects are in, now that no `zoom` sits between
-      // the two (until Oct 2026 these were divided back down by it).
-      setYearRect({
-        top:   yr.top - wr.top + yr.height / 2,
-        left:  yr.left - wr.left,
-        right: yr.right - wr.left,
-      })
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(wrap)
-    return () => ro.disconnect()
-  }, [player?.id, season, statsView, hasStats])
-
-  // Reset career highlight when player changes
-  useEffect(() => { setHighlightedCareerYear(null) }, [player?.id])
 
   // Close the full-schedule modal when switching teams, so it doesn't linger open.
   useEffect(() => { setShowFullSchedule(false) }, [team?.id])
@@ -281,7 +163,7 @@ export function SearchView({
       }
       ctx.drawImage(captured, dx, dy, dw, dh)
       const suffix = mode === 'tiktok' ? '-tiktok' : ''
-      const subject = player?.fullName ?? team?.name ?? 'stats'
+      const subject = team?.name ?? 'stats'
       const link = document.createElement('a')
       link.download = `${subject}-${season}${suffix}.png`
       link.href = out.toDataURL('image/png')
@@ -297,7 +179,7 @@ export function SearchView({
     <>
       {/* The page's name. Drawn only inside the card, which is a picture of the player as far as
           the outline goes; see PageHeading.tsx. */}
-      {(player || team) && <MlbPageH1>{player ? `${player.fullName}: MLB stats` : `${team!.name}: stats and roster`}</MlbPageH1>}
+      {team && <MlbPageH1>{`${team.name}: stats and roster`}</MlbPageH1>}
       {/* Fullscreen overlay */}
       {fullscreen && hasStats && <FullscreenEntry onClose={() => setFullscreen(false)} exitRef={exitFullscreen} />}
       {fullscreen && hasStats && (
@@ -306,7 +188,6 @@ export function SearchView({
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
           <Box sx={{ width: '100%', maxWidth: chromePx(520), px: 4 }}>
-            {playerCardProps && <CardInner {...playerCardProps} large onToggleHitStat={undefined} onTogglePitStat={undefined} />}
             {teamCardProps && <TeamCardInner {...teamCardProps} large onToggleHitStat={undefined} onTogglePitStat={undefined} />}
           </Box>
         </Box>
@@ -330,28 +211,6 @@ export function SearchView({
       {/* Unified season / career selector: dropdown by default; year pills when the
           dev setting flips it to 'buttons'. Career is always its own emphasized toggle. */}
       {(hasStats || loadingStats) && (() => {
-        const hasCareer = player && (careerHittingTotals != null || careerPitchingTotals != null)
-        const careerActive = statsView === 'career'
-
-        const careerToggle = hasCareer && (
-          <Box
-            onClick={() => setStatsView('career')}
-            sx={{
-              flexShrink: 0, px: 1.6, py: 0.6, borderRadius: 999,
-              cursor: 'pointer', fontSize: '0.82rem', fontWeight: 800, letterSpacing: typePx(0.2),
-              userSelect: 'none', whiteSpace: 'nowrap',
-              display: 'inline-flex', alignItems: 'center', gap: 0.5,
-              bgcolor: careerActive ? ACCENT : 'transparent',
-              color: careerActive ? '#000' : 'text.secondary',
-              border: '1.5px solid', borderColor: careerActive ? ACCENT : 'divider',
-              transition: 'all 0.15s',
-              '&:hover': careerActive ? {} : { borderColor: ACCENT, color: ACCENT_TEXT },
-            }}
-          >
-            ★ Career
-          </Box>
-        )
-
         if (seasonSelectorStyle === 'buttons') {
           // Legacy pills (kept for the dev toggle)
           return (
@@ -360,12 +219,11 @@ export function SearchView({
               msOverflowStyle: 'none', scrollbarWidth: 'none',
               '&::-webkit-scrollbar': { display: 'none' },
             }}>
-              {careerToggle}
               {currentAvailableSeasons.map(y => {
-                const active = statsView === 'season' && season === y
+                const active = season === y
                 return (
                   <Box key={y}
-                    onClick={() => { setStatsView('season'); handleSeasonChange(y) }}
+                    onClick={() => handleSeasonChange(y)}
                     sx={{
                       flexShrink: 0, px: 1.5, py: 0.55, borderRadius: 999,
                       cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
@@ -387,20 +245,17 @@ export function SearchView({
         // Dropdown mode (default)
         return (
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 1.5, alignItems: 'center' }}>
-            {careerToggle}
             <Box sx={{
               display: 'inline-flex', alignItems: 'center', borderRadius: 999,
               border: '1.5px solid', borderColor: 'divider',
-              opacity: careerActive ? 0.55 : 1,
-              transition: 'opacity 0.15s, border-color 0.15s',
+              transition: 'border-color 0.15s',
               '&:focus-within': { borderColor: ACCENT },
             }}>
               <select
-                value={careerActive ? '' : String(season)}
-                onChange={e => { setStatsView('season'); handleSeasonChange(Number(e.target.value)) }}
+                value={String(season)}
+                onChange={e => handleSeasonChange(Number(e.target.value))}
                 style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(14)}`, borderRadius: 999, fontFamily: 'inherit' }}
               >
-                {careerActive && <option value="" disabled>Jump to season…</option>}
                 {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </Box>
@@ -410,7 +265,7 @@ export function SearchView({
 
       {hasStats && (
         <Box sx={{
-          display: { xs: 'block', md: (showTrends || showFeaturedRight || (!!team && !!divisionStandings)) ? 'grid' : 'block' },
+          display: { xs: 'block', md: (showFeaturedRight || (!!team && !!divisionStandings)) ? 'grid' : 'block' },
           gridTemplateColumns: { md: `minmax(0, ${chromePx(460)}) 1fr` },
           gap: { md: 4 },
           alignItems: 'start',
@@ -418,52 +273,15 @@ export function SearchView({
         }}>
           {/* Left column: card + actions */}
           <Box>
-            <Box ref={cardWrapRef} sx={{ position: 'relative' }}>
+            <Box sx={{ position: 'relative' }}>
               <Paper ref={cardRef} elevation={4} sx={{
                 borderRadius: 4, overflow: 'hidden', background: palette.bg,
                 transition: 'background 0.45s ease', p: { xs: 2, sm: 2.5 },
               }}>
-                {playerCardProps && <CardInner {...playerCardProps} />}
                 {teamCardProps && <TeamCardInner {...teamCardProps} />}
               </Paper>
-              {/* Prev/next-year arrows, player season card only (hidden on career).
-                  Siblings of the Paper so they're excluded from the image export.
-                  Flank the big year title directly (yearRect), rather than pinning to
-                  the card's outer edges. */}
-              {playerCardProps && statsView === 'season' && yearRect != null && (() => {
-                const idx = currentAvailableSeasons.indexOf(season)
-                const olderYear = idx >= 0 && idx < currentAvailableSeasons.length - 1 ? currentAvailableSeasons[idx + 1] : null
-                const newerYear = idx > 0 ? currentAvailableSeasons[idx - 1] : null
-                const navBtnSx = {
-                  position: 'absolute' as const, top: `${yearRect.top}px`, transform: 'translateY(-50%)',
-                  zIndex: 2, width: chromePx(30), height: chromePx(30), borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  bgcolor: 'rgba(0,0,0,0.32)', color: '#fff', cursor: 'pointer',
-                  backdropFilter: 'blur(2px)',
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.55)' },
-                  transition: 'background 0.15s',
-                }
-                return (<>
-                  {olderYear != null && (
-                    <Tooltip title={`${olderYear} season`} placement="top">
-                      <Box onClick={() => handleSeasonChange(olderYear)} sx={{ ...navBtnSx, left: `calc(${yearRect.left}px - ${chromePx(38)})` }}>
-                        <ChevronLeft sx={{ fontSize: '1.3rem' }} />
-                      </Box>
-                    </Tooltip>
-                  )}
-                  {newerYear != null && (
-                    <Tooltip title={`${newerYear} season`} placement="top">
-                      <Box onClick={() => handleSeasonChange(newerYear)} sx={{ ...navBtnSx, left: `calc(${yearRect.right}px + ${chromePx(8)})` }}>
-                        <ChevronRight sx={{ fontSize: '1.3rem' }} />
-                      </Box>
-                    </Tooltip>
-                  )}
-                </>)
-              })()}
-              {/* Card actions: Copy link on its own, since it is the one a reader reaches for, and
-                  the rest collapsed into a single ⋮ menu. */}
+              {/* Card actions, collapsed into a single ⋮ menu. */}
               <Box sx={{ position: 'absolute', top: chromePx(8), right: chromePx(8), display: 'flex', gap: 0.5 }}>
-                {player && <PlayerCopyLink id={player.id} name={player.fullName} />}
                 <Tooltip title={downloading ? 'Saving…' : 'Card options'}>
                   <Box
                     onClick={e => setCardMenuAnchor(e.currentTarget as HTMLElement)}
@@ -536,11 +354,11 @@ export function SearchView({
                 </Box>
 
                 {/* Batting stats */}
-                {(hittingStats || teamHitting) && (() => {
-                  const hitDefs = player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS
-                  const hitSel = player ? selectedHitStats : selectedTeamHitStats
-                  const setHitSel = player ? setSelectedHitStats : setSelectedTeamHitStats
-                  const hitDefaults = player ? DEFAULT_HIT_STATS : DEFAULT_TEAM_HIT_STATS
+                {teamHitting && (() => {
+                  const hitDefs = TEAM_HITTING_DEFS
+                  const hitSel = selectedTeamHitStats
+                  const setHitSel = setSelectedTeamHitStats
+                  const hitDefaults = DEFAULT_TEAM_HIT_STATS
                   const allHit = hitDefs.every(d => hitSel.includes(d.key))
                   return (
                     <Box sx={{ mb: 1.75 }}>
@@ -554,7 +372,7 @@ export function SearchView({
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
                         {hitDefs.map(def => (
-                          <PillChip key={def.key} label={def.label} selected={hitSel.includes(def.key)} onChange={() => (player ? toggleHitStat : toggleTeamHitStat)(def.key)} />
+                          <PillChip key={def.key} label={def.label} selected={hitSel.includes(def.key)} onChange={() => toggleTeamHitStat(def.key)} />
                         ))}
                       </Box>
                     </Box>
@@ -562,11 +380,11 @@ export function SearchView({
                 })()}
 
                 {/* Pitching stats */}
-                {(pitchingStats || teamPitching) && (() => {
-                  const pitDefs = player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS
-                  const pitSel = player ? selectedPitStats : selectedTeamPitStats
-                  const setPitSel = player ? setSelectedPitStats : setSelectedTeamPitStats
-                  const pitDefaults = player ? DEFAULT_PIT_STATS : DEFAULT_TEAM_PIT_STATS
+                {teamPitching && (() => {
+                  const pitDefs = TEAM_PITCHING_DEFS
+                  const pitSel = selectedTeamPitStats
+                  const setPitSel = setSelectedTeamPitStats
+                  const pitDefaults = DEFAULT_TEAM_PIT_STATS
                   const allPit = pitDefs.every(d => pitSel.includes(d.key))
                   return (
                     <Box sx={{ mb: 1.75 }}>
@@ -580,7 +398,7 @@ export function SearchView({
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
                         {pitDefs.map(def => (
-                          <PillChip key={def.key} label={def.label} selected={pitSel.includes(def.key)} onChange={() => (player ? togglePitStat : toggleTeamPitStat)(def.key)} />
+                          <PillChip key={def.key} label={def.label} selected={pitSel.includes(def.key)} onChange={() => toggleTeamPitStat(def.key)} />
                         ))}
                       </Box>
                     </Box>
@@ -588,7 +406,7 @@ export function SearchView({
                 })()}
 
                 {/* League rank */}
-                <Box sx={{ mb: player ? 1.75 : 0 }}>
+                <Box>
                   <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
                     League rank
                   </Typography>
@@ -599,35 +417,13 @@ export function SearchView({
                   />
                 </Box>
 
-                {/* Portrait toggles */}
-                {player && (
-                  <Box>
-                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
-                      Show under portrait
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
-                      {[
-                        { label: 'Position', val: showPosition, set: setShowPosition },
-                        { label: 'Team', val: showTeam, set: setShowTeam },
-                        { label: 'Age', val: showAge, set: setShowAge },
-                        { label: 'Number', val: showNumber, set: setShowNumber },
-                      ].map(({ label, val, set }) => (
-                        <PillChip key={label} label={label} selected={val} onChange={() => set((v: boolean) => !v)} />
-                      ))}
-                    </Box>
-                  </Box>
-                )}
               </Popover>
             </Box>
 
             {/* Links: desktop only, left column below card */}
-            {(player || team) && (
+            {team && (
               <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.6, flexWrap: 'wrap', mt: 1.5 }}>
-                {player && (<>
-                  <Box component="a" href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
-                  <Box component="a" href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
-                </>)}
-                {team && (() => {
+                {(() => {
                   const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
                   return (<>
                     <Box component="a" href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
@@ -637,118 +433,7 @@ export function SearchView({
               </Box>
             )}
 
-            {/* Contract, directly under the card it describes on the wide layout.
-                Absent for anyone FanGraphs doesn't list (minors, retired). When the
-                page stacks it renders at the bottom instead (see below). */}
-            {!stacked && contractBlock}
-
           </Box>
-
-          {/* Right column: Trends + Recent Games (player) OR Featured Players (team) */}
-          {showTrends && (
-            // Flex column so the pieces can reorder when stacked: on mobile in season
-            // mode we want recent games above the graph (order below), while desktop and
-            // career mode keep graph first. `gap` replaces the old per-block `mt` so
-            // spacing stays even regardless of order.
-            <Box sx={{ mt: { xs: 2, md: 0 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {/* Trend graph */}
-              <Box sx={{ order: stacked && statsView === 'season' ? 2 : 1 }}>
-              {loadingCareer ? (
-                <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
-              ) : (
-                <Box sx={{
-                  borderRadius: { xs: 0, sm: 3 },
-                  border: '1px solid', borderColor: 'divider',
-                  p: { xs: 0.75, sm: 1.5 },
-                  mx: { xs: -2, sm: 0 },
-                }}>
-                  <Suspense fallback={<Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>}>
-                    <PlayerTrendsChart
-                      splits={careerSplits!}
-                      isPitcher={player!.primaryPosition?.code === '1'}
-                      isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
-                      gameLog={recentGames}
-                      season={season}
-                      chartMode={statsView === 'season' ? 'rolling' : 'career'}
-                      onGameSelect={isMobile ? undefined : (date => setHighlightedGameDate(d => d === date ? null : date))}
-                      onYearSelect={statsView === 'career' ? (s => setHighlightedCareerYear(y => y === s ? null : s)) : undefined}
-                    />
-                  </Suspense>
-                </Box>
-              )}
-              </Box>
-
-              {/* Career Year-by-Year, shown when in career mode (always after the graph) */}
-              {player && statsView === 'career' && (careerSplits?.length ?? 0) > 0 && (
-                <Box sx={{ order: 3 }}>
-                  <Box
-                    onClick={() => setCareerTableOpen(o => !o)}
-                    sx={{
-                      mb: careerTableOpen ? 1.25 : 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      cursor: 'pointer', userSelect: 'none',
-                      '&:hover .ct-chevron': { color: 'text.primary' },
-                    }}
-                  >
-                    <SectionLabel>Year by Year</SectionLabel>
-                    <Box className="ct-chevron" sx={{
-                      fontSize: '0.75rem', color: 'text.disabled',
-                      transition: 'transform 0.18s, color 0.15s',
-                      transform: careerTableOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                    }}>▾</Box>
-                  </Box>
-
-                  {careerTableOpen && (
-                    <CareerStatsTable
-                      splits={careerSplits!}
-                      isPitcher={player.primaryPosition?.code === '1'}
-                      isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-                      highlightYear={highlightedCareerYear}
-                    />
-                  )}
-                </Box>
-              )}
-
-              {/* Recent Games, shown when in season mode. order 1 when stacked lifts it
-                  above the graph on mobile; 2 on desktop keeps it below. */}
-              {player && statsView === 'season' && (loadingRecent || recentGames.length > 0) && (
-                <Box sx={{ order: stacked ? 1 : 2 }}>
-                  <Box
-                    onClick={() => setRecentGamesOpen(o => !o)}
-                    sx={{
-                      mb: recentGamesOpen ? 1.25 : 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      cursor: 'pointer', userSelect: 'none',
-                      '&:hover .rg-chevron': { color: 'text.primary' },
-                    }}
-                  >
-                    <SectionLabel strong>Recent Games</SectionLabel>
-                    <Box className="rg-chevron" sx={{
-                      fontSize: '0.75rem', color: 'text.disabled',
-                      transition: 'transform 0.18s, color 0.15s',
-                      transform: recentGamesOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                    }}>▾</Box>
-                  </Box>
-
-                  {recentGamesOpen && (
-                    loadingRecent && recentGames.length === 0 ? (
-                      <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
-                    ) : recentGames.length > 0 ? (
-                      <Box sx={{ mx: { xs: -2, sm: 0 } }}>
-                        <RecentGamesTable
-                          games={recentGames}
-                          isPitcher={player.primaryPosition?.code === '1'}
-                          isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-                          highlightDate={highlightedGameDate ?? undefined}
-                          onTeamClick={onTeamClick}
-                        />
-                      </Box>
-                    ) : null
-                  )}
-                </Box>
-              )}
-            </Box>
-          )}
 
           {/* Team right column: division standings + award player cards */}
           {!!team && (showFeaturedRight || !!divisionStandings) && (
@@ -868,86 +553,10 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Career year-by-year fallback: player only, when Trends column not shown and career mode */}
-      {hasStats && player && !showTrends && statsView === 'career' && (careerSplits?.length ?? 0) > 0 && (
-        <Box sx={{ mb: 2 }}>
-          <Box
-            onClick={() => setCareerTableOpen(o => !o)}
-            sx={{
-              mb: careerTableOpen ? 1.25 : 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: 'pointer', userSelect: 'none',
-              '&:hover .ct-chevron': { color: 'text.primary' },
-            }}
-          >
-            <SectionLabel>Year by Year</SectionLabel>
-            <Box className="ct-chevron" sx={{
-              fontSize: '0.75rem', color: 'text.disabled',
-              transition: 'transform 0.18s, color 0.15s',
-              transform: careerTableOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-            }}>▾</Box>
-          </Box>
-          {careerTableOpen && (
-            <CareerStatsTable
-              splits={careerSplits!}
-              isPitcher={player.primaryPosition?.code === '1'}
-              isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-              highlightYear={highlightedCareerYear}
-            />
-          )}
-        </Box>
-      )}
-
-      {/* Recent games fallback: player only, when Trends column not shown and season mode */}
-      {hasStats && player && !showTrends && statsView === 'season' && (loadingRecent || recentGames.length > 0) && (
-        <Box sx={{ mb: 2 }}>
-          <Box
-            onClick={() => setRecentGamesOpen(o => !o)}
-            sx={{
-              mb: recentGamesOpen ? 1.25 : 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: 'pointer', userSelect: 'none',
-            }}
-          >
-            <SectionLabel strong>Recent Games</SectionLabel>
-            <Box sx={{
-              fontSize: '0.75rem', color: 'text.disabled',
-              transition: 'transform 0.18s',
-              transform: recentGamesOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-            }}>▾</Box>
-          </Box>
-          {recentGamesOpen && (
-            loadingRecent && recentGames.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
-            ) : recentGames.length > 0 ? (
-              <Box sx={{ mx: { xs: -2, sm: 0 } }}>
-                <RecentGamesTable
-                  games={recentGames}
-                  isPitcher={player.primaryPosition?.code === '1'}
-                  isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-                  highlightDate={highlightedGameDate ?? undefined}
-                />
-              </Box>
-            ) : null
-          )}
-        </Box>
-      )}
-
-      {/* Contract: bottom slot for the stacked layout (see contractBlock). Renders here
-          instead of under the portrait so mobile reads card → recent games → graph →
-          contract. mb keeps it clear of the links below. */}
-      {hasStats && stacked && contractBlock && (
-        <Box sx={{ mb: 2 }}>{contractBlock}</Box>
-      )}
-
       {/* Links at the bottom of the page */}
-      {hasStats && (player || team) && (
+      {hasStats && team && (
         <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 0.6, flexWrap: 'wrap', mb: 3 }}>
-          {player && (<>
-            <Box component="a" href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
-            <Box component="a" href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
-          </>)}
-          {team && (() => {
+          {(() => {
             const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
             return (<>
               <Box component="a" href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
@@ -957,34 +566,11 @@ export function SearchView({
         </Box>
       )}
 
-      {!loadingStats && (player && !hittingStats && !pitchingStats || team && !teamHitting && !teamPitching) && (
+      {!loadingStats && team && !teamHitting && !teamPitching && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
           No {season} season stats available.
         </Typography>
       )}
     </>
-  )
-}
-
-/** Copy link for a player page, drawn to match the card's ⋮ beside it rather than the sheets'
- *  text chip, since it sits on the card's own colour. A sibling of the card, so a downloaded
- *  image never carries it. */
-function PlayerCopyLink({ id, name }: { id: number; name: string }) {
-  const target = { kind: 'player', id } as const
-  const { state, copy } = useCopyLink(mlbShareUrl(target), () => trackMlbShare(target))
-  const Icon = state === 'copied' ? Check : state === 'failed' ? PriorityHigh : LinkIcon
-  return (
-    <Tooltip title={state === 'idle' ? `Copy a link to ${name}` : copyLabel(state)}>
-      <Box role="button" tabIndex={0} aria-label={copyLabel(state)} onClick={copy}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy() } }}
-        sx={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', p: 0.5, borderRadius: 1.5,
-          bgcolor: 'rgba(0,0,0,0.22)', color: state === 'idle' ? 'rgba(255,255,255,0.7)' : '#fff', cursor: 'pointer',
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
-          transition: 'background 0.15s, color 0.15s',
-        }}>
-        <Icon sx={{ fontSize: '0.95rem' }} />
-      </Box>
-    </Tooltip>
   )
 }

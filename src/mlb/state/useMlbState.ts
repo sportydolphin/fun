@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../../AuthContext'
 import { useDevSeasonSelector, setSeasonSelectorStyle } from '../dev/devSeasonSelector'
 import {
-  RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
-  TeamPlayerStat, RecentGameEntry, RosterEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
-  LeaderboardEntry, PlayerContract,
+  RankMode, Player, Team, Palette, TeamSummary,
+  TeamPlayerStat, RosterEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
+  LeaderboardEntry,
 } from '../types'
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
@@ -15,28 +15,23 @@ import {
   RecentSearchItem, getLocalRecentSearches, setLocalRecentSearches, mergeRecent,
 } from '../storage/recentSearches'
 import {
-  ACCENT,
   HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS,
-  DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS,
+  DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS,
   CURRENT_SEASON, TEAM_SEASONS, LB_FEATURED, FEATURED_PLAYER_IDS,
   TEAM_ABBR, DEFAULT_PALETTE, teamPalette, MAX_FOLLOWED_PLAYERS,
 } from '../constants'
 import {
-  searchPlayers, fetchPlayerDetails, fetchStats,
-  fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
+  searchPlayers, fetchPlayerDetails,
+  fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchAllTimeLeaderboardData, fetchTeamRankings,
-  fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
+  fetchTeamSummaryData,
   fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam, fetchTeamRoster,
-  fetchPlayerContract,
 } from '../api'
-import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
-import { careerSpan } from '../lib/utils'
 import { track, EVENTS } from '../../lib/analytics'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
 import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot } from '../routes'
 import type { GameScope } from '../lib/gameScope'
-import type { CardInnerProps } from '../components/cards'
 import type { TeamCardInnerProps } from '../components/cards'
 
 // The view names and the address of each live in ../routes.ts, which the shell and the edge read too.
@@ -60,6 +55,9 @@ export function boardSortFor(group: 'hitting' | 'pitching', key: string | null |
   const def = (group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).find(d => d.key === key)
   return def ? { def, group, sortKey: key, sortAsc: def.lowerIsBetter ?? false, entries: [] } : null
 }
+
+/** A player page's span: one season, or the whole career. */
+export type PlayerSeason = number | 'career'
 
 /** Where a Back, a Forward or the shell's navigate() puts the section: THE ADDRESS DECIDES. The
  *  entry's own snapshot is read for two things only, neither of which the address can say: which
@@ -99,16 +97,12 @@ export function useMlbState() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   // ─── Player state ─────────────────────────────────────────────────────────────
+  // Only WHICH player and which season: the page fetches the rest itself (views/MlbPlayerDetail),
+  // so it can open as the desktop side panel too. The season is null for the page's own choice
+  // (this season, or the last one played), 'career' for the whole career, and is here at all so
+  // Back can restore it.
   const [player, setPlayer] = useState<Player | null>(null)
-  const [hittingStats, setHittingStats] = useState<any>(null)
-  const [pitchingStats, setPitchingStats] = useState<any>(null)
-  const [hitLeaders, setHitLeaders] = useState<Map<string, number[]>>(new Map())
-  const [pitLeaders, setPitLeaders] = useState<Map<string, number[]>>(new Map())
-  const [availableSeasons, setAvailableSeasons] = useState<number[]>([CURRENT_SEASON])
-  const [seasonTeams,    setSeasonTeams]    = useState<Map<number, string[]>>(new Map())
-  const [teamIdsBySeason, setTeamIdsBySeason] = useState<Map<number, number>>(new Map())
-  const [selectedHitStats, setSelectedHitStats] = useState<string[]>(DEFAULT_HIT_STATS)
-  const [selectedPitStats, setSelectedPitStats] = useState<string[]>(DEFAULT_PIT_STATS)
+  const [playerSeason, setPlayerSeason] = useState<PlayerSeason | null>(null)
 
   // ─── Team state ───────────────────────────────────────────────────────────────
   const [team, setTeam] = useState<Team | null>(null)
@@ -131,12 +125,8 @@ export function useMlbState() {
   const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE)
   const [season, setSeason] = useState(CURRENT_SEASON)
 
-  // ─── Player options ───────────────────────────────────────────────────────────
+  // ─── Team card options ────────────────────────────────────────────────────────
   const [rankMode, setRankMode] = useState<RankMode>('all')
-  const [showPosition, setShowPosition] = useState(true)
-  const [showTeam, setShowTeam] = useState(true)
-  const [showAge, setShowAge] = useState(false)
-  const [showNumber, setShowNumber] = useState(false)
 
   // ─── Followed team (persisted to localStorage) ───────────────────────────────
   const [followedTeamId, setFollowedTeamId] = useState<number | null>(getLocalFollowedTeamId)
@@ -269,7 +259,7 @@ export function useMlbState() {
   const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('report-card')
 
   // ─── Local-dev-only settings ────────────────────────────────────────────────
-  // Player-card season selector style: 'dropdown' (default) or 'buttons' (year pills).
+  // Team-card season selector style: 'dropdown' (default) or 'buttons' (year pills).
   // Toggled from the consolidated dev gear (import.meta.env.DEV only). Lives in a
   // module singleton (devSeasonSelector) so the gear (now rendered app-wide) and
   // this MLB state stay in sync; setSeasonSelectorStyle re-exported for the menu.
@@ -300,29 +290,12 @@ export function useMlbState() {
   const sortParam = lbFullscreen && lbFullscreen.group === lbGroup && lbFullscreen.sortKey !== LB_FEATURED[lbGroup][0]
     ? lbFullscreen.sortKey : null
 
-  // ─── Career trends ────────────────────────────────────────────────────────────
-  const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
-  const [loadingCareer, setLoadingCareer] = useState(false)
-  const [careerHittingTotals, setCareerHittingTotals] = useState<any>(null)
-  const [careerPitchingTotals, setCareerPitchingTotals] = useState<any>(null)
-  const [statsView, setStatsView] = useState<'season' | 'career'>('season')
-
-  // ─── Recent games ─────────────────────────────────────────────────────────────
-  const [recentGames, setRecentGames] = useState<RecentGameEntry[]>([])
-  const [playerContract, setPlayerContract] = useState<PlayerContract | null>(null)
-  const [highlightedGameDate, setHighlightedGameDate] = useState<string | null>(null)
-  const [loadingRecent, setLoadingRecent] = useState(false)
-  const [recentGamesOpen, setRecentGamesOpen] = useState(true)
-
   // ─── Refs ─────────────────────────────────────────────────────────────────────
   const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
   const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
   const autoLoadedRef = useRef(false)
-  const prevPlayerIdRef = useRef<number | null>(null)
 
   // ─── Simple toggles ───────────────────────────────────────────────────────────
-  const toggleHitStat = useCallback((key: string) => setSelectedHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
-  const togglePitStat = useCallback((key: string) => setSelectedPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const toggleTeamHitStat = useCallback((key: string) => setSelectedTeamHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const toggleTeamPitStat = useCallback((key: string) => setSelectedTeamPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
 
@@ -448,34 +421,6 @@ export function useMlbState() {
 
   // ─── Callbacks: stat loading ──────────────────────────────────────────────────
 
-  const loadStats = useCallback(async (p: Player, s: number, initial = true) => {
-    const gen = ++loadGenRef.current
-    if (initial) { setLoadingStats(true); setHittingStats(null); setPitchingStats(null); setHitLeaders(new Map()); setPitLeaders(new Map()) }
-    else setRefreshing(true)
-    try {
-      const isPitcher = p.primaryPosition?.code === '1'
-      const isTwoWay = p.primaryPosition?.type === 'Two-Way Player'
-      const [hitting, pitching] = await Promise.all([
-        (!isPitcher || isTwoWay) ? fetchStats(p.id, 'hitting', s) : null,
-        (isPitcher || isTwoWay) ? fetchStats(p.id, 'pitching', s) : null,
-      ])
-      if (gen !== loadGenRef.current) return
-      setHittingStats(hitting)
-      setPitchingStats(pitching)
-      const [hLeaders, pLeaders] = await Promise.all([
-        hitting ? fetchAndRankPlayers('hitting', s, HITTING_STAT_DEFS) : Promise.resolve(new Map<string, number[]>()),
-        pitching ? fetchAndRankPlayers('pitching', s, PITCHING_STAT_DEFS) : Promise.resolve(new Map<string, number[]>()),
-      ])
-      if (gen !== loadGenRef.current) return
-      setHitLeaders(hLeaders)
-      setPitLeaders(pLeaders)
-      if (hitting) setSelectedHitStats(computeSmartHitStats(p.id, hLeaders))
-      if (pitching) setSelectedPitStats(computeSmartPitStats(p.id, pLeaders))
-    } finally {
-      if (gen === loadGenRef.current) { setLoadingStats(false); setRefreshing(false) }
-    }
-  }, [])
-
   const loadTeamStats = useCallback(async (t: Team, s: number, initial = true) => {
     const gen = ++loadGenRef.current
     if (initial) {
@@ -517,48 +462,27 @@ export function useMlbState() {
   }, [])
 
   // `opts` carries two independent concerns:
-  //  • season/statsView: a browser-history pop reopening the exact view the user had
-  //    active (rather than selectPlayer's "most sensible default"); the popstate handler
-  //    is the only caller that passes these.
-  //  • recordRecent: add this player to the top-bar's recent searches. ONLY the explicit
+  //  - season: a browser-history pop reopening the season the reader had on screen (rather than
+  //    the page's own default); the popstate handler is the only caller that passes it.
+  //  - recordRecent: add this player to the top-bar's recent searches. ONLY the explicit
   //    search-bar selection passes it; cross-links (followed players, spotlight, rosters,
-  //    box scores, standings, …) must NOT pollute recents with players merely clicked
+  //    box scores, standings) must NOT pollute recents with players merely clicked
   //    through from elsewhere.
-  const selectPlayer = useCallback(async (p: Player, opts?: { season?: number; statsView?: 'season' | 'career'; recordRecent?: boolean }) => {
+  const selectPlayer = useCallback(async (p: Player, opts?: { season?: PlayerSeason; recordRecent?: boolean }) => {
     blockDropdownRef.current = true
     setDropdownOpen(false)
     setQuery(p.fullName)
-    setLoadingStats(true)
-    const isPitcher = p.primaryPosition?.code === '1'
-    const isTwoWay = p.primaryPosition?.type === 'Two-Way Player'
-    const groups: Array<'hitting' | 'pitching'> = isTwoWay ? ['hitting', 'pitching'] : isPitcher ? ['pitching'] : ['hitting']
-    const [details, careerData] = await Promise.all([fetchPlayerDetails(p.id), fetchCareerData(p.id, groups)])
-    const resolved = details ?? p
+    const resolved = (await fetchPlayerDetails(p.id).catch(() => null)) ?? p
     if (opts?.recordRecent) addRecentSearch({
       type: 'player', id: resolved.id, name: resolved.fullName,
       teamId: resolved.currentTeam?.id, position: resolved.primaryPosition?.abbreviation,
     })
-    const { seasons, teamsBySeason, teamIdsBySeason: tids } = careerData
-    const isRetired = resolved.active === false
-    // No stats this season (retired, injured, or hasn't played yet) → open on
-    // career view instead of an empty current-season page. `seasons` is sorted
-    // desc, so seasons[0] is the most recent season with stats.
-    const useCareer = opts?.statsView ? opts.statsView === 'career' : (isRetired || !seasons.includes(CURRENT_SEASON))
-    const initialSeason = opts?.season ?? (useCareer && seasons.length > 0 ? seasons[0] : CURRENT_SEASON)
-    const paletteTeamId = initialSeason === CURRENT_SEASON ? resolved.currentTeam?.id : (tids.get(initialSeason) ?? resolved.currentTeam?.id)
-    setPalette(teamPalette(paletteTeamId))
     setPlayer(resolved)
-    setStatsView(useCareer ? 'career' : 'season')
-    setHighlightedGameDate(null)
+    setPlayerSeason(opts?.season ?? null)
     setTeam(null)
     setTeamStanding(null)
     setTeamRoster([])
-    setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
-    setSeasonTeams(teamsBySeason)
-    setTeamIdsBySeason(tids)
-    setSeason(initialSeason)
-    await loadStats(resolved, initialSeason)
-  }, [loadStats, addRecentSearch])
+  }, [addRecentSearch])
 
   const selectTeam = useCallback(async (t: Team, opts?: { recordRecent?: boolean }) => {
     blockDropdownRef.current = true
@@ -569,7 +493,6 @@ export function useMlbState() {
     setTeam(t)
     setPlayer(null)
     setSeason(CURRENT_SEASON)
-    setAvailableSeasons(TEAM_SEASONS)
     await loadTeamStats(t, CURRENT_SEASON)
   }, [loadTeamStats, addRecentSearch])
 
@@ -592,7 +515,12 @@ export function useMlbState() {
   const currentHistoryState = useCallback((): Record<string, any> => {
     // The VIEW names the screen; a player or team only does when the view is their page. Off it,
     // one still set is an open that has not landed yet (see the URL sync below).
-    if (view === 'search' && player) return { view: 'search', playerId: player.id, playerName: player.fullName, season, statsView }
+    // The career as `statsView`, the key the old card stored it under, so an entry pushed before the
+    // rebuild still opens on the career.
+    if (view === 'search' && player) return {
+      view: 'search', playerId: player.id, playerName: player.fullName,
+      ...(playerSeason === 'career' ? { statsView: 'career' } : playerSeason != null ? { season: playerSeason } : {}),
+    }
     if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
@@ -601,7 +529,7 @@ export function useMlbState() {
     if (view === 'leaderboard' || view === 'stats' || view === 'viz') s.season = vizSeason
     if (view === 'stats' && sortParam) s.sort = sortParam
     return s
-  }, [player, team, season, statsView, view, lbGroup, statsAllTime, lbGameScope, sortParam, vizSeason])
+  }, [player, team, playerSeason, view, lbGroup, statsAllTime, lbGameScope, sortParam, vizSeason])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -622,28 +550,22 @@ export function useMlbState() {
     }).catch(() => {})
   }, [selectPlayer, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A team page's season. A player page's is the page's own (playerSeason).
   const handleSeasonChange = useCallback((s: number) => {
-    setHighlightedGameDate(null)
     setSeason(s)
-    if (player) {
-      const tid = s === CURRENT_SEASON ? player.currentTeam?.id : (teamIdsBySeason.get(s) ?? player.currentTeam?.id)
-      setPalette(teamPalette(tid))
-      loadStats(player, s, false)
-    } else if (team) {
-      loadTeamStats(team, s, false)
-    }
-  }, [player, team, loadStats, loadTeamStats, teamIdsBySeason])
+    if (team) loadTeamStats(team, s, false)
+  }, [team, loadTeamStats])
 
-  // Jump from a player-card stat to the Stats leaderboard, sorted by that stat and
-  // focused on the player. From a season card → that season's board; from the career
-  // card → the all-time board (the career pool holds the top ~100 per stat, so the
-  // player is auto-focused when they rank there and the board just shows otherwise).
+  // Jump from a rank on the player page to the Stats leaderboard, sorted by that stat and focused
+  // on the player, over the season the page was showing. `allTime` opens the career board.
   const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching', allTime = false) => {
+    // A career page's rank opens this season's board: the career pool is a different leaderboard.
+    const season = typeof playerSeason === 'number' ? playerSeason : CURRENT_SEASON
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
-    // Stamp the player entry we're leaving with its full snapshot (exact player, season,
-    // and season/career toggle) so a single Back from the stats leaderboard returns
-    // right here, then push the destination 'stats' entry.
+    // Stamp the player entry we're leaving with its full snapshot (exact player and season) so a
+    // single Back from the stats leaderboard returns right here, then push the destination
+    // 'stats' entry.
     stampCurrentEntry()
     pushEntry({ view: 'stats', lb: group, allTime }, mlbUrlFor({ view: 'stats', lb: group, allTime, season }, CURRENT_SEASON))
     setView('stats')
@@ -661,7 +583,7 @@ export function useMlbState() {
     // Stats board's address on the player page (see the URL sync).
     setPlayer(null)
     setTeam(null)
-  }, [player, season, statsView, stampCurrentEntry])
+  }, [player, playerSeason, stampCurrentEntry])
 
   /** A Leaders card's "See all": the Table, ranked by that card's stat, over the same season,
    *  games and qualifying bar the card showed. Its own history entry, so Back returns to Leaders;
@@ -717,66 +639,6 @@ export function useMlbState() {
     pushEntry({ view: 'search', teamId: id }, mlbUrlFor({ view: 'search', teamId: id }))
     selectTeam(t).then(() => setView('search'))
   }, [allTeams, selectTeam, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Effects: player-level data ───────────────────────────────────────────────
-
-  // Fetch career splits whenever the selected player changes
-  useEffect(() => {
-    if (!player) { setCareerSplits(null); return }
-    setLoadingCareer(true)
-    setCareerSplits(null)
-    const isPitcher = player.primaryPosition?.code === '1'
-    const isTwoWay = player.primaryPosition?.type === 'Two-Way Player'
-    const groups: Array<'hitting' | 'pitching'> = isTwoWay ? ['hitting', 'pitching'] : isPitcher ? ['pitching'] : ['hitting']
-    fetchPlayerCareerStats(player.id, groups)
-      .then(setCareerSplits)
-      .catch(() => setCareerSplits([]))
-      .finally(() => setLoadingCareer(false))
-  }, [player])
-
-  // Fetch game log whenever player or season changes
-  useEffect(() => {
-    if (!player) { prevPlayerIdRef.current = null; setRecentGames([]); return }
-    const playerChanged = prevPlayerIdRef.current !== player.id
-    prevPlayerIdRef.current = player.id
-    if (playerChanged) setRecentGames([])
-    setLoadingRecent(true)
-    const isPitcher = player.primaryPosition?.code === '1'
-    const isTwoWay = player.primaryPosition?.type === 'Two-Way Player'
-    const groups: Array<'hitting' | 'pitching'> = isTwoWay ? ['hitting', 'pitching'] : isPitcher ? ['pitching'] : ['hitting']
-    fetchRecentGames(player.id, groups, season)
-      .then(setRecentGames)
-      .catch(() => setRecentGames([]))
-      .finally(() => setLoadingRecent(false))
-  }, [player, season])
-
-  // Contract + team control. Cached per player in api.ts, and resolves to null
-  // for anyone we have no row for (minor leaguers, retired players), so the panel
-  // doesn't render rather than showing an error.
-  useEffect(() => {
-    if (!player) { setPlayerContract(null); return }
-    let cancelled = false
-    setPlayerContract(null)
-    fetchPlayerContract(player.id).then(c => { if (!cancelled) setPlayerContract(c) })
-    return () => { cancelled = true }
-  }, [player?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch career stat totals when player changes
-  useEffect(() => {
-    if (!player) { setCareerHittingTotals(null); setCareerPitchingTotals(null); setStatsView('season'); return }
-    const isPit = player.primaryPosition?.code === '1'
-    const isTW  = player.primaryPosition?.type === 'Two-Way Player'
-    let cancelled = false
-    Promise.all([
-      (!isPit || isTW) ? fetchCareerStats(player.id, 'hitting')  : Promise.resolve(null),
-      ( isPit || isTW) ? fetchCareerStats(player.id, 'pitching') : Promise.resolve(null),
-    ]).then(([h, p]) => {
-      if (cancelled) return
-      setCareerHittingTotals(h)
-      setCareerPitchingTotals(p)
-    })
-    return () => { cancelled = true }
-  }, [player])
 
   // ─── Effects: URL sync & restore ─────────────────────────────────────────────
 
@@ -837,7 +699,7 @@ export function useMlbState() {
         setStatsHighlightStatKey(null)
         setView('search')
         fetchPlayerDetails(snap.playerId).then(p => {
-          if (p) selectPlayer(p, { season: target.playerSeason, statsView: target.statsView })
+          if (p) selectPlayer(p, { season: target.statsView === 'career' ? 'career' : target.playerSeason })
         }).catch(() => {})
         return
       }
@@ -931,29 +793,9 @@ export function useMlbState() {
 
   // ─── Computed values ──────────────────────────────────────────────────────────
 
-  const hasStats = !loadingStats && (
-    (player && (hittingStats || pitchingStats)) ||
-    (team && (teamHitting || teamPitching))
-  )
-  const showTrends = !!player && (loadingCareer || !!(careerSplits && careerSplits.length > 0))
-  const teamDisplay = seasonTeams.get(season)?.join('/') ?? player?.currentTeam?.name ?? ''
-  const currentAvailableSeasons = player ? availableSeasons : TEAM_SEASONS
+  const hasStats = !loadingStats && !!team && !!(teamHitting || teamPitching)
+  const currentAvailableSeasons = TEAM_SEASONS
   const showFeaturedRight = !!team && featuredPlayers.length > 0
-
-  const playerCardProps: CardInnerProps | null = player ? {
-    player,
-    hittingStats:  statsView === 'career' ? careerHittingTotals  : hittingStats,
-    pitchingStats: statsView === 'career' ? careerPitchingTotals : pitchingStats,
-    hitLeaders: statsView === 'career' ? new Map<string, number[]>() : hitLeaders,
-    pitLeaders: statsView === 'career' ? new Map<string, number[]>() : pitLeaders,
-    palette, season: statsView === 'career' ? 'Career' : season,
-    // Only in career view: on a season card the year above already says it.
-    careerSpan: statsView === 'career' ? careerSpan(player) : null,
-    teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber,
-    selectedHitStats, selectedPitStats,
-    onToggleHitStat: (key: string) => handleStatCardClick(key, 'hitting', statsView === 'career'),
-    onTogglePitStat: (key: string) => handleStatCardClick(key, 'pitching', statsView === 'career'),
-  } : null
 
   const teamCardProps: TeamCardInnerProps | null = team ? {
     team, hittingStats: teamHitting, pitchingStats: teamPitching, palette, season,
@@ -974,12 +816,8 @@ export function useMlbState() {
     selectPlayer, selectTeam,
 
     // Player state
-    player, hittingStats, pitchingStats,
-    hitLeaders, pitLeaders,
-    availableSeasons, seasonTeams,
-    selectedHitStats, setSelectedHitStats,
-    selectedPitStats, setSelectedPitStats,
-    toggleHitStat, togglePitStat,
+    player, playerSeason, setPlayerSeason,
+    handleStatCardClick,
 
     // Team state
     team,
@@ -999,12 +837,8 @@ export function useMlbState() {
     palette, setPalette,
     season,
 
-    // Player display options
+    // Team card options
     rankMode, setRankMode,
-    showPosition, setShowPosition,
-    showTeam, setShowTeam,
-    showAge, setShowAge,
-    showNumber, setShowNumber,
 
     // Followed team
     followedTeamId, followTeam, unfollowTeam,
@@ -1037,21 +871,11 @@ export function useMlbState() {
     lbGameScope, setLbGameScope,
     handleLbPlayerClick,
 
-    // Career trends
-    careerSplits, loadingCareer,
-    careerHittingTotals, careerPitchingTotals,
-    statsView, setStatsView,
-
-    // Recent games
-    recentGames, loadingRecent, recentGamesOpen, setRecentGamesOpen,
-    playerContract,
-    highlightedGameDate, setHighlightedGameDate,
-
     // Derived
-    hasStats, showTrends, showFeaturedRight,
-    teamDisplay, currentAvailableSeasons,
+    hasStats, showFeaturedRight,
+    currentAvailableSeasons,
     nameMap,
-    playerCardProps, teamCardProps,
+    teamCardProps,
     handleSeasonChange,
 
     // Stats-table highlight

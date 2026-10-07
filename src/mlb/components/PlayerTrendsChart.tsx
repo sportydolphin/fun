@@ -5,7 +5,7 @@ import { ACCENT, ACCENT_TEXT, CURRENT_SEASON, TEAM_BG } from '../constants'
 import { parseIP } from '../lib/utils'
 import { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 import { RollingWindowChart } from './RollingWindowChart'
-import { fetchLeagueStatsBySeason, tooltipAnchorSx } from './trendChartUtils'
+import { fetchLeagueStatsBySeason, tooltipAnchorSx, useChartViewWidth, useTouchScrub } from './trendChartUtils'
 import { FullscreenEntry } from './MlbSheet'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
@@ -21,12 +21,14 @@ const trendSelSx: React.CSSProperties = {
   color: 'inherit', padding: `${chromePx(4)} ${chromePx(10)}`, borderRadius: 999, fontFamily: 'inherit',
 }
 
-export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season, chartMode, onGameSelect, onYearSelect }: {
+export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season, official, chartMode, onGameSelect, onYearSelect }: {
   splits: CareerStatSplit[]
   isPitcher: boolean
   isTwoWay: boolean
   gameLog?: RecentGameEntry[]
   season: number
+  /** The season's own regular-season line, for the rolling chart's season figure. */
+  official?: { hitting: any | null; pitching: any | null } | null
   chartMode: 'career' | 'rolling'
   onGameSelect?: (date: string) => void
   onYearSelect?: (season: number) => void
@@ -43,15 +45,13 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const rafRef = useRef<number | null>(null)
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
-  // Refs for career-chart year selection via touch
-  const onYearSelectRef = useRef(onYearSelect)
-  useEffect(() => { onYearSelectRef.current = onYearSelect }, [onYearSelect])
+  // The year under the finger, for selecting it on release.
   const careerHovIdxRef = useRef<number | null>(null)
-  const currentFptsRef  = useRef<Array<{ season: number }>>([]) // kept in sync before SVG render
   const [rangeStart, setRangeStart] = useState<number | null>(null)
   const [rangeEnd, setRangeEnd] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const exitFullscreen = useRef<(() => void) | null>(null)
+  const fitW = useChartViewWidth(boxRef, 560)
 
   const [leagueAvgPts, setLeagueAvgPts] = useState<Map<number, number>>(new Map())
 
@@ -93,44 +93,9 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
     return () => { cancelled = true }
   }, [group, statKey, rangeStart, rangeEnd, splits, chartMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Touch drag support. Non-passive so we can preventDefault scroll while dragging along the chart
-  useEffect(() => {
-    const svg = svgRef.current
-    if (!svg || !boxRef.current) return
-    const W_SVG = 560, M_L = 42, IW = W_SVG - 42 - 16
-    const handleTouch = (e: TouchEvent) => {
-      e.preventDefault()
-      const touch = e.touches[0] ?? e.changedTouches[0]
-      if (!touch || !boxRef.current) return
-      const rect = boxRef.current.getBoundingClientRect()
-      const relX = ((touch.clientX - rect.left) / rect.width) * W_SVG - M_L
-      const frac = Math.max(0, Math.min(1, relX / IW))
-      // n captured at effect time via closure; effect re-runs whenever n changes
-      const idx = Math.round(frac * (currentN.current - 1))
-      careerHovIdxRef.current = idx
-      setHovIdx(idx)
-      setTipPos({ x: (touch.clientX - rect.left) / rect.width * 100, y: (touch.clientY - rect.top) / rect.height * 100 })
-    }
-    const handleTouchEnd = () => {
-      if (careerHovIdxRef.current != null) {
-        const sel = currentFptsRef.current[careerHovIdxRef.current]
-        if (sel) onYearSelectRef.current?.(sel.season)
-      }
-      careerHovIdxRef.current = null
-      setHovIdx(null)
-    }
-    svg.addEventListener('touchstart', handleTouch, { passive: false })
-    svg.addEventListener('touchmove',  handleTouch, { passive: false })
-    svg.addEventListener('touchend',   handleTouchEnd)
-    return () => {
-      svg.removeEventListener('touchstart', handleTouch)
-      svg.removeEventListener('touchmove',  handleTouch)
-      svg.removeEventListener('touchend',   handleTouchEnd)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Stable ref so the touch handler always sees the current point count without re-registering
-  const currentN = useRef(0)
+  // A finger: the tip follows it sideways, the year under it opens on release, and a vertical drag
+  // is left to scroll the page (see useTouchScrub). Bound below, once the geometry exists.
+  const scrub = useTouchScrub()
 
   const allDefs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
 
@@ -211,12 +176,33 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
 
   // SVG layout: tight gutters (just enough for the axis labels) with a taller
   // body so the plot fills more of the card.
-  const W = 560, H = 272
+  // Laid out at the box's width on a desktop rather than blown up to it (see useChartViewWidth).
+  // Not in fullscreen, whose whole point is the bigger drawing.
+  const W = isFullscreen ? 560 : fitW, H = 272
   const m = { t: 20, r: 16, b: 30, l: 42 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = fpts.length
-  currentN.current = n        // keep touch handler in sync without re-registering
-  currentFptsRef.current = fpts  // keep year-select touch handler in sync
+  // Measured with this render's width, which on a tablet is wider than the 560 the old touch code
+  // assumed, so its finger landed on the wrong year.
+  scrub.bind({
+    pick: (clientX, clientY) => {
+      if (!boxRef.current) return
+      const rect = boxRef.current.getBoundingClientRect()
+      const relX = ((clientX - rect.left) / rect.width) * W - m.l
+      const idx = Math.round(Math.max(0, Math.min(1, relX / iW)) * (n - 1))
+      careerHovIdxRef.current = idx
+      setHovIdx(idx)
+      setTipPos({ x: (clientX - rect.left) / rect.width * 100, y: (clientY - rect.top) / rect.height * 100 })
+    },
+    release: () => {
+      const idx = careerHovIdxRef.current
+      careerHovIdxRef.current = null
+      setHovIdx(null)
+      const sel = idx != null ? fpts[idx] : undefined
+      if (sel) onYearSelect?.(sel.season)
+    },
+    clear: () => { careerHovIdxRef.current = null; setHovIdx(null) },
+  })
 
   const vals = fpts.map(p => p.value)
   const leagueValsInRange = fpts.map(p => leagueAvgPts.get(p.season)).filter((v): v is number => v != null)
@@ -305,7 +291,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const gradId = `trendgrad-${group}-${statKey}`
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!boxRef.current) return
+    if (!boxRef.current || scrub.fromTouch()) return
     const clientX = e.clientX, clientY = e.clientY
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
@@ -347,7 +333,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       )}
 
       {chartMode === 'rolling' && gameLog ? (
-        <RollingWindowChart games={gameLog} isPitcher={group === 'pitching'} season={season} onGameSelect={onGameSelect} />
+        <RollingWindowChart games={gameLog} isPitcher={group === 'pitching'} season={season} official={official?.[group] ?? null} onGameSelect={onGameSelect} />
       ) : (
       <>
 
@@ -426,11 +412,13 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       </Box>
 
       {/* Chart */}
-      <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
-        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', cursor: onYearSelect ? 'pointer' : 'default' }}
+      {/* `data-swipe-lock`: a sideways drag here reads the chart, so the tab pager never takes it. */}
+      <Box ref={boxRef} data-swipe-lock sx={{ position: 'relative', userSelect: 'none' }}>
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', cursor: onYearSelect ? 'pointer' : 'default', touchAction: 'pan-y' }}
+          {...scrub.props}
           onMouseMove={handleMouseMove}
           onClick={onYearSelect ? ((e: React.MouseEvent<SVGSVGElement>) => {
-            if (!boxRef.current) return
+            if (!boxRef.current || scrub.fromTouch()) return
             const rect = boxRef.current.getBoundingClientRect()
             const relX = ((e.clientX - rect.left) / rect.width) * W - m.l
             const frac = Math.max(0, Math.min(1, relX / iW))

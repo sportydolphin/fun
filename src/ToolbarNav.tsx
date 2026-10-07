@@ -9,7 +9,7 @@
 // Every tab and every WPBL More row is a real <a href>, for the same reason the pills were: a
 // crawler does not fire click handlers, and these are how it finds the other four tabs.
 
-import { useState, type MouseEvent } from 'react'
+import { startTransition, useEffect, useState, type MouseEvent } from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
 import { useSectionNav, type NavSection, type SectionNavTab } from './sectionNav'
 import { navigate, linkTo } from './nav'
@@ -51,6 +51,15 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
   const tabs = live?.tabs ?? STATIC_TABS[section]
   const active = live ? live.active : staticActive(section, path)
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  // THE TAB LIGHTS ON THE CLICK, not when the tab it opens has finished rendering. The lit tab
+  // comes from the section, which publishes it after it commits the switch, and that commit (the
+  // outgoing tab hiding, the incoming one rendering) is 40 to 55ms in a production build, so a
+  // click showed nothing at all until the whole page was ready. Now the bar lights the tab at once
+  // and the switch runs as a transition behind it, so the bar paints first. `pending` gives way
+  // the moment the section publishes anything new.
+  const [pending, setPending] = useState<string | null>(null)
+  useEffect(() => { setPending(null) }, [active])
+  const lit = pending ?? active
 
   const more: MoreRow[] = section === 'wpbl'
     ? WPBL_MORE_PAGES.map(p => {
@@ -103,7 +112,7 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
       sx={{ display: 'flex', alignItems: 'stretch', alignSelf: 'stretch', minWidth: 0, ...sx }}
     >
       {tabs.map(t => {
-        const on = t.key === active
+        const on = t.key === lit
         return (
           <Box
             key={t.key}
@@ -113,8 +122,10 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
             onClick={(e: MouseEvent<HTMLAnchorElement>) => {
               if (modifiedClick(e)) return
               e.preventDefault()
-              if (live) live.onSelect(t.key)
-              else navigate(t.href)
+              if (live) {
+                setPending(t.key)
+                startTransition(() => live.onSelect(t.key))
+              } else navigate(t.href)
             }}
             sx={tabSx(on)}
           >

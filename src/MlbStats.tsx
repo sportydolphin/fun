@@ -18,7 +18,7 @@ import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './m
 let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_REF_PARAM) === MLB_SHORT_REF_VALUE
 const arrivedAt = window.location.pathname
 import { SegControl } from './mlb/components/ui'
-import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, preloadAllMlbViews } from './mlb/views/lazyViews'
+import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, MlbPlayerDetail, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
@@ -340,6 +340,13 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // The pager mounts with the first tab the reader is shown, and stays mounted from then on.
   const pagerMounted = useRef(false)
   if (!onSearch) pagerMounted.current = true
+  // The player page's Back. Within the section it is the browser's, so it returns to the exact
+  // board the player was opened from; landed on cold (a shared link, a search result) there is
+  // nothing of ours behind it, so it goes to the tab the page lights instead of off the site.
+  const playerBack = () => {
+    if (pagerMounted.current) window.history.back()
+    else go(tabView(lastTab.current), 'link')
+  }
 
   // On a phone the site footer ends each page, inside it, so it slides with its tab rather than
   // reflowing under a swipe; the column is floored to the screen less the bar, so on a short page
@@ -519,7 +526,33 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         </Box>
       )}
 
-      {onSearch && withFooter(
+      {/* A PLAYER'S PAGE: the card fetches its own data (views/MlbPlayerDetail), the section only
+          says which player and which season. Keyed by player, so the next one starts at its own top
+          rather than inheriting the last one's role tab and scope. */}
+      {onSearch && state.player && withFooter(
+        <AppErrorBoundary inline where="tab">
+          <Suspense fallback={null}>
+            <MlbPlayerDetail
+              key={state.player.id}
+              playerId={state.player.id}
+              player={state.player}
+              season={state.playerSeason}
+              onSeasonChange={state.setPlayerSeason}
+              onBack={playerBack}
+              onOpenBoard={(key, group) => state.handleStatCardClick(key, group)}
+              onOpenGame={pk => requestDeepLink({ kind: 'game', gamePk: pk })}
+              followed={state.followedPlayerIds.includes(state.player.id)}
+              onToggleFollow={() => {
+                const id = state.player!.id
+                if (state.followedPlayerIds.includes(id)) state.unfollowPlayer(id)
+                else state.followPlayer(id)
+              }}
+            />
+          </Suspense>
+        </AppErrorBoundary>,
+      )}
+
+      {onSearch && !state.player && withFooter(
         <Suspense fallback={null}>
           <SearchView
             query={state.query}
@@ -529,10 +562,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             searching={state.searching}
             dropdownOpen={state.dropdownOpen}
             setDropdownOpen={state.setDropdownOpen}
-            selectPlayer={state.selectPlayer}
             selectTeam={state.selectTeam}
+            selectPlayer={state.selectPlayer}
             onTeamClick={state.handleTeamSearchClick}
-            player={state.player}
             team={state.team}
             palette={state.palette}
             setPalette={state.setPalette}
@@ -541,53 +573,20 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             hasStats={state.hasStats}
             rankMode={state.rankMode}
             setRankMode={state.setRankMode}
-            showPosition={state.showPosition}
-            setShowPosition={state.setShowPosition}
-            showTeam={state.showTeam}
-            setShowTeam={state.setShowTeam}
-            showAge={state.showAge}
-            setShowAge={state.setShowAge}
-            showNumber={state.showNumber}
-            setShowNumber={state.setShowNumber}
-            statsView={state.statsView}
-            setStatsView={state.setStatsView}
             currentAvailableSeasons={state.currentAvailableSeasons}
             handleSeasonChange={state.handleSeasonChange}
-            careerHittingTotals={state.careerHittingTotals}
-            careerPitchingTotals={state.careerPitchingTotals}
             seasonSelectorStyle={state.seasonSelectorStyle}
-            hittingStats={state.hittingStats}
-            pitchingStats={state.pitchingStats}
             teamHitting={state.teamHitting}
             teamPitching={state.teamPitching}
-            selectedHitStats={state.selectedHitStats}
-            setSelectedHitStats={state.setSelectedHitStats}
-            selectedPitStats={state.selectedPitStats}
-            setSelectedPitStats={state.setSelectedPitStats}
             selectedTeamHitStats={state.selectedTeamHitStats}
             setSelectedTeamHitStats={state.setSelectedTeamHitStats}
             selectedTeamPitStats={state.selectedTeamPitStats}
             setSelectedTeamPitStats={state.setSelectedTeamPitStats}
-            toggleHitStat={state.toggleHitStat}
-            togglePitStat={state.togglePitStat}
             toggleTeamHitStat={state.toggleTeamHitStat}
             toggleTeamPitStat={state.toggleTeamPitStat}
-            hitLeaders={state.hitLeaders}
-            pitLeaders={state.pitLeaders}
             teamHitLeaders={state.teamHitLeaders}
             teamPitLeaders={state.teamPitLeaders}
-            playerCardProps={state.playerCardProps}
             teamCardProps={state.teamCardProps}
-            showTrends={state.showTrends}
-            playerContract={state.playerContract}
-            careerSplits={state.careerSplits}
-            loadingCareer={state.loadingCareer}
-            recentGames={state.recentGames}
-            loadingRecent={state.loadingRecent}
-            recentGamesOpen={state.recentGamesOpen}
-            setRecentGamesOpen={state.setRecentGamesOpen}
-            highlightedGameDate={state.highlightedGameDate}
-            setHighlightedGameDate={state.setHighlightedGameDate}
             showFeaturedRight={state.showFeaturedRight}
             featuredPlayers={state.featuredPlayers}
             featuredHitLeaders={state.featuredHitLeaders}

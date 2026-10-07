@@ -124,8 +124,32 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    (`pushEntry`, which the tabs, search and the player links now all go through) closes it and
    takes its entry. Game Center is keyed by game, so a swap is a remount rather than the old box
    score under the new header. Pinned in `__tests__/sheetHistory.test.tsx`. *Next:* the player as
-   the panel (the big one: the player is the view `search`, fed by about seventy props from
-   `useMlbState`), then the full pages. Until then a player opened from the panel is still the page.
+   the panel, then the full pages. Until then a player opened from the panel is still the page.
+   *Oct 6:* ✅ **The player page rebuilt on WPBL's card** (item 12), which takes the big part of
+   this away: the player is now a self-fetching component (`views/MlbPlayerDetail.tsx`) with WPBL's
+   prop shape, so the panel is wiring rather than a rewrite.
+12. ✅ **Player page rebuilt** (Oct 6). The customizable share card (four auto-picked stats, palette
+   shuffle, PNG export) is gone; the page is WPBL's card, its parts shared in
+   `src/ui/playerCard.tsx`: the club band (bio, draft, MLB awards as ribbons, last-five form strip),
+   the full season line with league ranks (top ten lit; a rank opens the Stats table on that stat
+   with the player picked out, which `handleStatCardClick` already did from the old card),
+   Regular / Playoffs / Both, the game log (rows open Game Center), Advanced (WAR, wRC+, wOBA,
+   x-stats, K% / BB% / Whiff%; FIP, xFIP, ERA- for pitchers), splits (vs LHP / RHP, home / away,
+   RISP), the pitch mix, a career table whose years open that season, the trend chart (kept),
+   fielding, the contract and links out. Two-way seasons get WPBL's role
+   tabs on a phone and stacked roles on a desktop; cameos are one line. A traded season now reads
+   its season total rather than the club with the most games. Data in `playerProfile.ts`, pinned in
+   `__tests__/playerProfile.test.ts`; `useMlbState` lost its seventy player props for
+   `playerSeason`. Back on a cold landing goes to the tab the page lights rather than off the site.
+   *Oct 7:* a year menu on the season line with **Career** as its first choice (career totals,
+   the year-by-year and the per-year trend; restored by Back through the entry's `statsView`); the
+   top of the card in the order other stat sites use (headline AVG / HR / RBI / OPS or W-L, SV or
+   HLD / ERA / SO / WHIP, then MLB.com's standard line with the rates last, folding into even rows
+   on a phone); the header bar in one type style (`src/ui/headerBar.tsx`); the trend chart drawn at
+   the card's width on a desktop instead of blown up to it, scrubbed sideways and scrolled
+   vertically on a phone (`touch-action: pan-y`, only a tap selects); honours on one row with
+   "+N"; club stripes audited (Dodgers white, Angels navy, Brewers yellow, Guardians red). The same
+   year menu is on WPBL's card, showing a plain label until a player has a second season.
 
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.

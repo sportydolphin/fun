@@ -2,17 +2,22 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, type Theme } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getCachedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, plateAppearances, hasPlateAppearance, fmtRate, fmtTwo } from './stats'
-import { scopedLines, type SeasonScope } from './season'
-import { computeWpblPlayerRanks, ordinal, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
+import { scopedLines, inSeason, seasonsPlayed, latestSeason, gamesInSeason, type SeasonScope } from './season'
+import { computeWpblPlayerRanks, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, hoverOnly, TAPPABLE, CARD_BORDER } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, hoverOnly, CARD_BORDER } from './ui'
 import { ExpandButton } from '../ui/ExpandButton'
 import { DetailPageBar } from './DetailPageBar'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { PLAYER_PAGE_W } from './layoutWidths'
-import { SectionHead, ShowMoreButton, useRankInk } from './cardParts'
+import { SectionHead, useRankInk } from './cardParts'
+import {
+  CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, FormStrip, CameoBlock, StatLogTable,
+  PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, BATTING_BEST, PITCHING_BEST, isZeroStat, ZERO_SX, bleedSx,
+  useCollapsibleTable, ExpandToggle, thSx, tdSx, LOG_MAX_H, LOG_MAX_H_XS, TIP_Z, type StatCardEnv,
+} from '../ui/playerCard'
 import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
@@ -29,44 +34,13 @@ import { wpblPlayerShortPath, wpblCompareStartPath, wpblComparePath, WPBL_AWARDS
 import { playerMatchups, playerPlayIds, type WpblMatchupLine } from './derive/matchups'
 import { fetchWpblAwardResults, fanAwardsWon } from './awardVotes'
 import type { WpblAward } from './awards'
-import { EmojiEvents } from '@mui/icons-material'
+import { EmojiEvents, CompareArrows } from '@mui/icons-material'
+import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from '../ui/headerBar'
 import { useTheme as useMuiTheme } from '@mui/material/styles'
 import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 
-/**
- * THE CARD'S TYPE SCALE. Five steps, and every piece of type on the player card is one of them.
- *
- * Sizes within a hair of each other (0.56 / 0.58 / 0.60) cannot be read as different levels but
- * are far enough apart to look unconsidered, which is how a card where no single element is
- * wrong ends up feeling careless. So there are five, far enough apart to mean something.
- *
- * THE STEPS ARE ROLES, NOT SIZES, which is what keeps a new block from inventing a sixth:
- *
- *   HERO     the rate line: AVG OBP SLG OPS, or ERA WHIP K/7 K/BB, wherever it is drawn
- *   FIGURE   a season total, in the line under the rates
- *   BODY     a game's numbers, and any real sentence
- *   LABEL    uppercase furniture: section headings, buttons, the fielding label
- *   MICRO    what annotates a figure: column headers, ranks, captions, populations
- *
- * NO DISPLAY STEP OVER HERO. The rates are columns of one season line, so a larger size for the
- * headline stat (OPS, ERA) would put three sizes in a single row of numbers and a hierarchy the
- * row does not have. Which rate is doing well is already said by the rank under it and the
- * club's colour on it; size in that row carries one distinction only: a rate is not a count.
- *
- * WEIGHT IS PART OF THE STEP and not a free parameter. Anything uppercase is 800, because at
- * these sizes uppercase needs the weight to hold its counters; figures are 700; running text
- * and a game's cells are 600. There is no 400 on this card, and nothing is 800 for emphasis:
- * emphasis here is the club's colour, spent in the two places named in GameLogTable.
- */
-const TYPE = {
-  hero: { fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' },
-  figure: { fontSize: '0.95rem', fontWeight: 700 },
-  body: { fontSize: { xs: '0.74rem', sm: '0.8rem' }, fontWeight: 600 },
-  label: { fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 },
-  micro: { fontSize: '0.6rem', fontWeight: 700 },
-} as const
 
 // Player page: profile, season totals aggregated from box-score lines, where those totals sit
 // against the league, and a per-game log. Public read; opened from a roster row, a leaderboard,
@@ -126,262 +100,12 @@ const gamePosition = (raw: string | null | undefined): string => {
 // sub, a pitcher listed but never up) otherwise surface as an all-zero stat block and a phantom
 // "0-for-0" game-log line, so they are dropped. `hasPlateAppearance` lives in stats.ts, shared
 // with the compare card so the two cannot disagree about who batted.
-// The player modal sits at zIndex 1600; MUI's tooltip defaults to 1500, so it would
-// render behind the modal. Lift the popper above it.
-const TIP_Z = 1700
 
 type Role = 'batting' | 'pitching'
 
 // ─── pieces ──────────────────────────────────────────────────────────────────
-
-/** A counting stat that is actually zero, which the grid dims. Deliberately NOT falsy: `'—'`
- *  is absent rather than zero, and `.000` is a measured rate, not an empty box. */
-const isZeroStat = (v: string | number): boolean => v === 0 || v === '0'
-
-/**
- * THE SEASON LINE: a table, with a header row, read left to right.
- *
- * A table rather than a wrapping grid of labelled chips: the game log directly below runs
- * fourteen columns at 375px without clipping, so the season line can too, and a header row with
- * one value row takes half the height of two ragged rows of chips, stops repeating a label per
- * box, and is the shape every reader arrives already able to read.
- *
- * THE RANK ROW sits under the value it belongs to. A rank is a fact about one number, and drawn
- * anywhere else it makes a reader hold a figure in their head on the way to it.
- *
- * THE POPULATION IS NOT PRINTED. Every other rank on this site carries its field ("2nd of
- * 33"), and this row deliberately does not: it would be the same phrase under ten columns, or
- * a line of small print under the table repeating what the two rank fields are. What is left
- * is an ordinal in a cell, which is the form a stat table has used for a century. The rate
- * columns still carry "of N" (see the lead group) for the reader who wants the denominator.
- *
- * WHICH RANKS APPEAR IS THE PROJECT'S OWN MEASURED BAR: `bestCountingRanks` keeps a top-5 gate
- * against a field of at least ten, because lighting every top-3 lights cells on the few players a
- * reader can already place and nothing at all on most of the roster. That helper's two-row CAP
- * is dropped here, because it rations vertical space and a rank in a cell costs none. So a card
- * shows every rank worth printing, and a player who leads nothing gets no row at all instead of
- * a line of "34th · 41st · 28th" that reads as a verdict.
- */
-interface LineCol {
-  label: string
-  value: string | number
-  /** Her league position in this column, when there is one worth printing. */
-  rank?: WpblStatRank | null
-}
-
-/**
- * THE LEAD GROUP: rate columns, set large, ahead of the counting line in the SAME table.
- *
- * Above `md` the four rates are these first columns rather than a block beside the table (see
- * desktopRoleBlock). They differ from a counting column in three ways and no others: the figure
- * is a step or two larger, the rank carries its population, and a heavier rule closes the group.
- * Everything that makes a table a table -- one header row, one figure row, one rank row, one
- * caption over all of it -- is shared, which is the entire point: there is no second grid left
- * to fall out of alignment with.
- *
- * IT IS FED THE SAME CELLS AS THE PHONE'S STRIP, from `rateCells`, so a rate cannot read one way
- * on a phone and another on a desktop. The phone passes no lead at all: seventeen columns do not
- * fit 375px, which is why the strip exists there.
- *
- * THE RANK KEEPS "of 33" HERE and the counting ranks stay bare, which looks like an
- * inconsistency and is a fact about the data: a rate rank is taken against the QUALIFIED field
- * and a counting rank against everyone who recorded the stat, so one population printed across
- * the whole row would be wrong for half of it. The group rule is what says these are two kinds
- * of column.
- */
-function SeasonLine({ cols, lead }: { cols: LineCol[]; lead?: LineCol[] }) {
-  const { basis: eraBasis } = useEraBasis()
-  const ink = useRankInk()
-  const heads = lead ?? []
-  const all = [...heads, ...cols]
-  const n = all.length
-  const isLead = (i: number) => i < heads.length
-  // Lit means "a top-five figure": bold, in the rank blue (see useRankInk). A counting rank is pre-gated to the top five by
-  // `countRank`, so its presence is the gate; a rate rank is drawn for every qualified player,
-  // so it takes the shared bar explicitly. Same bar either way, one place to change it.
-  const lit = (c: LineCol, i: number) => (isLead(i) ? isTopFive(c.rank) : c.rank != null)
-  const anyRank = all.some(c => c.rank != null)
-  // The hairline between columns, and a 2px one closing the lead group: it is the only thing
-  // besides size saying the two halves are different kinds of number. Not a tint down the group:
-  // the header's own bottom rule cuts any background into pieces (see colRuleSx).
-  const rule = (i: number) => (i === heads.length - 1 && cols.length > 0
-    ? { borderRight: '2px solid', borderRightColor: 'divider' }
-    : colRuleSx(i, n))
-  return (
-    // Scrolls in its own container rather than the page, per the house rule for wide content.
-    // It is not expected to: thirteen counting columns measure 374px and four rates add ~290,
-    // against 1054 of card, and the guard is for the reader at 200% text.
-    <Box sx={{ overflowX: 'auto', ...bleedSx(0.3) }}>
-      <Box component="table" sx={{
-        width: '100%', minWidth: 'max-content', borderCollapse: 'collapse',
-        fontVariantNumeric: 'tabular-nums',
-      }}>
-        <Box component="thead">
-          <Box component="tr">
-            {all.map((c, i) => (
-              <TapTip key={c.label} title={statTip(c.label, eraBasis)} component="th"
-                popperZIndex={TIP_Z} sx={{ ...lineThSx, ...rule(i) }}>{c.label}</TapTip>
-            ))}
-          </Box>
-        </Box>
-        <Box component="tbody">
-          <Box component="tr">
-            {all.map((c, i) => (
-              // Three states, in order of precedence. A TOP-FIVE FIGURE is bold and in the rank
-              // blue: the rank row under it already says so in words, and a reader scanning
-              // a dozen identical white numbers should not have to find that out by reading.
-              // Only the top five light up, which is `bestCountingRanks`' own measured bar, so
-              // a card lights two or three cells rather than half a row. A true zero dims,
-              // because half a batting line is zeros for most of the roster. A rate reading
-              // `.000` is a measurement and keeps its weight. Everything else is plain.
-              <Box component="td" key={c.label}
-                sx={{
-                  ...lineTdSx,
-                  // ONE SIZE FOR THE WHOLE LEAD GROUP. A larger OPS or ERA would put three sizes in
-                  // a single row of numbers and leave a reader working out what the third one meant.
-                  // The rank under the cell and the rank blue already say which rate is doing
-                  // well; size here only has to separate a rate from a count.
-                  // `verticalAlign: baseline` is what makes the two remaining sizes read as one row:
-                  // a large OPS and a 0.95rem at-bat total sit on the same line rather than being
-                  // centred against each other.
-                  ...(isLead(i) ? { ...TYPE.hero, lineHeight: 1.2, pt: 0.5 } : {}),
-                  verticalAlign: 'baseline',
-                  ...rule(i),
-                  ...(lit(c, i) ? { color: ink, fontWeight: 800 }
-                    : isZeroStat(c.value) ? { color: 'text.disabled' } : {}),
-                }}>
-                {c.value}
-              </Box>
-            ))}
-          </Box>
-          {anyRank && (
-            <Box component="tr">
-              {all.map((c, i) => (
-                // BLANK where there is no rank, not the em dash this project spends on "no
-                // value" elsewhere. That glyph is right in a cell that could have held a
-                // measurement; here two thirds of the row would be dashes, and a row that is
-                // mostly punctuation reads as missing data rather than as an annotation.
-                <Box component="td" key={c.label}
-                  sx={{ ...lineRankSx, ...rule(i), ...(lit(c, i) ? { color: ink, fontWeight: 800 } : {}) }}>
-                  {!c.rank ? ''
-                    : isLead(i) ? `${ordinal(c.rank.rank)} of ${c.rank.of}`
-                      : ordinal(c.rank.rank)}
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Box>
-      </Box>
-    </Box>
-  )
-}
-
-/**
- * A hairline between columns, header to rank.
- *
- * A season line is one row of a dozen numbers in one size, one weight and one colour, with
- * nothing between them: a reader checking RBI counts across from the header and loses the
- * place somewhere around BB. The log below solves the same problem with zebra ROWS, which a
- * one-row table has no way to use.
- *
- * NOT A TINTED BAND DOWN ALTERNATE COLUMNS, which looks broken. The header cell carries the rule
- * under the labels, so a band arrives in two pieces with a gap across it, and the rank row is
- * drawn only for some columns, so the pieces are different heights from one column to the next.
- * What is meant to be quiet structure reads as a rendering fault.
- *
- * A rule cannot come apart that way: it is one line, the same on every column, and it is the
- * device a printed box score has used for this exact job. Drawn to the RIGHT of every column
- * but the last, so the table does not end in a stray edge.
- */
-const colRuleSx = (i: number, n: number) => (i < n - 1
-  ? { borderRight: '1px solid', borderRightColor: 'divider' }
-  : {})
-
-/**
- * EDGE TO EDGE ON A PHONE, for the card's three tables (the season line, the game log, the vs
- * table). The pane's 16px gutter cost 32px across thirteen or fourteen columns, on the one
- * element on the card that is short of width; bled to the screen's edges, the zebra rows run
- * edge to edge and a table wide enough to scroll scrolls to the edge rather than clipping 16px in.
- *
- * THE FIRST AND LAST CELLS TAKE THE GUTTER BACK, so the text in them still sits on the same line
- * as every heading and figure above it: the table bleeds, its content does not. `mdPx` is the
- * cells' own padding, restored from `md` up, where the desktop card has width to spare and keeps
- * its inset.
- *
- * `-2` is the pane's `px: 2` (see `panels`); change one and change the other.
- */
-const bleedSx = (mdPx: number) => ({
-  mx: { xs: -2, md: 0 },
-  '& th:first-of-type, & td:first-of-type': { pl: { xs: 2, md: mdPx } },
-  '& th:last-of-type, & td:last-of-type': { pr: { xs: 2, md: mdPx } },
-})
-
-/** Worth lighting. The season line's rank row is already gated at this bar, so every
- *  rank it draws passes; the rate strip's is not, and this is what keeps a 16th of 33 from
- *  being lit like a leader. */
-const isTopFive = (r: WpblStatRank | null | undefined): boolean => r != null && r.rank <= COUNT_RANK_BAR
-
-const lineThSx = {
-  ...TYPE.micro, textTransform: 'uppercase', letterSpacing: 0.4,
-  color: 'text.disabled', textAlign: 'center', py: 0, pb: 0.4, px: 0.3,
-  borderBottom: '1px solid', borderColor: 'divider', whiteSpace: 'nowrap',
-} as const
-const lineTdSx = {
-  ...TYPE.figure, textAlign: 'center', px: 0.3, pt: 0.6, pb: 0, whiteSpace: 'nowrap',
-} as const
-const lineRankSx = {
-  ...TYPE.micro, textAlign: 'center', px: 0.3, pt: 0.1, pb: 0.2,
-  color: 'text.secondary', whiteSpace: 'nowrap',
-} as const
-
-/**
- * The four rates, as a row, at the top of the pane.
- *
- * A full row rather than a centred headline pair, so nothing on the pane sits on an axis of its
- * own, and OBP and SLG are not left to be found further down.
- */
-function RateStrip({ cells }: {
-  cells: { label: string; value: string; rank?: WpblStatRank | null }[]
-}) {
-  const { basis: eraBasis } = useEraBasis()
-  const ink = useRankInk()
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, 1fr)`, gap: 0.5 }}>
-      {cells.map(c => (
-        <Box key={c.label} sx={{ textAlign: 'center', minWidth: 0 }}>
-          <TapTip title={statTip(c.label, eraBasis)} popperZIndex={TIP_Z}
-            sx={{ ...TYPE.micro, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', display: 'block' }}>
-            {c.label}
-          </TapTip>
-          {/* THE SAME RULE AS THE SEASON LINE: top five is bold and in the rank blue, everything
-              else is plain. The bar is `COUNT_RANK_BAR`, shared so the two blocks cannot come
-              to different views of what is worth lighting up on one card. It matters more here
-              than it looks: a rate rank is drawn for every qualified player, so without the
-              bar this would put the club's colour on a 16th of 33 and turn an accent into
-              decoration. */}
-          <Typography sx={{
-            ...TYPE.hero, lineHeight: 1.15,
-            fontVariantNumeric: 'tabular-nums',
-            ...(isTopFive(c.rank) ? { color: ink } : {}),
-          }}>{c.value}</Typography>
-          {/* Blank when the player is not ranked, matching the season line's rank row, and a
-              non-breaking space rather than nothing so the strip is exactly as tall the day before
-              they qualify as the day after. Four dashes in a row under four numbers that are right
-              there read as missing data; what is missing is the comparison, and the meter below
-              says so in words. */}
-          {/* WITH ITS POPULATION, as the desktop's lead columns print it. The phone used to say a
-              bare "9th" where the desktop said "9th of 16", and the pitch profile three blocks
-              down said "of 21"; every rate rank on the card now reads the same way against the
-              same field. */}
-          <Typography sx={{
-            ...TYPE.micro, fontVariantNumeric: 'tabular-nums',
-            ...(isTopFive(c.rank) ? { color: ink, fontWeight: 800 } : { color: 'text.secondary' }),
-          }}>{c.rank ? `${ordinal(c.rank.rank)} of ${c.rank.of}` : ' '}</Typography>
-        </Box>
-      ))}
-    </Box>
-  )
-}
+// The season line, the rate strip, the game log, the form strip and the band are shared with
+// MLB's player page (src/ui/playerCard.tsx). What is WPBL's own is below.
 
 /**
  * What stands where the percentile strip would be, for a player who is not ranked yet.
@@ -445,79 +169,7 @@ function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
   )
 }
 
-/**
- * The last few games, in the band's own empty middle.
- *
- * WHY HERE. The band is a row of portrait then bio, and the bio is the flexible part, so on a
- * wide card its box is far wider than its longest line: the largest uncommitted area on the page,
- * where the club's wash is strongest. This costs no height at all, which matters: the desktop card
- * already runs close to the viewport's height, so anything that grew the page would be paid for
- * out of the reading list at the bottom.
- *
- * WHAT IT IS FOR. Season totals answer "how good", and this answers "lately", which is the
- * question the totals cannot reach and the one a game log answers only if you read it. It is
- * also the honest thing to show a player the rest of the card cannot say much about: a 6 AB
- * hitter has no percentile and a rate stat that is mostly noise, but "1-3, 2-4, 0-2" is simply
- * what happened.
- *
- * CHRONOLOGICAL, oldest at the left, which is the one place in this file that disagrees with
- * the game log's newest-first order and does so on purpose. A form line is read as a shape
- * over time and time runs left to right; the log is a lookup table, where the row anyone wants
- * is last night's and it belongs at the top. Different jobs, different orders.
- */
-function FormStrip({ title, games }: { title: string; games: { opp: string; value: string }[] }) {
-  if (games.length === 0) return null
-  return (
-    // `md` and up. Below it the band is barely wide enough for the name.
-    // WIDTH IS A BUDGET SHARED WITH THE NAME, and this side loses. Only the bio flexes, so a wide
-    // strip squeezes it until the meta line ("#20 · C · B/T R/R · 23 yrs") wraps and grows the band.
-    // A block that claims to cost no height has to actually cost none, so the cells carry the
-    // squeezed spelling (see `oppLabel().short`), the gap is one step tighter, and `maxWidth` caps
-    // the whole thing well short of what five cells could ask for.
-    // The cap is in rem for the same reason the budget exists: it is measured against the bio line
-    // beside it, and that line is type. In px it would stop scaling when the reader enlarges the
-    // text, so the cells would overflow their own box while the bio grows.
-    <Box sx={{ display: { xs: 'none', md: 'block' }, flexShrink: 0, minWidth: 0, px: 1.5, maxWidth: '12.5rem' }}>
-      {/* 0.72 white, the dimmest thing on the band and so the case its wash is budgeted against.
-          These sit 74% to 96% along it, which is its strongest end, and still clear 4.5:1 on all
-          four clubs with about a fifth of a step to spare. See BAND_WASH. */}
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'rgba(255,255,255,0.72)', mb: 0.6 }}>
-        {title}
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        {games.map((g, i) => (
-          <Box key={i} sx={{ textAlign: 'center', minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap' }}>
-              {g.opp}
-            </Typography>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
-              {g.value}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  )
-}
 
-/**
- * The other half of a player who is mostly one thing: a hitter's mop-up inning, a pitcher's
- * stray at-bats. Below the cameo thresholds this does not earn a tab (see `twoWay`), so it
- * folds into the primary pane.
- *
- * A SECTION LIKE EVERY OTHER, a heading over one line, and deliberately the same shape as the
- * fielding section: both are one honest line about a part of the season the headline is not
- * describing. It used to be a bordered panel with a rule in the club's colour, which made it the
- * loudest frame on the card for its smallest fact.
- */
-function CameoBlock({ label, text }: { label: string; text: string }) {
-  return (
-    <Box sx={{ mt: 2 }}>
-      <SectionHead title={label} />
-      <Typography sx={{ ...TYPE.body, color: 'text.secondary', mt: -0.5 }}>{text}</Typography>
-    </Box>
-  )
-}
 
 /** A figure bound to its label, so a stat line that has to wrap can only break at a
  *  separator, and after it rather than before it: the space in front of a middot is a break
@@ -569,280 +221,8 @@ function FieldingLine({ ft, positions }: {
   )
 }
 
-/**
- * Columns where "the most of it in one game" is an achievement, so the best game can be marked.
- *
- * Deliberately short of the full line, on two rules. A column has to be one where MORE IS
- * BETTER, which drops SO from the batting log outright (marking a hitter's worst game in the
- * same colour as their best is the sort of thing nobody notices until it is pointed at) and
- * drops H, R, ER, BB and HR from the pitching log for the same reason, since those are what the
- * pitcher gave up. And it has to be an ACHIEVEMENT rather than an opportunity or a workload: AB
- * is how often a hitter came up, not how they did, and a pitcher's P is how long they were left
- * in.
- *
- * BB is left out of the batting list on a softer judgement. A walk is a good outcome and it is
- * still in the line, but "most walks in a game" is not a thing anyone scans a game log for, and
- * every mark spent on it is one more piece of colour competing with the four-hit night.
- */
-const BATTING_BEST = new Set(['R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'TB'])
-// Not BF or P: facing more batters is not a better outing, it is a longer one, and marking a
-// pitcher's highest pitch count as her best day would read as praise for being left in.
-const PITCHING_BEST = new Set(['IP', 'SO'])
 
-/**
- * The best value in a column, if marking it would actually say something.
- *
- * Three ways a column declines to have a best, and all three are about not spending colour on
- * nothing. A max of zero is a stat the player has not recorded all season, and marking ten zeros
- * as ten best games is absurd. A single game cannot have a best game. And a max held by more
- * than a third of the rows is not a standout: a hitter with 1 HR in five of ten games would get
- * five marks that pick out nothing, which is worse than no marks at all, because it teaches a
- * reader the colour means nothing and they stop seeing it on the games where it does.
- *
- * Values are read through `Number` rather than assumed numeric: IP arrives as "5.2" from
- * outsToIp, and its ordering survives the coercion because the fraction digit is only ever
- * 0, 1 or 2. A column carrying anything unparseable (DEC, POS) drops out here rather than
- * needing to be listed above.
- */
-function bestInColumn(values: (string | number)[]): number | null {
-  if (values.length < 2) return null
-  const nums = values.map(v => Number(v))
-  if (nums.some(v => !Number.isFinite(v))) return null
-  const max = Math.max(...nums)
-  if (max <= 0) return null
-  const held = nums.filter(v => v === max).length
-  return held > Math.max(1, Math.floor(values.length / 3)) ? null : max
-}
 
-/**
- * Show more / show fewer for the card's two long tables, the game log and the matchup tables.
- *
- * COLLAPSIBLE, which the log was deliberately not until Sep 28, 2026. The objection was a "show
- * fewer" yanking 1,000px out from under a finger, and it stopped being true once an expanded
- * table became its own capped scroller (LOG_MAX_H / LOG_MAX_H_XS): collapsing now removes at most
- * that cap. What is left of the objection is handled here. The inner scroller goes back to its
- * top, or the five rows a reader collapses to would be five rows from the middle of the list; and
- * if the table has slid above the viewport the section is scrolled back to it, so the reader is
- * left looking at the table they just folded rather than at whatever moved up under them.
- */
-function useCollapsibleTable() {
-  const [expanded, setExpanded] = useState(false)
-  const sectionRef = useRef<HTMLDivElement | null>(null)
-  const scrollerRef = useRef<HTMLDivElement | null>(null)
-  const toggle = () => {
-    if (!expanded) { setExpanded(true); return }
-    setExpanded(false)
-    if (scrollerRef.current) scrollerRef.current.scrollTop = 0
-    // After the collapse has painted, so the measurement is of the folded table.
-    requestAnimationFrame(() => {
-      const el = sectionRef.current
-      if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start' })
-    })
-  }
-  return { expanded, toggle, sectionRef, scrollerRef }
-}
-
-/** The control under a collapsible table: the card's one show-more button (see cardParts).
- *  The count is in the "show" label rather than a bare "Show all", because the whole question a
- *  reader is asking before they tap is how much more there is. */
-function ExpandToggle({ expanded, hidden, noun, onToggle, accent }: {
-  expanded: boolean
-  /** Rows the collapsed table leaves out. */
-  hidden: number
-  noun: [singular: string, plural: string]
-  onToggle: () => void
-  accent: string
-}) {
-  if (hidden <= 0) return null
-  return (
-    <ShowMoreButton expanded={expanded} onClick={onToggle} accent={accent}>
-      {expanded ? 'Show fewer' : `Show ${hidden} more ${hidden === 1 ? noun[0] : noun[1]}`}
-    </ShowMoreButton>
-  )
-}
-
-/**
- * Per-game log: Date and Opp lead, then that game's line.
- *
- * Cell padding tightens under sm because at full padding the hitting log is wider than a phone's
- * box and silently clips its last columns. The horizontal scroll is the fallback for anything
- * narrower, but it is a POOR one on a phone, where the scrollbar is an overlay that appears only
- * once a finger is already moving: a reader who never tries has no way to know the row
- * continues. So the target is that the widest line FITS a 375px phone outright.
- *
- * 0.3 horizontal padding: fourteen columns at 0.4 measure 345px against the 341px a 375px sheet
- * leaves, silently clipping the TB column. 0.3 brings it to 323 with about 18px of slack, about
- * one more character of POS: enough for a player who moved twice in a game ("LF/CF/P"), and the
- * number to re-measure against if a column is ever added here again.
- */
-function GameLogTable({ title, statHeaders, rows, totals, best, accent }: {
-  title: string
-  statHeaders: string[]
-  rows: { date: string; opp: string; cells: (string | number)[]; onOpen?: () => void }[]
-  /** The season, in the same columns as the games above it, or nothing.
-   *
-   *  This is the affordance a reader arriving from any stat site reaches for, it costs one
-   *  row, and it puts the season in the place they are already scanning columns. It is also a
-   *  standing check on the card: the totals come from `sumBatting` over the regular season
-   *  while the rows are every game the player appeared in, so a log with a postseason game in it
-   *  will visibly not add up, which is the correct answer and not a bug to hide. */
-  totals?: (string | number)[]
-  /** Which headers may carry a best-game mark. See BATTING_BEST / PITCHING_BEST. */
-  best?: Set<string>
-  accent: string
-}) {
-  const { basis: eraBasis } = useEraBasis()
-  const ink = useRankInk()
-  // Column index → the value to mark, for the columns that have one. Computed once for the
-  // table rather than per cell, which would be O(rows²) down a forty-game log.
-  const marks = useMemo(() => {
-    const out = new Map<number, number>()
-    if (!best) return out
-    statHeaders.forEach((h, j) => {
-      if (!best.has(h)) return
-      const top = bestInColumn(rows.map(r => r.cells[j]))
-      if (top != null) out.set(j, top)
-    })
-    return out
-  }, [best, statHeaders, rows])
-  // The mark is taken over EVERY game, not over the five on screen: "her best game" is a fact
-  // about the season, and recomputing it per preview would move the highlight when the reader
-  // expanded the table, which is the one thing a highlight must never do.
-  const { expanded, toggle, sectionRef, scrollerRef } = useCollapsibleTable()
-  const shown = expanded ? rows : rows.slice(0, LOG_PREVIEW)
-  const hidden = rows.length - Math.min(rows.length, LOG_PREVIEW)
-  if (rows.length === 0) return null
-  return (
-    <Box ref={sectionRef} sx={{ mt: 2 }}>
-      <Typography sx={sectionSx}>{title}</Typography>
-      {/* Capped and self-scrolling, with the header pinned to the top of it and the season row
-          pinned to the bottom. This is the one block on the page that grows on its own: a row a
-          game, and about forty by the end of a season, against a rail that stays put whatever
-          happens.
-          THE CAP APPLIES ON A PHONE ONLY ONCE THE READER HAS EXPANDED IT, which is why this is
-          conditional rather than a breakpoint. A nested scroller buys nothing on a phone while the
-          log is short and costs a touch gesture inside a sheet that already scrolls. Expanded it is
-          the opposite trade: forty rows is about 1,400px of table with a header that has scrolled
-          out of sight by the fourth, and a wide row of bare figures with no header above it is
-          unreadable, since the column under your thumb could be 2B or SO.
-          Leaving the header sticky against the PAGE cannot work: a box with `overflow-x: auto` is a
-          scroll container on both axes (CSS will not let one axis scroll and the other stay
-          visible), so the header sticks to a box exactly as tall as the table, which is not
-          sticking at all. Giving that same box a height is what makes its sticky header work. */}
-      <Box ref={scrollerRef} sx={{
-        ...bleedSx(0.85),
-        overflowX: 'auto',
-        maxHeight: { xs: expanded ? LOG_MAX_H_XS : 'none', md: chromePx(LOG_MAX_H) },
-        overflowY: 'auto',
-      }}>
-        <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
-          <Box component="thead">
-            <Box component="tr">
-              <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Date</Box>
-              <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Opp</Box>
-              {statHeaders.map(h => (
-                <TapTip key={h} title={statTip(h, eraBasis)} component="th" popperZIndex={TIP_Z} sx={thSx}>{h}</TapTip>
-              ))}
-            </Box>
-          </Box>
-          <Box component="tbody">
-            {shown.map((r, i) => (
-              /* The row opens that game.
-                 NOT an anchor, which is the one place this section departs from the house rule
-                 about real hrefs, and it departs from it for the rule's own reason. A game is
-                 `?game=<id>` query state on whichever tab is underneath, and seo.ts deliberately
-                 canonicalises those back to the tab so that a hundred shared game links do not
-                 read as a hundred near-duplicate pages. The rule exists to make routes findable;
-                 these are the one thing here that is meant NOT to be indexed separately, and
-                 every other game card in the section (GameGrid, the Home rail, the schedule) is
-                 a `pressable` for the same reason.
-                 `role` is left alone: a `role="button"` on a `tr` takes the row out of the table
-                 for a screen reader, so the row keeps its semantics and picks up the keyboard
-                 handler instead. */
-              <Box
-                component="tr"
-                key={i}
-                {...(r.onOpen ? {
-                  onClick: r.onOpen,
-                  tabIndex: 0,
-                  onKeyDown: (e: React.KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); r.onOpen?.() }
-                  },
-                } : {})}
-                sx={{
-                  // ZEBRA, at about a third of the strength a divider is drawn at. The log is
-                  // the tallest block on the card and the only one with no vertical rules, so
-                  // a wide row of small figures has nothing holding it together across
-                  // fourteen columns; the eye loses the line somewhere around RBI. It is drawn
-                  // on the ODD rows so the first row, which is last night's game and the one
-                  // anybody opens this for, stays on the plain ground.
-                  ...(i % 2 === 1 ? { bgcolor: 'action.hover' } : {}),
-                  ...(r.onOpen ? {
-                  cursor: 'pointer',
-                  ...TAPPABLE,
-                  // Inset, because an outline drawn outside a table row is clipped by the
-                  // log's own scroller on the two rows that matter most, the first and last.
-                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' },
-                  } : {}),
-                }}
-              >
-                <Box component="td" sx={{ ...tdSx, textAlign: 'left', color: 'text.disabled' }}>{r.date}</Box>
-                {/* Plain, deliberately. The opponent's own club colour would give the log a spine to scan
-                    by and cost more than it buys: a reader looking at a player's card does not need other
-                    clubs competing for attention with that player's numbers, and the colour would land on
-                    the one column nobody came here to read. Emphasis on this card is for the figures. See
-                    the best-game marks below and the ranks in the season line. */}
-                <Box component="td" sx={{ ...tdSx, textAlign: 'left', fontWeight: 700 }}>{r.opp}</Box>
-                {r.cells.map((c, j) => {
-                  // The rank blue, the card's one colour for a good number (see useRankInk). Every
-                  // column that can be marked is one where more is better, so it only ever lands
-                  // on good news.
-                  const top = marks.get(j) != null && Number(c) === marks.get(j)
-                  // A ZERO DIMS, exactly as it does in the season line above. It is the same
-                  // argument and it bites harder here: a batting log is more than half zeros
-                  // (a two-hit night reads 3 1 2 0 0 0 1 0 0 0 2), and at full weight the eye
-                  // has to read every cell to find the four that happened. Dimmed, the log
-                  // draws its own shape, and a quiet week looks quiet instead of looking like
-                  // a wall. A dash keeps its weight: it is a column that does not apply, not a
-                  // thing that did not happen.
-                  return (
-                    <Box component="td" key={j} sx={
-                      top ? { ...tdSx, fontWeight: 800, color: ink }
-                        : isZeroStat(c) ? { ...tdSx, color: 'text.disabled' }
-                          : tdSx
-                    }>{c}</Box>
-                  )
-                })}
-              </Box>
-            ))}
-          </Box>
-          {totals && (
-            // A `tfoot` so it stays the season whatever the rows do, and so a screen reader
-            // meets it as a summary rather than as a forty-first game. Sticky to the bottom
-            // edge of the capped desktop scroller for the same reason the header is sticky to
-            // the top: the row exists to be compared against the games, and a total you have
-            // to scroll forty rows to reach is a total nobody reads.
-            <Box component="tfoot">
-              <Box component="tr">
-                {/* A label, so the card's label grey rather than the club's colour: red "SEASON" on the
-                    Firebells sat in the same row as blue best-game marks and read as a third kind of
-                    emphasis. The rule above the row is what sets it apart. */}
-                <Box component="td" sx={{ ...totalTdSx, textAlign: 'left', fontSize: '0.6rem', letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.secondary' }}>
-                  Season
-                </Box>
-                <Box component="td" sx={{ ...totalTdSx, textAlign: 'left' }} />
-                {totals.map((c, j) => (
-                  <Box component="td" key={j} sx={totalTdSx}>{c}</Box>
-                ))}
-              </Box>
-            </Box>
-          )}
-        </Box>
-      </Box>
-      <ExpandToggle expanded={expanded} hidden={hidden} noun={['game', 'games']} onToggle={toggle} accent={accent} />
-    </Box>
-  )
-}
 
 /**
  * Her line against each opponent she has faced from one side of the plate: pitchers when she
@@ -931,7 +311,7 @@ function MatchupTable({ player, side, lines, players, scope, accent }: {
                     ) : oppName}
                   </Box>
                   {cells.map((c, j) => (
-                    <Box component="td" key={j} sx={isZeroStat(c) ? { ...tdSx, color: 'text.disabled' } : tdSx}>{c}</Box>
+                    <Box component="td" key={j} sx={isZeroStat(c) ? { ...tdSx, ...ZERO_SX } : tdSx}>{c}</Box>
                   ))}
                 </Box>
               )
@@ -948,25 +328,6 @@ function MatchupTable({ player, side, lines, players, scope, accent }: {
  *  one above the other open to the same height. */
 const MATCHUP_PREVIEW = 5
 
-/** How many games the log opens on.
- *
- *  Five, which is a week and a bit of a WPBL schedule and the same handful the band's form
- *  strip carries. The log is the tallest block on the card by a distance (a row a game, ~14 by
- *  September and ~40 over a full season), and on a phone it pushed everything under it -- the
- *  fielding line, the reading list -- past the point anybody scrolls to. What a reader wants
- *  from a game log at a glance is the recent form; what they want from the rest of it is to be
- *  able to reach it, which is what the control is for. It folds back up: see useCollapsibleTable. */
-const LOG_PREVIEW = 5
-
-/** The log's season row. The rule above it is the club's colour and the row's own background
- *  is the paper, because it has to stay legible over whichever game row it comes to rest on
- *  while the log scrolls under it. */
-const totalTdSx = {
-  ...TYPE.body, fontWeight: 800, py: 0.6, px: { xs: 0.22, sm: 0.85 },
-  textAlign: 'center', whiteSpace: 'nowrap',
-  position: 'sticky', bottom: 0, zIndex: 1, bgcolor: 'background.paper',
-  boxShadow: (t: Theme) => `inset 0 2px 0 ${t.palette.divider}`,
-} as const
 
 // ─── the modal ───────────────────────────────────────────────────────────────
 
@@ -983,8 +344,8 @@ const totalTdSx = {
  * there is no second player to guess at and guessing one would be a page about two people
  * chosen by a heuristic.
  *
- * Styled to match `CopyLinkButton` beside it down to the 26px height: they are two chips in
- * one bar and there is no reason for a reader to have to tell them apart by shape.
+ * Drawn as every header control is (see headerBar): they are chips in one bar and there is no
+ * reason for a reader to have to tell them apart by shape.
  */
 function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlayer[] }) {
   // No honest slug before the roster lands, and a bare-name slug minted from one row can name
@@ -997,21 +358,9 @@ function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlaye
       onClickCapture={() => track(EVENTS.WPBL_COMPARE_OPENED, { from: 'player', playerId: player.id })}
       title={`Compare ${player.name} with somebody`}
       aria-label={`Compare ${player.name} with another player`}
-      sx={{
-        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
-        height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-        textDecoration: 'none', color: 'text.disabled',
-        ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
-        transition: 'color 0.15s',
-      }}
+      sx={headerChipSx}
     >
-      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1 }} aria-hidden>⚖</Typography>
-      <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
-        lineHeight: 1, whiteSpace: 'nowrap',
-      }}>
-        Compare
-      </Typography>
+      <HeaderChipLabel icon={<CompareArrows aria-hidden sx={HEADER_ICON_SX} />}>Compare</HeaderChipLabel>
     </Box>
   )
 }
@@ -1070,12 +419,6 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     return () => { cancelled = true }
   }, [battedBalls.length])
 
-  // Matched on the id, never the name: the league mints a new player_id per club, so a traded
-  // player's rows carry two of them, and `api_ids` is what makes them one person. The batter
-  // id on a play is already our own uuid, so this is the resolved one.
-  const myBattedBalls = useMemo(
-    () => battedBalls.filter(p => p.batter_id === player.id),
-    [battedBalls, player.id])
   /**
    * Which of the two layouts to BUILD, rather than which to show.
    *
@@ -1103,7 +446,6 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const bandEls = useRef<(HTMLDivElement | null)[]>([])
   const [bandHidden, setBandHidden] = useState<Record<number, boolean>>({})
   const { basis: eraBasis, fmtEra, fmtK, kLabel } = useEraBasis()
-  const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
 
   // The SHORT /p/<code> form, for pasting into a DM or a post. functions/p 302s it to the readable
   // /wpbl/players/<slug> the address bar shows, which is what Google indexes and what
@@ -1115,16 +457,6 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     [player])
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const color = team ? wpblAccent(team.id, isDark) : '#888'
-  // The RAW club colours, for the header band only. Everywhere else on this page uses
-  // `color` above, which is the foreground-safe accent.
-  const teamPrimary = wpblColor(player.team_id)
-  const teamSecondary = wpblSecondary(player.team_id)
-  // The wash this club can carry, and its mid-ramp at 60% of it so the gradient keeps its shape
-  // whatever the end is. Hex pairs because the colour is a hex string and this is appended to it.
-  const wash = BAND_WASH[player.team_id ?? ''] ?? BAND_WASH_FLOOR
-  const washEnd = wash.toString(16).padStart(2, '0')
-  const washMid = Math.round(wash * 0.6).toString(16).padStart(2, '0')
 
   // SEEDED FROM THE SESSION CACHE, ON THE FIRST RENDER OF EVERY MOUNT.
   //
@@ -1135,10 +467,61 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // runs and revalidates behind whatever this put on screen.
   const seeded = getCachedWpblPlayerLines(player.id)
   const [loading, setLoading] = useState(!seeded)
-  const [batting, setBatting] = useState<WpblBattingLine[]>(() => seeded?.batting ?? [])
-  const [pitching, setPitching] = useState<WpblPitchingLine[]>(() => seeded?.pitching ?? [])
-  const [fielding, setFielding] = useState<WpblFieldingLine[]>(() => seeded?.fielding ?? [])
+  const [allBatting, setBatting] = useState<WpblBattingLine[]>(() => seeded?.batting ?? [])
+  const [allPitching, setPitching] = useState<WpblPitchingLine[]>(() => seeded?.pitching ?? [])
+  const [allFielding, setFielding] = useState<WpblFieldingLine[]>(() => seeded?.fielding ?? [])
   const [pitchLocs, setPitchLocs] = useState<WpblPitchLoc[]>([])
+
+  // WHICH YEAR. Everything below the band is one season's: the lines are every game the player has
+  // ever played, so each read is cut to the year on screen before anything sums it (see inSeason).
+  // The player's newest season until the reader picks another, which a retired player's page needs
+  // and a current one never notices. Not in the address: it resets with the player, like the scope.
+  const [pickedSeason, setPickedSeason] = useState<number | null>(null)
+  const seasons = useMemo(
+    () => seasonsPlayed([...allBatting, ...allPitching, ...allFielding], games),
+    [allBatting, allPitching, allFielding, games])
+  const season: number | null = pickedSeason != null && seasons.includes(pickedSeason)
+    ? pickedSeason
+    : seasons[0] ?? latestSeason(games)
+  // Null only with no schedule and no lines, where there is nothing to cut.
+  const thisSeason = <T extends { game_id: string }>(rows: T[]): T[] => (season == null ? rows : inSeason(rows, games, season))
+  const batting = useMemo(() => thisSeason(allBatting), [allBatting, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pitching = useMemo(() => thisSeason(allPitching), [allPitching, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fielding = useMemo(() => thisSeason(allFielding), [allFielding, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
+  // That year's games, for whatever measures a season by its schedule: the qualifying bar under
+  // the ranks. The schedule handed to a sum stays whole, since the lines are already cut.
+  const seasonGames = useMemo(() => (season == null ? games : gamesInSeason(games, season)), [games, season])
+
+  // Matched on the id, never the name: the league mints a new player_id per club, so a traded
+  // player's rows carry two of them, and `api_ids` is what makes them one person. The batter
+  // id on a play is already our own uuid, so this is the resolved one.
+  const myBattedBalls = useMemo(
+    () => thisSeason(battedBalls.filter(p => p.batter_id === player.id)),
+    [battedBalls, player.id, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The club that season was played for, off the lines, which carry the club of each game: the band
+  // wears it, so a past year reads in that year's colours. The newest season keeps the roster's club,
+  // which is "now" and is right for a player traded since their last game. A season with no line
+  // naming a club falls back to it too.
+  const clubId = useMemo(() => {
+    if (season == null || season === latestSeason(games)) return player.team_id
+    const last = [...batting, ...pitching]
+      .filter(l => l.team_id)
+      .sort((a, b) => (gameById.get(b.game_id)?.game_date ?? '').localeCompare(gameById.get(a.game_id)?.game_date ?? ''))[0]
+    return last?.team_id ?? player.team_id
+  }, [season, games, batting, pitching, gameById, player.team_id])
+  const team = useMemo(() => teams.find(t => t.id === clubId), [teams, clubId])
+  const color = team ? wpblAccent(team.id, isDark) : '#888'
+  // The RAW club colours, for the header band only. Everywhere else on this page uses
+  // `color` above, which is the foreground-safe accent.
+  const teamPrimary = wpblColor(clubId)
+  const teamSecondary = wpblSecondary(clubId)
+  // The wash this club can carry, and its mid-ramp at 60% of it so the gradient keeps its shape
+  // whatever the end is. Hex pairs because the colour is a hex string and this is appended to it.
+  const wash = BAND_WASH[clubId ?? ''] ?? BAND_WASH_FLOOR
+  const washEnd = wash.toString(16).padStart(2, '0')
+  const washMid = Math.round(wash * 0.6).toString(16).padStart(2, '0')
+
   // Which slice of the season the whole card shows. Defaults to the regular season, which is
   // what this page has always shown and what the OG cards and the Discord `/player` card still
   // publish; the toggle below only appears for a player who actually has postseason lines. Every
@@ -1148,7 +531,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // under every feed id the player has held, which is right for finding them and wrong for
   // plotting them: the card sits beside a pitching line that follows the same scope, and its own
   // caption counts `pt.g` games from that same total.
-  const seasonPitchLocs = useMemo(() => scopedLines(pitchLocs, games, scope), [pitchLocs, games, scope])
+  const seasonPitchLocs = useMemo(() => scopedLines(thisSeason(pitchLocs), games, scope), [pitchLocs, games, season, scope]) // eslint-disable-line react-hooks/exhaustive-deps
   const trackedPitchGames = useMemo(() => new Set(seasonPitchLocs.map(r => r.game_id)).size, [seasonPitchLocs])
   // Every plate appearance she took part in, for the matchup tables: her own narrow read, or her
   // slice of the league log when another page already has it (see fetchWpblPlayerMatchupPlays).
@@ -1164,8 +547,8 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   }, [player])
   // Follows the scope toggle like every other number on the card.
   const matchups = useMemo(
-    () => (matchupPlays ? playerMatchups(new Set(playerPlayIds(player)), matchupPlays, games, scope) : null),
-    [matchupPlays, player, games, scope])
+    () => (matchupPlays ? playerMatchups(new Set(playerPlayIds(player)), thisSeason(matchupPlays), games, scope) : null),
+    [matchupPlays, player, games, season, scope]) // eslint-disable-line react-hooks/exhaustive-deps
   // Every batting and pitching line in the league, for the percentile strip. Deliberately a
   // separate piece of state from the player's own lines: this one is allowed to never arrive.
   // `fetchWpblAllLines` is cached, deduped and already prefetched when the section lands on
@@ -1223,6 +606,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // clicked down a leaderboard, so a Playoffs scope or a scrolled-away band carried over would
     // show the next player's card already filtered, or with the header naming nobody.
     setScope('regular')
+    setPickedSeason(null)
     setBandHidden({})
   }
   // And the scroll position, for the same reason: the next player opens at their name, not
@@ -1295,17 +679,24 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // season: its league baseline and its qualifying bar. Laid over a playoff or combined total
   // they would rank a five-game line against a fifteen-game field, so they stand down for any
   // scope but the regular season, and every consumer already treats a null `ranks` as "not yet".
+  // Against that season's league and that season's bar, so a past year is ranked among the players
+  // who played it.
   const ranks = useMemo(
     () => scope === 'regular' && leagueLines
-      ? computeWpblPlayerRanks(player.id, players, teams, games, leagueLines.batting, leagueLines.pitching, eraBasis)
+      ? computeWpblPlayerRanks(player.id, players, teams, seasonGames, thisSeason(leagueLines.batting), thisSeason(leagueLines.pitching), eraBasis)
       : null,
-    [scope, leagueLines, player.id, players, teams, games, eraBasis])
+    [scope, leagueLines, player.id, players, teams, games, season, seasonGames, eraBasis]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The season line's qualified fields, handed to the pitch profile so every "of N" on the card
   // is the same N. See `batFieldIds` in percentiles.ts.
   const batRankPool = useMemo(() => (ranks ? new Set(ranks.batFieldIds) : null), [ranks])
   const pitRankPool = useMemo(() => (ranks ? new Set(ranks.pitFieldIds) : null), [ranks])
   const ink = useRankInk()
+  // What the shared card parts need from this section: its stat definitions as tooltips, its rank
+  // blue, and its top-five bar.
+  const cardEnv = useMemo<StatCardEnv>(
+    () => ({ tip: k => statTip(k, eraBasis), ink, rankBar: COUNT_RANK_BAR }),
+    [eraBasis, ink])
 
   // Lead with the skill the player is actually here for. The rule is `leadsWithPitching` in
   // positions.ts, shared with the unfurl card and the Discord card so the three cannot tell
@@ -1353,21 +744,14 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // Falling through to 'small sample' on a zero gap is deliberate rather than defensive: it
   // cannot happen while this line and `computeWpblPlayerRanks` agree on the bar, and if they
   // ever stop agreeing, a vaguer caveat is a better failure than "0 PA from qualifying".
-  // The season these totals belong to, taken off the SCHEDULE rather than the clock: this card
-  // is a permanent page with a shareable URL, and read next January a wall-clock year would
-  // relabel a 2026 line as 2027's. The latest game we hold, because a schedule that has not
-  // started yet still names its own year in its first row.
-  const seasonYear = useMemo(
-    () => games.reduce((y, g) => { const s = g.game_date?.slice(0, 4) ?? ''; return s > y ? s : y }, ''),
-    [games])
-  const battingMeta = `${bt.g} G · ${plateAppearances(bt)} PA`
+  const battingMeta = `${plateAppearances(bt)} PA`
     + (ranks?.batReason === 'below-bar' && paGap > 0 ? ` · ${paGap} PA from qualifying`
       : bt.ab < BAT_SMALL_AB ? ' · small sample' : '')
   // No IP here: it is a column on the pitching line now. The gap to the bar is still
   // measured in innings, because that is the unit the bar is set in.
-  const pitchingMeta = `${pt.g} G`
-    + (ranks?.pitReason === 'below-bar' && outsGap > 0 ? ` · ${outsToIp(outsGap)} IP from qualifying`
-      : pt.outs < PIT_SMALL_OUTS ? ' · small sample' : '')
+  // Games and the record are columns of the line, so the caption keeps only the sample's verdict.
+  const pitchingMeta = ranks?.pitReason === 'below-bar' && outsGap > 0 ? `${outsToIp(outsGap)} IP from qualifying`
+    : pt.outs < PIT_SMALL_OUTS ? 'Small sample' : ''
 
   // The control only exists for a genuine two-way player. Everyone else gets her own numbers
   // with no chrome: a lone pill that cannot be switched away from is worse than no pill.
@@ -1418,7 +802,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // No handler for a game the schedule does not hold, rather than a dead row that looks
     // pressable: the log is built from box-score lines and the schedule is fetched separately,
     // so a line can arrive for a game this render has not seen.
-    return { date: o.date, opp: o.text, onOpen: g && onOpenGame ? () => onOpenGame(g) : undefined }
+    return { lead: [o.date, o.text], onOpen: g && onOpenGame ? () => onOpenGame(g) : undefined }
   }
 
   // Box-score lines come back in whatever order the API returns them, which is not
@@ -1431,7 +815,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // narrative at ten games and at forty buries last night at the bottom of a scroll, the one row
   // anyone opening a player page late in a season is looking for. It also decides what the
   // capped log shows without scrolling, since the cap clips the BOTTOM of the list (see
-  // GameLogTable).
+  // StatLogTable).
   const newestFirst = <T extends { game_id: string }>(lines: T[]): T[] =>
     [...lines].sort((a, b) => {
       const da = gameById.get(a.game_id)?.game_date ?? ''
@@ -1482,31 +866,41 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const rateRank = (rs: WpblStatRank[] | undefined, key: string): WpblStatRank | null =>
     rs?.find(x => x.key === key) ?? null
 
-  /** The four rates at the top of the card, per role. Shared by the phone's strip and the
-   *  desktop band, which differ only in whether a rank has room for its population. */
-  const rateCells = (r: Role) => r === 'pitching' ? [
-    { label: 'ERA', value: fmtEra(pt.era), rank: rateRank(ranks?.pitching, 'era') },
-    { label: 'WHIP', value: fmtTwo(pt.whip), rank: rateRank(ranks?.pitching, 'whip') },
-    { label: kLabel, value: fmtK(pt.k9), rank: rateRank(ranks?.pitching, 'k9') },
-    { label: 'K/BB', value: fmtTwo(pt.kbb), rank: rateRank(ranks?.pitching, 'kbb') },
-  ] : [
-    { label: 'AVG', value: fmtRate(bt.avg), rank: rateRank(ranks?.batting, 'avg') },
-    { label: 'OBP', value: fmtRate(bt.obp), rank: rateRank(ranks?.batting, 'obp') },
-    { label: 'SLG', value: fmtRate(bt.slg), rank: rateRank(ranks?.batting, 'slg') },
-    { label: 'OPS', value: fmtRate(bt.ops), rank: rateRank(ranks?.batting, 'ops') },
-  ]
-
   /**
-   * Four rates across, on the phone, which is the only place it is drawn: under the season
-   * caption, over the counting table. Above `md` the same cells are the season line's own lead
-   * columns instead; see SeasonLine.
-   *
-   * FULL WIDTH. Four equal columns spanning the same width as the table beneath them share the
-   * table's own gridlines, so no element on the pane sits on an axis of its own.
+   * THE HEADLINE: the four numbers every stat site leads a player with. AVG, HR, RBI and OPS for a
+   * hitter; W-L (or saves, for a reliever), ERA, strikeouts and WHIP for a pitcher, which is ESPN's
+   * player header and MLB.com's, so a reader arriving from either finds them where they look. Drawn
+   * at every width, over the standard line, with each rank's field ("2nd of 21").
    */
+  const leadsWithSaves = pt.gs === 0 && pt.s > 0
+  const headline = (r: Role) => {
+    // A count's place in the whole field, as a rate's is in the qualified one. Nothing for a zero,
+    // which is not a place.
+    const countCell = (label: string, value: number, rs: WpblStatRank[] | undefined, key: string) => {
+      const rk = rs?.find(x => x.key === key)
+      return { label, value: String(value), rank: rk && value > 0 ? rk : null }
+    }
+    return r === 'pitching' ? [
+      leadsWithSaves ? countCell('SV', pt.s, ranks?.pitchingCounts, 'c_s') : { label: 'W-L', value: `${pt.w}-${pt.l}` },
+      { label: 'ERA', value: fmtEra(pt.era), rank: rateRank(ranks?.pitching, 'era') },
+      countCell('SO', pt.so, ranks?.pitchingCounts, 'c_so'),
+      { label: 'WHIP', value: fmtTwo(pt.whip), rank: rateRank(ranks?.pitching, 'whip') },
+    ] : [
+      { label: 'AVG', value: fmtRate(bt.avg), rank: rateRank(ranks?.batting, 'avg') },
+      countCell('HR', bt.hr, ranks?.battingCounts, 'c_hr'),
+      countCell('RBI', bt.rbi, ranks?.battingCounts, 'c_rbi'),
+      { label: 'OPS', value: fmtRate(bt.ops), rank: rateRank(ranks?.batting, 'ops') },
+    ]
+  }
+  /** A rate in the standard line, ranked only at the counting bar: "1st" under OBP, never "9th". */
+  const lineRate = (label: string, value: string, rs: WpblStatRank[] | undefined, key: string) => {
+    const rk = rs?.find(x => x.key === key)
+    return { label, value, rank: rk && rk.rank <= COUNT_RANK_BAR ? rk : null }
+  }
+
   const rateHead = (r: Role) => (
-    <Box sx={{ mb: 1.25 }}>
-      <RateStrip cells={rateCells(r)} />
+    <Box sx={{ mb: 1.5 }}>
+      <RateStrip cells={headline(r)} />
     </Box>
   )
 
@@ -1525,29 +919,32 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   //  the top of the card read as two navigation bars. It re-slices exactly the numbers under this
   //  caption, so it belongs on it, and it is the compact size so it reads as a setting on a section
   //  rather than as navigation. On a phone the sample drops under the season label to make room.
+  // Back to the regular season on a new year, as on a new player: the next one may have no playoffs.
+  const pickSeason = (y: number) => {
+    setPickedSeason(y)
+    setScope('regular')
+  }
   const lineCaption = (r: Role, scopeControl?: React.ReactNode) => {
     const noun = scope === 'postseason' ? 'postseason' : 'season'
-    // "2026 postseason" in the playoff slice, so the caption says WHICH games these totals are,
-    // not just which year. Regular and Both both read "season".
-    const label = seasonYear ? `${seasonYear} ${noun}` : noun.charAt(0).toUpperCase() + noun.slice(1)
-    const meta = r === 'pitching'
-      ? `${pitchingMeta} · ${pt.w}-${pt.l}${pt.s > 0 ? ` · ${pt.s} SV` : ''}`
-      : battingMeta
+    // The year comes off the SCHEDULE rather than the clock (see `season`): this card is a
+    // permanent page with a shareable URL, and read next January a wall-clock year would relabel a
+    // 2026 line as 2027's.
+    const label = season != null ? `${season} ${noun}` : noun.charAt(0).toUpperCase() + noun.slice(1)
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 0.75 }}>
-        <Box sx={{
-          display: 'flex', minWidth: 0, columnGap: 1, rowGap: 0.1,
-          ...(scopeControl
-            ? { flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'baseline' } }
-            : { flex: 1, alignItems: 'baseline', justifyContent: 'space-between' }),
-        }}>
-          <Typography sx={{ ...sectionSx, mb: 0 }}>{label}</Typography>
-          <Typography sx={{ ...TYPE.micro, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>{meta}</Typography>
-        </Box>
-        {scopeControl && <Box sx={{ flexShrink: 0 }}>{scopeControl}</Box>}
-      </Box>
+      <LineCaption
+        picker={season != null
+          ? <SeasonPicker label={label} season={season} seasons={seasons} onChange={pickSeason} />
+          : <Typography sx={{ ...sectionSx, mb: 0 }}>{label}</Typography>}
+        meta={r === 'pitching' ? pitchingMeta : battingMeta}
+        control={scopeControl}
+      />
     )
   }
+
+  // The log's totals row only off the regular season. On it the row repeated the season line a
+  // few inches above, figure for figure, and on a phone it was the most cramped row on the card.
+  // On Playoffs or Both it is the reminder, at the foot of a long list, of which games it adds up.
+  const logTotals = scope !== 'regular'
 
   // Each pane in two halves, because a desktop dialog puts them side by side: `season` is what
   // is true about her year, `log` is the record of the games it came out of. On anything
@@ -1555,54 +952,46 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const battingPane = {
     hasLog: battingLog.length > 0,
     /** Between the season line and the log: how the season was hit, from every pitch seen. */
-    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} scope={scope} rankPool={batRankPool} accent={color} />,
+    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={season} scope={scope} rankPool={batRankPool} accent={color} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
-    line: (merged: boolean, scopeControl?: React.ReactNode) => (
+    line: (scopeControl?: React.ReactNode) => (
       <>
         {lineCaption('batting', scopeControl)}
-        {!merged && rateHead('batting')}
-        {/* THE ORDER IS THE BOX SCORE'S, and that is most of what makes a table worth having: R H
-            2B 3B HR RBI SB CS BB SO is the order every fan has read a batting line in since
-            childhood, so the header row becomes a thing you check rather than a thing you read.
-
-            NO TOTAL BASES COLUMN. It is not on a box score's batting line, SLG two rows above is
-            it divided by at-bats, and `WPBL_BAT_COUNT_RANK_DEFS` already calls it "mostly a
-            restatement of the hits and homers above it". A column that restates its neighbours
-            costs width on a phone to say nothing new. It is still ranked, so a total-bases lead
-            still reaches the card through the counting ranks.
-
-            G and PA are in the caption on the table, so they are not repeated as columns.
-            RARE EVENTS APPEAR ONLY ONCE THEY HAVE HAPPENED, which matters in a table: a column
-            reading 0 costs a whole column of width (3B 0, SB 0 and CS 0 beside H 17). Steals are a
-            PAIR, because a steal total alone cannot say whether the running worked. Doubles stay
-            unconditional: common enough that a zero is a fact about the season rather than an
-            absence of one. */}
-        {/* AB leads, unlike the grid this replaced, which left it on the sample line: a hit
-            total is unreadable without the at-bats beside it, and the log below has the column
-            too, so the totals row and the line now agree column for column. */}
+        {rateHead('batting')}
+        {/* THE STANDARD LINE, in MLB.com's column order with the rates at the end, which is how
+            every stat site's table reads, so the header row is a thing a reader checks rather than
+            reads. Every column is always drawn: 3B and CS sit where a reader expects them even at
+            zero. The less-read columns follow the rates once they have happened, in
+            Baseball-Reference's order. NO TOTAL BASES: SLG is it divided by at-bats, and it is still
+            ranked, so a total-bases lead still reaches the card through the counting ranks.
+            A stat in the headline keeps its rank there and not here, so no figure is ranked twice.
+            SO carries no rank, ever: second in the league in strikeouts is not an achievement. */}
         <SeasonLine cols={[
+          { label: 'G', value: bt.g },
           { label: 'AB', value: bt.ab },
           { label: 'R', value: bt.r, rank: countRank(ranks?.battingCounts, 'c_r') },
           { label: 'H', value: bt.h, rank: countRank(ranks?.battingCounts, 'c_h') },
           { label: '2B', value: bt.doubles, rank: countRank(ranks?.battingCounts, 'c_2b') },
-          ...(bt.triples ? [{ label: '3B', value: bt.triples, rank: countRank(ranks?.battingCounts, 'c_3b') }] : []),
-          { label: 'HR', value: bt.hr, rank: countRank(ranks?.battingCounts, 'c_hr') },
-          { label: 'RBI', value: bt.rbi, rank: countRank(ranks?.battingCounts, 'c_rbi') },
-          ...(bt.sb || bt.cs ? [
-            { label: 'SB', value: bt.sb, rank: countRank(ranks?.battingCounts, 'c_sb') },
-            { label: 'CS', value: bt.cs },
-          ] : []),
+          { label: '3B', value: bt.triples, rank: countRank(ranks?.battingCounts, 'c_3b') },
+          { label: 'HR', value: bt.hr },
+          { label: 'RBI', value: bt.rbi },
           { label: 'BB', value: bt.bb, rank: countRank(ranks?.battingCounts, 'c_bb') },
-          // SO carries no rank, ever. Second in the league in strikeouts is not an
-          // achievement, and the counting defs leave it out for that reason; printing a rank
-          // here would put it back by the side door.
           { label: 'SO', value: bt.so },
-          ...(bt.hbp ? [{ label: 'HBP', value: bt.hbp }] : []),
-          ...(bt.sh ? [{ label: 'SH', value: bt.sh }] : []),
-          ...(bt.sf ? [{ label: 'SF', value: bt.sf }] : []),
-          ...(bt.gdp ? [{ label: 'GDP', value: bt.gdp }] : []),
-        ]} lead={merged ? rateCells('batting') : undefined} />
+          { label: 'SB', value: bt.sb, rank: countRank(ranks?.battingCounts, 'c_sb') },
+          { label: 'CS', value: bt.cs },
+          { label: 'AVG', value: fmtRate(bt.avg), breakBefore: true },
+          lineRate('OBP', fmtRate(bt.obp), ranks?.batting, 'obp'),
+          lineRate('SLG', fmtRate(bt.slg), ranks?.batting, 'slg'),
+          { label: 'OPS', value: fmtRate(bt.ops) },
+          // The extras start a row of their own when the line folds, whichever of them is first.
+          ...[
+            ...(bt.gdp ? [{ label: 'GDP', value: bt.gdp }] : []),
+            ...(bt.hbp ? [{ label: 'HBP', value: bt.hbp }] : []),
+            ...(bt.sh ? [{ label: 'SH', value: bt.sh }] : []),
+            ...(bt.sf ? [{ label: 'SF', value: bt.sf }] : []),
+          ].map((c, i) => (i === 0 ? { ...c, breakBefore: true } : c)),
+        ]} />
       </>
     ),
     season: (
@@ -1621,15 +1010,15 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       </>
     ),
     log: (
-      <GameLogTable
+      <StatLogTable
         title="Game log"
         // The box score's order, matching the season line above it. TB stays HERE and not
         // there: over one night it is the slugging line of that night and worth marking as a
         // best game, and over a season it is SLG times at-bats.
         statHeaders={['POS', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'TB']}
         // No position in the totals: a season is not played at one. The em dash is this
-        // project's glyph for "no value", which is exactly what that cell is.
-        totals={['—', bt.ab, bt.r, bt.h, bt.doubles, bt.triples, bt.hr, bt.rbi, bt.sb, bt.bb, bt.so, bt.tb]}
+        // project's glyph for "no value", which is exactly what that cell is. See `logTotals`.
+        totals={!logTotals ? undefined : ['—', bt.ab, bt.r, bt.h, bt.doubles, bt.triples, bt.hr, bt.rbi, bt.sb, bt.bb, bt.so, bt.tb]}
         best={BATTING_BEST}
         accent={color}
         rows={newestFirst(battingLog).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [gamePosition(l.position), l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.sb, l.bb, l.so, l.tb] }))}
@@ -1649,47 +1038,38 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const pitchingPane = {
     hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
     /** Between the season line and the log: how the season was pitched, from every pitch thrown. */
-    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} scope={scope} rankPool={pitRankPool} accent={color} />,
+    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={season} scope={scope} rankPool={pitRankPool} accent={color} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
-    line: (merged: boolean, scopeControl?: React.ReactNode) => (
+    line: (scopeControl?: React.ReactNode) => (
       <>
         {lineCaption('pitching', scopeControl)}
-        {!merged && rateHead('pitching')}
-        {/* THE ORDER IS THE BOX SCORE'S, as on the batting line: H R ER HR BB SO, with the home
-            runs beside the other things the pitcher gave up rather than stranded after the
-            strikeouts.
-
-            G and the decision line are in the caption on the table. GS is a column because it is
-            the one number here that says what KIND of pitcher this is, and this section reads it to
-            decide which half of a two-way season leads (see positions.ts). P says how much work the
-            year was, which the counting stats cannot: they say what was given up, not how hard the
-            innings were. HBP, WP and BK show up only once they have happened, like the batting
-            line's sacrifices. */}
+        {rateHead('pitching')}
+        {/* MLB.com's pitching order, the rates where it puts them. The rarer columns follow WHIP once
+            they have happened, and the pitch count closes the line: it is the only figure on the card
+            saying how hard the innings were, which the counting stats cannot (they say what was given
+            up). Batters faced is not a column, being very nearly innings times three plus the
+            baserunners already itemised; `pt.bf` is still read, by the role rule in positions.ts. */}
         <SeasonLine cols={[
+          { label: 'W', value: pt.w, rank: countRank(ranks?.pitchingCounts, 'c_w') },
+          { label: 'L', value: pt.l },
+          { label: 'ERA', value: fmtEra(pt.era) },
+          { label: 'G', value: pt.g },
           { label: 'GS', value: pt.gs },
-          // IP is a column rather than a line of caption, which is where a box score puts it
-          // and where a pitching line is unreadable without it: every counting stat to its
-          // right is a rate waiting for a denominator. It comes off the caption in the same
-          // breath, so the two cannot say it twice on one phone screen.
+          { label: 'SV', value: pt.s, rank: leadsWithSaves ? null : countRank(ranks?.pitchingCounts, 'c_s') },
           { label: 'IP', value: outsToIp(pt.outs), rank: countRank(ranks?.pitchingCounts, 'c_outs') },
           { label: 'H', value: pt.h },
           { label: 'R', value: pt.r },
           { label: 'ER', value: pt.er },
           { label: 'HR', value: pt.hr },
           { label: 'BB', value: pt.bb },
-          { label: 'SO', value: pt.so, rank: countRank(ranks?.pitchingCounts, 'c_so') },
+          { label: 'SO', value: pt.so },
+          { label: 'WHIP', value: fmtTwo(pt.whip) },
           ...(pt.hbp ? [{ label: 'HBP', value: pt.hbp }] : []),
           ...(pt.wp ? [{ label: 'WP', value: pt.wp }] : []),
           ...(pt.bk ? [{ label: 'BK', value: pt.bk }] : []),
-          // BATTERS FACED IS GONE and pitches stay. The two look like a pair and are not:
-          // with innings now in the line, BF is very nearly innings times three plus the
-          // baserunners already itemised two columns to its left, while a pitch count is the
-          // only thing on the card that says how hard the innings were. `pt.bf` is still read,
-          // by the role rule in positions.ts, which is why the column can go without the
-          // number going.
           { label: 'P', value: pt.pitches },
-        ]} lead={merged ? rateCells('pitching') : undefined} />
+        ]} />
       </>
     ),
     season: (
@@ -1712,12 +1092,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             of every appearance outranks a sample of one of them. */}
         {/* No POS column here, unlike the batting log: a pitching line's position is 'p'
             in every row of every pitcher's season. */}
-        <GameLogTable
+        <StatLogTable
           title="Game log"
           statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']}
           // The record stands in for the decision column, which is the only cell here whose
           // season form is a different thing from the sum of the games above it.
-          totals={[`${pt.w}-${pt.l}`, outsToIp(pt.outs), pt.h, pt.r, pt.er, pt.hr, pt.bb, pt.so, pt.pitches]}
+          totals={!logTotals ? undefined : [`${pt.w}-${pt.l}`, outsToIp(pt.outs), pt.h, pt.r, pt.er, pt.hr, pt.bb, pt.so, pt.pitches]}
           best={PITCHING_BEST}
           accent={color}
           rows={newestFirst(pitchingLog).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.hr, l.bb, l.so, l.pitches ?? '—'] }))}
@@ -1776,18 +1156,16 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    * emptiest card. Any floor small enough to fix that is one the batting log would push through,
    * back into its own horizontal scroller.
    *
-   * ACROSS THE TOP THERE IS NOTHING LEFT OVER. The rates are the season line's own first columns,
-   * that table spans, the log under it spans, and the card is a single column of full-width
-   * blocks, which is both the shape the phone already uses and the shape every stat page has
-   * always had. See SeasonLine's `lead`.
+   * ACROSS THE TOP THERE IS NOTHING LEFT OVER. The headline spans, the standard line under it
+   * spans, the log under that spans, and the card is a single column of full-width blocks, which
+   * is both the shape the phone uses and the shape every stat page has always had.
    *
    * NO TABS ON A DESKTOP: tabs buy vertical space on a phone, a desktop dialog is not short of it,
    * and a two-way player is exactly who a stat site puts two tables on one page for. Baseball
    * Reference has never asked anyone to choose between Standard Batting and Standard Pitching.
    * That is also why the club band has no headline rates: it could only ever show one role.
    *
-   * The phone keeps the pager, the pills and the four-across rate strip, which is what a 375px
-   * column can hold.
+   * The phone keeps the pager and the pills, which is what a 375px column can hold.
    */
   const desktopRoleBlock = (r: Role, first: boolean, last: boolean) => {
     const pane = r === 'pitching' ? pitchingPane : battingPane
@@ -1800,20 +1178,10 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             {r === 'pitching' ? 'Pitching' : 'Batting'}
           </Typography>
         )}
-        {/* ONE TABLE: the rates ARE the first four columns of the season line, not a second block
-            set beside it.
-
-            NOT A PAIR OF BLOCKS. Two independent grids side by side can only be aligned by hand
-            and re-aligned every time a row changes height: blocks that set their figures at
-            different sizes land each row that means the same thing (label, figure, rank) on a line
-            of its own, and a card of correct numbers reads as confused. Inside one table alignment
-            is not arranged at all.
-
-            It is also the conventional shape. Every standard batting line ever printed carries the
-            rates and the counts in one row under one header; the only liberty here is that the
-            rates come FIRST, because on this card they are the headline rather than the summary.
-            See SeasonLine's `lead`. */}
-        {pane.line(true, first && hasPostseason ? scopeNav : undefined)}
+        {/* The same headline and standard line as the phone: four figures with their ranks, then
+            the line in the order every stat site prints it. Until Oct 2026 the desktop put the rates
+            first as the line's own lead columns, an order no other site uses. */}
+        {pane.line(first && hasPostseason ? scopeNav : undefined)}
         {/* THE CAMEO AND THE QUALIFYING METER: without them a desktop reader of a below-the-bar
             player meets four unranked rates and no word about why, and a two-way cameo loses the
             one line saying the player also pitched. Capped to a reading measure, because both are
@@ -1848,115 +1216,78 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    */
   /** The club band. Drawn once, pinned, on a desktop; once per pane, scrolled, on a phone. */
   const bandBlock = (ref?: (el: HTMLDivElement | null) => void) => (
-      <Box ref={ref} data-sheet-drag sx={{
-        position: 'relative', flexShrink: 0,
-        // The secondary washes OVER an opaque primary rather than being the last stop of a gradient
-        // that runs out of colour. As a plain gradient the right-hand end would be `secondary` at low
-        // alpha over whatever sits behind the card, which in light mode is white, so the band would
-        // fade to near-white exactly where text sits. Washing over the primary keeps every point on the
-        // band dark enough for white text, and the club's actual hue stays visible in light mode.
-        //
-        // MORE OF THE CLUB, LESS OF THE BLACK: the wash starts early and ramps to whatever each club can
-        // carry, so the band reads as the club's colours rather than as black with a hint of something
-        // in one corner. See BAND_WASH for what sets the number.
-        backgroundColor: teamPrimary,
-        backgroundImage: `linear-gradient(105deg, transparent 0%, transparent 26%, ${teamSecondary}${washMid} 62%, ${teamSecondary}${washEnd} 100%)`,
-        borderBottom: `2px solid ${teamSecondary}`,
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2 }, p: { xs: 1.75, sm: 2.25 } }}>
-          {/* A rounded square rather than a circle, and bigger. A circle crops a
-              head-and-shoulders portrait to the face; at this size there is room for the
-              shoulders and the uniform, which is most of what makes a player recognisable. */}
-          {/* One size at every width, deliberately. A JS media query picking a size does not
-              re-render on a live window resize the way the CSS breakpoints on this same band do, so
-              dragging a desktop window narrow would leave a desktop-sized portrait next to
-              phone-sized padding until the next navigation. 84 reads well at both, and the band's
-              padding and type still step at `sm` where CSS can do it properly. */}
-          <PlayerPortrait name={player.name} teamId={player.team_id} square size={84} />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              {/* The page's <h1>. A player page is a modal over a tab but it is a real page
-                  with its own URL and title, and the tab underneath stops rendering an h1
-                  while this is open; see PageHeading.tsx. */}
-              <Typography component="h1" sx={{ fontSize: { xs: '1.2rem', sm: '1.4rem' }, fontWeight: 800, lineHeight: 1.15, color: '#fff', m: 0 }}>
-                {player.name}
-              </Typography>
-              {twoWay && (
-                // White on a translucent white wash rather than the club's secondary: SF's red
-                // on SF's purple measures about 3.5:1, which is thin for a badge and would be
-                // the one club whose label is harder to read than the other three.
-                <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Two-way
-                </Box>
-              )}
+    <PlayerBand
+      bandRef={ref}
+      // The secondary washes OVER an opaque primary rather than being the last stop of a gradient
+      // that runs out of colour. As a plain gradient the right-hand end would be `secondary` at low
+      // alpha over whatever sits behind the card, which in light mode is white, so the band would
+      // fade to near-white exactly where text sits. Washing over the primary keeps every point on the
+      // band dark enough for white text, and the club's actual hue stays visible in light mode.
+      //
+      // MORE OF THE CLUB, LESS OF THE BLACK: the wash starts early and ramps to whatever each club can
+      // carry, so the band reads as the club's colours rather than as black with a hint of something
+      // in one corner. See BAND_WASH for what sets the number.
+      background={{
+        color: teamPrimary,
+        image: `linear-gradient(105deg, transparent 0%, transparent 26%, ${teamSecondary}${washMid} 62%, ${teamSecondary}${washEnd} 100%)`,
+      }}
+      stripe={teamSecondary}
+      // A rounded square rather than a circle, and bigger. A circle crops a head-and-shoulders
+      // portrait to the face; at this size there is room for the shoulders and the uniform, which
+      // is most of what makes a player recognisable. One size at every width, deliberately: a JS
+      // media query picking a size does not re-render on a live window resize the way the band's
+      // CSS breakpoints do.
+      portrait={<PlayerPortrait name={player.name} teamId={clubId} square size={84} />}
+      // The page's <h1>. A player page is a modal over a tab but it is a real page with its own URL
+      // and title, and the tab underneath stops rendering an h1 while this is open; see PageHeading.tsx.
+      name={player.name}
+      nameAs="h1"
+      badge={twoWay ? <BandBadge>Two-way</BandBadge> : undefined}
+      meta={subParts.length > 0 ? subParts.join(' · ') : undefined}
+      // 0.75 alpha (PlayerBand's default): the band carries a strong club hue, and at 0.62 these two
+      // lines fall to 3.7:1 over New York's sky blue. They are the smallest text on the card and
+      // the first thing a stronger wash costs. Separate FACTS: the draft line shows for a player
+      // with no hometown on file.
+      lines={[
+        ...(player.hometown ? [player.hometown] : []),
+        ...(player.draft_round ? [`Round ${player.draft_round}, Pick ${player.draft_pick}`] : []),
+      ]}
+      // THE FAN AWARDS THIS PLAYER WON, as a seal under the facts rather than a card further down: it
+      // is a fact about the player, it outlasts the season, and a card would put it below the fold on
+      // a phone. A real link, so it is crawlable and opens in a new tab. Gold trophy on a light wash,
+      // the one mark the results sheet itself spends on a winner.
+      chips={awards.length > 0 ? (
+        // One row like MLB's band, the rest behind "+N" (see BandChips).
+        <BandChips noun={['fan award', 'fan awards']}>
+          {awards.map(a => (
+            <Box key={a.id} {...linkTo(WPBL_AWARDS_PATH)}
+              onClickCapture={() => track(EVENTS.WPBL_AWARD_OPEN, { from: 'player', category: a.id })}
+              aria-label={`2026 fan award: ${a.title}. See the results`}
+              sx={{
+                ...BAND_CHIP_SX,
+                ...hoverOnly({ bgcolor: 'rgba(255,255,255,0.26)' }),
+                '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
+              }}>
+              <EmojiEvents aria-hidden sx={{ fontSize: '0.85rem', color: '#eab308' }} />
+              Fan vote · {a.title}
             </Box>
-            {subParts.length > 0 && (
-              <Typography sx={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.88)', mt: 0.25 }}>{subParts.join(' · ')}</Typography>
-            )}
-            {/* Two lines, not one run-on. Joined with a separator the draft line wraps mid-phrase
-                behind a long hometown, so "Round 3, Pick 12" breaks across lines with the city and
-                reads as part of the address. They are also separate FACTS: the draft line shows for a
-                player with no hometown on file. */}
-            {/* 0.75 alpha: the band carries a strong club hue (see the gradient above), and at 0.62
-                these two lines fall to 3.7:1 over New York's sky blue. They are the smallest text on
-                the card and the first thing a stronger wash costs. */}
-            {player.hometown && (
-              <Typography sx={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.75)', mt: 0.1 }}>
-                {player.hometown}
-              </Typography>
-            )}
-            {player.draft_round && (
-              <Typography sx={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.75)', mt: 0.1 }}>
-                Round {player.draft_round}, Pick {player.draft_pick}
-              </Typography>
-            )}
-            {/* THE FAN AWARDS THIS PLAYER WON, as a seal under the facts rather than a card further down:
-                it is a fact about the player, it outlasts the season, and a card would put it below
-                the fold on a phone. A real link, so it is crawlable and opens in a new tab. Gold
-                trophy on a light wash, the one mark the results sheet itself spends on a winner. */}
-            {awards.length > 0 && (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.6 }}>
-                {awards.map(a => (
-                  <Box key={a.id} {...linkTo(WPBL_AWARDS_PATH)}
-                    onClickCapture={() => track(EVENTS.WPBL_AWARD_OPEN, { from: 'player', category: a.id })}
-                    aria-label={`2026 fan award: ${a.title}. See the results`}
-                    sx={{
-                      display: 'inline-flex', alignItems: 'center', gap: 0.4, textDecoration: 'none',
-                      // A LIGHT wash with a hairline, the Two-way badge's treatment, not a dark one:
-                      // the band runs near-black on its left side on desktop, where a dark pill
-                      // vanished, and a translucent white reads over both the dark end and the
-                      // club colour at the other.
-                      px: 0.9, py: 0.3, borderRadius: 999, color: '#fff',
-                      bgcolor: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.32)',
-                      fontSize: '0.66rem', fontWeight: 800, lineHeight: 1.2,
-                      ...hoverOnly({ bgcolor: 'rgba(255,255,255,0.26)' }),
-                      '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
-                    }}>
-                    <EmojiEvents aria-hidden sx={{ fontSize: '0.85rem', color: '#eab308' }} />
-                    Fan vote · {a.title}
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Box>
-          {/* Fills the band's own slack, and takes the role the hero is showing so a two-way
-              player's form line follows her tab rather than contradicting the numbers beside
-              it. Costs no height: the band's height is set by the 84px portrait. */}
-          {showBandHero && (() => {
-            // `roles[roleIndex]`, not `role`: the same expression the hero beside it uses, so
-            // the two cannot fall out of step for a two-way player mid-swipe.
-            const r = roles[roleIndex]
-            const g = formGames(r)
-            return <FormStrip title={`Last ${g.length} · ${r === 'pitching' ? 'IP' : 'H-AB'}`} games={g} />
-          })()}
-          {/* NO HEADLINE RATES ON THE BAND. The band can only ever show ONE role's numbers, and above
-              `md` every role is drawn with its own rates as the first columns of its own season line,
-              so a band headline would either duplicate the primary role's four or pick one of two and
-              hide the other. Below `md` the rates live in the pane. What the band keeps is what is
-              true of the player rather than of a role: who they are, and how the last few games went.
-              See desktopRoleBlock. */}
-        </Box>
-      </Box>
+          ))}
+        </BandChips>
+      ) : undefined}
+      // Fills the band's own slack, and takes the role on screen so a two-way player's form line
+      // follows the tab rather than contradicting the numbers beside it. Costs no height: the band's
+      // height is set by the 84px portrait. `roles[roleIndex]`, not `role`, so the two cannot fall
+      // out of step mid-swipe.
+      //
+      // NO HEADLINE RATES ON THE BAND. It can only ever show ONE role's numbers, and above `md` every
+      // role is drawn with its own rates as the first columns of its own season line. What the band
+      // keeps is what is true of the player rather than of a role. See desktopRoleBlock.
+      aside={showBandHero ? (() => {
+        const r = roles[roleIndex]
+        const g = formGames(r)
+        return <FormStrip title={`Last ${g.length} · ${r === 'pitching' ? 'IP' : 'H-AB'}`} games={g} />
+      })() : undefined}
+    />
   )
   const band = bandBlock()
 
@@ -2025,7 +1356,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             {bandBlock(el => { bandEls.current[i] = el })}
           </Box>
         )}
-        {pane.line(false, hasPostseason ? scopeNav : undefined)}
+        {pane.line(hasPostseason ? scopeNav : undefined)}
         {pane.season}
         {/* The desktop's order, for the reason given there. */}
         {pane.log}
@@ -2079,7 +1410,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     </>
   )
   const body = (
-    <>
+    <StatCardContext.Provider value={cardEnv}>
       {/* Two sizings, because the sheet and the dialog are shaped differently, and the same
           arrangement the game card uses for the same reason.
           On a phone the sheet holds a definite height, so this fills it (`flex: 1`) and every
@@ -2192,7 +1523,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         </>
       )}
       </Box>
-    </>
+    </StatCardContext.Provider>
   )
 
   // THE FULL PAGE: the desktop layout as a page in the section's flow rather than a dialog over it.
@@ -2289,40 +1620,7 @@ const BAND_WASH_FLOOR = 0x61
  * here.
  */
 const SENTENCE_W = 560
-// About thirteen rows, which is a little over the tallest the left rail gets. See GameLogTable.
-const LOG_MAX_H = 440
-/**
- * The same cap on a phone, once the log has been expanded.
- *
- * A FRACTION OF THE SCREEN rather than a row count, because the point of it is the sticky
- * header rather than the height: whatever is on screen has to have a header above it, and the
- * only way a sticky header can hold is if the box it is sticky inside actually scrolls. Set
- * too generously it does not, and a 15-game log (465px on a 375x812 phone, which is most of
- * the roster) would sit under the cap, scroll with the page, and take its header away with it,
- * which is the bug this exists to close.
- *
- * Half the viewport leaves the log about eleven rows and keeps the rest of the pane reachable
- * around it. Re-measure against a real phone rather than against a row count if it moves: the
- * row height is type-scale-dependent and a reader at Large text has fewer of them.
- */
-const LOG_MAX_H_XS = '50vh'
 
 
 const sectionSx = { ...TYPE.label, color: 'text.secondary', mb: 1 } as const
 
-// Game-log table cells. Headers are compact uppercase; body cells are tabular so columns
-// stay aligned down the table. Both center-align (numeric); the Date/Opp lead columns
-// override to left in the component. Horizontal padding is responsive: see GameLogTable.
-//
-// The header row pins, for the capped desktop log (see GameLogTable). Two details it needs:
-// an opaque background, or the rows scroll THROUGH it rather than under it, and its rule drawn
-// as an inset shadow rather than a border, because a `border-collapse: collapse` table hands
-// its cell borders to the row boundary and a sticky cell leaves them behind. Harmless where
-// the log is not capped: a sticky cell in a container that never scrolls never moves.
-const thSx = {
-  ...TYPE.micro, textTransform: 'uppercase', letterSpacing: 0.4,
-  color: 'text.disabled', py: 0.6, px: { xs: 0.22, sm: 0.85 }, textAlign: 'center', whiteSpace: 'nowrap',
-  position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper',
-  boxShadow: (t: Theme) => `inset 0 -1px 0 ${t.palette.divider}`,
-} as const
-const tdSx = { ...TYPE.body, py: 0.55, px: { xs: 0.22, sm: 0.85 }, textAlign: 'center', borderTop: '1px solid', borderColor: 'divider', whiteSpace: 'nowrap' } as const

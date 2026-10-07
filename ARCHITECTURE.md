@@ -170,6 +170,15 @@ flowchart LR
   the panel's "⤢ Expand". A player has one on the same terms (`playerPage`, PlayerDetailModal's
   `layout="page"`), and both share `DetailPageBar`. Plan and status: #9 in ROADMAP-WPBL.md; MLB's
   half is item 11 in ROADMAP.md.
+- **Player cards share their parts** ([`src/ui/playerCard.tsx`](src/ui/playerCard.tsx)) since Oct 6,
+  2026: the type scale, the season line with its rank row, the rate strip, `StatLogTable` (game
+  log, career, splits), the club band and its form strip, the section heading. WPBL's
+  `PlayerDetail` and MLB's [`MlbPlayerDetail`](src/mlb/views/MlbPlayerDetail.tsx) both draw from
+  it; what differs per league (tooltips, the rank ink, how high a rank must be to print) comes in
+  through `StatCardContext`. MLB's card fetches its own data
+  ([`src/mlb/playerProfile.ts`](src/mlb/playerProfile.ts): one wide StatsAPI read per season for the
+  line, advanced, sabermetrics, expected, splits and fielding), so useMlbState holds only which
+  player and which season.
 - **WPBL URLs are paths, not query strings** ([`src/wpbl/routes.ts`](src/wpbl/routes.ts)):
   one path per tab since Aug 21, 2026, so each has its own title, description and canonical
   and Google has five WPBL pages to rank instead of one. `/wpbl?view=<tab>` still resolves

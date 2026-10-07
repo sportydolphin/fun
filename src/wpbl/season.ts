@@ -176,3 +176,71 @@ export function standingsFinals<T extends WpblResultGame>(games: T[]): T[] {
       ? (a.game_date < b.game_date ? -1 : 1)
       : standingsStartMin(a.start_time) - standingsStartMin(b.start_time))
 }
+
+// ─── Which year ─────────────────────────────────────────────────────────────────
+//
+// Everything above slices ONE year into regular season and postseason. This slices the archive
+// into years, for the player page's season picker. 2026 is the only year there is, so today every
+// line is in it and nothing here changes a number; it exists so a second season lands as a choice
+// on the card rather than as two years summed into one line.
+
+/** A game with its date, which is all a year needs. */
+export type WpblDatedGame = WpblSeasonGame & Pick<WpblGame, 'game_date'>
+
+/**
+ * The season a game belongs to: the year it was played in.
+ *
+ * NOT THE FEED'S `season_id`. The league runs its postseason as a separate presto season with an
+ * id of its own, so keying on it would split one year's regular season from its own playoffs. A
+ * league whose season runs May to September never crosses New Year, so the date is unambiguous.
+ */
+export function seasonOf(g: Pick<WpblGame, 'game_date'>): number | null {
+  const y = Number(g.game_date?.slice(0, 4))
+  return y > 0 ? y : null
+}
+
+/** The newest season the schedule holds, or null for an empty one. */
+export function latestSeason(games: Pick<WpblGame, 'game_date'>[]): number | null {
+  let out: number | null = null
+  for (const g of games) { const y = seasonOf(g); if (y != null && (out == null || y > out)) out = y }
+  return out
+}
+
+/** The year of each game in the schedule, by id, plus the newest of them. */
+function yearIndex(games: WpblDatedGame[]): { byId: Map<string, number>; latest: number | null } {
+  const byId = new Map<string, number>()
+  let latest: number | null = null
+  for (const g of games) {
+    const y = seasonOf(g)
+    if (y == null) continue
+    byId.set(g.id, y)
+    if (latest == null || y > latest) latest = y
+  }
+  return { byId, latest }
+}
+
+/**
+ * The lines from one season.
+ *
+ * A LINE WHOSE GAME THE SCHEDULE DOES NOT HOLD COUNTS IN THE NEWEST SEASON. Lines and schedule are
+ * separate reads, so a box score can land a moment before its game row does; dropping it would
+ * take a game off the season being played, which is the same fail-closed shape `excludedGameIds`
+ * exists to avoid. An older season does not get it: a game nobody has heard of is not last year's.
+ */
+export function inSeason<T extends GameKeyed>(lines: T[], games: WpblDatedGame[], season: number): T[] {
+  const { byId, latest } = yearIndex(games)
+  return lines.filter(l => (byId.get(l.game_id) ?? latest) === season)
+}
+
+/** Every season the lines were played in, newest first, by the same rule as `inSeason`. */
+export function seasonsPlayed(lines: GameKeyed[], games: WpblDatedGame[]): number[] {
+  const { byId, latest } = yearIndex(games)
+  const out = new Set<number>()
+  for (const l of lines) { const y = byId.get(l.game_id) ?? latest; if (y != null) out.add(y) }
+  return [...out].sort((a, b) => b - a)
+}
+
+/** One season's schedule, for anything that measures a season by its games (the qualifying bar). */
+export function gamesInSeason<G extends Pick<WpblGame, 'game_date'>>(games: G[], season: number): G[] {
+  return games.filter(g => seasonOf(g) === season)
+}

@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Close } from '@mui/icons-material'
+import { HeaderBack, HEADER_EYEBROW_SX, HEADER_ICON_SX, headerChipSx } from './headerBar'
 import { createPortal } from 'react-dom'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { ThemeProvider, createTheme, useTheme, type Theme } from '@mui/material/styles'
@@ -509,41 +511,17 @@ function ShellHeader({ eyebrow, actions, onClose, labelId, onBack, backLabel }: 
       display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0,
     }}>
       {onBack && (
-        <Box
-          {...pressable(onBack)}
-          aria-label={backLabel ? `Back to ${backLabel.toLowerCase()}` : 'Back'}
-          sx={{
-            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
-            ml: -0.75, px: 0.75, py: 0.25, borderRadius: 999, cursor: 'pointer',
-            fontSize: '0.72rem', fontWeight: 800, lineHeight: 1, color: 'text.secondary',
-            ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
-            ...FOCUS_RING,
-          }}
-        >
-          <Box component="span" aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>‹</Box>
-          {backLabel ?? 'Back'}
-        </Box>
+        <HeaderBack onBack={onBack} label={backLabel ?? 'Back'}
+          ariaLabel={backLabel ? `Back to ${backLabel.toLowerCase()}` : 'Back'} />
       )}
-      <Typography id={labelId} sx={{
-        flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
-        textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>
+      {/* In the header bar's one voice, as the full page's bar is: see headerBar. */}
+      <Typography id={labelId} sx={HEADER_EYEBROW_SX}>
         {eyebrow}
       </Typography>
       {actions}
-      <Box
-        {...pressable(onClose)}
-        aria-label="Close"
-        sx={{
-          flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', color: 'text.disabled',
-          ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
-          ...FOCUS_RING,
-        }}
-      >
-        <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
+      <Box {...pressable(onClose)} aria-label="Close"
+        sx={{ ...headerChipSx, width: chromePx(28), px: 0, justifyContent: 'center', mr: -0.5 }}>
+        <Close aria-hidden sx={HEADER_ICON_SX} />
       </Box>
     </Box>
   )

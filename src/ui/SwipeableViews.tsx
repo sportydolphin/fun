@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMediaQuery } from '@mui/material'
 import { useSwipeNav } from '../AccessibilityContext'
@@ -99,6 +99,24 @@ interface Props {
   keepAlive?: boolean
 }
 
+/**
+ * A kept-alive pane, frozen while it stays hidden.
+ *
+ * Keeping visited tabs mounted (`keepAlive`, and the phone pager's visited set) made a tab
+ * switch re-render EVERY visited tab, not just the one arriving: the section re-renders on the
+ * switch and hands each panel a fresh element, so returning to a "cached" tab cost more the more
+ * tabs had been opened. About 200ms of main thread per click in a dev build with all five
+ * visited, and the toolbar's lit tab waits for it.
+ *
+ * So a pane that was hidden and is still hidden skips its render. It still renders on the way out
+ * (the section's PanelActiveContext inside it has to learn it is hidden, or a hidden tab goes on
+ * polling) and on the way in, with whatever props are current by then. Context changes still reach
+ * a frozen pane, which is how a hidden tab hears it is hidden; only prop changes wait.
+ */
+const Hold = memo(function Hold({ children }: { hidden: boolean; children: ReactNode }) {
+  return <>{children}</>
+}, (prev, next) => prev.hidden && next.hidden)
+
 export default function SwipeableViews({ index, panels, onIndexChange, minHeight, padX = 0, mode = 'window', keepAlive = false }: Props) {
   const paneMode = mode === 'pane'
   const isMobile = useMediaQuery('(max-width:600px)')
@@ -130,6 +148,12 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // commit sets this itself, so `index` and this move together and the tap path below never
   // fires for a swipe.
   const [activeIndex, setActiveIndex] = useState(index)
+  // With no pager there is no slide for the in-flow pane to lag behind, so it follows `index` in
+  // the SAME render. Caught up in the layout effect below instead, a desktop tab click rendered
+  // twice: once with the old tab still in flow (handed the new props, so it re-rendered in full)
+  // and again, nested in the commit, to swap in the new one. Set during render, React reruns only
+  // this component before its children, so they render once.
+  if (!pagerOn && activeIndex !== index) setActiveIndex(index)
   // The pane sliding in: a swipe's neighbour (activeIndex ± 1) or a tap's target (any index,
   // still shown one screen over so a far jump travels the same short distance as a near one).
   const [incoming, setIncoming] = useState(-1)
@@ -497,8 +521,8 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     return (
       <div style={paneInset}>
         {panels.map((panel, i) => i === activeIndex
-          ? <div key={i}>{panel}</div>
-          : visited.current.has(i) ? <div key={i} style={{ display: 'none' }} aria-hidden>{panel}</div> : null)}
+          ? <div key={i}><Hold hidden={false}>{panel}</Hold></div>
+          : visited.current.has(i) ? <div key={i} style={{ display: 'none' }} aria-hidden><Hold hidden>{panel}</Hold></div> : null)}
       </div>
     )
   }
@@ -552,7 +576,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
           // Active view: in normal flow so it drives the container's height. `padX` keeps the
           // content inset while the pane itself spans the full (full-bleed) container width.
           if (i === activeIndex) {
-            return <div key={i} style={{ position: 'relative', width: '100%', ...paneInset, ...paneScroll }}>{panel}</div>
+            return <div key={i} style={{ position: 'relative', width: '100%', ...paneInset, ...paneScroll }}><Hold hidden={false}>{panel}</Hold></div>
           }
           // A pane on the track (a swipe neighbour or a tap's destination): absolutely placed one
           // screen over and pinned to the viewport, so the track's translate slides it through the
@@ -567,14 +591,14 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
                 key={i}
                 style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', ...paneInset, ...paneScroll, transform: `translateX(calc(${step * 100}% + ${step * GAP}px))` }}
               >
-                {panel}
+                <Hold hidden={false}>{panel}</Hold>
               </div>
             )
           }
           // Everything else already visited: kept mounted but hidden (no layout, no repaint),
           // so swiping back to it doesn't remount and re-shape its data.
           if (visited.current.has(i)) {
-            return <div key={i} style={{ display: 'none' }} aria-hidden>{panel}</div>
+            return <div key={i} style={{ display: 'none' }} aria-hidden><Hold hidden>{panel}</Hold></div>
           }
           return null
         })}

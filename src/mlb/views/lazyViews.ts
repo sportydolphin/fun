@@ -28,6 +28,11 @@ export const StatsView       = lazy(() => loaders.stats().then(m => ({ default: 
 export const VizView         = lazy(() => loaders.viz().then(m => ({ default: m.VizView })))
 export const SearchView      = lazy(() => loaders.search().then(m => ({ default: m.SearchView })))
 
+// The player page is the view 'search' too, but its own chunk: a team page does not need it, and
+// it does not need the team card. Warmed with the other views, and first on a player's address.
+const loadPlayer = () => import('./MlbPlayerDetail')
+export const MlbPlayerDetail = lazy(loadPlayer)
+
 // Prefetches swallow failures: the real import reports a missing chunk (and the stale-build
 // reload in lib/staleBuild.ts handles it) when the reader actually goes there.
 function warm(view: MlbView) {
@@ -36,11 +41,14 @@ function warm(view: MlbView) {
 
 /** The chunk for whatever view this address opens. */
 export function preloadMlbViewFor(pathname: string, search: string) {
-  warm(mlbTargetFromUrl(pathname, search)?.view ?? 'home')
+  const target = mlbTargetFromUrl(pathname, search)
+  if (target?.playerId != null) loadPlayer().catch(() => {})
+  else warm(target?.view ?? 'home')
 }
 
 /** Every view's chunk. Once the landing view has settled, so that a tab tap renders in one commit
  *  rather than through an empty Suspense fallback while its chunk comes over the wire. */
 export function preloadAllMlbViews() {
   for (const v of Object.keys(loaders) as (keyof typeof loaders)[]) warm(v)
+  loadPlayer().catch(() => {})
 }

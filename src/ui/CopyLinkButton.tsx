@@ -11,9 +11,9 @@
 // realistic gap is a plain-http host on a LAN, which is why the execCommand path is still
 // here as a fallback rather than being retired as legacy.
 import { useCallback, useState } from 'react'
-import { Box, Typography } from '@mui/material'
-import { hoverOnly } from './interaction'
-import { typePx } from './scale'
+import { Box } from '@mui/material'
+import { Check, ErrorOutline, Link as LinkIcon } from '@mui/icons-material'
+import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from './headerBar'
 
 export type CopyState = 'idle' | 'copied' | 'failed'
 
@@ -50,24 +50,17 @@ export function CopyLinkButton({ url, title = 'Copy link', onCopy, copiedColor =
       title={title}
       aria-label={label}
       sx={{
-        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
-        height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-        // Confirmation is the accent, failure is the theme's error colour, and idle recedes
-        // to match the close button beside it.
-        color: state === 'copied' ? copiedColor : state === 'failed' ? 'error.main' : 'text.disabled',
-        ...hoverOnly({ bgcolor: 'action.hover', color: state === 'idle' ? 'text.primary' : undefined }),
-        transition: 'color 0.15s',
+        ...headerChipSx,
+        // Confirmation is the accent and failure the theme's error colour; idle is every other
+        // control in the bar (see headerBar).
+        ...(state === 'copied' ? { color: copiedColor } : state === 'failed' ? { color: 'error.main' } : {}),
       }}
     >
-      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1 }} aria-hidden>
-        {state === 'copied' ? '✓' : state === 'failed' ? '!' : '🔗'}
-      </Typography>
-      <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
-        lineHeight: 1, whiteSpace: 'nowrap',
-      }}>
+      <HeaderChipLabel icon={state === 'copied' ? <Check aria-hidden sx={HEADER_ICON_SX} />
+        : state === 'failed' ? <ErrorOutline aria-hidden sx={HEADER_ICON_SX} />
+          : <LinkIcon aria-hidden sx={HEADER_ICON_SX} />}>
         {label}
-      </Typography>
+      </HeaderChipLabel>
     </Box>
   )
 }

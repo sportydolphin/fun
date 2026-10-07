@@ -6,7 +6,7 @@ import { wpblQualifiers } from './stats'
 import { ordinal } from './percentiles'
 import { useWpblDark } from './ui'
 import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './cardParts'
-import type { SeasonScope } from './season'
+import { inSeason, gamesInSeason, type SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
 
 // The pitch profile on a player page: what the league's pitch-by-pitch log says about how this
@@ -165,12 +165,16 @@ function MixRows({ me, league, side, better, amber }: {
   )
 }
 
-export default function PitchProfileBlock({ player, side, players, teams, games, scope, rankPool, accent }: {
+export default function PitchProfileBlock({ player, side, players, teams, games, season, scope, rankPool, accent }: {
   player: WpblPlayer
   side: Side
   players: WpblPlayer[]
   teams: WpblTeam[]
+  /** The whole schedule, every year: `inSeason` needs it to place a play in its year. */
   games: WpblGame[]
+  /** The year on the card. Plays from any other year stay out of the profile and of its league.
+   *  Null only with no schedule at all, when there is no year to cut to. */
+  season: number | null
   /** The page's Regular / Playoffs / Both control. Ranks only in the regular season, like the
    *  season line's: a rank over a four-game postseason is a rank over nobody. */
   scope: SeasonScope
@@ -195,19 +199,20 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
     return () => { cancelled = true }
   }, [])
 
+  const seasonGames = useMemo(() => (season == null ? games : gamesInSeason(games, season)), [games, season])
   const board = useMemo(
-    () => (plays ? aggregatePitchCodes(plays, players, games, scope) : null),
-    [plays, players, games, scope])
+    () => (plays ? aggregatePitchCodes(season == null ? plays : inSeason(plays, games, season), players, seasonGames, scope) : null),
+    [plays, players, games, season, seasonGames, scope])
   const pool = board ? (side === 'pitching' ? board.pitchers : board.batters) : []
   const me = pool.find(p => p.player?.id === player.id) ?? null
   const league = board?.league ?? null
 
   // The Pitches board's bar, spent here only on whether to draw at all.
   const minPitches = useMemo(() => {
-    const q = wpblQualifiers(teams, games)
+    const q = wpblQualifiers(teams, seasonGames)
     const mins = pitchQualifiers(q.active ? q.teamGames : 0)
     return side === 'pitching' ? mins.minPitcher : mins.minBatter
-  }, [teams, games, side])
+  }, [teams, seasonGames, side])
 
   // A profile over a handful of pitches is noise wearing a percentage sign. Under a third of the
   // pitch bar the block does not draw at all. The bar is a SEASON's, so the playoff slice, a

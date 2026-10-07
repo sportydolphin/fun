@@ -4,9 +4,10 @@
 // side by side and do the same kind of thing: neither changes what is shown, both change where it
 // lives. Shared rather than WPBL's own for the same reason that control is: MLB's Game Center is
 // meant to follow.
-import { Box, Typography } from '@mui/material'
-import { hoverOnly, FOCUS_RING, pressable } from './interaction'
-import { typePx } from './scale'
+import { Box } from '@mui/material'
+import { OpenInFull } from '@mui/icons-material'
+import { pressable } from './interaction'
+import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from './headerBar'
 
 export function ExpandButton({ onExpand, title = 'Open as a full page' }: {
   onExpand: () => void
@@ -17,21 +18,9 @@ export function ExpandButton({ onExpand, title = 'Open as a full page' }: {
       {...pressable(onExpand)}
       title={title}
       aria-label={title}
-      sx={{
-        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
-        height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-        color: 'text.disabled',
-        ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
-        ...FOCUS_RING,
-      }}
+      sx={headerChipSx}
     >
-      <Typography sx={{ fontSize: '0.8rem', lineHeight: 1 }} aria-hidden>⤢</Typography>
-      <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
-        lineHeight: 1, whiteSpace: 'nowrap',
-      }}>
-        Expand
-      </Typography>
+      <HeaderChipLabel icon={<OpenInFull aria-hidden sx={{ ...HEADER_ICON_SX, fontSize: '0.85rem' }} />}>Expand</HeaderChipLabel>
     </Box>
   )
 }

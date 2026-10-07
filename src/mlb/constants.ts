@@ -178,6 +178,11 @@ export const FEATURED_PLAYER_IDS = [
 export const HEADSHOT = (id: number) =>
   `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/${id}/headshot/67/current`
 
+/** The same photo framed square by MLB, with room above the cap. HEADSHOT is 2:3 and its head
+ *  fills the whole width, so any square crop of it clips the cap or the chin. */
+export const HEADSHOT_SQUARE = (id: number) =>
+  `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:silo:current.png/w_426,q_auto:best/v1/people/${id}/headshot/silo/current`
+
 // The Athletics are ATH, as the feed has published them since they left Oakland in 2025. The OAK
 // here outlived the move, so a board built from these (streaks, milestones, odds) said OAK beside
 // a team picker reading ATH off the feed. The `OAK` id constant keeps its name.
@@ -269,20 +274,24 @@ export const TEAM_BG: Record<number, string> = {
   [MIL]: '#12284B',
 }
 
-// Secondary / accent colors, used as the contrasting foreground on team-color backgrounds
+// Secondary / accent colors, used as the contrasting foreground on team-color backgrounds. Read by
+// the player card's band (its bottom stripe and the portrait's ring), so each is a colour the club
+// actually wears as its second colour, not merely one on file somewhere: the Dodgers' red is real
+// (the front numbers) but nobody calls them blue and red, and they read as a different club in it.
+// Audited against the clubs' current palettes, Oct 2026.
 export const TEAM_SECONDARY: Record<number, string> = {
-  [LAA]: '#B8CBE4',  // light blue
+  [LAA]: '#003263',  // navy (red, navy and silver; the light blue here was no Angels colour)
   [ARI]: '#E3D4AD',  // sand
   [BAL]: '#000000',  // black
   [BOS]: '#0C2340',  // navy
   [CHC]: '#CC3433',  // red
   [CIN]: '#000000',  // black
-  [CLE]: '#E31937',  // red
+  [CLE]: '#E50022',  // red (the Guardians' red, not the shade it replaced)
   [COL]: '#C4CED4',  // silver
   [DET]: '#FA4616',  // orange
   [HOU]: '#EB6E1F',  // orange
   [KC]:  '#BD9B60',  // gold
-  [LAD]: '#EF3E42',  // red
+  [LAD]: '#FFFFFF',  // white (Dodger blue and white; their red is only the uniform numbers)
   [WSH]: '#14225A',  // navy
   [NYM]: '#FF5910',  // orange
   [OAK]: '#EFB21E',  // gold
@@ -300,7 +309,7 @@ export const TEAM_SECONDARY: Record<number, string> = {
   [CWS]: '#C4CED4',  // silver
   [MIA]: '#00A3E0',  // blue
   [NYY]: '#C4CED3',  // silver
-  [MIL]: '#B6922E',  // gold
+  [MIL]: '#FFC52F',  // yellow (the 2020 ball-in-glove gold; the darker one was the 1990s')
 }
 
 // ─── Icon styling ─────────────────────────────────────────────────────────────

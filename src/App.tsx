@@ -652,6 +652,17 @@ function AppInner() {
       isWpbl={false}
     />
   ), [])
+  // The same for WPBL, and for the same reason: WpblApp is memoized, and an inline footer here was
+  // a new prop on every shell render, so the path change at the end of each tab click re-rendered
+  // the whole section (and the tab just shown) a second time.
+  const renderWpblFooter = useCallback(() => (
+    <SiteFooter
+      onOpenChangelog={() => setChangelogOpen(true)}
+      onOpenFeedback={() => setFeedbackOpen(true)}
+      onNavigate={navigate}
+      isWpbl
+    />
+  ), [])
   const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   // "/" opens the search, as on GitHub and YouTube. It matters more now that the field folds to
@@ -1614,14 +1625,7 @@ function AppInner() {
               {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
                   WpblApp) instead of sitting shared below them. The shared one is suppressed
                   just below. Desktop keeps the app-level footer. */}
-              <WpblApp renderFooter={() => (
-                <SiteFooter
-                  onOpenChangelog={() => setChangelogOpen(true)}
-                  onOpenFeedback={() => setFeedbackOpen(true)}
-                  onNavigate={navigate}
-                  isWpbl
-                />
-              )} />
+              <WpblApp renderFooter={renderWpblFooter} />
             </Suspense>
           )}
           {path === '/wpbl/api' && (

@@ -3,25 +3,37 @@ import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { RecentGameEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, CURRENT_SEASON } from '../constants'
 import { fmtR, parseIP } from '../lib/utils'
-import { fetchLeagueStatsBySeason, tooltipAnchorSx } from './trendChartUtils'
+import { fetchLeagueStatsBySeason, tooltipAnchorSx, useChartViewWidth, useTouchScrub } from './trendChartUtils'
 import { chromePx, typePx } from '../../ui/scale'
+import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
+import { ipToOuts } from '../playerProfile'
+
+/** "73.2" from 221 outs, the box score's own spelling of innings. */
+const outsIp = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3}`
 
 // The current-season rolling-window trendline (OPS for hitters, ERA for pitchers).
 // Split out of PlayerTrendsChart.tsx (July 2026); the career chart lives there.
 
 // ─── Rolling window chart (current season) ───────────────────────────────────
 
-export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
+export function RollingWindowChart({ games, isPitcher, season, official, onGameSelect }: {
   games: RecentGameEntry[]
   isPitcher: boolean
   season: number
+  /** StatsAPI's season line, whose OPS or ERA is printed as the season's when there is one. */
+  official?: any | null
   onGameSelect?: (date: string) => void
 }) {
   const canHover = useMediaQuery('(hover: hover)')
+  // Whether the regular season is over, from the league's calendar: a past year always is, and this
+  // one is from the day its last regular-season game is played (see seasonPhase.ts).
+  const phase = useSeasonPhase(season)
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
   const [leagueAvg, setLeagueAvg] = useState<number | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
+  const fitW = useChartViewWidth(boxRef, 560)
+  const scrub = useTouchScrub()
   const svgRef = useRef<SVGSVGElement>(null)
   const rafRef = useRef<number | null>(null)
   const hovIdxRef = useRef<number | null>(null)
@@ -77,8 +89,23 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const RP_IP_TARGET = 15        // relievers: last ~15 innings
   const RP_MIN_IP    = 3         // minimum IP before we start plotting for RP
 
-  // Player's own season stat computed from the full game log
-  const seasonStat = (() => {
+  // Player's own season stat computed from the full game log, unless the page has the official one.
+  //
+  // THE OFFICIAL ONE WINS, because it is printed a screen above: StatsAPI's OPS is its OBP and SLG
+  // each rounded to three places and then added, so the exact sum from the log can land a point off
+  // (.901 under a season line reading .902), and a card cannot say one number two ways.
+  //
+  // THE SAMPLE IS PA OR IP, the units the qualifying bars are set in, and IP is the box score's own
+  // spelling ("73.2"), never a decimal: 73.2 innings read through parseIP and back out as "73.7".
+  const officialStat = (() => {
+    if (!official) return null
+    const v = Number(isPitcher ? official.era : official.ops)
+    if (!Number.isFinite(v)) return null
+    return isPitcher
+      ? { stat: v, volume: String(official.inningsPitched ?? '0.0'), volumeLabel: 'IP' as const }
+      : { stat: v, volume: String(Number(official.plateAppearances ?? 0)), volumeLabel: 'PA' as const }
+  })()
+  const seasonStat = officialStat ?? (() => {
     if (!isPitcher) {
       const h   = chrono.reduce((s, x) => s + Number(x.hitting?.hits          ?? 0), 0)
       const ab  = chrono.reduce((s, x) => s + Number(x.hitting?.atBats        ?? 0), 0)
@@ -91,11 +118,13 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
       }, 0)
       const denom = ab + bb + hbp + sf
       const ops   = denom > 0 && ab > 0 ? (h + bb + hbp) / denom + tb / ab : null
-      return { stat: ops, volume: ab, volumeLabel: 'AB' as const }
+      const pa    = chrono.reduce((s, x) => s + Number(x.hitting?.plateAppearances ?? 0), 0)
+      return { stat: ops, volume: String(pa), volumeLabel: 'PA' as const }
     } else {
       const er = chrono.reduce((s, x) => s + Number(x.pitching?.earnedRuns     ?? 0), 0)
       const ip = chrono.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-      return { stat: ip > 0 ? (er * 9) / ip : null, volume: ip, volumeLabel: 'IP' as const }
+      const outs = chrono.reduce((s, x) => s + ipToOuts(x.pitching?.inningsPitched), 0)
+      return { stat: ip > 0 ? (er * 9) / ip : null, volume: outsIp(outs), volumeLabel: 'IP' as const }
     }
   })()
 
@@ -146,39 +175,6 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
     })
     .filter((p): p is NonNullable<typeof p> & { value: number } => p != null && p.value != null)
 
-  // Touch support
-  useEffect(() => {
-    const svg = svgRef.current
-    if (!svg || !boxRef.current) return
-    const W_SVG = 560, M_L = 42, IW = W_SVG - 42 - 16
-    const handleTouch = (e: TouchEvent) => {
-      e.preventDefault()
-      const touch = e.touches[0] ?? e.changedTouches[0]
-      if (!touch || !boxRef.current) return
-      const rect = boxRef.current.getBoundingClientRect()
-      const relX = ((touch.clientX - rect.left) / rect.width) * W_SVG - M_L
-      const frac = Math.max(0, Math.min(1, relX / IW))
-      setHovIdx(Math.round(frac * (pts.length - 1)))
-      hovIdxRef.current = Math.round(frac * (pts.length - 1))
-      setTipPos({ x: (touch.clientX - rect.left) / rect.width * 100, y: (touch.clientY - rect.top) / rect.height * 100 })
-    }
-    const handleTouchEnd = () => {
-      if (hovIdxRef.current != null && pts[hovIdxRef.current]) {
-        onGameSelect?.(pts[hovIdxRef.current].date)
-      }
-      hovIdxRef.current = null
-      setHovIdx(null)
-    }
-    svg.addEventListener('touchstart', handleTouch, { passive: false })
-    svg.addEventListener('touchmove',  handleTouch, { passive: false })
-    svg.addEventListener('touchend',   handleTouchEnd)
-    return () => {
-      svg.removeEventListener('touchstart', handleTouch)
-      svg.removeEventListener('touchmove',  handleTouch)
-      svg.removeEventListener('touchend',   handleTouchEnd)
-    }
-  }, [pts.length]) // eslint-disable-line react-hooks/exhaustive-deps
-
   if (pts.length < 3) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
@@ -192,12 +188,14 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const label     = isPitcher ? 'ERA' : 'OPS'
   const fmt       = isPitcher ? (v: number) => v.toFixed(2) : (v: number) => fmtR(v, 3)
   const currentPt = pts[pts.length - 1]
-  // A past season is finished, so its trailing window is just the end of the year,
-  // not "recent form", so drop the "Last N games/starts" summary tile.
-  const seasonComplete = season < CURRENT_SEASON
+  // A finished season's trailing window is just the end of the year, not "recent form", so the
+  // "Last N games/starts" tile goes the day the regular season ends, not on New Year's Day: this
+  // year's page in October read "Last 10 games" for a month in which none were played.
+  const seasonComplete = season < CURRENT_SEASON || (phase != null && isSeasonOver(phase))
 
   // SVG layout matches the career chart's tight gutters + taller body
-  const W = 560, H = 224
+  // Laid out at the box's width on a desktop rather than blown up to it (see useChartViewWidth).
+  const W = fitW, H = 224
   const m = { t: 18, r: 16, b: 30, l: 42 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = pts.length
@@ -261,7 +259,7 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const hov = hovIdx != null ? pts[hovIdx] : null
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!boxRef.current) return
+    if (!boxRef.current || scrub.fromTouch()) return
     const clientX = e.clientX, clientY = e.clientY
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
@@ -276,13 +274,35 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   }
 
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!boxRef.current) return
+    if (!boxRef.current || scrub.fromTouch()) return
     const rect = boxRef.current.getBoundingClientRect()
     const relX = ((e.clientX - rect.left) / rect.width) * W - m.l
     const frac = Math.max(0, Math.min(1, relX / iW))
     const idx  = Math.round(frac * (n - 1))
     if (pts[idx]) onGameSelect?.(pts[idx].date)
   }
+
+  // A finger: the tip follows it sideways, the game under it opens on release, and a vertical drag
+  // is left to scroll the page (see useTouchScrub). Measured with this render's width, which on a
+  // tablet is wider than the 560 the old touch code assumed.
+  scrub.bind({
+    pick: (clientX, clientY) => {
+      if (!boxRef.current) return
+      const rect = boxRef.current.getBoundingClientRect()
+      const relX = ((clientX - rect.left) / rect.width) * W - m.l
+      const idx = Math.round(Math.max(0, Math.min(1, relX / iW)) * (n - 1))
+      hovIdxRef.current = idx
+      setHovIdx(idx)
+      setTipPos({ x: (clientX - rect.left) / rect.width * 100, y: (clientY - rect.top) / rect.height * 100 })
+    },
+    release: () => {
+      const idx = hovIdxRef.current
+      hovIdxRef.current = null
+      setHovIdx(null)
+      if (idx != null && pts[idx]) onGameSelect?.(pts[idx].date)
+    },
+    clear: () => { hovIdxRef.current = null; setHovIdx(null) },
+  })
 
   return (
     <Box>
@@ -318,20 +338,23 @@ export function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
             </Typography>
           </Box>
         )}
+        {/* Labelled as the two tiles beside it are, so the row reads as three of one thing. */}
         <Box>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.5), color: 'text.disabled' }}>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
             {seasonStat.volumeLabel}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
-            {seasonStat.volumeLabel === 'IP' ? seasonStat.volume.toFixed(1) : seasonStat.volume}
+            {seasonStat.volume}
           </Typography>
         </Box>
       </Box>
 
       {/* Chart */}
-      <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
+      {/* `data-swipe-lock`: a sideways drag here reads the chart, so the tab pager never takes it. */}
+      <Box ref={boxRef} data-swipe-lock sx={{ position: 'relative', userSelect: 'none' }}>
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
-          style={{ width: '100%', height: 'auto', display: 'block' }}
+          style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'pan-y' }}
+          {...scrub.props}
           onMouseMove={handleMouseMove}
           onClick={handleSvgClick}
           onMouseLeave={() => {

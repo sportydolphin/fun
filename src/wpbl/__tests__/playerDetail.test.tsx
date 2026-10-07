@@ -323,13 +323,16 @@ describe('PlayerDetail: league ranks', () => {
   it('puts every rate rank under the rate it belongs to', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     show(player())
-    // A field of one, so she is 1st in all four. The rank sits in the cell now rather than in
-    // a strip 200px further down, and OBP and SLG are on the card in their own right instead
-    // of only inside that strip. WITH its population, at every width: the phone used to print a
-    // bare "1st" where the desktop printed "1st of 1".
-    await waitFor(() => expect(screen.getAllByText('1st of 1').length).toBeGreaterThanOrEqual(4))
-    expect(screen.getByText('OBP')).toBeInTheDocument()
-    expect(screen.getByText('SLG')).toBeInTheDocument()
+    // A field of one, so she is 1st in every rate. The headline's two rates carry their field, at
+    // every width; OBP and SLG are columns of the standard line and carry the line's bare ordinal,
+    // each under its own column. AVG and OPS are ranked once, in the headline, not again below.
+    await waitFor(() => expect(screen.getAllByText('1st of 1')).toHaveLength(2))
+    const heads = Array.from(lineTable()?.querySelectorAll('th') ?? []).map(th => th.textContent)
+    const ranksBy = Object.fromEntries(heads.map((h, i) => [h, rankRow()[i] ?? '']))
+    expect(ranksBy.OBP).toBe('1st')
+    expect(ranksBy.SLG).toBe('1st')
+    expect(ranksBy.AVG).toBe('')
+    expect(ranksBy.OPS).toBe('')
   })
 
   // Ranking someone with four trips to the plate would claim she is bad rather than that we do
@@ -399,20 +402,14 @@ describe('PlayerDetail: league ranks', () => {
     expect(gap(onHero[0], /(\d+) PA from qualifying/)).toBe(gap(inRail, /(\d+) more PA/))
   })
 
-  // The season closes the log, in the log's own columns. A `tfoot` so it stays a summary
-  // rather than reading as a forty-first game, and the numbers are the season TOTALS rather
-  // than a re-sum of the rows above: the rows are every game she appeared in and the totals
-  // are the regular season, which is the same list today and will not be in October.
-  it('closes the game log with the season', async () => {
+  // No season row under the log on the regular season: the season line a few inches above is the
+  // same figures, and on a phone the row was the most cramped on the card. It comes back for
+  // Playoffs and Both, where it says which games the list adds up.
+  it('leaves the season row off the regular-season game log', async () => {
     lines.batting = [bat({ game_id: 'g0', ab: 4, h: 2, tb: 3 }), bat({ game_id: 'g1', ab: 3, h: 1, tb: 1 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    const foot = document.querySelector('tfoot')
-    expect(foot).not.toBeNull()
-    const cells = Array.from(foot!.querySelectorAll('td')).map(td => td.textContent)
-    expect(cells[0]).toBe('Season')
-    // AB is the fourth column of the log (Date, Opp, POS, AB), and 4 + 3 is the season.
-    expect(cells[3]).toBe('7')
+    expect(document.querySelector('tfoot')).toBeNull()
   })
 })
 
@@ -497,8 +494,9 @@ describe('PlayerDetail: the headline pair on the club band', () => {
     expect(band(container).textContent).toContain('Test Player')
     // 12-for-30, all singles as far as the totals are concerned (`sumBatting` derives total
     // bases from the hit types rather than trusting the line's `tb`), so .400 / .400 / .400
-    // and an .800 OPS. It is on the card exactly once, in the pane.
-    expect(screen.getAllByText('.800')).toHaveLength(1)
+    // and an .800 OPS. It is in the pane, in the headline and again in the standard line, as on
+    // every stat site, and never on the band.
+    expect(screen.getAllByText('.800').length).toBeGreaterThan(0)
     expect(band(container).textContent).not.toContain('.800')
   })
 
@@ -533,17 +531,12 @@ describe('PlayerDetail: the headline pair on the club band', () => {
 // 2026 it was the only place naming one that could not be opened.
 describe('PlayerDetail: the game log', () => {
   // The log is the tallest block on the card and the only one that grows on its own, so it
-  // opens on five games with the rest behind a control. Two things have to hold besides the
-  // count: the season row keeps summing the SEASON rather than the five on screen, and the
-  // control names how much more there is, since that is the question a reader is asking before
-  // they decide to tap it.
+  // opens on five games with the rest behind a control, which names how much more there is,
+  // since that is the question a reader is asking before they decide to tap it.
   it('opens on five games and expands to the whole season', async () => {
     lines.batting = GAMES.map(g => bat({ game_id: g.id, ab: 2, h: 1, tb: 1 }))
     const { container } = show(player())
     await waitFor(() => expect(logRows(container)).toHaveLength(5))
-
-    const foot = container.querySelector('tfoot')
-    expect(Array.from(foot!.querySelectorAll('td')).map(td => td.textContent)[3]).toBe('20')
 
     fireEvent.click(screen.getByRole('button', { name: /show 5 more games/i }))
     expect(logRows(container)).toHaveLength(10)

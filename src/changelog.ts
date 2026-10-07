@@ -4,6 +4,36 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.125.0',
+    date:    '2026-10-07',
+    changes: [
+      {
+        short: 'New MLB player pages',
+        full:  'MLB player pages are rebuilt on the same card as WPBL players: the club header with awards, the full season line with league ranks, a game log you can open games from, advanced stats, splits, the pitch mix, a career table, the trend chart, fielding and the contract. Two-way players get a tab for each role on a phone.',
+      },
+      {
+        short: 'Pick any season, or the whole career',
+        full:  'The season name on a player page is now a menu: pick any year the player played, or Career for career totals and a year-by-year chart. Back takes you to the season you were looking at. WPBL player pages have the same menu, ready for when the league has a second season.',
+      },
+      {
+        short: 'Stats in the order you know',
+        full:  'Player pages now lead with the four numbers other stat sites lead with (AVG, HR, RBI and OPS for hitters; W-L or saves or holds, ERA, strikeouts and WHIP for pitchers), followed by the standard line in MLB.com order with the averages at the end. On a phone the line folds into neat rows instead of running off the screen.',
+      },
+      {
+        short: 'Charts scroll with your thumb',
+        full:  'On a phone, dragging up or down on a player trend chart now scrolls the page, and dragging sideways reads the chart, with no wait before the numbers show. Sliding along the career chart no longer jumps to a year when you let go; tap a year to open it. On a computer the chart is no longer drawn oversized.',
+      },
+      {
+        short: 'Tidier player headers',
+        full:  'Back, the team name, Follow, Compare and Copy link now share one style across player and game pages, awards sit on a single row with a +N for the rest, and several clubs use their right colours in the header, including the Dodgers in blue and white.',
+      },
+      {
+        short: 'Players and games open beside the page',
+        full:  'On a computer, a WPBL player or game and MLB Game Center now open in a panel beside the page instead of covering it, so you can click down a scoreboard or a leaderboard without closing anything. Expand turns the panel into a full page.',
+      },
+    ],
+  },
+  {
     version: '1.124.2',
     date:    '2026-10-06',
     changes: [

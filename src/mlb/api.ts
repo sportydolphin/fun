@@ -39,26 +39,8 @@ export function fetchPlayerDetails(id: number): Promise<Player | null> {
   return p
 }
 
-// Completed seasons never change, so cache them; the current season updates daily and
-// is always fetched fresh. Failures are evicted so a blip doesn't stick.
-const seasonStatCache = new Map<string, Promise<any>>()
-
-export function fetchStats(id: number, group: 'hitting' | 'pitching', season: number): Promise<any> {
-  const run = () =>
-    fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=season&group=${group}&season=${season}`)
-      .then(r => r.json())
-      .then((d: any) => d.stats?.[0]?.splits?.[0]?.stat ?? null)
-  if (season >= CURRENT_SEASON) return run()
-  const key = `${id}-${group}-${season}`
-  const cached = seasonStatCache.get(key)
-  if (cached) return cached
-  const p = run()
-  seasonStatCache.set(key, p)
-  p.catch(() => seasonStatCache.delete(key))
-  return p
-}
-
-// Cache raw yearByYear splits so fetchCareerData and fetchPlayerCareerStats share one request per player/group
+// Cache raw yearByYear splits, one request per player/group, shared by the player page's career
+// table and its trends chart (playerProfile.ts).
 const yearByYearCache = new Map<string, Promise<any[]>>()
 
 export function fetchYearByYearSplits(id: number, group: 'hitting' | 'pitching'): Promise<any[]> {
@@ -72,31 +54,6 @@ export function fetchYearByYearSplits(id: number, group: 'hitting' | 'pitching')
     )
   }
   return yearByYearCache.get(key)!
-}
-
-export async function fetchCareerData(id: number, groups: Array<'hitting' | 'pitching'>): Promise<{
-  seasons: number[]
-  teamsBySeason: Map<number, string[]>
-  teamIdsBySeason: Map<number, number>
-}> {
-  const results = await Promise.all(groups.map(group => fetchYearByYearSplits(id, group)))
-  const allSplits = results.flat()
-  const teamsBySeason = new Map<number, string[]>()
-  const teamIdsBySeason = new Map<number, number>()
-  const seasons = new Set<number>()
-  for (const split of allSplits) {
-    const s = Number(split.season)
-    if (!s) continue
-    seasons.add(s)
-    const teamId = Number(split.team?.id ?? 0)
-    const abbr = TEAM_ABBR[teamId]
-    if (abbr) {
-      const existing = teamsBySeason.get(s) ?? []
-      if (!existing.includes(abbr)) teamsBySeason.set(s, [...existing, abbr])
-    }
-    if (teamId && !teamIdsBySeason.has(s)) teamIdsBySeason.set(s, teamId)
-  }
-  return { seasons: [...seasons].sort((a, b) => b - a), teamsBySeason, teamIdsBySeason }
 }
 
 
@@ -476,71 +433,6 @@ export async function fetchTeamRoster(teamId: number, season: number): Promise<R
   } catch {
     return []
   }
-}
-
-export async function fetchCareerStats(id: number, group: 'hitting' | 'pitching'): Promise<any> {
-  try {
-    const r = await fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=career&group=${group}&sportId=1`)
-    const d = await r.json()
-    return d.stats?.[0]?.splits?.[0]?.stat ?? null
-  } catch {
-    return null
-  }
-}
-
-// ─── Career trends data ───────────────────────────────────────────────────────
-
-export async function fetchPlayerCareerStats(id: number, groups: Array<'hitting' | 'pitching'>): Promise<CareerStatSplit[]> {
-  const results = await Promise.all(
-    groups.map(async group => ({ group, splits: await fetchYearByYearSplits(id, group) }))
-  )
-
-  const bySeasonHit     = new Map<number, any>()
-  const bySeasonPit     = new Map<number, any>()
-  const bySeasonTeamId  = new Map<number, number | null>()    // primary team (most games) for dot color
-  const bySeasonAbbrs   = new Map<number, string[]>()         // all teams in chronological API order
-
-  for (const { group, splits } of results) {
-    const seasonMap = new Map<number, any[]>()
-    for (const split of splits) {
-      const s = Number(split.season)
-      if (!s) continue
-      if (!seasonMap.has(s)) seasonMap.set(s, [])
-      seasonMap.get(s)!.push(split)
-    }
-    for (const [season, seasonSplits] of seasonMap) {
-      // Collect all unique real-team abbreviations (API order = chronological)
-      if (!bySeasonAbbrs.has(season)) {
-        const abbrs: string[] = []
-        for (const sp of seasonSplits) {
-          const abbr = sp.team?.id ? (TEAM_ABBR[sp.team.id] ?? sp.team?.abbreviation ?? null) : null
-          if (abbr && !abbrs.includes(abbr)) abbrs.push(abbr)
-        }
-        bySeasonAbbrs.set(season, abbrs)
-      }
-
-      // Pick the split with the most games for the stat value (and primary team color)
-      const best = seasonSplits.reduce((a, b) =>
-        (Number(b.stat?.gamesPlayed ?? b.stat?.gamesStarted ?? 0) >
-         Number(a.stat?.gamesPlayed ?? a.stat?.gamesStarted ?? 0)) ? b : a
-      )
-      if (!bySeasonTeamId.has(season)) bySeasonTeamId.set(season, best.team?.id ?? null)
-      if (group === 'hitting') bySeasonHit.set(season, best.stat)
-      else bySeasonPit.set(season, best.stat)
-    }
-  }
-
-  const allSeasons = [...new Set([...bySeasonHit.keys(), ...bySeasonPit.keys()])].sort((a, b) => a - b)
-  return allSeasons.map(season => {
-    const abbrs = bySeasonAbbrs.get(season) ?? []
-    return {
-      season,
-      teamId:   bySeasonTeamId.get(season) ?? null,
-      teamAbbr: abbrs.length > 0 ? abbrs.join('/') : null,
-      hitting:  bySeasonHit.get(season) ?? null,
-      pitching: bySeasonPit.get(season) ?? null,
-    }
-  })
 }
 
 // ─── Team featured players ────────────────────────────────────────────────────

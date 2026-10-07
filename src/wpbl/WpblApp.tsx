@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
 import { useTheme as useMuiTheme } from '@mui/material/styles'
 import {
@@ -139,6 +139,10 @@ const NAV = WPBL_NAV
 // the rest are desktop measurements over the 1.25 scale, in chromePx, which holds on a phone too.
 // Check any change with `?devSlow=2500` (src/dev/slowLoad.ts) against the loaded tab.
 /** The full game or player page while its chunk loads: the card's own outline, not a tab's. */
+/** The empty result list, one array for good: the bridge compares by identity, and a fresh `[]`
+ *  per publish would wake every subscriber to say nothing changed. */
+const NO_ROWS: SearchResultRow[] = []
+
 function DetailPageSkeleton() {
   return <Skeleton variant="rounded" sx={{ height: chromePx(480), borderRadius: 3, mt: 4.5 }} />
 }
@@ -986,7 +990,7 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   )
 }
 
-export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
+function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Section is public and read-only (feed-driven), so it needs no admin flag; ingest-health
   // freshness lives in the site Admin panel.
 
@@ -1754,6 +1758,16 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   }, [])
   const clearRecents = useCallback(() => { setRecentSearches([]); setWpblRecents([]) }, [])
 
+  // The row handlers reach these through refs, so the builders below keep one identity. Both
+  // close over the view, so as dependencies they rebuilt the builders on every tab switch, which
+  // re-ran the two effects that publish rows to the search bridge, and each publish (a fresh
+  // array, even an empty one) re-rendered the shell, this section and the tab just shown a second
+  // and third time after the click. A row only needs the handler of the moment it is picked.
+  const openPlayerRef = useRef(openPlayer)
+  openPlayerRef.current = openPlayer
+  const selectTeamRef = useRef(selectTeam)
+  selectTeamRef.current = selectTeam
+
   // One place that turns a player/team into a self-describing toolbar row. Shared by the typed
   // results and the recents list so both look identical and both record the selection (a
   // recent re-selected bumps back to the front). The avatar is rebuilt from the live roster on
@@ -1782,10 +1796,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       },
       onSelect: () => {
         track(EVENTS.WPBL_SEARCH_PICKED, { type: 'player', id: p.id, source })
-        recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayer(p, 'search')
+        recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayerRef.current(p, 'search')
       },
     }
-  }, [teamById, positionIndex, recordRecent, openPlayer])
+  }, [teamById, positionIndex, recordRecent])
 
   const buildTeamRow = useCallback((t: WpblTeam, source: 'result' | 'recent'): SearchResultRow => ({
     key: `team-${t.id}`,
@@ -1799,9 +1813,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     },
     onSelect: () => {
       track(EVENTS.WPBL_SEARCH_PICKED, { type: 'team', id: t.id, source })
-      recordRecent({ type: 'team', id: t.id, name: wpblFullName(t) }); setSearchQuery(''); selectTeam(t, 'search')
+      recordRecent({ type: 'team', id: t.id, name: wpblFullName(t) }); setSearchQuery(''); selectTeamRef.current(t, 'search')
     },
-  }), [recordRecent, selectTeam])
+  }), [recordRecent])
 
   // Filter players + teams on the typed query and push self-describing rows up to the
   // toolbar. The rows carry primitive avatar data (portrait/logo URLs + team colors) so the
@@ -1833,7 +1847,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   }, [bridge.query, players, teams])
 
   useEffect(() => {
-    if (!matches) { updateSearchBridge({ resultRows: [] }); return }
+    if (!matches) { updateSearchBridge({ resultRows: NO_ROWS }); return }
     const playerRows = matches.players.slice(0, 6).map(p => buildPlayerRow(p, 'result'))
     const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
@@ -2167,3 +2181,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     </WpblLinkProvider>
   )
 }
+
+// Memoized, as MlbStats is: the shell re-renders on every path change, which is the end of every
+// tab click, and the section follows the address through its own popstate listener, so a shell
+// render has nothing to tell it. Its one prop is a stable callback (App's renderWpblFooter).
+export default memo(WpblApp)

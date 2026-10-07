@@ -33,6 +33,34 @@ describe('kept-alive tabs on a desktop', () => {
     expect(screen.getByText('home tab').parentElement?.style.display).toBe('none')
   })
 
+  // The cost of keeping tabs: every tab switch re-rendered every visited tab, so going back to a
+  // "cached" tab got slower the more tabs had been opened (~200ms a click in a dev build with all
+  // five). A tab that stays hidden must not render at all; one leaving renders once, so its
+  // PanelActiveContext can tell it, and one arriving renders with the props current by then.
+  it('does not re-render a tab that was hidden and stays hidden', () => {
+    const renders: Record<string, number> = {}
+    function Counted({ name, n }: { name: string; n: number }) {
+      renders[name] = (renders[name] ?? 0) + 1
+      return <div>{name} {n}</div>
+    }
+    const view = (index: number, n: number) => (
+      <SwipeableViews keepAlive index={index} onIndexChange={() => {}}
+        panels={['home', 'scores', 'standings'].map(name => <Counted key={name} name={name} n={n} />)} />
+    )
+    const { rerender } = render(view(0, 1))
+    rerender(view(1, 2))
+    rerender(view(2, 3))
+    const before = { ...renders }
+    // Standings to Home: Standings leaves (one render), Home arrives (one render), Scores, hidden
+    // throughout, does not render.
+    rerender(view(0, 4))
+    expect(renders.scores).toBe(before.scores)
+    expect(renders.standings).toBe(before.standings + 1)
+    expect(renders.home).toBe(before.home + 1)
+    // And the arriving tab has the props of now, not of when it was hidden.
+    expect(screen.getByText('home 4')).toBeTruthy()
+  })
+
   it('still swaps the active tab outright without keepAlive, as WPBL relies on', () => {
     const { rerender } = render(<SwipeableViews index={0} onIndexChange={() => {}} panels={[<div key="a">one</div>, <div key="b">two</div>]} />)
     rerender(<SwipeableViews index={1} onIndexChange={() => {}} panels={[<div key="a">one</div>, <div key="b">two</div>]} />)
