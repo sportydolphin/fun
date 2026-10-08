@@ -151,8 +151,9 @@ function CompareHeadSkeleton({ withChange }: { withChange?: boolean }) {
 
 /** A name not known yet, at a typical name's length. */
 const GHOST_NAME = 'Firstname Lastname'
-/** Shorter in a head, where it has half a phone's width: most names fit it on one line. */
-const GHOST_HEAD_NAME = 'Firstn Lastname'
+/** Shorter in a head and the pair's title, where a typical name (13 or 14 characters) has to sit
+ *  on one line at the Large text size, in half a phone's width and in the title's large type. */
+const GHOST_HEAD_NAME = 'Firstn Lastnm'
 
 // ─── The rows ─────────────────────────────────────────────────────────────────
 
@@ -717,7 +718,7 @@ export default function WpblComparePage({ path, onNavigate }: {
     return (
       <WpblPage
         maxWidth={chromePx(560)}
-        title={shape === 'pair' ? <TextGhost>{GHOST_NAME} vs {GHOST_NAME}</TextGhost> : 'Compare players'}
+        title={shape === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
         standfirst={shape === 'pair' ? undefined
           : shape === 'single' ? <>Pick somebody to put next to <TextGhost>{GHOST_NAME}</TextGhost>.</>
           : 'Pick two players to put their 2026 seasons side by side.'}

@@ -97,9 +97,10 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
       third in best-of-three semifinals, and the winners meet in a best-of-five championship.
     </>,
   ]
-  // Loading reserves the champions' line, which every season from here on has.
+  // Loading reserves the champions' line, which every season from here on has, at the width the
+  // 2026 line sets in (within 1%), so it wraps where the real one will at every text size.
   if (loading) {
-    facts.push(<TextGhost>The first champions were the champions of the league, who beat the runners-up 3–2 in the final.</TextGhost>)
+    facts.push(<TextGhost>The first champions were the Winning City Club, who beat the Runners-up City Nickname 3–2 in the final.</TextGhost>)
   } else if (champ) {
     facts.push(<>
       The first champions were the{' '}

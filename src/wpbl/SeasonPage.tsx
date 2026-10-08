@@ -944,7 +944,7 @@ function SeasonChampionBlock({ champ }: {
             <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: 'text.secondary', mt: 0.25 }}>
               {champ?.runnerUp
                 ? <>Beat {wpblFullName(champ.runnerUp)} {champ.champWins}-{champ.rivalWins} in the championship series.</>
-                : <TextGhost>Beat the club that was runner-up 3-2 in the championship series.</TextGhost>}
+                : <TextGhost>Beat Runners-up Clubname 3-2 in the championship series.</TextGhost>}
             </Typography>
           )}
         </Box>
@@ -1066,7 +1066,9 @@ function SeasonSkeleton({ isPhone }: { isPhone: boolean }) {
         ]} />
       )}
       <SectionHeading>Playoff bracket</SectionHeading>
-      <Skeleton variant="rounded" sx={{ height: { xs: '25.2rem', sm: '15.6rem', md: '15.4rem' }, borderRadius: 2 }} />
+      {/* From `sm` the diagram is part type and part fixed structure, so its reserve is too: all rem
+          was right at the default size and 13px tall at the Large text setting. */}
+      <Skeleton variant="rounded" sx={{ height: { xs: '25.2rem', sm: `calc(9.15rem + ${chromePx(103)})`, md: '15.4rem' }, borderRadius: 2 }} />
       <SectionHeading>Best playoff performances</SectionHeading>
       <Box sx={{ height: { xs: '368rem', sm: '400rem', md: '340rem' } }} />
     </Box>

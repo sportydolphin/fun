@@ -205,11 +205,14 @@ export function BracketSkeleton({ compact }: { compact: boolean }) {
   )
 }
 
-// A series card's height at the default text size (measured in Oct 2026: 127.2px on Home's compact
-// card, 128.5px on the Standings tab's full one): label, two club rows, the status line. In rem so
-// it grows with the reader's text size the way the real card does. One figure for both was 2px out
-// on one of them, enough to nudge everything under the bracket when it landed.
-const SERIES_CARD_H = { compact: '7.95rem', full: '8.03rem' } as const
+// A series card's height: label, two club rows, the status line. Part type and part fixed structure,
+// so part rem and part chrome, fitted to the loaded cards in Oct 2026 at both text sizes and both
+// root sizes (Home's compact card and the Standings tab's full one differ). All in rem it was right
+// at the default size and 25px too tall at Large text; one figure for both cards was 2px out on one.
+const SERIES_CARD_H = {
+  compact: `calc(1.75rem + ${chromePx(99)})`,
+  full: `calc(1.85rem + ${chromePx(99)})`,
+} as const
 
 /**
  * The bracket card. Draws nothing until the league has published a postseason (or if the feed is
