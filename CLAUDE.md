@@ -28,9 +28,12 @@ Violating these creates real problems. Treat them as hard constraints.
   a full pro league. No gender stereotypes, no softball framing, anywhere.
 - **Never use the Yankees or their players as examples.** Not in comments, sample data,
   docs, or explanations. Pick any other club.
-- **`main` is the deploy branch.** Cloudflare Pages deploys on every push to it. Work on a
-  feature branch and push that to main: `git push origin <branch>:main`. Commit and push
-  only when asked.
+- **`main` is the deploy branch, and it only takes pull requests.** Cloudflare Pages deploys
+  every commit that lands on it. Work on a feature branch, push the branch, and open a pull request
+  that merges itself once CI passes: `gh pr create --fill && gh pr merge --auto --squash`. A plain
+  push to `main` is refused (the ruleset in [`.github/rulesets/`](.github/rulesets/)); only the
+  scheduled jobs that commit generated files may push there. The pull request's title and body
+  become the commit, so they follow the commit-message rule below. Commit and push only when asked.
 - **Comments and commit messages explain why, not what.** The diff already says what
   changed. Say what forced it, and what breaks if someone undoes it.
 - **Schema changes go through the migration runner.** New schema in
@@ -584,7 +587,7 @@ in-site bell and the push senders.
   the tests and the build on every push and pull request. `npm run lint -- --fix` removes unused
   imports; an unused variable is an error left for a person. The tests run against placeholder
   Supabase settings (`test.env` in `vite.config.js`), never the real project, so no test may need
-  `.env`. CI does not block a deploy by itself: Cloudflare builds `main` on push regardless.
+  `.env`. Its `check` job is required on every pull request into `main`.
 - **Cron:** `scripts/*.mjs` are Node jobs on GitHub Actions schedules (table in
   ARCHITECTURE §5), using the service-role key from repo secrets.
 - **Edge functions** deploy by hand: `supabase functions deploy <name>`.

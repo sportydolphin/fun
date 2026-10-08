@@ -11,13 +11,17 @@ name: CI
 # vite.config.js) and the build needs none, so this job can run on any branch and any pull request
 # without holding a key. A test that needs data mocks the client.
 #
-# This job reports; it does not stop a deploy by itself. Cloudflare builds `main` on push whatever
-# this says. What makes it a gate is merging through a pull request with this check required (a
-# branch rule on `main`).
+# IT IS THE GATE. `main` takes changes only through a pull request whose `check` passed (the ruleset
+# in .github/rulesets/), and Cloudflare deploys what lands there. Renaming this job renames the check
+# the ruleset requires, so change both together or every pull request waits forever.
+#
+# Pull requests, and `main` itself: the scheduled jobs that commit generated files straight to
+# `main` (allowed by the ruleset) still get checked after the fact. A branch with no pull request
+# runs nothing, which is what keeps one change from running twice.
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
 
 concurrency:
