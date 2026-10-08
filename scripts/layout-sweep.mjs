@@ -24,6 +24,22 @@
  * browsers (navigator.webdriver, see src/lib/analytics.ts), so a sweep is not a traffic spike.
  * Uses your installed Chrome (playwright-core ships no browser); SWEEP_CHROME=<path> overrides.
  *
+ * 3. RECORD AND REPLAY, which is what lets CI run this. CI has no `.env` and must not read the
+ *    production database, and a page with no data is an empty state, which checks nothing. So
+ *    `--record` captures every response the pages fetch (Supabase, StatsAPI) and the size of every
+ *    image they draw into FIXTURE, and `--replay` serves the pages from it with the network shut.
+ *    Both run with the clock frozen at the moment of recording, because the queries carry dates
+ *    (today's scoreboard, "games since"), and a query that differs by a millisecond is a miss.
+ *    Images come back as blank SVGs of the recorded size: a layout check needs the box, not the
+ *    picture, and the bytes would make the fixture tens of megabytes.
+ *    A replay that asks for something the fixture lacks FAILS rather than drawing an empty board,
+ *    since an empty board passes every check and a sweep that quietly checks less is the failure
+ *    this file exists to remove. Change a query, re-record: `npm run sweep:record`.
+ *
+ * 4. EXPERIMENTS (--experiments). Turns the experiments flag on, which no other check does.
+ *    CLAUDE.md ("a fixed px size") is why: the seeding race sat behind the flag through the whole
+ *    desktop rebuild and carried four scale bugs into September.
+ *
  * Usage:
  *   npm run dev                                   # in another terminal
  *   npm run sweep                                 # overflow, every page, every size
@@ -31,12 +47,17 @@
  *   npm run sweep -- --routes /wpbl,/wpbl/stats --widths 375,1440 --text large
  *   npm run sweep -- --ellipsis                   # also list intended "…" truncations
  *   npm run sweep -- --json sweep.json            # machine-readable, for diffing two runs
+ *   npm run sweep:record                          # refresh FIXTURE from the real data (.env)
+ *   npm run sweep -- --replay --shift --baseline  # what CI runs: no database, no network
+ *   npm run sweep -- --replay --shift --update-baseline   # after fixing a known finding
+ *   npm run sweep -- --experiments --routes wpbl/stats?board=runs
  *
- * Exits 1 when anything is reported, so it can gate a pull request once it has a place to run.
+ * Exits 1 when anything is reported. CI runs it on every pull request (the `layout` job).
  */
 
 import { chromium } from 'playwright-core'
 import fs from 'node:fs'
+import zlib from 'node:zlib'
 
 // ─── Options ──────────────────────────────────────────────────────────────────
 
@@ -57,6 +78,21 @@ const CONCURRENCY = Number(opt('concurrency', '4'))
 // Long enough that every skeleton is still up when the first snapshot is taken, short of the 8s
 // that trips the request timeout and renders "No teams yet" (CLAUDE.md, loading states).
 const SLOW_MS = Number(opt('slow', '2500'))
+const EXPERIMENTS = flag('experiments')
+const RECORD = flag('record')
+const REPLAY = flag('replay')
+const FIXTURE = new URL('./fixtures/layout-sweep.json.gz', import.meta.url)
+// THE FINDINGS ALREADY ON MAIN when CI started running this: 94 of them, mostly the footer sitting
+// above the fold under a skeleton shorter than the page it stands in for. A gate that failed on
+// those would have to be switched off on day one, so they are listed here, and CI fails only on
+// a finding NOT in the list. It is a to-do list, not an allowance: fix one, then shrink the list
+// with --update-baseline (which a replay asks for when it sees an entry stop happening).
+const UPDATE_BASELINE = flag('update-baseline')
+const BASELINE = flag('baseline') || UPDATE_BASELINE
+const BASELINE_FILE = new URL('./fixtures/layout-sweep-baseline.json', import.meta.url)
+function readBaseline() {
+  try { return new Set(JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8'))) } catch { return new Set() }
+}
 
 const HEIGHT = { 375: 812, 760: 1024, 960: 900, 1440: 900 }
 
@@ -70,7 +106,7 @@ function samplePages() {
 }
 
 const DEFAULT_ROUTES = [
-  '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/teams', '/wpbl/teams/hunters',
+  '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
   '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/teams/mariners',
@@ -156,6 +192,108 @@ function probeAnchors() {
   return out
 }
 
+// ─── Record and replay ────────────────────────────────────────────────────────
+
+/** What makes two requests the same request. Supabase is matched on path, not origin, because
+ *  CI points the client at a placeholder URL (no `.env`); `prefer` and `range` change what
+ *  PostgREST answers (a count, a page), and an RPC's arguments are its POST body. */
+function requestKey(req) {
+  const u = new URL(req.url())
+  const supabase = /^\/(rest|functions|storage)\/v1\//.test(u.pathname)
+  const h = req.headers()
+  return [req.method(), supabase ? `supabase${u.pathname}${u.search}` : u.href,
+    h.prefer ?? '', h.range ?? '', req.postData() ?? ''].join(' ')
+}
+
+/** The same idea for an image: one in Supabase storage is named by the client's URL, which CI changes. */
+const imageKey = url => url.replace(/^https?:\/\/[^/]+(?=\/storage\/v1\/)/, 'supabase')
+
+const fixture = { recordedAt: 0, responses: {}, images: {}, misses: new Set() }
+
+function loadFixture() {
+  try {
+    Object.assign(fixture, JSON.parse(zlib.gunzipSync(fs.readFileSync(FIXTURE)).toString('utf8')))
+    fixture.images = Object.fromEntries(Object.entries(fixture.images).map(([k, v]) => [imageKey(k), v]))
+  } catch (err) {
+    console.error(`No fixture to replay. Record one first: npm run sweep:record\n${err.message}`)
+    process.exit(2)
+  }
+}
+
+function saveFixture() {
+  const { recordedAt, responses, images } = fixture
+  fs.mkdirSync(new URL('.', FIXTURE), { recursive: true })
+  fs.writeFileSync(FIXTURE, zlib.gzipSync(JSON.stringify({ recordedAt, responses, images }), { level: 9 }))
+  console.log(`Recorded ${Object.keys(responses).length} responses and ${Object.keys(images).length} image sizes.`)
+}
+
+const isApp = url => url.startsWith(BASE)
+const TEXTUAL = /json|text|javascript|xml|csv/
+
+/** Wire a context for --record or --replay; a plain sweep leaves the network alone. */
+async function wireContext(ctx) {
+  if (!RECORD && !REPLAY) return
+  await ctx.clock.setFixedTime(fixture.recordedAt)
+  // And seed the dice: MLB's home feed picks its featured clubs and players at random, and a
+  // different pick is a different request.
+  await ctx.addInitScript(() => {
+    let a = 0x5eed
+    Math.random = () => {
+      a = (a + 0x6d2b79f5) | 0
+      let t = Math.imul(a ^ (a >>> 15), 1 | a)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+  })
+  if (RECORD) {
+    ctx.on('response', async res => {
+      const req = res.request()
+      if (isApp(req.url()) || !['fetch', 'xhr'].includes(req.resourceType())) return
+      const key = requestKey(req)
+      if (key in fixture.responses) return
+      try {
+        const body = await res.body()
+        const type = res.headers()['content-type'] ?? ''
+        const keep = ['content-type', 'content-range', 'preference-applied']
+        fixture.responses[key] = {
+          status: res.status(),
+          headers: Object.fromEntries(Object.entries(res.headers()).filter(([k]) => keep.includes(k))),
+          ...(TEXTUAL.test(type) ? { text: body.toString('utf8') } : { base64: body.toString('base64') }),
+        }
+      } catch { /* a redirect or an aborted poll has no body; the next copy of it will */ }
+    })
+    return
+  }
+  await ctx.route(url => !isApp(url.href), async route => {
+    const req = route.request()
+    if (req.resourceType() === 'image') {
+      const [w, h] = fixture.images[imageKey(req.url())] ?? [1, 1]
+      return route.fulfill({ status: 200, contentType: 'image/svg+xml',
+        body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#8884"/></svg>` })
+    }
+    const hit = fixture.responses[requestKey(req)]
+    if (!hit) {
+      fixture.misses.add(`${req.method()} ${req.url()}`)
+      return route.abort()
+    }
+    return route.fulfill({ status: hit.status, headers: hit.headers,
+      body: hit.text ?? Buffer.from(hit.base64, 'base64') })
+  })
+}
+
+/** The natural size of every picture on the page, so a replay can draw a box that size. */
+function probeImages() {
+  return [...document.images].filter(i => i.complete && i.naturalWidth)
+    .map(i => [i.currentSrc, i.naturalWidth, i.naturalHeight])
+}
+
+async function recordImages(page) {
+  if (!RECORD) return
+  for (const [src, w, h] of await page.evaluate(probeImages)) {
+    if (!isApp(src)) fixture.images[imageKey(src)] = [w, h]
+  }
+}
+
 // ─── Driver ───────────────────────────────────────────────────────────────────
 
 const settle = async (page, ms) => {
@@ -164,19 +302,30 @@ const settle = async (page, ms) => {
   await page.waitForTimeout(ms)
 }
 
-async function runCase(browser, route, width, text) {
+async function runCase(browser, route, width, text, { warm = false } = {}) {
   const ctx = await browser.newContext({
     viewport: { width, height: HEIGHT[width] ?? 900 },
     // Below 768 the app is a phone: touch, no hover, the bottom nav (usePhoneLayout and the raw
     // device queries both read this).
     isMobile: width < 768, hasTouch: width < 768,
+    // A service worker answers requests before page.route sees them, so a replay would leak.
+    serviceWorkers: 'block',
   })
-  await ctx.addInitScript(scale => {
-    try { localStorage.setItem('a11yTextScale', scale) } catch { /* private mode */ }
-  }, text === 'large' ? 'large' : 'default')
+  await wireContext(ctx)
+  await ctx.addInitScript(([scale, experiments]) => {
+    try {
+      localStorage.setItem('a11yTextScale', scale)
+      if (experiments) localStorage.setItem('experimentalFeatures', '1')
+    } catch { /* private mode */ }
+  }, [text === 'large' ? 'large' : 'default', EXPERIMENTS])
   const page = await ctx.newPage()
   const result = { route, width, text, pageOverflow: 0, issues: [], shifts: [], error: null }
   try {
+    if (warm) {
+      await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
+      await settle(page, 300)
+      return result
+    }
     if (SHIFT) {
       const sep = route.includes('?') ? '&' : '?'
       await page.goto(`${BASE}${route}${sep}devSlow=${SLOW_MS}`, { waitUntil: 'domcontentloaded' })
@@ -184,6 +333,7 @@ async function runCase(browser, route, width, text) {
       const before = await page.evaluate(probeAnchors)
       await page.waitForTimeout(SLOW_MS)
       await settle(page, 800)
+      await recordImages(page)
       const after = await page.evaluate(probeAnchors)
       // Only what was on screen while the skeleton was. Below the fold, a list of unknown length
       // (the schedule, Reading) must push the footer somewhere, and nobody sees it happen.
@@ -200,6 +350,7 @@ async function runCase(browser, route, width, text) {
     }
     await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
     await settle(page, 600)
+    await recordImages(page)
     const o = await page.evaluate(probeOverflow, ELLIPSIS)
     result.pageOverflow = o.pageOverflow
     result.issues = o.issues
@@ -220,8 +371,22 @@ async function main() {
     process.exit(2)
   }
 
+  if (RECORD && REPLAY) {
+    console.error('--record and --replay are opposites; pick one.')
+    process.exit(2)
+  }
+  if (REPLAY) loadFixture()
+  if (RECORD) fixture.recordedAt = Date.now()
+
   const browser = await chromium.launch(process.env.SWEEP_CHROME
     ? { executablePath: process.env.SWEEP_CHROME } : { channel: 'chrome' })
+
+  // WARM THE DEV SERVER FIRST. Vite compiles each module on its first request and, when it meets a
+  // dependency it has not pre-bundled, re-optimizes and RELOADS every open page. On a cold server
+  // (CI, always) that lands inside the first cases: a skeleton snapshot taken before anything has
+  // rendered, or a page reloaded between the two snapshots, reads as a layout shift.
+  for (const r of ROUTES) await runCase(browser, r, WIDTHS[WIDTHS.length - 1], 'default', { warm: true })
+
   const cases = ROUTES.flatMap(r => WIDTHS.flatMap(w => TEXT.map(t => [r, w, t])))
   const results = []
   let next = 0
@@ -236,33 +401,67 @@ async function main() {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))
   await browser.close()
   process.stderr.write('\n')
+  if (RECORD) saveFixture()
 
   results.sort((a, b) => ROUTES.indexOf(a.route) - ROUTES.indexOf(b.route) || a.width - b.width || a.text.localeCompare(b.text))
   if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify(results, null, 2))
 
-  let problems = 0
+  const baseline = BASELINE ? readBaseline() : new Set()
+  const found = new Set()
+  let problems = 0, known = 0
   for (const r of results) {
     const lines = []
-    if (r.error) lines.push(`  ERROR ${r.error}`)
-    if (r.pageOverflow > 0) lines.push(`  page scrolls sideways by ${r.pageOverflow}px`)
+    // Each line carries the key it is known by in the baseline. A shift is keyed on the page and
+    // size alone: which piece of text moves first varies from run to run, the fact that the
+    // skeleton is the wrong size does not.
+    const caseKey = `${r.route}${EXPERIMENTS ? ' +experiments' : ''}|${r.width}|${r.text}`
+    if (r.error) lines.push([null, `  ERROR ${r.error}`])
+    if (r.pageOverflow > 0) lines.push([`${caseKey}|page`, `  page scrolls sideways by ${r.pageOverflow}px`])
     // One line per distinct thing: a repeated row would otherwise print once per row.
     const seen = new Set()
     for (const i of r.issues) {
       const k = `${i.kind}|${i.text}`
       if (seen.has(k)) continue
       seen.add(k)
-      lines.push(`  ${i.kind.padEnd(9)} ${String(i.px).padStart(4)}px  "${i.text}"  (${i.where})`)
+      lines.push([`${caseKey}|${k}`, `  ${i.kind.padEnd(9)} ${String(i.px).padStart(4)}px  "${i.text}"  (${i.where})`])
     }
     if (r.shifts.length) {
       // The topmost thing that moved is where to look; everything under it usually moved with it.
       const top = r.shifts[0]
-      lines.push(`  shift     ${r.shifts.length} moved while loading; first at y=${top.y}: "${top.text}" dy=${top.dy} dx=${top.dx} dh=${top.dh}`)
+      lines.push([`${caseKey}|shift`, `  shift     ${r.shifts.length} moved while loading; first at y=${top.y}: "${top.text}" dy=${top.dy} dx=${top.dx} dh=${top.dh}`])
     }
-    if (lines.length) {
-      problems += lines.length
+    const fresh = lines.filter(([k]) => !(k && baseline.has(k)))
+    for (const [k] of lines) if (k) found.add(k)
+    known += lines.length - fresh.length
+    if (fresh.length) {
+      problems += fresh.length
       console.log(`\n${r.route}  ${r.width}px  ${r.text} text`)
-      for (const l of lines) console.log(l)
+      for (const [, l] of fresh) console.log(l)
     }
+  }
+  if (BASELINE) {
+    const covered = new Set(results.map(r => `${r.route}${EXPERIMENTS ? ' +experiments' : ''}|${r.width}|${r.text}`))
+    const caseOf = k => k.split('|').slice(0, 3).join('|')
+    if (UPDATE_BASELINE && !fixture.misses.size) {
+      // Only the cases this run looked at are replaced, so a narrowed run (--routes) or the
+      // experiments pass cannot wipe what the other run recorded.
+      const merged = [...[...baseline].filter(k => !covered.has(caseOf(k))), ...found].sort()
+      fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(merged, null, 2)}\n`)
+      console.log(`\nBaseline now holds ${merged.length} known finding(s).`)
+      process.exit(0)
+    }
+    const gone = [...baseline].filter(k => covered.has(caseOf(k)) && !found.has(k))
+    if (known) console.log(`\n${known} known finding(s) in the baseline, not repeated here.`)
+    if (gone.length) {
+      console.log(`${gone.length} baseline finding(s) no longer happen. Fixed? Then: npm run sweep -- --replay --shift --update-baseline`)
+      for (const g of gone) console.log(`  ${g}`)
+    }
+  }
+  if (fixture.misses.size) {
+    problems += fixture.misses.size
+    console.log(`\n${fixture.misses.size} request(s) not in the fixture, so those pages were swept with less on them`)
+    console.log('than they draw. A query changed: re-record with npm run sweep:record.')
+    for (const m of [...fixture.misses].sort()) console.log(`  ${m.length > 200 ? `${m.slice(0, 200)}…` : m}`)
   }
   console.log(problems ? `\n${problems} finding(s) across ${results.length} page loads.` : `\nClean: ${results.length} page loads.`)
   process.exit(problems ? 1 : 0)

@@ -51,7 +51,8 @@
     "bluesky-recaps": "esbuild scripts/post-wpbl-bluesky-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-recaps.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-recaps.mjs",
     "bluesky-game-start": "esbuild scripts/post-wpbl-bluesky-game-start.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-game-start.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-game-start.mjs",
     "visual": "esbuild scripts/make-visual.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/make-visual.mjs && node --env-file-if-exists=.env node_modules/.cache/make-visual.mjs",
-    "sweep": "node scripts/layout-sweep.mjs"
+    "sweep": "node scripts/layout-sweep.mjs",
+    "sweep:record": "node scripts/layout-sweep.mjs --record --shift"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
