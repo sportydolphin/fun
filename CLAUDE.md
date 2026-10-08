@@ -55,6 +55,10 @@ Violating these creates real problems. Treat them as hard constraints.
   page at 375, 760, 960 and 1440. A hidden browser pane records no layout-shift entries, so
   compare rects rather than trusting CLS. `npm run sweep -- --shift` does exactly this against the
   dev server ([`scripts/layout-sweep.mjs`](scripts/layout-sweep.mjs)); `--routes` narrows it.
+  **CI runs it on every pull request** (the `layout` job) from a recorded snapshot of the data,
+  with the clock frozen at the moment it was taken. A query the snapshot lacks fails the job, so
+  a change to what a page fetches comes with `npm run sweep:record`, run against real data, and
+  the new `scripts/fixtures/layout-sweep.json.gz` in the same pull request.
 - **Never commit secrets.** Client build vars live in Cloudflare Pages env plus `.env`;
   edge-function and cron secrets live in Supabase and GitHub Actions (table in
   ARCHITECTURE §9).
@@ -333,12 +337,12 @@ Each of these has already cost someone a debugging session, and none of them fai
   fixed px inside and stay that way on both sections. The failure is silent in every direction, and `tsc` sees none of
   it: the only check that works is opening the page and looking for a box whose content is
   wider than it is, at more than one text scale, which `npm run sweep` does at four widths and
-  both text sizes. **Which is why anything behind the experiments
-  flag is exempt from that check by construction, and has to be swept separately.** The seeding
-  race sat out the whole rebuild for exactly this reason and carried four of these bugs into
-  September; turning the flag on and looking is the only way to find the next one. As of Sep 14,
-  2026 the flag hides exactly one thing, and it is what a sweep has to cover: the steal card on
-  Run value. The win probability chart (v1.48.1), the Run value board (v1.52.0), the bracket and
+  both text sizes. **Anything behind the experiments flag is exempt from that check by
+  construction, so it is swept separately**, with `--experiments`, by the second sweep step in
+  CI. That step names its routes: put a new flagged surface behind the flag and its route goes
+  in that list, or it is checked by nothing. The seeding race sat out the whole rebuild for
+  exactly this reason and carried four of these bugs into September. As of Sep 14, 2026 the
+  flag hides exactly one thing: the steal card on Run value. The win probability chart (v1.48.1), the Run value board (v1.52.0), the bracket and
   the seeding race (v1.59.0) all came out from behind it, and the mobile bottom nav shipped to
   every phone on Sep 14, 2026, so anything still describing those as experimental is stale.
 
