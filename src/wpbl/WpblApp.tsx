@@ -1441,13 +1441,17 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const openStats  = useCallback((
     g: WpblStatsFocus['group'],
     sortKey?: string,
-    opts?: Pick<WpblStatsFocus, 'mode' | 'teamId' | 'qualified'>,
+    opts?: Pick<WpblStatsFocus, 'mode' | 'teamId' | 'qualified' | 'playerId'>,
   ) => {
     setStatsFocus(f => ({ group: g, sortKey, ...opts, token: f.token + 1 }))
     selectTab('stats', 'link')
   }, [selectTab])
   // Tracking is a Stats group now, so "view the tracking boards" means "open Stats on it".
   const openTracking = useCallback(() => openStats('tracking'), [openStats])
+  // A rank on a player's card: the full player board, unfiltered by club, so the row is there to
+  // pick out. Pushed like any tab switch, so Back closes the board and reopens the card.
+  const openBoardFromPlayer = useCallback((g: 'hitting' | 'pitching', sortKey: string, o: { qualified: boolean; playerId: string }) =>
+    openStats(g, sortKey, { mode: 'players', teamId: null, ...o }), [openStats])
   // `awards` rides along on both of these: a player opened from the ballot leaves the ballot
   // open underneath, so her X returns to /wpbl/awards rather than dropping the reader on Home
   // with the sheet shut and their place in it lost.
@@ -2053,6 +2057,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
               players={players}
               onClose={closeTop}
               onOpenGame={openGameFromPlayer}
+              onOpenBoard={openBoardFromPlayer}
             />
           </Suspense>
         </AppErrorBoundary>
@@ -2150,6 +2155,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             players={players}
             onClose={closeTop}
             onOpenGame={openGameFromPlayer}
+            onOpenBoard={openBoardFromPlayer}
             panel={playerAsPanel}
             // Over the Game Center panel, this is one panel that navigated: Back is the way out.
             // Not beside the full page, which is still on screen and needs no way back to.

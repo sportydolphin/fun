@@ -8,7 +8,6 @@ import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } 
 import { LogoBubble, LiveDot } from '../components/boxScore'
 import { MlbSheet } from '../components/MlbSheet'
 import { track, EVENTS } from '../../lib/analytics'
-import { GamePreviewModal } from './GamePreview'
 import { scrollBehavior } from '../../lib/motion'
 import { fetchSeasonDates } from '../seasonPhase'
 import { postseasonGameLabel, isDecider, bracketLikely } from '../postseason'
@@ -21,6 +20,8 @@ import { cachedJson, FRESH_LIVE_MS, FRESH_LONG_MS } from '../lib/readCache'
 
 // Loaded on first game click, which keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
+// Opens only on a tap, so it is not in the chunk of the page drawing the list (Home draws this one).
+const GamePreviewModal = lazy(() => import('./GamePreview').then(m => ({ default: m.GamePreviewModal })))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -920,14 +921,16 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
         const previews = sortedGames.filter(g => g.state === 'preview')
         const idx = previews.findIndex(g => g.gamePk === openGame.gamePk)
         return (
-          <GamePreviewModal
-            game={openGame}
-            onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
-            onPlayerClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick)}
-            onTeamClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick)}
-            onPrev={idx > 0 ? () => setOpenGame(previews[idx - 1]) : undefined}
-            onNext={idx >= 0 && idx < previews.length - 1 ? () => setOpenGame(previews[idx + 1]) : undefined}
-          />
+          <Suspense fallback={null}>
+            <GamePreviewModal
+              game={openGame}
+              onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
+              onPlayerClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick)}
+              onTeamClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick)}
+              onPrev={idx > 0 ? () => setOpenGame(previews[idx - 1]) : undefined}
+              onNext={idx >= 0 && idx < previews.length - 1 ? () => setOpenGame(previews[idx + 1]) : undefined}
+            />
+          </Suspense>
         )
       })() : openGame ? (
         <Suspense fallback={null}>

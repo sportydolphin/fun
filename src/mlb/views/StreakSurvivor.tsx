@@ -6,7 +6,7 @@ import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
 import { searchPlayers } from '../api'
 import { Player } from '../types'
-import { TeamLogo } from './Standings'
+import { TeamLogo } from '../components/TeamLogo'
 import { useDeepLink } from '../state/deepLink'
 import {
   survivorToday, survivorNextDay, fetchMyPick, fetchMyStats, fetchHotHitters, fetchPickableTeams, saveMyPick,

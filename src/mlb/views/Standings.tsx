@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME, TONE } from '../constants'
-import { fmtGB, useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, highlightColor } from '../lib/colorUtils'
+import { fmtGB, useIsDark, highlightColor } from '../lib/colorUtils'
 import { fetchStandings } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { SegControl } from '../components'
@@ -11,6 +11,7 @@ import { PlayoffBracketCard, BracketSkeleton } from './PlayoffBracket'
 import { fetchBracket, seededBracket, bracketLikely, fieldIsSet } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, rowClick, LINK_SX } from '../lib/links'
+import { TeamLogo } from '../components/TeamLogo'
 
 type Mode = 'bracket' | 'divisions' | 'playoffs' | 'odds'
 
@@ -57,42 +58,6 @@ function DiffCell({ diff }: { diff: number }) {
   return (
     <Box component="span" sx={{ color: diff > 0 ? TONE.green : diff < 0 ? TONE.red : 'text.secondary', fontWeight: 600 }}>
       {diff > 0 ? `+${diff}` : diff}
-    </Box>
-  )
-}
-
-// ─── Team logo: a team-color ring framing a logo, adapted per theme so it reads
-// for all 30 teams in both modes:
-//   • Light mode: full-color primary logo on a white center.
-//   • Dark mode: per-team locked-in bg / ring / logo (TEAM_ICON_STYLE).
-// The team-color ring carries the team identity in both modes.
-
-export function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
-  const [failed, setFailed] = useState(false)
-  const isDark = useIsDark()
-  const ring = ringColor(teamId, isDark)
-  return (
-    <Box sx={{
-      width: chromePx(28), height: chromePx(28), borderRadius: '50%',
-      bgcolor: teamLogoBg(teamId, isDark), border: `2.5px solid ${ring}`,
-      boxShadow: `0 0 0 1px ${ring}30`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0, overflow: 'hidden',
-    }}>
-      {failed ? (
-        // Fallback: team abbreviation initials
-        <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, color: isDark ? '#fff' : ring, lineHeight: 1, userSelect: 'none' }}>
-          {abbr.slice(0, 3)}
-        </Typography>
-      ) : (
-        <Box
-          component="img"
-          src={teamLogoSrc(teamId, isDark)}
-          alt={abbr}
-          onError={() => setFailed(true)}
-          sx={{ width: chromePx(19), height: chromePx(19), objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
-        />
-      )}
     </Box>
   )
 }

@@ -4,7 +4,7 @@ import { fetchStandings, fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { TEAM_NICKNAME, ACCENT, ACCENT_TEXT } from '../constants'
 import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../lib/colorUtils'
-import { TeamLogo } from './Standings'
+import { TeamLogo } from '../components/TeamLogo'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
 

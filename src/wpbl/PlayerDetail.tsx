@@ -454,7 +454,7 @@ function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlaye
   )
 }
 
-export default function PlayerDetailModal({ player, teams, games, players, onClose, onOpenGame, panel = false, onBack, backLabel, layout = 'modal', onExpand }: {
+export default function PlayerDetailModal({ player, teams, games, players, onClose, onOpenGame, onOpenBoard, panel = false, onBack, backLabel, layout = 'modal', onExpand }: {
   player: WpblPlayer
   teams: WpblTeam[]
   games: WpblGame[]
@@ -467,6 +467,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    *  reverse trip already builds (a player opened from a game sits on top of it). Optional only so
    *  a log still renders in a harness that has nowhere to send the click. */
   onOpenGame?: (game: WpblGame) => void
+  /** Open the Stats table sorted by a stat with this player picked out, from a rank on the card.
+   *  Without it the ranks are plain text. */
+  onOpenBoard?: (group: 'hitting' | 'pitching', sortKey: string, opts: { qualified: boolean; playerId: string }) => void
   /** Open as the desktop side panel rather than a centred dialog. See ModalShell's `panel`. */
   panel?: boolean
   /** A back control in the panel's header, for a player opened from the Game Center panel. */
@@ -987,6 +990,23 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     rs?.find(x => x.key === key) ?? null
 
   /**
+   * A printed rank opens the league table it was taken from, sorted by that stat, with this player
+   * picked out: MLB's stat card did this first. A rate rank is against the QUALIFIED field and a
+   * counting rank against everyone who recorded the stat, so the board opens on the same population
+   * the rank was counted in, or the row it scrolls to would sit at a different place than "3rd".
+   * The counting keys carry a `c_` prefix and two of them are spelled differently on the table.
+   */
+  const linkRanks = <C extends object>(r: Role, cells: C[]): (C & { onRank?: () => void })[] =>
+    !onOpenBoard ? cells : cells.map(c => {
+      const key = (c as { rank?: { key: string } | null }).rank?.key
+      if (!key) return c
+      const counting = key.startsWith('c_')
+      const col = !counting ? key : key === 'c_outs' ? 'ip' : key === 'c_s' ? 'sv' : key.slice(2)
+      const group = r === 'pitching' ? 'pitching' : 'hitting'
+      return { ...c, onRank: () => onOpenBoard(group, col, { qualified: !counting, playerId: player.id }) }
+    })
+
+  /**
    * THE HEADLINE: the four numbers every stat site leads a player with. AVG, HR, RBI and OPS for a
    * hitter; W-L (or saves, for a reliever), ERA, strikeouts and WHIP for a pitcher, which is ESPN's
    * player header and MLB.com's, so a reader arriving from either finds them where they look. Drawn
@@ -1020,7 +1040,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 
   const rateHead = (r: Role) => (
     <Box sx={{ mb: 1.5 }}>
-      <RateStrip cells={headline(r)} />
+      <RateStrip cells={linkRanks(r, headline(r))} />
     </Box>
   )
 
@@ -1087,7 +1107,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             ranked, so a total-bases lead still reaches the card through the counting ranks.
             A stat in the headline keeps its rank there and not here, so no figure is ranked twice.
             SO carries no rank, ever: second in the league in strikeouts is not an achievement. */}
-        <SeasonLine headline={headline('batting').map(c => c.label)} cols={[
+        <SeasonLine headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
           { label: 'G', value: bt.g },
           { label: 'AB', value: bt.ab },
           { label: 'R', value: bt.r, rank: countRank(ranks?.battingCounts, 'c_r') },
@@ -1111,7 +1131,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             ...(bt.sh ? [{ label: 'SH', value: bt.sh }] : []),
             ...(bt.sf ? [{ label: 'SF', value: bt.sf }] : []),
           ].map((c, i) => (i === 0 ? { ...c, breakBefore: true } : c)),
-        ]} />
+        ])} />
       </>
     ),
     season: (
@@ -1170,7 +1190,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             saying how hard the innings were, which the counting stats cannot (they say what was given
             up). Batters faced is not a column, being very nearly innings times three plus the
             baserunners already itemised; `pt.bf` is still read, by the role rule in positions.ts. */}
-        <SeasonLine headline={headline('pitching').map(c => c.label)} cols={[
+        <SeasonLine headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
           { label: 'W', value: pt.w, rank: countRank(ranks?.pitchingCounts, 'c_w') },
           { label: 'L', value: pt.l },
           { label: 'ERA', value: fmtEra(pt.era) },
@@ -1189,7 +1209,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
           ...(pt.wp ? [{ label: 'WP', value: pt.wp }] : []),
           ...(pt.bk ? [{ label: 'BK', value: pt.bk }] : []),
           { label: 'P', value: pt.pitches },
-        ]} />
+        ])} />
       </>
     ),
     season: (

@@ -55,8 +55,8 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    its secondary white per club and deepens Baltimore and Philadelphia's card a shade. Raw hexes
    stay for fills, bars and tints. A page-by-page audit (every MLB tab, team, player and game
    page, light and dark, phone and desktop) found nothing under 4.5:1 afterwards. Pinned in
-   `__tests__/contrast.test.ts`. WPBL's bottom bar still passes its raw `#60a5fa` as the active
-   tab colour, the same 2.5:1 MLB's had.
+   `__tests__/contrast.test.ts`. WPBL's bottom bar took the same fix in the same release: its
+   active tab is `--wpbl-accent-fg`, the "new" dot keeps the solid accent.
 5. ✅ **Home's own weight** (item 5, Oct 2, v1.119.0). A Home landing was 130.6 kB gzip of MLB code against
    68 to 82 kB for any other page; it is now 115.7. What came out is what only opens on a tap:
    Game Center was a static import in Live drama and the team schedule strip (FinalGames and
@@ -66,6 +66,11 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    MUI's InputBase, which brought the form-control stack for one field. What is left is the cards
    Home actually draws (the HomeView chunk, 31 kB, plus the bracket and report-card code); their
    pop-ups (milestones, survivor leaderboard, roster moves) are a few kB together and stay put.
+   *Oct 7:* two more tap-only pieces out. The game preview sheet was a static import in the
+   scoreboard, the team schedule strip and `GameRoute`, so it rode with Home and with MlbStats on
+   every MLB page; it is lazy there now and warmed beside Game Center. And `TeamLogo` lived in the
+   Standings page, so Home loaded that whole page's chunk for one component and the bracket card;
+   it is `components/TeamLogo.tsx` now.
 6. ✅ **Let the address drive `useMlbState`** (item 4's open note, Oct 3, v1.119.2). Landing, Back,
    Forward and the shell's `navigate()` now all go through one reader, `mlbSnapshotFromUrl` in
    `routes.ts` (the inverse of `mlbUrlFor`), and the address wins over the history entry.
@@ -94,7 +99,7 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    filler intensifiers in comments ("simply", "genuinely"), "Chasing history" on Milestone Watch,
    and "these guys" in two board explainers. *Open:* the emoji leading MLB headings and sheet
    titles (Milestone Watch, Roster moves, Predictions, Streak Survivor, On Fire / Ice Cold, the
-   live card's "🎉 Run Scored!"), which WPBL never had; kept for now, a call still to make.
+   live card's "🎉 Run Scored!"), which WPBL never had. *Decided Oct 7:* kept, as MLB's own voice.
 9. ✅ **Series pages and short links** (v1.121.0, Oct 5). A postseason series opens a sheet
    (`views/SeriesSheet.tsx`, data in `seriesDetail.ts`) at `/mlb/postseason/<season>/<slot>`, in
    the sitemap once a game in it is final. Series, games and players copy `/m/<code>` short links
@@ -280,8 +285,8 @@ goes first and the rest is winter work.
    keystroke in search 144 to about 50ms median (production before). *Done Oct 2 (v1.115.1), lazy views*
    (`views/lazyViews.ts`): every MLB page shipped all eight views, 148 kB gzip of MLB code. Each
    view is now its own chunk, fetched beside MlbStats rather than after it, and the rest are warmed
-   4s after landing. A landing now costs 67 to 82 kB, Home 132 kB. *Open:* Home is most of what is
-   left (Predictor, Live Game Center, report cards load with it, not on use).
+   4s after landing. A landing now costs 67 to 82 kB, Home 132 kB. Home's leftovers were
+   handoff items 5 (Oct 2) and its Oct 7 note.
 5b. ✅ **A postseason bracket** (Sep 28, `postseason.ts`, `views/PlayoffBracket.tsx`). Not in the
    original plan: MLB had no postseason surface at all, and October is the window. One read of
    `/schedule/postseason/series` gives all eleven series; the series ids fix the shape and every
@@ -346,8 +351,9 @@ goes first and the rest is winter work.
   around it. WPBL's favourite team is still parked.
 - **Recent searches synced across devices**, and toolbar suggestions (Recent, Your Team,
   Trending). WPBL's recents are localStorage only.
-- **Stat card to leaderboard with the player highlighted** (`handleStatCardClick`): the next
-  step after WPBL's `?sort=`, and worth porting back.
+- **Stat card to leaderboard with the player highlighted** (`handleStatCardClick`). *Ported to
+  WPBL Oct 7:* a rank on a WPBL player card opens Stats sorted by that stat with the row tinted
+  and scrolled to (`WpblStatsFocus.playerId`).
 - Per-stat leaderboard cards, the scoreboard's date stepper and fullscreen, the rolling trend
   chart with a league-average line, the Live Drama ticker, `InfoTip` explainers.
 - The predictions engine (bots, Wilson-ranked board) and the MLB-only content: Milestones,

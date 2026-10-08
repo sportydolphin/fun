@@ -4,12 +4,26 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.127.0',
+    date:    '2026-10-07',
+    changes: [
+      {
+        short: 'WPBL: a rank on a player card opens the league table',
+        full:  'Tap a rank on a WPBL player card, like 2nd in HR, and Stats opens sorted by that stat with the player\'s row picked out and scrolled into view. Back returns to the card.',
+      },
+      {
+        short: 'MLB Home loads a little less',
+        full:  'The game preview now loads when you open one rather than with every MLB page, and Home no longer downloads the Standings page to draw team logos.',
+      },
+    ],
+  },
+  {
     version: '1.126.0',
     date:    '2026-10-07',
     changes: [
       {
         short: 'Player pages scroll like the rest of the site',
-        full:  'On a phone, a player page now scrolls under your finger with no lag, and a swipe starting on the player's name scrolls with momentum like any other. Swipe down from the top, or pull the bar at the very top, to close it; push back up mid-pull and the page scrolls instead.',
+        full:  'On a phone, a player page now scrolls under your finger with no lag, and a swipe starting on the player\'s name scrolls with momentum like any other. Swipe down from the top, or pull the bar at the very top, to close it; push back up mid-pull and the page scrolls instead.',
       },
       {
         short: 'Smoother opening',
@@ -21,7 +35,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Loading looks like the page',
-        full:  'While a player's stats load, the page shows its finished layout with placeholders, so nothing jumps when the numbers arrive.',
+        full:  'While a player\'s stats load, the page shows its finished layout with placeholders, so nothing jumps when the numbers arrive.',
       },
     ],
   },

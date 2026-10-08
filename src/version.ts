@@ -20,7 +20,7 @@
 // Keep writing one entry per version regardless. The grouping is derived on render and the
 // file stays the record.
 
-export const APP_VERSION = '1.126.0'
+export const APP_VERSION = '1.127.0'
 
 export interface ChangelogChange {
   short: string

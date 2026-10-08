@@ -5,7 +5,7 @@ import { useIsDark, highlightColor, defaultBorder, useTextTone } from '../lib/co
 import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
-import { TeamLogo } from './Standings'
+import { TeamLogo } from '../components/TeamLogo'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, LINK_SX } from '../lib/links'
 

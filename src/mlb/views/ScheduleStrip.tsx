@@ -4,7 +4,6 @@ import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { FinalGameSummary } from './FinalGames'
-import { GamePreviewModal } from './GamePreview'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { LiveGameCard } from '../components/LiveGameCard'
 import {
@@ -21,6 +20,8 @@ import { gameLink, LINK_SX } from '../lib/links'
 // Lazy, as in FinalGames and GameRoute: Game Center opens on a tap, and a static import put all
 // of it in the Home landing for a reader who may never open a game.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
+// Opens only on a tap, so it is not in the chunk of the page drawing the list (Home draws this one).
+const GamePreviewModal = lazy(() => import('./GamePreview').then(m => ({ default: m.GamePreviewModal })))
 
 // ─── GameChip ─────────────────────────────────────────────────────────────────
 
@@ -499,14 +500,16 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
       </MlbSheet>
 
       {selectedGame && (
-        <GamePreviewModal
-          game={scheduleGameToPreview(selectedGame, myTeamId)}
-          onClose={handleClosePreview}
-          onPlayerClick={id => { onClose(); onPlayerClick?.(id) }}
-          onTeamClick={id => { onClose(); onTeamClick?.(id) }}
-          onPrev={selectedIdx > 0 ? () => handleChipClick(games[selectedIdx - 1]) : undefined}
-          onNext={selectedIdx >= 0 && selectedIdx < games.length - 1 ? () => handleChipClick(games[selectedIdx + 1]) : undefined}
-        />
+        <Suspense fallback={null}>
+          <GamePreviewModal
+            game={scheduleGameToPreview(selectedGame, myTeamId)}
+            onClose={handleClosePreview}
+            onPlayerClick={id => { onClose(); onPlayerClick?.(id) }}
+            onTeamClick={id => { onClose(); onTeamClick?.(id) }}
+            onPrev={selectedIdx > 0 ? () => handleChipClick(games[selectedIdx - 1]) : undefined}
+            onNext={selectedIdx >= 0 && selectedIdx < games.length - 1 ? () => handleChipClick(games[selectedIdx + 1]) : undefined}
+          />
+        </Suspense>
       )}
     </>
   )
@@ -1031,14 +1034,16 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       {modalGame && (() => {
         const idx = games.findIndex(g => g.gamePk === modalGame.gamePk)
         return (
-          <GamePreviewModal
-            game={scheduleGameToPreview(modalGame, teamId)}
-            onClose={() => { setModalGame(null); clearOverlayIf('teamPreview') }}
-            onPlayerClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onPlayerClick)}
-            onTeamClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onTeamClick)}
-            onPrev={idx > 0 ? () => openGameModal(games[idx - 1]) : undefined}
-            onNext={idx >= 0 && idx < games.length - 1 ? () => openGameModal(games[idx + 1]) : undefined}
-          />
+          <Suspense fallback={null}>
+            <GamePreviewModal
+              game={scheduleGameToPreview(modalGame, teamId)}
+              onClose={() => { setModalGame(null); clearOverlayIf('teamPreview') }}
+              onPlayerClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onPlayerClick)}
+              onTeamClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onTeamClick)}
+              onPrev={idx > 0 ? () => openGameModal(games[idx - 1]) : undefined}
+              onNext={idx >= 0 && idx < games.length - 1 ? () => openGameModal(games[idx + 1]) : undefined}
+            />
+          </Suspense>
         )
       })()}
 

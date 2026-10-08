@@ -683,6 +683,9 @@ export interface WpblStatsFocus {
    *  most of the names the reader had just been looking at: the door out of a 30-player list
    *  opening onto a 9-player one, with nothing on screen saying a filter had been applied. */
   qualified?: boolean
+  /** A player to pick out on the board: a rank pressed on their card lands on the table sorted by
+   *  that stat with their row tinted and scrolled to, the way MLB's stat card does. */
+  playerId?: string
   token: number     // 0 = nothing requested yet
 }
 
@@ -903,6 +906,10 @@ export default function WpblStatsView({
   // this pane active AND re-seeds it in the same commit; both effects run, and without the
   // handoff the one visit would be logged twice, once per reason.
   const linkLogged = useRef(false)
+  // The player a rank on their card came here for. Held WITH the board it was asked on and drawn
+  // only while that board is still showing, so the reader's own next sort or side switch drops it
+  // without anything having to remember to clear it.
+  const [picked, setPicked] = useState<{ id: string; side: string; sortKey: string } | null>(null)
 
   // Re-focus the table whenever another surface sends us here. Keyed on `token`, NOT on the
   // group/column values: this panel stays mounted once visited, so seeding state at mount is
@@ -921,12 +928,15 @@ export default function WpblStatsView({
     if (focus.mode) setMode(focus.mode)
     if (focus.teamId !== undefined) setTeamId(focus.teamId)
     if (focus.qualified !== undefined) setQualified(focus.qualified)
+    // The card's ranks are regular-season ranks, so the board they open is too.
+    if (focus.playerId) setScope('regular')
     linkLogged.current = true
     logBoard('link', { side: axes.side, source: axes.source, mode: focus.mode })
     if (axes.source !== 'season') return // the tracked boards and draft have nothing to sort
     const next = defaultSort(axes.side ?? 'hitting', focus.sortKey)
     setSortKey(next.key)
     setSortAsc(next.asc)
+    setPicked(focus.playerId ? { id: focus.playerId, side: axes.side ?? 'hitting', sortKey: next.key } : null)
   }, [requested])
 
   // Arriving at the tab: the first time counts as an open, every later one as a return. Both
@@ -1423,8 +1433,22 @@ export default function WpblStatsView({
       .slice(0, 3)
   ), [side, sortKey, cols, activeCol])
 
-  const capped = listView && !expanded && rows.length > LIST_CAP
-  const visibleRows = capped ? rows.slice(0, LIST_CAP) : rows
+  const pickedId = picked && mode === 'players' && picked.side === side && picked.sortKey === sortKey ? picked.id : null
+  const pickedIdx = pickedId ? rows.findIndex(r => r.key === pickedId) : -1
+  // Arriving from a rank on a player's card, the player has to be on screen: the cap stretches to
+  // include them rather than land on a board that does not show who the reader came for.
+  const listCap = Math.max(LIST_CAP, pickedIdx + 1)
+  const capped = listView && !expanded && rows.length > listCap
+  const visibleRows = capped ? rows.slice(0, listCap) : rows
+  const pickedRef = useRef<HTMLElement | null>(null)
+  // Centred, after the pane has had a frame to become the visible one. Keyed on the request too,
+  // so pressing the same rank a second time scrolls back to the row.
+  useEffect(() => {
+    if (pickedIdx < 0) return
+    const t = setTimeout(() => pickedRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' }), 120)
+    return () => clearTimeout(t)
+  }, [pickedIdx, requested])
+  const pickedTint = `linear-gradient(${WPBL_ACCENT}1c, ${WPBL_ACCENT}1c)`
 
   // Collapsing removes a screenful and a half from BELOW the reader, so the browser clamps
   // the scroll and leaves them staring at the page footer with the list they just closed
@@ -2126,6 +2150,7 @@ export default function WpblStatsView({
           </Box>
           {visibleRows.map((r, i) => (
             <StatListRow key={r.key} row={r} rank={ranks[i]} first={i === 0} isTeam={mode === 'teams'}
+              picked={r.key === pickedId ? { ref: pickedRef, tint: pickedTint } : undefined}
               faded={mode === 'players' && !r.qualified}
               total={visibleRows.length}
               value={cellText(activeCol, r.totals)}
@@ -2300,7 +2325,11 @@ export default function WpblStatsView({
                   return (
                     <Box component="tr" key={r.key} onClick={r.onClick}
                       data-faded={faded ? '' : undefined}
+                      ref={r.key === pickedId ? (el: HTMLElement | null) => { pickedRef.current = el } : undefined}
                       sx={{
+                        // The picked-out player, tinted through backgroundImage for the same reason
+                        // as hover below: the sticky cells need their opaque backgroundColor.
+                        ...(r.key === pickedId ? { '& > td, & > th': { backgroundImage: pickedTint } } : {}),
                         cursor: r.onClick ? 'pointer' : 'default', userSelect: 'none',
                         WebkitTapHighlightColor: 'transparent',
                         // Hover tints via backgroundImage for the same reason as the header:
@@ -2412,8 +2441,10 @@ export default function WpblStatsView({
 // The player's position, which the table shows under the name, gives its line to the three
 // context stats. A leaderboard answers "how good", and the card behind one tap answers
 // everything else, position included.
-function StatListRow({ row, rank, value, context, isTeam, first, total, faded }: {
+function StatListRow({ row, rank, value, context, isTeam, first, total, faded, picked }: {
   row: Row
+  /** The player a rank on their card came here for. */
+  picked?: { ref: React.MutableRefObject<HTMLElement | null>; tint: string }
   rank: RankMark
   /** Under the qualifying bar, on a board showing everyone. See the table's rows. */
   faded?: boolean
@@ -2435,8 +2466,10 @@ function StatListRow({ row, rank, value, context, isTeam, first, total, faded }:
   return (
     // A player row is an <a href> to her page; a team row has no URL, so it stays a
     // `pressable` div (role=button, tab stop, Enter/Space). Both are keyboard reachable.
-    <Box {...(row.link?.href ? row.link : pressable(row.onClick))} sx={{
+    <Box {...(row.link?.href ? row.link : pressable(row.onClick))}
+      ref={picked ? (el: HTMLElement | null) => { picked.ref.current = el } : undefined} sx={{
       ...FOCUS_RING,
+      ...(picked ? { backgroundImage: picked.tint } : {}),
       display: 'flex', alignItems: 'center', gap: 1.25, px: 1.25, py: 0.85,
       borderTop: first ? 'none' : '1px solid', borderColor: 'divider',
       cursor: row.onClick ? 'pointer' : 'default',

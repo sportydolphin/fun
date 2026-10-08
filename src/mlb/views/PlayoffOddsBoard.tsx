@@ -3,7 +3,7 @@ import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME } from '../constants'
 import { useIsDark, highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
-import { TeamLogo } from './Standings'
+import { TeamLogo } from '../components/TeamLogo'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
 

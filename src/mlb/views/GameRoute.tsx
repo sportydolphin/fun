@@ -19,12 +19,13 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { fetchGameSummary } from './FinalGames'
 import type { FinalGameSummary } from './FinalGames'
-import { GamePreviewModal } from './GamePreview'
 import { useDeepLink } from '../state/deepLink'
 import { openSheetCount, sheetOpenAt } from '../state/sheetHistory'
 import { mlbGamePath, mlbGamePkFromPath, MLB_VIEW_PATHS } from '../routes'
 
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
+// Lazy for the reason Game Center is: this route rides in MlbStats, which every MLB page loads.
+const GamePreviewModal = lazy(() => import('./GamePreview').then(m => ({ default: m.GamePreviewModal })))
 
 export function GameRoute({ onPlayerClick, onTeamClick }: {
   onPlayerClick: (id: number) => void
@@ -76,7 +77,7 @@ export function GameRoute({ onPlayerClick, onTeamClick }: {
   if (!game) return null
   const close = () => setGame(null)
   if (game.state === 'preview' || game.state === 'postponed') {
-    return <GamePreviewModal game={game} onClose={close} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+    return <Suspense fallback={null}><GamePreviewModal game={game} onClose={close} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} /></Suspense>
   }
   return (
     <Suspense fallback={null}>

@@ -51,4 +51,8 @@ export function preloadMlbViewFor(pathname: string, search: string) {
 export function preloadAllMlbViews() {
   for (const v of Object.keys(loaders) as (keyof typeof loaders)[]) warm(v)
   loadPlayer().catch(() => {})
+  // The two game sheets every scoreboard opens on a tap. Lazy so Home does not carry them, warmed
+  // here so the first tap is not a fetch.
+  import('./LiveGameCenter').catch(() => {})
+  import('./GamePreview').catch(() => {})
 }
