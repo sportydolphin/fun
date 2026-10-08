@@ -24,6 +24,7 @@ import { useEraBasis } from './EraBasisContext'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, PillGroup } from './ui'
 import { WPBL_ACCENT } from './constants'
 import WpblPage from './WpblPage'
+import { typePx } from '../ui/scale'
 
 /** How a source is labelled on screen. `league` gets no badge: it is the default a reader
  *  assumes, and badging all five would make the two that matter invisible among them. */
@@ -89,7 +90,7 @@ export default function WpblGlossaryPage() {
                 {SOURCE_BADGE[r.source] && (
                   <Typography component="span" sx={{
                     flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800,
-                    textTransform: 'uppercase', letterSpacing: 0.4,
+                    textTransform: 'uppercase', letterSpacing: typePx(0.4),
                     px: 0.6, py: '1px', borderRadius: 0.75,
                     border: '1px solid', borderColor: CARD_BORDER, color: 'text.secondary',
                   }}>

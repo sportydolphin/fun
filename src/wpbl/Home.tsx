@@ -49,6 +49,7 @@ import type { WpblRunValuePlay } from './types'
 import { HOME_WIDE_W } from './layoutWidths'
 import { useNewSince } from './newSince'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblArticle } from './types'
+import { typePx } from '../ui/scale'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
 // column on a phone. Everything on it is derived from data the section already caches: the
@@ -163,7 +164,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
     }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
         color: live ? '#ef4444' : 'text.secondary',
         // Never wrap: a second line here would make finals taller than upcoming chips and
         // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
@@ -258,7 +259,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
       }}
     >
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
         // The accent rather than text.secondary: it is the one mark separating a fixture that
         // exists from a date the league has only published, on a strip where the dashed border
         // is a hairline.
@@ -1011,7 +1012,7 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
             the spacer below eats the rest of the row. With flex on the name the record would
             go back to the card's right edge, which is what the record note underneath is about. */}
         <Typography noWrap sx={{
-          minWidth: 0, fontSize: TYPE_SCALE.display, fontWeight: 700, letterSpacing: '-0.2px', lineHeight: 1.15,
+          minWidth: 0, fontSize: TYPE_SCALE.display, fontWeight: 700, letterSpacing: typePx(-0.2), lineHeight: 1.15,
         }}>
           {t ? wpblFullName(t) : '?'}
         </Typography>
@@ -1111,7 +1112,7 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
             row in the mirror), not a rendering fault to defend against here. */}
         {postseason && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
             textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
           }}>
             {postseason.label} · Game {postseason.gameNumber} of {postseason.bestOf}
@@ -1345,7 +1346,7 @@ function ChampionshipInProgressBody({ series, teams, log, recap, onOpenGame }: {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, '@keyframes wpblpulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.3 }, '100%': { opacity: 1 } } }}>
           <Box aria-hidden sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'var(--wpbl-medal-1)', animation: 'wpblpulse 1.5s ease-in-out infinite' }} />
           <Typography sx={{
-            fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+            fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
             color: 'var(--wpbl-medal-1)',
           }}>Championship · in progress</Typography>
         </Box>
@@ -1454,7 +1455,7 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
             ...hoverOnly({ bgcolor: 'action.hover', borderColor: 'text.disabled' }), ...FOCUS_RING,
           }}>
             <Typography sx={{
-              fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+              fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
               color: 'text.disabled', flexShrink: 0, whiteSpace: 'nowrap',
             }}>
               Game {i + 1}
@@ -1515,7 +1516,7 @@ function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpen
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
               <EmojiEventsOutlined sx={{ fontSize: ICON_SIZE.sm, color: 'var(--wpbl-medal-1)' }} />
               <Typography sx={{
-                fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+                fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
                 color: 'var(--wpbl-medal-1)',
               }}>2026 WPBL Champions</Typography>
             </Box>
@@ -1615,7 +1616,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
           }}>{p.seed ?? ''}</Box>
         )}
         <Typography noWrap sx={{
-          minWidth: 0, fontSize: TYPE_SCALE.display, letterSpacing: '-0.2px', lineHeight: 1.15,
+          minWidth: 0, fontSize: TYPE_SCALE.display, letterSpacing: typePx(-0.2), lineHeight: 1.15,
           fontWeight: p.team ? 700 : 600,
           color: p.team ? 'text.primary' : 'text.secondary',
         }}>
@@ -1661,7 +1662,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
         </Box>
 
         <Typography sx={{
-          fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+          fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
           textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
         }}>
           {r.label} · Game {r.gameNumber} of {bestOf}
@@ -1945,7 +1946,7 @@ function LatestReadingCard() {
     }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
         <Typography sx={{
-          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
           textTransform: 'uppercase', color: 'text.secondary',
         }}>Latest from {sourceOf(latest.source).authorName}</Typography>
         <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
@@ -2034,7 +2035,7 @@ function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
     }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
         <Typography sx={{
-          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6,
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
           textTransform: 'uppercase', color: 'text.secondary',
         }}>Reading</Typography>
         <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
@@ -2253,7 +2254,7 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
         borderBottom: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: 'none' },
       }}>
         {valCell(aText, leadA)}
-        <Typography sx={{ flex: '0 0 auto', px: 1.5, textAlign: 'center', fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ flex: '0 0 auto', px: 1.5, textAlign: 'center', fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
           {label}
         </Typography>
         {valCell(bText, leadB)}
@@ -2310,7 +2311,7 @@ function ComparePreviewCard({ batSeasons, qual, teams, players, loading }: {
                 middle and leaves the left and right thirds of the card empty. */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%' }}>
               {head(a)}
-              <Typography aria-hidden sx={{ alignSelf: 'center', px: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.disabled' }}>
+              <Typography aria-hidden sx={{ alignSelf: 'center', px: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
                 vs
               </Typography>
               {head(b)}
@@ -2489,12 +2490,12 @@ function ChampionBanner({ champion, season, runnerUp, champWins, rivalWins, dev,
       }}>
         <Box aria-hidden sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1 }}>🏆</Box>
         <Typography sx={{
-          fontSize: TYPE_SCALE.meta, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.meta, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
           color: goldSoft,
         }}>Champions</Typography>
         {dev && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+            fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
             color: dark ? 'warning.main' : '#3d2905', ml: 0.25, opacity: dark ? 1 : 0.9,
           }}>· dev preview</Typography>
         )}
@@ -3114,7 +3115,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               }}
             >
               <TeamBadge team={t} size={24} />
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: 0.3 }}>{t.abbr}</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.3) }}>{t.abbr}</Typography>
             </Box>
           ))}
         </Box>

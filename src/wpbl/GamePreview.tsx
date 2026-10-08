@@ -11,6 +11,7 @@ import { useEraBasis } from './EraBasisContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { teamLeaders, LeaderTable } from './TeamLeaders'
 import type { WpblTeam, WpblGame, WpblPlayer } from './types'
+import { typePx } from '../ui/scale'
 
 // The WPBL game-preview matchup card — the analogue of the MLB app's GamePreview
 // TeamComparison, shown inside GameDetail for a game that hasn't been played yet. Each
@@ -241,7 +242,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
         <Typography sx={{
           flexShrink: 0, width: '2.375rem', textAlign: 'center',
           fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary',
-          textTransform: 'uppercase', letterSpacing: 0.6, lineHeight: 1,
+          textTransform: 'uppercase', letterSpacing: typePx(0.6), lineHeight: 1,
         }}>
           {def.key === 'k9' ? kLabel : def.label}
         </Typography>
@@ -261,7 +262,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
           // letter-spaced AND dimmed, so it had four things working against it and weight was
           // the only one not earning its place.
           fontSize: TYPE_SCALE.nano, fontWeight: 700, color: 'text.disabled',
-          textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1, flexShrink: 0,
+          textTransform: 'uppercase', letterSpacing: typePx(1), lineHeight: 1, flexShrink: 0,
         }}>
           {label}
         </Typography>
@@ -363,7 +364,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
               {p.position && (
                 <Typography sx={{
                   flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
-                  textTransform: 'uppercase', letterSpacing: 0.3,
+                  textTransform: 'uppercase', letterSpacing: typePx(0.3),
                 }}>{p.position}</Typography>
               )}
             </Box>
@@ -447,7 +448,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
       {!bare && (
         <Typography sx={{
           fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
-          textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1,
+          textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1, mb: 1,
         }}>
           Season Comparison
         </Typography>

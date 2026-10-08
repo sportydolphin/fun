@@ -15,6 +15,7 @@ import {
   TEAM_BG, TEAM_ICON_STYLE, TEAM_ICON_STYLE_LIGHT, DEFAULT_ICON_BG_DARK, type LogoVariantKey,
 } from '../constants'
 import { ringColor } from '../lib/colorUtils'
+import { typePx } from '../../ui/scale'
 
 // Universal fallbacks appended to every team's palette so each slot can reach
 // white / neutral gray / black even when the brand palette lacks them.
@@ -91,7 +92,7 @@ function SwatchRow({ label, colors, value, onPick }: {
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, width: 66, flexShrink: 0, opacity: 0.7 }}>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.6), width: 66, flexShrink: 0, opacity: 0.7 }}>
         {label}
       </Typography>
       <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
@@ -124,7 +125,7 @@ function LogoPicker({ id, style, onPick }: {
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, width: 66, flexShrink: 0, opacity: 0.7 }}>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.6), width: 66, flexShrink: 0, opacity: 0.7 }}>
         Logo
       </Typography>
       <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
@@ -277,7 +278,7 @@ function CropOverlay({ id, style, onChange, onClose }: {
               <ArrowBtn onClick={() => zoomBy(-ZOOM_STEP)}>−</ArrowBtn>
               <ArrowBtn onClick={() => zoomBy(ZOOM_STEP)}>＋</ArrowBtn>
             </Box>
-            <Typography sx={{ fontSize: '0.58rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: 0.6 }}>zoom</Typography>
+            <Typography sx={{ fontSize: '0.58rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: typePx(0.6) }}>zoom</Typography>
           </Box>
           <StudioButton onClick={resetAll}>Reset crop</StudioButton>
         </Box>
@@ -439,7 +440,7 @@ export default function IconStudio({ onClose }: { onClose: () => void }) {
         px: 2, py: 1.25, borderBottom: '1px solid', borderColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
         bgcolor: canvasBg, position: 'sticky', top: 0, zIndex: 2,
       }}>
-        <Typography sx={{ fontWeight: 900, fontSize: '1rem', letterSpacing: '-0.3px' }}>🎨 Icon Studio</Typography>
+        <Typography sx={{ fontWeight: 900, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>🎨 Icon Studio</Typography>
         <Typography sx={{ fontSize: '0.66rem', opacity: 0.55, fontWeight: 600 }}>
           dev only · editing <b>{dark ? 'DARK' : 'LIGHT'}</b> · saved locally
         </Typography>

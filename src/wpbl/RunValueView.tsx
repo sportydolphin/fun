@@ -21,6 +21,7 @@ import { fullCountSwing, takeSwingSplit } from './derive/pitchValue'
 import { pitchQualifiers } from './derive/pitches'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
+import { typePx } from '../ui/scale'
 
 // The run-value board: what each situation in a game is worth, and who has added the most runs
 // moving between them.
@@ -106,7 +107,7 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
         <Box />
         {[0, 1, 2].map(o => (
           <Box key={o} sx={{
-            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
             color: 'text.secondary', textAlign: 'center', pb: 0.5,
           }}>{o} out{o === 1 ? '' : 's'}</Box>
         ))}

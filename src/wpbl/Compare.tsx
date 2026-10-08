@@ -44,6 +44,7 @@ import {
 import { setDynamicSeo } from '../seo'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
+import { typePx } from '../ui/scale'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
  *  way it does on any other. Same rule as SourcesPage and LeaguePage. */
@@ -114,7 +115,7 @@ function CompareHead({ player, team, roster, position, onNavigate, onClear }: {
             mt: 'auto', pt: 0.5,
             border: 'none', background: 'none', cursor: 'pointer', px: 0.75, py: 0.25,
             borderRadius: 999, color: 'text.disabled', fontSize: MICRO_TEXT,
-            fontWeight: 700, letterSpacing: 0.3, fontFamily: 'inherit',
+            fontWeight: 700, letterSpacing: typePx(0.3), fontFamily: 'inherit',
             ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }), ...FOCUS_RING,
           }}
         >
@@ -141,7 +142,7 @@ function CompareHeadSkeleton({ withChange }: { withChange?: boolean }) {
         // A real button, inert, because a button's line box is not a div's.
         <Box component="button" type="button" tabIndex={-1} sx={{
           mt: 'auto', pt: 0.5, border: 'none', background: 'none', px: 0.75, py: 0.25,
-          color: 'text.disabled', fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: 0.3, fontFamily: 'inherit',
+          color: 'text.disabled', fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: typePx(0.3), fontFamily: 'inherit',
         }}>Change</Box>
       )}
     </Box>
@@ -187,7 +188,7 @@ function CompareCard({ title, subtitle, children }: {
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: CARD_BORDER,
       }}>
         <Typography component="h2" sx={{
-          fontSize: '0.78rem', fontWeight: 800, letterSpacing: 0.8,
+          fontSize: '0.78rem', fontWeight: 800, letterSpacing: typePx(0.8),
           textTransform: 'uppercase', lineHeight: 1.3,
         }}>
           {title}
@@ -230,7 +231,7 @@ function CompareStamp() {
         opacity: 0.5, ...(dark && { filter: 'invert(1)' }),
       }} />
       <Typography sx={{
-        fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: 0.3, color: 'text.disabled',
+        fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: typePx(0.3), color: 'text.disabled',
       }}>
         sportydolphin.fun
       </Typography>
@@ -310,7 +311,7 @@ function StatRowFrame({ a, label, b, leader }: {
       {cell('a', a)}
       <Typography sx={{
         flex: '1 1 auto', textAlign: 'center', minWidth: 0,
-        fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: 0.4,
+        fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: typePx(0.4),
         textTransform: 'uppercase', color: 'text.secondary',
       }}>
         {label}
@@ -393,7 +394,7 @@ function MatchupCard({ comparison, a, b }: {
                 pushed a phone's line past the width and wrapped it mid-list, stranding "· 1 SO". */}
             {([['Regular season', m.regular], ['Playoffs', m.postseason]] as const).map(([label, c]) => c && (
               <Box key={label} sx={{ mt: 0.75 }}>
-                <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', lineHeight: 1.3 }}>
+                <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
                   {label}
                 </Typography>
                 <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
@@ -417,7 +418,7 @@ function MatchupCardSkeleton() {
           <TextGhost>{GHOST_NAME} batting against {GHOST_NAME}</TextGhost>
         </Typography>
         <Box sx={{ mt: 0.75 }}>
-          <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
             Regular season
           </Typography>
           <Typography sx={{ fontSize: '0.82rem', fontVariantNumeric: 'tabular-nums' }}>
@@ -847,7 +848,7 @@ const HEAD_CARD = {
 } as const
 const VS_SX = {
   alignSelf: 'center', flexShrink: 0, px: 0.5,
-  fontSize: MICRO_TEXT, fontWeight: 800, letterSpacing: 0.8,
+  fontSize: MICRO_TEXT, fontWeight: 800, letterSpacing: typePx(0.8),
   textTransform: 'uppercase', color: 'text.disabled',
 } as const
 const PICK_SLOT = {

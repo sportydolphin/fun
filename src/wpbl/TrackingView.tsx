@@ -12,6 +12,7 @@ import { SectionCard, LeaderRow, CARD_BORDER, useWpblName, chromePx } from './ui
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
+import { typePx } from '../ui/scale'
 
 // The section's TrackMan showcase: season-wide velocity, spin, and batted-ball leaderboards
 // derived from the feed's pitch tracking (the distinctive data the WPBL feed carries that
@@ -27,7 +28,7 @@ function BestTile({ label, value, unit, name, accent }: {
       flex: 1, minWidth: chromePx(130), p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
       background: `linear-gradient(135deg, ${accent}1f 0%, transparent 70%)`,
     }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary' }}>{label}</Typography>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.4, mt: 0.25 }}>
         <Typography sx={{ fontSize: '1.7rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: accent }}>{value}</Typography>
         <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary' }}>{unit}</Typography>
@@ -118,7 +119,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
       }}>
         <Box sx={{ fontSize: '1.2rem', lineHeight: 1, flexShrink: 0, mt: '1px' }}>⚠️</Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: accent }}>
+          <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: accent }}>
             Partial tracking data
           </Typography>
           <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>

@@ -14,6 +14,7 @@ import type { AdminUser, SiteRole, UserLeague } from './lib/adminUsers'
 import { WPBL_TEAMS } from './wpbl/constants'
 import { TeamBadge } from './wpbl/ui'
 import { UserDetailDialog } from './AdminUserDetail'
+import { typePx } from './ui/scale'
 
 // ─── The Users panel ──────────────────────────────────────────────────────────
 //
@@ -220,7 +221,7 @@ function RolePills({ roles }: { roles: AdminUser['roles'] }) {
       {roles.map(r => (
         <Tooltip key={r.role} title={r.note ?? ''} disableHoverListener={!r.note}>
           <Box sx={{ px: 0.65, py: 0.1, borderRadius: 999, bgcolor: ROLE_STYLE[r.role].bg, flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+            <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff', letterSpacing: typePx(0.4), textTransform: 'uppercase' }}>
               {ROLE_STYLE[r.role].label}
             </Typography>
           </Box>
@@ -247,7 +248,7 @@ function Identity({ u, dense }: { u: AdminUser; dense?: boolean }) {
         <RolePills roles={u.roles} />
         {u.is_deleted && (
           <Box sx={{ px: 0.6, py: 0.1, borderRadius: 999, bgcolor: 'error.main', flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff', letterSpacing: 0.5 }}>
+            <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff', letterSpacing: typePx(0.5) }}>
               DEACTIVATED
             </Typography>
           </Box>
@@ -330,7 +331,7 @@ function RowMenu({ u, busy, onToggleDeleted, onToggleRole }: {
         onClick={e => e.stopPropagation()}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-        <Typography sx={{ px: 2, pt: 0.5, pb: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.6, color: 'text.disabled', textTransform: 'uppercase' }}>
+        <Typography sx={{ px: 2, pt: 0.5, pb: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.6), color: 'text.disabled', textTransform: 'uppercase' }}>
           Roles
         </Typography>
         {SITE_ROLES.map(role => (
@@ -361,7 +362,7 @@ function RowMenu({ u, busy, onToggleDeleted, onToggleRole }: {
 
 const cellSx = { px: 1.25, py: 0.85, borderTop: '1px solid', borderColor: 'divider', verticalAlign: 'middle' } as const
 const headSx = {
-  px: 1.25, py: 0.85, fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.6,
+  px: 1.25, py: 0.85, fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6),
   textTransform: 'uppercase' as const, color: 'text.disabled', textAlign: 'left' as const,
   whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 1,
   bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', userSelect: 'none' as const,
@@ -481,7 +482,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
       px: { xs: 1.25, md: 1.5 }, py: 1,
       border: '1px solid', borderColor: 'divider', borderRadius: 2,
     }}>
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.disabled' }}>
+      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
         {label}
       </Typography>
       <Typography sx={{ fontSize: '1.15rem', fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
@@ -717,7 +718,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                   that has to fit on screen. Its value is DERIVED from (sort, desc), so
                   clicking a column header moves this too and the two can never disagree. */}
               <Box component="label" sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.disabled' }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
                   Sort
                 </Typography>
                 <Box

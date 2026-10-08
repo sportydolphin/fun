@@ -12,6 +12,7 @@ import { AWARDS_CLOSE_LABEL } from './wpbl/awards'
 import { TeamBadge } from './wpbl/ui'
 import { WPBL_TEAMS } from './wpbl/constants'
 import type { WpblPlayer } from './wpbl/types'
+import { typePx } from './ui/scale'
 
 // ─── The fan-award panel ──────────────────────────────────────────────────────
 //
@@ -127,7 +128,7 @@ export function AwardsPanel({ open, onClose }: { open: boolean; onClose: () => v
                 every other view here. */}
             {report.headline.voters > 0 && (
               <Box sx={{ mb: 2.5 }}>
-                <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
+                <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
                   How many of the five they answered
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -154,7 +155,7 @@ export function AwardsPanel({ open, onClose }: { open: boolean; onClose: () => v
               <Box key={g.key} sx={{ mb: 1 }}>
                 {g.key !== 'card' && (
                   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 2.5, mb: 1, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'text.disabled' }}>
+                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase', color: 'text.disabled' }}>
                       {g.label}
                     </Typography>
                     <Box sx={{ flex: 1 }} />

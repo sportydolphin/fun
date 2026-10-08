@@ -13,7 +13,7 @@ import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
 import { useWpblPlayerLink } from './LinkContext'
 import { TAPPABLE, tappableIf, pressable, FOCUS_RING } from '../ui/interaction'
-import { chromePx } from '../ui/scale'
+import { chromePx, typePx } from '../ui/scale'
 import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
 export { ModalShell, usePhoneLayout, AfterShellEnters } from '../ui/ModalShell'
@@ -384,7 +384,7 @@ export const TYPE_SCALE = {
  *  The size of a standalone page's (WpblPage) on a desktop, a step down on a phone. */
 export const TAB_TITLE_SX = {
   fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page },
-  fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15,
+  fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.15,
 } as const
 
 /**
@@ -1200,7 +1200,7 @@ export function SectionLabel({ children, strong }: { children: React.ReactNode; 
     <Typography sx={{
       fontSize: strong ? '0.78rem' : '0.63rem',
       fontWeight: strong ? 800 : 700,
-      textTransform: 'uppercase', letterSpacing: 1.8,
+      textTransform: 'uppercase', letterSpacing: typePx(1.8),
       color: strong ? 'text.primary' : 'text.disabled', mb: 1,
     }}>
       {children}
@@ -1278,7 +1278,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: -2 },
         }}
       >
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, flexShrink: 0 }}>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), flexShrink: 0 }}>
           {label}
         </Typography>
         {summary != null && (
@@ -1299,7 +1299,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
               still says which positions these numbers cover, and it is already an abbreviation of a
               longer list (see FieldingLine). The summary never truncates. */
           <Typography component="div" sx={{
-            ml: 'auto', pl: 1, fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.3,
+            ml: 'auto', pl: 1, fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.3),
             color: 'text.disabled', flexShrink: 1000000, minWidth: 0,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
@@ -1331,7 +1331,7 @@ export function NewTag({ sx }: { sx?: object }) {
     <Box component="span" sx={{
       position: 'absolute', top: 6, left: 6, zIndex: 1, pointerEvents: 'none',
       px: 0.6, borderRadius: 1, bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
-      fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1.6, letterSpacing: 0.3,
+      fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1.6, letterSpacing: typePx(0.3),
       boxShadow: '0 1px 3px rgba(0,0,0,0.35)', ...sx,
     }}>New</Box>
   )

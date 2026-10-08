@@ -14,6 +14,7 @@ import {
   useDevDevice, setDeviceMode, setDevicePreset, toggleDeviceOrientation,
   currentPreset, DEVICE_PRESETS, FRAME_PARAM,
 } from './devDevice'
+import { typePx } from '../../ui/scale'
 
 // Room left for the toolbar above the phone + breathing space around it.
 const CHROME_V = 132
@@ -72,7 +73,7 @@ export default function MobilePreview() {
     }}>
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', justifyContent: 'center', px: 2 }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#f59e0b', mr: 0.5 }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase', color: '#f59e0b', mr: 0.5 }}>
           📱 Mobile sim
         </Typography>
         {DEVICE_PRESETS.map(d => (

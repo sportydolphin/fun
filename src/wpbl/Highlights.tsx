@@ -4,6 +4,7 @@ import { ModalShell, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, FOCUS_RING } f
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo } from './types'
 import { videoCredit, videoLabel, videoKindName } from './videoChannels'
+import { typePx } from '../ui/scale'
 
 // The pieces every video surface shares: the thumbnail facade, the play badge, the credit line and
 // the lightbox. Three consumers: the Watch page and its Home card (Watch.tsx, WatchPage.tsx), and
@@ -255,7 +256,7 @@ function GameHighlightCard({ video }: { video: WpblVideo }) {
           <VideoThumb video={video} badge={30} radius={1.5} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
             {label}
           </Typography>
           <Typography sx={{

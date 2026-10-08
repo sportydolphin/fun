@@ -18,6 +18,7 @@ import {
 } from './lib/analyticsAdmin'
 import type { VitalKey, VitalRating, WebVitalsRow } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
+import { typePx } from './ui/scale'
 
 /** "1 browser" / "2 browsers" — the counts here are small enough that "1 browsers" shows. */
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`
@@ -149,7 +150,7 @@ function Tile({ label, value, delta, sub }: {
       p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'divider',
       bgcolor: 'background.paper', minWidth: 0,
     }}>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled' }}>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase', color: 'text.disabled' }}>
         {label}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mt: 0.3, flexWrap: 'wrap' }}>
@@ -462,7 +463,7 @@ function MetricRow({ label, value, sub, bar }: {
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
-      fontSize: '0.62rem', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase',
+      fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase',
       color: 'text.disabled', mt: 1.25, mb: 0.25,
     }}>{children}</Typography>
   )
@@ -566,7 +567,7 @@ export default function AdminPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
         <Typography sx={{ fontSize: '1.15rem', fontWeight: 800 }}>⚡ Admin</Typography>
         <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'warning.main', opacity: 0.9 }}>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#000', letterSpacing: 0.5 }}>OWNER</Typography>
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#000', letterSpacing: typePx(0.5) }}>OWNER</Typography>
         </Box>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {(loading || health.loading) && <CircularProgress size={14} />}

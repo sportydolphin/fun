@@ -11,6 +11,7 @@ import { UsersPanel } from './AdminUsers'
 import { AwardsPanel } from './AdminAwards'
 import { HEARTBEAT_CHECKS } from '../shared/adminHealth'
 import type { Heartbeat, HeartbeatCheck } from '../shared/adminHealth'
+import { typePx } from './ui/scale'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ export function StatRow({ label, value, sub }: { label: React.ReactNode; value: 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ mb: 2.5 }}>
-      <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'text.disabled', mb: 1 }}>
+      <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase', color: 'text.disabled', mb: 1 }}>
         {title}
       </Typography>
       <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
@@ -385,7 +386,7 @@ function FeedbackModal({ open, onClose, onChanged }: {
           <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>📮 Feedback</Typography>
           {rows && openCount > 0 && (
             <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'primary.main' }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: typePx(0.5) }}>
                 {openCount} NEW
               </Typography>
             </Box>
@@ -763,7 +764,7 @@ export function AdminTools() {
             onClick={() => setFeedbackOpen(true)}
             badge={feedbackNew != null && feedbackNew > 0 ? (
               <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'primary.main' }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: typePx(0.5) }}>
                   {feedbackNew} NEW
                 </Typography>
               </Box>

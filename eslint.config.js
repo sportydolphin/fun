@@ -57,7 +57,33 @@ export default tseslint.config(
       // TypeScript resolves names; ESLint's own check does not know the DOM's types and would flag
       // every `RequestInit`.
       'no-undef': 'off',
+
+      // CLAUDE.md's traps, as rules, so they are checked rather than remembered.
+      'no-restricted-syntax': ['error',
+        // MUI reads a bare `letterSpacing: 0.5` as 0.5px, which does not grow with the type
+        // around it (rem, scaled per section and by the reader's Large text). 175 of them had
+        // accumulated by Oct 2026, and px spacing is what re-wrapped headings across /mlb in the
+        // rebuild. em and 0 are fine; `typePx(0.5)` keeps the number and makes it type.
+        ...['', ' > UnaryExpression', ' > ConditionalExpression', ' > ConditionalExpression > UnaryExpression', ' > ObjectExpression > Property']
+          .flatMap(path => [
+            `Property[key.name='letterSpacing']${path} > Literal[raw=/^(0?\\.\\d*[1-9]|[1-9])/]`,
+            `Property[key.name='letterSpacing']${path} > Literal[value=/^-?[0-9.]+px$/]`,
+          ])
+          .map(selector => ({ selector, message: 'letterSpacing in px does not scale with the type. Use typePx(n) from src/ui/scale (or em).' })),
+        // A cancellable touch listener makes the browser wait for JavaScript before it scrolls
+        // anything under it, so the content trails the finger (the player sheet until Oct 7, 2026).
+        // The two that exist are deliberate and say so beside them.
+        {
+          selector: "Property[key.name='passive'] > Literal[value=false]",
+          message: 'A passive:false touch listener makes scrolling wait on JavaScript. See the ModalShell trap in CLAUDE.md; if it is truly needed, disable this line with the reason.',
+        },
+      ],
     },
+  },
+  {
+    // The share-card exporters render a fixed-size image with px type, where px spacing is right.
+    files: ['src/wpbl/awardShareCard.tsx', 'src/wpbl/AwardsWinnersExport.tsx'],
+    rules: { 'no-restricted-syntax': 'off' },
   },
   {
     // Node config files and the edge Functions run outside the browser.

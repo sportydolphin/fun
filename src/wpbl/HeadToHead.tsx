@@ -4,6 +4,7 @@ import { SectionCard, TeamBadge, FOCUS_RING, TAPPABLE } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { headToHead } from './derive/matchups'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
+import { typePx } from '../ui/scale'
 
 // Washes behind a cell rather than coloured text. The record is spelled out in the cell
 // already, so the tint is pure reinforcement, which is what lets it be this quiet, and what
@@ -42,7 +43,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
   const teamLink = useWpblTeamLink()
 
   const head = {
-    fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4,
+    fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: typePx(0.4),
     color: 'text.disabled', textAlign: 'center' as const, py: 0.5,
   }
 
@@ -99,7 +100,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
                       instead, which is also what the standings table above these rows uses.
                       Columns stay abbreviated in both: they are only as wide as a cell. */}
                   <Typography sx={{
-                    fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.3, color: 'text.secondary',
+                    fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.3), color: 'text.secondary',
                     display: { xs: 'block', sm: 'none' },
                   }}>
                     {rowTeam.abbr}

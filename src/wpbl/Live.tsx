@@ -10,6 +10,7 @@ import { BaseDiamond, TeamBadge, useWpblDark, hoverOnly } from './ui'
 import { betweenInnings, deriveSituation } from './derive/liveSituation'
 import type { Situation, LineScores } from './derive/liveSituation'
 import type { WpblTeam, WpblGame, WpblLiveState, WpblPlayer } from './types'
+import { typePx } from '../ui/scale'
 
 // The situation derivation moved to a pure module so the Discord `/live` box score can share
 // it (see derive/liveSituation.ts). Re-exported here because the app and the tests import these
@@ -224,7 +225,7 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.75, bgcolor: `${LIVE_RED}14`, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: LIVE_RED, animation: 'wpblpulse 1.5s ease-in-out infinite' }} />
-        <Typography sx={{ fontSize: '0.66rem', fontWeight: 900, letterSpacing: 1, color: LIVE_RED, textTransform: 'uppercase' }}>Live Now</Typography>
+        <Typography sx={{ fontSize: '0.66rem', fontWeight: 900, letterSpacing: typePx(1), color: LIVE_RED, textTransform: 'uppercase' }}>Live Now</Typography>
         <Box sx={{ flex: 1 }} />
         <Box onClick={onOpen} sx={{
           display: 'inline-flex', alignItems: 'center', gap: 0.4, cursor: 'pointer',

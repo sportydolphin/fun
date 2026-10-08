@@ -10,6 +10,7 @@ import { gameStartMs } from './constants'
 import { clipLabel, ClipCaption, inningLabel } from './Watch'
 import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
 import type { WpblGame, WpblGamePlay, WpblPlayer, WpblTeam, WpblVideo, WpblVideoTag } from './types'
+import { typePx } from '../ui/scale'
 
 // /admin → Clips: correct what the clip matcher (scripts/wpbl-clip-tags.mjs) got wrong or could not
 // place. Every save is method 'manual', which the sync never overwrites or deletes, so a fix
@@ -152,7 +153,7 @@ function MethodBadge({ method }: { method: string }) {
   const manual = method === 'manual'
   return (
     <Box component="span" sx={{
-      px: 0.6, py: '1px', borderRadius: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4,
+      px: 0.6, py: '1px', borderRadius: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
       textTransform: 'uppercase', border: '1px solid',
       color: manual ? 'primary.main' : 'text.secondary', borderColor: manual ? 'primary.main' : 'divider',
     }}>{METHOD_LABEL[method] ?? method}</Box>
@@ -382,7 +383,7 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
         {label}
       </Typography>
       {children}

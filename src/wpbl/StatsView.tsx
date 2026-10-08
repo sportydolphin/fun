@@ -33,6 +33,7 @@ import { TabTitle } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 import { BOTTOM_NAV_SPACE } from './BottomNav'
 import { STATS_FULL_BLEED_W } from './layoutWidths'
+import { typePx } from '../ui/scale'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
 // its own layout, not reachable without a deliberate tap. The draft-value model lives on
@@ -1711,7 +1712,7 @@ export default function WpblStatsView({
   // the Player/Team heading is set in capitals, on its own cell.
   const thBase = {
     position: 'sticky' as const, top: 0, zIndex: 3, bgcolor: 'background.paper',
-    fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4,
+    fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
     color: 'text.disabled', py: 0.75, px: 0.5, whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   }
   // The body cells, shared by every player row.
@@ -2126,7 +2127,7 @@ export default function WpblStatsView({
             borderBottom: '1px solid', borderColor: 'divider',
           }}>
             <Typography sx={{
-              flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4,
+              flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
               textTransform: 'uppercase', color: 'text.disabled',
             }}>{mode === 'teams' ? 'Team' : 'Player'}</Typography>
             {/* The league's figure for the stat being ranked, in the header line rather than a
@@ -2141,7 +2142,7 @@ export default function WpblStatsView({
             )}
             <Typography sx={{
               // Not uppercased: see thBase on wOBA and wRC+.
-              flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4,
+              flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
               color: 'var(--wpbl-accent-fg)',
             }}>
               {activeCol.label}

@@ -35,6 +35,7 @@ import type {
   WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblRunValuePlay,
   WpblTeam,
 } from './types'
+import { typePx } from '../ui/scale'
 
 /**
  * The fan awards: five questions, one card on Home, one sheet to answer them in.
@@ -493,7 +494,7 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
               {/* 700 at `caption`, inside the ceiling in ui.tsx: this is 9.6px uppercase on a
                   phone and a heavier one closes its own counters up. */}
               <Typography sx={{
-                fontSize: TYPE_SCALE.caption, fontWeight: 700, letterSpacing: 0.4,
+                fontSize: TYPE_SCALE.caption, fontWeight: 700, letterSpacing: typePx(0.4),
                 textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1.3,
                 whiteSpace: 'nowrap',
               }}>{st.label}</Typography>
@@ -1008,7 +1009,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
         <Typography sx={{
           // The category, stepped up so it reads as the section heading it is. Uppercase and
           // secondary keep it clearly below the winner's name, which is bigger still.
-          fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800, letterSpacing: 0.5,
+          fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800, letterSpacing: typePx(0.5),
           textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3, minWidth: 0,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{award.title}</Typography>
@@ -1186,7 +1187,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
                           }}>{s.eraBasisValue !== undefined ? fmtEra(s.eraBasisValue) : s.value}</Typography>
                           <Typography component="span" sx={{
                             fontSize: { xs: TYPE_SCALE.caption, md: TYPE_SCALE.meta }, fontWeight: 700,
-                            letterSpacing: 0.3, textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2,
+                            letterSpacing: typePx(0.3), textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2,
                           }}>{s.label}</Typography>
                         </Box>, s.label,
                       ))}

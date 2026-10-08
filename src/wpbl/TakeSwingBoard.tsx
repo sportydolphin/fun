@@ -4,6 +4,7 @@ import { useWpblPlayerLink } from './LinkContext'
 import { fmtRunValue } from './derive/runExpectancy'
 import type { TakeSwingLine } from './derive/pitchValue'
 import type { WpblPlayer } from './types'
+import { typePx } from '../ui/scale'
 
 // ─── Taking and swinging ──────────────────────────────────────────────────────
 //
@@ -122,7 +123,7 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
           {['TOOK', 'SWUNG'].map(h => (
             <Typography key={h} sx={{
               width: VALUE_COL, textAlign: 'right', flexShrink: 0,
-              fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.6, color: 'text.disabled',
+              fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.6), color: 'text.disabled',
             }}>{h}</Typography>
           ))}
         </Box>

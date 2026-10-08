@@ -9,6 +9,7 @@ import {
   MoreHoriz,
   ScoreboardOutlined, Scoreboard,
 } from '@mui/icons-material'
+import { typePx } from './scale'
 
 // Floating bottom tab bar for a league section, phones only. Shared by /wpbl and /mlb (moved out of
 // src/wpbl on Sep 28, 2026, when MLB took the same shell): the section passes its own accent. It
@@ -294,7 +295,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                 fontSize: `${LABEL_REM}rem`,
                 fontWeight: 700,
                 lineHeight: LABEL_LINE_HEIGHT,
-                letterSpacing: 0.1,
+                letterSpacing: typePx(0.1),
                 maxWidth: '100%',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 // The label inherits the item's colour, so it already follows that transition; this

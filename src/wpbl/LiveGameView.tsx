@@ -11,6 +11,7 @@ import { useWpblPlayerLink, linkColor } from './LinkContext'
 import type {
   WpblBattingLine, WpblGame, WpblGamePlay, WpblPitchingLine, WpblPlayer, WpblTeam,
 } from './types'
+import { typePx } from '../ui/scale'
 
 /**
  * The Live tab: what is happening right now, then the shape of how it got here.
@@ -375,7 +376,7 @@ function Pips({ label, filled, of, unit, tint }: {
       aria-label={filled === 0 ? `No ${unit}s` : `${filled} ${unit}${filled === 1 ? '' : 's'}`}
     >
       <Typography aria-hidden sx={{
-        fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
+        fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
         color: 'text.disabled',
       }}>{label}</Typography>
       <Box aria-hidden sx={{ display: 'flex', gap: chromePx(4) }}>
@@ -560,7 +561,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
       <PlayerPortrait name={shown} teamId={team.id} size={72} />
       <Box sx={{ minWidth: 0, textAlign: 'left', [WIDE_CARD]: { textAlign: mirror ? 'right' : 'left' } }}>
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
+          fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
           color: 'text.disabled',
         }}>{label} · {team.abbr}</Typography>
         {/* A real <a> when the name resolved to somebody, so this is a crawlable link to her
@@ -655,7 +656,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 1.25,
     }}>
       <Typography sx={{
-        fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
+        fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
         color: 'text.disabled', whiteSpace: 'nowrap', flexShrink: 0,
         // A box reserving room for a label, so it is in REM. Aligned to the first line of the
         // sentence beside it rather than to the top of the block.

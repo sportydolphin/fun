@@ -8,6 +8,7 @@ import {
   type TeamSpecKey, type TeamSpecs,
 } from './derive/teamSpec'
 import type { WpblTeam } from './types'
+import { typePx } from '../ui/scale'
 
 // The spec chart. Six spokes, one polygon per club, drawn as SVG because the repo has no chart
 // library and a hexagon does not justify adding one: the whole geometry is `pt()` below.
@@ -459,7 +460,7 @@ export function TeamSpecReadout({ specs, teamId, kLabel, scaleK }: {
     <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr auto', columnGap: 1, rowGap: 0.35, alignItems: 'baseline' }}>
       {TEAM_SPEC_AXES.map(a => (
         <Box key={a.key} sx={{ display: 'contents' }}>
-          <Typography component="dt" sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.2, color: 'text.secondary' }}>
+          <Typography component="dt" sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.2), color: 'text.secondary' }}>
             {a.label}
           </Typography>
           <Typography component="dd" sx={{ m: 0, fontSize: '0.7rem', color: 'text.disabled' }}>
