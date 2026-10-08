@@ -18,9 +18,9 @@
 // `display: none` rather than unmounted when their country is not picked, so the 118 anchors this
 // page carries (the same crawl path PlayersIndex.tsx exists for) are always there to follow.
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, computeStandings, countsInStandings } from './api'
-import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, hoverOnly, pressable, useWpblDark } from './ui'
+import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, hoverOnly, pressable, useWpblDark, TextGhost, chromePx } from './ui'
 import { wpblAccent, wpblFullName } from './constants'
 import { byCountry, placeOf } from './derive/hometowns'
 import { buildBracket, championResult } from './derive/bracket'
@@ -43,14 +43,15 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
 
   useEffect(() => {
     let cancelled = false
-    fetchWpblAllPlayers()
-      .then(p => { if (!cancelled) setPlayers(p) })
-      .catch(() => { /* the empty state below is the whole error path */ })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    // The clubs and the schedule only add to the page (the club cards, the facts), so neither
-    // gates it: a slow read leaves those blocks out rather than holding the roster back.
-    fetchWpblTeams().then(t => { if (!cancelled) setTeams(t) }).catch(() => { /* no club cards */ })
-    fetchWpblSchedule().then(g => { if (!cancelled) setGames(g) }).catch(() => { /* no season facts */ })
+    // The clubs and the schedule only add to the page (the club cards, the facts), so a FAILED read
+    // leaves those blocks out rather than taking the roster with it. A slow one is waited for: the
+    // skeleton reserves the club cards and the champions' line, and painting the page without them
+    // would push the hometowns down by four cards the moment they arrived.
+    Promise.allSettled([
+      fetchWpblAllPlayers().then(p => { if (!cancelled) setPlayers(p) }),
+      fetchWpblTeams().then(t => { if (!cancelled) setTeams(t) }),
+      fetchWpblSchedule().then(g => { if (!cancelled) setGames(g) }),
+    ]).then(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
 
@@ -67,10 +68,6 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
     if (regular.length === 0) return null
     return Math.max(...standings.map(r => r.wins + r.losses))
   }, [games, standings])
-
-  if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-  }
 
   const link = (href: string) => ({
     component: 'a' as const, href,
@@ -91,14 +88,19 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
   // The facts, in the order a newcomer needs them. Each is one plain sentence; the rules page has
   // the detail and is linked at the end.
   const facts: React.ReactNode[] = [
-    <>Four clubs{perClub ? `, each playing ${perClub} regular-season games` : ''}.</>,
+    <>Four clubs{loading
+      ? <TextGhost>, each playing 15 regular-season games</TextGhost>
+      : perClub ? `, each playing ${perClub} regular-season games` : ''}.</>,
     <>Games are seven innings long, with extra innings if they are tied.</>,
     <>
       All four clubs make the postseason: the top seed plays the fourth and the second plays the
       third in best-of-three semifinals, and the winners meet in a best-of-five championship.
     </>,
   ]
-  if (champ) {
+  // Loading reserves the champions' line, which every season from here on has.
+  if (loading) {
+    facts.push(<TextGhost>The first champions were the champions of the league, who beat the runners-up 3–2 in the final.</TextGhost>)
+  } else if (champ) {
     facts.push(<>
       The first champions were the{' '}
       <Box {...link(wpblTeamPath(champ.champion, teams))} sx={inlineLink}>{wpblFullName(champ.champion)}</Box>
@@ -111,6 +113,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
       title="About the league"
       standfirst={<>
         The Women&rsquo;s Pro Baseball League played its first season in 2026: four clubs
+        {loading && <> <TextGhost>and 118 players from 11 countries</TextGhost></>}
         {players.length > 0 && ` and ${players.length} players`}
         {countries.length > 1 && ` from ${countries.length} countries`}.
       </>}
@@ -127,39 +130,69 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
           <Typography sx={{ fontSize: TYPE_SCALE.body }}>
             <Box {...link(WPBL_GLOSSARY_PAGE)} sx={inlineLink}>The full rules, and what every stat means ›</Box>
           </Typography>
-          {champ && (
+          {(champ || loading) && (
             <Typography sx={{ fontSize: TYPE_SCALE.body }}>
               <Box {...link(WPBL_SEASON_PAGE)} sx={inlineLink}>The 2026 season recap ›</Box>
             </Typography>
           )}
         </Box>
 
+        {loading && (
+          <>
+            <SectionHeading>The clubs</SectionHeading>
+            <Box aria-hidden sx={CLUB_GRID}>
+              {Array.from({ length: 4 }, (_, i) => (
+                <Box key={i} sx={{ ...CLUB_CARD, borderColor: CARD_BORDER, borderLeftColor: 'action.hover' }}>
+                  <Skeleton variant="circular" width={chromePx(36)} height={chromePx(36)} sx={{ flexShrink: 0 }} />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={CLUB_NAME}><Skeleton width="65%" /></Typography>
+                    <Typography sx={CLUB_RECORD}><Skeleton width="45%" /></Typography>
+                  </Box>
+                  <Box sx={CLUB_CHEVRON}>›</Box>
+                </Box>
+              ))}
+            </Box>
+            <SectionHeading>Where the players are from</SectionHeading>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25 }}>
+              Pick a country to see who is from there.
+            </Typography>
+            <Box aria-hidden sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
+              {/* Eleven chips at the lengths of the 2026 roster's country names. */}
+              {[3, 6, 9, 5, 6, 11, 7, 6, 11, 14, 9].map((n, i) => (
+                <Box key={i} sx={{ ...CHIP, borderColor: CARD_BORDER, bgcolor: 'action.hover' }}>
+                  <TextGhost hidden>🏳</TextGhost>
+                  <Typography component="span" sx={CHIP_NAME}><TextGhost hidden>{'x'.repeat(n)}</TextGhost></Typography>
+                  <Typography component="span" sx={CHIP_COUNT}><TextGhost hidden>0</TextGhost></Typography>
+                </Box>
+              ))}
+            </Box>
+          </>
+        )}
+
         {teams.length > 0 && (
           <>
             <SectionHeading seen="league">The clubs</SectionHeading>
-            <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            <Box sx={CLUB_GRID}>
               {[...teams].sort((a, b) => a.city.localeCompare(b.city)).map(t => {
                 const record = recordOf(t.id)
                 return (
                   <Box key={t.id} {...link(wpblTeamPath(t, teams))} sx={{
-                    ...FOCUS_RING,
-                    display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25,
-                    borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
-                    borderLeft: '3px solid', borderLeftColor: wpblAccent(t.id, dark),
+                    ...FOCUS_RING, ...CLUB_CARD,
+                    borderColor: CARD_BORDER, borderLeftColor: wpblAccent(t.id, dark),
                     textDecoration: 'none', color: 'text.primary',
                     transition: 'border-color 0.15s',
                     ...hoverOnly({ borderColor: wpblAccent(t.id, dark) }),
                   }}>
                     <TeamBadge team={t} size={36} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 }}>{wpblFullName(t)}</Typography>
+                      <Typography sx={CLUB_NAME}>{wpblFullName(t)}</Typography>
                       {record && (
-                        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                        <Typography sx={CLUB_RECORD}>
                           {record} in the regular season
                         </Typography>
                       )}
                     </Box>
-                    <Box aria-hidden sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.display }}>›</Box>
+                    <Box aria-hidden sx={CLUB_CHEVRON}>›</Box>
                   </Box>
                 )
               })}
@@ -188,18 +221,17 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                     })}
                     aria-pressed={active}
                     sx={{
-                      ...FOCUS_RING,
-                      display: 'inline-flex', alignItems: 'center', gap: 0.6,
-                      px: 1.25, py: 0.55, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-                      border: '1px solid', borderColor: active ? 'primary.main' : CARD_BORDER,
+                      ...FOCUS_RING, ...CHIP,
+                      cursor: 'pointer', userSelect: 'none',
+                      borderColor: active ? 'primary.main' : CARD_BORDER,
                       bgcolor: active ? 'primary.main' : 'transparent',
                       color: active ? 'primary.contrastText' : 'text.primary',
                       ...(active ? null : TAPPABLE),
                     }}>
                     {c.flag && <Box component="span" aria-hidden>{c.flag}</Box>}
-                    <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'inherit' }}>{c.country}</Typography>
+                    <Typography component="span" sx={CHIP_NAME}>{c.country}</Typography>
                     <Typography component="span" sx={{
-                      fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                      ...CHIP_COUNT,
                       color: active ? 'inherit' : 'text.secondary', opacity: active ? 0.85 : 1,
                     }}>{c.players.length}</Typography>
                   </Box>
@@ -241,7 +273,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
           </>
         )}
 
-        {countries.length === 0 && (
+        {!loading && countries.length === 0 && (
           <Typography sx={{ color: 'text.secondary', mt: 2 }}>
             The roster loads here once the league feed has been ingested.
           </Typography>
@@ -250,6 +282,22 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
     </WpblPage>
   )
 }
+
+// Shared by the loaded blocks and their skeletons, so the two cannot drift apart.
+const CLUB_GRID = { display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } } as const
+const CLUB_CARD = {
+  display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25,
+  borderRadius: 2, border: '1px solid', bgcolor: CARD_FILL, borderLeft: '3px solid',
+} as const
+const CLUB_NAME = { fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 } as const
+const CLUB_RECORD = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' } as const
+const CLUB_CHEVRON = { color: 'text.disabled', fontSize: TYPE_SCALE.display } as const
+const CHIP = {
+  display: 'inline-flex', alignItems: 'center', gap: 0.6,
+  px: 1.25, py: 0.55, borderRadius: 999, border: '1px solid',
+} as const
+const CHIP_NAME = { fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'inherit' } as const
+const CHIP_COUNT = { fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums' } as const
 
 const inlineLink = {
   color: 'var(--wpbl-accent-fg)', fontWeight: 700, textDecoration: 'none',

@@ -17,7 +17,7 @@
 // players, so a crawler reaches the pairs (which are out of the sitemap) from here; a plain click
 // opens it over this page (see navigateFromStandalone).
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import {
   fetchWpblAllMatchupPlays, getCachedWpblAllMatchupPlays, fetchWpblSchedule, getCachedWpblSchedule,
   fetchWpblTeams, getCachedWpblTeams, fetchWpblAllPlayers, getCachedWpblAllPlayers,
@@ -26,7 +26,8 @@ import { batterPitcherMatchups, matchupBoard, type MatchupBoardView, type WpblMa
 import { scopedGames, type SeasonScope } from './season'
 import { fmtRate } from './stats'
 import { wpblComparePath, isWpblMatchupsPage } from './routes'
-import { SegNav, TeamBadge, TYPE_SCALE, hoverOnly, FOCUS_RING } from './ui'
+import { SegNav, TeamBadge, TYPE_SCALE, hoverOnly, FOCUS_RING, TextGhost } from './ui'
+import { WPBL_TEAMS } from './constants'
 import { ShowMoreButton, SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import WpblPage from './WpblPage'
 import { track, EVENTS } from '../lib/analytics'
@@ -58,6 +59,10 @@ const HEADS = ['PA', 'H-AB', 'HR', 'BB', 'SO', 'AVG'] as const
 /** The row's leading name, which the row underlines on hover. A class rather than
  *  `span:first-of-type`, which also matched the "vs" on the second line. */
 const LEAD_NAME = 'wpbl-matchup-lead'
+
+/** A skeleton row's two names, as wide as the longest the first page of the default board holds,
+ *  so the table, which sizes its columns to their content, lays out the loaded columns. */
+const GHOST_NAME = ['Firstname Surname', 'Firstn Lastname'] as const
 
 type Club = 'all' | string // a lowercased club abbreviation, as the address bar spells it
 
@@ -129,6 +134,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
   // just restored.
   const pick = <T,>(set: (v: T) => void) => (v: T) => { set(v); setExpanded(false) }
 
+  // Reserved while loading: the Playoffs control is there in every season that has had one.
   const hasPostseason = useMemo(() => scopedGames(games, 'postseason').length > 0, [games])
   // A playoffs link opened before the bracket exists (or after the feed drops it) reads the regular
   // season rather than an empty board under a control that is not drawn.
@@ -164,7 +170,14 @@ export default function WpblMatchupsPage({ onNavigate }: {
 
   const playerById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const clubs = useMemo(() => [...teams].sort((a, b) => a.sort_order - b.sort_order), [teams])
+  // The clubs are fixed for the season, so the pill row can be drawn from the bundled list while the
+  // table is still loading instead of growing four pills when the read lands.
+  const clubs = useMemo(() => [...(teams.length > 0 ? teams : Object.values(WPBL_TEAMS))]
+    .sort((a, b) => a.sort_order - b.sort_order), [teams])
+  // LOADING IS THE BOARD DRAWN EMPTY: the toolbar, the caption, a full first page of rows and the
+  // notes under them, all where they will be. It was a centred spinner, which left the footer
+  // 500px up the screen and threw it 1,100 to 1,600px down when the table landed.
+  const skeleton = loading && !plays
 
   const shown = expanded ? board : board.slice(0, PREVIEW)
   const hidden = board.length - Math.min(board.length, PREVIEW)
@@ -172,7 +185,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
   const pitcherFirst = view === 'pitcher'
 
   /** A name in the matchup cell. Plain text: the whole cell is the link (see the row). */
-  const name = (text: string, strong: boolean) => (
+  const name = (text: React.ReactNode, strong: boolean) => (
     <Typography component="span" className={strong ? LEAD_NAME : undefined} sx={{
       // On desktop the second name has a column of its own and reads at full size beside the first.
       fontSize: strong ? TYPE_SCALE.body : { xs: TYPE_SCALE.meta, md: TYPE_SCALE.body },
@@ -199,213 +212,238 @@ export default function WpblMatchupsPage({ onNavigate }: {
         Every batter's record against each pitcher faced at least three times.
       </>}
     >
-      {loading && !plays ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-      ) : (
-        <>
-          {/* ONE TOOLBAR, NOT THREE FLOATING PILLS. The board used to sit centred on its own line,
-              with the club and season filters pinned to opposite edges below it, so the three
-              controls shared no edge with each other or with the title. Now: on a phone, one
-              column of full-width controls (`fill`), which also puts the board choice under the
-              thumb; from `sm` up, one row with the board on the title's left edge and the two
-              filters on the table's right edge, wrapping as a unit when the row is too narrow. */}
-          <Box sx={{
-            display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap',
-            alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between',
-            gap: 1, mb: 1.5,
-          }}>
+      <>
+        {/* ONE TOOLBAR, NOT THREE FLOATING PILLS. The board used to sit centred on its own line,
+            with the club and season filters pinned to opposite edges below it, so the three
+            controls shared no edge with each other or with the title. Now: on a phone, one
+            column of full-width controls (`fill`), which also puts the board choice under the
+            thumb; from `sm` up, one row with the board on the title's left edge and the two
+            filters on the table's right edge, wrapping as a unit when the row is too narrow. */}
+        <Box sx={{
+          display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap',
+          alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between',
+          gap: 1, mb: 1.5,
+        }}>
+          <SegNav
+            options={VIEWS.map(v => ({ value: v.value, label: v.label }))}
+            value={view}
+            onChange={pick(v => setView(v as MatchupBoardView))}
+            mb={0}
+            fill
+          />
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 1 }}>
             <SegNav
-              options={VIEWS.map(v => ({ value: v.value, label: v.label }))}
-              value={view}
-              onChange={pick(v => setView(v as MatchupBoardView))}
+              options={[{ value: 'all', label: 'All clubs' }, ...clubs.map(t => ({ value: t.abbr.toLowerCase(), label: t.abbr }))]}
+              value={club}
+              onChange={pick(setClub)}
               mb={0}
+              size="sm"
               fill
             />
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 1 }}>
+            {(hasPostseason || skeleton) && (
               <SegNav
-                options={[{ value: 'all', label: 'All clubs' }, ...clubs.map(t => ({ value: t.abbr.toLowerCase(), label: t.abbr }))]}
-                value={club}
-                onChange={pick(setClub)}
+                options={[
+                  { value: 'regular', label: 'Regular' },
+                  { value: 'postseason', label: 'Playoffs' },
+                  { value: 'all', label: 'Both' },
+                ]}
+                value={effScope}
+                onChange={pick(v => setScope(v as SeasonScope))}
                 mb={0}
                 size="sm"
                 fill
               />
-              {hasPostseason && (
-                <SegNav
-                  options={[
-                    { value: 'regular', label: 'Regular' },
-                    { value: 'postseason', label: 'Playoffs' },
-                    { value: 'all', label: 'Both' },
-                  ]}
-                  value={effScope}
-                  onChange={pick(v => setScope(v as SeasonScope))}
-                  mb={0}
-                  size="sm"
-                  fill
-                />
-              )}
-            </Box>
+            )}
           </Box>
-          <Typography sx={{ ...SECTION_CAPTION_SX, mb: 1 }}>
-            {board.length} {board.length === 1 ? 'matchup' : 'matchups'} · {blurb}
-          </Typography>
+        </Box>
+        <Typography sx={{ ...SECTION_CAPTION_SX, mb: 1 }}>
+          {skeleton ? <TextGhost>000 matchups</TextGhost> : <>{board.length} {board.length === 1 ? 'matchup' : 'matchups'}</>} · {blurb}
+        </Typography>
 
-          {board.length === 0 ? (
-            <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, py: 3 }}>
-              No matchups qualify for this board yet.
-            </Typography>
-          ) : (
-            // Edge to edge on a phone, with the first and last cells taking the gutter back, as the
-            // player card's tables do (see bleedSx in PlayerDetail.tsx). `-2` is the shell's px:
-            // WpblPage has none of its own on a phone. The matchup cell takes the left gutter by
-            // name (`matchupCellSx`) rather than as `:first-of-type`, because on desktop the rank
-            // column comes first and is not drawn on a phone.
-            <Box sx={{
-              overflowX: 'auto', mx: { xs: -2, sm: 0 },
-              '& th:last-of-type, & td:last-of-type': { pr: { xs: 2, sm: 0.5 } },
-            }}>
-              <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
-                <Box component="thead">
-                  <Box component="tr">
-                    <Box component="th" sx={{ ...thSx, ...rankSx }}>#</Box>
-                    <Box component="th" sx={{ ...thSx, ...matchupCellSx }}>
-                      <Box sx={{ display: { xs: 'block', md: 'none' } }}>{pitcherFirst ? 'Pitcher vs batter' : 'Batter vs pitcher'}</Box>
-                      <Box sx={{ display: { xs: 'none', md: 'grid' }, ...pairGridSx }}>
-                        <span>{pitcherFirst ? 'Pitcher' : 'Batter'}</span>
-                        <span>{pitcherFirst ? 'Batter' : 'Pitcher'}</span>
-                      </Box>
+        {!skeleton && board.length === 0 ? (
+          <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, py: 3 }}>
+            No matchups qualify for this board yet.
+          </Typography>
+        ) : (
+          // Edge to edge on a phone, with the first and last cells taking the gutter back, as the
+          // player card's tables do (see bleedSx in PlayerDetail.tsx). `-2` is the shell's px:
+          // WpblPage has none of its own on a phone. The matchup cell takes the left gutter by
+          // name (`matchupCellSx`) rather than as `:first-of-type`, because on desktop the rank
+          // column comes first and is not drawn on a phone.
+          <Box sx={{
+            overflowX: 'auto', mx: { xs: -2, sm: 0 },
+            '& th:last-of-type, & td:last-of-type': { pr: { xs: 2, sm: 0.5 } },
+          }}>
+            <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+              <Box component="thead">
+                <Box component="tr">
+                  <Box component="th" sx={{ ...thSx, ...rankSx }}>#</Box>
+                  <Box component="th" sx={{ ...thSx, ...matchupCellSx }}>
+                    <Box sx={{ display: { xs: 'block', md: 'none' } }}>{pitcherFirst ? 'Pitcher vs batter' : 'Batter vs pitcher'}</Box>
+                    <Box sx={{ display: { xs: 'none', md: 'grid' }, ...pairGridSx }}>
+                      <span>{pitcherFirst ? 'Pitcher' : 'Batter'}</span>
+                      <span>{pitcherFirst ? 'Batter' : 'Pitcher'}</span>
                     </Box>
-                    {HEADS.map(h => <Box component="th" key={h} sx={{ ...thSx, ...statColSx(h), ...(h === 'AVG' ? { textAlign: 'right' } : {}) }}>{h}</Box>)}
                   </Box>
-                </Box>
-                <Box component="tbody">
-                  {shown.map((l, i) => {
-                    const b = playerById.get(l.batterId), p = playerById.get(l.pitcherId)
-                    // The owner on the left, as in the row: the compare path keeps the order it was built in.
-                    const pairHref = b && p && players.length > 0
-                      ? (pitcherFirst ? wpblComparePath(p, b, players) : wpblComparePath(b, p, players))
-                      : null
-                    // The verdict this board is about, in the rank blue and bold: the average on
-                    // an edge board, nothing on the neutral one.
-                    const lit = view !== 'faced'
-                    const open = (e: React.MouseEvent) => {
-                      track(EVENTS.WPBL_COMPARE_OPENED, { from: 'matchups', pair: true })
-                      if (pairHref && !isModified(e)) { e.preventDefault(); onNavigate(pairHref) }
-                    }
-                    return (
-                      <Box
-                        component="tr"
-                        key={`${l.batterId}|${l.pitcherId}`}
-                        // THE WHOLE ROW OPENS THE MATCHUP, not only the name cell. On a phone the
-                        // figures are most of the row's width, and a tap on "4-5" that did nothing
-                        // read as a dead table. The link inside stays the one real target (a
-                        // crawler, a keyboard and a modified click all use it); the row only
-                        // forwards a plain click that landed outside it.
-                        onClick={pairHref ? (e: React.MouseEvent) => {
-                          if ((e.target as HTMLElement).closest('a') || isModified(e)) return
-                          open(e)
-                        } : undefined}
-                        sx={{
-                          ...(i % 2 === 1 ? { bgcolor: 'action.hover' } : {}),
-                          // `selected`, one step darker than the stripe, so a hover shows on an
-                          // odd row as well as an even one.
-                          ...(pairHref ? {
-                            cursor: 'pointer',
-                            ...hoverOnly({ bgcolor: 'action.selected', [`& .${LEAD_NAME}`]: { textDecoration: 'underline' } }),
-                          } : {}),
-                        }}
-                      >
-                        {/* THE WHOLE MATCHUP CELL IS ONE LINK, to the pair's comparison, which
-                            leads with this matchup and links to both players. Two name links plus a
-                            chevron for the pair did not fit a phone: the chevron's column alone
-                            pushed the table 27px past a 343px column. On this page the row IS the
-                            matchup, so that is what a tap on it opens. */}
-                        <Box component="td" sx={{ ...tdSx, ...rankSx, color: 'text.disabled', fontSize: TYPE_SCALE.meta }}>{i + 1}</Box>
-                        <Box component="td" sx={{ ...tdSx, ...matchupCellSx }}>
-                          <Box
-                            component={pairHref ? 'a' : 'div'}
-                            {...(pairHref ? {
-                              href: pairHref,
-                              'aria-label': `${l.batterName} against ${l.pitcherName}: the full matchup`,
-                              onClick: open,
-                            } : {})}
-                            sx={{
-                              // One matchup per line on desktop, the two names in columns of their
-                              // own: stacked, each row spent two lines of height on a 900px table
-                              // whose figures sat in 100px columns of air.
-                              display: { xs: 'block', md: 'grid' }, ...pairGridSx,
-                              textDecoration: 'none', color: 'inherit', borderRadius: 1,
-                              ...(pairHref ? FOCUS_RING : {}),
-                            }}
-                          >
-                            {/* WHOEVER HAS THE EDGE LEADS: the pitcher on her board, the batter
-                                everywhere else. The figures are always the batter's line against
-                                her ("0-5"), which reads the right way round either way. */}
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                              {badge(pitcherFirst ? l.pitcherTeamIds : l.batterTeamIds)}
-                              {name(pitcherFirst ? l.pitcherName : l.batterName, true)}
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, md: 0 } }}>
-                              {badge(pitcherFirst ? l.batterTeamIds : l.pitcherTeamIds)}
-                              {/* The column header says it on desktop. */}
-                              <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { md: 'none' } }}>vs</Typography>
-                              {name(pitcherFirst ? l.batterName : l.pitcherName, false)}
-                            </Box>
-                          </Box>
-                        </Box>
-                        {cells(l).map((c, j) => {
-                          const isAvg = HEADS[j] === 'AVG'
-                          return (
-                            <Box component="td" key={HEADS[j]} sx={{
-                              ...tdSx,
-                              ...statColSx(HEADS[j]),
-                              // Right-aligned, so the decimal points stack: centred, "1.000" sat
-                              // half a digit left of the ".800" under it.
-                              ...(isAvg ? { textAlign: 'right' } : {}),
-                              ...(c === 0 ? { color: 'text.disabled' } : {}),
-                              ...(isAvg && lit ? { color: ink, fontWeight: 800 } : {}),
-                            }}>{c}</Box>
-                          )
-                        })}
-                      </Box>
-                    )
-                  })}
+                  {HEADS.map(h => <Box component="th" key={h} sx={{ ...thSx, ...statColSx(h), ...(h === 'AVG' ? { textAlign: 'right' } : {}) }}>{h}</Box>)}
                 </Box>
               </Box>
+              <Box component="tbody" aria-hidden={skeleton || undefined}>
+                {skeleton && Array.from({ length: PREVIEW }, (_, i) => (
+                  <Box component="tr" key={i} sx={i % 2 === 1 ? { bgcolor: 'action.hover' } : undefined}>
+                    <Box component="td" sx={{ ...tdSx, ...rankSx, color: 'text.disabled', fontSize: TYPE_SCALE.meta }}><TextGhost hidden>{i + 1}</TextGhost></Box>
+                    <Box component="td" sx={{ ...tdSx, ...matchupCellSx }}>
+                      <Box sx={{ display: { xs: 'block', md: 'grid' }, ...pairGridSx }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                          <Skeleton variant="circular" width={16} height={16} sx={{ flexShrink: 0 }} />
+                          {name(<TextGhost>{GHOST_NAME[0]}</TextGhost>, true)}
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, md: 0 } }}>
+                          <Skeleton variant="circular" width={16} height={16} sx={{ flexShrink: 0 }} />
+                          <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { md: 'none' } }}>vs</Typography>
+                          {name(<TextGhost>{GHOST_NAME[1]}</TextGhost>, false)}
+                        </Box>
+                      </Box>
+                    </Box>
+                    {HEADS.map(h => (
+                      <Box component="td" key={h} sx={{ ...tdSx, ...statColSx(h), ...(h === 'AVG' ? { textAlign: 'right' } : {}) }}>
+                        {/* The widest figure each column takes on the default board, so the columns are their
+                          loaded widths: a table sizes its columns to what is in them. */}
+                          <TextGhost>{h === 'AVG' ? '1.000' : h === 'H-AB' ? '4-5' : '5'}</TextGhost>
+                      </Box>
+                    ))}
+                  </Box>
+                ))}
+                {shown.map((l, i) => {
+                  const b = playerById.get(l.batterId), p = playerById.get(l.pitcherId)
+                  // The owner on the left, as in the row: the compare path keeps the order it was built in.
+                  const pairHref = b && p && players.length > 0
+                    ? (pitcherFirst ? wpblComparePath(p, b, players) : wpblComparePath(b, p, players))
+                    : null
+                  // The verdict this board is about, in the rank blue and bold: the average on
+                  // an edge board, nothing on the neutral one.
+                  const lit = view !== 'faced'
+                  const open = (e: React.MouseEvent) => {
+                    track(EVENTS.WPBL_COMPARE_OPENED, { from: 'matchups', pair: true })
+                    if (pairHref && !isModified(e)) { e.preventDefault(); onNavigate(pairHref) }
+                  }
+                  return (
+                    <Box
+                      component="tr"
+                      key={`${l.batterId}|${l.pitcherId}`}
+                      // THE WHOLE ROW OPENS THE MATCHUP, not only the name cell. On a phone the
+                      // figures are most of the row's width, and a tap on "4-5" that did nothing
+                      // read as a dead table. The link inside stays the one real target (a
+                      // crawler, a keyboard and a modified click all use it); the row only
+                      // forwards a plain click that landed outside it.
+                      onClick={pairHref ? (e: React.MouseEvent) => {
+                        if ((e.target as HTMLElement).closest('a') || isModified(e)) return
+                        open(e)
+                      } : undefined}
+                      sx={{
+                        ...(i % 2 === 1 ? { bgcolor: 'action.hover' } : {}),
+                        // `selected`, one step darker than the stripe, so a hover shows on an
+                        // odd row as well as an even one.
+                        ...(pairHref ? {
+                          cursor: 'pointer',
+                          ...hoverOnly({ bgcolor: 'action.selected', [`& .${LEAD_NAME}`]: { textDecoration: 'underline' } }),
+                        } : {}),
+                      }}
+                    >
+                      {/* THE WHOLE MATCHUP CELL IS ONE LINK, to the pair's comparison, which
+                          leads with this matchup and links to both players. Two name links plus a
+                          chevron for the pair did not fit a phone: the chevron's column alone
+                          pushed the table 27px past a 343px column. On this page the row IS the
+                          matchup, so that is what a tap on it opens. */}
+                      <Box component="td" sx={{ ...tdSx, ...rankSx, color: 'text.disabled', fontSize: TYPE_SCALE.meta }}>{i + 1}</Box>
+                      <Box component="td" sx={{ ...tdSx, ...matchupCellSx }}>
+                        <Box
+                          component={pairHref ? 'a' : 'div'}
+                          {...(pairHref ? {
+                            href: pairHref,
+                            'aria-label': `${l.batterName} against ${l.pitcherName}: the full matchup`,
+                            onClick: open,
+                          } : {})}
+                          sx={{
+                            // One matchup per line on desktop, the two names in columns of their
+                            // own: stacked, each row spent two lines of height on a 900px table
+                            // whose figures sat in 100px columns of air.
+                            display: { xs: 'block', md: 'grid' }, ...pairGridSx,
+                            textDecoration: 'none', color: 'inherit', borderRadius: 1,
+                            ...(pairHref ? FOCUS_RING : {}),
+                          }}
+                        >
+                          {/* WHOEVER HAS THE EDGE LEADS: the pitcher on her board, the batter
+                              everywhere else. The figures are always the batter's line against
+                              her ("0-5"), which reads the right way round either way. */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                            {badge(pitcherFirst ? l.pitcherTeamIds : l.batterTeamIds)}
+                            {name(pitcherFirst ? l.pitcherName : l.batterName, true)}
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, md: 0 } }}>
+                            {badge(pitcherFirst ? l.batterTeamIds : l.pitcherTeamIds)}
+                            {/* The column header says it on desktop. */}
+                            <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { md: 'none' } }}>vs</Typography>
+                            {name(pitcherFirst ? l.batterName : l.pitcherName, false)}
+                          </Box>
+                        </Box>
+                      </Box>
+                      {cells(l).map((c, j) => {
+                        const isAvg = HEADS[j] === 'AVG'
+                        return (
+                          <Box component="td" key={HEADS[j]} sx={{
+                            ...tdSx,
+                            ...statColSx(HEADS[j]),
+                            // Right-aligned, so the decimal points stack: centred, "1.000" sat
+                            // half a digit left of the ".800" under it.
+                            ...(isAvg ? { textAlign: 'right' } : {}),
+                            ...(c === 0 ? { color: 'text.disabled' } : {}),
+                            ...(isAvg && lit ? { color: ink, fontWeight: 800 } : {}),
+                          }}>{c}</Box>
+                        )
+                      })}
+                    </Box>
+                  )
+                })}
+              </Box>
             </Box>
-          )}
-          {hidden > 0 && (
-            <ShowMoreButton expanded={expanded} onClick={() => setExpanded(e => !e)} accent={ink}>
-              {expanded ? 'Show fewer' : `Show ${hidden} more ${hidden === 1 ? 'matchup' : 'matchups'}`}
-            </ShowMoreButton>
-          )}
-
-          {/* HOW THE BOARDS WORK, as four short lines rather than one paragraph. As a single block
-              it was eleven lines of grey on a phone, and the one rule a reader comes looking for
-              (what counts as an edge) sat in the middle of it. */}
-          <Box component="dl" sx={{
-            mt: 3, mb: 0, pt: 2, borderTop: '1px solid', borderColor: 'divider',
-            display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'max-content 1fr' }, columnGap: 2, rowGap: { xs: 0.25, sm: 0.75 },
-            fontSize: TYPE_SCALE.meta, lineHeight: 1.55, color: 'text.secondary',
-            '& dt': { fontWeight: 700, color: 'text.primary', mt: { xs: 1, sm: 0 } },
-            '& dt:first-of-type': { mt: 0 },
-            '& dd': { m: 0 },
-          }}>
-            <dt>Sample</dt>
-            <dd>At least three plate appearances{mostMet > 0 ? `; the most any batter and pitcher met is ${mostMet}` : ''}.</dd>
-            <dt>Batter edge</dt>
-            <dd>.500 or better over three or more at-bats, two home runs, or a home run with a .333 average.</dd>
-            <dt>Pitcher edge</dt>
-            <dd>.150 or lower over three or more at-bats, with no home runs.</dd>
-            <dt>Order</dt>
-            <dd>
-              Most lopsided first: hits against what a league-average batter would have had in the same
-              at-bats, so a longer run of success ranks higher. Club logos show the team each player
-              was on for these at-bats.
-            </dd>
           </Box>
-        </>
-      )}
+        )}
+        {(hidden > 0 || skeleton) && (
+          <ShowMoreButton expanded={expanded} onClick={() => { if (!skeleton) setExpanded(e => !e) }} accent={ink}>
+            {skeleton
+              ? <>Show <TextGhost>00</TextGhost> more matchups</>
+              : expanded ? 'Show fewer' : `Show ${hidden} more ${hidden === 1 ? 'matchup' : 'matchups'}`}
+          </ShowMoreButton>
+        )}
+
+        {/* HOW THE BOARDS WORK, as four short lines rather than one paragraph. As a single block
+            it was eleven lines of grey on a phone, and the one rule a reader comes looking for
+            (what counts as an edge) sat in the middle of it. */}
+        <Box component="dl" sx={{
+          mt: 3, mb: 0, pt: 2, borderTop: '1px solid', borderColor: 'divider',
+          display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'max-content 1fr' }, columnGap: 2, rowGap: { xs: 0.25, sm: 0.75 },
+          fontSize: TYPE_SCALE.meta, lineHeight: 1.55, color: 'text.secondary',
+          '& dt': { fontWeight: 700, color: 'text.primary', mt: { xs: 1, sm: 0 } },
+          '& dt:first-of-type': { mt: 0 },
+          '& dd': { m: 0 },
+        }}>
+          <dt>Sample</dt>
+          <dd>At least three plate appearances{skeleton
+            ? <TextGhost>; the most any batter and pitcher met is 9</TextGhost>
+            : mostMet > 0 ? `; the most any batter and pitcher met is ${mostMet}` : ''}.</dd>
+          <dt>Batter edge</dt>
+          <dd>.500 or better over three or more at-bats, two home runs, or a home run with a .333 average.</dd>
+          <dt>Pitcher edge</dt>
+          <dd>.150 or lower over three or more at-bats, with no home runs.</dd>
+          <dt>Order</dt>
+          <dd>
+            Most lopsided first: hits against what a league-average batter would have had in the same
+            at-bats, so a longer run of success ranks higher. Club logos show the team each player
+            was on for these at-bats.
+          </dd>
+        </Box>
+      </>
     </WpblPage>
   )
 }

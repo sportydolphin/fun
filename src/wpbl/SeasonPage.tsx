@@ -17,7 +17,7 @@
 // NO TAB OF ITS OWN, like the league, glossary and sources pages beside it: a real path linked from the
 // footer, which is the crawl path that has actually worked. See WPBL_SEASON_PAGE in routes.ts.
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
+import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines,
   fetchWpblAllRunValuePlays, fetchWpblBattedBalls, computeStandings, fetchWpblVideos, getCachedWpblVideos,
@@ -49,7 +49,7 @@ import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winP
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath, wpblComparePath, WPBL_MATCHUPS_PAGE } from './routes'
 import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './derive/matchups'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName } from './ui'
+import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, TextGhost, chromePx } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
 import { track, EVENTS } from '../lib/analytics'
@@ -472,10 +472,6 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
     return { bigPlays: big.slice(0, 6), comeback: best }
   }, [plays, games, regFinals])
 
-  if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-  }
-
   const gameCount = regFinals.length
   const hasData = gameCount > 0 && leagueBat.ab > 0
   const runsPerGame = gameCount > 0 ? leagueBat.r / gameCount : 0
@@ -497,10 +493,14 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
       standfirst={<>
         The Women&rsquo;s Pro Baseball League&rsquo;s first season, read back through its own
         numbers: the final table and the race to it, the leaders, the things that
-        make it its own league, and the plays its games turned on.{gameCount > 0 && ` Regular season, ${gameCount} games.`}
+        make it its own league, and the plays its games turned on.{loading
+          ? <> <TextGhost>Regular season, 30 games.</TextGhost></>
+          : gameCount > 0 && ` Regular season, ${gameCount} games.`}
       </>}
     >
-      {!hasData && (
+      {loading && <SeasonSkeleton isPhone={isPhone} />}
+
+      {!loading && !hasData && (
         <Typography sx={{ color: 'text.secondary' }}>
           The season fills in here once the league feed has been ingested.
         </Typography>
@@ -904,9 +904,12 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
 // is the one thing on this page that a stat cannot carry, and the block the reader who came for
 // "who won" is looking for. Full width, its own colour, and no link, because it is the answer
 // rather than a route to one; the games that decided it are the cards directly under it.
-function SeasonChampionBlock({ champ }: { champ: ChampionResult }) {
+function SeasonChampionBlock({ champ }: {
+  /** Null draws the banner empty, for the page's skeleton. */
+  champ: ChampionResult | null
+}) {
   const isDark = useWpblDark()
-  const accent = wpblAccent(champ.champion.id, isDark)
+  const accent = champ ? wpblAccent(champ.champion.id, isDark) : 'var(--wpbl-medal-1)'
   return (
     <Box sx={{
       borderRadius: 3, overflow: 'hidden',
@@ -926,17 +929,21 @@ function SeasonChampionBlock({ champ }: { champ: ChampionResult }) {
         }}>WPBL Champions</Typography>
       </Box>
       <Box sx={{ p: { xs: 2, sm: 2.5 }, display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-        <TeamBadge team={champ.champion} size={56} />
+        {champ
+          ? <TeamBadge team={champ.champion} size={56} />
+          : <Skeleton variant="circular" width={chromePx(56)} height={chromePx(56)} sx={{ flexShrink: 0 }} />}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: '1.5rem', fontWeight: 900, lineHeight: 1.1, color: accent }}>
-            {wpblFullName(champ.champion)}
+            {champ ? wpblFullName(champ.champion) : <TextGhost>Champion Clubname</TextGhost>}
           </Typography>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: 'text.primary', mt: 0.4 }}>
             Inaugural WPBL champions
           </Typography>
-          {champ.runnerUp && (
+          {(!champ || champ.runnerUp) && (
             <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: 'text.secondary', mt: 0.25 }}>
-              Beat {wpblFullName(champ.runnerUp)} {champ.champWins}-{champ.rivalWins} in the championship series.
+              {champ?.runnerUp
+                ? <>Beat {wpblFullName(champ.runnerUp)} {champ.champWins}-{champ.rivalWins} in the championship series.</>
+                : <TextGhost>Beat the club that was runner-up 3-2 in the championship series.</TextGhost>}
             </Typography>
           )}
         </Box>
@@ -989,25 +996,78 @@ function FinalSeriesGames({ games, teamById, href, onOpen }: {
             href={href(g)}
             aria-label={`Game ${i + 1}: ${away?.city ?? ''} ${g.away_score}, ${home?.city ?? ''} ${g.home_score}`}
             onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpen(g) } }}
-            sx={{
-              display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0,
-              textDecoration: 'none', color: 'inherit', borderRadius: 2, px: 1.25, py: 1,
-              border: '1px solid', borderColor: CARD_BORDER,
-              ...TAPPABLE, ...FOCUS_RING,
-            }}
+            sx={{ ...FINAL_GAME_CARD, textDecoration: 'none', color: 'inherit', ...TAPPABLE, ...FOCUS_RING }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-              <Typography sx={{
-                flex: 1, fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.6,
-                textTransform: 'uppercase', color: 'text.disabled',
-              }}>Game {i + 1}</Typography>
-              <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{shortDate(g.game_date)}</Typography>
-            </Box>
+            <FinalGameHead n={i + 1} date={shortDate(g.game_date)} />
             {side(away, g.away_score, awayWon)}
             {side(home, g.home_score, !awayWon)}
           </Box>
         )
       })}
+    </Box>
+  )
+}
+
+const FINAL_GAME_CARD = {
+  display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0,
+  borderRadius: 2, px: 1.25, py: 1, border: '1px solid', borderColor: CARD_BORDER,
+} as const
+
+function FinalGameHead({ n, date }: { n: number; date: React.ReactNode }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+      <Typography sx={{
+        flex: 1, fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.6,
+        textTransform: 'uppercase', color: 'text.disabled',
+      }}>Game {n}</Typography>
+      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{date}</Typography>
+    </Box>
+  )
+}
+
+/**
+ * The page before its reads land: the loaded page drawn empty (CLAUDE.md, loading states).
+ *
+ * The offseason shape, which is the only one this page has from here on: the champion's banner and
+ * the five games of the final under it, the phone's jump row, then the bracket. Below that it is
+ * one reserve the height the rest of the page measured at in October 2026, under the next heading
+ * in its place, so the footer stays out of view rather than sitting 300px down the screen and
+ * being thrown 6,000px when the page lands, which is what the centred spinner did.
+ *
+ * The bracket and the rest are data-dependent shapes, so those two reserves are measurements of
+ * the loaded page divided by its root size at each breakpoint (16px to `sm`, 20px from `md`), the
+ * same rule Home's CardSkeleton keeps. Re-measure them if a section above the playoff boards moves.
+ */
+function SeasonSkeleton({ isPhone }: { isPhone: boolean }) {
+  return (
+    <Box aria-hidden sx={FLAT_CARDS_DARK}>
+      <Box sx={{ mb: 2.5 }}>
+        <SeasonChampionBlock champ={null} />
+        <Box sx={{ display: 'grid', gap: 1, mt: 1.25, gridTemplateColumns: 'repeat(auto-fit, minmax(7.5rem, 1fr))' }}>
+          {Array.from({ length: 5 }, (_, i) => (
+            <Box key={i} sx={FINAL_GAME_CARD}>
+              <FinalGameHead n={i + 1} date={<TextGhost>Sep 00</TextGhost>} />
+              {[0, 1].map(j => (
+                <Box key={j} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                  <Skeleton variant="circular" width={chromePx(18)} height={chromePx(18)} sx={{ flexShrink: 0 }} />
+                  <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.85rem' }}><TextGhost>SF</TextGhost></Typography>
+                  <Typography sx={{ fontSize: '0.95rem', fontVariantNumeric: 'tabular-nums' }}><TextGhost>0</TextGhost></Typography>
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
+      </Box>
+      {isPhone && (
+        <JumpRow links={[
+          ['season-bracket', 'Bracket'], ['season-standings', 'Standings'],
+          ['season-batting', 'Batting'], ['season-pitching', 'Pitching'], ['season-plays', 'Plays'],
+        ]} />
+      )}
+      <SectionHeading>Playoff bracket</SectionHeading>
+      <Skeleton variant="rounded" sx={{ height: { xs: '25.2rem', sm: '15.6rem', md: '15.4rem' }, borderRadius: 2 }} />
+      <SectionHeading>Best playoff performances</SectionHeading>
+      <Box sx={{ height: { xs: '368rem', sm: '400rem', md: '340rem' } }} />
     </Box>
   )
 }
