@@ -2,8 +2,8 @@
 // The season phase: 'auto' (default) reads the real calendar; 'regular', 'over' (October) and
 // 'offseason' (winter) pin it, so every Home can be reviewed on any day of the year. And "no team":
 // Home as a reader who follows nobody sees it, without signing out or clearing a followed team that
-// syncs to the account. Same module-singleton pattern as devSeasonSelector. Every call site is
-// gated behind import.meta.env.DEV, so production only ever sees 'auto' and the real team.
+// syncs to the account. Same module-singleton pattern as devSim, and absent from production for the
+// same reason (see the note above `state`): there the hooks are the constants 'auto' and false.
 
 import { useSyncExternalStore } from 'react'
 
@@ -19,28 +19,40 @@ function load(): { phase: DevSeasonPhase; noTeam: boolean } {
   } catch { return { phase: 'auto', noTeam: false } }
 }
 
-let state = load()
+// LOADED ON FIRST TOUCH, and the hook folds to a constant outside dev. Both halves are what keep
+// this module out of the production bundle: a top-level `load()` is a side effect Rollup cannot
+// drop, and the production call sites import the hook. With the two together every visitor's main
+// chunk carried this file and ran its localStorage read at startup, for a control nobody can open.
+let state: ReturnType<typeof load> | null = null
+const get = () => (state ??= load())
 const listeners = new Set<() => void>()
 const emit = () => listeners.forEach(l => l())
 
 export function setDevSeasonPhase(next: DevSeasonPhase) {
-  state = { ...state, phase: next }
+  state = { ...get(), phase: next }
   try { localStorage.setItem(PHASE_KEY, next) } catch { /* ignore */ }
   emit()
 }
 
 export function setDevNoTeam(next: boolean) {
-  state = { ...state, noTeam: next }
+  state = { ...get(), noTeam: next }
   try { localStorage.setItem(NO_TEAM_KEY, next ? '1' : '0') } catch { /* ignore */ }
   emit()
 }
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
 
+const phaseOf = () => get().phase
+const noTeamOf = () => get().noTeam
+
+// Each folds to a build-time constant, so the branch never changes between renders of one build.
 export function useDevSeasonPhase(): DevSeasonPhase {
-  return useSyncExternalStore(subscribe, () => state.phase, () => state.phase)
+  return import.meta.env.DEV ? useSyncExternalStore(subscribe, phaseOf, phaseOf) : 'auto'
 }
 
 export function useDevNoTeam(): boolean {
-  return useSyncExternalStore(subscribe, () => state.noTeam, () => state.noTeam)
+  return import.meta.env.DEV ? useSyncExternalStore(subscribe, noTeamOf, noTeamOf) : false
 }
+
+/** For the dev menu's "what is on" summary. */
+export const devSeasonPhaseActive = () => get().phase !== 'auto' || get().noTeam

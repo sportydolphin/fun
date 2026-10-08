@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../../AuthContext'
-import { useDevSeasonSelector, setSeasonSelectorStyle } from '../dev/devSeasonSelector'
 import {
   RankMode, Player, Team, Palette, TeamSummary,
   TeamPlayerStat, RosterEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
@@ -263,12 +262,6 @@ export function useMlbState() {
   const [vizSeason, setVizSeason] = useState(landing?.season ?? CURRENT_SEASON)
   const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('report-card')
 
-  // ─── Local-dev-only settings ────────────────────────────────────────────────
-  // Team-card season selector style: 'dropdown' (default) or 'buttons' (year pills).
-  // Toggled from the consolidated dev gear (import.meta.env.DEV only). Lives in a
-  // module singleton (devSeasonSelector) so the gear (now rendered app-wide) and
-  // this MLB state stay in sync; setSeasonSelectorStyle re-exported for the menu.
-  const seasonSelectorStyle = useDevSeasonSelector()
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
 
@@ -873,7 +866,6 @@ export function useMlbState() {
     stampCurrentEntry,
     vizSeason, setVizSeason,
     vizDefaultTab, setVizDefaultTab,
-    seasonSelectorStyle, setSeasonSelectorStyle,
     teamSummaries, loadingViz,
     handleVizNavigate,
 

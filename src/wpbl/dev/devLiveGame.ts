@@ -23,9 +23,10 @@
 // import from api.ts into the dev module and NOT through a dev import in the read path. The
 // difference is production: `DevSettings` is the only thing that imports this file and it is
 // proven absent from the production bundle, so everything here goes with it. An import the
-// other way round would have to survive on tree-shaking, and the MLB predictor simulator next
-// door shows how that goes: `devSim.ts` is in the shipped bundle because one production call
-// site imports it and its top-level `load()` counts as a side effect.
+// other way round would have to survive on tree-shaking, and the MLB simulators show how that
+// goes: until Oct 7, 2026 all five shipped in the main chunk, because production call sites
+// import their hooks and a top-level `load()` counts as a side effect. They now load on first
+// touch and fold their hooks to constants outside dev (see devSim.ts).
 //
 // Which is also why there is nothing at the top level of this module that runs. State loads on
 // first touch.

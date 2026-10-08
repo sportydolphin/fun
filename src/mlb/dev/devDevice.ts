@@ -6,8 +6,8 @@
 // viewport, which is why this uses a nested document rather than a container.
 //
 // Same module-singleton pattern as devSim / devDrama: DevSettings mutates it,
-// MobilePreview reads it, and every call site is gated behind import.meta.env.DEV
-// so production tree-shakes the whole thing away.
+// MobilePreview reads it. App.tsx imports `isInsideDeviceFrame` in production, so
+// that constant and the lazy state below are what keep the rest out of the bundle.
 
 import { useSyncExternalStore } from 'react'
 
@@ -18,8 +18,9 @@ const STORAGE_KEY = 'mlb_dev_device'
 // recursing forever.
 export const FRAME_PARAM = 'devframe'
 
+// DEV first, so production folds this to `false` instead of parsing the URL at startup.
 export const isInsideDeviceFrame =
-  typeof window !== 'undefined' &&
+  import.meta.env.DEV && typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).has(FRAME_PARAM)
 
 export interface DevicePreset {
@@ -63,7 +64,12 @@ function load(): DevDeviceState {
   return DEFAULT
 }
 
-let state: DevDeviceState = load()
+// LOADED ON FIRST TOUCH, and the hook folds to a constant outside dev. Both halves are what keep
+// this module out of the production bundle: a top-level `load()` is a side effect Rollup cannot
+// drop, and the production call sites import the hook. With the two together every visitor's main
+// chunk carried this file and ran its localStorage read at startup, for a control nobody can open.
+let state: DevDeviceState | null = null
+const get = (): DevDeviceState => (state ??= load())
 const listeners = new Set<() => void>()
 
 function commit(next: DevDeviceState) {
@@ -74,9 +80,9 @@ function commit(next: DevDeviceState) {
 
 // ─── Mutations (dev settings menu calls these) ─────────────────────────────────
 
-export function setDeviceMode(mode: 'desktop' | 'mobile') { commit({ ...state, mode }) }
-export function setDevicePreset(presetId: string)          { commit({ ...state, presetId }) }
-export function toggleDeviceOrientation()                  { commit({ ...state, landscape: !state.landscape }) }
+export function setDeviceMode(mode: 'desktop' | 'mobile') { commit({ ...get(), mode }) }
+export function setDevicePreset(presetId: string)          { commit({ ...get(), presetId }) }
+export function toggleDeviceOrientation()                  { commit({ ...get(), landscape: !get().landscape }) }
 
 export function currentPreset(s: DevDeviceState): DevicePreset {
   return DEVICE_PRESETS.find(d => d.id === s.presetId) ?? DEVICE_PRESETS[1]
@@ -85,8 +91,8 @@ export function currentPreset(s: DevDeviceState): DevicePreset {
 // ─── React binding ─────────────────────────────────────────────────────────────
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
-const getSnapshot = () => state
 
 export function useDevDevice(): DevDeviceState {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  // A build-time constant, so the branch never changes between renders of one build.
+  return import.meta.env.DEV ? useSyncExternalStore(subscribe, get, get) : DEFAULT
 }

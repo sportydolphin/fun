@@ -2,8 +2,8 @@
 // Fabricates random "Happening Now" events (no-hitters, walk-off watches, cycle
 // watches, marathons) so the LiveDramaCard can be styled and exercised without
 // waiting for real late-inning drama. Same module-singleton pattern as devSim:
-// DevSettings mutates it, LiveDramaCard reads it, both call sites are gated
-// behind import.meta.env.DEV so production tree-shakes everything away.
+// DevSettings mutates it, LiveDramaCard reads it, absent from
+// production: see the note above `state`.
 //
 // Fakes are built with the SAME builders the real detector uses (liveDrama.ts),
 // so headline/detail/severity render pixel-identical to production events.
@@ -42,7 +42,13 @@ function load(): DevDramaState {
   return { enabled: false, events: [] }
 }
 
-let state: DevDramaState = load()
+// LOADED ON FIRST TOUCH, and the hook folds to a constant outside dev. Both halves are what keep
+// this module out of the production bundle: a top-level `load()` is a side effect Rollup cannot
+// drop, and the production call sites import the hook. With the two together every visitor's main
+// chunk carried this file and ran its localStorage read at startup, for a control nobody can open.
+let state: DevDramaState | null = null
+const get = (): DevDramaState => (state ??= load())
+const OFF: DevDramaState = { enabled: false, events: [] }
 const listeners = new Set<() => void>()
 
 function commit(next: DevDramaState) {
@@ -133,10 +139,10 @@ function randomDrama(): DramaEvent[] {
 // ─── Mutations (dev settings menu calls these) ─────────────────────────────────
 
 export function setDevDramaEnabled(on: boolean) {
-  if (on && state.events.length === 0) {
+  if (on && get().events.length === 0) {
     commit({ enabled: true, events: randomDrama() })
   } else {
-    commit({ ...state, enabled: on })
+    commit({ ...get(), enabled: on })
   }
 }
 
@@ -147,8 +153,11 @@ export function regenerateDevDrama() {
 // ─── React binding ─────────────────────────────────────────────────────────────
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
-const getSnapshot = () => state
 
 export function useDevDrama(): DevDramaState {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  // A build-time constant, so the branch never changes between renders of one build.
+  return import.meta.env.DEV ? useSyncExternalStore(subscribe, get, get) : OFF
 }
+
+/** For the dev menu's "what is on" summary. */
+export const devDramaActive = () => get().enabled

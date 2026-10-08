@@ -72,3 +72,11 @@ export function shouldShowBadge(k: BadgeKey): boolean {
 export function markBadgeSeen(k: BadgeKey): void {
   try { localStorage.setItem(storageKey(k), '1') } catch { /* nothing to keep it in */ }
 }
+
+/** Dev only: forget every badge's seen flag, so the dots can be checked again. Expired badges
+ *  stay hidden, which is the date half of the rule doing its job. */
+export function resetBadgesForDev(): void {
+  for (const k of Object.keys(BADGES) as BadgeKey[]) {
+    try { localStorage.removeItem(storageKey(k)) } catch { /* nothing kept */ }
+  }
+}

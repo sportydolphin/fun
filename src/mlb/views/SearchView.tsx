@@ -53,7 +53,6 @@ export interface SearchViewProps {
   setRankMode: (m: RankMode) => void
   currentAvailableSeasons: number[]
   handleSeasonChange: (s: number) => void
-  seasonSelectorStyle: 'dropdown' | 'buttons'
 
   // Stats
   teamHitting: any
@@ -83,7 +82,7 @@ export function SearchView({
   query, setQuery, playerResults, teamResults,
   searching, dropdownOpen, setDropdownOpen, selectPlayer, selectTeam, onTeamClick,
   team, palette, setPalette, season, loadingStats, hasStats,
-  rankMode, setRankMode, currentAvailableSeasons, handleSeasonChange, seasonSelectorStyle,
+  rankMode, setRankMode, currentAvailableSeasons, handleSeasonChange,
   teamHitting, teamPitching,
   selectedTeamHitStats, setSelectedTeamHitStats, selectedTeamPitStats, setSelectedTeamPitStats,
   toggleTeamHitStat, toggleTeamPitStat,
@@ -208,41 +207,8 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Unified season / career selector: dropdown by default; year pills when the
-          dev setting flips it to 'buttons'. Career is always its own emphasized toggle. */}
+      {/* The season selector. Career is its own emphasized toggle. */}
       {(hasStats || loadingStats) && (() => {
-        if (seasonSelectorStyle === 'buttons') {
-          // Legacy pills (kept for the dev toggle)
-          return (
-            <Box sx={{
-              display: 'flex', justifyContent: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
-              msOverflowStyle: 'none', scrollbarWidth: 'none',
-              '&::-webkit-scrollbar': { display: 'none' },
-            }}>
-              {currentAvailableSeasons.map(y => {
-                const active = season === y
-                return (
-                  <Box key={y}
-                    onClick={() => handleSeasonChange(y)}
-                    sx={{
-                      flexShrink: 0, px: 1.5, py: 0.55, borderRadius: 999,
-                      cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
-                      userSelect: 'none', whiteSpace: 'nowrap',
-                      bgcolor: active ? ACCENT : 'transparent',
-                      color: active ? '#000' : 'text.secondary',
-                      border: '1.5px solid', borderColor: active ? ACCENT : 'divider',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    {y}
-                  </Box>
-                )
-              })}
-            </Box>
-          )
-        }
-
-        // Dropdown mode (default)
         return (
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 1.5, alignItems: 'center' }}>
             <Box sx={{

@@ -584,7 +584,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             setRankMode={state.setRankMode}
             currentAvailableSeasons={state.currentAvailableSeasons}
             handleSeasonChange={state.handleSeasonChange}
-            seasonSelectorStyle={state.seasonSelectorStyle}
             teamHitting={state.teamHitting}
             teamPitching={state.teamPitching}
             selectedTeamHitStats={state.selectedTeamHitStats}

@@ -6,9 +6,7 @@
 // This is a plain module singleton (like homeOverlay) with a tiny subscribe API,
 // deliberately NOT React state, so DevSettings (which toggles it) and the
 // PredictorWidget (which reads it) can share it without threading props through
-// useMlbState. Everything here is inert in production: the DevSettings menu that
-// mutates it and the PredictorWidget branch that reads it are both gated behind
-// import.meta.env.DEV, so the bundler drops those call sites entirely.
+// useMlbState. Everything here is absent from production: see the note above `state`.
 
 import { useSyncExternalStore } from 'react'
 import type { TodayGame } from '../views/Predictor'
@@ -43,7 +41,13 @@ function load(): DevSimState {
   return { enabled: false, games: [], votes: {} }
 }
 
-let state: DevSimState = load()
+// LOADED ON FIRST TOUCH, and the hook folds to a constant outside dev. Both halves are what keep
+// this module out of the production bundle: a top-level `load()` is a side effect Rollup cannot
+// drop, and the production call sites import the hook. With the two together every visitor's main
+// chunk carried this file and ran its localStorage read at startup, for a control nobody can open.
+let state: DevSimState | null = null
+const get = (): DevSimState => (state ??= load())
+const OFF: DevSimState = { enabled: false, games: [], votes: {} }
 const listeners = new Set<() => void>()
 
 function commit(next: DevSimState) {
@@ -95,10 +99,10 @@ function randomSlate(): { games: TodayGame[]; votes: DevSimVotes } {
 
 // Turn the simulator on/off. Turning it on with no slate yet generates one.
 export function setDevSimEnabled(on: boolean) {
-  if (on && state.games.length === 0) {
+  if (on && get().games.length === 0) {
     commit({ enabled: true, ...randomSlate() })
   } else {
-    commit({ ...state, enabled: on })
+    commit({ ...get(), enabled: on })
   }
 }
 
@@ -111,8 +115,8 @@ export function regenerateDevSim() {
 // reveals the ✓/✗ feedback against whatever picks you made.
 export function decideDevSimWinners() {
   commit({
-    ...state,
-    games: state.games.map(g => ({
+    ...get(),
+    games: get().games.map(g => ({
       ...g,
       state:    'final',
       winnerId: Math.random() < 0.5 ? g.home.teamId : g.away.teamId,
@@ -123,16 +127,19 @@ export function decideDevSimWinners() {
 // Re-open all games for picking (clears the decided winners).
 export function reopenDevSim() {
   commit({
-    ...state,
-    games: state.games.map(g => ({ ...g, state: 'preview', winnerId: null })),
+    ...get(),
+    games: get().games.map(g => ({ ...g, state: 'preview', winnerId: null })),
   })
 }
 
 // ─── React binding ─────────────────────────────────────────────────────────────
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
-const getSnapshot = () => state
 
 export function useDevSim(): DevSimState {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  // A build-time constant, so the branch never changes between renders of one build.
+  return import.meta.env.DEV ? useSyncExternalStore(subscribe, get, get) : OFF
 }
+
+/** For the dev menu's "what is on" summary. */
+export const devSimActive = () => get().enabled
