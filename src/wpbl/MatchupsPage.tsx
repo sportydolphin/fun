@@ -31,6 +31,7 @@ import { ShowMoreButton, SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import WpblPage from './WpblPage'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
+import { typePx } from '../ui/scale'
 
 const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
@@ -411,7 +412,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
 }
 
 const thSx = {
-  fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+  fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4),
   color: 'text.disabled', py: 0.6, px: { xs: 0.3, sm: 0.85 }, textAlign: 'center', whiteSpace: 'nowrap',
   borderBottom: '1px solid', borderColor: 'divider',
 } as const

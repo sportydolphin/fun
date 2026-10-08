@@ -13,6 +13,7 @@ import { watchShelves } from './videoChannels'
 import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
 import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
 import { useNewSince } from './newSince'
+import { typePx } from '../ui/scale'
 
 /**
  * The door to /wpbl/watch: the newest clips as a row of posters, and a link to everything.
@@ -82,7 +83,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
         <Typography sx={{
           flex: 1, minWidth: 0, fontSize: eyebrow ? TYPE_SCALE.micro : TYPE_SCALE.meta,
-          fontWeight: eyebrow ? 800 : 600, letterSpacing: eyebrow ? 0.6 : 0,
+          fontWeight: eyebrow ? 800 : 600, letterSpacing: eyebrow ? typePx(0.6) : 0,
           textTransform: eyebrow ? 'uppercase' : 'none', color: 'text.secondary',
         }}>{eyebrow ? 'Watch' : summary}</Typography>
         <Box {...all} onClick={openPage} sx={{

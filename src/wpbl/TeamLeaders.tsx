@@ -5,6 +5,7 @@ import { aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, 
 import { outsToIp } from './innings'
 import type { SeasonScope } from './season'
 import type { WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGame } from './types'
+import { typePx } from '../ui/scale'
 
 // The "players to watch" logic and its side-by-side table, shared by the series overview and the
 // game/matchup preview. Extracted from SeriesPreview so GamePreview can reuse it: both import from
@@ -172,7 +173,7 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
     }}>
       {align === 'left' && <TeamBadge team={team} size={18} />}
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
         color: wpblAccent(team.id, dark), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{team.name}</Typography>
       {align === 'right' && <TeamBadge team={team} size={18} />}
@@ -272,7 +273,7 @@ function RichLeaders({ away, home, A, H, onOpenPlayer }: {
     }}>
       {align === 'left' && <TeamBadge team={team} size={20} />}
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
         color: wpblAccent(team.id, dark), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{team.name}</Typography>
       {align === 'right' && <TeamBadge team={team} size={20} />}
@@ -294,7 +295,7 @@ function RichLeaders({ away, home, A, H, onOpenPlayer }: {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
               <Typography sx={{
                 fontSize: TYPE_SCALE.nano, fontWeight: 700, color: 'text.disabled',
-                textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1, flexShrink: 0,
+                textTransform: 'uppercase', letterSpacing: typePx(1), lineHeight: 1, flexShrink: 0,
               }}>{group.label}</Typography>
               <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
             </Box>

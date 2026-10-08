@@ -16,6 +16,7 @@ import type { BracketSeries } from './derive/bracket'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblStandingRow,
 } from './types'
+import { typePx } from '../ui/scale'
 
 /**
  * One series, opened.
@@ -184,7 +185,7 @@ function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
     )
   }
   const micro = {
-    fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', whiteSpace: 'nowrap',
+    fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', whiteSpace: 'nowrap',
   } as const
 
   return (

@@ -57,6 +57,7 @@ import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
   WpblSprayPlay, WpblStandingRow, WpblVideo,
 } from './types'
+import { typePx } from '../ui/scale'
 
 /** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
  *  hitters ('S') and unknowns fall outside the two toggle states and simply are not counted in
@@ -921,7 +922,7 @@ function SeasonChampionBlock({ champ }: { champ: ChampionResult }) {
       }}>
         <Box aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>🏆</Box>
         <Typography sx={{
-          fontSize: '0.7rem', fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase',
+          fontSize: '0.7rem', fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
           color: 'var(--wpbl-medal-1)',
         }}>WPBL Champions</Typography>
       </Box>
@@ -998,7 +999,7 @@ function FinalSeriesGames({ games, teamById, href, onOpen }: {
           >
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
               <Typography sx={{
-                flex: 1, fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.6,
+                flex: 1, fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.6),
                 textTransform: 'uppercase', color: 'text.disabled',
               }}>Game {i + 1}</Typography>
               <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{shortDate(g.game_date)}</Typography>

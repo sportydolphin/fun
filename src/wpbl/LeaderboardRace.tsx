@@ -7,6 +7,7 @@ import { shortName } from './Live'
 import { countsInStandings } from './season'
 import { prefersReducedMotion } from '../lib/motion'
 import type { WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblRunValuePlay } from './types'
+import { typePx } from '../ui/scale'
 
 // The batting leaders, raced across the season.
 //
@@ -399,7 +400,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
           // controls share these two numbers so the cluster is one size at each breakpoint.
           pl: 1.4, pr: chromePx(26), py: 0, minHeight: { xs: 44, sm: chromePx(30) }, borderRadius: 999,
           border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'transparent',
-          fontSize: '0.82rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.primary',
+          fontSize: '0.82rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.primary',
           // Themes the OS-rendered option list so it is not dark text on a dark sheet.
           colorScheme: dark ? 'dark' : 'light',
           ...hoverOnly({ borderColor: 'text.secondary' }),

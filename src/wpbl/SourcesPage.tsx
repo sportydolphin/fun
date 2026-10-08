@@ -24,6 +24,7 @@ import { Box, Typography } from '@mui/material'
 import { WPBL_SOURCES, SOURCE_GROUPS } from './sources'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, hoverOnly } from './ui'
 import WpblPage from './WpblPage'
+import { typePx } from '../ui/scale'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
  *  way it does on any other. Same rule as LeaguePage. */
@@ -134,7 +135,7 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
   return (
     <>
       <Typography component="dt" sx={{
-        fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+        fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
         color: 'text.disabled', lineHeight: 1.9, whiteSpace: 'nowrap',
       }}>
         {label}

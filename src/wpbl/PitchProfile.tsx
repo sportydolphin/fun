@@ -8,6 +8,7 @@ import { useWpblDark } from './ui'
 import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './cardParts'
 import { inSeason, gamesInSeason, type SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
+import { typePx } from '../ui/scale'
 
 // The pitch profile on a player page: what the league's pitch-by-pitch log says about how this
 // player pitched, or how this player hit. One component, two sides.
@@ -123,7 +124,7 @@ function MixRows({ me, league, side, better, amber }: {
   const max = Math.max(...MIX.flatMap(m => [me[m.key] / tMe, league[m.key] / tLg])) * 1.1
   const group = (swung: boolean) => (
     <Box sx={{ minWidth: 0 }}>
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.disabled', mb: 0.25 }}>
+      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', mb: 0.25 }}>
         {swung ? 'Swung at' : 'Taken'}
       </Typography>
       {MIX.filter(m => m.swung === swung).map(m => {
@@ -264,7 +265,7 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
           const lit = r != null && r.rank <= 5
           return (
             <Box key={d.key} title={d.hint} sx={{ textAlign: 'center', minWidth: 0 }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {d.label}
               </Typography>
               <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: lit ? better : 'text.primary' }}>
@@ -294,7 +295,7 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
           <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: `repeat(${extras.length}, minmax(0, 1fr))`, columnGap: 1 }}>
             {extras.map(x => (
               <Box key={x.label} sx={{ textAlign: 'center', minWidth: 0 }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
                   {x.label}
                 </Typography>
                 <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>

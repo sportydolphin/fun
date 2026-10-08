@@ -13,6 +13,7 @@ import { ClipCaption, ClipContextLine, clipLabel, useClipTags } from './Watch'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblTeam, WpblVideo } from './types'
 import { useNewSince } from './newSince'
+import { typePx } from '../ui/scale'
 
 // /wpbl/watch: every video the site mirrors, from the league's channel and from WPBL from Day 1,
 // on three shelves.
@@ -218,7 +219,7 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
 function GroupHeading({ children }: { children: React.ReactNode }) {
   return (
     <Typography component="h2" sx={{
-      fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+      fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
       color: 'text.secondary', mb: 1,
     }}>{children}</Typography>
   )

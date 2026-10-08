@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Box, Typography } from '@mui/material'
 import { pressable, FOCUS_RING, wpblNameStages, tappableIf, CARD_INK } from './ui'
 import type { Theme } from '@mui/material'
+import { typePx } from '../ui/scale'
 
 /**
  * The scrolling game-by-game grid shared by the lineup-history and pitching-usage cards:
@@ -215,7 +216,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
                   // 700 at 8px: see the weight ceiling under TYPE_SCALE. A surname is the one
                   // thing on this grid that has to be READ rather than matched on shape.
                   fontSize: '0.5rem', fontWeight: 700, lineHeight: 1.3,
-                  letterSpacing: 0.2,
+                  letterSpacing: typePx(0.2),
                   color: c.sub2Color ?? 'text.disabled',
                   // sub2 carries a pitcher's surname in the lineup grid, not just "LHP",
                   // so it can overrun the column the same way sub can.

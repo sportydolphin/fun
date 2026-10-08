@@ -15,7 +15,7 @@ import { Box, Skeleton, Typography, type Theme } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
 import { TapTip } from './TapTip'
 import { TAPPABLE, hoverOnly } from './interaction'
-import { chromePx } from './scale'
+import { chromePx, typePx } from './scale'
 import { usePhoneLayout } from './ModalShell'
 
 /** What a league supplies to the card parts. */
@@ -61,7 +61,7 @@ export const TIP_Z = 1700
 
 /** A section's label: small, uppercase, secondary. The one heading style on the card. */
 export const SECTION_LABEL_SX = {
-  fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+  fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5),
   color: 'text.secondary',
 } as const
 
@@ -115,7 +115,7 @@ export function ShowMoreButton({ expanded, onClick, accent, children }: {
       sx={{
         width: '100%', mt: 0.5, py: 0.75, px: 1, border: 'none', borderRadius: 1,
         bgcolor: 'transparent', color: accent, cursor: 'pointer', font: 'inherit',
-        fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+        fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5),
         ...TAPPABLE,
         ...hoverOnly({ bgcolor: 'action.hover' }),
         '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
@@ -155,7 +155,7 @@ export const CARD_TYPE = {
   hero: { fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' },
   figure: { fontSize: '0.95rem', fontWeight: 700 },
   body: { fontSize: { xs: '0.74rem', sm: '0.8rem' }, fontWeight: 600 },
-  label: { fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) },
   micro: { fontSize: '0.6rem', fontWeight: 700 },
 } as const
 const TYPE = CARD_TYPE
@@ -711,7 +711,7 @@ function RankText({ onRank, label, children }: { onRank?: () => void; label: str
 }
 
 const lineThSx = {
-  ...TYPE.micro, textTransform: 'uppercase', letterSpacing: 0.4,
+  ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.4),
   color: 'text.disabled', textAlign: 'center', py: 0, pb: 0.4, px: 0.3,
   borderBottom: '1px solid', borderColor: 'divider', whiteSpace: 'nowrap',
 } as const
@@ -741,7 +741,7 @@ export function RateStrip({ cells, placeholder }: {
       {cells.map(c => (
         <Box key={c.label} sx={{ textAlign: 'center', minWidth: 0 }}>
           <TapTip title={tip(c.label)} popperZIndex={TIP_Z}
-            sx={{ ...TYPE.micro, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', display: 'block', ...keepCase(c.label) }}>
+            sx={{ ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', display: 'block', ...keepCase(c.label) }}>
             {c.label}
           </TapTip>
           {/* THE SAME RULE AS THE SEASON LINE: top five is bold and in the rank blue, everything
@@ -818,7 +818,7 @@ export function FormStrip({ title, games, ink = FORM_INK }: {
       {/* 0.72 white, the dimmest thing on the band and so the case its wash is budgeted against.
           These sit 74% to 96% along it, which is its strongest end, and still clear 4.5:1 on all
           four clubs with about a fifth of a step to spare. See BAND_WASH. */}
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: ink.label, mb: 0.6 }}>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: ink.label, mb: 0.6 }}>
         {title}
       </Typography>
       <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1160,7 +1160,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                 {/* A label, so the card's label grey rather than the club's colour: red "SEASON" on the
                     Firebells sat in the same row as blue best-game marks and read as a third kind of
                     emphasis. The rule above the row is what sets it apart. */}
-                <Box component="td" sx={{ ...totalTdSx, textAlign: 'left', fontSize: '0.6rem', letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.secondary' }}>
+                <Box component="td" sx={{ ...totalTdSx, textAlign: 'left', fontSize: '0.6rem', letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.secondary' }}>
                   {totalsLabel}
                 </Box>
                 {leadHeaders.slice(1).map(h => <Box component="td" key={h} sx={{ ...totalTdSx, textAlign: 'left' }} />)}
@@ -1230,7 +1230,7 @@ export const LOG_MAX_H_XS = '50vh'
 // its cell borders to the row boundary and a sticky cell leaves them behind. Harmless where
 // the log is not capped: a sticky cell in a container that never scrolls never moves.
 export const thSx = {
-  ...TYPE.micro, textTransform: 'uppercase', letterSpacing: 0.4,
+  ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.4),
   color: 'text.disabled', py: 0.6, px: { xs: 0.22, sm: 0.85 }, textAlign: 'center', whiteSpace: 'nowrap',
   position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper',
   boxShadow: (t: Theme) => `inset 0 -1px 0 ${t.palette.divider}`,
@@ -1323,7 +1323,7 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
  *  colour, which on some clubs' primaries measures under 4.5:1. */
 export function BandBadge({ children }: { children: React.ReactNode }) {
   return (
-    <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+    <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) }}>
       {children}
     </Box>
   )

@@ -403,6 +403,7 @@ function useSheetDrag(
       if (want === claimerOn) return
       claimerOn = want
       // Always added after `onMove`, so on a shared event it runs second and sees `ours`.
+      // eslint-disable-next-line no-restricted-syntax -- attached only while every scroller is at its top (see above)
       if (want) card!.addEventListener('touchmove', claimer, { passive: false })
       else card!.removeEventListener('touchmove', claimer)
     }

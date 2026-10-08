@@ -5,6 +5,7 @@ import { useWpblHeadingTag } from './PageHeading'
 import { TYPE_SCALE, hoverOnly, FOCUS_RING } from './ui'
 import { panelShiftSx, useSidePanelOpen } from '../ui/ModalShell'
 import { trackImpression, EVENTS } from '../lib/analytics'
+import { typePx } from '../ui/scale'
 
 // The shell every STANDALONE WPBL page wears: the league, the season recap, scorigami, the
 // players index, the glossary, the data sources. They are sibling routes to WpblApp, each drawn
@@ -67,7 +68,7 @@ export default function WpblPage({ title, standfirst, maxWidth = '56.25rem', chi
       >← Back to WPBL</Box>
 
       <Typography component={headingTag} sx={{
-        fontSize: TYPE_SCALE.page, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2,
+        fontSize: TYPE_SCALE.page, fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.2,
         mb: standfirst ? 0.5 : 3,
       }}>
         {title}

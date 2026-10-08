@@ -20,6 +20,7 @@ import { useWpblHeadingTag } from './PageHeading'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow, WpblPitchPlay } from './types'
+import { typePx } from '../ui/scale'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
 // pitchers, and a roster with inline stats. Self-contained: fetches its own roster + box-score
@@ -57,7 +58,7 @@ function StatTiles({ items }: { items: { label: string; value: string }[] }) {
       {items.map(it => (
         <Box key={it.label} sx={{ textAlign: 'center', minWidth: 0 }}>
           <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{it.value}</Typography>
-          <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{it.label}</Typography>
+          <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{it.label}</Typography>
         </Box>
       ))}
     </Box>
@@ -177,9 +178,9 @@ function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.4 }}>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.4 }}>
         {label}
-        {note && <Box component="span" sx={{ ml: 0.75, fontWeight: 600, letterSpacing: 0.3, textTransform: 'none' }}>{note}</Box>}
+        {note && <Box component="span" sx={{ ml: 0.75, fontWeight: 600, letterSpacing: typePx(0.3), textTransform: 'none' }}>{note}</Box>}
       </Typography>
       {rows.map((r, i) => (
         <Box key={r.player.id} {...playerLink(r.player, onOpenPlayer)} sx={{
@@ -258,7 +259,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
                 bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
               }}>
                 <TeamBadge team={t} size={22} />
-                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: 0.3, color: accent }}>{t.abbr}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: typePx(0.3), color: accent }}>{t.abbr}</Typography>
                 {record && (
                   <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                     {record}
@@ -734,7 +735,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                    which are the axis names, and pointed at nothing. Both this and the value
                    column are flush to the same right edge, so aligning it there parks it
                    directly above the ".192 / .148" it is explaining. */}
-               <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5, textAlign: 'right' }}>
+               <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled', mb: 0.5, textAlign: 'right' }}>
                  Club / League
                </Typography>
                <TeamSpecReadout specs={specs} teamId={team.id} kLabel={kLabel}
@@ -945,7 +946,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                         {stats.map(s => (
                           <Box key={s.label} sx={{ textAlign: 'right', minWidth: '2.125rem' }}>
                             <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{s.value}</Typography>
-                            <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, color: 'text.disabled' }}>{s.label}</Typography>
+                            <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.3), color: 'text.disabled' }}>{s.label}</Typography>
                           </Box>
                         ))}
                       </Box>

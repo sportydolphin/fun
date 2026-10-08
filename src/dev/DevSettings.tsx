@@ -42,6 +42,7 @@ import { resetBadgesForDev } from '../lib/seen'
 import { useNotifications, addEventNotification, refreshNotifications, clearNotifications } from '../lib/notifications'
 import { sampleNotifications } from '../../shared/notifications'
 import type { NotificationPayload } from '../../shared/notifications'
+import { typePx } from '../ui/scale'
 
 const MobilePreview = import.meta.env.DEV ? lazy(() => import('../mlb/dev/MobilePreview')) : null
 
@@ -117,7 +118,7 @@ const heading = { fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary',
 const note = { fontSize: '0.68rem', color: 'text.disabled', mt: 0.5 } as const
 const btn = { textTransform: 'none', fontWeight: 600 } as const
 /** A group label, so a long menu can be scanned for the section you want. */
-const group = { fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 1 } as const
+const group = { fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 1 } as const
 
 export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boolean; showWpblTools: boolean }) {
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null)
@@ -156,7 +157,7 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 280, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
       >
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'warning.main', mb: 1.5 }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'warning.main', mb: 1.5 }}>
           🛠 Dev settings · local only
         </Typography>
 

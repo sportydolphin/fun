@@ -9,6 +9,7 @@ import { relativeDayLabel, wpblFullName, wpblSurface } from './constants'
 import { GameHighlightCards } from './Highlights'
 import { GameClips } from './Watch'
 import { linkColor, useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
+import { typePx } from '../ui/scale'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -176,7 +177,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
 
       {recap.stars.length > 0 && (
         <Box>
-          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
           {/* Mobile: stack the three stars, each on its own full-width row so the name and
           statline show in full instead of all three cramming one line and truncating.
           Desktop lays them in one row, each star starting from the width its own name
@@ -322,7 +323,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
           Firebells" is wider than the row minus a badge and a score, and a club name that
           wraps onto a second line takes the row's height with it. */}
       <Typography noWrap sx={{
-        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.display, letterSpacing: '-0.2px', lineHeight: 1.15,
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.display, letterSpacing: typePx(-0.2), lineHeight: 1.15,
         fontWeight: won ? 700 : 600, color: won ? 'text.primary' : 'text.secondary',
       }}>{wpblFullName(team)}</Typography>
       {/* The score keeps 800 where the name is 700. On this card the number is the point, and

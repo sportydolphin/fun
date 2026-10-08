@@ -50,7 +50,8 @@
     "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",
     "bluesky-recaps": "esbuild scripts/post-wpbl-bluesky-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-recaps.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-recaps.mjs",
     "bluesky-game-start": "esbuild scripts/post-wpbl-bluesky-game-start.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-game-start.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-game-start.mjs",
-    "visual": "esbuild scripts/make-visual.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/make-visual.mjs && node --env-file-if-exists=.env node_modules/.cache/make-visual.mjs"
+    "visual": "esbuild scripts/make-visual.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/make-visual.mjs && node --env-file-if-exists=.env node_modules/.cache/make-visual.mjs",
+    "sweep": "node scripts/layout-sweep.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -84,6 +85,7 @@
     "ffmpeg-static": "^5.3.0",
     "globals": "^15.15.0",
     "jsdom": "^26.1.0",
+    "playwright-core": "^1.56.1",
     "subset-font": "^2.5.0",
     "typescript": "^5.2.2",
     "typescript-eslint": "^8.71.1",
