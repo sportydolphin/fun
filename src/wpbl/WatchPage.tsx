@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
-import { CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly, NewTag } from './ui'
+import { CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly, NewTag, TextGhost, chromePx } from './ui'
+import { WPBL_TEAMS } from './constants'
 import { fetchWpblSchedule, fetchWpblTeams, fetchWpblVideos, getCachedWpblSchedule, getCachedWpblTeams, getCachedWpblVideos } from './api'
 import { countsInStandings } from './season'
 import { seriesContexts } from './derive/series'
@@ -110,7 +111,7 @@ export default function WatchPage({ onOpenGame }: {
     </>}>
       <Box sx={FLAT_CARDS_DARK}>
         {videos == null ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+          <WatchSkeleton shelf={shelf} />
         ) : videos.length === 0 ? (
           <Typography sx={{ color: 'text.secondary', py: 4 }}>No videos yet.</Typography>
         ) : (
@@ -120,11 +121,7 @@ export default function WatchPage({ onOpenGame }: {
                 a phone with its own background, so the list scrolls cleanly underneath; ChipRow's
                 own bleed then resolves to nothing, since its 50% is already the screen. Sits under
                 whatever chrome is pinned above it, which on a phone is none (see PINNED_CHROME). */}
-            <Box ref={shelfBar} sx={{
-              position: 'sticky', top: 'var(--app-header-h, 0px)', zIndex: 5,
-              bgcolor: 'background.default', py: 1, mb: 1, mt: -1,
-              mx: { xs: 'calc(50% - 50vw)', sm: 0 }, px: { xs: 'calc(50vw - 50%)', sm: 0 },
-            }}>
+            <Box ref={shelfBar} sx={SHELF_BAR}>
               <ChipRow mb={0}>
                 <FilterChip label={`Games (${shelves.gameIds.length})`} active={shelf === 'games'} onClick={() => pickShelf('games')} dot={gamesNew} />
                 <FilterChip label={`Clips (${shelves.clips.length})`} active={shelf === 'clips'} onClick={() => pickShelf('clips')} dot={shelves.clips.some(fresh.isNew)} />
@@ -200,10 +197,7 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
       {groups.map((grp, gi) => (
         <Box component="section" key={grp.key} sx={{ mt: gi === 0 ? 0 : 2.5 }}>
           <GroupHeading>{grp.label}</GroupHeading>
-          <Box sx={{
-            display: 'grid', gap: { xs: 1, sm: 1.5 },
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
-          }}>
+          <Box sx={GAME_GRID}>
             {grp.items.map(e => (
               <GameWatchCard key={e.game.id} entry={e} teamById={teamById} roundLabel={
                 series.get(e.game.id) ? `${series.get(e.game.id)!.label}, Game ${series.get(e.game.id)!.gameNumber}` : null
@@ -226,6 +220,110 @@ function GroupHeading({ children }: { children: React.ReactNode }) {
 }
 
 const isModified = (e: React.MouseEvent) => e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+
+// The game card's parts, one definition for the loaded card and its skeleton.
+const SHELF_BAR = {
+  position: 'sticky', top: 'var(--app-header-h, 0px)', zIndex: 5,
+  bgcolor: 'background.default', py: 1, mb: 1, mt: -1,
+  mx: { xs: 'calc(50% - 50vw)', sm: 0 }, px: { xs: 'calc(50vw - 50%)', sm: 0 },
+} as const
+const GAME_GRID = {
+  display: 'grid', gap: { xs: 1, sm: 1.5 },
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
+} as const
+const GAME_CARD = {
+  border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, bgcolor: CARD_FILL, overflow: 'hidden',
+  display: 'grid', alignContent: 'start',
+  gridTemplateColumns: { xs: 'minmax(0, 42%) minmax(0, 1fr)', sm: 'minmax(0, 1fr)' },
+  gridTemplateAreas: { xs: '"thumb info" "actions actions"', sm: '"thumb" "info" "actions"' },
+} as const
+const GAME_THUMB = {
+  gridArea: 'thumb', alignSelf: 'start', position: 'relative',
+  m: { xs: 1, sm: 0 }, mr: { xs: 0, sm: 0 }, borderRadius: { xs: 1.5, sm: 0 }, overflow: 'hidden',
+} as const
+const GAME_INFO = {
+  gridArea: 'info', minWidth: 0, p: { xs: 1, sm: 1.25 }, pb: { xs: 0.5, sm: 0.5 },
+  display: 'grid', columnGap: 1, rowGap: 0.25, alignContent: 'start',
+  gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'minmax(0, 1fr) auto' },
+  gridTemplateAreas: { xs: '"score" "meta" "link"', sm: '"score link" "meta meta"' },
+} as const
+const GAME_SCORE = { gridArea: 'score', display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flexWrap: 'wrap' } as const
+const GAME_LINK = {
+  gridArea: 'link', justifySelf: 'start', alignSelf: 'center',
+  display: 'inline-flex', alignItems: 'center', fontSize: TYPE_SCALE.meta, fontWeight: 800,
+  // The padding is the tap target, the negative margin keeps the text where it was.
+  px: 0.75, mx: -0.75, py: 0.5, my: -0.5, borderRadius: 1,
+  '@media (pointer: coarse)': { minHeight: 40 },
+} as const
+const GAME_ACTIONS = { gridArea: 'actions', px: { xs: 1, sm: 1.25 }, pb: 1.25, pt: { xs: 0.75, sm: 0.5 }, display: 'flex', flexDirection: 'column', gap: 0.75 } as const
+const GAME_PILL = {
+  display: 'inline-flex', alignItems: 'center', gap: 0.5,
+  px: 1.1, py: 0.45, borderRadius: 999, border: '1px solid', borderColor: 'divider',
+  bgcolor: 'background.paper', color: 'text.primary', font: 'inherit',
+  fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.4,
+  '@media (pointer: coarse)': { minHeight: 38, px: 1.4 },
+} as const
+
+/**
+ * The page before the videos land: the loaded page drawn empty (CLAUDE.md, loading states). The
+ * shelf bar and the club chips with their counts held open, then the Games shelf's first group,
+ * the postseason, as cards in the most common shape: the league's reel and the fan's condensed
+ * game, with the fan's credit under them. It was a centred spinner, which left the footer half a
+ * screen down and threw it 6,000 to 9,000px when the shelf landed.
+ */
+function WatchSkeleton({ shelf }: { shelf: Shelf }) {
+  const count = <TextGhost>(00)</TextGhost>
+  const side = (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+      <Skeleton variant="circular" width={chromePx(22)} height={chromePx(22)} sx={{ flexShrink: 0 }} />
+      <Typography sx={{ fontSize: TYPE_SCALE.body, whiteSpace: 'nowrap' }}><TextGhost>NY</TextGhost></Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}><TextGhost>0</TextGhost></Typography>
+    </Box>
+  )
+  return (
+    <Box aria-hidden>
+      <Box sx={SHELF_BAR}>
+        <ChipRow mb={0}>
+          <FilterChip label={<>Games {count}</>} active={shelf === 'games'} onClick={() => {}} />
+          <FilterChip label={<>Clips {count}</>} active={shelf === 'clips'} onClick={() => {}} />
+          <FilterChip label={<>More {count}</>} active={shelf === 'more'} onClick={() => {}} />
+        </ChipRow>
+      </Box>
+      <ChipRow mb={1.75}>
+        <FilterChip label={<>All clubs {count}</>} active onClick={() => {}} />
+        {Object.values(WPBL_TEAMS).map(t => <FilterChip key={t.id} label={<>{t.name} {count}</>} active={false} onClick={() => {}} />)}
+      </ChipRow>
+      <GroupHeading><TextGhost>Postseason</TextGhost></GroupHeading>
+      <Box sx={GAME_GRID}>
+        {Array.from({ length: 9 }, (_, i) => (
+          <Box key={i} sx={GAME_CARD}>
+            <Box sx={GAME_THUMB}><Box sx={{ width: '100%', aspectRatio: '16 / 9', bgcolor: 'action.hover' }} /></Box>
+            <Box sx={GAME_INFO}>
+              <Box sx={GAME_SCORE}>
+                {side}
+                {/* Hidden with the clubs either side of it: where it sits depends on them. */}
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700 }}><TextGhost hidden>@</TextGhost></Typography>
+                {side}
+              </Box>
+              <Typography sx={{ gridArea: 'meta', fontSize: TYPE_SCALE.meta }}><TextGhost>Sep 00 · Semifinal, Game 1</TextGhost></Typography>
+              <Box sx={GAME_LINK}><TextGhost>Box score ›</TextGhost></Box>
+            </Box>
+            <Box sx={GAME_ACTIONS}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {['Highlights', 'Condensed game'].map(label => (
+                  <Box key={label} sx={GAME_PILL}>
+                    <Box component="span" sx={{ fontSize: '0.6rem', visibility: 'hidden' }}>▶</Box><TextGhost>{label}</TextGhost>
+                  </Box>
+                ))}
+              </Box>
+              <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.3 }}><TextGhost>Condensed game: WPBL from Day 1</TextGhost></Typography>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  )
+}
 
 /**
  * One game: the first video's poster, the score, and a button per video.
@@ -278,34 +376,20 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh }:
   // which fits three or four games to a screen. Grid areas rather than two components, so the
   // two shapes cannot drift apart.
   return (
-    <Box sx={{
-      border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, bgcolor: CARD_FILL, overflow: 'hidden',
-      display: 'grid', alignContent: 'start',
-      gridTemplateColumns: { xs: 'minmax(0, 42%) minmax(0, 1fr)', sm: 'minmax(0, 1fr)' },
-      gridTemplateAreas: { xs: '"thumb info" "actions actions"', sm: '"thumb" "info" "actions"' },
-    }}>
+    <Box sx={GAME_CARD}>
       <Box
         onClick={() => play(videos[0])}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(videos[0]) } }}
         role="button" tabIndex={0} aria-label={`Play ${labels[0].toLowerCase()}: ${videos[0].title}`}
-        sx={{
-          gridArea: 'thumb', cursor: 'pointer', alignSelf: 'start', position: 'relative',
-          m: { xs: 1, sm: 0 }, mr: { xs: 0, sm: 0 }, borderRadius: { xs: 1.5, sm: 0 }, overflow: 'hidden',
-          ...PLAYABLE_HOVER, ...FOCUS_RING,
-        }}
+        sx={{ ...GAME_THUMB, cursor: 'pointer', ...PLAYABLE_HOVER, ...FOCUS_RING }}
       >
         {/* 42% of a phone's width, or a third of the desktop column: the large poster only
             where the box is big enough to show it (see VideoThumb). */}
         <VideoThumb video={videos[0]} badge={34} sizes="(max-width: 599px) 42vw, 400px" />
         {anyNew && <NewTag />}
       </Box>
-      <Box sx={{
-        gridArea: 'info', minWidth: 0, p: { xs: 1, sm: 1.25 }, pb: { xs: 0.5, sm: 0.5 },
-        display: 'grid', columnGap: 1, rowGap: 0.25, alignContent: 'start',
-        gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'minmax(0, 1fr) auto' },
-        gridTemplateAreas: { xs: '"score" "meta" "link"', sm: '"score link" "meta meta"' },
-      }}>
-        <Box sx={{ gridArea: 'score', display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flexWrap: 'wrap' }}>
+      <Box sx={GAME_INFO}>
+        <Box sx={GAME_SCORE}>
           {side(away, game.away_team_id, game.away_score, awayWon)}
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.disabled' }}>@</Typography>
           {side(home, game.home_team_id, game.home_score, homeWon)}
@@ -319,27 +403,15 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh }:
             if (!isModified(e)) { e.preventDefault(); onOpenGame() }
           }}
           sx={{
-            gridArea: 'link', justifySelf: 'start', alignSelf: 'center',
-            display: 'inline-flex', alignItems: 'center', fontSize: TYPE_SCALE.meta, fontWeight: 800,
-            color: 'var(--wpbl-accent-solid)', textDecoration: 'none',
-            // The padding is the tap target, the negative margin keeps the text where it was.
-            px: 0.75, mx: -0.75, py: 0.5, my: -0.5, borderRadius: 1,
-            '@media (pointer: coarse)': { minHeight: 40 },
+            ...GAME_LINK, color: 'var(--wpbl-accent-solid)', textDecoration: 'none',
             ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
           }}>Box score ›</Box>
       </Box>
-      <Box sx={{ gridArea: 'actions', px: { xs: 1, sm: 1.25 }, pb: 1.25, pt: { xs: 0.75, sm: 0.5 }, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={GAME_ACTIONS}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
           {videos.map((v, i) => (
             <Box key={v.video_id} component="button" type="button" onClick={() => play(v)}
-              sx={{
-                display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer',
-                px: 1.1, py: 0.45, borderRadius: 999, border: '1px solid', borderColor: 'divider',
-                bgcolor: 'background.paper', color: 'text.primary', font: 'inherit',
-                fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.4,
-                '@media (pointer: coarse)': { minHeight: 38, px: 1.4 },
-                ...hoverOnly({ borderColor: 'text.secondary' }), ...FOCUS_RING,
-              }}>
+              sx={{ ...GAME_PILL, cursor: 'pointer', ...hoverOnly({ borderColor: 'text.secondary' }), ...FOCUS_RING }}>
               <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▶</Box>{labels[i]}
               {fresh.isNew(v) && (
                 <Box component="span" role="img" aria-label="new" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'var(--wpbl-accent-solid)' }} />

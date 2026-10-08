@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
-import { FanPhotoGrid, FanPhotoSubmitNote, useFanPhotosVersion } from './FanPhotoViews'
+import { FanPhotoGrid, FanPhotoGridSkeleton, FanPhotoSubmitNote, useFanPhotosVersion } from './FanPhotoViews'
+import { TextGhost } from './ui'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, fetchWpblPhotos, getCachedWpblPhotos } from './api'
 import { ArchiveGrid } from './Photos'
 import { fanPhotoTeamName, type FanPhotoIndex, type FanPhotoWithSubjects } from './fanPhotos'
@@ -118,7 +119,7 @@ export default function PhotosGalleryPage() {
     // is on every photo, so the sentence was two lines of a phone screen spent before the filters.
     <WpblPage title="Photos">
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+        <GallerySkeleton />
       ) : total === 0 && archive.length === 0 ? (
         <Box sx={{ py: 6, textAlign: 'center' }}>
           <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>No photos yet.</Typography>
@@ -159,5 +160,35 @@ export default function PhotosGalleryPage() {
         </>
       )}
     </WpblPage>
+  )
+}
+
+/**
+ * The gallery before the index lands, drawn as the loaded page (CLAUDE.md, loading states): the
+ * category row, the subject row and the grid. The subject row WRAPS from `sm` up, to seven or nine
+ * lines, so its chips are held open at the lengths the 2026 labels run to ("Name Surname (6)"),
+ * which wraps to the same number of lines and keeps the grid where it will be. It was a centred
+ * spinner, which left the footer near the top of the screen.
+ */
+const SUBJECT_LABEL_LENGTHS = [14, 14, 16, 18, 22, 21, 17, 21, 19, 15, 17, 18, 17, 21, 17, 17, 19, 23, 13, 16, 12, 14, 15, 19, 23, 15, 16, 17, 12, 21, 18, 15, 20, 20, 21, 19, 27, 17, 17]
+const FILLER = 'Firstname Lastname Middleton Surname'
+
+function GallerySkeleton() {
+  const chip = (label: string, active = false) => (
+    <FilterChip key={label} label={<TextGhost>{label}</TextGhost>} active={active} onClick={() => {}} />
+  )
+  return (
+    <Box aria-hidden>
+      <ChipRow mb={1}>
+        {['This season (000)', 'Fan Sign (0)', 'Fans (0)', 'From the archive (00)'].map((l, i) => chip(l, i === 0))}
+      </ChipRow>
+      <ChipRow mb={2}>
+        {chip('Everyone (000)', true)}
+        {SUBJECT_LABEL_LENGTHS.map((n, i) => (
+          <FilterChip key={i} label={<TextGhost>{`${FILLER.slice(0, n - 4).trimEnd()} (0)`}</TextGhost>} active={false} onClick={() => {}} />
+        ))}
+      </ChipRow>
+      <FanPhotoGridSkeleton />
+    </Box>
   )
 }

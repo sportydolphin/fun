@@ -30,7 +30,7 @@ export function ChipRow({ mb, children }: { mb: number; children: React.ReactNod
 }
 
 /** `dot` marks a chip with something new behind it (newSince.ts). */
-export function FilterChip({ label, active, onClick, dot }: { label: string; active: boolean; onClick: () => void; dot?: boolean }) {
+export function FilterChip({ label, active, onClick, dot }: { label: React.ReactNode; active: boolean; onClick: () => void; dot?: boolean }) {
   return (
     <Box onClick={onClick} role="button" tabIndex={0} aria-pressed={active}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
