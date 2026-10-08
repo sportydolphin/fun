@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
-import { CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly } from './ui'
+import { CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly, NewTag } from './ui'
 import { fetchWpblSchedule, fetchWpblTeams, fetchWpblVideos, getCachedWpblSchedule, getCachedWpblTeams, getCachedWpblVideos } from './api'
 import { countsInStandings } from './season'
 import { seriesContexts } from './derive/series'
@@ -12,6 +12,7 @@ import { HighlightLightbox, VideoThumb, VideoCreditLine, PLAYABLE_HOVER, videoDa
 import { ClipCaption, ClipContextLine, clipLabel, useClipTags } from './Watch'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblTeam, WpblVideo } from './types'
+import { useNewSince } from './newSince'
 
 // /wpbl/watch: every video the site mirrors, from the league's channel and from WPBL from Day 1,
 // on three shelves.
@@ -38,6 +39,9 @@ import type { WpblGame, WpblTeam, WpblVideo } from './types'
 // that shows one (videoCredit), the same rule as the fan photographs.
 
 type Shelf = 'games' | 'clips' | 'more'
+
+/** Whether a video is new to this reader, and the call that says they have now played it. */
+interface Fresh { isNew: (v: WpblVideo) => boolean; opened: (v: WpblVideo) => void }
 const SHELVES: Shelf[] = ['games', 'clips', 'more']
 const CLIPS_PAGE = 30
 
@@ -83,6 +87,16 @@ export default function WatchPage({ onOpenGame }: {
 
   const shelves = useMemo(() => watchShelves(videos ?? []), [videos])
   const moreCount = shelves.more.length
+  const stamped = useMemo(() => videos?.map(v => ({ id: v.video_id, at: v.published_at })) ?? null, [videos])
+  const { isNew, markOpened } = useNewSince('watch', stamped, true)
+  const fresh: Fresh = useMemo(() => ({
+    isNew: v => isNew(v.video_id, v.published_at),
+    opened: v => markOpened(v.video_id),
+  }), [isNew, markOpened])
+  const gamesNew = useMemo(() => {
+    const ids = new Set(shelves.gameIds)
+    return (videos ?? []).some(v => !!v.game_id && ids.has(v.game_id) && fresh.isNew(v))
+  }, [videos, shelves.gameIds, fresh])
 
   return (
     // Wide, like Reading: game cards lay out three across on a desktop and clips six.
@@ -111,14 +125,14 @@ export default function WatchPage({ onOpenGame }: {
               mx: { xs: 'calc(50% - 50vw)', sm: 0 }, px: { xs: 'calc(50vw - 50%)', sm: 0 },
             }}>
               <ChipRow mb={0}>
-                <FilterChip label={`Games (${shelves.gameIds.length})`} active={shelf === 'games'} onClick={() => pickShelf('games')} />
-                <FilterChip label={`Clips (${shelves.clips.length})`} active={shelf === 'clips'} onClick={() => pickShelf('clips')} />
-                {moreCount > 0 && <FilterChip label={`More (${moreCount})`} active={shelf === 'more'} onClick={() => pickShelf('more')} />}
+                <FilterChip label={`Games (${shelves.gameIds.length})`} active={shelf === 'games'} onClick={() => pickShelf('games')} dot={gamesNew} />
+                <FilterChip label={`Clips (${shelves.clips.length})`} active={shelf === 'clips'} onClick={() => pickShelf('clips')} dot={shelves.clips.some(fresh.isNew)} />
+                {moreCount > 0 && <FilterChip label={`More (${moreCount})`} active={shelf === 'more'} onClick={() => pickShelf('more')} dot={shelves.more.some(fresh.isNew)} />}
               </ChipRow>
             </Box>
-            {shelf === 'games' && <GamesShelf videos={videos} gameIds={shelves.gameIds} games={games} teams={teams} onOpenGame={onOpenGame} />}
-            {shelf === 'clips' && <ClipsShelf clips={shelves.clips} games={games} teams={teams} onOpenGame={onOpenGame} />}
-            {shelf === 'more' && <MoreShelf videos={shelves.more} />}
+            {shelf === 'games' && <GamesShelf videos={videos} gameIds={shelves.gameIds} games={games} teams={teams} onOpenGame={onOpenGame} fresh={fresh} />}
+            {shelf === 'clips' && <ClipsShelf clips={shelves.clips} games={games} teams={teams} onOpenGame={onOpenGame} fresh={fresh} />}
+            {shelf === 'more' && <MoreShelf videos={shelves.more} fresh={fresh} />}
           </>
         )}
       </Box>
@@ -130,9 +144,10 @@ export default function WatchPage({ onOpenGame }: {
 
 interface GameEntry { game: WpblGame; videos: WpblVideo[] }
 
-function GamesShelf({ videos, gameIds, games, teams, onOpenGame }: {
+function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
   videos: WpblVideo[]; gameIds: string[]; games: WpblGame[]; teams: WpblTeam[]
   onOpenGame: (g: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
+  fresh: Fresh
 }) {
   const [club, setClub] = useState('all')
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -191,7 +206,7 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame }: {
             {grp.items.map(e => (
               <GameWatchCard key={e.game.id} entry={e} teamById={teamById} roundLabel={
                 series.get(e.game.id) ? `${series.get(e.game.id)!.label}, Game ${series.get(e.game.id)!.gameNumber}` : null
-              } href={wpblGamePath(e.game, teams, games)} onOpenGame={() => onOpenGame(e.game, { teams, games })} />
+              } href={wpblGamePath(e.game, teams, games)} onOpenGame={() => onOpenGame(e.game, { teams, games })} fresh={fresh} />
             ))}
           </Box>
         </Box>
@@ -218,13 +233,16 @@ const isModified = (e: React.MouseEvent) => e.metaKey || e.ctrlKey || e.shiftKey
  * kind, not the title, since all three titles say the same matchup; the fan's credit sits under
  * them whenever their condensed game is one of the buttons.
  */
-function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame }: {
+function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh }: {
   entry: GameEntry; teamById: Map<string, WpblTeam>; roundLabel: string | null
-  href: string; onOpenGame: () => void
+  href: string; onOpenGame: () => void; fresh: Fresh
 }) {
   const { game, videos } = entry
   const [active, setActive] = useState<WpblVideo | null>(null)
-  const play = (v: WpblVideo) => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from: 'watch' }); setActive(v) }
+  const play = (v: WpblVideo) => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from: 'watch' }); fresh.opened(v); setActive(v) }
+  // New while any of its videos is: the condensed game often lands a day after the reel, and the
+  // button that is new carries its own dot below.
+  const anyNew = videos.some(fresh.isNew)
   const away = teamById.get(game.away_team_id)
   const home = teamById.get(game.home_team_id)
   const scored = game.away_score != null && game.home_score != null
@@ -270,7 +288,7 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame }: {
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(videos[0]) } }}
         role="button" tabIndex={0} aria-label={`Play ${labels[0].toLowerCase()}: ${videos[0].title}`}
         sx={{
-          gridArea: 'thumb', cursor: 'pointer', alignSelf: 'start',
+          gridArea: 'thumb', cursor: 'pointer', alignSelf: 'start', position: 'relative',
           m: { xs: 1, sm: 0 }, mr: { xs: 0, sm: 0 }, borderRadius: { xs: 1.5, sm: 0 }, overflow: 'hidden',
           ...PLAYABLE_HOVER, ...FOCUS_RING,
         }}
@@ -278,6 +296,7 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame }: {
         {/* 42% of a phone's width, or a third of the desktop column: the large poster only
             where the box is big enough to show it (see VideoThumb). */}
         <VideoThumb video={videos[0]} badge={34} sizes="(max-width: 599px) 42vw, 400px" />
+        {anyNew && <NewTag />}
       </Box>
       <Box sx={{
         gridArea: 'info', minWidth: 0, p: { xs: 1, sm: 1.25 }, pb: { xs: 0.5, sm: 0.5 },
@@ -321,6 +340,9 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame }: {
                 ...hoverOnly({ borderColor: 'text.secondary' }), ...FOCUS_RING,
               }}>
               <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▶</Box>{labels[i]}
+              {fresh.isNew(v) && (
+                <Box component="span" role="img" aria-label="new" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'var(--wpbl-accent-solid)' }} />
+              )}
             </Box>
           ))}
         </Box>
@@ -344,9 +366,10 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame }: {
  * name a club for about half the Shorts. A clip with no club is under "All clubs" only: it is not
  * evidence of being about nobody, just of a title that did not say.
  */
-function ClipsShelf({ clips, games, teams, onOpenGame }: {
+function ClipsShelf({ clips, games, teams, onOpenGame, fresh }: {
   clips: WpblVideo[]; games: WpblGame[]; teams: WpblTeam[]
   onOpenGame: (g: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
+  fresh: Fresh
 }) {
   const { tags } = useClipTags()
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
@@ -373,7 +396,7 @@ function ClipsShelf({ clips, games, teams, onOpenGame }: {
   const year = opening?.slice(0, 4) ?? ''
   const pick = (p: typeof phase) => { setPhase(p); setLimit(CLIPS_PAGE); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'clips', value: p }) }
   const pickClub = (id: string) => { setClub(id); setLimit(CLIPS_PAGE); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'clip_club', value: id }) }
-  const play = (i: number) => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: list[i].video_id, kind: 'clip', from: 'watch' }); setActive(i) }
+  const play = (i: number) => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: list[i].video_id, kind: 'clip', from: 'watch' }); fresh.opened(list[i]); setActive(i) }
 
   const current = active != null ? list[active] : undefined
   const currentTag = current ? tags.get(current.video_id) : undefined
@@ -402,19 +425,23 @@ function ClipsShelf({ clips, games, teams, onOpenGame }: {
       }}>
         {list.slice(0, limit).map((v, i) => {
           const team = teamById.get(clubOf(v) ?? '')
+          const isNew = fresh.isNew(v)
           return (
             <Box key={v.video_id}
               onClick={() => play(i)}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(i) } }}
-              role="button" tabIndex={0} aria-label={`Play clip: ${v.title}`}
+              role="button" tabIndex={0} aria-label={`Play${isNew ? ' new' : ''} clip: ${v.title}`}
               sx={{ position: 'relative', borderRadius: 2, overflow: 'hidden', cursor: 'pointer', ...PLAYABLE_HOVER, ...FOCUS_RING }}
             >
               <VideoThumb video={v} vertical badge={34} />
               <ClipCaption title={v.title} lines={3} />
+              {/* The date chip carries the marker rather than a second tag beside it: a clip
+                  poster is ~110px wide on a phone, with a club badge in the other corner. */}
               <Typography sx={{
-                position: 'absolute', top: 6, left: 6, px: 0.6, borderRadius: 1, bgcolor: 'rgba(0,0,0,0.55)',
-                color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.6, pointerEvents: 'none',
-              }}>{videoDateLabel(v)}</Typography>
+                position: 'absolute', top: 6, left: 6, px: 0.6, borderRadius: 1,
+                bgcolor: isNew ? 'var(--wpbl-accent-solid)' : 'rgba(0,0,0,0.55)',
+                color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: isNew ? 800 : 700, lineHeight: 1.6, pointerEvents: 'none',
+              }}>{isNew ? `New · ${videoDateLabel(v)}` : videoDateLabel(v)}</Typography>
               {team && (
                 <Box sx={{ position: 'absolute', top: 5, right: 5, pointerEvents: 'none', lineHeight: 0 }}>
                   <TeamBadge team={team} size={20} />
@@ -439,8 +466,8 @@ function ClipsShelf({ clips, games, teams, onOpenGame }: {
           onClose={() => setActive(null)}
           // Paging past the loaded thirty loads the next page, so the grid behind the lightbox
           // always holds the clip on screen when it closes.
-          onPrev={active > 0 ? () => setActive(active - 1) : undefined}
-          onNext={active < list.length - 1 ? () => { setLimit(l => Math.max(l, active + 2)); setActive(active + 1) } : undefined}
+          onPrev={active > 0 ? () => { fresh.opened(list[active - 1]); setActive(active - 1) } : undefined}
+          onNext={active < list.length - 1 ? () => { fresh.opened(list[active + 1]); setLimit(l => Math.max(l, active + 2)); setActive(active + 1) } : undefined}
           context={<ClipContextLine
             text={clipLabel(currentTag, gameById, teamById)}
             action={currentGame && (
@@ -466,10 +493,10 @@ function ClipsShelf({ clips, games, teams, onOpenGame }: {
 
 // ─── More ────────────────────────────────────────────────────────────────────
 
-function MoreShelf({ videos }: { videos: WpblVideo[] }) {
+function MoreShelf({ videos, fresh }: { videos: WpblVideo[]; fresh: Fresh }) {
   const [active, setActive] = useState<WpblVideo | null>(null)
   const groups = MORE_GROUPS.map(g => ({ ...g, items: videos.filter(g.test) })).filter(g => g.items.length > 0)
-  const play = (v: WpblVideo) => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from: 'watch' }); setActive(v) }
+  const play = (v: WpblVideo) => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from: 'watch' }); fresh.opened(v); setActive(v) }
   return (
     <>
       {groups.map((grp, gi) => (
@@ -485,13 +512,14 @@ function MoreShelf({ videos }: { videos: WpblVideo[] }) {
                 <Box key={v.video_id}
                   onClick={() => play(v)}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(v) } }}
-                  role="button" tabIndex={0} aria-label={`Play: ${v.title}`}
+                  role="button" tabIndex={0} aria-label={`Play${fresh.isNew(v) ? ', new' : ''}: ${v.title}`}
                   sx={{
-                    border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, bgcolor: CARD_FILL, overflow: 'hidden',
+                    position: 'relative', border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, bgcolor: CARD_FILL, overflow: 'hidden',
                     cursor: 'pointer', ...hoverOnly({ borderColor: 'text.disabled' }), ...PLAYABLE_HOVER, ...FOCUS_RING,
                   }}
                 >
                   <VideoThumb video={v} badge={34} />
+                  {fresh.isNew(v) && <NewTag />}
                   <Box sx={{ p: 1, pt: 0.75 }}>
                     <Typography sx={{
                       fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3,

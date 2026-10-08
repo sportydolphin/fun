@@ -8,6 +8,7 @@ import { fetchWpblArticles, fetchWpblTeams, getCachedWpblArticles, getCachedWpbl
 import { SOURCES, sourceOf } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
+import { useNewSince } from './newSince'
 
 // /wpbl/reading: everything two independent writers have written about the league, newest first:
 // mary mustard's towards a more perfect game and D.A. Espinoza's The Rising Fastball, both featured
@@ -54,6 +55,9 @@ export default function ReadingPage() {
   }, [articles])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const stamped = useMemo(() => articles?.map(a => ({ id: String(a.post_id), at: a.published_at })) ?? null, [articles])
+  const { isNew, markOpened } = useNewSince('reading', stamped, true)
+  const fresh = (a: WpblArticle) => ({ isNew: isNew(String(a.post_id), a.published_at), onOpen: () => markOpened(String(a.post_id)) })
   // Only clubs somebody has written about, in the order the feed lists the clubs, each with its
   // count. A post can be about two clubs (a series preview), so the counts can sum past the total.
   // The writers with anything here, in SOURCES order, each with a count.
@@ -135,7 +139,7 @@ export default function ReadingPage() {
                 ))}
               </ChipRow>
             )}
-            {lead && <ReadingLead article={lead} teamById={teamById} from="page" />}
+            {lead && <ReadingLead article={lead} teamById={teamById} from="page" {...fresh(lead)} />}
             {months.map(m => (
               <Box component="section" key={m.key} sx={{ mt: 2.5 }}>
                 <Typography component="h2" sx={{
@@ -148,7 +152,7 @@ export default function ReadingPage() {
                   display: 'grid', gap: { xs: 1, sm: 1.5 },
                   gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
                 }}>
-                  {m.items.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="page" />)}
+                  {m.items.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="page" {...fresh(a)} />)}
                 </Box>
               </Box>
             ))}

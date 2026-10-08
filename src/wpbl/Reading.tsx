@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly } from './ui'
+import { TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, NewTag } from './ui'
 import { SectionHead, ShowMoreButton, useRankInk } from './cardParts'
 import { readMinutes, sourceOf, sourcePhoto, coverAt, type SubstackSource } from './derive/articles'
 import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/recaps'
@@ -185,9 +185,9 @@ function MetaLine({ article, sx }: { article: WpblArticle; sx?: object }) {
  *  phone and ~400px in the desktop grid: one size is either blurry on desktop or a large
  *  download for a thumbnail on a phone. Only offered for Substack's CDN, which can resize; any
  *  other URL passes through at whatever size it is (see coverAt). */
-function Cover({ article, teamById, widths, sizes, lead, badge = 20, sx }: {
+function Cover({ article, teamById, widths, sizes, lead, badge = 20, fresh, sx }: {
   article: WpblArticle; teamById: Map<string, WpblTeam>
-  widths: number[]; sizes: string; lead?: boolean; badge?: number; sx?: object
+  widths: number[]; sizes: string; lead?: boolean; badge?: number; fresh?: boolean; sx?: object
 }) {
   const url = article.cover_url
   const resizable = !!url && coverAt(url, widths[0]) !== url
@@ -210,6 +210,7 @@ function Cover({ article, teamById, widths, sizes, lead, badge = 20, sx }: {
           {teams.map(t => <TeamBadge key={t.id} team={t} size={badge} />)}
         </Box>
       )}
+      {fresh && <NewTag />}
     </Box>
   )
 }
@@ -226,16 +227,18 @@ const cardSx = {
 /** The newest post in view, drawn large at the head of /wpbl/reading. On a phone it is the one
  *  full-width picture on the page; on a desktop the cover and the headline sit side by side. The
  *  dek runs longer here than on a card because this is the one post the page is putting forward. */
-export function ReadingLead({ article, teamById, from }: {
+export function ReadingLead({ article, teamById, from, isNew, onOpen }: {
   article: WpblArticle; teamById: Map<string, WpblTeam>; from: ReadingSource
+  /** Published since the reader's last visit (newSince.ts). */
+  isNew?: boolean; onOpen?: () => void
 }) {
   return (
     <Box component="a" href={article.url} {...linkProps}
-      onClick={() => trackOpen(article, from)}
-      aria-label={`Read: ${article.title}, ${readLabel(article)}, opens in a new tab`}
+      onClick={() => { trackOpen(article, from); onOpen?.() }}
+      aria-label={`Read${isNew ? ', new' : ''}: ${article.title}, ${readLabel(article)}, opens in a new tab`}
       sx={{ ...cardSx, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' } }}
     >
-      <Cover article={article} teamById={teamById} lead badge={26}
+      <Cover article={article} teamById={teamById} lead badge={26} fresh={isNew}
         widths={[480, 800, 1200]} sizes="(max-width: 899px) 100vw, 640px"
         sx={{ aspectRatio: '16 / 9' }} />
       <Box sx={{ p: { xs: 1.5, md: 2.25 }, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
@@ -269,19 +272,21 @@ export function ReadingLead({ article, teamById, from }: {
  *  The phone row stretches its cover to the row rather than fixing its height: the headlines are
  *  long and good and wrap to between two and four lines, and a fixed cover top-aligned in a row
  *  that tall leaves a different band of dead air under every picture. */
-export function ReadingCard({ article, teamById, from }: {
+export function ReadingCard({ article, teamById, from, isNew, onOpen }: {
   article: WpblArticle; teamById: Map<string, WpblTeam>; from: ReadingSource
+  /** Published since the reader's last visit (newSince.ts). */
+  isNew?: boolean; onOpen?: () => void
 }) {
   return (
     <Box component="a" href={article.url} {...linkProps}
-      onClick={() => trackOpen(article, from)}
-      aria-label={`Read: ${article.title}, ${readLabel(article)}, opens in a new tab`}
+      onClick={() => { trackOpen(article, from); onOpen?.() }}
+      aria-label={`Read${isNew ? ', new' : ''}: ${article.title}, ${readLabel(article)}, opens in a new tab`}
       sx={{
         ...cardSx, display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, alignItems: 'stretch',
         gap: { xs: 1.25, sm: 0 }, p: { xs: 1, sm: 0 }, height: '100%',
       }}
     >
-      <Cover article={article} teamById={teamById} badge={18}
+      <Cover article={article} teamById={teamById} badge={18} fresh={isNew}
         widths={[240, 480, 720]} sizes="(max-width: 599px) 104px, (max-width: 1199px) 50vw, 400px"
         sx={{
           width: { xs: chromePx(104), sm: '100%' }, minHeight: { xs: chromePx(72), sm: 0 },

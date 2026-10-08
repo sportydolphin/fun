@@ -1336,6 +1336,17 @@ is retired.
 
 ## Shipped log
 
+### Oct 7, 2026: "New" markers on Reading and Watch (v1.129.0)
+
+A post or a video published since the reader's last visit wears a "New" tag: on the cover in
+Reading, on the poster in Watch (the date chip itself on a clip, where the poster is ~110px wide),
+on each Watch shelf chip with something new behind it, and on Home's Reading and Watch cards. It is
+a per-browser WATERMARK, not a seen-list ([`src/wpbl/newSince.ts`](src/wpbl/newSince.ts)): the
+publish time of the newest item the page has shown. Only the page advances it, and only at the
+next visit, so the tags stay put while the reader looks at them; opening an item clears its own
+tag everywhere at once. A first visit marks nothing, and nothing published before the release
+(`FLOOR`) is ever marked, so the back catalogue never lights up.
+
 ### Oct 5, 2026: players and games open beside the page on desktop, and Game Center gets a full page (built, not yet released)
 
 Steps 1 to 3 of #9. On a desktop a player or a game now opens as a side panel down the right

@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.129.0',
+    date:    '2026-10-07',
+    changes: [
+      {
+        short: 'WPBL: "New" on stories and videos you have not seen',
+        full:  'Reading and Watch now tag anything posted since your last visit as New, on the page and on the Home cards, and the Watch shelves show a dot when something new is behind them. Opening a story or playing a video clears its tag.',
+      },
+    ],
+  },
+  {
     version: '1.128.0',
     date:    '2026-10-07',
     changes: [

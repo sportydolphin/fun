@@ -48,6 +48,7 @@ import { WatchCard } from './Watch'
 import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
 import { HOME_WIDE_W } from './layoutWidths'
+import { useNewSince } from './newSince'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
@@ -2367,6 +2368,8 @@ function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
   }, [])
   const articles = useMemo(() => loaded ?? [], [loaded])
   const picks = useMemo(() => readingHomePicks(articles), [articles])
+  const stamped = useMemo(() => loaded?.map(a => ({ id: String(a.post_id), at: a.published_at })) ?? null, [loaded])
+  const { isNew, markOpened } = useNewSince('reading', stamped)
   const writers = useMemo(
     () => SOURCES.filter(src => articles.some(a => sourceOf(a.source).key === src.key)),
     [articles],
@@ -2404,7 +2407,8 @@ function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
       {/* Rows on a phone and cards from `sm` up, which is ReadingCard's own switch: three
           cover-on-top cards stacked in one column would fill a tablet screen. */}
       <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: `repeat(${READING_HOME_COUNT}, minmax(0, 1fr))` } }}>
-        {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home" />)}
+        {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home"
+          isNew={isNew(String(a.post_id), a.published_at)} onOpen={() => markOpened(String(a.post_id))} />)}
       </Box>
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
         Written by {writers.map((w, i) => (

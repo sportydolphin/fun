@@ -1301,3 +1301,16 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
     </Box>
   )
 }
+
+/** The "new since your last visit" marker (newSince.ts): a small "New" tag laid over the corner of a picture. Laid OVER rather than
+ *  beside, so a card that gains one takes exactly the box it had without it. */
+export function NewTag({ sx }: { sx?: object }) {
+  return (
+    <Box component="span" sx={{
+      position: 'absolute', top: 6, left: 6, zIndex: 1, pointerEvents: 'none',
+      px: 0.6, borderRadius: 1, bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
+      fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1.6, letterSpacing: 0.3,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.35)', ...sx,
+    }}>New</Box>
+  )
+}

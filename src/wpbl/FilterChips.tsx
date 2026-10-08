@@ -29,7 +29,8 @@ export function ChipRow({ mb, children }: { mb: number; children: React.ReactNod
   )
 }
 
-export function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+/** `dot` marks a chip with something new behind it (newSince.ts). */
+export function FilterChip({ label, active, onClick, dot }: { label: string; active: boolean; onClick: () => void; dot?: boolean }) {
   return (
     <Box onClick={onClick} role="button" tabIndex={0} aria-pressed={active}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
@@ -46,6 +47,12 @@ export function FilterChip({ label, active, onClick }: { label: string; active: 
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}>
       {label}
+      {dot && (
+        <Box component="span" role="img" aria-label="new" sx={{
+          display: 'inline-block', width: 6, height: 6, borderRadius: '50%', ml: 0.6, verticalAlign: 'middle',
+          bgcolor: active ? 'primary.contrastText' : 'var(--wpbl-accent-solid)',
+        }} />
+      )}
     </Box>
   )
 }

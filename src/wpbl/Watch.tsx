@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { CARD_BORDER, CARD_FILL, TYPE_SCALE, hoverOnly, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller } from './ui'
+import { CARD_BORDER, CARD_FILL, TYPE_SCALE, hoverOnly, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller, NewTag } from './ui'
 import { SectionHead } from './cardParts'
 import { linkTo } from '../nav'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
@@ -12,6 +12,7 @@ import { WPBL_WATCH_PAGE } from './routes'
 import { watchShelves } from './videoChannels'
 import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
 import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
+import { useNewSince } from './newSince'
 
 /**
  * The door to /wpbl/watch: the newest clips as a row of posters, and a link to everything.
@@ -49,6 +50,9 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
   // has already had what this reader cannot play taken out (fetchWpblVideos).
   const hasBroadcasts = useMemo(() => videos.some(v => v.kind === 'full_game'), [videos])
   const [active, setActive] = useState<number | null>(null)
+  // Reads the Watch page's watermark and never moves it: four posters are not the shelf.
+  const stamped = useMemo(() => loaded?.map(v => ({ id: v.video_id, at: v.published_at })) ?? null, [loaded])
+  const { isNew, markOpened } = useNewSince('watch', stamped)
 
   const shown = useRef(false)
   useEffect(() => {
@@ -64,6 +68,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
   const play = (i: number) => {
     track(EVENTS.WPBL_WATCH_OPEN, { from, action: 'play' })
     track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: clips[i].video_id, kind: 'clip', from })
+    markOpened(clips[i].video_id)
     setActive(i)
   }
   // Six posters on a desktop, four on a phone: at 375px six would be a row of stamps.
@@ -93,7 +98,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(i) } }}
             role="button"
             tabIndex={0}
-            aria-label={`Play clip: ${v.title}`}
+            aria-label={`Play${isNew(v.video_id, v.published_at) ? ' new' : ''} clip: ${v.title}`}
             sx={{
               display: { xs: i < 4 ? 'block' : 'none', md: 'block' },
               borderRadius: 2, overflow: 'hidden', cursor: 'pointer', position: 'relative',
@@ -102,6 +107,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
           >
             <VideoThumb video={v} vertical badge={30} />
             <ClipCaption title={v.title} />
+            {isNew(v.video_id, v.published_at) && <NewTag />}
           </Box>
         ))}
       </Box>
