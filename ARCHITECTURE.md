@@ -542,7 +542,10 @@ sequenceDiagram
 
 **Not scheduled, listed here so the workflow folder has no strangers:** `ci.yml` runs on every pull
 request and every commit on `main` (type-check, lint, tests, build) and holds no secrets. Its `check`
-job is required to merge into `main` (`.github/rulesets/`).
+job is required to merge into `main` (`.github/rulesets/`), and so is its `layout` job, which runs `npm run sweep`
+against the dev server, served from a recorded snapshot of the data
+(`scripts/fixtures/layout-sweep.json.gz`), and fails on any finding not already in
+`scripts/fixtures/layout-sweep-baseline.json`.
 
 ### GitHub Actions (`.github/workflows/*.yml`): all times **UTC**, all also `workflow_dispatch`
 
