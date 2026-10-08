@@ -7,11 +7,17 @@ the live copy; these files are what it was set from. Change a rule here first, t
 (`.github/workflows/ci.yml`) has passed. Squash merge only, so each change lands as one commit with the
 pull request's title and body as its message. No approval is required: there is one maintainer.
 
-- **GitHub Actions bypasses it** (integration 15368, the app behind `GITHUB_TOKEN`). Four scheduled
-  jobs commit generated files straight to `main`: `build-sitemap`, `pull-feature-requests`,
-  `wpbl-archive` and `wpbl-discord-postseason`. They cannot go through pull requests instead, because
-  GitHub does not start workflows for a pull request that `GITHUB_TOKEN` opened, so CI would never
-  report and the merge would wait forever. A new job that commits to `main` needs nothing extra.
+- **A deploy key bypasses it**, and nothing else does: `main-bot`, write access, its private half in
+  the `MAIN_BOT_DEPLOY_KEY` secret. Four scheduled jobs commit generated files straight to `main`
+  (`build-sitemap`, `pull-feature-requests`, `wpbl-archive`, `wpbl-discord-postseason`), checking
+  out with `ssh-key: ${{ secrets.MAIN_BOT_DEPLOY_KEY }}` so their push goes out as that key. Not
+  `GITHUB_TOKEN`: a ruleset on a personal repo refuses to exempt the GitHub Actions app ("must be part
+  of the ruleset source or owner organization"). Not pull requests either: the merge would wait on
+  CI, and a pull request opened with `GITHUB_TOKEN` never starts it. A push made with the deploy key
+  does start workflows, so CI checks what the bots commit too. **A new job that commits to `main`
+  needs the same `ssh-key` line**, or its push is refused. To rotate the key: generate a new pair,
+  `gh repo deploy-key add <pub> --allow-write`, `gh secret set MAIN_BOT_DEPLOY_KEY < <private>`,
+  delete the old key and the local files.
 - **An admin bypasses it only through a pull request** (`bypass_mode: pull_request`): the emergency
   path is merging a pull request without waiting for CI. A plain `git push` to `main` is refused for
   everyone except Actions.
@@ -22,11 +28,15 @@ pull request's title and body as its message. No approval is required: there is 
 covered every branch until Oct 8, 2026, which also stopped a merged branch from being deleted and a
 pull-request branch from being rebased; it is `main` only now.
 
-Apply (an admin, with `gh` logged in):
+Applied once, by an admin with `gh` logged in:
 
 ```bash
 gh api -X POST repos/sportydolphin/fun/rulesets --input .github/rulesets/main-pull-requests.json
 gh api -X PUT repos/sportydolphin/fun/rulesets/20732753 --input .github/rulesets/main-history.json
 ```
 
-To change the pull-request ruleset later, `PUT` to its id instead of `POST` (`gh api repos/sportydolphin/fun/rulesets` lists them).
+Both are applied (Oct 8, 2026). The pull-request ruleset is id 24741383, so a change to it is a `PUT`:
+
+```bash
+gh api -X PUT repos/sportydolphin/fun/rulesets/24741383 --input .github/rulesets/main-pull-requests.json
+```
