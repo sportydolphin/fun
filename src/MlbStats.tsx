@@ -18,12 +18,12 @@ import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './m
 let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_REF_PARAM) === MLB_SHORT_REF_VALUE
 const arrivedAt = window.location.pathname
 import { SegControl } from './mlb/components/ui'
-import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, MlbPlayerDetail, preloadAllMlbViews } from './mlb/views/lazyViews'
+import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
-import { MLB_VIEW_PATHS, MLB_NAV, mlbUrlFor, mlbPlayerPath, type MlbNavKey } from './mlb/routes'
+import { MLB_VIEW_PATHS, MLB_NAV, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
@@ -31,8 +31,10 @@ import { MlbPageH1 } from './mlb/components/PageHeading'
 import SwipeableViews from './ui/SwipeableViews'
 import { useSwipeNav } from './AccessibilityContext'
 import { AppErrorBoundary } from './AppErrorBoundary'
-import { pushEntry } from './mlb/state/sheetHistory'
-import { panelShiftSx, useSidePanelOpen } from './ui/ModalShell'
+import { pushEntry, sheetOpenAt, stackNextPanel } from './mlb/state/sheetHistory'
+import { usePlayerPanel, closePlayerPanel, usePlayerPanelRestore } from './mlb/state/playerPanel'
+import { gamePageShowing } from './mlb/state/gamePage'
+import { panelShiftSx, useSidePanelOpen, useOpensAsPanel } from './ui/ModalShell'
 import { PanelActiveContext } from './lib/panelActive'
 import { publishSectionNav, clearSectionNav } from './sectionNav'
 
@@ -103,9 +105,16 @@ export default memo(MlbStats)
 // table break out of its reading column the same way. Below md the phone column is 640.
 const HOME_W = 1372
 const PAGE_W = 1792
+// The full Game Center page's own column (GamePageLayout in LiveGameCenter.tsx), which is what moves
+// aside for a player's panel opened from its box score.
+const GAME_PAGE_W = chromePx(1200)
 
 function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const state = useMlbState()
+  const panelPlayer = usePlayerPanel()
+  usePlayerPanelRestore(useOpensAsPanel())
+  // The full Game Center page (GameRoute) draws in this column, in place of the tabs and pages.
+  const [gamePageOpen, setGamePageOpen] = useState(false)
   // `noSsr` so the bar is in the very first layout rather than inserted a frame later (the same
   // note as WpblApp's). The width matches App.tsx's isDesktop, which decides where the footer goes:
   // the bar and the section's own footer must switch at exactly the same width.
@@ -334,7 +343,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // These columns are wide, so below about 1900px it barely moves and the panel covers their right
   // edge, which is the trade WPBL's Home and stats table make too.
   const panelOpen = useSidePanelOpen()
-  const shift = panelShiftSx(panelOpen, `${state.view === 'home' ? HOME_W : PAGE_W}px`)
+  const shift = panelShiftSx(panelOpen, gamePageOpen ? GAME_PAGE_W : `${state.view === 'home' ? HOME_W : PAGE_W}px`)
   const onSearch = state.view === 'search'
   const tabIndex = NAV.findIndex(n => n.key === activeTab)
   // The pager mounts with the first tab the reader is shown, and stays mounted from then on.
@@ -503,7 +512,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       {pagerMounted.current && (
         // Full-bleed on a phone, with the 16px gutter handed back inside each pane (padX), so a
         // swiped pane slides all the way off the screen rather than vanishing at the gutter.
-        <Box sx={{ display: onSearch ? 'none' : 'block', mx: { xs: -2, sm: 0 } }}>
+        <Box sx={{ display: onSearch || gamePageOpen ? 'none' : 'block', mx: { xs: -2, sm: 0 } }}>
           <SwipeableViews
             index={tabIndex}
             onIndexChange={i => goTab(NAV[i].key, 'swipe')}
@@ -529,7 +538,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       {/* A PLAYER'S PAGE: the card fetches its own data (views/MlbPlayerDetail), the section only
           says which player and which season. Keyed by player, so the next one starts at its own top
           rather than inheriting the last one's role tab and scope. */}
-      {onSearch && state.player && withFooter(
+      {onSearch && state.player && !gamePageOpen && withFooter(
         <AppErrorBoundary inline where="tab">
           <Suspense fallback={null}>
             <MlbPlayerDetail
@@ -552,7 +561,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         </AppErrorBoundary>,
       )}
 
-      {onSearch && !state.player && withFooter(
+      {onSearch && !state.player && !gamePageOpen && withFooter(
         <Suspense fallback={null}>
           <SearchView
             query={state.query}
@@ -597,8 +606,42 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         </Suspense>,
       )}
 
+      {/* A player as the desktop side panel, opened from a row on the page or from Game Center.
+          Keyed by player, so another one is a remount, which sheetHistory reads as a swap. */}
+      {panelPlayer && (
+        <AppErrorBoundary inline where="tab">
+          <Suspense fallback={null}>
+            <MlbPlayerPanel
+              key={panelPlayer.id}
+              playerId={panelPlayer.id}
+              player={panelPlayer.player}
+              stacked={panelPlayer.stacked}
+              path={panelPlayer.path}
+              initialSeason={panelPlayer.season}
+              onClose={() => closePlayerPanel(panelPlayer.id)}
+              onExpand={season => state.openPlayerPage(panelPlayer.id, season)}
+              onOpenBoard={(key, group, season) => state.handleStatCardClick(key, group, false, { playerId: panelPlayer.id, season })}
+              onOpenGame={pk => {
+                // The game this player was opened from is still beneath, as a panel or the page:
+                // going back is the way there.
+                if (sheetOpenAt(mlbGamePath(pk)) || gamePageShowing(pk)) { window.history.back(); return }
+                // Otherwise a trip from the card: Game Center draws over it, and Back returns.
+                stackNextPanel()
+                requestDeepLink({ kind: 'game', gamePk: pk })
+              }}
+              followed={state.followedPlayerIds.includes(panelPlayer.id)}
+              onToggleFollow={() => {
+                const id = panelPlayer.id
+                if (state.followedPlayerIds.includes(id)) state.unfollowPlayer(id)
+                else state.followPlayer(id)
+              }}
+            />
+          </Suspense>
+        </AppErrorBoundary>
+      )}
+
       {/* Game Center reached by its address, /mlb/games/<pk>, over whichever tab is up. */}
-      <GameRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} />
+      <GameRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} onPage={setGamePageOpen} />
       {/* A postseason series reached by its address, /mlb/postseason/<season>/<slot>. */}
       <SeriesRoute onPlayerClick={homePlayerClick} onTeamClick={homeTeamClick} />
 

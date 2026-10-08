@@ -25,14 +25,18 @@ const POSTSEASON_TYPES = new Set(['F', 'D', 'L', 'W'])
 export interface SeriesRef { season: number; id: MlbSeriesId }
 
 /** The series this game belongs to, from the bracket (cached app-wide), or null for a game that
- *  is not in one. The bracket is the only read that knows which slot a gamePk sits in. */
-export function useGameSeries(gamePk: number, gameType: string | undefined, season: number | undefined): PsSeries | null {
-  const [series, setSeries] = useState<PsSeries | null>(null)
+ *  is not in one. The bracket is the only read that knows which slot a gamePk sits in. UNDEFINED
+ *  while the bracket is still being read for a postseason game, so the band's room can be held
+ *  until it lands (SeriesBandSkeleton) rather than the band pushing the summary down when it does. */
+export function useGameSeries(gamePk: number, gameType: string | undefined, season: number | undefined): PsSeries | null | undefined {
+  const [series, setSeries] = useState<PsSeries | null | undefined>(null)
   useEffect(() => {
     if (!gameType || !POSTSEASON_TYPES.has(gameType) || !season) { setSeries(null); return }
+    setSeries(undefined)
     let alive = true
     fetchBracket(season).then(b => {
-      if (!alive || !b) return
+      if (!alive) return
+      if (!b) { setSeries(null); return }
       setSeries(Object.values(b.series).find(s => s.games.some(g => g.gamePk === gamePk)) ?? null)
     })
     return () => { alive = false }
@@ -72,6 +76,22 @@ export function SeriesBand({ s, gamePk, season, onOpen }: {
         fontSize: GC_META, fontWeight: 800, color: 'text.secondary', px: 1.4, py: 0.6, borderRadius: 999,
         border: '1px solid', borderColor: 'divider', ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }), ...FOCUS_RING,
       }}>
+        View series <ChevronRight sx={{ fontSize: '0.95rem' }} />
+      </Box>
+    </Box>
+  )
+}
+
+/** The band's room while the bracket loads: the same box, both lines and the chip, drawn invisible,
+ *  so the summary under it does not move when the band arrives. */
+export function SeriesBandSkeleton() {
+  return (
+    <Box aria-hidden sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5, borderTop: '1px solid', borderColor: 'divider', visibility: 'hidden' }}>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', lineHeight: 1.3 }}>Series</Typography>
+        <Typography sx={{ fontSize: GC_BODY, fontWeight: 700, lineHeight: 1.35 }}>Series</Typography>
+      </Box>
+      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexShrink: 0, fontSize: GC_META, fontWeight: 800, px: 1.4, py: 0.6, border: '1px solid' }}>
         View series <ChevronRight sx={{ fontSize: '0.95rem' }} />
       </Box>
     </Box>

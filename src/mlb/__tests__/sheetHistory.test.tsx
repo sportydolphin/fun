@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useState } from 'react'
 import { render, act, fireEvent } from '@testing-library/react'
-import { useSheetHistory, sheetOpen, pushEntry } from '../state/sheetHistory'
+import { useSheetHistory, sheetOpen, pushEntry, stackNextPanel } from '../state/sheetHistory'
 import { MlbSheet } from '../components/MlbSheet'
 
 // On a phone, Back with Game Center open used to leave the MLB section. These pin the three
@@ -48,6 +48,18 @@ describe('sheet history', () => {
     pushEntry({ view: 'search', playerId: 1 })
     expect(window.history.length).toBe(before)
     expect(window.history.state).toEqual({ view: 'search', playerId: 1 })
+  })
+
+  // A rank on the player panel opens the board OVER the panel's entry, so Back lands on it again and
+  // the panel is reopened from it (playerPanel.ts) instead of the board replacing it.
+  it('a trip from a card can push over its entry instead of replacing it', () => {
+    render(<Sheet onClose={() => {}} expose={() => {}} />)
+    const before = window.history.length
+    const sheetEntry = window.history.state
+    pushEntry({ view: 'stats' }, '/mlb/stats', { overSheet: true })
+    expect(window.history.length).toBe(before + 1)
+    expect(window.history.state).toEqual({ view: 'stats' })
+    expect(sheetEntry).toMatchObject({ mlbSheet: 1 })
   })
 
   it('an ordinary navigation still pushes', () => {
@@ -128,6 +140,28 @@ describe('sheet history', () => {
       expect(onClose).toHaveBeenCalledTimes(1)
       expect(window.history.length).toBe(before + 1)
       expect(window.history.state).toEqual({ view: 'standings' })
+    })
+
+    // A player clicked inside the Game Center panel is a trip FROM the game, so it stacks over it
+    // and Back returns to the game, where a row clicked on the page would have swapped it out.
+    it('a panel opened from inside another stacks on it, and Back returns to the one beneath', async () => {
+      const before = window.history.length
+      const game = vi.fn()
+      const player = vi.fn()
+      function PlayerPanel({ onClose }: { onClose: () => void }) {
+        useSheetHistory(onClose, '/mlb/players/someone-1', { panel: true })
+        return <div>player</div>
+      }
+      const { rerender } = render(<><Owner pk={1} onClose={game} />{null}</>)
+      stackNextPanel()
+      rerender(<><Owner pk={1} onClose={game} /><PlayerPanel onClose={player} /></>)
+      expect(game).not.toHaveBeenCalled()
+      expect(window.history.length).toBe(before + 2)
+      expect(window.history.state).toMatchObject({ mlbSheet: 2, mlbSheetUrl: '/mlb/players/someone-1' })
+      await act(async () => { window.history.back(); await popped() })
+      expect(player).toHaveBeenCalledTimes(1)
+      expect(game).not.toHaveBeenCalled()
+      expect(window.location.pathname).toBe('/mlb/games/1')
     })
   })
 })

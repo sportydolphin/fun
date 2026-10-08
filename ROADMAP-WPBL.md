@@ -841,7 +841,7 @@ layouts, NN/g on modal and nonmodal dialogs and on tabs, Notion's side peek and 
    as the panel: which one renders is `gamePage` on WpblApp's history snapshot. A player opens
    beside the page as the panel. Phones are unchanged throughout. The player's full page followed
    on Oct 6 on the same terms (see Open).
-4. **MLB**: the same for `/mlb`. See Handoff item 11 in [ROADMAP.md](ROADMAP.md).
+4. ✅ **MLB**: the same for `/mlb` (Oct 7). See Handoff item 11 in [ROADMAP.md](ROADMAP.md).
 
 **Open.**
 

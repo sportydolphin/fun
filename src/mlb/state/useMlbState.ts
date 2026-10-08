@@ -29,6 +29,8 @@ import {
 } from '../api'
 import { track, EVENTS } from '../../lib/analytics'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
+import { openPlayerPanel } from './playerPanel'
+import { useOpensAsPanel } from '../../ui/ModalShell'
 import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot } from '../routes'
 import type { GameScope } from '../lib/gameScope'
@@ -73,7 +75,10 @@ export function restoreTarget(pathname: string, search: string, entry: Record<st
 } | null {
   let snap = mlbSnapshotFromUrl(pathname, search)
   if (!snap) return null
-  if (isMlbSheetPath(pathname) && entry && isMlbView(entry.view)) {
+  // A sheet with an address of its own: a game or a series by the path's shape, and a player's side
+  // panel by the entry, whose address is also the player's page. Either way the entry is the page
+  // under it.
+  if ((isMlbSheetPath(pathname) || (entry?.mlbSheet != null && entry.mlbSheetUrl === pathname)) && entry && isMlbView(entry.view)) {
     // Through the page's own address, so the entry is read by the same rules as any other.
     const page = new URL(mlbUrlFor(entry as MlbSnapshot, CURRENT_SEASON), 'https://x')
     snap = mlbSnapshotFromUrl(page.pathname, page.search) ?? snap
@@ -538,17 +543,32 @@ export function useMlbState() {
     // Not on a sheet's own entry: the navigation about to happen replaces that entry (pushEntry),
     // and the entry under it was stamped when the sheet opened over it.
     if (onSheetEntry()) return
-    window.history.replaceState(currentHistoryState(), '', window.location.href)
+    // Keeping the full Game Center page's marker, so Back to it is the page again.
+    window.history.replaceState(keepSheetMarker(currentHistoryState()), '', window.location.href)
   }, [currentHistoryState])
 
-  const handleLbPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
-    track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
+  // A player's full page. The panel's Expand comes here with the season the panel was showing, so
+  // the page opens on it and Back from the page restores it (restoreTarget reads the entry's).
+  const openPlayerPage = useCallback((playerId: number, season: PlayerSeason | null = null) => {
     stampCurrentEntry()
-    pushEntry({ view: 'search', playerId }, mlbUrlFor({ view: 'search', playerId }))
+    const seasonState = season === 'career' ? { statsView: 'career' } : season != null ? { season } : {}
+    pushEntry({ view: 'search', playerId, ...seasonState }, mlbUrlFor({ view: 'search', playerId }))
     fetchPlayerDetails(playerId).then(p => {
-      if (p) { selectPlayer(p); setView('search') }
+      if (p) { selectPlayer(p, season != null ? { season } : undefined); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectPlayer, stampCurrentEntry])
+
+  // A player clicked anywhere on the page. On a desktop that is the side panel, beside the list it
+  // was clicked in (views/MlbPlayerPanel.tsx); on anything narrower, the page. The search bar is the
+  // exception and goes to the page at every width: a search is a destination, not a row in a list.
+  const asPanel = useOpensAsPanel()
+  const openPlayer = useCallback((playerId: number, from?: MlbOpenSource) => {
+    track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
+    if (asPanel) openPlayerPanel({ id: playerId, player: null, stacked: false })
+    else openPlayerPage(playerId)
+  }, [asPanel, openPlayerPage, view]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLbPlayerClick = openPlayer
 
   // A team page's season. A player page's is the page's own (playerSeason).
   const handleSeasonChange = useCallback((s: number) => {
@@ -558,16 +578,20 @@ export function useMlbState() {
 
   // Jump from a rank on the player page to the Stats leaderboard, sorted by that stat and focused
   // on the player, over the season the page was showing. `allTime` opens the career board.
-  const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching', allTime = false) => {
+  // `from` is the side panel's player and season, which are not the page's (see MlbPlayerPanel).
+  const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching', allTime = false, from?: { playerId: number; season: PlayerSeason | null }) => {
     // A career page's rank opens this season's board: the career pool is a different leaderboard.
-    const season = typeof playerSeason === 'number' ? playerSeason : CURRENT_SEASON
+    const shownSeason = from ? from.season : playerSeason
+    const season = typeof shownSeason === 'number' ? shownSeason : CURRENT_SEASON
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
     // Stamp the player entry we're leaving with its full snapshot (exact player and season) so a
     // single Back from the stats leaderboard returns right here, then push the destination
     // 'stats' entry.
     stampCurrentEntry()
-    pushEntry({ view: 'stats', lb: group, allTime }, mlbUrlFor({ view: 'stats', lb: group, allTime, season }, CURRENT_SEASON))
+    // From the side panel, the board goes ON TOP of the panel's entry rather than in place of it, so
+    // Back reopens the panel (playerPanel.ts), as it returns to the page from a page.
+    pushEntry({ view: 'stats', lb: group, allTime }, mlbUrlFor({ view: 'stats', lb: group, allTime, season }, CURRENT_SEASON), { overSheet: !!from })
     setView('stats')
     setLbGroup(group)
     setStatsAllTime(allTime)
@@ -577,7 +601,7 @@ export function useMlbState() {
     setLbFullscreen({ def, group, sortKey: statKey, sortAsc: def.lowerIsBetter ?? false, entries: [] })
     setLbQualified(true)
     setLbStatsLimit(500)
-    setStatsHighlightPlayerId(player?.id ?? null)
+    setStatsHighlightPlayerId(from?.playerId ?? player?.id ?? null)
     setStatsHighlightStatKey(statKey)
     // The player stays on the entry behind this one, not in state: left set, they would hold the
     // Stats board's address on the player page (see the URL sync).
@@ -613,14 +637,7 @@ export function useMlbState() {
     setTeam(null)
   }, [])
 
-  const handleFollowedPlayerClick = useCallback((playerId: number, from?: MlbOpenSource) => {
-    track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: openFrom(from) })
-    stampCurrentEntry()
-    pushEntry({ view: 'search', playerId }, mlbUrlFor({ view: 'search', playerId }))
-    fetchPlayerDetails(playerId)
-      .then(p => { if (p) { selectPlayer(p); setView('search') } })
-      .catch(() => {})
-  }, [selectPlayer, stampCurrentEntry, view]) // eslint-disable-line react-hooks/exhaustive-deps
+  const handleFollowedPlayerClick = openPlayer
 
   const handleTeamSearchClick = useCallback((teamId: number, from?: MlbOpenSource) => {
     const t = allTeams.find(t => t.id === teamId)
@@ -870,6 +887,7 @@ export function useMlbState() {
     statsAllTime, setStatsAllTime,
     lbGameScope, setLbGameScope,
     handleLbPlayerClick,
+    openPlayerPage,
 
     // Derived
     hasStats, showFeaturedRight,

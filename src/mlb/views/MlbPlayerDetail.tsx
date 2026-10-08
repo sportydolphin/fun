@@ -24,6 +24,8 @@ import {
   type LineCol, type StatCardEnv,
 } from '../../ui/playerCard'
 import { DetailPageBar } from '../../ui/DetailPageBar'
+import { ModalShell } from '../../ui/ModalShell'
+import { ExpandButton } from '../../ui/ExpandButton'
 import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from '../../ui/headerBar'
 import { PillGroup } from '../../ui/PillGroup'
 import { hoverOnly, FOCUS_RING, pressable } from '../../ui/interaction'
@@ -31,7 +33,7 @@ import { chromePx } from '../../ui/scale'
 import { CopyLinkButton } from '../../ui/CopyLinkButton'
 import { SegControl, linkPillSx } from '../components/ui'
 import { ContractPanel } from '../components/ContractPanel'
-import { MlbPageH1 } from '../components/PageHeading'
+import { MlbPageH1, MlbHiddenH1 } from '../components/PageHeading'
 import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
 import { ACCENT_TEXT, CURRENT_SEASON, HEADSHOT_SQUARE, TEAM_NICKNAME, TEAM_SECONDARY, teamPalette } from '../constants'
 import { fetchPlayerContract } from '../api'
@@ -212,16 +214,30 @@ export interface MlbPlayerDetailProps {
    *  season if the player has one, else the last one played. Controlled, so Back can restore it. */
   season: PlayerSeason | null
   onSeasonChange: (season: PlayerSeason) => void
-  onBack: () => void
+  /** The page's back control. Required for the page; the panel's (see `panel`) is optional. */
+  onBack?: () => void
   /** A league rank opens the leaderboard for that stat, the player picked out. */
   onOpenBoard: (statKey: string, group: Role) => void
   onOpenGame: (gamePk: number) => void
   followed: boolean
   onToggleFollow: () => void
+  /** Draw as the desktop side panel (views/MlbPlayerPanel.tsx) instead of a page. `onBack` is then
+   *  the panel's own back control, for a player opened over Game Center, and is optional. */
+  panel?: boolean
+  /** The panel's close, which every way out of it goes through. */
+  onClose?: () => void
+  backLabel?: string
+  /** The panel's Expand, to the full page. */
+  onExpand?: () => void
+  /** The player's name once the bio has it, for an address and a title that need one. */
+  onName?: (name: string) => void
 }
 
-export default function MlbPlayerDetail({ playerId, player, season: seasonProp, onSeasonChange, onBack, onOpenBoard, onOpenGame, followed, onToggleFollow }: MlbPlayerDetailProps) {
-  const wide = useMediaQuery(useTheme().breakpoints.up('md'))
+export default function MlbPlayerDetail({ playerId, player, season: seasonProp, onSeasonChange, onBack, onOpenBoard, onOpenGame, followed, onToggleFollow, panel = false, onClose, backLabel, onExpand, onName }: MlbPlayerDetailProps) {
+  // `&& !panel` because THIS component renders the panel's shell, so its own hooks run outside the
+  // shell's theme and still see the desktop. Everything inside the card reads the panel's theme.
+  const mdUp = useMediaQuery(useTheme().breakpoints.up('md'))
+  const wide = mdUp && !panel
   const bio = useLoaded<MlbBio | null>(`${playerId}`, () => fetchMlbBio(playerId))
   const career = useLoaded<Career>(`${playerId}`, () => fetchCareer(playerId))
   const awards = useLoaded<AwardTally[]>(`${playerId}`, () => fetchAwards(playerId)) ?? []
@@ -246,6 +262,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const log = useLoaded<LogGame[]>(key, () => fetchSeasonLog(playerId, season!))
 
   const name = bio?.fullName ?? player?.fullName ?? 'Player'
+  const knownName = bio?.fullName ?? player?.fullName
+  useEffect(() => { if (knownName) onName?.(knownName) }, [knownName]) // eslint-disable-line react-hooks/exhaustive-deps
   const positionCode = bio?.primaryPosition?.code ?? player?.primaryPosition?.code ?? ''
 
   // Regular / Playoffs / Both. Offered only for a season with a postseason line, and back to the
@@ -292,7 +310,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const pickSeason = (s: PlayerSeason) => {
     onSeasonChange(s)
     const top = topRef.current?.getBoundingClientRect().top
-    if (top != null && top < 0) topRef.current?.scrollIntoView({ block: 'start' })
+    // In the panel the card scrolls inside the shell, whose top is not the window's.
+    if (top != null && (panel || top < 0)) topRef.current?.scrollIntoView({ block: 'start' })
   }
 
   // ── per role ──────────────────────────────────────────────────────────────
@@ -735,6 +754,48 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   )
 
   const target = { kind: 'player', id: playerId } as const
+  const actions = <>
+    <FollowChip followed={followed} onToggle={onToggleFollow} name={name} />
+    <CopyLinkButton url={mlbShareUrl(target)} title={`Copy a link to ${name}`} onCopy={() => trackMlbShare(target)} />
+  </>
+  const card = (
+    <StatCardContext.Provider value={cardEnv}>
+      <Box ref={panel ? topRef : undefined} sx={{
+        bgcolor: 'background.paper', overflow: 'hidden', scrollMarginTop: 0,
+        // Edge to edge on a phone, where the page's gutter would cost the tables two columns.
+        ...(panel ? {} : { mx: { xs: -2, sm: 0 }, borderRadius: { xs: 0, sm: 3 }, border: { xs: 'none', sm: '1px solid' }, borderColor: { sm: 'divider' } }),
+      }}>
+        {band}
+        {body}
+      </Box>
+    </StatCardContext.Provider>
+  )
+
+  // The panel is WPBL's player panel on MLB's card: the club as the eyebrow, Expand, Follow and Copy
+  // link in the header, and the phone layout in a 525px column.
+  if (panel) return (
+    <ModalShell
+      onClose={onClose ?? onBack}
+      eyebrow={club?.name ?? bio?.currentTeam?.name ?? player?.currentTeam?.name ?? 'Player'}
+      maxWidth={{ xs: chromePx(640), md: chromePx(880) }}
+      sheet
+      sheetFill
+      panel
+      openKey={playerId}
+      onBack={onBack}
+      backLabel={backLabel}
+      actions={<>
+        {/* Only while it IS the side panel: below md the same shell is a bottom sheet. */}
+        {mdUp && onExpand && <ExpandButton onExpand={onExpand} title={`Open ${name}'s full page`} />}
+        {actions}
+      </>}
+    >
+      {/* While the panel is up its address is the player's, so it is the page's heading. */}
+      <MlbHiddenH1>{`${name}: MLB stats`}</MlbHiddenH1>
+      {card}
+    </ModalShell>
+  )
+
   return (
     // `width` as well as the cap: on a phone the page sits in a flex column (the footer wrapper),
     // where auto margins alone shrink it to its widest table and push the page off the screen.
@@ -747,22 +808,9 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
           <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{club.name}</Box>
           <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{TEAM_NICKNAME[club.id] ?? club.name}</Box>
         </>) : (bio?.currentTeam?.name ?? player?.currentTeam?.name ?? 'Player')}
-        actions={<>
-          <FollowChip followed={followed} onToggle={onToggleFollow} name={name} />
-          <CopyLinkButton url={mlbShareUrl(target)} title={`Copy a link to ${name}`} onCopy={() => trackMlbShare(target)} />
-        </>}
+        actions={actions}
       />
-      <StatCardContext.Provider value={cardEnv}>
-        <Box sx={{
-          bgcolor: 'background.paper', overflow: 'hidden',
-          // Edge to edge on a phone, where the page's gutter would cost the tables two columns.
-          mx: { xs: -2, sm: 0 }, borderRadius: { xs: 0, sm: 3 },
-          border: { xs: 'none', sm: '1px solid' }, borderColor: { sm: 'divider' },
-        }}>
-          {band}
-          {body}
-        </Box>
-      </StatCardContext.Provider>
+      {card}
     </Box>
   )
 }

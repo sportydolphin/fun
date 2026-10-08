@@ -530,6 +530,14 @@ type ModalShellProps = {
    */
   sheetFill?: boolean
   /**
+   * The same held height between a phone and a desktop, where the shell is a centred dialog: full
+   * height from the first frame instead of starting short and re-centring as content lands. The
+   * note above calls that growth "settling" and it is fine for a short dialog; for Game Center,
+   * which opens on a line score and grows by a whole box score, it moved the card about 300px. Opt
+   * in: MLB's Game Center asks for it, nothing else does yet.
+   */
+  dialogFill?: boolean
+  /**
    * On a desktop, open as a side panel down the right edge instead of a centred dialog. Phones are
    * unaffected and still get the sheet. See SidePanelShell for what the panel does differently.
    */
@@ -891,7 +899,7 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
   ), document.body)
 }
 
-function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, actions, footer, fillHeight, sheet, sheetFill, children }: ModalShellProps) {
+function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, actions, footer, fillHeight, sheet, sheetFill, dialogFill, children }: ModalShellProps) {
   const id = useRef({}).current
   useEscapeToClose(onClose, id)
 
@@ -1021,7 +1029,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
         // what says "this is a sheet, pull it down" rather than "this is a new page". The short
         // pickers keep 88%: they are short, so the cap never binds, and a tall one would look odd.
         maxHeight: sheet ? { xs: sheetFill ? '96%' : '88%', sm: '100%' } : '100%',
-        ...(sheet && sheetFill ? { height: { xs: '96%', sm: 'auto' } } : {}),
+        ...(sheet && sheetFill ? { height: { xs: '96%', sm: dialogFill ? '100%' : 'auto' } } : {}),
         ...(fillHeight ? { height: '100%' } : {}),
         display: 'flex', flexDirection: 'column',
         // It comes up from the edge it is anchored to. Without this a "bottom sheet" simply

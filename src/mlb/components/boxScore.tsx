@@ -154,7 +154,9 @@ export function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
 
 export function LiveDot({ size = 6 }: { size?: number }) {
   return (
-    <Box sx={{
+    // A span, since it sits inside text (Game Center's eyebrow is a <p>), where a div is invalid
+    // markup and React warns on every live game.
+    <Box component="span" sx={{ display: 'inline-block',
       width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
       animation: 'scoreLivePulse 1.6s ease-in-out infinite',
       '@keyframes scoreLivePulse': { '0%,100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: 0.45, transform: 'scale(0.8)' } },

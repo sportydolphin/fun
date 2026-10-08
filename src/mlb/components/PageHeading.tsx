@@ -1,5 +1,6 @@
 import React, { useSyncExternalStore } from 'react'
 import { isMlbSheetPath, MLB_PATH_EVENT } from '../routes'
+import { sheetEntryUrl } from '../state/sheetHistory'
 import { usePanelActive } from '../../lib/panelActive'
 
 // The ONE <h1> per MLB page, and who owns it.
@@ -31,7 +32,9 @@ function subscribe(cb: () => void) {
     window.removeEventListener(MLB_PATH_EVENT, cb)
   }
 }
-const isGamePage = () => isMlbSheetPath(window.location.pathname)
+// A sheet's own address is on top: a game or a series by the shape of the path, and a player's side
+// panel by its history entry, since its address is also the player's page.
+const isGamePage = () => isMlbSheetPath(window.location.pathname) || sheetEntryUrl() === window.location.pathname
 
 /** False while a game sheet is the page, and in a tab kept mounted behind the one on screen
  *  (lib/panelActive.ts), which would otherwise give the page a second h1 under `display: none`. */
@@ -49,6 +52,13 @@ export function useMlbHeadingTag(): 'h1' | 'div' {
  *  or by a graphic (a player's card). Steps aside while a game is the page. */
 export function MlbPageH1({ children }: { children: React.ReactNode }) {
   return useMlbOwnsHeading() ? <MlbHiddenH1>{children}</MlbHiddenH1> : null
+}
+
+/** The full Game Center page's heading: the page's while its own address is on top, and nobody's
+ *  while a player's side panel over it holds the address (the panel's heading is the page then). */
+export function MlbAddressH1({ path, children }: { path: string; children: React.ReactNode }) {
+  const onTop = useSyncExternalStore(subscribe, () => window.location.pathname === path, () => true)
+  return onTop ? <MlbHiddenH1>{children}</MlbHiddenH1> : null
 }
 
 /** The game sheet's heading: always rendered, since while the sheet is up it is the page. */

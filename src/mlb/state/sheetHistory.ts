@@ -34,7 +34,14 @@
 // holding a sheet marker that makes the section's popstate handler stand down on the next Back.
 
 import { useEffect, useRef, useCallback } from 'react'
-import { MLB_PATH_EVENT } from '../routes'
+import { MLB_PATH_EVENT, mlbGamePath } from '../routes'
+
+/** The full Game Center page's marker on its entry, and the board it opened on (see gamePage.ts).
+ *  Here rather than there so the marker helpers below can keep it without an import cycle. */
+export const GAME_PAGE_KEY = 'mlbGamePage'
+export const GAME_TAB_KEY = 'mlbGameTab'
+/** The season a player's side panel was showing, kept on its entry (MlbPlayerPanel). */
+export const PANEL_SEASON_KEY = 'mlbPanelSeason'
 
 let openSheets = 0
 // The addresses of the sheets that are up, counted, since the same game can be open twice for a
@@ -62,6 +69,17 @@ const sheets = new Set<OpenSheet>()
  */
 let lastGone: { depth: number; url: string | undefined; at: number } | null = null
 const SWAP_MS = 50
+
+/**
+ * The next sheet to open STACKS on the one on top instead of swapping it out. For a link followed
+ * INSIDE a panel (a player in Game Center's box score, a game in a player's log): that is a trip
+ * from the card, so Back has to return to it, where a row clicked on the page beside the panel is
+ * the reader working down a list and swaps it. Which one it is depends on where the click came
+ * from, not on what it opens, and only the opener knows that. Short-lived, so a game that fails to
+ * load cannot leave the flag waiting for some unrelated sheet later.
+ */
+let stackUntil = 0
+export function stackNextPanel(): void { stackUntil = performance.now() + 5000 }
 
 /** Close every side panel without touching history. For a navigation from the page beside them,
  *  which replaces the panel's entry rather than stacking on it (see pushEntry). */
@@ -96,25 +114,41 @@ export const onSheetEntry = (): boolean =>
  * an open tab: lib/staleBuild.ts turns the next pushState into a full load OF ITS URL, and loading
  * the page being left is a tap that goes nowhere.
  */
-export function pushEntry(state: Record<string, unknown>, url: string = window.location.href): void {
+export function pushEntry(state: Record<string, unknown>, url: string = window.location.href, { overSheet = false }: {
+  /** PUSH even from a sheet's own entry, keeping it below: a trip from a card that Back returns to,
+   *  where the card is reopened from its entry (playerPanel.ts). A rank on the player panel. */
+  overSheet?: boolean
+} = {}): void {
   dismissPanels()
-  if (onSheetEntry()) window.history.replaceState(state, '', url)
+  if (onSheetEntry() && !overSheet) window.history.replaceState(state, '', url)
   else window.history.pushState(state, '', url)
+  // Announced, since a pushState fires no popstate: the full Game Center page (GameRoute) goes away
+  // when the address moves off it, and has no other way to hear a navigation from the page.
+  window.dispatchEvent(new Event(MLB_PATH_EVENT))
 }
 
 /** Carry the sheet marker, and the sheet's own address if it has one, through a replaceState, so
- *  restamping an entry does not unmark it. */
+ *  restamping an entry does not unmark it. The full Game Center page's marker too: its entry is the
+ *  page under it plus the game, exactly as a sheet's is, and loses the game the same way. */
 export function keepSheetMarker<T extends Record<string, unknown>>(state: T): T {
   const st = window.history.state as Record<string, unknown> | null
+  let out: Record<string, unknown> = state
+  if (st?.[GAME_PAGE_KEY] != null) out = { ...out, [GAME_PAGE_KEY]: st[GAME_PAGE_KEY], [GAME_TAB_KEY]: st[GAME_TAB_KEY] }
   const marker = st?.mlbSheet
-  if (marker == null) return state
-  return typeof st?.mlbSheetUrl === 'string' ? { ...state, mlbSheet: marker, mlbSheetUrl: st.mlbSheetUrl } : { ...state, mlbSheet: marker }
+  if (marker == null) return out as unknown as T
+  // The player panel's season rides on its entry too (MlbPlayerPanel), for Back to reopen it on.
+  if (st?.[PANEL_SEASON_KEY] !== undefined) out = { ...out, [PANEL_SEASON_KEY]: st[PANEL_SEASON_KEY] }
+  return (typeof st?.mlbSheetUrl === 'string' ? { ...out, mlbSheet: marker, mlbSheetUrl: st.mlbSheetUrl } : { ...out, mlbSheet: marker }) as unknown as T
 }
 
-/** The address of the sheet whose entry is on top, when it has one of its own. */
+/** The address of the sheet whose entry is on top, when it has one of its own; or the game's, when
+ *  the entry on top is the full Game Center page, whose address is the game's and not the page's
+ *  under it either. */
 export function sheetEntryUrl(): string | null {
   const st = window.history.state as Record<string, unknown> | null
-  return st?.mlbSheet != null && typeof st.mlbSheetUrl === 'string' ? st.mlbSheetUrl : null
+  if (st?.mlbSheet != null) return typeof st.mlbSheetUrl === 'string' ? st.mlbSheetUrl : null
+  const page = st?.[GAME_PAGE_KEY]
+  return typeof page === 'number' ? mlbGamePath(page) : null
 }
 
 /**
@@ -139,13 +173,15 @@ export function useSheetHistory(onClose: () => void, url?: string, { panel = fal
     let depth = openSheets
     const own = urlRef.current
     const st = (window.history.state ?? {}) as Record<string, unknown>
+    const stack = performance.now() < stackUntil
+    stackUntil = 0
     // A panel another opener is still showing, whose entry is on top: a game clicked on Home's
     // schedule strip while one from the drama feed is up. It is swapped out like a remount.
-    const shown = panelRef.current
+    const shown = panelRef.current && !stack
       ? [...sheets].find(s => s.panel() && s.depth() === st.mlbSheet)
       : undefined
     const swap = shown != null
-      || (panelRef.current && lastGone != null && performance.now() - lastGone.at < SWAP_MS
+      || (panelRef.current && !stack && lastGone != null && performance.now() - lastGone.at < SWAP_MS
         && st.mlbSheet === lastGone.depth && st.mlbSheetUrl === lastGone.url)
     if (st.mlbSheet === depth && (!own || st.mlbSheetUrl === own)) {
       // Adopted as it stands: a double-mount, or an entry seated for this sheet.

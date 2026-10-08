@@ -32,6 +32,9 @@ export const SearchView      = lazy(() => loaders.search().then(m => ({ default:
 // it does not need the team card. Warmed with the other views, and first on a player's address.
 const loadPlayer = () => import('./MlbPlayerDetail')
 export const MlbPlayerDetail = lazy(loadPlayer)
+// The same card as the desktop side panel, a thin wrapper that shares the card's chunk.
+const loadPlayerPanel = () => import('./MlbPlayerPanel')
+export const MlbPlayerPanel = lazy(() => loadPlayerPanel().then(m => ({ default: m.MlbPlayerPanel })))
 
 // Prefetches swallow failures: the real import reports a missing chunk (and the stale-build
 // reload in lib/staleBuild.ts handles it) when the reader actually goes there.
@@ -42,6 +45,8 @@ function warm(view: MlbView) {
 /** The chunk for whatever view this address opens. */
 export function preloadMlbViewFor(pathname: string, search: string) {
   const target = mlbTargetFromUrl(pathname, search)
+  // A game's address on a desktop is the full Game Center page, which is that chunk.
+  if (target?.gamePk != null) import('./LiveGameCenter').catch(() => {})
   if (target?.playerId != null) loadPlayer().catch(() => {})
   else warm(target?.view ?? 'home')
 }
@@ -51,6 +56,7 @@ export function preloadMlbViewFor(pathname: string, search: string) {
 export function preloadAllMlbViews() {
   for (const v of Object.keys(loaders) as (keyof typeof loaders)[]) warm(v)
   loadPlayer().catch(() => {})
+  loadPlayerPanel().catch(() => {})
   // The two game sheets every scoreboard opens on a tap. Lazy so Home does not carry them, warmed
   // here so the first tap is not a fetch.
   import('./LiveGameCenter').catch(() => {})

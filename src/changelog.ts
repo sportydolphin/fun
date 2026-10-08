@@ -4,6 +4,24 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.128.0',
+    date:    '2026-10-07',
+    changes: [
+      {
+        short: 'MLB: players open beside the page on desktop',
+        full:  'On a computer, a player clicked in a leaderboard, a roster or a box score opens in a panel beside the list instead of replacing it. Click another row to switch players, or Expand for the full page. A player picked from inside Game Center opens over the game with a way back to it.',
+      },
+      {
+        short: 'MLB: a full-page Game Center on desktop',
+        full:  'A shared game link, or Expand on the game panel, opens Game Center as a full page: the summary and every play on the left, both box scores on the right, and a bar that keeps the score in view. It shows its layout straight away and fills in as the game loads.',
+      },
+      {
+        short: 'MLB: smaller fixes around games and players',
+        full:  'Back from a stat ranking opened from a player panel returns to the panel, on the season it was showing. Game Center no longer jumps while it loads on a tablet, and a playoff game\'s series line no longer pushes the page down when it arrives.',
+      },
+    ],
+  },
+  {
     version: '1.127.0',
     date:    '2026-10-07',
     changes: [

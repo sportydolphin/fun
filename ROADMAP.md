@@ -110,7 +110,7 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    performers, biggest swings, game info (`views/GameSummary.tsx`). Plays fold by half-inning with
    a remembered Expand all. One type ramp (`views/gameType.ts`). *Open:* opening a player from a
    game closes it, so Back lands on Scores rather than the game. Item 11 closes this.
-11. **Side panel and full-page Game Center** (planned; WPBL's half built Oct 5, see #9 in
+11. ✅ **Side panel and full-page Game Center** (done Oct 7, see the last note; WPBL's half built Oct 5, see #9 in
    [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for the reasoning and the research behind it). On a desktop:
    a player opens as a nonmodal side panel showing the phone layout, swapped in place as the reader
    clicks down a list; Game Center opens as the same panel, with a player from it drawn over it
@@ -133,6 +133,28 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    *Oct 6:* ✅ **The player page rebuilt on WPBL's card** (item 12), which takes the big part of
    this away: the player is now a self-fetching component (`views/MlbPlayerDetail.tsx`) with WPBL's
    prop shape, so the panel is wiring rather than a rewrite.
+   *Oct 7:* ✅ **the player as the panel, and the full Game Center page.** On a desktop a player
+   clicked anywhere on the page opens beside it (`views/MlbPlayerPanel.tsx`, opened through
+   `state/playerPanel.ts`); another row swaps it in place on one history entry. A player from inside
+   the Game Center panel stacks over it with "‹ Game" (`stackNextPanel` in sheetHistory, the one-shot
+   that tells a trip from a card from a row on the page), and so does a game from the player's log.
+   The panel's Expand is the player's page; a rank opens the board with the player picked out. The
+   search bar still goes to the page, at every width. Game Center has a full page
+   (`GameCenterPage`, no tabs: summary and plays on the left, both box scores on the right from
+   `lg`, one column below, a pinned bar with the score and jump links), drawn by GameRoute for a game
+   ARRIVED AT on a desktop and for the panel's Expand, which replaces the panel's entry and keeps the
+   board (`state/gamePage.ts`: the entry carries `mlbGamePage`, kept through every restamp). A player
+   from the page opens as the panel beside it. An unplayed game stays the preview sheet. Phones are
+   unchanged. Pinned in `__tests__/sheetHistory.test.tsx` and `gamePage.test.ts`.
+   *Left:* `src/mlb/views` has no raw width query inside the panel (the only ones are MlbStats', on
+   the page), so the planned `usePhoneLayout()` pass came to nothing beyond the card's own `wide`.
+   Same day: the page is drawn before its data (the scoreboard from the summary, the cards at their
+   loaded height, measured within a pixel at 1440 and 960 with `?devSlow`), the series band's room
+   is held while the bracket loads, and the page and panel were swept for overflow at 1440, 1024 and
+   960 at both text sizes. A rank on the panel now pushes the board OVER the panel's entry and Back
+   reopens the panel (`usePlayerPanelRestore`), which also brings a player back as the panel rather
+   than the page at the bottom of a player, game, player stack. Between a phone and a desktop Game
+   Center is held at full height (`dialogFill` on ModalShell, MLB only; WPBL's dialogs still grow).
 12. ✅ **Player page rebuilt** (Oct 6). The customizable share card (four auto-picked stats, palette
    shuffle, PNG export) is gone; the page is WPBL's card, its parts shared in
    `src/ui/playerCard.tsx`: the club band (bio, draft, MLB awards as ribbons, last-five form strip),

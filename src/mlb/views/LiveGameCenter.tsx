@@ -11,18 +11,24 @@ import { teamLink, LINK_SX } from '../lib/links'
 import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { FinalGameSummary } from './FinalGames'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
+import { scrollBehavior } from '../../lib/motion'
 import {
   BoxScore, parseBoxScoreData,
   LogoBubble, LiveDot, SectionLabel, TeamBoxSection,
 } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
-import { MlbHiddenH1 } from '../components/PageHeading'
+import { MlbHiddenH1, MlbAddressH1 } from '../components/PageHeading'
+import { DetailPageBar } from '../../ui/DetailPageBar'
+import { ExpandButton } from '../../ui/ExpandButton'
 import { GC_CAPS, GC_META, GC_BODY, runGreen } from './gameType'
 import { useChartScrub } from '../../ui/chartScrub'
-import { pushEntry, sheetOpenAt } from '../state/sheetHistory'
+import { pushEntry, sheetOpenAt, stackNextPanel } from '../state/sheetHistory'
+import { openPlayerPanel } from '../state/playerPanel'
+import { expandGameToPage } from '../state/gamePage'
+import { track, EVENTS } from '../../lib/analytics'
 import { mlbSeriesPath } from '../routes'
 import {
-  useGameSeries, SeriesBand, TopPerformers, BiggestSwings, GameInfo, biggestSwings,
+  useGameSeries, SeriesBand, SeriesBandSkeleton, TopPerformers, BiggestSwings, GameInfo, biggestSwings,
 } from './GameSummary'
 import type { Performer, GameInfoData } from './GameSummary'
 
@@ -829,9 +835,12 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle }: {
 // is width. From `lg` the sheet is wide enough for both tables abreast and the toggle goes; CSS
 // rather than a media hook, so both are always in the DOM and find-in-page reaches either club.
 
-function TeamBoxColumns({ box, onPlayerClick }: {
+function TeamBoxColumns({ box, onPlayerClick, stacked = false }: {
   box: BoxScore
   onPlayerClick?: (id: number) => void
+  /** Both clubs, one above the other, at every width: the full page's right-hand column, which is
+   *  half the width that puts them abreast in the sheet. */
+  stacked?: boolean
 }) {
   const [side, setSide] = useState<'away' | 'home'>('away')
 
@@ -854,13 +863,15 @@ function TeamBoxColumns({ box, onPlayerClick }: {
 
   return (
     <Box>
-      <Box sx={{ display: { xs: 'flex', lg: 'none' }, px: 2, py: 1.25, gap: 0.75, justifyContent: 'center' }}>
+      <Box sx={{ display: stacked ? 'none' : { xs: 'flex', lg: 'none' }, px: 2, py: 1.25, gap: 0.75, justifyContent: 'center' }}>
         {teamChip('away', box.away)}
         {teamChip('home', box.home)}
       </Box>
-      <Box sx={{ display: 'grid', alignItems: 'start', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } }}>
+      <Box sx={{ display: 'grid', alignItems: 'start', gridTemplateColumns: stacked ? 'minmax(0, 1fr)' : { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } }}>
         {(['away', 'home'] as const).map(k => (
-          <Box key={k} sx={{
+          <Box key={k} sx={stacked ? {
+            minWidth: 0, borderTopStyle: 'solid', borderTopColor: 'divider', borderTopWidth: k === 'home' ? '1px' : 0,
+          } : {
             minWidth: 0, display: { xs: side === k ? 'block' : 'none', lg: 'block' },
             borderLeftStyle: 'solid', borderLeftColor: 'divider', borderLeftWidth: { xs: 0, lg: k === 'home' ? '1px' : 0 },
           }}>
@@ -879,8 +890,11 @@ function TeamBoxColumns({ box, onPlayerClick }: {
 // stacked over a separate line score saying the same runs again, which spent the first 330px of
 // the sheet on one number per club.
 
-function Scoreboard({ box, decided, onTeam }: {
+function Scoreboard({ box, decided, onTeam, blank = false }: {
   box: BoxScore; decided: boolean; onTeam?: (id: number) => void
+  /** Before the game is known at all (a cold landing on the full page): the table's own rows with
+   *  the clubs left empty, so the header is its loaded height from the first frame. */
+  blank?: boolean
 }) {
   const isDark = useIsDark()
   const lastNum = box.innings.length ? box.innings[box.innings.length - 1].num : 0
@@ -908,7 +922,10 @@ function Scoreboard({ box, decided, onTeam }: {
             ...LINK_SX, display: 'flex', width: 'fit-content', alignItems: 'center', gap: 0.75,
             ...(onTeam ? { cursor: 'pointer', borderRadius: 1, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING } : {}),
           }}>
-            <LogoBubble teamId={t.teamId} abbr={t.abbr} size={24} ring={1.5} />
+            {blank
+              // LogoBubble's own box: its ring is a border outside the 24px.
+              ? <Box sx={{ width: chromePx(24), height: chromePx(24), borderRadius: '50%', bgcolor: 'action.hover', border: '1.5px solid transparent', flexShrink: 0 }} />
+              : <LogoBubble teamId={t.teamId} abbr={t.abbr} size={24} ring={1.5} />}
             <Typography sx={{ fontSize: { xs: '0.84rem', sm: '0.92rem' }, fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: muted ? 'text.secondary' : 'text.primary' }}>
               <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{t.abbr}</Box>
               <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{TEAM_NICKNAME[t.teamId] ?? t.name}</Box>
@@ -962,6 +979,8 @@ type GameCenterProps = {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
   initialTab?:    'summary' | 'box' | 'plays'
+  /** The side panel's Expand, to the full page, with the board that was showing. */
+  onExpand?:      (tab: 'summary' | 'box' | 'plays') => void
 }
 
 /**
@@ -974,14 +993,39 @@ export function GameCenterModal(props: GameCenterProps) {
   return <GameCenterSheet key={props.game.gamePk} {...props} />
 }
 
-function GameCenterSheet({ game, onClose, onPlayerClick, onTeamClick, initialTab }: GameCenterProps) {
+function GameCenterSheet(props: GameCenterProps) {
   // On a desktop, the side panel beside the page rather than a dialog over it (ModalShell's
   // `panel`), which changes how the history entry behaves. See sheetHistory.ts.
   const asPanel = useOpensAsPanel()
   // Every way out (the close button, Escape, the backdrop, a drag down, Back) goes through this,
   // so Back closes the sheet instead of leaving the section. The sheet's entry carries the game's
   // own address, which is the page a shared link or a search result opens. See sheetHistory.ts.
-  const close = useSheetHistory(onClose, mlbGamePath(game.gamePk), { panel: asPanel })
+  const close = useSheetHistory(props.onClose, mlbGamePath(props.game.gamePk), { panel: asPanel })
+  // Expand is the same from every opener, so it is the sheet's own unless an opener says otherwise.
+  return <GameCenterView {...props} layout="sheet" asPanel={asPanel} close={close}
+    onExpand={props.onExpand ?? (tab => expandGameToPage(props.game.gamePk, tab))} />
+}
+
+/**
+ * GAME CENTER AS A FULL PAGE, on a desktop: reached by a game's address arrived at from outside the
+ * section (a cold load, a shared link) and by the side panel's Expand. WPBL's arrangement
+ * (GameCenterPage in wpbl/GameDetail.tsx): NO TABS, since a recap read against its box score is
+ * exactly the case tabs fail, so the summary and the plays run down the left and both box scores
+ * down the right, with a pinned bar carrying the score and links to each. One column below `lg`.
+ * Same address as the panel; which one draws is the history entry's to say (see GameRoute).
+ */
+export function GameCenterPage(props: GameCenterProps & { onBack: () => void }) {
+  return <GameCenterView key={props.game.gamePk} {...props} layout="page" asPanel={false} close={props.onClose} />
+}
+
+function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab, layout, asPanel, close, onBack, onExpand }: GameCenterProps & {
+  layout: 'sheet' | 'page'
+  asPanel: boolean
+  close: () => void
+  /** The page's back control. */
+  onBack?: () => void
+}) {
+  const isPage = layout === 'page'
   const [data,        setData]        = useState<GameCenterData | null>(null)
   const [wp,          setWp]          = useState<WpPoint[]>([])
   const [loading,     setLoading]     = useState(true)
@@ -1037,7 +1081,22 @@ function GameCenterSheet({ game, onClose, onPlayerClick, onTeamClick, initialTab
   const hasScoring = Boolean(data?.plays.some(p => p.isScoring))
   const heading = useGameSeo({ ...game, state: data?.state ?? game.state, away, home })
 
-  const selectPlayer = onPlayerClick ? (id: number) => { onPlayerClick(id); onClose() } : undefined
+  // As the side panel, a player is a trip FROM the game: their panel draws over this one with a
+  // "‹ Game" back control, and this stays mounted beneath it. Otherwise the game makes way for the
+  // player's page, as it always has.
+  const selectPlayer = isPage
+    ? (id: number) => {
+      // The page is a page: a player from it is the side panel beside it, as from any list.
+      track(EVENTS.MLB_PLAYER_OPENED, { playerId: id, from: 'game' })
+      openPlayerPanel({ id, player: null, stacked: false })
+    }
+    : asPanel
+    ? (id: number) => {
+      track(EVENTS.MLB_PLAYER_OPENED, { playerId: id, from: 'game' })
+      stackNextPanel()
+      openPlayerPanel({ id, player: null, stacked: true })
+    }
+    : onPlayerClick ? (id: number) => { onPlayerClick(id); onClose() } : undefined
 
   const decisions = [
     game.winPitcher  && { label: 'W',  name: game.winPitcher },
@@ -1087,11 +1146,120 @@ function GameCenterSheet({ game, onClose, onPlayerClick, onTeamClick, initialTab
     const url = mlbSeriesPath(data.season, series.id)
     if (sheetOpenAt(url)) { close(); return }
     pushEntry({ view: 'standings' }, url)
-    close()
+    // The page has no sheet to close: the new address takes it away (GameRoute hears it).
+    if (!isPage) close()
     window.setTimeout(() => window.dispatchEvent(new PopStateEvent('popstate')), 0)
   }
 
-  const toTeam = onTeamClick ? (id: number) => { onTeamClick(id); onClose() } : undefined
+  const toTeam = onTeamClick ? (id: number) => { onTeamClick(id); if (!isPage) onClose() } : undefined
+
+  // ── The boards, shared by the sheet and the page ─────────────────────────────
+
+  const scoreHeader = (
+    <>
+      {/* Before the box score lands, the same table from what the scoreboard already had: the
+          clubs, the runs, hits and errors, and nine empty innings, so nothing moves when it does. */}
+      <Scoreboard box={data?.box ?? { innings: [], away: game.away, home: game.home } as unknown as BoxScore} decided={isFinal} onTeam={toTeam} />
+
+      {/* W/L/SV decisions (finals) */}
+      {isFinal && decisions.length > 0 && (
+        <Box sx={{ px: 2, pt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1.75 }}>
+          {decisions.map(d => (
+            <Box key={d.label} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+              <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, color: 'text.secondary', lineHeight: 1 }}>{d.label}</Typography>
+              <Typography sx={{ fontSize: GC_META, fontWeight: 700, lineHeight: 1 }}>{d.name}</Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {loading && !data && !isPage && (
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: GC_META, color: 'text.secondary' }}>Loading game…</Typography>
+        </Box>
+      )}
+    </>
+  )
+
+  const playsControls = (
+    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {/* Only in All: Scoring is a flat list of the runs, with nothing to fold. */}
+      {!(scoringOnly && hasScoring) && (
+        <Box
+          {...pressable(toggleAll)}
+          aria-label={allOpen ? 'Collapse every half-inning' : 'Expand every half-inning'}
+          sx={{
+            ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4, mr: 0.5,
+            px: 0.75, minHeight: chromePx(28), borderRadius: 1, cursor: 'pointer', userSelect: 'none',
+            fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
+            color: 'text.secondary', ...hoverOnly({ color: 'text.primary' }),
+          }}
+        >
+          <Box component="span" aria-hidden sx={{ fontSize: '0.58rem', transition: 'transform 0.15s', transform: allOpen ? 'rotate(90deg)' : 'none' }}>▶</Box>
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </Box>
+      )}
+      {hasScoring && filterChip(true, 'Scoring')}
+      {filterChip(false, 'All')}
+    </Box>
+  )
+
+  const summaryBoard = data && (
+    <Box>
+      {series ? <SeriesBand s={series} gamePk={game.gamePk} season={data.season} onOpen={openSeries} />
+        : series === undefined && game.series ? <SeriesBandSkeleton /> : null}
+      {isLive && data.situation && <SituationPanel sit={data.situation} onPlayerClick={selectPlayer} />}
+      {wp.length >= 2 && (
+        <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+          <WinProbChart pts={wp} plays={data.plays} away={data.away} home={data.home} live={isLive} marks={swings.map(w => w.index)} />
+        </Box>
+      )}
+      {(data.performers.length > 0 || swings.length > 0) && (
+        <Box sx={{
+          display: 'grid', alignItems: 'start', borderTop: '1px solid', borderColor: 'divider',
+          // Abreast from `lg` in the sheet; never on the page, whose column is half that.
+          gridTemplateColumns: isPage ? 'minmax(0, 1fr)' : { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
+        }}>
+          {data.performers.length > 0 && (
+            <Box sx={{ minWidth: 0, borderRightStyle: 'solid', borderRightColor: 'divider', borderRightWidth: isPage ? 0 : { xs: 0, lg: swings.length ? '1px' : 0 } }}>
+              <TopPerformers performers={data.performers} onPlayerClick={selectPlayer} />
+            </Box>
+          )}
+          {swings.length > 0 && (
+            <Box sx={{ minWidth: 0, borderTopStyle: 'solid', borderTopColor: 'divider', borderTopWidth: isPage ? (data.performers.length ? '1px' : 0) : { xs: data.performers.length ? '1px' : 0, lg: 0 } }}>
+              <BiggestSwings swings={swings} away={data.away.teamId} home={data.home.teamId} />
+            </Box>
+          )}
+        </Box>
+      )}
+      <GameInfo info={data.info} />
+    </Box>
+  )
+
+  const playsBoard = data && (
+    <Box sx={{ pb: 1.5 }}>
+      <PlaysList plays={data.plays} away={data.away} home={data.home} scoringOnly={scoringOnly && hasScoring}
+        expanded={expanded} onToggle={toggleHalf} />
+    </Box>
+  )
+
+  const copyLink = <MlbCopyLink target={{ kind: 'game', gamePk: game.gamePk }} title="Copy a link to this game" />
+  const eyebrow = (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: isLive ? TONE.red : 'inherit' }}>
+      {isLive && <LiveDot size={6} />}
+      {statusText}
+    </Box>
+  )
+
+  if (isPage) return (
+    <GamePageLayout
+      gamePk={game.gamePk} heading={heading} eyebrow={eyebrow} actions={copyLink} onBack={onBack ?? onClose}
+      header={scoreHeader} away={away} home={home} showScore={isFinal || isLive}
+      summaryLabel={isLive ? 'Live' : 'Summary'}
+      summary={summaryBoard} box={data && <TeamBoxColumns box={data.box} onPlayerClick={selectPlayer} stacked />}
+      plays={playsBoard} playsControls={playsControls} initialTab={initialTab} ready={!!data} postseason={!!game.series}
+    />
+  )
 
   // The shared sheet (src/ui/ModalShell): a bottom sheet on a phone that drags down to close, a
   // centred card above that. Laid out as WPBL's game page is (GameDetail.tsx): the line score as the
@@ -1104,125 +1272,190 @@ function GameCenterSheet({ game, onClose, onPlayerClick, onTeamClick, initialTab
       maxWidth={{ xs: chromePx(560), lg: chromePx(840) }}
       sheet
       sheetFill
+      // Between a phone and a desktop, full height from the first frame (see ModalShell).
+      dialogFill
       panel
       openKey={game.gamePk}
-      actions={<MlbCopyLink target={{ kind: 'game', gamePk: game.gamePk }} title="Copy a link to this game" />}
-      eyebrow={
-        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: isLive ? TONE.red : 'inherit' }}>
-          {isLive && <LiveDot size={6} />}
-          {statusText}
-        </Box>
-      }
+      actions={<>
+        {asPanel && onExpand && <ExpandButton onExpand={() => onExpand(tab)} title="Open the full Game Center" />}
+        {copyLink}
+      </>}
+      eyebrow={eyebrow}
     >
       {/* While the sheet is up the game is the page (PageHeading.tsx). */}
       <MlbHiddenH1>{heading}</MlbHiddenH1>
 
-        {data ? (
-          <Scoreboard box={data.box} decided={isFinal} onTeam={toTeam} />
-        ) : (
-          // Before the box score lands: the two clubs and the runs the scoreboard already had.
-          <Box sx={{ px: 2, pt: 1.5, display: 'grid', gap: 0.75 }}>
-            {[away, home].map(t => (
-              <Box key={t.teamId} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pl: 1.4 }}>
-                <LogoBubble teamId={t.teamId} abbr={t.abbr} size={24} ring={1.5} />
-                <Typography sx={{ fontSize: '0.92rem', fontWeight: 600 }}>{TEAM_NICKNAME[t.teamId] ?? t.abbr}</Typography>
-                <Typography sx={{ ml: 'auto', pr: 1, fontSize: '1.05rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{t.runs}</Typography>
-              </Box>
-            ))}
+      {scoreHeader}
+
+      {data && (
+        <>
+          {/* Tabs, WPBL's three: the story of the game, the tables, every play. */}
+          <Box sx={{
+            mt: 1.5, px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider',
+            display: 'flex', alignItems: 'center', gap: 0.75,
+            position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
+          }}>
+            {tabChip('summary', isLive ? 'Live' : 'Summary')}
+            {tabChip('box', 'Box Score')}
+            {tabChip('plays', 'Plays')}
+            {tab === 'plays' && playsControls}
           </Box>
-        )}
 
-        {/* W/L/SV decisions (finals) */}
-        {isFinal && decisions.length > 0 && (
-          <Box sx={{ px: 2, pt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1.75 }}>
-            {decisions.map(d => (
-              <Box key={d.label} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-                <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, color: 'text.secondary', lineHeight: 1 }}>{d.label}</Typography>
-                <Typography sx={{ fontSize: GC_META, fontWeight: 700, lineHeight: 1 }}>{d.name}</Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {loading && !data && (
-          <Box sx={{ py: 4, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: GC_META, color: 'text.secondary' }}>Loading game…</Typography>
-          </Box>
-        )}
-
-        {data && (
-          <>
-            {/* Tabs, WPBL's three: the story of the game, the tables, every play. */}
-            <Box sx={{
-              mt: 1.5, px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider',
-              display: 'flex', alignItems: 'center', gap: 0.75,
-              position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
-            }}>
-              {tabChip('summary', isLive ? 'Live' : 'Summary')}
-              {tabChip('box', 'Box Score')}
-              {tabChip('plays', 'Plays')}
-              {tab === 'plays' && (
-                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {/* Only in All: Scoring is a flat list of the runs, with nothing to fold. */}
-                  {!(scoringOnly && hasScoring) && (
-                    <Box
-                      {...pressable(toggleAll)}
-                      aria-label={allOpen ? 'Collapse every half-inning' : 'Expand every half-inning'}
-                      sx={{
-                        ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4, mr: 0.5,
-                        px: 0.75, minHeight: chromePx(28), borderRadius: 1, cursor: 'pointer', userSelect: 'none',
-                        fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
-                        color: 'text.secondary', ...hoverOnly({ color: 'text.primary' }),
-                      }}
-                    >
-                      <Box component="span" aria-hidden sx={{ fontSize: '0.58rem', transition: 'transform 0.15s', transform: allOpen ? 'rotate(90deg)' : 'none' }}>▶</Box>
-                      {allOpen ? 'Collapse all' : 'Expand all'}
-                    </Box>
-                  )}
-                  {hasScoring && filterChip(true, 'Scoring')}
-                  {filterChip(false, 'All')}
-                </Box>
-              )}
-            </Box>
-
-            {tab === 'summary' ? (
-              <Box>
-                {series && <SeriesBand s={series} gamePk={game.gamePk} season={data.season} onOpen={openSeries} />}
-                {isLive && data.situation && <SituationPanel sit={data.situation} onPlayerClick={selectPlayer} />}
-                {wp.length >= 2 && (
-                  <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                    <WinProbChart pts={wp} plays={data.plays} away={data.away} home={data.home} live={isLive} marks={swings.map(w => w.index)} />
-                  </Box>
-                )}
-                {(data.performers.length > 0 || swings.length > 0) && (
-                  <Box sx={{
-                    display: 'grid', alignItems: 'start', borderTop: '1px solid', borderColor: 'divider',
-                    gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
-                  }}>
-                    {data.performers.length > 0 && (
-                      <Box sx={{ minWidth: 0, borderRightStyle: 'solid', borderRightColor: 'divider', borderRightWidth: { xs: 0, lg: swings.length ? '1px' : 0 } }}>
-                        <TopPerformers performers={data.performers} onPlayerClick={selectPlayer} />
-                      </Box>
-                    )}
-                    {swings.length > 0 && (
-                      <Box sx={{ minWidth: 0, borderTopStyle: 'solid', borderTopColor: 'divider', borderTopWidth: { xs: data.performers.length ? '1px' : 0, lg: 0 } }}>
-                        <BiggestSwings swings={swings} away={data.away.teamId} home={data.home.teamId} />
-                      </Box>
-                    )}
-                  </Box>
-                )}
-                <GameInfo info={data.info} />
-              </Box>
-            ) : tab === 'box' ? (
-              <TeamBoxColumns box={data.box} onPlayerClick={selectPlayer} />
-            ) : (
-              <Box sx={{ pb: 1.5 }}>
-                <PlaysList plays={data.plays} away={data.away} home={data.home} scoringOnly={scoringOnly && hasScoring}
-                  expanded={expanded} onToggle={toggleHalf} />
-              </Box>
-            )}
-          </>
-        )}
+          {tab === 'summary' ? summaryBoard : tab === 'box' ? (
+            <TeamBoxColumns box={data.box} onPlayerClick={selectPlayer} />
+          ) : playsBoard}
+        </>
+      )}
     </ModalShell>
+  )
+}
+
+// ─── Before the game is known ─────────────────────────────────────────────────
+
+/**
+ * The full page while GameRoute is still reading which game the address names: a cold landing has
+ * nothing but the gamePk. The same layout, the scoreboard's table with its clubs left blank, and the
+ * decisions line held open, since a game reached by a link is most often a finished one.
+ */
+export function GamePageSkeleton({ gamePk, onBack }: { gamePk: number; onBack: () => void }) {
+  const blankTeam = { teamId: 0, abbr: '', name: ' ', runs: '', hits: '', errors: '' }
+  return (
+    <GamePageLayout
+      gamePk={gamePk} heading="MLB Game Center" eyebrow={' '} onBack={onBack}
+      actions={<MlbCopyLink target={{ kind: 'game', gamePk }} title="Copy a link to this game" />}
+      header={<>
+        <Scoreboard blank box={{ innings: [], away: blankTeam, home: blankTeam } as unknown as BoxScore} decided={false} />
+        <Box aria-hidden sx={{ px: 2, pt: 1.25, display: 'flex', gap: 1.75, visibility: 'hidden' }}>
+          <Typography sx={{ fontSize: GC_META, fontWeight: 700, lineHeight: 1 }}>W</Typography>
+        </Box>
+      </>}
+      away={{ abbr: '' }} home={{ abbr: '' }} showScore={false} summaryLabel="Summary"
+      summary={null} box={null} plays={null} playsControls={null} ready={false} postseason={false}
+    />
+  )
+}
+
+// ─── The full page's layout ───────────────────────────────────────────────────
+//
+// The sheet's three tabs as three sections on one page. From `lg`, two columns: the story of the
+// game on the left (the summary, then every play) and the numbers on the right (both box scores,
+// one above the other), so a swing in the plays can be read against the line it came from. Below
+// `lg`, one column in reading order: summary, box scores, plays. The jump bar stands in for the
+// tabs: pinned under the toolbar with the score at its left, so a reader deep in the plays still
+// sees the score and can reach any board in one click. Real links to the sections' ids, so they
+// also work as anchors.
+
+const GC_SECTION = { summary: 'gc-summary', box: 'gc-box', plays: 'gc-plays' } as const
+
+function GamePageLayout({ gamePk, heading, eyebrow, actions, onBack, header, away, home, showScore, summaryLabel, summary, box, plays, playsControls, initialTab, ready, postseason }: {
+  gamePk: number
+  heading: string
+  eyebrow: React.ReactNode
+  actions: React.ReactNode
+  onBack: () => void
+  header: React.ReactNode
+  away: { abbr: string; runs?: number }
+  home: { abbr: string; runs?: number }
+  showScore: boolean
+  summaryLabel: string
+  summary: React.ReactNode
+  box: React.ReactNode
+  plays: React.ReactNode
+  playsControls: React.ReactNode
+  initialTab?: 'summary' | 'box' | 'plays'
+  ready: boolean
+  /** A postseason game, whose summary opens with the series band: its room is held while loading. */
+  postseason: boolean
+}) {
+  // Expand from the panel's Box Score or Plays lands on that board, once, when there is a board to
+  // land on. Not the summary: that is where the page starts anyway.
+  const landed = useRef(false)
+  useEffect(() => {
+    if (!ready || landed.current) return
+    landed.current = true
+    if (!initialTab || initialTab === 'summary') return
+    requestAnimationFrame(() => document.getElementById(GC_SECTION[initialTab])?.scrollIntoView({ block: 'start' }))
+  }, [ready, initialTab])
+
+  const jump = (to: keyof typeof GC_SECTION) => (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    e.preventDefault()
+    document.getElementById(GC_SECTION[to])?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
+  }
+
+  const cardSx = {
+    bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden',
+  } as const
+  // Clear of the toolbar and the jump bar when a link lands a section at the top.
+  const scrollMarginTop = `calc(var(--app-header-h, 0px) + ${chromePx(56)})`
+  // THE PAGE IS DRAWN BEFORE ITS DATA, as every loading state here is (CLAUDE.md): the bar, the
+  // header, the jump bar and the three cards at their loaded places, each body holding about the
+  // room its board takes on a nine-inning game, so the cards beside and below do not move when the
+  // boards land. Measured at 1440 on a final ALDS game: summary 1216px, box 1350, plays 1161.
+  const reserve = { summary: chromePx(973), box: chromePx(1080), plays: chromePx(929) }
+  const pending = (key: keyof typeof GC_SECTION) => (
+    <Box aria-busy sx={{ minHeight: reserve[key] }}>
+      {key === 'summary' && postseason && <SeriesBandSkeleton />}
+    </Box>
+  )
+  const section = (key: keyof typeof GC_SECTION, title: string, body: React.ReactNode, controls?: React.ReactNode) => (
+    <Box component="section" id={GC_SECTION[key]} aria-label={title} sx={{ ...cardSx, gridArea: key, minWidth: 0, scrollMarginTop }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Typography component="h2" sx={{ fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+          {title}
+        </Typography>
+        {/* The plays' controls are drawn from the first frame, hidden, so the header is its own height
+            before there are plays to filter. */}
+        {/* One height whichever controls a game has (the fold toggle is taller than the two chips),
+            so the header does not change size when the plays land and pick theirs. */}
+        {controls !== undefined && (
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minHeight: chromePx(28), visibility: ready ? 'visible' : 'hidden' }}>{controls}</Box>
+        )}
+      </Box>
+      {ready ? body : pending(key)}
+    </Box>
+  )
+  const linkSx = {
+    ...FOCUS_RING, fontSize: GC_META, fontWeight: 700, color: 'text.secondary', textDecoration: 'none', borderRadius: 1,
+    ...hoverOnly({ color: 'text.primary' }),
+  } as const
+
+  return (
+    <Box component="article" sx={{ width: '100%', maxWidth: chromePx(1200), mx: 'auto', pb: 4 }}>
+      {/* While the page is up the game is the page (PageHeading.tsx), as with the sheet, until a
+          player's panel over it takes the address. */}
+      <MlbAddressH1 path={mlbGamePath(gamePk)}>{heading}</MlbAddressH1>
+      <DetailPageBar onBack={onBack} eyebrow={eyebrow} actions={actions} />
+      <Box sx={{ ...cardSx, pb: 1.5, mb: 1.5 }}>{header}</Box>
+
+      <Box component="nav" aria-label="Game Center sections" sx={{
+        position: 'sticky', top: 'var(--app-header-h, 0px)', zIndex: 3,
+        bgcolor: 'background.default', py: 1, mb: 1.5,
+        display: 'flex', alignItems: 'center', gap: 2,
+        borderBottom: '1px solid', borderColor: 'divider',
+      }}>
+        <Box component="a" href={`#${GC_SECTION.summary}`} onClick={jump('summary')} sx={linkSx}>{summaryLabel}</Box>
+        <Box component="a" href={`#${GC_SECTION.box}`} onClick={jump('box')} sx={linkSx}>Box Score</Box>
+        <Box component="a" href={`#${GC_SECTION.plays}`} onClick={jump('plays')} sx={linkSx}>Plays</Box>
+        {/* The score at the far end, so the links stay put while it is not known yet: at the start of
+            the bar its width, which depends on the clubs, would slide them along when it arrived. */}
+        <Typography sx={{ ml: 'auto', fontSize: GC_BODY, fontWeight: 800, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', visibility: showScore ? 'visible' : 'hidden' }}>
+          {showScore ? `${away.abbr} ${away.runs ?? 0}, ${home.abbr} ${home.runs ?? 0}` : ' '}
+        </Typography>
+      </Box>
+
+      <Box sx={{
+        display: 'grid', gap: 1.5, alignItems: 'start',
+        gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
+        gridTemplateAreas: { xs: '"summary" "box" "plays"', lg: '"summary box" "plays box"' },
+        // The box column is one long card beside two; without this the first row stretches to it
+        // and leaves a gap under the summary as tall as the box scores.
+        gridTemplateRows: { lg: 'auto 1fr' },
+      }}>
+        {section('summary', summaryLabel, summary)}
+        {section('box', 'Box Score', box)}
+        {section('plays', 'Plays', plays, playsControls)}
+        </Box>
+    </Box>
   )
 }
