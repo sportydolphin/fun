@@ -46,9 +46,9 @@ jobs:
 
       # Only `pg`, matching the other two retro jobs: this script imports nothing from the app.
       - name: Install dependency
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'pg'
 
       - name: Fill empty plays from RetroWPBL
         env:

@@ -51,13 +51,13 @@ jobs:
           node-version: '22'
 
       # Same trick as the board/reminder workflows: install only what this script needs, at
-      # the versions pinned in package.json, rather than the whole frontend toolchain.
+      # the versions pinned in package-lock.json, rather than the whole frontend toolchain.
       # esbuild is one of them here — the script is TypeScript so that it can share the
       # site's recap engine (src/wpbl/derive/recap.ts) instead of restating it.
       - name: Install dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js ws esbuild'
 
       - name: Post WPBL Discord recaps
         env:

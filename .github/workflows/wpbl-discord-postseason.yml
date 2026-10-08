@@ -57,12 +57,12 @@ jobs:
         run: echo "DISCORD_BOT_TOKEN / DISCORD_GUILD_ID not set, skipping."
 
       # Same trick as the board workflow: install only the two packages this script
-      # imports, at the versions pinned in package.json, instead of the whole frontend.
+      # imports, at the versions pinned in package-lock.json, instead of the whole frontend.
       - name: Install dependencies
         if: env.DISCORD_BOT_TOKEN != '' && env.DISCORD_GUILD_ID != ''
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js ws'
 
       - name: Sync postseason events
         if: env.DISCORD_BOT_TOKEN != '' && env.DISCORD_GUILD_ID != ''

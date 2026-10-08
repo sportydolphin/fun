@@ -1,0 +1,96 @@
+name: Workflow Failure Alert
+
+# Pages the owner when a scheduled workflow goes red.
+#
+# Until Oct 2026 only the ingest, the scoring job and three heartbeat jobs could page. The other
+# thirty scheduled workflows failed into the Actions tab, where nobody looks: the restock watcher
+# went red 71 times in a month, 47 of them in one day, and nothing said so. A crash is the one
+# failure a job cannot report about itself, so this watches from the outside.
+#
+# It records the failure as a `workflow:<name>` row in cron_heartbeats and then runs the normal
+# health check, which pages it through the same dedupe table and push path as everything else
+# (see WORKFLOW_FAILURE_WINDOW_MS in shared/adminHealth.js for how long an alert lives).
+#
+# THE LIST BELOW MUST NAME EVERY SCHEDULED WORKFLOW, by its `name:`, not its file name. GitHub
+# has no wildcard for workflow_run, so a new cron that is not listed fails in silence exactly as
+# before. src/__tests__/workflowDeps.test.ts fails CI on any scheduled workflow missing here, and
+# on any name here that matches no workflow, which is what a rename looks like.
+#
+# Only scheduled and dispatched-by-cron runs page. A run someone started by hand is being watched
+# by whoever started it, and a pull request's CI has its own red X on the pull request.
+#
+# workflow_run always runs this file as it is on main, so a change here takes effect only once it
+# has merged.
+
+on:
+  workflow_run:
+    types: [completed]
+    workflows:
+      - Admin Health Alert
+      - Daily Bot Predictions
+      - Daily Pick Reminders
+      - Game Start Reminders
+      - Pull feature requests
+      - Rebuild sitemap
+      - Resolve Streak Survivor
+      - Update Milestone Watch
+      - Update Playoff Odds
+      - Update Prediction Boards
+      - Update Streak Leaders
+      - WPBL Bluesky Game Start
+      - WPBL Bluesky Recaps
+      - WPBL Commons Photo Sync
+      - WPBL Discord Birthdays
+      - WPBL Discord Board
+      - WPBL Discord postseason events
+      - WPBL Discord Recaps
+      - WPBL Game Start Reminders
+      - WPBL Mention Watch
+      - WPBL Mirror Drift Check
+      - WPBL Play-by-Play Validation
+      - WPBL play gap fill
+      - WPBL postseason marking check
+      - WPBL Recap Links Sync
+      - WPBL RetroWPBL Stats Check
+      - WPBL RetroWPBL Sync
+      - WPBL roster fork check
+      - WPBL season archive
+      - WPBL Shop Restock Watch
+      - WPBL Site Calendar Sync
+      - WPBL Tracking Listener
+      - WPBL Tracking Watch
+      - WPBL YouTube Sync
+
+# No concurrency group, on purpose. GitHub keeps one PENDING run per group and cancels it when a
+# newer one queues, so a group would drop the failure of whichever workflow queued second. Two
+# failures landing in the same second can both page; a duplicate page is the cheaper mistake.
+
+jobs:
+  page:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'repository_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install script dependencies
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js web-push ws'
+
+      - name: Record the failure and page the owner
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT:             ${{ secrets.VAPID_SUBJECT }}
+          FAILED_WORKFLOW:           ${{ github.event.workflow_run.name }}
+          FAILED_RUN_URL:            ${{ github.event.workflow_run.html_url }}
+        run: node scripts/check-admin-health.mjs

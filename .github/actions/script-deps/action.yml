@@ -1,0 +1,55 @@
+name: Install script dependencies
+description: >
+  Install only the named packages, at the versions package-lock.json resolved, for a cron script
+  that imports a few packages and none of the frontend.
+
+# WHY THE MANIFEST STEPS ASIDE. `npm install --no-save pg` inside a project does not install pg:
+# it reifies the whole package.json and adds pg to it. Every cron workflow did exactly that for
+# months under a comment saying "only pg", installing 384 packages and running their lifecycle
+# scripts (ffmpeg-static downloads a binary) to use 14 of them. Nearly every red scheduled run in
+# Sep and Oct 2026 died in that step, on a registry hiccup or an install script, for a package the
+# job never loads, and a cron that goes red for unrelated reasons trains everyone to ignore red.
+#
+# The stub manifest is not optional. With NO package.json, npm walks up the tree looking for a
+# project and installs into whatever it finds (on a laptop, the home directory).
+#
+# The lockfile pins the version, not the package.json range, so a cron job runs the same code CI
+# tested. A package missing from the lockfile fails here, loudly, rather than resolving whatever
+# is newest. src/__tests__/workflowDeps.test.ts checks every list against what its scripts import.
+
+inputs:
+  packages:
+    description: Space-separated package names, each present in package-lock.json.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        set -euo pipefail
+        specs=$(node -e '
+          const lock = require("./package-lock.json").packages
+          const names = process.env.PACKAGES.split(/\s+/).filter(Boolean)
+          console.log(names.map(n => {
+            const p = lock["node_modules/" + n]
+            if (!p) { console.error(`${n} is not in package-lock.json`); process.exit(1) }
+            return `${n}@${p.version}`
+          }).join(" "))')
+        hold="$RUNNER_TEMP/project-manifest"
+        mkdir -p "$hold"
+        mv package.json package-lock.json "$hold/"
+        echo '{"private":true}' > package.json
+        # Three tries: the registry has answered 404 for a published tarball for a few minutes at
+        # a time (realtime-js, Oct 7, 2026), and a cron that pages on that is crying wolf.
+        status=1
+        for attempt in 1 2 3; do
+          status=0
+          npm install --no-save --no-package-lock --no-audit --no-fund --loglevel=error $specs && break || status=$?
+          [ "$attempt" = 3 ] || sleep 15
+        done
+        rm package.json
+        mv "$hold/package.json" "$hold/package-lock.json" .
+        exit $status

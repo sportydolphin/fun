@@ -45,6 +45,8 @@ export const INGEST_STALE_MS: number
 export const INGEST_STALE_OFFSEASON_MS: number
 export const VALIDATION_STALE_MS: number
 export const HEARTBEAT_CHECKS: HeartbeatCheck[]
+export const WORKFLOW_JOB_PREFIX: string
+export const WORKFLOW_FAILURE_WINDOW_MS: number
 
 export function healthAlerts(
   rows: {

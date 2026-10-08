@@ -58,11 +58,11 @@ jobs:
           node-version: '22'
 
       # Same install trick as the sibling WPBL workflows: pull only the packages these
-      # scripts import, at the versions pinned in package.json, not the whole frontend.
+      # scripts import, at the versions pinned in package-lock.json, not the whole frontend.
       - name: Install dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js ws'
 
       - name: Sync WPBL YouTube highlights
         env:

@@ -38,12 +38,12 @@ jobs:
         with:
           node-version: '22'
 
-      # Same three packages the push senders need, versions pinned from package.json so there is
+      # Same three packages the push senders need, versions pinned from package-lock.json so there is
       # one source of truth. The frontend toolchain is never imported here.
       - name: Install dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','web-push','ws'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js web-push ws'
 
       - name: Check admin health and alert the owner
         env:

@@ -54,9 +54,9 @@ jobs:
       # and the whole frontend toolchain.
       - name: Install script dependencies
         if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js ws'
 
       - name: Update streak leaders
         if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'

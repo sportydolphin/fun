@@ -33,7 +33,8 @@
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import webpush from 'web-push'
-import { healthAlerts } from '../shared/adminHealth.js'
+import { healthAlerts, WORKFLOW_JOB_PREFIX } from '../shared/adminHealth.js'
+import { recordHeartbeat } from '../shared/heartbeat.js'
 import { buildAdminHealthAlert } from '../shared/notifications.js'
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -55,6 +56,11 @@ const REMINDER_MS = 12 * 60 * 60_000
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const TEST    = process.argv.includes('--test')
+// Set by .github/workflows/workflow-failure-alert.yml: record that workflow's failure as a
+// heartbeat, then run the normal check, which pages it. Paging from here rather than from the
+// workflow keeps ONE dedupe table and one push path; and it pages at once, year-round, where the
+// scheduled check above only runs in season.
+const FAILED_WORKFLOW = process.env.FAILED_WORKFLOW ?? ''
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('❌  Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running')
@@ -154,6 +160,10 @@ async function runTest() {
 
 async function main() {
   if (TEST) return runTest()
+
+  if (FAILED_WORKFLOW && !DRY_RUN) {
+    await recordHeartbeat(supabase, `${WORKFLOW_JOB_PREFIX}${FAILED_WORKFLOW}`, false, process.env.FAILED_RUN_URL || null)
+  }
 
   const [ingest, validation, heartbeats, near] = await Promise.all([
     latestRun('wpbl_ingest_runs', 'ran_at, ok, error_count, errors'),

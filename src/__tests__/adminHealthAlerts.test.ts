@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { healthAlerts, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS } from '../../shared/adminHealth.js'
+import { healthAlerts, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS, WORKFLOW_JOB_PREFIX, WORKFLOW_FAILURE_WINDOW_MS } from '../../shared/adminHealth.js'
 
 // The thresholds ARE the feature: a job that quietly broke while still looking fine is the
 // whole failure mode, and paging on an expected state (a "behind" TrackMan feed, a nightly
@@ -99,6 +99,33 @@ describe('healthAlerts — heartbeat jobs', () => {
   it('pages when a nightly job has gone quiet past its cadence', () => {
     const stale = beat({ ran_at: ago((HEARTBEAT_CHECKS[0].maxAgeMs ?? 0) + 60_000) })
     expect(healthAlerts({ heartbeats: [stale] }, NOW).map(x => x.key)).toContain(`${job}:stale`)
+  })
+})
+
+describe('healthAlerts: failed workflows', () => {
+  const failed = (over: Record<string, unknown> = {}) => ({
+    job: `${WORKFLOW_JOB_PREFIX}WPBL Shop Restock Watch`, ran_at: ago(60_000), ok: false,
+    detail: 'https://github.com/x/y/actions/runs/1', ...over,
+  })
+
+  it('pages a recent failure under the workflow name, with the run link', () => {
+    const [a] = healthAlerts({ heartbeats: [failed()] }, NOW)
+    expect(a.title).toBe('WPBL Shop Restock Watch failed')
+    expect(a.body).toContain('actions/runs/1')
+  })
+
+  it('holds one signature across runs, so a job failing every five minutes pages once', () => {
+    const a = healthAlerts({ heartbeats: [failed()] }, NOW)[0]
+    const b = healthAlerts({ heartbeats: [failed({ detail: 'https://github.com/x/y/actions/runs/2' })] }, NOW)[0]
+    expect(a.signature).toBe(b.signature)
+  })
+
+  it('lets a failure age out, since nothing ever writes the success that would clear it', () => {
+    expect(healthAlerts({ heartbeats: [failed({ ran_at: ago(WORKFLOW_FAILURE_WINDOW_MS + 60_000) })] }, NOW)).toEqual([])
+  })
+
+  it('pages only failures', () => {
+    expect(healthAlerts({ heartbeats: [failed({ ok: true })] }, NOW)).toEqual([])
   })
 })
 

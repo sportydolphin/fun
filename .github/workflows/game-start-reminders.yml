@@ -49,13 +49,13 @@ jobs:
 
       # `npm ci` would install the whole frontend toolchain (React, MUI, Vite,
       # Vitest) that this script never imports. The sender needs exactly three
-      # packages, so install just those — versions are read out of package.json
+      # packages, so install just those. Versions are read out of package-lock.json
       # so there's still a single source of truth.
       - name: Install sender dependencies
         if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','web-push','ws'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js web-push ws'
 
       - name: Send game-start reminders
         if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'

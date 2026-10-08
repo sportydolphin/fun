@@ -43,12 +43,12 @@ jobs:
           node-version: '22'
 
       # Same install trick as the sibling WPBL workflows: pull only what this script imports,
-      # at the version pinned in package.json, rather than the whole frontend. esbuild is here
+      # at the version pinned in package-lock.json, rather than the whole frontend. esbuild is here
       # because the matcher lives in src/wpbl/derive/recaps.ts and is shared with the tests.
       - name: Install dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','pg','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js pg esbuild'
 
       - name: Mirror This is Women's Baseball recap links
         env:

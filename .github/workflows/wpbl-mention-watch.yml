@@ -70,12 +70,12 @@ jobs:
           node-version: '22'
 
       # Only the two packages this script imports. `npm ci` would pull the whole frontend
-      # toolchain it never touches; versions still come from package.json, so there is one
+      # toolchain it never touches; versions still come from package-lock.json, so there is one
       # source of truth. Same approach as the other cron workflows.
       - name: Install watcher dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js ws'
 
       - name: Search for mentions
         env:
