@@ -20,7 +20,7 @@ pull request's title and body as its message. No approval is required: there is 
   delete the old key and the local files.
 - **An admin bypasses it only through a pull request** (`bypass_mode: pull_request`): the emergency
   path is merging a pull request without waiting for CI. A plain `git push` to `main` is refused for
-  everyone except Actions.
+  everyone except the deploy key.
 - **`strict` is off.** On, every open pull request would have to be updated each time the sitemap job
   commits, which it does daily, for no gain on a one-person repo.
 
