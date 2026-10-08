@@ -139,6 +139,7 @@ export function useChartScrub(count: number, label: string, opts: { lingerMs?: n
     }
 
     el.addEventListener('touchstart', onStart, { passive: true })
+    // eslint-disable-next-line no-restricted-syntax -- a held scrub must stop the page scrolling under the finger; the listener covers only the chart
     el.addEventListener('touchmove', onMove, { passive: false })
     el.addEventListener('touchend', onEnd, { passive: true })
     el.addEventListener('touchcancel', onEnd, { passive: true })

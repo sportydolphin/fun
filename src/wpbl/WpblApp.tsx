@@ -56,6 +56,7 @@ import { WpblHeadingOwnerProvider, TabTitle } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
 import { AppErrorBoundary } from '../AppErrorBoundary'
+import { typePx } from '../ui/scale'
 
 // The two detail modals, split out of the section's chunk.
 //
@@ -436,7 +437,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
           pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
         }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: WPBL_ACCENT }}>
             {r.label} · Game {r.gameNumber}
           </Typography>
           {/* Spelled out rather than left as the bracket's asterisk: there is no key beside a
@@ -464,7 +465,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
             px: 1.25, py: 0.6, borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER,
           }}>
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled', letterSpacing: 0.2 }}>
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled', letterSpacing: typePx(0.2) }}>
               No games
             </Typography>
           </Box>
@@ -546,7 +547,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
                   display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
                   pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
                 }}>
-                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: WPBL_ACCENT }}>
                     {ser.label} · Game {ser.gameNumber}
                   </Typography>
                   {ser.line && (
@@ -567,7 +568,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
                   display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.6,
                   pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
                 }}>
-                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled' }}>
+                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
                     Box score revised
                   </Typography>
                   <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
@@ -664,7 +665,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
   const clickable = !!onOpenTeam
   // .667 (drop the leading zero); em dash before a team has played.
   const fmtPct = (pct: number, gp: number) => gp === 0 ? '—' : pct.toFixed(3).replace(/^0\./, '.')
-  const th = { py: 0.85, px: 0.4, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4, color: 'text.secondary', textAlign: 'right' as const, whiteSpace: 'nowrap' as const }
+  const th = { py: 0.85, px: 0.4, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: typePx(0.4), color: 'text.secondary', textAlign: 'right' as const, whiteSpace: 'nowrap' as const }
   const td = { py: 1, px: 0.4, fontSize: '0.85rem', textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const, whiteSpace: 'nowrap' as const }
   // The numeric columns, in rem rather than px because `tableLayout: 'fixed'` means these widths
   // are the whole story: a cell wider than its column does not push it out, it spills. In px, PCT

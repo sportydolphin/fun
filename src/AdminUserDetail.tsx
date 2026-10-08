@@ -9,6 +9,7 @@ import type { AdminUser, AdminUserDetail } from './lib/adminUsers'
 import { prettyEvent, shortDate } from './lib/analyticsAdmin'
 import { WPBL_TEAMS } from './wpbl/constants'
 import { TeamBadge, PlayerPortrait } from './wpbl/ui'
+import { typePx } from './ui/scale'
 
 // ─── One person ───────────────────────────────────────────────────────────────
 //
@@ -72,7 +73,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
       flex: { xs: '0 0 auto', sm: '1 1 110px' }, minWidth: 100,
       px: 1.5, py: 1, border: '1px solid', borderColor: 'divider', borderRadius: 2,
     }}>
-      <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.disabled' }}>
+      <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
         {label}
       </Typography>
       <Typography sx={{ fontSize: '1.1rem', fontWeight: 900, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums' }}>
@@ -135,7 +136,7 @@ function Panel({ title, note, children, when = true }: {
   if (!when) return null
   return (
     <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.disabled', mb: 0.6 }}>
+      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled', mb: 0.6 }}>
         {title}
       </Typography>
       {note && (
@@ -237,7 +238,7 @@ export function UserDetailDialog({ user, days, onClose }: {
             <Typography sx={{ fontSize: '1.05rem', fontWeight: 900 }}>{user.username}</Typography>
             {user.roles.map(r => (
               <Box key={r.role} sx={{ px: 0.7, py: 0.15, borderRadius: 999, bgcolor: 'var(--wpbl-accent-solid, #2563eb)' }}>
-                <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff', letterSpacing: typePx(0.4), textTransform: 'uppercase' }}>
                   {r.role}
                 </Typography>
               </Box>
@@ -279,7 +280,7 @@ export function UserDetailDialog({ user, days, onClose }: {
 
             {detail.events_window > 0 && (
               <Box sx={{ color: 'success.main' }}>
-                <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
+                <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
                   Activity, last {days} days
                 </Typography>
                 <ActivityChart series={detail.series} />
@@ -373,7 +374,7 @@ export function UserDetailDialog({ user, days, onClose }: {
             {/* Full width: a note is prose and reads badly in a 280px column. */}
             {detail.feedback.length > 0 && (
               <Box>
-                <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.disabled', mb: 0.6 }}>
+                <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled', mb: 0.6 }}>
                   What they wrote
                 </Typography>
                 <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
@@ -385,7 +386,7 @@ export function UserDetailDialog({ user, days, onClose }: {
                         </Typography>
                         {!f.handled && (
                           <Box sx={{ px: 0.6, py: 0.1, borderRadius: 999, bgcolor: 'primary.main' }}>
-                            <Typography sx={{ fontSize: '0.48rem', fontWeight: 900, color: '#fff', letterSpacing: 0.5 }}>
+                            <Typography sx={{ fontSize: '0.48rem', fontWeight: 900, color: '#fff', letterSpacing: typePx(0.5) }}>
                               OPEN
                             </Typography>
                           </Box>

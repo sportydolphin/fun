@@ -10,6 +10,7 @@ import type { WpblTeam, WpblGame, WpblStandingRow, WpblBattingLine, WpblPitching
 import { TeamSpecRadar, TeamSpecPlaceholder, TeamSpecRadarSkeleton } from './TeamSpecRadar'
 import { teamSpecs, specLeagueGames, TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES } from './derive/teamSpec'
 import { TabTitle } from './PageHeading'
+import { typePx } from '../ui/scale'
 
 /**
  * The Teams tab's landing screen: one card per club, in standings order.
@@ -78,7 +79,7 @@ function FixtureLine({ fixture }: { fixture: Fixture }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
       <Typography sx={{
-        fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4,
+        fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4),
         color: kind === 'live' ? LOSS : 'text.disabled', flexShrink: 0,
       }}>
         {label}
@@ -88,7 +89,7 @@ function FixtureLine({ fixture }: { fixture: Fixture }) {
       {/* The abbreviation as well as the badge. A 16px logo is a colour, not an identifier:
           two of the four crests are a dark disc with a monogram at that size. */}
       {opp && (
-        <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.2, color: 'text.secondary', flexShrink: 0 }}>
+        <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: typePx(0.2), color: 'text.secondary', flexShrink: 0 }}>
           {opp.abbr}
         </Typography>
       )}
@@ -200,7 +201,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
             color: diff > 0 ? WIN : diff < 0 ? LOSS : 'text.secondary',
           }}>
             {fmtSigned(diff)}
-            <Box component="span" sx={{ ml: 0.5, fontWeight: 700, fontSize: '0.58rem', letterSpacing: 0.3, color: 'text.disabled' }}>DIFF</Box>
+            <Box component="span" sx={{ ml: 0.5, fontWeight: 700, fontSize: '0.58rem', letterSpacing: typePx(0.3), color: 'text.disabled' }}>DIFF</Box>
           </Typography>
         )}
       </Box>

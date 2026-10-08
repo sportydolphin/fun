@@ -18,6 +18,7 @@ import { track, EVENTS } from '../lib/analytics'
 import { useAuth } from '../AuthContext'
 import type { BracketSeries, WpblBracket } from './derive/bracket'
 import type { WpblTeam } from './types'
+import { typePx } from '../ui/scale'
 
 /**
  * Call the postseason: one pick per series, club and series score.
@@ -273,7 +274,7 @@ export function SeriesPickLine({ series, bracket, state }: {
       borderLeftColor: tone === 'success' ? 'success.main' : tone ? tone : 'transparent',
     }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
         color: tone === 'success' ? 'success.main' : 'text.disabled', flexShrink: 0,
       }}>{result ? (right ? 'Called it' : 'You had') : 'Your call'}</Typography>
       <Typography sx={{
@@ -787,7 +788,7 @@ function PickemSheet({ bracket, state, onClose }: {
           <Typography sx={{
             gridColumn: '1 / -1', mt: -1.5,
             fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
-            letterSpacing: 0.4, textTransform: 'uppercase',
+            letterSpacing: typePx(0.4), textTransform: 'uppercase',
           }}>
             {`Votes: ${votes}`}
           </Typography>

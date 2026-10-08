@@ -153,7 +153,7 @@ function StatHead({ children, w = 30, dense = false }: { children: React.ReactNo
   return (
     <Box component="th" sx={{
       fontSize: dense ? '0.55rem' : '0.64rem', fontWeight: 700, color: 'text.disabled',
-      textTransform: 'uppercase', letterSpacing: dense ? 0.1 : 0.4,
+      textTransform: 'uppercase', letterSpacing: dense ? typePx(0.1) : typePx(0.4),
       textAlign: 'center', px: dense ? 0.1 : 0.4, py: 0.4,
       // No width floor in dense mode: fixed layout is doing the dividing, and a minWidth
       // would let the columns add up to more than the table is allowed to be.
@@ -236,7 +236,7 @@ function GameInfo({ game, details }: { game: WpblGame; details: WpblGameDetails 
   return (
     <Box sx={{ px: 2, pt: 2.5, pb: 1 }}>
       <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1,
+        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
         color: 'text.disabled', mb: 0.75,
       }}>Game info</Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5 }}>
@@ -310,7 +310,7 @@ function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer }: {
         }}
       >
         <Box component="span" sx={{
-          fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1,
+          fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
           color: 'text.disabled',
         }}>Scoring changes</Box>
         <Box component="span" sx={{ color: 'text.disabled' }}>
@@ -1002,7 +1002,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             // a finger and not a letter: it must not shrink when the reader's text is small, and it must
             // not grow when it is large.
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
-            fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.6,
+            fontSize: '0.68rem', fontWeight: 800, letterSpacing: typePx(0.6),
             textTransform: 'uppercase', userSelect: 'none',
             color: scoringOnly ? '#16a34a' : 'text.secondary',
             '@media (hover: hover)': { '&:hover': { color: scoringOnly ? '#16a34a' : 'text.primary' } },
@@ -1024,7 +1024,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4,
             // Sized with the lens beside it: see the note there.
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
-            fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.6,
+            fontSize: '0.68rem', fontWeight: 800, letterSpacing: typePx(0.6),
             textTransform: 'uppercase', color: 'text.secondary', userSelect: 'none',
             '@media (hover: hover)': { '&:hover': { color: 'text.primary' } },
           }}
@@ -1070,7 +1070,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
               {/* The label gives way, not the score. It fits at 320px today and the reader's
                   Large text setting multiplies every rem on this row, so the one thing that
                   must survive that is the number the row exists to show. */}
-              <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}>
+              <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
                 {g.label}{team ? ` · ${team.abbr}` : ''}
                 {/* WHO THEY BATTED AGAINST, which the league's substitution sentences are otherwise the
                     only place to find. Last in the line and inside the same noWrap, so on a phone it is
@@ -1240,7 +1240,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                           {swing?.sequence === p.sequence && (
                             <Box component="span" sx={{
                               ml: 0.6, px: 0.5, py: '1px', borderRadius: 0.75,
-                              fontSize: '0.58rem', fontWeight: 800, letterSpacing: 0.5,
+                              fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.5),
                               textTransform: 'uppercase', whiteSpace: 'nowrap',
                               color: 'primary.main', border: '1px solid', borderColor: 'primary.main',
                             }}>{swing.label}</Box>
@@ -1257,7 +1257,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                               aria-label={`Watch the clip of this play: ${clipBySequence.get(p.sequence)!.title}`}
                               sx={{
                                 ml: 0.6, px: 0.6, py: '1px', borderRadius: 0.75, cursor: 'pointer', font: 'inherit',
-                                fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase',
+                                fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
                                 whiteSpace: 'nowrap', verticalAlign: 'baseline',
                                 color: 'var(--wpbl-accent-solid)', bgcolor: 'transparent',
                                 border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
@@ -1657,17 +1657,17 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
   const tile = (label: string, value: string) => (
     <Box sx={{ textAlign: 'center', flex: 1, minWidth: '4.25rem' }}>
       <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{label}</Typography>
     </Box>
   )
   const sectionLabel = (t: string) => (
-    <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary', mb: 1 }}>{t}</Typography>
+    <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', mb: 1 }}>{t}</Typography>
   )
   // Standout game-highlights tile for the summary strip: bigger value + who did it.
   const hl = (emoji: string, label: string, value: string, sub: string, first: boolean) => (
     <Box sx={{ flex: 1, minWidth: 0, textAlign: 'center', px: 0.75, ...(first ? {} : { borderLeft: '1px solid', borderColor: 'divider' }) }}>
       {/* 700 under 9px: see the weight ceiling under TYPE_SCALE in ui.tsx. */}
-      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
+      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
       <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>
       <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>
     </Box>
@@ -1731,7 +1731,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
                   {p.batter && (
                     <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{shortName(p.batter)}
-                      {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4 }}>in play</Box>}
+                      {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4) }}>in play</Box>}
                     </Typography>
                   )}
                   {p.pitcher && (
@@ -2548,7 +2548,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
       {scoreboard}
       {series && (
         <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: WPBL_ACCENT }}>
             {series.label} · Game {series.gameNumber} of {series.bestOf}
           </Typography>
           {series.line && <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{series.line}</Typography>}
@@ -2809,7 +2809,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
               here. */}
           {series && (
             <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-              <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+              <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: WPBL_ACCENT }}>
                 {series.label} · Game {series.gameNumber} of {series.bestOf}
               </Typography>
               {series.line && (
@@ -2979,7 +2979,7 @@ const NAME_W = '10rem'
 // The name column is pinned (sticky-left) so scrolling right moves only the stat columns.
 // An opaque bg + right divider keep it legible over the stat cells sliding underneath.
 const stickyName = { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', borderRight: '1px solid', borderRightColor: 'divider' } as const
-const nameHeadSx = { ...stickyName, width: '1%', maxWidth: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.4 } as const
+const nameHeadSx = { ...stickyName, width: '1%', maxWidth: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.4 } as const
 const nameCellSx = { ...stickyName, width: '1%', maxWidth: NAME_W, whiteSpace: 'nowrap', textAlign: 'left', px: 0.4, py: 0.45 } as const
 const posSx = { fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1, flexShrink: 0 } as const
 // Scoreboard: team name column absorbs slack; innings + R/H/E hug the right and scroll if

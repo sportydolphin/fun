@@ -4,6 +4,7 @@ import { sprayProfile, pullProfile, OUTFIELD_ZONES } from './derive/spray'
 import type { SprayZone, ZoneTally } from './derive/spray'
 import type { WpblSprayPlay } from './types'
 import { TYPE_SCALE, chromePx } from './ui'
+import { typePx } from '../ui/scale'
 
 // ─── Spray chart ──────────────────────────────────────────────────────────────
 //
@@ -348,7 +349,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
           <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
             {([['Pull', pull.pull], ['Centre', pull.center], ['Oppo', pull.oppo]] as const).map(([label, n]) => (
               <Box key={label} sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.disabled' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
                   {label}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>

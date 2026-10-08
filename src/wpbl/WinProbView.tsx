@@ -11,6 +11,7 @@ import { useChartScrub } from './chartScrub'
 import { wpblAccent } from './constants'
 import { CARD_BORDER, TapTip, useWpblDark, useWpblName } from './ui'
 import type { WpblGame, WpblGamePlay, WpblRunValuePlay, WpblTeam } from './types'
+import { typePx } from '../ui/scale'
 
 /**
  * The shape of a game: win probability from the first pitch to the last out, and the one play
@@ -287,7 +288,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
             sides, so dragging changes the words in place instead of rearranging the row. */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
           <Typography sx={{
-            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8,
+            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8),
             color: 'var(--wpbl-accent-fg)', whiteSpace: 'nowrap',
             overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{read?.label}</Typography>
@@ -312,7 +313,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
             read at all. A hold gesture nobody is told about is a feature nobody finds. */}
         <Typography sx={{
           mt: 'auto', pt: 0.25, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase',
-          letterSpacing: 0.7, color: 'text.disabled', whiteSpace: 'nowrap',
+          letterSpacing: typePx(0.7), color: 'text.disabled', whiteSpace: 'nowrap',
           fontVariantNumeric: 'tabular-nums',
         }}>{read?.note}</Typography>
       </Box>
@@ -434,7 +435,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
           guess rather than a label, and the axis is worth eleven pixels of saying so. */}
       <Typography aria-hidden sx={{
         height: AXIS_LABEL_H, textAlign: 'center', fontSize: '0.55rem', fontWeight: 700,
-        letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
+        letterSpacing: typePx(0.8), textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
       }}>Inning</Typography>
 
     </Box>
@@ -444,7 +445,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
 function Label({ children, sx }: { children: React.ReactNode; sx: object }) {
   return (
     <Typography sx={{
-      position: 'absolute', fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.5,
+      position: 'absolute', fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.5),
       color: 'text.secondary', pointerEvents: 'none', ...sx,
     }}>{children}</Typography>
   )

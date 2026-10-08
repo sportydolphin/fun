@@ -258,6 +258,16 @@ const impressionsSent = new Set<string>()
  * (the "shown" in shown-versus-opened). Keyed on the event name alone, or on `key` where one
  * event legitimately describes different things on one page.
  */
+/**
+ * A browser driven by automation (Playwright, the layout sweep, a headless crawler) says so in
+ * `navigator.webdriver`. The dev server writes to the production `events` table, so one
+ * `npm run sweep` is 160 page loads that would read on /admin as a traffic spike, the same
+ * shape as the test-run sessions described in `track`.
+ */
+function automated(): boolean {
+  try { return typeof navigator !== 'undefined' && navigator.webdriver === true } catch { return false }
+}
+
 export function trackImpression(event: EventName, props: Record<string, unknown> = {}, key = ''): void {
   const id = `${event}|${key}`
   if (impressionsSent.has(id)) return
@@ -276,7 +286,7 @@ export function trackImpression(event: EventName, props: Record<string, unknown>
  * browser drops is one missing sample.
  */
 export function trackOnExit(event: EventName, props: Record<string, unknown> = {}): void {
-  if (import.meta.env.MODE === 'test') return
+  if (import.meta.env.MODE === 'test' || automated()) return
   try {
     const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
     const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -309,7 +319,7 @@ export function track(
   // 600 of the day's 806 sessions and read as a traffic spike on /admin. MODE is a build-time
   // constant, so this is gone from the production bundle. Tests that care about an event mock
   // this module and never reach here.
-  if (import.meta.env.MODE === 'test') return
+  if (import.meta.env.MODE === 'test' || automated()) return
   try {
     const path = typeof window !== 'undefined' ? window.location.pathname : null
 

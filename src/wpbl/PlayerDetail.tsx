@@ -40,6 +40,7 @@ import { useTheme as useMuiTheme } from '@mui/material/styles'
 import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
+import { typePx } from '../ui/scale'
 
 
 // Player page: profile, season totals aggregated from box-score lines, where those totals sit
@@ -148,7 +149,7 @@ function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
           headings are what carry the difference. */}
       <Typography sx={sectionSx}>Toward qualifying</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography sx={{ width: '2.375rem', flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
+        <Typography sx={{ width: '2.375rem', flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
           {unit}
         </Typography>
         <Typography sx={{ width: '2.75rem', flexShrink: 0, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>

@@ -24,6 +24,7 @@ import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
 import WpblPage from './WpblPage'
 import type { WpblTeam, WpblPlayer } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
+import { typePx } from '../ui/scale'
 
 type SortKey = 'club' | 'name' | 'number'
 
@@ -157,7 +158,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: 'text.disabled', fontSize: '0.72rem', fontWeight: 600 }}>
             {p.jersey_number && <Box component="span">#{p.jersey_number}</Box>}
             {p.position && <Box component="span">{p.position}</Box>}
-            {showTeam && team && <Box component="span" sx={{ textTransform: 'uppercase', letterSpacing: 0.3 }}>{team.abbr}</Box>}
+            {showTeam && team && <Box component="span" sx={{ textTransform: 'uppercase', letterSpacing: typePx(0.3) }}>{team.abbr}</Box>}
           </Box>
         </Box>
       </Box>

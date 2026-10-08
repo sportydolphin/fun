@@ -41,6 +41,7 @@ import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 // the verified auth.uid() and can't be spoofed by faking this client value. Shared with
 // the WPBL feature-flagged sections via src/lib/admin.ts.
 import { ADMIN_EMAIL } from './lib/admin'
+import { typePx } from './ui/scale'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
@@ -290,7 +291,7 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
   const renderRecents = () => (
     <>
       <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
           Recent
         </Typography>
         <Box
@@ -330,7 +331,7 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
   const renderSection = (label: string, players: ToolbarSuggestion[]) => (
     <>
       <Box sx={{ px: 1.5, pt: 1, pb: 0.25 }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
           {label}
         </Typography>
       </Box>
@@ -409,7 +410,7 @@ function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
       maxHeight: '70vh', overflowY: 'auto',
     }}>
       <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
           Recent
         </Typography>
         <Box
@@ -1102,7 +1103,7 @@ function AppInner() {
                       ...UNSTYLED_LINK,
                       position: 'relative', zIndex: 1, textAlign: 'center',
                       px: 1, py: '3px', borderRadius: 999, userSelect: 'none',
-                      fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.3, lineHeight: 1,
+                      fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
                       color: active ? '#fff' : 'text.secondary',
                       textShadow: rainbow ? '0 1px 1px rgba(0,0,0,0.35)' : 'none',
                       transition: 'color 0.2s',

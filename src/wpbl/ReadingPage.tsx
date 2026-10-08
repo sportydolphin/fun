@@ -9,6 +9,7 @@ import { SOURCES, sourceOf } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { useNewSince } from './newSince'
+import { typePx } from '../ui/scale'
 
 // /wpbl/reading: everything two independent writers have written about the league, newest first:
 // mary mustard's towards a more perfect game and D.A. Espinoza's The Rising Fastball, both featured
@@ -143,7 +144,7 @@ export default function ReadingPage() {
             {months.map(m => (
               <Box component="section" key={m.key} sx={{ mt: 2.5 }}>
                 <Typography component="h2" sx={{
-                  fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+                  fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
                   color: 'text.secondary', mb: 1,
                 }}>
                   {m.label}

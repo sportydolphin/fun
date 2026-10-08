@@ -12,6 +12,7 @@ import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, CARD_BORDER, useWpblDark } from './ui'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { wpblQualifiers } from './stats'
+import { typePx } from '../ui/scale'
 
 // The Pitches board: plate discipline and pitch mix for the whole league, from the one code
 // letter per pitch that the feed puts on every plate appearance (see derive/pitches.ts).
@@ -88,7 +89,7 @@ function PitchMix({ counts, total }: { counts: PitchCounts; total: number }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography sx={{
               width: LABEL_W, flexShrink: 0, fontSize: '0.62rem', fontWeight: 800,
-              textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', whiteSpace: 'nowrap',
+              textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', whiteSpace: 'nowrap',
             }}>{g.label}</Typography>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Box sx={{ width: width(groupTotal[g.offer]), height: 10, borderRadius: 5, bgcolor: color[g.offer] }} />
@@ -159,7 +160,7 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
           borderTopWidth: i >= 2 ? '1px' : 0,
         }}>
           <Typography sx={{
-            fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.7,
+            fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.7),
             color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{t.label}</Typography>
           <Typography sx={{
@@ -306,7 +307,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
           ]} />
 
           <Box>
-            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.secondary', mb: 0.75 }}>
+            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary', mb: 0.75 }}>
               Pitch outcomes
             </Typography>
             <PitchMix counts={league.counts} total={board.pitches} />

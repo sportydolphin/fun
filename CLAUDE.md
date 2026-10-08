@@ -53,7 +53,8 @@ Violating these creates real problems. Treat them as hard constraints.
   skeletons; 8s trips the request timeout and shows "No teams yet"), see
   [`src/dev/slowLoad.ts`](src/dev/slowLoad.ts), and compare element rects against the loaded
   page at 375, 760, 960 and 1440. A hidden browser pane records no layout-shift entries, so
-  compare rects rather than trusting CLS.
+  compare rects rather than trusting CLS. `npm run sweep -- --shift` does exactly this against the
+  dev server ([`scripts/layout-sweep.mjs`](scripts/layout-sweep.mjs)); `--routes` narrows it.
 - **Never commit secrets.** Client build vars live in Cloudflare Pages env plus `.env`;
   edge-function and cron secrets live in Supabase and GitHub Actions (table in
   ARCHITECTURE §9).
@@ -328,10 +329,11 @@ Each of these has already cost someone a debugging session, and none of them fai
   started wrapping a name onto two lines. **Ornament** stays raw px: hairline borders, the 6px
   live dot, a 4px scrollbar. **Letter spacing** is type, so it is `typePx()` (rem): MUI reads a
   bare `letterSpacing: 0.5` as px, which the old zoom scaled and the ramp does not, and that alone
-  re-wrapped headings across `/mlb`. MUI's own controls (a `Switch`, a native `select` arrow) are
+  re-wrapped headings across `/mlb`; the lint now refuses a px one. MUI's own controls (a `Switch`, a native `select` arrow) are
   fixed px inside and stay that way on both sections. The failure is silent in every direction, and `tsc` sees none of
   it: the only check that works is opening the page and looking for a box whose content is
-  wider than it is, at more than one text scale. **Which is why anything behind the experiments
+  wider than it is, at more than one text scale, which `npm run sweep` does at four widths and
+  both text sizes. **Which is why anything behind the experiments
   flag is exempt from that check by construction, and has to be swept separately.** The seeding
   race sat out the whole rebuild for exactly this reason and carried four of these bugs into
   September; turning the flag on and looking is the only way to find the next one. As of Sep 14,

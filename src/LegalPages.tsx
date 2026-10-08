@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material'
 import { CONTACT_EMAIL } from './lib/contact'
+import { typePx } from './ui/scale'
 
 // Privacy Policy + Terms of Service pages. Reachable at /privacy and /terms, linked
 // from the footer, and used as the Google OAuth consent-screen policy links. Written
@@ -12,7 +13,7 @@ const SITE = 'sportydolphin.fun'
 function LegalLayout({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 0.5, sm: 1 }, py: 1, lineHeight: 1.6 }}>
-      <Typography sx={{ fontSize: { xs: '1.6rem', sm: '2rem' }, fontWeight: 900, letterSpacing: '-0.5px' }}>
+      <Typography sx={{ fontSize: { xs: '1.6rem', sm: '2rem' }, fontWeight: 900, letterSpacing: typePx(-0.5) }}>
         {title}
       </Typography>
       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, mb: 3 }}>

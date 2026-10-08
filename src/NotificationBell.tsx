@@ -23,6 +23,7 @@ import { milestoneSource } from './mlb/notifications/milestones'
 import { wpblGameStartSource } from './wpbl/notifications/gameStart'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 import { useForegroundInterval } from './lib/foregroundInterval'
+import { typePx } from './ui/scale'
 
 // Registered at module load so the set of sources is declared in one place.
 registerNotificationSource(picksReadySource)
@@ -158,7 +159,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
             }}>
               <Typography id="notification-panel-title" sx={{
                 flex: 1, fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary',
-                textTransform: 'uppercase', letterSpacing: 1,
+                textTransform: 'uppercase', letterSpacing: typePx(1),
               }}>
                 Notifications
               </Typography>
@@ -176,7 +177,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
                     flexShrink: 0, px: 1, minHeight: 32, my: -0.5, borderRadius: 1,
                     display: 'flex', alignItems: 'center',
                     fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
-                    textTransform: 'uppercase', letterSpacing: 0.5, cursor: 'pointer',
+                    textTransform: 'uppercase', letterSpacing: typePx(0.5), cursor: 'pointer',
                     '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
                     ...FOCUS_RING,
                   }}

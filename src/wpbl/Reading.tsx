@@ -6,6 +6,7 @@ import { readMinutes, sourceOf, sourcePhoto, coverAt, type SubstackSource } from
 import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/recaps'
 import type { WpblArticle, WpblGameRecap, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
+import { typePx } from '../ui/scale'
 
 // The WPBL reading surface: a mirror of two independent writers' coverage of the league,
 // read from the wpbl_articles table (populated by scripts/sync-wpbl-substack.ts). Four
@@ -242,10 +243,10 @@ export function ReadingLead({ article, teamById, from, isNew, onOpen }: {
         widths={[480, 800, 1200]} sizes="(max-width: 899px) 100vw, 640px"
         sx={{ aspectRatio: '16 / 9' }} />
       <Box sx={{ p: { xs: 1.5, md: 2.25 }, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
           Latest
         </Typography>
-        <Typography sx={{ fontSize: { xs: '1.15rem', md: '1.4rem' }, fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.2px', mt: 0.5 }}>
+        <Typography sx={{ fontSize: { xs: '1.15rem', md: '1.4rem' }, fontWeight: 800, lineHeight: 1.2, letterSpacing: typePx(-0.2), mt: 0.5 }}>
           {article.title}
         </Typography>
         {article.subtitle && (
@@ -343,7 +344,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
           Story
         </Typography>
         <Typography sx={{
@@ -415,7 +416,7 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
             Its sibling `GameStoryCard` says "Story" for the same reason: the two sit one above
             the other and a reader should be able to tell them apart at a glance rather than by
             reading two near-identical sentences. */}
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
           Recap
         </Typography>
         <Typography sx={{

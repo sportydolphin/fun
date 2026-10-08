@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
+import { typePx } from '../ui/scale'
 
 // A plain-language reference for the WPBL's public stats feed: where it lives, what each
 // endpoint returns, and the things worth knowing before you pull from it. Written up as
@@ -43,7 +44,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function H2({ children }: { children: React.ReactNode }) {
   return (
-    <Typography component="h2" sx={{ fontSize: '1.1rem', fontWeight: 800, mt: 4, mb: 1, letterSpacing: '-0.2px' }}>
+    <Typography component="h2" sx={{ fontSize: '1.1rem', fontWeight: 800, mt: 4, mb: 1, letterSpacing: typePx(-0.2) }}>
       {children}
     </Typography>
   )
@@ -58,13 +59,13 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
   return (
     <Box sx={{ mb: 1.25, p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-        <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 800, color: '#16a34a', letterSpacing: 0.5 }}>GET</Box>
+        <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 800, color: '#16a34a', letterSpacing: typePx(0.5) }}>GET</Box>
         <Box component="span" sx={{ fontSize: '0.88rem', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', color: 'var(--wpbl-accent-fg)', wordBreak: 'break-all' }}>
           {path}
         </Box>
       </Box>
       <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.4, lineHeight: 1.5 }}>{purpose}</Typography>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mt: 1, mb: 0.5 }}>Returns</Typography>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.disabled', mt: 1, mb: 0.5 }}>Returns</Typography>
       {/* Pre-formatted so the shape reads top-to-bottom instead of wrapping into a wall;
           horizontal scroll keeps a wide line from breaking the layout on narrow screens. */}
       <Box
@@ -99,7 +100,7 @@ function Note({ title, children }: { title: string; children: React.ReactNode })
 export default function WpblApiDocs() {
   return (
     <Box sx={{ maxWidth: '47.5rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
-      <Typography component="h1" sx={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.4px', mb: 0.5 }}>
+      <Typography component="h1" sx={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: typePx(-0.4), mb: 0.5 }}>
         Getting WPBL data
       </Typography>
       <Typography sx={{ fontSize: '0.95rem', color: 'text.secondary', lineHeight: 1.6, mb: 1 }}>

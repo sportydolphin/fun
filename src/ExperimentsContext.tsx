@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { Box } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
+import { typePx } from './ui/scale'
 
 // Opt-in flag for unfinished features. Mirrors UnitsContext: localStorage, no account
 // needed, so anyone can turn it on and try a work-in-progress on their own device — which
@@ -86,7 +87,7 @@ export function ExperimentalChip({ sx }: { sx?: SxProps<Theme> }) {
         px: 0.6, py: '1px', borderRadius: 1,
         border: '1px solid', borderColor: 'var(--experimental-fg)',
         color: 'var(--experimental-fg)',
-        fontSize: '0.56rem', fontWeight: 800, letterSpacing: 0.5,
+        fontSize: '0.56rem', fontWeight: 800, letterSpacing: typePx(0.5),
         textTransform: 'uppercase', whiteSpace: 'nowrap', lineHeight: 1.5,
         ...sx,
       }}
