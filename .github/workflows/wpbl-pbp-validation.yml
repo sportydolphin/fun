@@ -40,12 +40,12 @@ jobs:
           node-version: '22'
 
       # Only `pg` is needed. `npm ci` would pull the whole frontend toolchain this script never
-      # imports; the version is read from package.json so there is still one source of truth.
+      # imports; the version is read from package-lock.json so there is still one source of truth.
       # Same approach as the reminder workflows.
       - name: Install validator dependency
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'pg'
 
       - name: Validate play-by-play
         env:

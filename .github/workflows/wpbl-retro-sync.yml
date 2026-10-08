@@ -35,9 +35,9 @@ jobs:
       # `pg` rather than the supabase client, matching watch-wpbl-tracking: this is a dozen
       # rows of owner-only data and talks to Postgres directly.
       - name: Install dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'pg'
 
       - name: Sync transcribed game details
         env:

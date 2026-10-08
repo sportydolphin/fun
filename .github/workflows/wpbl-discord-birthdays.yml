@@ -42,13 +42,13 @@ jobs:
           node-version: '22'
 
       # Same trick as the recap workflow: install only what this script needs, at the
-      # versions pinned in package.json, rather than the whole frontend toolchain. esbuild
+      # versions pinned in package-lock.json, rather than the whole frontend toolchain. esbuild
       # is one of them because the script is TypeScript, so that the message it posts is
       # built by a module the test suite can load.
       - name: Install dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js ws esbuild'
 
       - name: Post WPBL birthdays
         env:

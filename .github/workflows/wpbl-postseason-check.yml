@@ -58,9 +58,9 @@ jobs:
       # the point: a check that restated either rule would drift from the code it is guarding.
       - name: Install the bundler
         if: env.VITE_SUPABASE_ANON_KEY != ''
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'esbuild'
 
       - name: Check the postseason marking
         if: env.VITE_SUPABASE_ANON_KEY != ''

@@ -66,9 +66,9 @@ jobs:
 
       - name: Install the bundler
         if: env.VITE_SUPABASE_ANON_KEY != ''
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'esbuild'
 
       # Fails if any table reads short of the row count the server reports for it, rather than
       # writing a plausible-looking partial archive over a complete one. That is the one failure

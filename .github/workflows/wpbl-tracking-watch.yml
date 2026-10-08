@@ -34,9 +34,9 @@ jobs:
       # This one needs `pg` rather than the supabase client: it talks to Postgres directly,
       # since it is three queries and one row of owner-only bookkeeping.
       - name: Install dependencies
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'pg'
 
       - name: Check whether TrackMan data has moved
         env:

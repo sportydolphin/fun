@@ -15,8 +15,14 @@ name: WPBL RetroWPBL Stats Check
 #
 # BASELINED, like the play-by-play validator and for the same reason. Two people watching one
 # game will always disagree about something; run against everything it reports the same eighteen
-# findings every night and gets muted. It reports only what is NEW, and goes red when it finds
-# any, which is the signal worth interrupting someone for.
+# findings every night and gets muted. It reports only what is NEW.
+#
+# NEW FINDINGS ARE A WARNING, NOT A FAILURE. This went red whenever it found any, and it found
+# some on 21 of the 30 days to Oct 8, 2026 with the baseline never updated, so red here had come
+# to mean "unreviewed", not "broken". Red now pages the owner's phone (workflow-failure-alert.yml),
+# and a disagreement between two human readings is not worth a page. The script's exit 1 becomes
+# a warning annotation on the run; a crash (exit 2) still goes red. Review with
+# `npm run check-retro`, then accept with --update-baseline.
 #
 # 11:00 UTC, an hour after the retro sync at 10:00, so a game transcribed overnight is in place
 # before this reads it.
@@ -42,11 +48,18 @@ jobs:
 
       # Only `pg`; `npm ci` would pull the whole frontend toolchain this script never imports.
       - name: Install dependency
-        run: |
-          npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'pg'
 
       - name: Compare our batting lines with RetroWPBL
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: node scripts/check-wpbl-retro-stats.mjs --baseline scripts/wpbl-retro-stats-baseline.json
+        run: |
+          status=0
+          node scripts/check-wpbl-retro-stats.mjs --baseline scripts/wpbl-retro-stats-baseline.json || status=$?
+          if [ "$status" = 1 ]; then
+            echo "::warning title=New RetroWPBL disagreements::Not in the baseline yet. See this run's log."
+            exit 0
+          fi
+          exit $status

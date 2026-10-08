@@ -72,6 +72,13 @@ export const HEARTBEAT_CHECKS = [
   { job: 'wpbl-recaps-sync', label: 'Recap sync', maxAgeMs: null },
 ]
 
+/** Heartbeat job names written for a failed GitHub Actions run: `workflow:<workflow name>`. */
+export const WORKFLOW_JOB_PREFIX = 'workflow:'
+
+/** How long a failed workflow run stays an alert. Shorter than the sender's 12h reminder, so a
+ *  failure that does not recur pages exactly once. */
+export const WORKFLOW_FAILURE_WINDOW_MS = 6 * 60 * 60_000
+
 /**
  * @typedef {Object} HealthAlert
  * @property {string} key        Stable id for the kind of problem (dedupe scope).
@@ -172,6 +179,26 @@ export function healthAlerts(rows, nowMs = Date.now()) {
         body: `No ${check.label.toLowerCase()} run since ${b.ran_at}. The job may have stopped.`,
       })
     }
+  }
+
+  // Any scheduled workflow that went red, recorded by .github/workflows/workflow-failure-alert.yml
+  // as a `workflow:<name>` heartbeat. Only failures are ever written (a success would cost an
+  // extra Actions run per tick of every cron), so nothing clears the row: the alert lives for
+  // WORKFLOW_FAILURE_WINDOW_MS after the LAST failure instead. A job that keeps failing keeps
+  // refreshing ran_at and stays active, which is what lets the sender's 12h reminder fire; a
+  // one-off failure ages out and its dedupe row is dropped, so the next one pages fresh.
+  // The signature is deliberately constant: detail is the run URL, which differs every run, and
+  // a job on a five-minute cron would otherwise page every five minutes.
+  for (const b of rows?.heartbeats ?? []) {
+    if (!b.job.startsWith(WORKFLOW_JOB_PREFIX) || b.ok !== false) continue
+    if (nowMs - Date.parse(b.ran_at) > WORKFLOW_FAILURE_WINDOW_MS) continue
+    const name = b.job.slice(WORKFLOW_JOB_PREFIX.length)
+    out.push({
+      key: b.job,
+      signature: 'failed',
+      title: `${name} failed`,
+      body: `The scheduled run at ${b.ran_at} failed.${b.detail ? ` ${b.detail}` : ''}`,
+    })
   }
 
   return out
