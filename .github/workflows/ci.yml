@@ -11,9 +11,9 @@ name: CI
 # vite.config.js) and the build needs none, so this job can run on any branch and any pull request
 # without holding a key. A test that needs data mocks the client.
 #
-# IT IS THE GATE. `main` takes changes only through a pull request whose `check` passed (the ruleset
-# in .github/rulesets/), and Cloudflare deploys what lands there. Renaming this job renames the check
-# the ruleset requires, so change both together or every pull request waits forever.
+# IT IS THE GATE. `main` takes changes only through a pull request whose `check` and `layout` jobs
+# passed (the ruleset in .github/rulesets/), and Cloudflare deploys what lands there. Renaming a job
+# renames the check the ruleset requires, so change both together or every pull request waits forever.
 #
 # Pull requests, and `main` itself: the scheduled jobs that commit generated files straight to
 # `main` (allowed by the ruleset) still get checked after the fact. A branch with no pull request
@@ -52,3 +52,41 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The layout checks CLAUDE.md used to ask a person to do: overflow at four widths and both text
+  # sizes, and what moves on screen when a skeleton is replaced. Against the dev server, because
+  # the skeleton check needs ?devSlow, which only exists in a dev build; with every response served
+  # from scripts/fixtures/, because this job holds no key and must not read the real database.
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VITE_SUPABASE_URL: 'http://127.0.0.1:54321'
+      VITE_SUPABASE_ANON_KEY: 'sweep-anon-key'
+      VITE_VAPID_PUBLIC_KEY: 'sweep-vapid-key'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start the dev server
+        run: |
+          nohup npx vite --port 5173 --strictPort > vite.log 2>&1 &
+          for i in $(seq 60); do curl -sf http://localhost:5173/ > /dev/null && exit 0; sleep 1; done
+          cat vite.log; exit 1
+
+      - name: Sweep
+        run: npm run sweep -- --replay --shift --baseline
+
+      # The one place a flag-gated layout gets looked at. Name the routes that draw something
+      # behind the flag; as of this writing that is the steal card on Run value, and nothing else.
+      - name: Sweep with experiments on
+        if: ${{ !cancelled() }}
+        run: npm run sweep -- --replay --shift --baseline --experiments --routes /wpbl/stats?board=runs
+
+      - if: failure()
+        run: cat vite.log

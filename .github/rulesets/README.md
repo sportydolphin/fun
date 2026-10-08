@@ -3,8 +3,8 @@
 The repository's rulesets, kept here so the setup is written down and can be re-applied. GitHub holds
 the live copy; these files are what it was set from. Change a rule here first, then apply it.
 
-**`main-pull-requests.json`**: `main` takes changes only through a pull request whose CI `check` job
-(`.github/workflows/ci.yml`) has passed. Squash merge only, so each change lands as one commit with the
+**`main-pull-requests.json`**: `main` takes changes only through a pull request whose CI `check` and `layout` jobs
+(`.github/workflows/ci.yml`) have passed. Squash merge only, so each change lands as one commit with the
 pull request's title and body as its message. No approval is required: there is one maintainer.
 
 - **A deploy key bypasses it**, and nothing else does: `main-bot`, write access, its private half in
