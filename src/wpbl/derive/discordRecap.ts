@@ -11,7 +11,6 @@ import type { WpblGame, WpblTeam, WpblLineScoreEntry } from '../types'
 import { playedInnings } from '../innings.ts'
 import type { GameRecap } from './recap'
 
-const SITE = 'https://sportydolphin.fun'
 const MEDALS = ['🥇', '🥈', '🥉']
 
 export interface DiscordEmbedField { name: string; value: string }

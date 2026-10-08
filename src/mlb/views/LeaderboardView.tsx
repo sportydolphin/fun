@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react'
 import {
-  Box, Typography, Paper, CircularProgress, Popover, Tooltip, Switch,
+  Box, Typography, Paper, CircularProgress, Popover, Switch,
 } from '@mui/material'
 import { Tune, KeyboardArrowDown } from '@mui/icons-material'
-import { StatDef, LeaderboardEntry } from '../types'
+import { LeaderboardEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { PillChip, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'

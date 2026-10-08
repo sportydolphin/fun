@@ -176,16 +176,6 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
   )
 }
 
-/** A figure inside a sentence: tabular so the header line does not jitter as the numbers
- *  update mid-game, and weighted so the line scans as data rather than prose. */
-function Num({ children }: { children: React.ReactNode }) {
-  return (
-    <Box component="span" sx={{ fontWeight: 800, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-      {children}
-    </Box>
-  )
-}
-
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>

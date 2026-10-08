@@ -18,7 +18,6 @@ import { gameVideos } from './videoChannels'
 import { GameStoryCard, GameRecapLinkCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
 import LiveGameView from './LiveGameView'
-import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
@@ -852,7 +851,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
     [scoringOnly, shown, plays])
   const toggle = (key: string) => setExpanded(prev => {
     const next = new Set(prev)
-    next.has(key) ? next.delete(key) : next.add(key)
+    if (next.has(key)) next.delete(key); else next.add(key)
     return next
   })
 

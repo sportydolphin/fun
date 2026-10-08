@@ -185,7 +185,7 @@ describe('a drag on the content', () => {
 
 describe('the band at the top of the pane', () => {
   it('dismisses on a long pull, exactly as before', () => {
-    const { onClose, card, band, pane } = setup()
+    const { onClose, band, pane } = setup()
     pane.scrollTop = 0
 
     touch(band, 'touchstart', 100)
@@ -200,7 +200,7 @@ describe('the handle and the eyebrow are still always a dismissal', () => {
   // These are small and unmistakably chrome, so a finger there has no other possible intent.
   // The band's new rule must not have been applied to them.
   it('dismisses from the chrome even with the pane scrolled', () => {
-    const { onClose, card, view, pane } = setup()
+    const { onClose, pane } = setup()
     pane.scrollTop = 400
     const chrome = document.querySelector('[aria-hidden="true"]') as HTMLElement
 
@@ -215,7 +215,7 @@ describe('the handle and the eyebrow are still always a dismissal', () => {
 
 describe('gestures that are not a dismissal', () => {
   it('ignores an upward drag on the chrome', () => {
-    const { onClose, view, card } = setup()
+    const { onClose, card } = setup()
     const chrome = document.querySelector('[aria-hidden="true"]') as HTMLElement
     drag(chrome, card, 400, 100)
     settle(chrome, 100)
@@ -223,7 +223,7 @@ describe('gestures that are not a dismissal', () => {
   })
 
   it('ignores a sideways drag on the chrome, so the pager keeps it', () => {
-    const { onClose, view, card } = setup()
+    const { onClose } = setup()
     const chrome = document.querySelector('[aria-hidden="true"]') as HTMLElement
     touch(chrome, 'touchstart', 200, 50)
     for (let x = 70; x <= 300; x += 40) touch(chrome, 'touchmove', 206, x)
@@ -237,7 +237,7 @@ describe('gestures that are not a dismissal', () => {
       addListener: vi.fn(), removeListener: vi.fn(),
       addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
     })) as unknown as typeof window.matchMedia
-    const { onClose, view, card } = setup()
+    const { onClose, card } = setup()
     const chrome = document.querySelector('[aria-hidden="true"]') as HTMLElement
     drag(chrome, card, 100, 420)
     settle(chrome, 420)

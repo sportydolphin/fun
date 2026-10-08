@@ -154,10 +154,10 @@ export function regenerateDevDrama() {
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
 
-export function useDevDrama(): DevDramaState {
-  // A build-time constant, so the branch never changes between renders of one build.
-  return import.meta.env.DEV ? useSyncExternalStore(subscribe, get, get) : OFF
-}
+// Chosen by a build-time constant, so production gets the constant and the store goes with it.
+function useDevDramaLive(): DevDramaState { return useSyncExternalStore(subscribe, get, get) }
+function useDevDramaOff(): DevDramaState { return OFF }
+export const useDevDrama = import.meta.env.DEV ? useDevDramaLive : useDevDramaOff
 
 /** For the dev menu's "what is on" summary. */
 export const devDramaActive = () => get().enabled

@@ -110,8 +110,12 @@ export function WinnersPoster({ winners, nodeRef, mode = 'dark' }: { winners: Sh
  */
 export default function AwardsWinnersExport({ winners }: { winners: ShareCardData[] }) {
   // Both hooks run unconditionally, then OR: testers get the export while it is still a
-  // tester-facing tool, and the owner always has it.
-  const canExport = useIsAdmin() || useIsTester()
+  // tester-facing tool, and the owner always has it. Two statements, NOT `useIsAdmin() ||
+  // useIsTester()`: the `||` skips the second hook once the first is true, so the moment the admin
+  // check resolved React saw one hook fewer than the render before and threw.
+  const isAdmin = useIsAdmin()
+  const isTester = useIsTester()
+  const canExport = isAdmin || isTester
   const posterRef = useRef<HTMLDivElement>(null)
   // `mode` is null until the reader picks one from the menu; setting it (with the menu closed) is what
   // mounts the poster on that ground and kicks off the capture. Back to null when the capture is done.

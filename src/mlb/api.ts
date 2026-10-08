@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry, LeaderboardEntry } from './types'
+import { Player, Team, StatDef, TeamSummary, RecentGameEntry, RosterEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry, LeaderboardEntry } from './types'
 import { TEAM_ABBR, CURRENT_SEASON } from './constants'
 import { supabase } from '../lib/supabase'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'

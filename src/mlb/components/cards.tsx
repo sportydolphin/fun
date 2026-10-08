@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
+import { RankMode, Palette, StatDef, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
 import { useIsDark, accentColor, borderAlpha, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone, textTone } from '../lib/colorUtils'
 import { StatGrid } from './ui'

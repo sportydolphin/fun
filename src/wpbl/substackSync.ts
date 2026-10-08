@@ -21,8 +21,7 @@
  * names and embedded clips in them, and are then dropped. See the migration for why the
  * table has no column to put them in.
  */
-import {
-  ARCHIVE_PAGE_SIZE, SOURCES, archiveUrlFor, profilePostsUrlFor, postUrlFor, countVideos,
+import { SOURCES, archiveUrlFor, profilePostsUrlFor, postUrlFor, countVideos,
   dropTranslations, imageCover, matchGame, matchPlayers, matchTeams, parseFeed, readMinutes, teamsInTitle,
   type FeedPost, type SubstackSource,
 } from './derive/articles.ts'

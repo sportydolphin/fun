@@ -250,8 +250,8 @@ async function detectGame(g: LiveGame): Promise<DramaEvent[]> {
         const complete = legs === 4
         if (legs < 3) continue
         if (!complete && g.inning > 8) continue   // late innings: another at-bat is unlikely
-        const missing = (['single', 'double', 'triple', 'homer'] as const)
-          [[singles, doubles, triples, homers].findIndex(n => n === 0)]
+        const legNames = ['single', 'double', 'triple', 'homer'] as const
+        const missing = legNames[[singles, doubles, triples, homers].findIndex(n => n === 0)]
         events.push(makeCycleEvent({
           gamePk: g.gamePk, inning: g.inning, half,
           away: g.away, home: g.home,

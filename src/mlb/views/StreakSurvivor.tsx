@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_NICKNAME, TONE } from '../constants'
-import { useIsDark, highlightColor, defaultBorder, useTextTone } from '../lib/colorUtils'
+import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
 import { searchPlayers } from '../api'

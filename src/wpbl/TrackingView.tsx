@@ -6,7 +6,7 @@ import {
 } from './api'
 import { aggregateTracking } from './tracking'
 import type { WpblSeasonGame } from './season'
-import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
+import type { TrackingBoard, VeloLeader, SpinLeader, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
 import { SectionCard, LeaderRow, CARD_BORDER, useWpblName, chromePx } from './ui'
 import { useUnits } from '../UnitsContext'

@@ -528,8 +528,6 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   inline?:       boolean   // sit inline to the right of the time (no top margin / width cap)
 }) {
   const isDark = useIsDark()
-  const awayCol = ringColor(awayTeamId, isDark)
-  const homeCol = ringColor(homeTeamId, isDark)
 
   if (loading) return (
     <Box sx={{ mt: 0.75 }}>
@@ -541,7 +539,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
     const col = ringColor(teamId, isDark)
     return (
       <Box
-        onClick={e => { e.stopPropagation(); pitcher && onPlayerClick?.(pitcher.id) }}
+        onClick={e => { e.stopPropagation(); if (pitcher) onPlayerClick?.(pitcher.id) }}
         sx={{
           minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: pitcher && onPlayerClick ? 'pointer' : 'default',

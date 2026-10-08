@@ -1,5 +1,5 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, Menu, MenuItem, SwipeableDrawer } from '@mui/material'
+import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, SwipeableDrawer } from '@mui/material'
 import { useTheme as useMuiTheme } from '@mui/material/styles'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
@@ -38,7 +38,7 @@ import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './BottomNav'
 import {
   WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
-  wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex, wpblAppOwnsPath,
+  wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, wpblAppOwnsPath,
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,

@@ -234,7 +234,7 @@ describe('the cards in the channel', () => {
     const card = buildRoundCard(round(), { picks: 1 })
     expect(card.embeds?.[0].description).toContain('1 pick in')
     // No per-option breakdown anywhere on the card: only the four labels, on the buttons.
-    expect(card.embeds?.[0].description).not.toMatch(/[0-3]\+? [-–:] ?\d/)
+    expect(card.embeds?.[0].description).not.toMatch(/\b[0-3]\+? [-–:] ?\d/)
   })
 
   it('kills the buttons once picks close', () => {

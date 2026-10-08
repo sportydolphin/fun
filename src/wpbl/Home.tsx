@@ -10,23 +10,22 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblTrackedGameIds, wpblHomeCacheAgeMs,
   fetchWpblArticles, getCachedWpblArticles,
 } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
-import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, relativeDayLabel, relativeDayShort } from './constants'
+import { useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
 import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, useWpblDark, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import PlayoffBracket from './PlayoffBracket'
 import { POSTSEASON_SCHEDULE, postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, championBannerUntil, championshipGames, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
 import {
-  aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
-  type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
+  aggregateBatting, wpblQualifiers, plateAppearances, fmtRate,
+  type WpblBatSeason,
 } from './stats'
-import { useEraBasis } from './EraBasisContext'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
@@ -49,7 +48,7 @@ import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
 import { HOME_WIDE_W } from './layoutWidths'
 import { useNewSince } from './newSince'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblVideo, WpblArticle, WpblPhoto } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblArticle } from './types'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
 // column on a phone. Everything on it is derived from data the section already caches: the
@@ -1700,21 +1699,6 @@ export function NextPostseasonCard({ rows, teams, games }: {
   )
 }
 
-// ─── Leaders ──────────────────────────────────────────────────────────────────────
-
-interface LeaderRow {
-  player: WpblPlayer
-  display: string
-  /** Sample size behind a rate stat ("24 AB", "12.1 IP") — shown so a leaderboard
-      topped by a small sample is self-evident rather than misleading. */
-  meta?: string
-}
-
-// Medal tints for the rank number — gold / silver / bronze, chosen to stay legible in
-// both light and dark mode. Ranks past 3rd fall back to the disabled grey.
-// Themed, because the originals measure 2.27 / 2.64 / 3.35 against a light background. The
-// comment above claimed both modes and only dark was ever true. See styles.css.
-const RANK_MEDAL = ['var(--wpbl-medal-1)', 'var(--wpbl-medal-2)', 'var(--wpbl-medal-3)']
 
 // Character budget for the featured rows: every stat-leader rank. These get a name to
 // themselves, with the team conveyed by the badge/portrait rather than by text, so they show
@@ -1734,355 +1718,10 @@ const RANK_MEDAL = ['var(--wpbl-medal-1)', 'var(--wpbl-medal-2)', 'var(--wpbl-me
 // "K. Whitmore" instead. There is nothing left to tune and nothing to re-measure when the type
 // scale next moves.
 
-function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
-  label: string; rows: LeaderRow[]; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void
-  hideLabel?: boolean
-}) {
-  // Every leader name is a real <a href> to her page. These six rows are the section's most
-  // valuable link into a player page and were a div with an onClick, which no crawler follows
-  // and no keyboard reaches. See LinkContext.tsx.
-  const playerLink = useWpblPlayerLink()
-  if (rows.length === 0) return null
-  // A column rather than a plain block, so when Home stretches the Leaders card to match the one
-  // beside it the leftover height is shared out between the rows instead of pooling as a slab
-  // under the last one. A handful of pixels per gap reads as comfortable row spacing; the same
-  // pixels in one lump read as the card having run out of things to say.
-  //
-  // Only for a FULL board. The board reserves the tallest category's height so stepping between
-  // categories doesn't jolt the card, which means a short category (three players with a home
-  // run in the season's first week) is already sitting in a box built for five. Spreading two
-  // rows across that would put eighty pixels between them and look broken; leaving them packed
-  // at the top is merely quiet, which is the right failure.
-  const spread = rows.length >= LEADER_ROWS
-  return (
-    <Box sx={{
-      mb: 1.25, '&:last-of-type': { mb: 0 },
-      ...(spread ? { height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' } : {}),
-    }}>
-      {!hideLabel && <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
-      {rows.map((r, i) => {
-        const team = teamById.get(r.player.team_id)
-        // Rank by the number the reader can actually SEE. Ties on a counting board (two players
-        // at 7 RBI, three pitchers at 0.00) used to be ordered by an invisible tiebreak — for
-        // hitters, whoever had MORE at-bats, so the player who needed more tries for the same
-        // total ranked higher, which reads backwards. Rather than invert that (which would make
-        // a counting board assert an efficiency judgement it isn't measuring), tied rows are
-        // simply shown as tied: same rank number, same medal. Comparing the formatted display
-        // string — not the raw value — is deliberate, so two rows both reading "1.056" are never
-        // presented in an order the reader has no way to account for. Sort order within a tie
-        // still comes from topBat/topPit and only decides which one is listed first.
-        const rank = rows.findIndex(x => x.display === r.display) + 1
-        // The #1 leader is the hero: a real headshot, larger name with the full team on a
-        // second line, and a bigger value. #2/#3 stay compact — small badge, one line, with
-        // the team abbreviation tucked into what was dead space beside the value.
-        const isTop = i === 0
-        return (
-          <Box key={r.player.id} {...playerLink(r.player, onOpenPlayer)} sx={{
-            // Rows past third exist in the DOM at every width and are dropped below md. `none`
-            // rather than a media query in JS: the count is then a fact about the stylesheet,
-            // so first paint cannot disagree with the second, and the ranks above are numbered
-            // off the full list either way. It also keeps all five in the page for a crawler,
-            // which is six player links out of Home instead of three.
-            display: { xs: i < LEADER_ROWS ? 'flex' : 'none', md: 'flex' },
-            alignItems: 'center', gap: isTop ? 1 : 0.75,
-            py: isTop ? 0.55 : 0.4, cursor: 'pointer',
-            borderRadius: 1, ...TAPPABLE,
-          }}>
-            <Typography sx={{ width: '0.875rem', flexShrink: 0, textAlign: 'center', fontSize: isTop ? TYPE_SCALE.body : TYPE_SCALE.meta, fontWeight: 800, color: RANK_MEDAL[rank - 1] ?? 'text.disabled' }}>{rank}</Typography>
-            {isTop
-              ? <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={38} />
-              : (team && <TeamBadge team={team} size={18} />)}
-            {/* Name and sample share one baseline-aligned row so the sample sits directly
-                after the name, near where the hero's own "· 6.0 IP" falls on its second line.
-                Parked at the far right (beside the value) it read as a stray column: three
-                samples of different widths, right-aligned, with a ragged gap between each name
-                and its own number. The name is the only part allowed to shrink. */}
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
-              <Box sx={{ minWidth: 0 }}>
-              {/* 700 AT BOTH RANKS, hierarchy carried by size, the headshot and the medal, not by
-                  weight: the hero is `title` over the runners' `body` and wears a 38px portrait to
-                  their 18px badge, which is plenty. At 800 it was the one featured name on Home
-                  heavier than the rest (club names, the bracket, the Compare heads are all 700 at
-                  their own sizes), for no reason a reader could name. See the weight note in
-                  teamRow: size and colour separate these, weight is spent within a size. */}
-              <FittedName name={r.player.name} wrapperSx={{ minWidth: 0 }} sx={{
-                fontSize: isTop ? TYPE_SCALE.title : TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.15,
-              }} />
-              {isTop && team && (
-                <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {/* "San Francisco Firebells · 6.0 IP" overruns this line on desktop, so when
-                      a sample is present the club drops its city — the portrait's team ring and
-                      the roster context already carry that, and the sample is the new information. */}
-                  {r.meta ? `${team.name} · ${r.meta}` : wpblFullName(team)}
-                </Typography>
-              )}
-              </Box>
-              {/* Ranks 2–3 only. No team abbreviation here — the badge to the left already says
-                  which club — so this carries just the rate-stat sample (AB / IP), and is absent
-                  entirely for counting stats like HR, giving those blocks the widest names.
-                  Styled to MATCH the hero's sub-line above: same size, weight, and colour, since
-                  it's the same information doing the same job a few pixels away. The bumped
-                  weight and letter-spacing this slot used to carry were for the team abbreviation
-                  it once held ("LA", "BOS") — devices for uppercase labels, wrong for numerals. */}
-              {!isTop && r.meta && (
-                <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', flexShrink: 0 }}>
-                  {r.meta}
-                </Typography>
-              )}
-            </Box>
-            <Typography sx={{ fontSize: isTop ? TYPE_SCALE.heading : TYPE_SCALE.body, fontWeight: isTop ? 900 : 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right', flexShrink: 0 }}>{r.display}</Typography>
-          </Box>
-        )
-      })}
-    </Box>
-  )
-}
-
-// How many names a Home leader board lists: three on a phone, five from md up.
-//
-// THE NUMBER FOLLOWS THE LAYOUT, and it has now gone 5 -> 3 -> both -> 6 and 3. Five was right when
-// Leaders shared a stretched row with Last Game and three left it 90px short. Three was right
-// when the columns were re-paired by height and Leaders sat beside Next game, the shortest card
-// in the grid, where the two extra rows stopped filling a hole and started digging one. It is
-// beside Last Game again (see the note in the right-hand column), so the 90px is back, and two
-// more leaders are still a better way to spend it than 90px of margin.
-//
-// SPLIT BY BREAKPOINT THIS TIME, because the two arguments were never actually in conflict:
-// the hole is a desktop problem and the height is a phone one. Home is 2.9 screens on a phone
-// and 670 of 2,037 browsers fire exactly one event on it, so the two rows that fix a desktop
-// row boundary are the last thing that page needs. Three is also what the card wants on its
-// own where space is scarce: a podium reads at a glance where a five-row board asks to be
-// scanned, and everything below third is one tap away on the Stats tab "View all" opens.
-//
-// ONE BOARD, HIDDEN BY CSS, rather than two counts computed from a media query. The boards are
-// built at the wide count and StatBlock drops rows 4 and 5 below md, so there is no breakpoint
-// state to get wrong on first paint and the ranks are numbered off the full list either way.
-// SIX FROM MD UP, AND THE SIXTH IS THERE TO FILL A ROW RATHER THAN TO RANK ANYONE. Five names
-// come to 187px in a slot this grid hands 255, and no board absorbs 68px without either canyons
-// between its rows or a slab under them. A sixth leader spends 32px of that on content, and on
-// content worth having: one more real <a href> out of Home into a player page. It does not
-// close the gap by itself, which is what the cap in LeadersCard is for.
-const LEADER_ROWS = 3
-const LEADER_ROWS_WIDE = 6
-
-// Pick the top `n` by `value` (higher is better; negate inside for ascending stats),
-// after an optional qualifier filter.
-function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = LEADER_ROWS_WIDE, meta?: (t: WpblBattingTotals) => string): LeaderRow[] {
-  return list
-    .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
-    // Ties break toward the bigger sample (more at-bats).
-    .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number) || b.totals.ab - a.totals.ab)
-    .slice(0, n)
-    .map(x => ({ player: x.player, display: display(x.totals), meta: meta?.(x.totals) }))
-}
-function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = LEADER_ROWS_WIDE, meta?: (t: WpblPitchingTotals) => string): LeaderRow[] {
-  return list
-    .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
-    // Ties (e.g. equal ERA) break toward more innings pitched.
-    .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number) || b.totals.outs - a.totals.outs)
-    .slice(0, n)
-    .map(x => ({ player: x.player, display: display(x.totals), meta: meta?.(x.totals) }))
-}
-
 // ─── Loading placeholders ─────────────────────────────────────────────────────────
 // Skeletons shaped like the real rows, so a card reserves its final height while its
 // data loads and doesn't grow/jump when the data lands. Replaces the old centered
 // spinner (which was much shorter than the loaded card, causing the page to shift).
-
-/**
- * Every measurement in here is taken from the loaded card rather than picked to look right,
- * because the whole job of this component is to be the same height as the thing that replaces
- * it. Three of them were not, and each one moved the card when the data landed:
- *
- * - the selector row was ONE group of chips at a flat 22px. The loaded card carries TWO
- *   (Batting/Pitching on the left, the statistic on the right) and a PillGroup is
- *   `chromePx(28)` plus its 3px of padding, so the row is 34px on a phone and 41 on desktop.
- * - the board drew three names. StatBlock draws SIX from md up (see LEADER_ROWS_WIDE) and
- *   hides the last three below it, in CSS, for the reasons in its own note. Copying the same
- *   `display` per row is what keeps this honest at both widths without a media query.
- * - the art is `chromePx`, matching PlayerPortrait and TeamBadge, which take the desktop
- *   chrome scale and not the reader's text size. A raw 38 here was a portrait 9px smaller
- *   than the one it stood in for on every desktop.
- */
-function LeaderStatSkeleton() {
-  return (
-    <Box>
-      {/* The two selector groups, opposite ends of one row, as the loaded card draws them. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.25 }}>
-        {[150, 140].map(w => (
-          <Skeleton key={w} variant="rounded" width={chromePx(w)} height={chromePx(28)}
-            sx={{ borderRadius: 999, my: '3px', maxWidth: '48%' }} />
-        ))}
-      </Box>
-      {/* #1 hero */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.55 }}>
-        <Skeleton variant="text" width="0.875rem" sx={{ fontSize: TYPE_SCALE.body }} />
-        <Skeleton variant="circular" width={chromePx(38)} height={chromePx(38)} sx={{ flexShrink: 0 }} />
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" width="55%" sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.15 }} />
-          <Skeleton variant="text" width="40%" sx={{ fontSize: TYPE_SCALE.micro, lineHeight: 1.2 }} />
-        </Box>
-        <Skeleton variant="text" width="2.5rem" sx={{ fontSize: TYPE_SCALE.heading, flexShrink: 0 }} />
-      </Box>
-      {/* Ranks 2 to 6, the last three hidden below md exactly as StatBlock hides them. */}
-      {Array.from({ length: LEADER_ROWS_WIDE - 1 }, (_, i) => (
-        <Box key={i} sx={{
-          display: { xs: i + 1 < LEADER_ROWS ? 'flex' : 'none', md: 'flex' },
-          alignItems: 'center', gap: 0.75, py: 0.4,
-        }}>
-          <Skeleton variant="text" width="0.875rem" sx={{ fontSize: TYPE_SCALE.meta }} />
-          <Skeleton variant="circular" width={chromePx(18)} height={chromePx(18)} sx={{ flexShrink: 0 }} />
-          <Skeleton variant="text" sx={{ flex: 1, fontSize: TYPE_SCALE.body, lineHeight: 1.15 }} />
-          <Skeleton variant="text" width="2.5rem" sx={{ fontSize: TYPE_SCALE.body, flexShrink: 0 }} />
-        </Box>
-      ))}
-    </Box>
-  )
-}
-
-// One leaderboard at a time (OPS, then HR, RBI…) instead of all three stacked — cuts the
-// card's height ~3× on mobile. A chip row selects the category; a horizontal swipe on the
-// rows steps between neighbours. Only categories that have data get a chip (an empty HR
-// board early in the season simply doesn't appear), mirroring the old stacked behaviour.
-/**
- * The leaders card. One card for batting AND pitching, switched by the group control.
- *
- * They were two cards until the Discord promo left the left column at two cards against the
- * right's three, and no column ratio closes a 211px gap between cards whose heights are set by
- * their content. Merging them is the version that both closes it and leaves Home with one
- * fewer thing on it: the two were the same card twice, three rows each, differing only in
- * which six categories they offered.
- */
-function LeadersCard({ title, groups, loading, hasData, teamById, onOpenPlayer }: {
-  title: string
-  groups: {
-    key: string
-    label: string
-    blocks: { label: string; short: string; sortKey: string; rows: LeaderRow[] }[]
-    onViewAll: (sortKey?: string) => void
-  }[]
-  loading: boolean; hasData: boolean; teamById: Map<string, WpblTeam>
-  onOpenPlayer: (p: WpblPlayer) => void
-}) {
-  // Only groups with something in them. Early in a season pitching can have boards before
-  // batting does, and a control offering an empty half is worse than no control.
-  const liveGroups = groups.filter(g => g.blocks.some(b => b.rows.length > 0))
-  const [group, setGroup] = useState(0)
-  const gIdx = Math.min(group, Math.max(0, liveGroups.length - 1))
-  const current = liveGroups[gIdx]
-  const onViewAll = current?.onViewAll ?? (() => {})
-
-  const shown = (current?.blocks ?? []).filter(b => b.rows.length > 0)
-  const [active, setActive] = useState(0)
-  const idx = Math.min(active, Math.max(0, shown.length - 1)) // clamp as data loads/changes
-  const swipe = useRef({ x: 0, y: 0 })
-
-  const step = (d: number) => setActive(() => Math.max(0, Math.min(shown.length - 1, idx + d)))
-
-  // Reserve the tallest board's height so stepping between a 3-row and a 2-row category
-  // doesn't jolt the card, and cap how far apart the rows may be pushed above it.
-  //
-  // IN REM, NOT PX, because this box exists to hold rows of type: the case CLAUDE.md sends to
-  // rem. The hero row is 2.95rem and each of the rest 1.6rem at BOTH scales, since /wpbl's
-  // desktop scale moves the root font size and MUI's spacing together. The px version said 48
-  // and 26, which were measured on a phone, so on desktop it reserved 152px for a board that is
-  // really 187: the floor sat under the content it exists to hold and stopped preventing the
-  // jolt it was written for. Erring high is the safe direction here (a reader on Large text
-  // grows the type but not the portrait, so the estimate runs ahead of the row); erring low
-  // clamps real names.
-  //
-  // Per breakpoint, because the board itself is: StatBlock draws six rows from md up and three
-  // below it, and a single reserve would either leave dead card under a phone's third name or
-  // let the desktop board outgrow its own floor. `rows.length` is the built count, so it is
-  // capped to what is actually visible at each width.
-  //
-  // THE CAP IS WHY THERE IS A MAX AT ALL. Leaders is the short card in a row whose height is
-  // set by Last game, and Last game breathes with its recap: two lines or three is ~20px, and
-  // every one of those pixels lands in the gaps between leaders. At five rows the board was
-  // handed 68px of slack and turned it into 17px canyons, which reads as a list coming apart
-  // rather than as a card with room to spare. Gaps stop at 0.5rem; anything past that pools
-  // under the board as ordinary padding, which is the quieter of the two failures.
-  const maxRows = shown.length ? Math.max(...shown.map(b => b.rows.length)) : LEADER_ROWS
-  const rowsRem = (n: number) => 2.95 + Math.max(0, n - 1) * 1.6
-  const shownRows = { xs: Math.min(maxRows, LEADER_ROWS), md: maxRows }
-  const reserveRem = { xs: `${rowsRem(shownRows.xs)}rem`, md: `${rowsRem(shownRows.md)}rem` }
-  const spreadCapRem = {
-    xs: `${rowsRem(shownRows.xs) + Math.max(0, shownRows.xs - 1) * 0.5}rem`,
-    md: `${rowsRem(shownRows.md) + Math.max(0, shownRows.md - 1) * 0.5}rem`,
-  }
-
-  return (
-    <SectionCard
-      title={title}
-      fill
-      // Carry the board you're actually looking at into the full table — tapping "View all"
-      // under the HR board should land on the table sorted by HR, not its default column.
-      action={shown.length ? (
-        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
-          View all
-        </Typography>
-      ) : undefined}
-    >
-      {loading ? (
-        <LeaderStatSkeleton />
-      ) : !hasData || shown.length === 0 ? (
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', py: 1 }}>
-          Leaders appear once games are played.
-        </Typography>
-      ) : (
-        <>
-          {/* Both selectors on one row: the half of the game on the left, the statistic within
-              it on the right. They were stacked, which read as a hierarchy that isn't there and
-              cost the card a second band of chrome above a three-row board. Opposite ends of
-              one row says the same thing about them being different questions, in one band.
-              They fit: two groups of short labels come to roughly 260px of the ~490px column,
-              and `flexWrap` stacks them again on a phone rather than crushing either.
-
-              Switching halves resets the statistic, since "HR" has no counterpart on the
-              pitching side and carrying the index across would land on whatever sat third. */}
-          <Box sx={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 1, rowGap: 1, flexWrap: 'wrap', mb: 1.25,
-          }}>
-            {liveGroups.length > 1 && (
-              <PillGroup
-                options={liveGroups.map(g => ({ value: g.key, label: g.label }))}
-                value={current.key}
-                onChange={v => { setGroup(liveGroups.findIndex(g => g.key === v)); setActive(0) }}
-              />
-            )}
-            {/* Category chips. The selector doubles as the block's label. */}
-            <PillGroup
-              options={shown.map(b => ({ value: b.label, label: b.short }))}
-              value={shown[idx].label}
-              onChange={v => setActive(shown.findIndex(b => b.label === v))}
-            />
-          </Box>
-
-          {/* Swipe the rows left/right to change category (commit on release, so vertical
-              page scroll is never captured). */}
-          <Box
-            onTouchStart={e => { swipe.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
-            onTouchEnd={e => {
-              const dx = e.changedTouches[0].clientX - swipe.current.x
-              const dy = e.changedTouches[0].clientY - swipe.current.y
-              if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1)
-            }}
-            // `reserveRem` is the floor, `spreadCapRem` the ceiling, and `flex: 1` fills the
-            // space between them. Leaders is the shorter of the two cards in its row and the
-            // row stretches both to a shared height, so the difference has to land somewhere:
-            // spread through the board it reads as row spacing, up to the point where it stops
-            // reading as spacing at all. Past the cap it stays here, under the board, where a
-            // card with nothing more to say is at least quiet about it.
-            sx={{ minHeight: reserveRem, maxHeight: spreadCapRem, flex: 1 }}
-          >
-            <StatBlock key={shown[idx].label} label={shown[idx].label} rows={shown[idx].rows} teamById={teamById} onOpenPlayer={onOpenPlayer} hideLabel />
-          </Box>
-        </>
-      )}
-    </SectionCard>
-  )
-}
 
 // ─── New-tracking banner ──────────────────────────────────────────────────────────
 // The league publishes TrackMan tracking in batches that land days after a game, often in
@@ -3089,7 +2728,7 @@ function OffseasonHomeSkeleton() {
   )
 }
 
-export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking, awardsOpen, onOpenAwards, onCloseAwards }: {
+export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewTracking, awardsOpen, onOpenAwards, onCloseAwards }: {
   teams: WpblTeam[]
   games: WpblGame[]
   /** The league's mirrored website calendar, which is where a postseason game's home club
@@ -3127,7 +2766,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // shared session cache so swiping back to Home (the default tab, so the most re-entered)
   // repaints instantly instead of flashing every card's skeleton and re-pulling all three
   // datasets.
-  const { fmtEra } = useEraBasis()
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })

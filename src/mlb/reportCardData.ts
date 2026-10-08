@@ -2,7 +2,7 @@
 // all derived from per-player game logs (MLB StatsAPI has no streak stat type).
 // Split out of api.ts; re-exported from there so '../api' imports still resolve.
 
-import { TEAM_ABBR, CURRENT_SEASON } from './constants'
+import { TEAM_ABBR } from './constants'
 import { seasonIsOver } from './seasonPhase'
 import { supabase } from '../lib/supabase'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'

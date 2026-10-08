@@ -1,0 +1,50 @@
+name: CI
+
+# The checks every push has to pass: types, lint, tests, and a production build.
+#
+# WHY THIS EXISTS. Every push to `main` deploys (Cloudflare Pages), and until Oct 8, 2026 nothing ran
+# the 2,500-odd tests or even the type-check before that happened: they protected the site only if
+# whoever pushed remembered to run them. The first run of this job found a hook that React would
+# throw on and two test assertions that could never fail.
+#
+# NO SECRETS, ON PURPOSE. The tests run against placeholder Supabase settings (`test.env` in
+# vite.config.js) and the build needs none, so this job can run on any branch and any pull request
+# without holding a key. A test that needs data mocks the client.
+#
+# This job reports; it does not stop a deploy by itself. Cloudflare builds `main` on push whatever
+# this says. What makes it a gate is merging through a pull request with this check required (a
+# branch rule on `main`).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npx vitest run
+
+      - name: Build
+        run: npm run build

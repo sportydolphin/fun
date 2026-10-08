@@ -31,7 +31,7 @@ import {
 } from './derive/compare'
 import type { WpblMatchupPlay } from './derive/matchups'
 import {
-  CARD_BORDER, SectionCard, TYPE_SCALE, TeamBadge, PlayerPortrait, chromePx, hoverOnly,
+  CARD_BORDER, SectionCard, TeamBadge, PlayerPortrait, chromePx, hoverOnly,
   MICRO_TEXT, FOCUS_RING, useWpblDark,
 } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'

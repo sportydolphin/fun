@@ -3,8 +3,7 @@ import { Box, Typography, Skeleton, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TONE } from '../constants'
 import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
-import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
-import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
+import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { LogoBubble, LiveDot } from '../components/boxScore'
 import { MlbSheet } from '../components/MlbSheet'
 import { track, EVENTS } from '../../lib/analytics'
@@ -586,7 +585,6 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
   const [loading,    setLoading]    = useState(true)
   const [openGame,   setOpenGame]   = useState<FinalGameSummary | null>(null)
   const [expanded,   setExpanded]   = useState(false)
-  const isDark = useIsDark()
 
   // Back-from-Search restore: reopen the game modal the user cross-linked from.
   useEffect(() => {

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TeamSummary } from '../types'
-import { ACCENT, TEAM_BG } from '../constants'
+import { TEAM_BG } from '../constants'
 import { niceTicks, fmtR } from '../lib/utils'
 import { chromePx } from '../../ui/scale'
 

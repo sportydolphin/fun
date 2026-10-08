@@ -44,7 +44,7 @@ export function StatsView({
   lbData, lbFullscreen, setLbFullscreen,
   lbStatsLimit, setLbStatsLimit,
   lbQualified, setLbQualified,
-  isDesktop, canHover, handleLbPlayerClick,
+  isDesktop, handleLbPlayerClick,
   highlightPlayerId, highlightStatKey,
   setHighlightPlayerId, setHighlightStatKey,
 }: StatsViewProps) {

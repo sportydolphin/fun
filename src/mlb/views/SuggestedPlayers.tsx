@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT, ACCENT_TEXT, CURRENT_SEASON, TONE } from '../constants'
+import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT_TEXT, CURRENT_SEASON, TONE } from '../constants'
 import { chromePx, typePx } from '../../ui/scale'
 import { useTextTone } from '../lib/colorUtils'
 import { cachedJson, FRESH_LONG_MS } from '../lib/readCache'
@@ -75,7 +75,7 @@ export async function fetchSuggestions(teamId: number, followedIds: number[]): P
 
 // ─── SuggestionChip ───────────────────────────────────────────────────────────
 
-export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClick, large }: {
+export function SuggestionChip({ player, alreadyFollowed, onFollow, large }: {
   player:          SuggestionPlayer
   alreadyFollowed: boolean
   onFollow:        () => void

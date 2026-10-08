@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { standingsAt, biggestRun, leadStory, type SeasonShape, type SeasonPreview } from './derive/seasonShape'
+import { biggestRun, leadStory, type SeasonShape, type SeasonPreview } from './derive/seasonShape'
 import { useChartScrub } from './chartScrub'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { wpblAccent, wpblFullName } from './constants'
@@ -374,7 +374,6 @@ function Chart({ shape, col, scrub, colX, overY, dark }: {
   overY: (over: number) => number
   dark: boolean
 }) {
-  const last = shape.columns.length - 1
 
   return (
     <Box

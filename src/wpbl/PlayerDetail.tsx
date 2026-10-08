@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Box, Typography, Skeleton, useMediaQuery, type Theme } from '@mui/material'
+import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getSeedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, getCachedWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, plateAppearances, hasPlateAppearance, fmtRate, fmtTwo } from './stats'
 import { scopedLines, inSeason, seasonsPlayed, latestSeason, gamesInSeason, type SeasonScope } from './season'
@@ -550,7 +550,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // A store rather than state: see BandStore.
   const bandStore = useMemo(createBandStore, [])
   const setBandHidden = bandStore.set
-  const { basis: eraBasis, fmtEra, fmtK, kLabel } = useEraBasis()
+  const { basis: eraBasis, fmtEra } = useEraBasis()
 
   // The SHORT /p/<code> form, for pasting into a DM or a post. functions/p 302s it to the readable
   // /wpbl/players/<slug> the address bar shows, which is what Google indexes and what

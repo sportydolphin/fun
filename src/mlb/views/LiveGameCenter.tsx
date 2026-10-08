@@ -14,7 +14,7 @@ import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { scrollBehavior } from '../../lib/motion'
 import {
   BoxScore, parseBoxScoreData,
-  LogoBubble, LiveDot, SectionLabel, TeamBoxSection,
+  LogoBubble, LiveDot, TeamBoxSection,
 } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
 import { MlbHiddenH1, MlbAddressH1 } from '../components/PageHeading'
@@ -292,50 +292,6 @@ function ordinal(n: number): string {
 
 // ─── Bases diamond + outs ─────────────────────────────────────────────────────
 
-function BasesDiamond({ onFirst, onSecond, onThird, color, size = 22 }: {
-  onFirst: boolean; onSecond: boolean; onThird: boolean; color: string; size?: number
-}) {
-  // Cell pitch: diagonally-adjacent bases touch at size/√2 center spacing; the 1.06
-  // factor leaves a hair of gap so they're practically, but not quite, touching.
-  const unit = (size / Math.SQRT2) * 1.06
-  const sq = (occupied: boolean) => (
-    <Box sx={{
-      width: chromePx(size), height: chromePx(size), placeSelf: 'center',
-      transform: 'rotate(45deg)',
-      bgcolor: occupied ? color : 'transparent',
-      border: `${size >= 12 ? 2 : 1.5}px solid`,
-      borderColor: occupied ? color : 'text.disabled',
-      borderRadius: '1px',
-      transition: 'background-color 0.2s, border-color 0.2s',
-    }} />
-  )
-  return (
-    <Box sx={{
-      display: 'grid',
-      gridTemplateColumns: `repeat(3, ${chromePx(unit)})`,
-      gridTemplateRows: `repeat(2, ${chromePx(unit)})`,
-      flexShrink: 0,
-    }}>
-      <Box />{sq(onSecond)}<Box />
-      {sq(onThird)}<Box />{sq(onFirst)}
-    </Box>
-  )
-}
-
-function OutsDots({ outs }: { outs: number }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      {[0, 1, 2].map(i => (
-        <Box key={i} sx={{
-          width: chromePx(8), height: chromePx(8), borderRadius: '50%',
-          bgcolor: i < outs ? '#ef4444' : 'transparent',
-          border: '1.5px solid', borderColor: i < outs ? '#ef4444' : 'text.disabled',
-        }} />
-      ))}
-    </Box>
-  )
-}
-
 // ─── Live situation panel ─────────────────────────────────────────────────────
 
 function MatchupCard({ label, player, teamId, onSelect }: {
@@ -392,21 +348,6 @@ function MatchupCard({ label, player, teamId, onSelect }: {
           </>
         )}
       </Box>
-    </Box>
-  )
-}
-
-// Compact bases + count + outs, sized to sit between the two teams in the score header.
-function MiniSituation({ sit }: { sit: GcSituation }) {
-  const isDark = useIsDark()
-  const batCol = accentColor(TEAM_BG[sit.battingTeamId] ?? '#888', isDark)
-  return (
-    <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.7, px: 0.5 }}>
-      <BasesDiamond onFirst={sit.onFirst} onSecond={sit.onSecond} onThird={sit.onThird} color={batCol} size={16} />
-      <Typography sx={{ fontSize: '0.82rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-        {sit.balls}-{sit.strikes}
-      </Typography>
-      <OutsDots outs={sit.outs} />
     </Box>
   )
 }

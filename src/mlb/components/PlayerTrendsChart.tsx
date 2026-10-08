@@ -91,7 +91,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       setLeagueAvgPts(m)
     })
     return () => { cancelled = true }
-  }, [group, statKey, rangeStart, rangeEnd, splits, chartMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [group, statKey, rangeStart, rangeEnd, splits, chartMode])  
 
   // A finger: the tip follows it sideways, the year under it opens on release, and a vertical drag
   // is left to scroll the page (see useTouchScrub). Bound below, once the geometry exists.

@@ -1,6 +1,5 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { WPBL_ACCENT } from './constants'
 
 // A plain-language reference for the WPBL's public stats feed: where it lives, what each
 // endpoint returns, and the things worth knowing before you pull from it. Written up as

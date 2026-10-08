@@ -64,7 +64,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
       }
     }).catch(() => {})
     return () => { cancelled = true }
-  }, [season, isPitcher]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [season, isPitcher])  
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   const fmtDate = (d: string) => {

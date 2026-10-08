@@ -224,7 +224,7 @@ function fmtWcGap(gap: number): string {
   return gap > 0 ? `+${s}` : `-${s}`
 }
 
-function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, highlightTeamId }: {
+function PlayoffTeamRow({ team, gbText, isLast, showSep, onTeamClick, highlightTeamId }: {
   team: StandingsTeamRecord; gbText: string
   isIn: boolean; isLast: boolean; showSep: boolean
   onTeamClick?: (teamId: number) => void

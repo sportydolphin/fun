@@ -580,6 +580,11 @@ in-site bell and the push senders.
   Needs `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_VAPID_PUBLIC_KEY`
   for push. Without them the app renders empty states.
 - **Tests:** `npm run test` (Vitest), in `src/__tests__/` and `src/**/__tests__`.
+- **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm run typecheck`, `npm run lint`,
+  the tests and the build on every push and pull request. `npm run lint -- --fix` removes unused
+  imports; an unused variable is an error left for a person. The tests run against placeholder
+  Supabase settings (`test.env` in `vite.config.js`), never the real project, so no test may need
+  `.env`. CI does not block a deploy by itself: Cloudflare builds `main` on push regardless.
 - **Cron:** `scripts/*.mjs` are Node jobs on GitHub Actions schedules (table in
   ARCHITECTURE §5), using the service-role key from repo secrets.
 - **Edge functions** deploy by hand: `supabase functions deploy <name>`.

@@ -39,6 +39,15 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // PLACEHOLDERS, NEVER THE REAL PROJECT. `src/lib/supabase.ts` builds its client at import time
+    // and throws without a URL, so the suite used to pass only on a machine with a `.env`, which
+    // also meant every test that imported it held a live client on the production database. CI has
+    // no `.env` and should not; a test that needs data mocks the client. These win over `.env`.
+    env: {
+      VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+      VITE_VAPID_PUBLIC_KEY: 'test-vapid-key',
+    },
     // Vitest's default excludes don't cover `.claude/worktrees/`, where agent tooling leaves
     // full checkouts of the repo — each with its OWN node_modules. Without this, the runner
     // globs those copies' test files and loads a second React alongside ours, so every hook

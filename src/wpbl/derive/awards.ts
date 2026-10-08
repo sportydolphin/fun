@@ -381,7 +381,7 @@ function valueStats(
  * go to the best hitters left, so a league with fewer clubs than SHORTLIST, or a club with no
  * qualified hitter, still gets four tiles instead of a short row.
  */
-function mvpSlate({ mvp, players, batting, pitching, games }: AwardBallotInput): AwardCandidate[] {
+function mvpSlate({ mvp, players, batting, games }: AwardBallotInput): AwardCandidate[] {
   if (!mvp) return []
   const bats = new Map(aggregateBatting(players, batting, games).map(b => [b.player.id, b.totals]))
   // The hand-swaps run LAST, on the finished slate. See WPBL_MVP_SWAPS: the race still decides

@@ -11,7 +11,7 @@ import {
 } from './derive/runExpectancy'
 import { PlayValueCard, StealCard } from './PlayValue'
 import { wpblAccentFg } from './constants'
-import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName, chromePx,
+import { SectionCard, LeaderRow, ExpandRow, useWpblDark, chromePx,
   BaseDiamond, BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
 import { useExperiments } from '../ExperimentsContext'
 import CountBoard from './CountBoard'

@@ -391,7 +391,6 @@ function HomeViewInner({
   // ── Derived team info ─────────────────────────────────────────────────────────
   const followedTeam = allTeams.find(t => t.id === followedTeamId)
   const bg       = TEAM_BG[followedTeamId ?? 0] ?? '#1a2035'
-  const abbr     = followedTeam?.abbreviation ?? '?'
   // Use the full team name directly. `locationName` is the raw municipality
   // (e.g. "Denver" for the Rockies, "Flushing" for the Mets, "Arlington" for
   // the Rangers), which reads wrong next to the common name. `name` is the

@@ -136,10 +136,10 @@ export function reopenDevSim() {
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
 
-export function useDevSim(): DevSimState {
-  // A build-time constant, so the branch never changes between renders of one build.
-  return import.meta.env.DEV ? useSyncExternalStore(subscribe, get, get) : OFF
-}
+// Chosen by a build-time constant, so production gets the constant and the store goes with it.
+function useDevSimLive(): DevSimState { return useSyncExternalStore(subscribe, get, get) }
+function useDevSimOff(): DevSimState { return OFF }
+export const useDevSim = import.meta.env.DEV ? useDevSimLive : useDevSimOff
 
 /** For the dev menu's "what is on" summary. */
 export const devSimActive = () => get().enabled

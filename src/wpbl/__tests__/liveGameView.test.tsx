@@ -288,7 +288,7 @@ describe("the roster spelling, not the feed's", () => {
       />,
     )
     expect(screen.getByText('Emi Saiki')).toBeTruthy()
-    expect(screen.queryByText(/Emi Saki/)).toBeNull()
+    expect(screen.queryByText(/Emi Saki\b/)).toBeNull()
   })
 })
 

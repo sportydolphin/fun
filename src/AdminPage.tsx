@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, IconButton } from '@mui/material'
 import { Refresh, ExpandMore } from '@mui/icons-material'
-import { Section, StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
+import { StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
 import AdminPhotos from './wpbl/AdminPhotos'
 import AdminClips from './wpbl/AdminClips'
 import { PlayerPortrait } from './wpbl/ui'
@@ -11,7 +11,7 @@ import { PlayerPortrait } from './wpbl/ui'
 import { useChartScrub } from './ui/chartScrub'
 import {
   fetchAnalytics, localTz, deltaPct, formatDelta, formatCount, formatShare,
-  trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,
+  trimLeadingEmpty, shortDate, seriesPoints,
   EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
   EMPTY_PAGE_USAGE, groupActions, buildFunnels, eventInfo, PAGE_LABELS, prettyId,
   EMPTY_WEB_VITALS, vitalRating, formatVital, EMPTY_MLB_USAGE, mlbCardLabel,
@@ -508,7 +508,6 @@ export default function AdminPage() {
   // tiles. Only the Today range is partial enough for them to mislead.
   const comparable = days > 1
 
-  const maxEvent = Math.max(1, ...events.map(e => e.events))
   const maxPlayer = Math.max(1, ...players.map(x => x.opens))
   const maxBoard = Math.max(1, ...statsBoards.boards.map(b => b.events))
   // Entry points are grouped by destination, and each group gets its OWN scale: the three

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 // The .mjs job imported rather than reimplemented: the event grammar IS the check, and a copy
 // living here would keep passing while the script it mirrors drifted.
-import { batting, parseGames, pairBatters, diffBatters } from '../../scripts/check-wpbl-retro-stats.mjs'
+import { batting, parseGames, diffBatters } from '../../scripts/check-wpbl-retro-stats.mjs'
 
 // This audit is only worth having if its reading of a Retrosheet event is right. Every case
 // below is a code that actually appears in RetroWPBL's 2026 files, counted over all four of

@@ -92,7 +92,7 @@ export function currentPreset(s: DevDeviceState): DevicePreset {
 
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn) } }
 
-export function useDevDevice(): DevDeviceState {
-  // A build-time constant, so the branch never changes between renders of one build.
-  return import.meta.env.DEV ? useSyncExternalStore(subscribe, get, get) : DEFAULT
-}
+// Chosen by a build-time constant, so production gets the constant and the store goes with it.
+function useDevDeviceLive(): DevDeviceState { return useSyncExternalStore(subscribe, get, get) }
+function useDevDeviceOff(): DevDeviceState { return DEFAULT }
+export const useDevDevice = import.meta.env.DEV ? useDevDeviceLive : useDevDeviceOff

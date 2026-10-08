@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME } from '../constants'
+import { ACCENT_TEXT, TEAM_NICKNAME } from '../constants'
 import { useIsDark, highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { TeamLogo } from '../components/TeamLogo'

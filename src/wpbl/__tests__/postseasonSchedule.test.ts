@@ -58,8 +58,6 @@ const siteGame = (over: Partial<WpblSiteGame> = {}): WpblSiteGame => ({
   url: null, ticket_url: null,
   ...over,
 })
-/** The same thing, named for what the tiebreak tests are actually asking it. */
-const teamSpecsSeeds = rowsFor
 const bySeries = (games: WpblGame[], label: string) => rowsFor(games).filter(r => r.label === label)
 
 describe('postseasonScheduleRows', () => {

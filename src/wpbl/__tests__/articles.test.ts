@@ -32,7 +32,8 @@ const player = (id: string, name: string): WpblPlayer => ({
 const game = (o: Partial<WpblGame> = {}): WpblGame => ({
   id: 'g1', game_date: '2026-08-01', status: 'final',
   home_team_id: 'NY', away_team_id: 'LA', home_score: 8, away_score: 10,
-} as WpblGame & typeof o)
+  ...o,
+} as WpblGame)
 
 describe('isWpblPost', () => {
   it('keeps a post tagged for the league', () => {

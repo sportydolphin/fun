@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Box, Typography, useMediaQuery, SwipeableDrawer } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
-import { ACCENT, ACCENT_TEXT } from './mlb/constants'
+import { ACCENT_TEXT } from './mlb/constants'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
 import { requestDeepLink } from './mlb/state/deepLink'
 import type { DeepLink } from './mlb/state/deepLink'
@@ -191,7 +191,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     fetchSuggestions(state.followedTeamId ?? 0, [])
       .then(sugs => updateSearchBridge({ toolbarSuggestions: sugs }))
       .catch(() => {})
-  }, [state.followedTeamId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.followedTeamId])  
 
   // Push recent searches + their re-open / clear handlers up to the toolbar
   useEffect(() => {

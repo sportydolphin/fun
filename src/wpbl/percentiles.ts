@@ -365,7 +365,7 @@ function rankOne<T extends { player: WpblPlayer; totals: unknown }>(
   playerId: string,
   field: T[],
   defs: WpblStatRankDef[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   valueOf: (key: string, totals: any) => number | null,
 ): WpblStatRank[] {
   const subject = field.find(s => s.player.id === playerId)

@@ -210,7 +210,7 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
     const list = allGames ? sorted : near
     const chosen = games.find(g => g.id === gameId)
     return chosen && !list.includes(chosen) ? [chosen, ...list] : list
-  }, [games, pub, allGames, gameId])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [games, pub, allGames, gameId])    
 
   useEffect(() => {
     let live = true

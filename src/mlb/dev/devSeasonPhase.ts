@@ -45,14 +45,11 @@ const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listen
 const phaseOf = () => get().phase
 const noTeamOf = () => get().noTeam
 
-// Each folds to a build-time constant, so the branch never changes between renders of one build.
-export function useDevSeasonPhase(): DevSeasonPhase {
-  return import.meta.env.DEV ? useSyncExternalStore(subscribe, phaseOf, phaseOf) : 'auto'
-}
-
-export function useDevNoTeam(): boolean {
-  return import.meta.env.DEV ? useSyncExternalStore(subscribe, noTeamOf, noTeamOf) : false
-}
+// Each chosen by a build-time constant, so production gets the constants and the store goes.
+function useDevSeasonPhaseLive(): DevSeasonPhase { return useSyncExternalStore(subscribe, phaseOf, phaseOf) }
+function useDevNoTeamLive(): boolean { return useSyncExternalStore(subscribe, noTeamOf, noTeamOf) }
+export const useDevSeasonPhase = import.meta.env.DEV ? useDevSeasonPhaseLive : (): DevSeasonPhase => 'auto'
+export const useDevNoTeam = import.meta.env.DEV ? useDevNoTeamLive : (): boolean => false
 
 /** For the dev menu's "what is on" summary. */
 export const devSeasonPhaseActive = () => get().phase !== 'auto' || get().noTeam

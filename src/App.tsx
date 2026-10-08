@@ -1,11 +1,10 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import { Typography, Box, IconButton, AppBar, Toolbar, Button, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery, noteSearchFocus } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
-import { APP_VERSION } from './version'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
@@ -27,7 +26,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblReadingPage, isWpblWatchPage, isWpblComparePage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblReadingPage, isWpblWatchPage, isWpblComparePage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
 import type { WpblGame, WpblTeam } from './wpbl/types'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { defaultSectionPath } from './lib/defaultSection'
@@ -140,11 +139,6 @@ const DIALOG_FALLBACK = null
 // MLB's tabs, clubs and players under /mlb, which live in mlb/routes.ts (`isMlbPath`).
 type Route = '/' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/delete-account' | '/admin'
 
-/** A WPBL tab page. `/wpbl/api` is a sibling route, not a tab, so it is not one of these. */
-const isWpblTab = (p: string) => wpblViewFromPath(p) !== null
-/** A player page or the index that lists them. Both are rendered by WpblApp: a player is a
- *  modal the section opens over a tab, so the section still owns the route. */
-const isWpblPlayerPage = (p: string) => wpblPlayerSlugFromPath(p) !== null || isWpblPlayersIndex(p)
 /** Everything WpblApp renders. The players INDEX is its own page, so it is not here.
  *  Defined in routes.ts because WpblApp's popstate handler has to agree with it. */
 const rendersWpblApp = wpblAppOwnsPath

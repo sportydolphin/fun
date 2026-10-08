@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, lazy, Suspense } from 'react'
 import {
-  Box, Typography, Paper, CircularProgress,
-  List, ListItemButton, Divider, ClickAwayListener,
+  Box, Typography, Paper, CircularProgress, Divider,
   Popover, Menu, MenuItem, Tooltip,
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, OpenInFull, Tune, MoreVert } from '@mui/icons-material'
@@ -79,14 +78,12 @@ export interface SearchViewProps {
 }
 
 export function SearchView({
-  query, setQuery, playerResults, teamResults,
-  searching, dropdownOpen, setDropdownOpen, selectPlayer, selectTeam, onTeamClick,
+  selectPlayer, onTeamClick,
   team, palette, setPalette, season, loadingStats, hasStats,
   rankMode, setRankMode, currentAvailableSeasons, handleSeasonChange,
   teamHitting, teamPitching,
   selectedTeamHitStats, setSelectedTeamHitStats, selectedTeamPitStats, setSelectedTeamPitStats,
   toggleTeamHitStat, toggleTeamPitStat,
-  teamHitLeaders, teamPitLeaders,
   teamCardProps,
   showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders, divisionStandings,
   teamRoster,

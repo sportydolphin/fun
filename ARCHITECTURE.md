@@ -540,6 +540,9 @@ sequenceDiagram
 
 ## 5. Scheduled jobs
 
+**Not scheduled, listed here so the workflow folder has no strangers:** `ci.yml` runs on every push
+and pull request (type-check, lint, tests, build) and holds no secrets.
+
 ### GitHub Actions (`.github/workflows/*.yml`): all times **UTC**, all also `workflow_dispatch`
 
 **The MLB jobs are gated to the MLB calendar** (since Oct 2026). Each runs

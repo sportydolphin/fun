@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { ThemeProvider, createTheme, useTheme, type Theme } from '@mui/material/styles'
 import { useSwipeNav } from '../AccessibilityContext'
-import { pressable, hoverOnly, FOCUS_RING } from './interaction'
+import { pressable } from './interaction'
 import { chromePx } from './scale'
 
 // The modal shell both league sections open their detail views in: a portalled overlay, a centred

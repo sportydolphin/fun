@@ -2,7 +2,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { postseasonGameLabel } from '../postseason'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
+import { useIsDark, accentColor, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 

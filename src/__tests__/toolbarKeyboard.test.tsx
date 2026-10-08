@@ -28,7 +28,6 @@ const USER = {
 let currentUser: typeof USER | null = USER
 
 vi.mock('../AuthContext', async () => {
-  const React = await import('react')
   return {
     // AppInner reads the context through this hook; the provider is a passthrough.
     useAuth: () => ({
