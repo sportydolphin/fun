@@ -191,18 +191,25 @@ export function BracketSkeleton({ compact }: { compact: boolean }) {
     <Box aria-hidden>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25 }}>
         <Skeleton variant="text" sx={{ width: '7.5rem', fontSize: '0.7rem' }} />
-        <Skeleton variant="rounded" sx={{ ml: 'auto', width: chromePx(176), height: chromePx(31), borderRadius: 999 }} />
+        {/* The real round pills, none chosen yet: a pill-shaped bar of hand-picked size was 3px short of them. */}
+        <Box sx={{ ml: 'auto' }}>
+          <PillGroup options={ROUNDS.map(r => ({ value: r.key, label: r.short }))} value="" onChange={() => {}} />
+        </Box>
       </Box>
+      {/* The round's name, which the full card carries under its header. */}
+      {!compact && <Typography sx={{ fontSize: '0.72rem', mb: 1 }}><Skeleton width="6rem" /></Typography>}
       <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(4, compact), gap: 1 }}>
-        {[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" sx={{ height: SERIES_CARD_H, borderRadius: 2.5 }} />)}
+        {[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" sx={{ height: SERIES_CARD_H[compact ? 'compact' : 'full'], borderRadius: 2.5 }} />)}
       </Box>
     </Box>
   )
 }
 
-// A series card's height at the default text size (127px, measured): label, two club rows, the
-// status line. In rem so it grows with the reader's text size the way the real card does.
-const SERIES_CARD_H = '7.95rem'
+// A series card's height at the default text size (measured in Oct 2026: 127.2px on Home's compact
+// card, 128.5px on the Standings tab's full one): label, two club rows, the status line. In rem so
+// it grows with the reader's text size the way the real card does. One figure for both was 2px out
+// on one of them, enough to nudge everything under the bracket when it landed.
+const SERIES_CARD_H = { compact: '7.95rem', full: '8.03rem' } as const
 
 /**
  * The bracket card. Draws nothing until the league has published a postseason (or if the feed is

@@ -308,6 +308,10 @@ export function useMlbState() {
   // Dev mode: auto-pick a random team + a few players when running on localhost
   useEffect(() => {
     if (!import.meta.env.DEV) return
+    // Not for an automated browser (the layout sweep): a club followed a beat after first paint
+    // swaps Home's whole left column for the followed-team layout, which the sweep reported as a
+    // loading shift no reader in production can ever see.
+    if (navigator.webdriver) return
     if (allTeams.length === 0) return
     if (devAutoFilledRef.current) return
     devAutoFilledRef.current = true

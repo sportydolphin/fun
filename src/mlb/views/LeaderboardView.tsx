@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import {
-  Box, Typography, Paper, CircularProgress, Popover, Switch,
+  Box, Typography, Paper, Skeleton, Popover, Switch,
 } from '@mui/material'
 import { Tune, KeyboardArrowDown } from '@mui/icons-material'
 import { LeaderboardEntry } from '../types'
@@ -58,6 +58,7 @@ export function LeaderboardView({
     return (a.leaderLabel ?? a.label).localeCompare(b.leaderLabel ?? b.label)
   })
   const lbIsDefault = lbFeatured.length === lbSelectedKeys.length && lbFeatured.every(k => lbSelectedKeys.includes(k))
+  const maxEntries = lbIsDefault && isDesktop ? 10 : 5
   const allLbKeys = lbAllDefs.map(d => d.key)
   const lbShowAll = allLbKeys.length > 0 && allLbKeys.every(k => lbSelectedKeys.includes(k))
 
@@ -206,7 +207,35 @@ export function LeaderboardView({
         )}
       </Popover>
 
-      {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
+      {/* LOADING IS THE BOARD DRAWN EMPTY: the same cards under their real titles, which need no
+          data, each holding its rows open. It was a centred spinner, which left the footer in view
+          on a phone and threw it 500px down when the cards landed. */}
+      {loadingLb && (
+        <Box aria-hidden sx={LB_GRID}>
+          {lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key)).map(def => (
+            <Paper key={def.key} elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              <LbCardHead label={def.leaderLabel ?? def.label} lowerIsBetter={def.lowerIsBetter} />
+              <Box sx={{ px: 1.5, py: 0.75 }}>
+                {Array.from({ length: maxEntries }, (_, rank) => (
+                  <Box key={rank} sx={{ ...lbRowSx(rank < maxEntries - 1), display: 'flex' }}>
+                    <Typography sx={{ ...LB_RANK, fontSize: rank < 3 ? '1rem' : '0.82rem' }}>&nbsp;</Typography>
+                    <Skeleton variant="circular" sx={{ width: chromePx(34), height: chromePx(34), flexShrink: 0 }} />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={LB_NAME}><Skeleton width="70%" /></Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.1 }}>
+                        <Skeleton variant="circular" sx={{ width: chromePx(16), height: chromePx(16), flexShrink: 0 }} />
+                        <Typography sx={LB_TEAM}><Skeleton width="1.5rem" /></Typography>
+                      </Box>
+                    </Box>
+                    <Typography sx={LB_VALUE}><Skeleton width="2rem" /></Typography>
+                  </Box>
+                ))}
+              </Box>
+              <Box sx={{ ...LB_FOOT, color: 'text.disabled' }}><Skeleton width="5rem" /></Box>
+            </Paper>
+          ))}
+        </Box>
+      )}
 
       {!loadingLb && lbData && lbData.length === 0 && gameScope === 'post' && (
         <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
@@ -219,7 +248,6 @@ export function LeaderboardView({
         const MEDALS = ['🥇', '🥈', '🥉']
         // A medal is a place nobody shares; a tie on the podium prints "T-2" like any other tie.
         const medal = (m: { n: number; tied: boolean }) => m.n <= 3 && !m.tied
-        const maxEntries = lbIsDefault && isDesktop ? 10 : 5
         // Qualification only applies to rate stats. Otherwise a player with a
         // handful of ABs/IP could camp the top of AVG/ERA. Counting-stat boards
         // (SB, HR, saves…) must include everyone, since part-time players can
@@ -228,11 +256,7 @@ export function LeaderboardView({
         return (
           <Box
             onMouseLeave={() => setLbHoverId(null)}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-              gap: 2,
-            }}
+            sx={LB_GRID}
           >
             {defs.map(def => {
               const asc = def.lowerIsBetter ?? false
@@ -252,25 +276,7 @@ export function LeaderboardView({
               const tableHref = mlbUrlFor({ view: 'stats', lb: lbGroup, season: vizSeason, games: gameScope, sort: def.key }, CURRENT_SEASON)
               return (
                 <Paper key={def.key} elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-                  {/* Card header with gradient */}
-                  <Box sx={{
-                    px: 2, py: 1.25,
-                    background: `linear-gradient(135deg, ${ACCENT}22 0%, transparent 100%)`,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    display: 'flex', alignItems: 'center',
-                  }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', letterSpacing: typePx(-0.2), lineHeight: 1.2 }}>
-                        {def.leaderLabel ?? def.label}
-                      </Typography>
-                      {def.lowerIsBetter && (
-                        <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600, mt: 0.15 }}>
-                          lower = better
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
+                  <LbCardHead label={def.leaderLabel ?? def.label} lowerIsBetter={def.lowerIsBetter} />
 
                   {/* Player rows */}
                   <Box sx={{ px: 1.5, py: 0.75 }}>
@@ -283,12 +289,7 @@ export function LeaderboardView({
                           onMouseEnter={() => { if (canHover) setLbHoverId(e.playerId) }}
                           {...playerLink(e.playerId, e.playerName, handleLbPlayerClick)}
                           sx={{
-                            ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1.25,
-                            py: 0.65,
-                            borderBottom: rank < entries.length - 1 ? '1px solid' : 'none',
-                            borderColor: 'divider',
-                            borderRadius: 1.5,
-                            px: 0.5,
+                            ...LINK_SX, ...lbRowSx(rank < entries.length - 1), display: 'flex',
                             cursor: 'pointer',
                             transition: 'opacity 0.18s, background 0.18s',
                             opacity: dimmed ? 0.28 : 1,
@@ -296,16 +297,7 @@ export function LeaderboardView({
                           }}
                         >
                           {/* Medal / rank indicator */}
-                          <Typography sx={{
-                            fontSize: medal(marks[rank]) ? '1rem' : '0.82rem',
-                            fontWeight: 800,
-                            color: 'text.disabled',
-                            // The Table's rank width: "T-10" is the widest thing it holds.
-                            width: '1.875rem', whiteSpace: 'nowrap',
-                            flexShrink: 0,
-                            textAlign: 'center',
-                            lineHeight: 1,
-                          }}>
+                          <Typography sx={{ ...LB_RANK, fontSize: medal(marks[rank]) ? '1rem' : '0.82rem' }}>
                             {medal(marks[rank]) ? MEDALS[marks[rank].n - 1] : `${marks[rank].tied ? 'T-' : ''}${marks[rank].n}`}
                           </Typography>
 
@@ -328,8 +320,7 @@ export function LeaderboardView({
                           {/* Name + team logo */}
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography sx={{
-                              fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.2,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              ...LB_NAME,
                               color: isHovered ? ACCENT_TEXT : 'text.primary',
                               transition: 'color 0.18s',
                             }}>
@@ -354,7 +345,7 @@ export function LeaderboardView({
                                   />
                                 </Box>
                               )}
-                              <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600, lineHeight: 1 }}>
+                              <Typography sx={LB_TEAM}>
                                 {e.teamAbbr}
                               </Typography>
                             </Box>
@@ -362,7 +353,7 @@ export function LeaderboardView({
 
                           {/* Stat value */}
                           <Typography sx={{
-                            fontSize: '0.9rem', fontWeight: 800, flexShrink: 0,
+                            ...LB_VALUE,
                             color: marks[rank].n === 1 ? ACCENT_TEXT : isHovered ? ACCENT_TEXT : 'text.primary',
                             transition: 'color 0.18s',
                           }}>
@@ -375,9 +366,7 @@ export function LeaderboardView({
                   {/* The way from a card to the whole ranking, as a real link (the Table's address
                       carries the stat), where the old expand icon was a 13px target with no href. */}
                   <Box {...linkPress(tableHref, () => onOpenStats(def.key))} sx={{
-                    ...LINK_SX, ...FOCUS_RING, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    px: 2, minHeight: 40, borderTop: '1px solid', borderColor: 'divider',
-                    fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+                    ...LINK_SX, ...FOCUS_RING, ...LB_FOOT, color: 'var(--wpbl-accent-fg)',
                     '&:hover': { bgcolor: `${ACCENT}0e` },
                   }}>
                     <span>All {allEntries.length} ranked</span>
@@ -389,6 +378,50 @@ export function LeaderboardView({
           </Box>
         )
       })()}
+    </Box>
+  )
+}
+
+// One leader card's parts, shared by the loaded card and its skeleton so the two cannot drift.
+const LB_GRID = { display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2 } as const
+const lbRowSx = (ruled: boolean) => ({
+  alignItems: 'center', gap: 1.25, py: 0.65, px: 0.5, borderRadius: 1.5,
+  borderBottom: ruled ? '1px solid' : 'none', borderColor: 'divider',
+}) as const
+const LB_RANK = {
+  fontWeight: 800, color: 'text.disabled',
+  // The Table's rank width: "T-10" is the widest thing it holds.
+  width: '1.875rem', whiteSpace: 'nowrap', flexShrink: 0, textAlign: 'center', lineHeight: 1,
+} as const
+const LB_NAME = { fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
+const LB_TEAM = { fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600, lineHeight: 1 } as const
+const LB_VALUE = { fontSize: '0.9rem', fontWeight: 800, flexShrink: 0 } as const
+const LB_FOOT = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  px: 2, minHeight: 40, borderTop: '1px solid', borderColor: 'divider',
+  fontSize: '0.74rem', fontWeight: 800,
+} as const
+
+/** A leader card's header with its gradient. */
+function LbCardHead({ label, lowerIsBetter }: { label: string; lowerIsBetter?: boolean }) {
+  return (
+    <Box sx={{
+      px: 2, py: 1.25,
+      background: `linear-gradient(135deg, ${ACCENT}22 0%, transparent 100%)`,
+      borderBottom: '1px solid',
+      borderColor: 'divider',
+      display: 'flex', alignItems: 'center',
+    }}>
+      <Box sx={{ flex: 1 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', letterSpacing: typePx(-0.2), lineHeight: 1.2 }}>
+          {label}
+        </Typography>
+        {lowerIsBetter && (
+          <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600, mt: 0.15 }}>
+            lower = better
+          </Typography>
+        )}
+      </Box>
     </Box>
   )
 }
