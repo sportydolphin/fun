@@ -53,7 +53,7 @@ import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
 import { WPBL_MORE_PAGES } from './morePages'
 import { useForegroundInterval } from '../lib/foregroundInterval'
-import { PanelActiveContext } from '../lib/panelActive'
+import { PanelActiveContext, useSectionActive } from '../lib/panelActive'
 import { WpblHeadingOwnerProvider, TabTitle } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
@@ -1165,8 +1165,12 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // bar, because the sheet renders above the bar and outlives a tab swipe.
   const [moreSheetOpen, setMoreSheetOpen] = useState(false)
 
-  // Toolbar search bridge: WpblApp owns the shared header search while /wpbl is mounted.
+  // Toolbar search bridge: WpblApp owns the shared header search while /wpbl is on screen.
   const bridge = useSearchBridge()
+  // False while the section is kept mounted behind MLB (App.tsx). Everything that reaches outside
+  // the section (the toolbar's search and tabs, the page's tags) waits for it, or the hidden section
+  // would answer MLB's search box with WPBL players.
+  const active = useSectionActive()
 
   // ── History-driven navigation ────────────────────────────────────────────────
   const apply = useCallback((s: WpblSnap) => {
@@ -1405,14 +1409,15 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   selectTabRef.current = selectTab
   const statsBadge = navBadge('stats')
   useEffect(() => {
+    if (!active) return
     publishSectionNav({
       section: 'wpbl',
       tabs: NAV.map(n => ({ key: n.key, label: n.label, href: wpblPathFor(n.key), badge: n.key === 'stats' && statsBadge })),
       active: view,
       onSelect: k => selectTabRef.current(k as WpblView, 'pill'),
     })
-  }, [view, statsBadge])
-  useEffect(() => () => clearSectionNav('wpbl'), [])
+  }, [view, statsBadge, active])
+  useEffect(() => active ? () => clearSectionNav('wpbl') : undefined, [active])
   // Every team-page open in the section funnels through here, so it is the only place that can
   // count them all: the Teams grid, the standings table, the Stats table, the bracket and the
   // header search all reach a team page through it.
@@ -1565,13 +1570,16 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Register as the search owner for the shared header while /wpbl is mounted, and hand
   // it back (clearing any typed query + stale rows) on unmount so switching to /mlb starts
   // clean. The MLB section registers itself the same way from MlbStats.
+  // Hidden behind MLB counts as unmounted. Within one commit React runs every cleanup before any
+  // setup, so this hands the bar back before MLB claims it.
   useEffect(() => {
+    if (!active) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
       updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null })
       setSearchQuery('')
     }
-  }, [])
+  }, [active])
 
   // Full roster of every player, loaded once — the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
@@ -1700,6 +1708,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // player over a game would leave whichever ran last in charge, and the tags would end up
   // describing the game or nothing depending on render order.
   useEffect(() => {
+    if (!active) return
     if (detailPlayer && players.length > 0) {
       const team = teams.find(t => t.id === detailPlayer.team_id)
       const club = team ? wpblFullName(team) : 'the WPBL'
@@ -1725,7 +1734,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       return () => setDynamicSeo(null)
     }
     setDynamicSeo(null)
-  }, [detailPlayer, detailGame, players, games, teams])
+  }, [detailPlayer, detailGame, players, games, teams, active])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -1852,11 +1861,12 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [bridge.query, players, teams])
 
   useEffect(() => {
+    if (!active) return
     if (!matches) { updateSearchBridge({ resultRows: NO_ROWS }); return }
     const playerRows = matches.players.slice(0, 6).map(p => buildPlayerRow(p, 'result'))
     const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
-  }, [matches, buildPlayerRow, buildTeamRow])
+  }, [matches, buildPlayerRow, buildTeamRow, active])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of
@@ -1869,7 +1879,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // user text for nothing.
   const loggedQueries = useRef<Set<string>>(new Set())
   useEffect(() => {
-    if (!matches || loggedQueries.current.has(matches.q)) return
+    if (!active || !matches || loggedQueries.current.has(matches.q)) return
     const { q, players: pl, teams: tm } = matches
     const id = setTimeout(() => {
       loggedQueries.current.add(q)
@@ -1880,12 +1890,13 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       })
     }, 700)
     return () => clearTimeout(id)
-  }, [matches])
+  }, [matches, active])
 
   // Resolve stored recents against the live roster and push them up as rows. A recent whose
   // player/team no longer exists (a rare merge or roster change) is dropped rather than shown
   // dead. Cleared on unmount along with the rest of the bridge (see the register effect).
   useEffect(() => {
+    if (!active) return
     const rows = recentSearches.flatMap<SearchResultRow>(r => {
       if (r.type === 'player') {
         const p = players.find(pl => pl.id === r.id)
@@ -1895,7 +1906,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       return t ? [buildTeamRow(t, 'recent')] : []
     })
     updateSearchBridge({ recentRows: rows, clearRecentSearches: clearRecents })
-  }, [recentSearches, players, teams, buildPlayerRow, buildTeamRow, clearRecents])
+  }, [recentSearches, players, teams, buildPlayerRow, buildTeamRow, clearRecents, active])
 
   // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
   // so the first Back leaves the section and a refresh restores the view. On a Back/remount
@@ -1937,7 +1948,15 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       // against '/wpbl' alone would ignore every Back/Forward taken from /wpbl/standings and
       // friends; testing the tabs alone dropped every pop that LANDED on /wpbl/players/<slug>,
       // leaving the modals frozen while the address bar moved. See wpblAppOwnsPath.
-      if (!wpblAppOwnsPath(window.location.pathname)) return
+      if (!wpblAppOwnsPath(window.location.pathname)) {
+        // Left for a page the section does not draw. The section stays mounted behind it when that
+        // is MLB (App.tsx), and its panels and sheets portal out of the hidden column, so close
+        // them; the tab underneath stays as it was. Back to this entry reopens them from its
+        // snapshot, and a fresh /wpbl is Home either way.
+        setDetailGame(null); setDetailPlayer(null); setAwardsOpen(false)
+        setGamePage(false); setPlayerPage(false)
+        return
+      }
       apply(((e.state?.wpbl ?? null) as WpblSnap | null) ?? HOME_SNAP)
     }
     window.addEventListener('popstate', onPop)

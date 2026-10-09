@@ -13,4 +13,17 @@ import { createContext, useContext } from 'react'
 // without tabs) behaves exactly as it did before the context existed.
 export const PanelActiveContext = createContext(true)
 
-export const usePanelActive = (): boolean => useContext(PanelActiveContext)
+// The same question one level up: whether the SECTION is the one on screen. App.tsx keeps a
+// section mounted once visited, hidden while the reader is in the other one, so switching between
+// the two Homes is instant rather than a remount from skeletons. A hidden section must act for
+// nobody: no polling, no address writes, no claim on the toolbar's tabs or search. A pager's own
+// provider cannot override this, which is why it is a second context and not a wrapping
+// PanelActiveContext: a tab inside a hidden section is never on screen, whatever its pager thinks.
+export const SectionActiveContext = createContext(true)
+
+export const useSectionActive = (): boolean => useContext(SectionActiveContext)
+export const usePanelActive = (): boolean => {
+  const section = useContext(SectionActiveContext)
+  const panel = useContext(PanelActiveContext)
+  return section && panel
+}

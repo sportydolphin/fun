@@ -42,6 +42,7 @@ import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 // the WPBL feature-flagged sections via src/lib/admin.ts.
 import { ADMIN_EMAIL } from './lib/admin'
 import { typePx } from './ui/scale'
+import { SectionActiveContext } from './lib/panelActive'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
@@ -141,6 +142,17 @@ const DIALOG_FALLBACK = null
 // public/_redirects as well, or it 404s in production and works fine in dev. The same goes for
 // MLB's tabs, clubs and players under /mlb, which live in mlb/routes.ts (`isMlbPath`).
 type Route = '/' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/delete-account' | '/admin'
+
+/** A section kept mounted across a switch to the other one (see keptMlb in App). Hidden with
+ *  `display: none`, which also hides its fixed bottom bar; `contents` while shown, so the wrapper
+ *  adds no box and the section lays out exactly as it did as a direct child. */
+function KeptSection({ active, children }: { active: boolean; children: React.ReactNode }) {
+  return (
+    <SectionActiveContext.Provider value={active}>
+      <div style={{ display: active ? 'contents' : 'none' }}>{children}</div>
+    </SectionActiveContext.Provider>
+  )
+}
 
 /** Everything WpblApp renders. The players INDEX is its own page, so it is not here.
  *  Defined in routes.ts because WpblApp's popstate handler has to agree with it. */
@@ -543,6 +555,17 @@ function AppInner() {
   const [confetti, setConfetti] = useState<{ key: number; x: number; y: number } | null>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
   const isDesktop = useMediaQuery('(min-width: 600px)')
+  // EACH SECTION STAYS MOUNTED ONCE VISITED, hidden while the reader is in the other one, so
+  // switching between the two Homes swaps two drawn pages instead of tearing one down and building
+  // the other from skeletons and fresh fetches. The hidden one is told so (KeptSection) and stands
+  // down: no polling, no address writes, no claim on the toolbar. Set during render, from the path
+  // being drawn, so the first visit mounts in the same commit it always did.
+  const keptMlb = useRef(false)
+  const keptWpbl = useRef(false)
+  if (isMlbPath(path)) keptMlb.current = true
+  if (rendersWpblApp(path)) keptWpbl.current = true
+  const keepMlb = keptMlb.current
+  const keepWpbl = keptWpbl.current
   // THE SECTION TABS LIVE IN THIS BAR above a phone's width (ToolbarNav, src/sectionNav.ts), and
   // they share it with the search field. Both fit inline only on a wide screen; below that the
   // field folds to an icon that opens it across the bar, the way a phone's does. In SCREEN pixels,
@@ -1557,15 +1580,18 @@ function AppInner() {
           {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
-          {isMlbPath(path) && (
-            // A screen tall, for the reason the /wpbl fallback below gives: at spinner height the
-            // footer painted halfway up the screen and was then shoved off it, 0.13 of layout shift
-            // on a desktop load (Oct 1, 2026). The section keeps itself a screen tall once it is in.
-            <Suspense fallback={<Box sx={{ minHeight: '100dvh', display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>}>
-              {/* On a phone MLB has the floating bottom bar, so the footer rides inside the section
-                  above the room reserved for the bar, the same arrangement as WPBL. */}
-              <MlbStats renderFooter={renderMlbFooter} />
-            </Suspense>
+          {keepMlb && (
+            <KeptSection active={isMlbPath(path)}>
+              {/* A screen tall, for the reason the /wpbl fallback below gives: at spinner height the
+                  footer painted halfway up the screen and was then shoved off it, 0.13 of layout
+                  shift on a desktop load (Oct 1, 2026). The section keeps itself a screen tall once
+                  it is in. */}
+              <Suspense fallback={<Box sx={{ minHeight: '100dvh', display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>}>
+                {/* On a phone MLB has the floating bottom bar, so the footer rides inside the section
+                    above the room reserved for the bar, the same arrangement as WPBL. */}
+                <MlbStats renderFooter={renderMlbFooter} />
+              </Suspense>
+            </KeptSection>
           )}
           {isWpblPlayersIndex(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
@@ -1634,17 +1660,20 @@ function AppInner() {
               <WpblComparePage path={path} onNavigate={navigateFromStandalone} />
             </Suspense>
           )}
-          {rendersWpblApp(path) && (
-            // A SCREEN TALL, NOT A SPINNER TALL. React.lazy suspends for at least a tick even with
-            // the chunk preloaded, so this is always the first thing painted on /wpbl, and at spinner
-            // height it put the footer halfway up the screen for that frame. The section's skeleton
-            // then shoved it off, which was nearly all of the page's 0.18 layout shift on load.
-            <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
-              {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
-                  WpblApp) instead of sitting shared below them. The shared one is suppressed
-                  just below. Desktop keeps the app-level footer. */}
-              <WpblApp renderFooter={renderWpblFooter} />
-            </Suspense>
+          {keepWpbl && (
+            <KeptSection active={rendersWpblApp(path)}>
+              {/* A SCREEN TALL, NOT A SPINNER TALL. React.lazy suspends for at least a tick even
+                  with the chunk preloaded, so this is always the first thing painted on /wpbl, and at
+                  spinner height it put the footer halfway up the screen for that frame. The
+                  section's skeleton then shoved it off, which was nearly all of the page's 0.18
+                  layout shift on load. */}
+              <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
+                {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
+                    WpblApp) instead of sitting shared below them. The shared one is suppressed
+                    just below. Desktop keeps the app-level footer. */}
+                <WpblApp renderFooter={renderWpblFooter} />
+              </Suspense>
+            </KeptSection>
           )}
           {path === '/wpbl/api' && (
             <Box>

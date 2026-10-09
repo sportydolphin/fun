@@ -29,6 +29,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
 import { openPlayerPanel } from './playerPanel'
 import { useOpensAsPanel } from '../../ui/ModalShell'
+import { useSectionActive } from '../../lib/panelActive'
 import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot } from '../routes'
 import type { GameScope } from '../lib/gameScope'
@@ -117,6 +118,9 @@ export function restoreTarget(pathname: string, search: string, entry: Record<st
 }
 
 export function useMlbState() {
+  // False while the section is kept mounted behind WPBL (App.tsx). The address is WPBL's then, so
+  // a fetch landing in here must not write the section's own over it.
+  const sectionActive = useSectionActive()
   const { user, openAuthDialog } = useAuth()
   // ─── Search ──────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState('')
@@ -710,7 +714,7 @@ export function useMlbState() {
 
   // Sync URL whenever view/player/team/lb state changes
   useEffect(() => {
-    if (!autoLoadedRef.current) return
+    if (!autoLoadedRef.current || !sectionActive) return
     // NOTHING IS WRITTEN WHILE AN OPEN IS IN FLIGHT. Every open pushes its destination's address
     // first (pushEntry), then loads, and the old page stays on screen until the new one is ready
     // (v1.111.1). In between, the state is half of each: a team page's club is set while the view
@@ -730,7 +734,7 @@ export function useMlbState() {
     // it directly. (popstate hands you the state of the entry you arrive at, never the
     // one you leave, so "where I came from" state is useless here.)
     writeAddress(keepSheetMarker(currentHistoryState()), snap)
-  }, [view, player, team, lbGroup, vizSeason, statsAllTime, lbGameScope, sortParam, currentHistoryState])
+  }, [view, player, team, lbGroup, vizSeason, statsAllTime, lbGameScope, sortParam, currentHistoryState, sectionActive])
 
 
   // Put the section on the address it has just been moved to: Back, Forward, or the shell's
