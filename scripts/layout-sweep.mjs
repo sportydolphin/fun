@@ -171,9 +171,9 @@ function probeOverflow(includeEllipsis) {
   return out
 }
 
-/** Where every piece of text sits, keyed by tag, text and repeat count. */
+/** Where every piece of text sits: for each tag and text, the boxes of every copy of it. */
 function probeAnchors() {
-  const seen = new Map(), out = {}
+  const out = {}
   for (const el of document.body.querySelectorAll('*')) {
     const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim().replace(/\s+/g, ' ')
     if (!own || own.length > 80) continue
@@ -184,12 +184,36 @@ function probeAnchors() {
     // rect reports, so a stat label held open under a bar read as 40% shorter than the real one
     // (the awards sheet's "AVG", dh=5) when the box it reserves is exactly the loaded one.
     if (getComputedStyle(el).visibility === 'hidden') continue
-    const base = `${el.tagName.toLowerCase()}|${own}`
-    const nth = (seen.get(base) ?? 0) + 1
-    seen.set(base, nth)
-    out[`${base}|${nth}`] = { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height }
+    const key = `${el.tagName.toLowerCase()}|${own}`
+    ;(out[key] ??= []).push({ x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height })
   }
   return out
+}
+
+/**
+ * Pairs each copy of a text with a copy of the same text in the loaded page, nearest first.
+ * NOT BY DOCUMENT ORDER, which is what this did until Oct 2026: "the third 2" is a different
+ * element once the loaded page has another "2" earlier in the DOM, and /wpbl/awards, whose ballot
+ * ranks are a column of 2s and 3s, reported six shifts of about 1,500px that were nothing moving
+ * at all. A real shift still shows, because every copy of the text moves with it; what this
+ * cannot see is a copy that moves to exactly where another copy used to be.
+ */
+function pairAnchors(before, after) {
+  const pairs = []
+  for (const [key, as] of Object.entries(before)) {
+    const bs = after[key]
+    if (!bs) continue
+    const cand = as.flatMap((a, i) => bs.map((b, j) => ({
+      i, j, d: Math.abs(b.y - a.y) + Math.abs(b.x - a.x) + Math.abs(b.h - a.h) })))
+    cand.sort((p, q) => p.d - q.d)
+    const usedA = new Set(), usedB = new Set()
+    for (const { i, j } of cand) {
+      if (usedA.has(i) || usedB.has(j)) continue
+      usedA.add(i); usedB.add(j)
+      pairs.push({ text: key.slice(key.indexOf('|') + 1), a: as[i], b: bs[j] })
+    }
+  }
+  return pairs
 }
 
 // ─── Record and replay ────────────────────────────────────────────────────────
@@ -338,12 +362,11 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
       // Only what was on screen while the skeleton was. Below the fold, a list of unknown length
       // (the schedule, Reading) must push the footer somewhere, and nobody sees it happen.
       const fold = HEIGHT[width] ?? 900
-      for (const [key, a] of Object.entries(before)) {
-        const b = after[key]
-        if (!b || a.y >= fold) continue
+      for (const { text, a, b } of pairAnchors(before, after)) {
+        if (a.y >= fold) continue
         const dy = Math.round(b.y - a.y), dx = Math.round(b.x - a.x), dh = Math.round(b.h - a.h)
         if (Math.abs(dy) > 1 || Math.abs(dx) > 1 || Math.abs(dh) > 1) {
-          result.shifts.push({ text: key.split('|')[1], y: Math.round(a.y), dy, dx, dh })
+          result.shifts.push({ text, y: Math.round(a.y), dy, dx, dh })
         }
       }
       result.shifts.sort((p, q) => p.y - q.y)

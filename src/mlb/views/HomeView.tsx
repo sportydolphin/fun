@@ -503,12 +503,22 @@ function HomeViewInner({
                             fontWeight: october?.kind === 'champion' ? 800 : undefined,
                           }}>
                             {october?.kind === 'champion' && '🏆 '}
-                            {standingParts.map((p, i) => (
-                              <React.Fragment key={i}>
-                                {i > 0 && ' · '}
-                                <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{p}</Box>
-                              </React.Fragment>
-                            ))}
+                            {standingParts.map((p, i) => {
+                              // The October line alone can outgrow a phone's card at Large text
+                              // ("Out in the AL Wild Card Series, 0-2 vs CWS" spilled 72px), so its
+                              // words may wrap; only the series record and opponent stay unbroken.
+                              const series = /^(.* )(\d+-\d+(?: vs \S+)?)$/.exec(p)
+                              return (
+                                <React.Fragment key={i}>
+                                  {i > 0 && ' · '}
+                                  {series ? (
+                                    <span>{series[1]}<Box component="span" sx={{ whiteSpace: 'nowrap' }}>{series[2]}</Box></span>
+                                  ) : (
+                                    <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{p}</Box>
+                                  )}
+                                </React.Fragment>
+                              )
+                            })}
                           </Typography>
                         )}
                       </Box>
