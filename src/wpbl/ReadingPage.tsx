@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
-import { AuthorByline, ReadingCard, ReadingLead } from './Reading'
-import { FLAT_CARDS_DARK } from './ui'
+import { AuthorByline, ReadingCard, ReadingLead, GHOST_ARTICLE } from './Reading'
+import { FLAT_CARDS_DARK, TextGhost } from './ui'
+import { WPBL_TEAMS } from './constants'
 import { fetchWpblArticles, fetchWpblTeams, getCachedWpblArticles, getCachedWpblTeams } from './api'
 import { SOURCES, sourceOf } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
@@ -112,14 +113,14 @@ export default function ReadingPage() {
     </>}>
       <Box sx={FLAT_CARDS_DARK}>
         {articles == null ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+          <ReadingSkeleton />
         ) : articles.length === 0 ? (
           <Typography sx={{ color: 'text.secondary', py: 4 }}>No posts yet.</Typography>
         ) : (
           <>
             {/* The credits lead: on this page the writers are the point, not a footnote under a
                 rail. Side by side where there is room, stacked on a phone. */}
-            <Box sx={{ mb: 2, display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: `repeat(${writers.length}, 1fr)` } }}>
+            <Box sx={bylinesSx(writers.length)}>
               {writers.map(w => <AuthorByline key={w.src.key} source={w.src} from="page" compact />)}
             </Box>
             {writers.length > 1 && (
@@ -143,16 +144,10 @@ export default function ReadingPage() {
             {lead && <ReadingLead article={lead} teamById={teamById} from="page" {...fresh(lead)} />}
             {months.map(m => (
               <Box component="section" key={m.key} sx={{ mt: 2.5 }}>
-                <Typography component="h2" sx={{
-                  fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
-                  color: 'text.secondary', mb: 1,
-                }}>
+                <Typography component="h2" sx={MONTH_SX}>
                   {m.label}
                 </Typography>
-                <Box sx={{
-                  display: 'grid', gap: { xs: 1, sm: 1.5 },
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
-                }}>
+                <Box sx={GRID_SX}>
                   {m.items.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="page" {...fresh(a)} />)}
                 </Box>
               </Box>
@@ -161,5 +156,51 @@ export default function ReadingPage() {
         )}
       </Box>
     </WpblPage>
+  )
+}
+
+const bylinesSx = (n: number) =>
+  ({ mb: 2, display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: `repeat(${n}, 1fr)` } }) as const
+const MONTH_SX = {
+  fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+  color: 'text.secondary', mb: 1,
+} as const
+const GRID_SX = {
+  display: 'grid', gap: { xs: 1, sm: 1.5 },
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
+} as const
+
+/**
+ * The page before the posts land, drawn with the loaded page's own parts (CLAUDE.md, loading
+ * states): both writers' credits, which need nothing from the read; the writer and club chips with
+ * their counts held open; the lead; and a month of cards. It was a centred spinner, which left the
+ * footer half a screen down and threw it 7,000 to 14,000px when the list landed.
+ */
+function ReadingSkeleton() {
+  const count = <TextGhost>(00)</TextGhost>
+  return (
+    <>
+      <Box sx={bylinesSx(SOURCES.length)}>
+        {SOURCES.map(src => <AuthorByline key={src.key} source={src} from="page" compact />)}
+      </Box>
+      <Box aria-hidden>
+        <ChipRow mb={1}>
+          <FilterChip label={<>Both writers {count}</>} active onClick={() => {}} />
+          {SOURCES.map(src => <FilterChip key={src.key} label={<>{src.authorName} {count}</>} active={false} onClick={() => {}} />)}
+        </ChipRow>
+        <ChipRow mb={1.75}>
+          <FilterChip label={<>All clubs {count}</>} active onClick={() => {}} />
+          {Object.values(WPBL_TEAMS).map(t => <FilterChip key={t.id} label={<>{t.name} {count}</>} active={false} onClick={() => {}} />)}
+        </ChipRow>
+      </Box>
+      {/* The lead's own lengths: it is one post, and the typical one is longer than a card's. */}
+      <ReadingLead article={{ ...GHOST_ARTICLE, title: 'A longer headline, as the lead tends to run long', subtitle: 'And a longer dek than a card carries, since this is the one post the page puts forward.' }} teamById={new Map()} from="page" ghost />
+      <Box component="section" aria-hidden sx={{ mt: 2.5 }}>
+        <Typography sx={MONTH_SX}><TextGhost>September 2026</TextGhost></Typography>
+        <Box sx={GRID_SX}>
+          {Array.from({ length: 9 }, (_, i) => <ReadingCard key={i} article={GHOST_ARTICLE} teamById={new Map()} from="page" ghost />)}
+        </Box>
+      </Box>
+    </>
   )
 }

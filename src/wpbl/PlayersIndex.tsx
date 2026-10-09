@@ -15,11 +15,11 @@
 // nothing typed): the search box and the Name/Number sorts only reorder or hide anchors that first
 // render already held, so a crawler, which does not type or click, is served the grouped roster.
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress, Collapse } from '@mui/material'
+import { Box, Typography, Skeleton, Collapse } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
 import { fetchWpblTeams, fetchWpblAllPlayers, fetchWpblAllLines } from './api'
 import { wpblFullName } from './constants'
-import { TeamBadge, PlayerPortrait, SegNav, CARD_BORDER, TAPPABLE, FOCUS_RING, hoverOnly } from './ui'
+import { TeamBadge, PlayerPortrait, SegNav, CARD_BORDER, TAPPABLE, FOCUS_RING, hoverOnly, chromePx, TextGhost } from './ui'
 import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
 import WpblPage from './WpblPage'
 import type { WpblTeam, WpblPlayer } from './types'
@@ -123,14 +123,6 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
     return arr
   }, [filtered, sort])
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
   // One cell: portrait, name (the anchor and its own crawl text), then jersey and position. In the
   // flat sorts the club abbreviation rides along too, since there is no club heading above to say it.
   const PlayerCell = ({ p, showTeam }: { p: WpblPlayer; showTeam?: boolean }) => {
@@ -144,18 +136,14 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           track(EVENTS.WPBL_PAGE_OPEN, { page: 'players', section: query ? 'search' : sort, kind: 'player' })
           if (!isModified(e)) { e.preventDefault(); onNavigate(href) }
         }}
-        sx={{
-          textDecoration: 'none', color: 'text.primary',
-          display: 'flex', alignItems: 'center', gap: 1,
-          px: 1, py: 0.75, borderRadius: 1.5, ...TAPPABLE,
-        }}
+        sx={{ ...CELL, textDecoration: 'none', color: 'text.primary', ...TAPPABLE }}
       >
         <PlayerPortrait name={p.name} teamId={p.team_id} size={38} />
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.1 }}>
-          <Box component="span" sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Box sx={CELL_TEXT}>
+          <Box component="span" sx={{ ...CELL_NAME, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {p.name}
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: 'text.disabled', fontSize: '0.72rem', fontWeight: 600 }}>
+          <Box sx={{ ...CELL_META, display: 'flex', alignItems: 'center', gap: 0.75, color: 'text.disabled' }}>
             {p.jersey_number && <Box component="span">#{p.jersey_number}</Box>}
             {p.position && <Box component="span">{p.position}</Box>}
             {showTeam && team && <Box component="span" sx={{ textTransform: 'uppercase', letterSpacing: typePx(0.3) }}>{team.abbr}</Box>}
@@ -178,7 +166,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   return (
     <WpblPage
       title="WPBL Players"
-      standfirst={<>Everyone who has played in the Women&rsquo;s Pro Baseball League, by club. {appeared.length} in all.</>}
+      standfirst={<>Everyone who has played in the Women&rsquo;s Pro Baseball League, by club. {loading ? <TextGhost hidden>{LIKELY_APPEARED}</TextGhost> : appeared.length} in all.</>}
     >
       {/* THE ONE LINK ON THE SECTION TO THE COMPARISON PAGES, alongside the chip on a player's
           own card. They are deliberately out of the sitemap (see WPBL_COMPARE_BASE), so being
@@ -238,7 +226,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
         </Box>
       </Box>
 
-      {appeared.length === 0 && (
+      {!loading && appeared.length === 0 && (
         <Typography sx={{ color: 'text.secondary' }}>
           The roster loads here once games have been played.
         </Typography>
@@ -249,6 +237,22 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           No players match &ldquo;{query.trim()}&rdquo;.
         </Typography>
       )}
+
+      {/* LOADING IS THE CLUB SORT DRAWN EMPTY, the view first paint always lands on. It was a
+          centred spinner, which left the footer 300px down the screen and then threw it 500px to
+          14,000px when the roster arrived. Four clubs of an even share of the roster each. */}
+      {loading && Array.from({ length: 4 }, (_, i) => (
+        <Box key={i} aria-hidden sx={{ mb: 4 }}>
+          <Box sx={{ ...GROUP_HEAD, cursor: 'default' }}>
+            <Skeleton variant="circular" width={chromePx(26)} height={chromePx(26)} sx={{ flexShrink: 0 }} />
+            <Typography sx={GROUP_TITLE}><Skeleton width="9rem" /></Typography>
+            <ExpandMore sx={{ ml: 'auto', color: 'text.disabled' }} />
+          </Box>
+          <Box sx={GRID}>
+            {Array.from({ length: Math.ceil(LIKELY_APPEARED / 4) }, (_, j) => <PlayerCellSkeleton key={j} />)}
+          </Box>
+        </Box>
+      ))}
 
       {/* Club sort: grouped, collapsible, one card per club, the crawl-path default. */}
       {sort === 'club' && groups.map(({ team, roster }) => {
@@ -265,15 +269,10 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
             onClick={() => toggle(key)}
             aria-expanded={!isCollapsed}
             aria-controls={`roster-${key}`}
-            sx={{
-              width: '100%', border: 0, background: 'none', p: 0, m: 0, mb: 1.5,
-              display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', textAlign: 'left',
-              color: 'text.primary', font: 'inherit',
-              ...hoverOnly({ color: 'text.primary' }),
-            }}
+            sx={{ ...GROUP_HEAD, ...hoverOnly({ color: 'text.primary' }) }}
           >
             {team && <TeamBadge team={team} size={26} />}
-            <Typography component="h2" sx={{ fontSize: '1.05rem', fontWeight: 700 }}>
+            <Typography component="h2" sx={GROUP_TITLE}>
               {team ? wpblFullName(team) : 'Unassigned'}
             </Typography>
             <Typography sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
@@ -301,6 +300,35 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
         </Box>
       )}
     </WpblPage>
+  )
+}
+
+// One definition each for the loaded rows and their skeletons, so the two cannot drift apart.
+const CELL = { display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.75, borderRadius: 1.5 } as const
+const CELL_TEXT = { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.1 } as const
+const CELL_NAME = { fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2 } as const
+const CELL_META = { fontSize: '0.72rem', fontWeight: 600 } as const
+const GROUP_HEAD = {
+  width: '100%', border: 0, background: 'none', p: 0, m: 0, mb: 1.5,
+  display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', textAlign: 'left',
+  color: 'text.primary', font: 'inherit',
+} as const
+const GROUP_TITLE = { fontSize: '1.05rem', fontWeight: 700 } as const
+
+/** Who has appeared in a game, roughly (69 of 118 at the end of 2026): what the skeleton reserves
+ *  until the real count lands, so the standfirst wraps where it will and the roster grids are
+ *  about the height they will be. */
+const LIKELY_APPEARED = 69
+
+function PlayerCellSkeleton() {
+  return (
+    <Box sx={CELL}>
+      <Skeleton variant="circular" width={chromePx(38)} height={chromePx(38)} sx={{ flexShrink: 0 }} />
+      <Box sx={{ ...CELL_TEXT, flex: 1 }}>
+        <Box sx={CELL_NAME}><Skeleton width="70%" /></Box>
+        <Box sx={CELL_META}><Skeleton width="40%" /></Box>
+      </Box>
+    </Box>
   )
 }
 

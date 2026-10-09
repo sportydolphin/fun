@@ -800,9 +800,11 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
         {loading ? (
           // The strip's own shape while it loads: a short line of text here, then a row of cards a
           // third again as tall, moved everything under it on every visit.
+          // The postseason card is part type and part structure (1.2rem and 64px, measured Oct 2026 at
+          // both text sizes), so its reserve is too: all px, it came up 3px short at Large text.
           <Box aria-hidden sx={{ display: 'flex', gap: 1, px: 0.25, py: 1, overflow: 'hidden' }}>
             {[0, 1, 2, 3].map(i => (
-              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: chromePx(124), height: bracketLikely() ? chromePx(83) : chromePx(71), borderRadius: 2 }} />
+              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: chromePx(124), height: bracketLikely() ? `calc(1.2rem + ${chromePx(64)})` : chromePx(71), borderRadius: 2 }} />
             ))}
           </Box>
         ) : games.length === 0 ? (

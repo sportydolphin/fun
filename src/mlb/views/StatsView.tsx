@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Typography, Paper, CircularProgress } from '@mui/material'
+import { Box, Typography, Paper, Skeleton } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../components/ui'
@@ -259,7 +259,25 @@ export function StatsView({
         </Box>
       </Box>}
 
-      {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
+      {/* LOADING IS THE BOARD DRAWN EMPTY: its real title and subtitle, which need no data, over
+          empty rows. It was a centred spinner, which left the footer in view on a phone. */}
+      {loadingLb && listView && (
+        <Box aria-hidden>
+          <Typography sx={BOARD_SUBTITLE_SX}>{boardSubtitle}</Typography>
+          <StatsRankedList skeleton rows={[]} def={activeDef} statDefs={statDefs} group={lbGroup} asc={effectiveAsc}
+            total={0} limit={lbStatsLimit} onOpenPlayer={() => {}} onMore={() => {}} />
+        </Box>
+      )}
+      {loadingLb && !listView && (
+        <Paper aria-hidden elevation={2} sx={TABLE_PAPER_SX}>
+          <TableHead title={activeDef.leaderLabel ?? activeDef.label} subtitle={boardSubtitle} />
+          {/* The scroller at its cap, which a page of fifty rows always fills. */}
+          <Box sx={{ height: `calc(100vh - ${chromePx(280)})`, px: 2, pt: 1 }}>
+            {Array.from({ length: 12 }, (_, i) => <Skeleton key={i} sx={{ fontSize: '1.6rem' }} />)}
+          </Box>
+          <Box sx={TABLE_FOOT_SX}><Typography sx={{ fontSize: '0.68rem' }}><Skeleton width="6rem" /></Typography></Box>
+        </Paper>
+      )}
 
       {!loadingLb && lbData && lbData.length === 0 && shownScope === 'post' && (
         <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
@@ -269,7 +287,7 @@ export function StatsView({
 
       {!loadingLb && lbData && lbData.length > 0 && listView && (
         <>
-          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1), mb: 0.75 }}>
+          <Typography sx={BOARD_SUBTITLE_SX}>
             {boardSubtitle}
           </Typography>
           {rankedAll.length === 0 ? (
@@ -291,26 +309,8 @@ export function StatsView({
       )}
 
       {!loadingLb && lbData && lbData.length > 0 && !listView && (
-        <Paper elevation={2} sx={{
-          borderRadius: { xs: 0, sm: 3 },
-          overflow: 'hidden',
-          mx: { xs: -2, sm: 0 },
-          boxShadow: { xs: 'none', sm: undefined },
-        }}>
-          {/* Table header strip */}
-          <Box sx={{
-            px: { xs: 2, sm: 3 }, py: 1.5,
-            background: `linear-gradient(135deg, ${ACCENT}18 0%, transparent 100%)`,
-            borderBottom: '1px solid', borderColor: 'divider',
-            display: 'flex', alignItems: 'baseline', gap: 1.5,
-          }}>
-            <Typography sx={{ fontWeight: 900, fontSize: { xs: '1rem', sm: '1.15rem' }, letterSpacing: typePx(-0.3) }}>
-              {activeDef.leaderLabel ?? activeDef.label}
-            </Typography>
-            <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1) }}>
-              {boardSubtitle}
-            </Typography>
-          </Box>
+        <Paper elevation={2} sx={TABLE_PAPER_SX}>
+          <TableHead title={activeDef.leaderLabel ?? activeDef.label} subtitle={boardSubtitle} />
 
           {/* Scrollable table, overflow both axes so sticky thead works vertically. The 280 is
               the chrome above it, so it scales with that chrome; 100vh is plain screen height,
@@ -464,7 +464,7 @@ export function StatsView({
           </Box>
 
           {/* Load more / count footer */}
-          <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={TABLE_FOOT_SX}>
             <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', fontWeight: 600 }}>
               Showing {sortedEntries.length} of {totalInDataset}
             </Typography>
@@ -487,7 +487,7 @@ export function StatsView({
 
       {/* Phones only: the way between the list and the grid, under the board where it is not in the
           way of the thing most readers came for. */}
-      {!isDesktop && !loadingLb && lbData && lbData.length > 0 && (
+      {!isDesktop && (loadingLb || (lbData && lbData.length > 0)) && (
         <Box {...pressable(toggleFullTable)} sx={{
           ...FOCUS_RING, mt: 1.5, mx: 'auto', width: 'fit-content', cursor: 'pointer', userSelect: 'none',
           minHeight: 34, px: 1.5, display: 'flex', alignItems: 'center', borderRadius: 999,
@@ -513,6 +513,35 @@ export function StatsView({
           onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
           onClose={() => setFiltersOpen(false)} />
       )}
+    </Box>
+  )
+}
+
+// The board's frame, shared by the loaded board and its skeleton.
+const BOARD_SUBTITLE_SX = { fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1), mb: 0.75 } as const
+const TABLE_PAPER_SX = {
+  borderRadius: { xs: 0, sm: 3 },
+  overflow: 'hidden',
+  mx: { xs: -2, sm: 0 },
+  boxShadow: { xs: 'none', sm: undefined },
+} as const
+const TABLE_FOOT_SX = { px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } as const
+
+/** The table's header strip. */
+function TableHead({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <Box sx={{
+      px: { xs: 2, sm: 3 }, py: 1.5,
+      background: `linear-gradient(135deg, ${ACCENT}18 0%, transparent 100%)`,
+      borderBottom: '1px solid', borderColor: 'divider',
+      display: 'flex', alignItems: 'baseline', gap: 1.5,
+    }}>
+      <Typography sx={{ fontWeight: 900, fontSize: { xs: '1rem', sm: '1.15rem' }, letterSpacing: typePx(-0.3) }}>
+        {title}
+      </Typography>
+      <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1) }}>
+        {subtitle}
+      </Typography>
     </Box>
   )
 }

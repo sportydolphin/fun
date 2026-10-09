@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, NewTag } from './ui'
+import { TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, NewTag, TextGhost } from './ui'
 import { SectionHead, ShowMoreButton, useRankInk } from './cardParts'
 import { readMinutes, sourceOf, sourcePhoto, coverAt, type SubstackSource } from './derive/articles'
 import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/recaps'
@@ -159,11 +159,20 @@ export function AuthorByline({ source, compact, from }: { source: SubstackSource
 
 /** Each writer, date and cost as its own unbreakable run, so a narrow card wraps BETWEEN them.
  *  Left to the browser, a phone broke "7 min read" into "7" and "min read" on two lines. */
-function MetaLine({ article, sx }: { article: WpblArticle; sx?: object }) {
+function MetaLine({ article, sx, ghost }: { article: WpblArticle; sx?: object; ghost?: boolean }) {
   // "7 min" on a phone, "7 min read" from `sm` up: the full label was the one word that pushed a
   // phone row's meta onto a second line, on nearly every row.
   const cost = <>{readMinutes(article.word_count, article.video_count)} min<Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}> read</Box></>
   const parts = [sourceOf(article.source).authorName, dateLabel(article.published_at), cost].filter(Boolean)
+  if (ghost) {
+    return (
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, lineHeight: 1.4, ...sx }}>
+        <TextGhost>Writer Name · Sep 00 · 0 min</TextGhost>
+        {/* The arrow's room: its larger type sets the line's height. */}
+        <Box component="span" sx={{ fontSize: '0.7rem', ml: 0.4 }}>{' '}</Box>
+      </Typography>
+    )
+  }
   return (
     <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled', lineHeight: 1.4, ...sx }}>
       {/* The arrow rides inside the last run: as a sibling there is no break opportunity before
@@ -225,18 +234,43 @@ const cardSx = {
   '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
 } as const
 
+/** A card's link props: the post, in a new tab. A ghost card is not a link at all. */
+function cardLink(article: WpblArticle, from: ReadingSource, isNew?: boolean, onOpen?: () => void, ghost?: boolean) {
+  if (ghost) return { component: 'div' as const, 'aria-hidden': true }
+  return {
+    component: 'a' as const, href: article.url, ...linkProps,
+    onClick: () => { trackOpen(article, from); onOpen?.() },
+    'aria-label': `Read${isNew ? ', new' : ''}: ${article.title}, ${readLabel(article)}, opens in a new tab`,
+  }
+}
+
+/**
+ * The post a loading card is drawn around: never shown, only measured. The strings are the length
+ * of a typical post's headline and dek (24 and 65 characters across the 2026 posts), so a skeleton
+ * card is the height most real ones are. No cover and no clubs, so the picture is the empty
+ * `action.hover` box a cover is drawn on.
+ */
+export const GHOST_ARTICLE: WpblArticle = {
+  post_id: 0, source: 'towards', slug: '', url: '',
+  title: 'A headline of usual size',
+  subtitle: 'A dek of the length most of the posts carry under their headline.',
+  cover_url: null, published_at: '2026-09-01T12:00:00Z', word_count: 1500, video_count: 0,
+  game_id: null, team_ids: [], player_ids: [],
+}
+
 /** The newest post in view, drawn large at the head of /wpbl/reading. On a phone it is the one
  *  full-width picture on the page; on a desktop the cover and the headline sit side by side. The
  *  dek runs longer here than on a card because this is the one post the page is putting forward. */
-export function ReadingLead({ article, teamById, from, isNew, onOpen }: {
+export function ReadingLead({ article, teamById, from, isNew, onOpen, ghost }: {
   article: WpblArticle; teamById: Map<string, WpblTeam>; from: ReadingSource
   /** Published since the reader's last visit (newSince.ts). */
   isNew?: boolean; onOpen?: () => void
+  /** Draw the card empty around GHOST_ARTICLE, for a loading state: see ReadingLeadSkeleton. */
+  ghost?: boolean
 }) {
+  const g = (text: React.ReactNode) => (ghost ? <TextGhost>{text}</TextGhost> : text)
   return (
-    <Box component="a" href={article.url} {...linkProps}
-      onClick={() => { trackOpen(article, from); onOpen?.() }}
-      aria-label={`Read${isNew ? ', new' : ''}: ${article.title}, ${readLabel(article)}, opens in a new tab`}
+    <Box {...cardLink(article, from, isNew, onOpen, ghost)}
       sx={{ ...cardSx, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' } }}
     >
       <Cover article={article} teamById={teamById} lead badge={26} fresh={isNew}
@@ -247,17 +281,17 @@ export function ReadingLead({ article, teamById, from, isNew, onOpen }: {
           Latest
         </Typography>
         <Typography sx={{ fontSize: { xs: '1.15rem', md: '1.4rem' }, fontWeight: 800, lineHeight: 1.2, letterSpacing: typePx(-0.2), mt: 0.5 }}>
-          {article.title}
+          {g(article.title)}
         </Typography>
         {article.subtitle && (
           <Typography sx={{
             fontSize: { xs: '0.8rem', md: '0.88rem' }, color: 'text.secondary', lineHeight: 1.45, mt: 0.75,
             display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
-            {article.subtitle}
+            {g(article.subtitle)}
           </Typography>
         )}
-        <MetaLine article={article} sx={{ mt: 1.25, fontSize: '0.72rem' }} />
+        <MetaLine article={article} ghost={ghost} sx={{ mt: 1.25, fontSize: '0.72rem' }} />
       </Box>
     </Box>
   )
@@ -273,15 +307,16 @@ export function ReadingLead({ article, teamById, from, isNew, onOpen }: {
  *  The phone row stretches its cover to the row rather than fixing its height: the headlines are
  *  long and good and wrap to between two and four lines, and a fixed cover top-aligned in a row
  *  that tall leaves a different band of dead air under every picture. */
-export function ReadingCard({ article, teamById, from, isNew, onOpen }: {
+export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost }: {
   article: WpblArticle; teamById: Map<string, WpblTeam>; from: ReadingSource
   /** Published since the reader's last visit (newSince.ts). */
   isNew?: boolean; onOpen?: () => void
+  /** Draw the card empty around GHOST_ARTICLE, for a loading state. */
+  ghost?: boolean
 }) {
+  const g = (text: React.ReactNode) => (ghost ? <TextGhost>{text}</TextGhost> : text)
   return (
-    <Box component="a" href={article.url} {...linkProps}
-      onClick={() => { trackOpen(article, from); onOpen?.() }}
-      aria-label={`Read${isNew ? ', new' : ''}: ${article.title}, ${readLabel(article)}, opens in a new tab`}
+    <Box {...cardLink(article, from, isNew, onOpen, ghost)}
       sx={{
         ...cardSx, display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, alignItems: 'stretch',
         gap: { xs: 1.25, sm: 0 }, p: { xs: 1, sm: 0 }, height: '100%',
@@ -294,18 +329,18 @@ export function ReadingCard({ article, teamById, from, isNew, onOpen }: {
           aspectRatio: { xs: 'auto', sm: '16 / 9' }, borderRadius: { xs: 1.5, sm: 0 },
         }} />
       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', p: { xs: 0, sm: 1.25 } }}>
-        <Typography sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 700, lineHeight: 1.3 }}>{article.title}</Typography>
+        <Typography sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 700, lineHeight: 1.3 }}>{g(article.title)}</Typography>
         {article.subtitle && (
           <Typography sx={{
             fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.4, mt: 0.35,
             display: '-webkit-box', WebkitLineClamp: { xs: 2, sm: 3 }, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
-            {article.subtitle}
+            {g(article.subtitle)}
           </Typography>
         )}
         {/* Pinned to the foot of a grid card, so the meta lines along a row of cards line up
             whatever length each headline runs to. */}
-        <MetaLine article={article} sx={{ mt: { xs: 0.5, sm: 'auto' }, pt: { xs: 0, sm: 1 } }} />
+        <MetaLine article={article} ghost={ghost} sx={{ mt: { xs: 0.5, sm: 'auto' }, pt: { xs: 0, sm: 1 } }} />
       </Box>
     </Box>
   )

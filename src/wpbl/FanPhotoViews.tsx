@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
-import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx } from './ui'
+import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx, TextGhost } from './ui'
 import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
 import { SectionHead } from './cardParts'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
@@ -515,15 +515,39 @@ export function FanPhotoGrid({ photos, resolveNames, from }: {
 
   return (
     <>
-      <Box sx={{ columnWidth: chromePx(160), columnGap: 1.5 }}>
+      <Box sx={GRID_COLUMNS}>
         {photos.map(p => (
-          <Box key={p.id} sx={{ breakInside: 'avoid', display: 'inline-block', width: '100%', mb: 1.5 }}>
+          <Box key={p.id} sx={GRID_CELL}>
             <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="natural" />
           </Box>
         ))}
       </Box>
       {node}
     </>
+  )
+}
+
+const GRID_COLUMNS = { columnWidth: chromePx(160), columnGap: 1.5 } as const
+const GRID_CELL = { breakInside: 'avoid', display: 'inline-block', width: '100%', mb: 1.5 } as const
+
+/** The gallery grid with nothing in it: tiles in the shapes fan photos come in, each with a
+ *  caption and a credit line held open, so the real grid lands about where this one sits. */
+export function FanPhotoGridSkeleton({ count = 18 }: { count?: number }) {
+  return (
+    <Box aria-hidden sx={GRID_COLUMNS}>
+      {Array.from({ length: count }, (_, i) => (
+        <Box key={i} sx={GRID_CELL}>
+          <Box sx={{
+            width: '100%', aspectRatio: ['4 / 3', '3 / 4', '4 / 3', '1 / 1'][i % 4],
+            borderRadius: 1.5, bgcolor: 'action.hover', border: '1px solid', borderColor: CARD_BORDER,
+          }} />
+          <Typography sx={{ fontSize: '0.74rem', fontWeight: 600, lineHeight: 1.3, mt: 0.6 }}>
+            <TextGhost>{i % 3 === 0 ? 'Firstname Lastname and Firstname Lastname' : 'Firstname Lastname'}</TextGhost>
+          </Typography>
+          <Typography sx={{ fontSize: '0.62rem', lineHeight: 1.35, mt: 0.5 }}><TextGhost>Photo credit name</TextGhost></Typography>
+        </Box>
+      ))}
+    </Box>
   )
 }
 

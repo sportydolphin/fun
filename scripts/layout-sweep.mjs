@@ -179,6 +179,11 @@ function probeAnchors() {
     if (!own || own.length > 80) continue
     const r = el.getBoundingClientRect()
     if (r.width === 0 || r.height === 0) continue
+    // Text nobody can see cannot be seen to move. This is a skeleton's placeholder words: MUI's
+    // Skeleton hides its children and draws its bar with `transform: scale(1, 0.6)`, which the
+    // rect reports, so a stat label held open under a bar read as 40% shorter than the real one
+    // (the awards sheet's "AVG", dh=5) when the box it reserves is exactly the loaded one.
+    if (getComputedStyle(el).visibility === 'hidden') continue
     const base = `${el.tagName.toLowerCase()}|${own}`
     const nth = (seen.get(base) ?? 0) + 1
     seen.set(base, nth)

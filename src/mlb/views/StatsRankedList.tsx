@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import type { StatDef } from '../types'
 import { ACCENT, TEAM_SEASONS } from '../constants'
 import { MlbSheet } from '../components/MlbSheet'
@@ -71,9 +71,7 @@ function ListRow({ entry, onOpen, rank, value, context, first, total, bestFirst,
       ref={rowRef}
       {...linkPress(mlbPlayerPath({ id: entry.playerId, fullName: entry.playerName }), onOpen)}
       sx={{
-        ...FOCUS_RING, textDecoration: 'none', color: 'inherit',
-        display: 'flex', alignItems: 'center', gap: 1.25, px: 1.25, py: 0.85,
-        borderTop: first ? 'none' : '1px solid', borderColor: 'divider',
+        ...FOCUS_RING, ...rowSx(first), textDecoration: 'none', color: 'inherit',
         bgcolor: highlighted ? `${ACCENT}14` : undefined,
         cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
         ...tappableIf(true),
@@ -82,11 +80,7 @@ function ListRow({ entry, onOpen, rank, value, context, first, total, bestFirst,
       {/* rem, not px: this reserves room for a number the reader can enlarge, and "T-10" is the
           widest thing it holds. A flex box so anything wider spills evenly rather than into the
           portrait. */}
-      <Box sx={{
-        width: '1.875rem', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', justifyContent: 'center',
-        fontSize: '0.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-        color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled',
-      }}><RankText rank={rank} /></Box>
+      <Box sx={{ ...RANK_SX, color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled' }}><RankText rank={rank} /></Box>
 
       <Box component="img" src={headshot(entry.playerId)} alt="" loading="lazy"
         sx={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }} />
@@ -94,25 +88,52 @@ function ListRow({ entry, onOpen, rank, value, context, first, total, bestFirst,
       {/* Line heights set, not inherited: MUI's 1.5 put 6px of air in each line, and a screen holds
           ten of these. */}
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={NAME_SX}>
           {entry.playerName}
           <Box component="span" sx={{ ml: 0.6, fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{entry.teamAbbr}</Box>
         </Typography>
-        <Typography sx={{ fontSize: '0.68rem', lineHeight: 1.35, color: 'text.disabled', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={CONTEXT_SX}>
           {context}
         </Typography>
       </Box>
 
-      <Box sx={{ flexShrink: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums' }}>
+      <Box sx={VALUE_SX}>
         {value}
       </Box>
     </Box>
   )
 }
 
+// A row's parts, shared with its skeleton so the two cannot drift.
+const rowSx = (first: boolean) => ({
+  display: 'flex', alignItems: 'center', gap: 1.25, px: 1.25, py: 0.85,
+  borderTop: first ? 'none' : '1px solid', borderColor: 'divider',
+}) as const
+const RANK_SX = {
+  width: '1.875rem', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', justifyContent: 'center',
+  fontSize: '0.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+} as const
+const NAME_SX = { fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const
+const CONTEXT_SX = { fontSize: '0.68rem', lineHeight: 1.35, color: 'text.disabled', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const
+const VALUE_SX = { flexShrink: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums' } as const
+
+function ListRowSkeleton({ first }: { first: boolean }) {
+  return (
+    <Box sx={rowSx(first)}>
+      <Box sx={RANK_SX}>&nbsp;</Box>
+      <Skeleton variant="circular" width={32} height={32} sx={{ flexShrink: 0 }} />
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography sx={NAME_SX}><Skeleton width="60%" /></Typography>
+        <Typography sx={CONTEXT_SX}><Skeleton width="80%" /></Typography>
+      </Box>
+      <Box sx={VALUE_SX}><Skeleton width="2.5rem" /></Box>
+    </Box>
+  )
+}
+
 export function StatsRankedList({
   rows, def, statDefs, group, asc, highlightPlayerId, total, limit,
-  onOpenPlayer, onMore, footerNote,
+  onOpenPlayer, onMore, footerNote, skeleton,
 }: {
   /** Already filtered, sorted and clipped to `limit` by the caller. */
   rows: RankedEntry[]
@@ -127,6 +148,8 @@ export function StatsRankedList({
   onOpenPlayer: (id: number) => void
   onMore: () => void
   footerNote?: string
+  /** The board drawn empty while its read is out: the real header, a first page of empty rows. */
+  skeleton?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const hlIdx = highlightPlayerId ? rows.findIndex(r => r.playerId === highlightPlayerId) : -1
@@ -164,6 +187,8 @@ export function StatsRankedList({
         </Typography>
       </Box>
 
+      {skeleton && Array.from({ length: LIST_CAP }, (_, i) => <ListRowSkeleton key={i} first={i === 0} />)}
+
       {visible.map((r, i) => (
         <ListRow key={r.playerId}
           entry={r} onOpen={() => onOpenPlayer(r.playerId)}
@@ -176,8 +201,12 @@ export function StatsRankedList({
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, px: 1.25, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
         <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled' }}>
-          {footerNote ? `${footerNote} · ` : ''}Showing {visible.length} of {total}
+          {skeleton
+            ? <Skeleton width="6rem" />
+            : <>{footerNote ? `${footerNote} · ` : ''}Showing {visible.length} of {total}</>}
         </Typography>
+        {/* Most boards hold more than a page, so the skeleton keeps the button's room. */}
+        {skeleton && <Box sx={{ minHeight: 32, display: 'inline-flex', alignItems: 'center', fontSize: '0.74rem' }}><Skeleton width="3.5rem" /></Box>}
         {capped && (
           <Box {...pressable(() => setExpanded(true))} sx={{ ...FOCUS_RING, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', minHeight: 32, display: 'inline-flex', alignItems: 'center' }}>
             Show {rows.length}

@@ -447,12 +447,15 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
       )}
 
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+        {/* While the read that decides it is out, the row is drawn as it will most likely be, with
+            the Bracket pill selected over the bracket skeleton below. Adding the pill when the read
+            landed slid every other pill in this centred row sideways by half its width. */}
         <SegControl
           options={[
-            ...(hasBracket ? [{ value: 'bracket', label: 'Bracket' }] : []),
+            ...(hasBracket || !bracketChecked ? [{ value: 'bracket', label: 'Bracket' }] : []),
             { value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }, { value: 'odds', label: 'Odds' },
           ]}
-          value={mode}
+          value={bracketChecked ? mode : 'bracket'}
           onChange={v => setMode(v as Mode)}
         />
       </Box>
