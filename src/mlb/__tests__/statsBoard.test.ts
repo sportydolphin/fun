@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { HITTING_STAT_DEFS, PITCHING_STAT_DEFS } from '../constants'
-import { sortBoard, rankMarks, contextKeys, isBestFirst, ascFor } from '../lib/statsBoard'
+import { sortBoard, rankMarks, contextKeys, isBestFirst, ascFor, leagueLine } from '../lib/statsBoard'
 import type { LeaderboardEntry } from '../types'
 
 const hit = (key: string) => HITTING_STAT_DEFS.find(d => d.key === key)!
@@ -78,5 +78,36 @@ describe('contextKeys', () => {
     const pitKeys = new Set(PITCHING_STAT_DEFS.map(d => d.key))
     for (const k of contextKeys('hitting', 'avg')) expect(hitKeys.has(k)).toBe(true)
     for (const k of contextKeys('pitching', 'k')) expect(pitKeys.has(k)).toBe(true)
+  })
+})
+
+describe('leagueLine', () => {
+  it("recomputes the league's rates from summed counts, not by averaging the players' rates", () => {
+    // A .400 hitter in 10 at-bats and a .200 hitter in 90: the league is .220, not .300.
+    const line = leagueLine([
+      entry(1, { atBats: 10, hits: 4, baseOnBalls: 0, hitByPitch: 0, sacFlies: 0, doubles: 0, triples: 0, homeRuns: 0, avg: '.400' }),
+      entry(2, { atBats: 90, hits: 18, baseOnBalls: 10, hitByPitch: 0, sacFlies: 0, doubles: 2, triples: 0, homeRuns: 2, avg: '.200' }),
+    ], 'hitting')!
+    expect(hit('avg').format(hit('avg').getValue(line))).toBe('.220')
+    // OBP (22 + 10) / 110, SLG (22 + 2 + 6) / 100.
+    expect(line.obp).toBe('.291')
+    expect(line.slg).toBe('.300')
+    expect(line.ops).toBe('.591')
+  })
+
+  it('reads innings in thirds and prints per nine', () => {
+    // 10.1 is ten and a third innings, not 10.1.
+    const line = leagueLine([
+      entry(1, { inningsPitched: '10.1', earnedRuns: 5, baseOnBalls: 3, hits: 10, strikeOuts: 12 }),
+      entry(2, { inningsPitched: '20.2', earnedRuns: 7, baseOnBalls: 6, hits: 21, strikeOuts: 19 }),
+    ], 'pitching')!
+    expect(pit('era').format(pit('era').getValue(line))).toBe('3.48')
+    expect(line.whip).toBe('1.29')
+    expect(pit('so9').format(pit('so9').getValue(line))).toBe('9.00')
+  })
+
+  it('has no line for an empty board', () => {
+    expect(leagueLine([], 'hitting')).toBeNull()
+    expect(leagueLine([], 'pitching')).toBeNull()
   })
 })

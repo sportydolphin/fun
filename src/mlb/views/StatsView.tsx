@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Typography, Paper, Skeleton } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../components/ui'
@@ -9,8 +9,10 @@ import type { GameScope } from '../lib/gameScope'
 import { scrollBehavior } from '../../lib/motion'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
+import { FilterChip } from '../../ui/FilterChip'
+import { CARD_BORDER } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
-import { sortBoard, ascFor, isBestFirst } from '../lib/statsBoard'
+import { sortBoard, ascFor, isBestFirst, leagueLine } from '../lib/statsBoard'
 import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable, controlPill } from './StatsRankedList'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
 
@@ -96,16 +98,35 @@ export function StatsView({
   })()
 
   const rankedAll = sortBoard(qualifiedPool, activeDef, effectiveAsc)
+  // The phone's list pages (StatsRankedList's "Show 50"); the grid shows every row, as WPBL's does,
+  // in a scroll box with its headers pinned. "Load 50 more" under a capped box was a second scroll.
   const sortedEntries = rankedAll.slice(0, lbStatsLimit)
+  // Over the WHOLE pool rather than the qualified rows: the league's average is everyone's, and a
+  // qualified-only figure would move when the reader flips the chip. Season boards only; see
+  // leagueLine for why a career board has none.
+  const league = !allTime && lbData ? leagueLine(lbData, lbGroup) : null
 
   const MEDALS_FS = ['🥇', '🥈', '🥉']
   const colPx = isDesktop ? chromePx(10) : chromePx(5)
+  // WPBL's header: small heavy labels with the league's figure on a second line under each.
   const stThSx = {
-    py: 1, px: colPx,
-    fontSize: '0.68rem', fontWeight: 700,
-    textTransform: 'uppercase' as const, letterSpacing: typePx(0.5),
+    py: 0.75, px: colPx,
+    fontSize: '0.6rem', fontWeight: 800,
+    letterSpacing: typePx(0.4),
     whiteSpace: 'nowrap' as const,
+    verticalAlign: 'top' as const,
   }
+  // THE LEAGUE AVERAGE, FOLDED INTO THE HEADER, as WPBL's table does it: the one line that never
+  // scrolls away, so the average stays beside the label down the whole board. Every cell gets the
+  // second line, blank or not, or the labels would sit at two heights.
+  const headLeague = (text: string, align?: 'right') => (
+    <Box data-league-head="" sx={{
+      fontSize: '0.58rem', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, minHeight: '1.1em',
+      mt: 0.25, color: 'text.secondary', textTransform: 'none', textAlign: align,
+    }}>{text}</Box>
+  )
+  const leagueCell = (def: (typeof statDefs)[number]) =>
+    league && def.isRate ? def.format(def.getValue(league)) : ''
   const stTdSx = {
     py: chromePx(7), px: colPx,
     borderBottom: '1px solid', borderColor: 'divider',
@@ -172,6 +193,13 @@ export function StatsView({
     (allTime && !activeDef.isRate ? ' · Leaders' : '') +
     (activeDef.lowerIsBetter ? ' · lower = better' : '')
   const boardSubtitle = `${allTime ? 'All-Time · Career' : `${vizSeason} MLB`}${scopeNote}${populationNote}`
+  // The grid's caption is its footer, as on WPBL's: the board's own title strip said what the
+  // column headings and the controls above already say.
+  const qualNote = !allTime && activeDef.isRate && lbQualified ? ' · Qualified' : ''
+  // `null` while loading: the words need no data, the count does.
+  const footText = (n: number | null) =>
+    `${n == null ? '' : `${n} ${lbGroup === 'hitting' ? 'hitters' : 'pitchers'} · `}`
+    + `${allTime ? 'All-Time · Career' : `${vizSeason} MLB`}${scopeNote}${qualNote}${populationNote} · sort by any column heading`
   const filtersSet = allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
 
   const pill = controlPill
@@ -217,11 +245,12 @@ export function StatsView({
             value={lbGroup}
             onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
           />
-          <PillGroup
-            options={scopes.map(s => ({ value: s, label: GAME_SCOPE_LABEL[s] }))}
-            value={shownScope}
-            onChange={v => { setGameScope(v as GameScope); setLbStatsLimit(50) }}
-          />
+          {/* Filters, so chips (src/ui/FilterChip), as WPBL's season / playoffs choice is. */}
+          {scopes.map(sc => (
+            <FilterChip key={sc} active={shownScope === sc} onClick={() => { setGameScope(sc); setLbStatsLimit(50) }}>
+              {GAME_SCOPE_LABEL[sc]}
+            </FilterChip>
+          ))}
         </Box>
         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
           <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
@@ -238,23 +267,15 @@ export function StatsView({
               {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </Box>
-          {/* Qualified / All toggle, only meaningful for rate stats; the all-time pool
-              is already curated per stat, so the toggle is hidden there */}
+          {/* The qualifying bar, WPBL's "✓ Qualified" chip. Only meaningful for rate stats; the
+              all-time pool is already curated per stat, so it is not offered there. */}
           {activeDef.isRate && !allTime && (
-            <Box
-              onClick={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
-              sx={{
-                ...pillActionSx,
-                borderColor: lbQualified ? ACCENT : 'divider',
-                color: lbQualified ? ACCENT_TEXT : 'text.secondary',
-                bgcolor: lbQualified ? `${ACCENT}12` : 'transparent',
-                cursor: 'pointer', userSelect: 'none',
-                display: 'flex', alignItems: 'center', gap: 0.4,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {lbQualified ? '✓ Qual' : 'All'}
-            </Box>
+            <>
+              <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
+              <FilterChip active={lbQualified} onClick={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}>
+                {lbQualified ? '✓ Qualified' : 'Qualified'}
+              </FilterChip>
+            </>
           )}
         </Box>
       </Box>}
@@ -269,14 +290,13 @@ export function StatsView({
         </Box>
       )}
       {loadingLb && !listView && (
-        <Paper aria-hidden elevation={2} sx={TABLE_PAPER_SX}>
-          <TableHead title={activeDef.leaderLabel ?? activeDef.label} subtitle={boardSubtitle} />
-          {/* The scroller at its cap, which a page of fifty rows always fills. */}
-          <Box sx={{ height: `calc(100vh - ${chromePx(280)})`, px: 2, pt: 1 }}>
+        <Box aria-hidden sx={TABLE_FRAME_SX}>
+          {/* The scroller at its cap, which a season's rows always fill. */}
+          <Box sx={{ height: TABLE_MAX_H, px: 2, pt: 1 }}>
             {Array.from({ length: 12 }, (_, i) => <Skeleton key={i} sx={{ fontSize: '1.6rem' }} />)}
           </Box>
-          <Box sx={TABLE_FOOT_SX}><Typography sx={{ fontSize: '0.68rem' }}><Skeleton width="6rem" /></Typography></Box>
-        </Paper>
+          <Box sx={TABLE_FOOT_SX}><Typography sx={FOOT_TEXT_SX}>{footText(null)}</Typography></Box>
+        </Box>
       )}
 
       {!loadingLb && lbData && lbData.length === 0 && shownScope === 'post' && (
@@ -309,14 +329,13 @@ export function StatsView({
       )}
 
       {!loadingLb && lbData && lbData.length > 0 && !listView && (
-        <Paper elevation={2} sx={TABLE_PAPER_SX}>
-          <TableHead title={activeDef.leaderLabel ?? activeDef.label} subtitle={boardSubtitle} />
+        <Box sx={TABLE_FRAME_SX}>
 
           {/* Scrollable table, overflow both axes so sticky thead works vertically. The 280 is
               the chrome above it, so it scales with that chrome; 100vh is plain screen height,
               which it is again now that the section has no `zoom` to divide out. */}
-          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: `calc(100vh - ${chromePx(280)})` }}>
-            <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: TABLE_MAX_H }}>
+            <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
                 <Box component="tr">
                   {/* Sticky player-name column header */}
@@ -331,7 +350,8 @@ export function StatsView({
                     pl: isDesktop ? chromePx(16) : chromePx(8),
                     pr: isDesktop ? chromePx(12) : chromePx(8),
                   }}>
-                    Player
+                    PLAYER
+                    {headLeague(league ? 'League avg' : '', 'right')}
                   </Box>
                   {/* Stat column headers */}
                   {statDefs.map(def => {
@@ -362,11 +382,12 @@ export function StatsView({
                         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
                           {def.label}
                           {isActive && (
-                            <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                            <Box component="span" sx={{ fontSize: '0.62rem' }}>
                               {effectiveAsc ? '↑' : '↓'}
                             </Box>
                           )}
                         </Box>
+                        {headLeague(leagueCell(def), 'right')}
                       </Box>
                     )
                   })}
@@ -374,7 +395,7 @@ export function StatsView({
               </Box>
 
               <Box component="tbody">
-                {sortedEntries.map((e, idx) => {
+                {rankedAll.map((e, idx) => {
                   const stat = e.stat
                   // Rank 1 = best. Descending: row 0 is best → rank 1, 2, 3…
                   // Ascending: row 0 is worst → rank total, total-1, total-2…
@@ -416,7 +437,7 @@ export function StatsView({
                           {isDesktop && (
                             <Box component="img"
                               src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
-                              alt={e.playerName}
+                              alt={e.playerName} loading="lazy"
                               sx={{ width: chromePx(28), height: chromePx(28), borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
                             />
                           )}
@@ -463,26 +484,10 @@ export function StatsView({
             </Box>
           </Box>
 
-          {/* Load more / count footer */}
           <Box sx={TABLE_FOOT_SX}>
-            <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', fontWeight: 600 }}>
-              Showing {sortedEntries.length} of {totalInDataset}
-            </Typography>
-            {lbStatsLimit < totalInDataset && (
-              <Box
-                onClick={() => setLbStatsLimit(l => l + 50)}
-                sx={{
-                  cursor: 'pointer', userSelect: 'none',
-                  fontSize: '0.72rem', fontWeight: 700,
-                  color: 'text.disabled',
-                  '&:hover': { color: ACCENT_TEXT }, transition: 'color 0.15s',
-                }}
-              >
-                Load 50 more ↓
-              </Box>
-            )}
+            <Typography sx={FOOT_TEXT_SX}>{footText(totalInDataset)}</Typography>
           </Box>
-        </Paper>
+        </Box>
       )}
 
       {/* Phones only: the way between the list and the grid, under the board where it is not in the
@@ -519,29 +524,14 @@ export function StatsView({
 
 // The board's frame, shared by the loaded board and its skeleton.
 const BOARD_SUBTITLE_SX = { fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1), mb: 0.75 } as const
-const TABLE_PAPER_SX = {
-  borderRadius: { xs: 0, sm: 3 },
-  overflow: 'hidden',
-  mx: { xs: -2, sm: 0 },
-  boxShadow: { xs: 'none', sm: undefined },
+// WPBL's board frame: a hairline card, no raised paper and no title strip. Edge to edge on a
+// phone's full table, where the gutter is worth a column.
+const TABLE_FRAME_SX = {
+  border: '1px solid', borderColor: CARD_BORDER, borderRadius: { xs: 0, sm: 2 }, overflow: 'hidden',
+  bgcolor: 'background.paper', mx: { xs: -2, sm: 0 }, borderLeftWidth: { xs: 0, sm: 1 }, borderRightWidth: { xs: 0, sm: 1 },
 } as const
-const TABLE_FOOT_SX = { px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } as const
-
-/** The table's header strip. */
-function TableHead({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <Box sx={{
-      px: { xs: 2, sm: 3 }, py: 1.5,
-      background: `linear-gradient(135deg, ${ACCENT}18 0%, transparent 100%)`,
-      borderBottom: '1px solid', borderColor: 'divider',
-      display: 'flex', alignItems: 'baseline', gap: 1.5,
-    }}>
-      <Typography sx={{ fontWeight: 900, fontSize: { xs: '1rem', sm: '1.15rem' }, letterSpacing: typePx(-0.3) }}>
-        {title}
-      </Typography>
-      <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1) }}>
-        {subtitle}
-      </Typography>
-    </Box>
-  )
-}
+/** The scroll box's cap: everything standing above it at the top of the page, scaled with that
+ *  chrome. One value for the board and its skeleton. */
+const TABLE_MAX_H = `calc(100vh - ${chromePx(280)})`
+const TABLE_FOOT_SX = { px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 } as const
+const FOOT_TEXT_SX = { fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0 } as const

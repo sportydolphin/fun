@@ -17,7 +17,7 @@ import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './m
 // human load runs this, so it counts opens and never the crawler fetches behind an unfurl.
 let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_REF_PARAM) === MLB_SHORT_REF_VALUE
 const arrivedAt = window.location.pathname
-import { SegControl } from './mlb/components/ui'
+import { PageTabs } from './ui/PageTabs'
 import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
@@ -444,13 +444,14 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         return (
           <>
             <MlbTabTitle sx={{ mb: 2 }}>{BOARD_TITLE[board]}</MlbTabTitle>
-            <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
-              <SegControl
-                options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
-                value={board}
-                onChange={v => go(v as MlbView)}
-              />
-            </Box>
+            {/* WPBL's board row (src/ui/PageTabs): each board is its own address, so these are
+                pages, and they no longer share a look with the Hitting / Pitching switch under them. */}
+            <PageTabs
+              options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
+              value={board}
+              onChange={v => go(v as MlbView)}
+              mb={2}
+            />
             {board === 'viz' && (
               <VizView
                 vizSeason={state.vizSeason}

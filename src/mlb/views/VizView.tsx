@@ -12,52 +12,17 @@ import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboar
 import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow } from '../api'
 import { chromePx, typePx } from '../../ui/scale'
+import { PillGroup } from '../../ui/PillGroup'
 
 
-// ─── VizSubNav: in-page tab switcher ────────────────────────────────────────
-
+// Report card / Graphs is a SWITCH on this board, not a page of its own (both live at /mlb/charts),
+// so it is the section's PillGroup, as WPBL draws its side-of-the-ball switch. It was a second
+// underline row, which under the Stats tab's board row read as a third level of pages.
 type VizTab = 'graphs' | 'report-card'
-
-function VizSubNav({ tab, onChange }: { tab: VizTab; onChange: (t: VizTab) => void }) {
-  const tabs: Array<{ value: VizTab; label: string }> = [
-    { value: 'report-card', label: 'Report Card' },
-    { value: 'graphs',      label: 'Graphs' },
-  ]
-  return (
-    <Box sx={{
-      display: 'flex',
-      borderBottom: '1px solid', borderColor: 'divider',
-      mb: 2.5,
-      mx: { xs: -2, sm: 0 },
-      px: { xs: 2, sm: 0 },
-    }}>
-      {tabs.map(({ value, label }) => {
-        const active = tab === value
-        return (
-          <Box
-            key={value}
-            onClick={() => onChange(value)}
-            sx={{
-              flex: 1, py: 0.9,
-              textAlign: 'center',
-              fontSize: { xs: '0.78rem', sm: '0.84rem' },
-              fontWeight: active ? 700 : 500,
-              color: active ? 'text.primary' : 'text.secondary',
-              cursor: 'pointer', userSelect: 'none',
-              borderBottom: '2.5px solid',
-              borderColor: active ? 'text.primary' : 'transparent',
-              mb: '-1px',
-              transition: 'color 0.15s, border-color 0.15s',
-              '&:hover': { color: 'text.primary' },
-            }}
-          >
-            {label}
-          </Box>
-        )
-      })}
-    </Box>
-  )
-}
+const VIZ_TABS: { value: VizTab; label: string }[] = [
+  { value: 'report-card', label: 'Report Card' },
+  { value: 'graphs',      label: 'Graphs' },
+]
 
 
 // ─── Main view ────────────────────────────────────────────────────────────────
@@ -318,6 +283,7 @@ export function VizView({
       {/* ── Top controls: season picker + team search ─────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+          <PillGroup options={VIZ_TABS} value={vizTab} onChange={v => setVizTab(v as VizTab)} />
           <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
             All 30 teams · click to focus · hover to inspect
           </Typography>
@@ -382,9 +348,6 @@ export function VizView({
           </select>
         </Box>
       </Box>
-
-      {/* ── Tab switcher ──────────────────────────────────────────────────── */}
-      <VizSubNav tab={vizTab} onChange={setVizTab} />
 
       {loadingViz && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 

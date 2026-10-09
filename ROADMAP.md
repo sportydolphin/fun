@@ -298,8 +298,24 @@ will actually see all winter. The functional items do not wait.
    and on `/wpbl/standings`.
 3. **One sub-navigation pattern.** WPBL: a left-aligned row of text tabs over filter chips. MLB: a
    centred pill row, sometimes with a second segmented control on the right. Use WPBL's.
+   ✅ *Oct 9:* WPBL Stats' board row is `src/ui/PageTabs.tsx`, and MLB's page-level rows are on
+   it: the Stats boards (Leaders / Table / Charts, real links) and Standings' modes (Bracket /
+   Divisions / Playoff Picture / Odds), left-aligned where they were a centred `SegControl`. Charts'
+   Report Card / Graphs was a second, centred underline row; it is a switch on one address, so it
+   is a `PillGroup` at the head of the board's controls. The rule in both sections now: underline
+   tabs are pages, `PillGroup` is a switch, chips are filters. Measured at 1000px: the row sits at
+   y=136 on every MLB tab and on `/wpbl/stats`. `SegControl` is left on the player card's
+   Batting / Pitching for now: WPBL's card draws the same switch its own way, a separate change.
 4. **One stats-table look.** WPBL's spans the page with a league-average row and a "+ Qualified"
    chip; MLB's sits in a titled card, pages by 50, and has a "Qual" button. The code can stay two.
+   ✅ *Oct 9:* MLB's grid is in WPBL's hairline frame, with no raised paper and no gradient title
+   strip; its caption is the footer ("124 hitters · 2026 MLB · Qualified · sort by any column
+   heading"). The header is WPBL's small labels with the league average folded in under each rate
+   (`leagueLine` in `lib/statsBoard.ts`, summed from the board's own playerPool=All rows, which
+   match the 30 clubs' totals exactly; none on a career board). Every row is drawn, in the capped
+   scroll box, where "Load 50 more" paged it. The qualifying bar and the regular / playoffs / all
+   choice are WPBL's chips (`src/ui/FilterChip.tsx`, moved out of WPBL's StatsView). The phone's
+   ranked list is unchanged. Still MLB's own: the medals, the headshots and the sort colours.
 5. **One box score and one play row** inside Game Center. The panel and page frames are shared;
    the contents (`GameDetail` against `LiveGameCenter` and `boxScore`) are not.
 
