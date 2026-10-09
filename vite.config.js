@@ -47,7 +47,7 @@ export default defineConfig({
     // .tsx files render, so they get jsdom; the .ts files run in Node, and one that does need a
     // DOM says so in its first line with `// @vitest-environment jsdom`, which wins over this.
     projects: [
-      { extends: true, test: { name: 'dom', include: ['src/**/*.test.tsx'], environment: 'jsdom' } },
+      { extends: true, test: { name: 'dom', include: ['src/**/*.test.tsx'], environment: 'jsdom', setupFiles: ['./src/test/setupDom.ts'] } },
       { extends: true, test: { name: 'node', include: ['src/**/*.test.ts'], environment: 'node' } },
     ],
     setupFiles: './src/test/setup.ts',
