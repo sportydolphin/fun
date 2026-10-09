@@ -28,6 +28,7 @@ import { linkTo } from './nav'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
+import { HOME_W, PHONE_COLUMN_W } from './ui/layoutWidths'
 import { MlbPageH1 } from './mlb/components/PageHeading'
 import SwipeableViews from './ui/SwipeableViews'
 import { useSwipeNav } from './AccessibilityContext'
@@ -107,12 +108,10 @@ function useLatest<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) 
 // re-render the whole section. Its one prop is a stable callback in App.tsx; keep it that way.
 export default memo(MlbStats)
 
-// The section's columns on a desktop, in SCREEN pixels: 980 and 1280 as they were drawn under the
-// old `zoom: 1.4` (Oct 2026). Fixed rather than chromePx because these are the columns that have
-// somewhere to put the room, another scoreboard chip or more stat columns, so when the scale came
-// down to 1.25 the content inside got smaller and the column kept its width. WPBL's Home and stats
-// table break out of its reading column the same way. Below md the phone column is 640.
-const HOME_W = 1372
+// The data tabs' column on a desktop, in SCREEN pixels: 1280 as it was drawn under the old
+// `zoom: 1.4` (Oct 2026). Fixed rather than chromePx because it is a column with somewhere to put
+// the room, more stat columns, so when the scale came down to 1.25 the content inside got smaller
+// and the column kept its width. Home's column is WPBL's (src/ui/layoutWidths.ts).
 const PAGE_W = 1792
 // The full Game Center page's own column (GamePageLayout in LiveGameCenter.tsx), which is what moves
 // aside for a player's panel opened from its box score.
@@ -348,12 +347,19 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
-  const containerMaxWidth = state.view === 'home' ? { xs: 640, md: HOME_W } : { xs: 640, md: PAGE_W }
+  // HOME IS SIZED, NOT CAPPED: its width is WPBL Home's, which is wider than the shell's padding
+  // leaves below about 1300px, so a maxWidth would stop short and the two Homes would not line up.
+  // Centred with a margin rather than WPBL's transform, which would also move the sticky bars and
+  // the fixed-position sheets inside it.
+  const onHome = state.view === 'home'
+  const columnSx = onHome
+    ? { maxWidth: { xs: PHONE_COLUMN_W, md: 'none' }, width: { md: HOME_W }, mx: { xs: 'auto', md: 0 }, ml: { md: `calc((100% - ${HOME_W}) / 2)` } }
+    : { maxWidth: { xs: PHONE_COLUMN_W, md: PAGE_W }, mx: 'auto' }
   // The page moves aside for a game's side panel as far as its left gutter allows (panelShiftSx).
   // These columns are wide, so below about 1900px it barely moves and the panel covers their right
   // edge, which is the trade WPBL's Home and stats table make too.
   const panelOpen = useSidePanelOpen()
-  const shift = panelShiftSx(panelOpen, gamePageOpen ? GAME_PAGE_W : `${state.view === 'home' ? HOME_W : PAGE_W}px`)
+  const shift = panelShiftSx(panelOpen, gamePageOpen ? GAME_PAGE_W : onHome ? HOME_W : `${PAGE_W}px`)
   const onSearch = state.view === 'search'
   const tabIndex = NAV.findIndex(n => n.key === activeTab)
   // The pager mounts with the first tab the reader is shown, and stays mounted from then on.
@@ -497,7 +503,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   return (
     // Scaled up on a desktop by the root's --app-type / --app-chrome (styles.css), as WPBL is.
     <Box sx={{
-      maxWidth: containerMaxWidth, mx: 'auto', ...shift,
+      ...columnSx, ...shift,
       // Scroll room under the floating bar, plus the device's safe-area inset, so the last card and
       // the footer can always be scrolled clear of it.
       pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,
