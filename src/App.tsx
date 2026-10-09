@@ -8,7 +8,7 @@ import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
-import { isMlbPath, isMlbSection, isMlbGlossaryPage, MLB_PATH_EVENT } from './mlb/routes'
+import { isMlbPath, isMlbSection, isMlbGlossaryPage, isMlbComparePage, MLB_PATH_EVENT } from './mlb/routes'
 import { preloadMlbViewFor } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { AuthProvider, useAuth } from './AuthContext'
@@ -83,6 +83,7 @@ const WpblPlayersIndex = lazy(() => import('./wpbl/PlayersIndex'))
 const WpblLeaguePage = lazy(() => import('./wpbl/LeaguePage'))
 const WpblGlossaryPage = lazy(() => import('./wpbl/GlossaryPage'))
 const MlbGlossaryPage = lazy(() => import('./mlb/GlossaryPage'))
+const MlbComparePage = lazy(() => import('./mlb/ComparePage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
 const WpblSeasonPage = lazy(() => import('./wpbl/SeasonPage'))
 const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
@@ -1574,6 +1575,13 @@ function AppInner() {
           {isWpblLeaguePage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblLeaguePage onNavigate={navigateFromStandalone} />
+            </Suspense>
+          )}
+          {isMlbComparePage(path) && (
+            // A player opened from here is the player's page, through the section: MLB's side panel
+            // lives in MlbStats, which is not mounted under a standalone page.
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <MlbComparePage path={path} onNavigate={navigate} />
             </Suspense>
           )}
           {isMlbGlossaryPage(path) && (

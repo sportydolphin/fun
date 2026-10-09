@@ -1329,6 +1329,12 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://sportydolphin.fun/mlb/compare</loc>
+    <lastmod>2026-10-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://sportydolphin.fun/mlb/postseason/2022/al-wild-card-1</loc>
     <lastmod>2026-10-09</lastmod>
     <changefreq>yearly</changefreq>

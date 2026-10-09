@@ -12,14 +12,16 @@ import { chromePx } from '../../ui/scale'
 //   • Dark mode: per-team locked-in bg / ring / logo (TEAM_ICON_STYLE).
 // The team-color ring carries the team identity in both modes.
 
-export function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
+/** `size` is the badge's outer width in chrome px (28 everywhere but the compare page, which sets a
+ *  club beside a line of small type); the logo and the ring scale with it. */
+export function TeamLogo({ teamId, abbr, size = 28 }: { teamId: number; abbr: string; size?: number }) {
   const [failed, setFailed] = useState(false)
   const isDark = useIsDark()
   const ring = ringColor(teamId, isDark)
   return (
     <Box sx={{
-      width: chromePx(28), height: chromePx(28), borderRadius: '50%',
-      bgcolor: teamLogoBg(teamId, isDark), border: `2.5px solid ${ring}`,
+      width: chromePx(size), height: chromePx(size), borderRadius: '50%',
+      bgcolor: teamLogoBg(teamId, isDark), border: `${+(2.5 * size / 28).toFixed(2)}px solid ${ring}`,
       boxShadow: `0 0 0 1px ${ring}30`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0, overflow: 'hidden',
@@ -35,7 +37,7 @@ export function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
           src={teamLogoSrc(teamId, isDark)}
           alt={abbr}
           onError={() => setFailed(true)}
-          sx={{ width: chromePx(19), height: chromePx(19), objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
+          sx={{ width: chromePx(Math.round(size * 19 / 28)), height: chromePx(Math.round(size * 19 / 28)), objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
         />
       )}
     </Box>

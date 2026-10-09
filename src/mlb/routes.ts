@@ -420,21 +420,94 @@ export const MLB_GLOSSARY_PAGE = `${MLB_BASE}/glossary`
 export const isMlbGlossaryPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, '') === MLB_GLOSSARY_PAGE
 
+// ─── Comparison pages ─────────────────────────────────────────────────────────
+//
+// /mlb/compare, /mlb/compare/<player> and /mlb/compare/<a>-vs-<b>: WPBL's three states (an empty
+// picker, one slot filled, a pair) on MLB's player slugs. Standalone, like the glossary, so not an
+// `isMlbPath`. The pair is in the path for the reason WPBL's is: a query string is one URL to a
+// search engine, and "X vs Y" is a thing people search for.
+//
+// THE IDS ARE THE PAIR, and each half is a player path's own slug, `<name>-<id>`, so a name that
+// changes spelling or two players who share one cannot make a pair ambiguous the way a bare-name
+// slug can. The names are for the reader; the edge 301s a stale or missing one onto the current
+// spelling, in the reader's order. Like WPBL's, nothing under the picker goes in the sitemap:
+// every pair of players in the majors is millions of machine-made pages.
+
+export const MLB_COMPARE_BASE = `${MLB_BASE}/compare`
+export const MLB_COMPARE_JOIN = '-vs-'
+
+type Named = { id: number; fullName?: string | null }
+
+/** One half of a compare slug: a player path's last segment. */
+const compareHalf = (p: Named): string => mlbPlayerPath(p).slice(MLB_PLAYERS_BASE.length + 1)
+
+/** A pair in the order it was built, `a` on the left. Not sorted: start from one player's page and
+ *  add a second, and that player stays where the reader put them. `mlbCompareCanonicalPath` is the
+ *  one spelling for a search engine. */
+export function mlbComparePath(a: Named, b: Named): string {
+  return `${MLB_COMPARE_BASE}/${compareHalf(a)}${MLB_COMPARE_JOIN}${compareHalf(b)}`
+}
+
+/** Both orders of a pair declare this as their rel=canonical, so they are one page to Google. */
+export function mlbCompareCanonicalPath(a: Named, b: Named): string {
+  const [x, y] = [compareHalf(a), compareHalf(b)].sort()
+  return `${MLB_COMPARE_BASE}/${x}${MLB_COMPARE_JOIN}${y}`
+}
+
+/** The picker with one slot filled, where a player card's Compare lands. A state, so noindex. */
+export function mlbCompareStartPath(p: Named): string {
+  return `${MLB_COMPARE_BASE}/${compareHalf(p)}`
+}
+
+export type MlbCompareTarget = { kind: 'picker' } | { kind: 'single'; id: number } | { kind: 'pair'; a: number; b: number }
+
+const HALF = '(?:[a-z0-9-]*?-)?([1-9]\\d{0,8})'
+const SINGLE_RE = new RegExp(`^${HALF}$`, 'i')
+const PAIR_RE = new RegExp(`^${HALF}${MLB_COMPARE_JOIN}${HALF}$`, 'i')
+
+/**
+ * What a compare path names, or null when it is not one. The pair is tried first: the first half's
+ * id is digits directly before the join, and a single slug can never contain "<digits>-vs-<…><digits>"
+ * because it ends in its one id. One segment only, for the reason a player path is: Cloudflare's `*`
+ * matches across slashes. A player against themselves is not a pair, and is null.
+ */
+export function mlbCompareTargetFromPath(pathname: string): MlbCompareTarget | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (p === MLB_COMPARE_BASE) return { kind: 'picker' }
+  if (!p.startsWith(`${MLB_COMPARE_BASE}/`)) return null
+  const rest = p.slice(MLB_COMPARE_BASE.length + 1)
+  const pair = PAIR_RE.exec(rest)
+  if (pair) {
+    const a = Number(pair[1]), b = Number(pair[2])
+    return a === b ? null : { kind: 'pair', a, b }
+  }
+  const single = SINGLE_RE.exec(rest)
+  return single ? { kind: 'single', id: Number(single[1]) } : null
+}
+
+export const isMlbComparePage = (pathname: string): boolean => mlbCompareTargetFromPath(pathname) !== null
+
 /** The standalone pages, as rows in the section's More menu on a desktop and on a phone. Real
  *  addresses, so the toolbar draws them as <a href> without the section loaded, as WPBL's are. */
-export const MLB_MORE_PAGES: readonly { href: string; label: string; hint: string }[] = [
+export const MLB_MORE_PAGES: readonly { href: string; label: string; hint: string; event?: string; eventProps?: Record<string, unknown> }[] = [
+  // The event's name restated rather than imported, since this file imports nothing (EVENTS in
+  // lib/analytics.ts has it as MLB_COMPARE_OPENED).
+  { href: MLB_COMPARE_BASE, label: 'Compare players', hint: 'Two players side by side, and how they did against each other',
+    event: 'mlb_compare_opened', eventProps: { from: 'more' } },
   { href: MLB_GLOSSARY_PAGE, label: 'Rules & glossary', hint: 'The rules, and what each stat means' },
 ]
 
 /** Anything that should read as "the reader is in the MLB section": the section's own paths and
  *  the standalone pages beside it. */
-export const isMlbSection = (pathname: string): boolean => isMlbPath(pathname) || isMlbGlossaryPage(pathname)
+export const isMlbSection = (pathname: string): boolean =>
+  isMlbPath(pathname) || isMlbGlossaryPage(pathname) || isMlbComparePage(pathname)
 
 /** Every page with a fixed address, for the sitemap and the tests that pin it to the redirects. */
 export const MLB_STATIC_PATHS: readonly string[] = [
   ...Object.values(MLB_VIEW_PATHS),
   ...MLB_CLUBS.map(c => `${MLB_TEAMS_BASE}/${c.slug}`),
   MLB_GLOSSARY_PAGE,
+  MLB_COMPARE_BASE,
 ]
 
 /** Fired after the section rewrites the address bar, so the shell re-reads its path (and seo.ts

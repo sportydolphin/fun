@@ -130,6 +130,7 @@ describe('every page is routable in production', () => {
     expect(redirects).toMatch(/^\/mlb\/players\/\*\s+\/\s+200\s*$/m)
     expect(redirects).toMatch(/^\/mlb\/games\/\*\s+\/\s+200\s*$/m)
     expect(redirects).toMatch(/^\/mlb\/postseason\/\*\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/mlb\/compare\/\*\s+\/\s+200\s*$/m)
     expect(redirects).not.toMatch(/^\/mlb\/\*/m)
     expect(redirects).not.toMatch(/^\/mlb\/teams\/\*/m)
   })
@@ -255,6 +256,35 @@ describe('the edge function', () => {
     const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/postseason/2026/alcs/'))
     expect(res.status).toBe(301)
     expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/postseason/2026/alcs')
+  })
+
+  // /mlb/compare/*, every player squared, with the same three jobs as a player path.
+  it('404s a compare path that names nobody, or is not a slot or a pair', async () => {
+    for (const p of ['nobody', 'a/b', '12-vs-12']) {
+      expect((await onRequestGet(ctx(`https://sportydolphin.fun/mlb/compare/${p}`))).status, p).toBe(404)
+    }
+    people({ people: [{ id: 677951, fullName: 'Bobby Witt Jr.' }] })
+    expect((await onRequestGet(ctx('https://sportydolphin.fun/mlb/compare/bobby-witt-jr-677951-vs-nobody-12'))).status).toBe(404)
+  })
+
+  it("301s a compare path onto its current names, in the reader's order", async () => {
+    people({ people: [{ id: 677951, fullName: 'Bobby Witt Jr.' }, { id: 677594, fullName: 'Julio Rodríguez' }] })
+    const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/compare/677594-vs-bobby-witt-677951'))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/compare/julio-rodriguez-677594-vs-bobby-witt-jr-677951')
+    const pair = ctx('https://sportydolphin.fun/mlb/compare/julio-rodriguez-677594-vs-bobby-witt-jr-677951')
+    await onRequestGet(pair)
+    expect(pair.next).toHaveBeenCalled()
+    const single = ctx('https://sportydolphin.fun/mlb/compare/bobby-witt-jr-677951')
+    await onRequestGet(single)
+    expect(single.next).toHaveBeenCalled()
+  })
+
+  it('serves a compare page when StatsAPI cannot be asked', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'))
+    const c = ctx('https://sportydolphin.fun/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594')
+    await onRequestGet(c)
+    expect(c.next).toHaveBeenCalled()
   })
 
   it('folds the trailing slash, and serves the game when StatsAPI cannot be asked', async () => {

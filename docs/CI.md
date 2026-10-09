@@ -98,6 +98,13 @@ npm run sweep:record
 
 and commit the new fixture in the same pull request.
 
+Adding one page, or one read on one page? Merge instead, which records only what is missing and
+keeps the fixture's clock, so the pull request does not also carry a day of unrelated data changes:
+
+```bash
+npm run sweep:record -- --merge --routes mlb/compare
+```
+
 `scripts/fixtures/layout-sweep-baseline.json` lists findings accepted as known. **It is empty**
 and should stay that way: fix a finding rather than baseline it.
 
@@ -107,6 +114,7 @@ Flags worth knowing:
 |---|---|
 | `--replay` | serve from the fixture, network shut (what CI does) |
 | `--shift` | also run the loading-shift check |
+| `--record --merge` | add what the named routes fetch to the fixture, at its own clock |
 | `--baseline` | fail only on findings not in the baseline file |
 | `--routes a,b` | only these routes (leading slash optional, for Git Bash) |
 | `--shard i/n` | every n-th route from the i-th (CI runs `1/4` to `4/4`) |

@@ -211,8 +211,17 @@ will actually see all winter. The functional items do not wait.
    in the sitemap, the footer and the More menu on both widths. Every stat tooltip on the player
    card ends in a link to it, and WPBL's tooltips now link to `/wpbl/glossary` the same way. Its frame and lists are the shared `src/ui/StandalonePage.tsx` and
    `src/ui/Glossary.tsx`, and the qualifying bar it quotes is `qualify.ts`, which replaced four
-   literal 3.1s. *Open:* Compare. The board `InfoTip`s describe a board rather than a term, so they
-   carry no link.
+   literal 3.1s. The board `InfoTip`s describe a board rather than a term, so they carry no link.
+   ✅ *Compare shipped Oct 9 (v1.132.0):* `/mlb/compare`, WPBL's page on MLB's player slugs
+   (`ComparePage.tsx`, rules in `compare.ts`), on a frame now shared with WPBL's
+   (`src/ui/compare.tsx`). Adds what WPBL's feed has no number for: a WAR / wRC+ / FIP block, and a
+   head-to-head from StatsAPI's `vsPlayer` (this season, career, postseason). The picker offers the
+   season's players by playing time, 60 at a time, with search for the rest. A Compare chip on the
+   player card (Follow and Compare drop their words on a phone and in the side panel, where all
+   four did not fit), the More menu and the footer. Pinned in `__tests__/compare.test.ts` and the
+   edge cases in `routes.test.ts`. *Open:* a season other than the current one (the player card's
+   year menu has no way to carry its season across), and the pair's skeleton reserves two
+   hitters, so a pitcher pair grows by a card as it lands.
 5. ✅ **Every MLB player link opens the side panel on a desktop** (Oct 9). The team page's roster
    and Team Leaders cards pushed the player's full page themselves, the one place in `/mlb` that
    did; they now go through the section's `openPlayer` like every other list.

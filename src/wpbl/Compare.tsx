@@ -17,9 +17,8 @@
 // a reader arriving from anywhere in the section this page costs nothing. The play log, which
 // only the head-to-head needs, is fetched separately and is allowed to never arrive: the rest
 // of the page does not wait on it and renders identically without it.
-import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, Skeleton, TextField, InputAdornment } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Box, Typography } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblAllPlayers, fetchWpblSchedule, fetchWpblAllLines,
   fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays,
@@ -27,13 +26,15 @@ import {
 } from './api'
 import {
   buildWpblComparison, rankCompareCandidates,
-  type WpblCompareGroup, type WpblCompareRow, type WpblCompareSide, type WpblCompareCandidate, type WpblMatchupCounts,
+  type WpblCompareGroup, type WpblCompareSide, type WpblCompareCandidate, type WpblMatchupCounts,
 } from './derive/compare'
 import type { WpblMatchupPlay } from './derive/matchups'
+import { SectionCard, TeamBadge, PlayerPortrait, chromePx, TextGhost } from './ui'
 import {
-  CARD_BORDER, SectionCard, TeamBadge, PlayerPortrait, chromePx, hoverOnly,
-  MICRO_TEXT, FOCUS_RING, useWpblDark, TextGhost,
-} from './ui'
+  CompareHead, CompareHeadSkeleton, CompareBlocksCard, CompareBlocksSkeleton, HeadToHeadCard, HeadToHeadSkeleton,
+  ComparePicker, CompareAgainLink, duelLine, HEAD_CARD, VS_SX, PICK_SLOT, GHOST_HEAD_NAME,
+  type ComparePick, type HeadToHeadView,
+} from '../ui/compare'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import WpblPage from './WpblPage'
 import { useEraBasis } from './EraBasisContext'
@@ -44,534 +45,100 @@ import {
 import { setDynamicSeo } from '../seo'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
-import { typePx } from '../ui/scale'
 
-/** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
- *  way it does on any other. Same rule as SourcesPage and LeaguePage. */
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-
-// ─── The two names at the top ─────────────────────────────────────────────────
+// The frame (heads, cards, rows, picker and their loading states) is src/ui/compare.tsx since
+// Oct 9, 2026, shared with /mlb/compare. What stays here is what is WPBL's: the portrait and club
+// badge, where a player has actually played, and the duel built from the league's own plays.
 
 /**
- * One player's identity column.
+ * One player's identity column, on the shared frame.
  *
- * THE NAME IS A REAL LINK to the player's own page, not an onClick. Googlebot does not fire
- * click handlers (CLAUDE.md, and /mlb sat undiscovered for months over exactly this), and these
- * two anchors are the whole reason a comparison page passes any value back to the pages it is
- * built out of.
+ * `roster` is the WHOLE roster, because uniqueness cannot be judged from one row: a name two
+ * players share takes the id-suffixed slug, and a one-element roster would happily mint the bare
+ * one and link to nobody. `position` is where the player has actually taken the field, which is not
+ * always what the roster filed (positions.ts: Kelsie Whitmore is listed RHP and plays centre field).
+ *
+ * THE NICKNAME, NOT THE FULL CLUB NAME, and the badge is why it can be. "San Francisco Firebells
+ * · C" wraps onto two lines in a half-width column on any phone, which leaves the two heads
+ * different heights.
  */
-function CompareHead({ player, team, roster, position, onNavigate, onClear }: {
+function WpblCompareHead({ player, team, roster, position, onNavigate, onClear }: {
   player: WpblPlayer
   team: WpblTeam | undefined
-  /** The WHOLE roster, because uniqueness cannot be judged from one row: a name two players
-   *  share takes the id-suffixed slug, and a one-element roster would happily mint the bare
-   *  one and link to nobody. routes.ts states the rule; this is the call site that would
-   *  quietly break it. */
   roster: WpblPlayer[]
-  /** Where she has actually played, which is not always what the roster filed. See
-   *  positions.ts: Kelsie Whitmore is listed RHP and plays centre field. */
   position: string | null
   onNavigate: (to: string) => void
   onClear?: () => void
 }) {
-  const href = wpblPlayerPath(player, roster)
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-      <PlayerPortrait name={player.name} teamId={player.team_id} size={64} />
-      <Box
-        component="a"
-        href={href}
-        onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(href) } }}
-        sx={{
-          textDecoration: 'none', color: 'inherit', textAlign: 'center', minWidth: 0,
-          ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-        }}
-      >
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2 }}>
-          {player.name}
-        </Typography>
-      </Box>
-      {/* THE NICKNAME, NOT THE FULL CLUB NAME, and the badge is why it can be. "San Francisco
-      Firebells · C" wraps onto two lines in a half-width column on any phone, which leaves
-      the two heads different heights and the line itself reading as two facts instead of
-      one. The city is the part the badge beside it already says. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: '100%' }}>
-        {team && <TeamBadge team={team} size={18} />}
-        <Typography noWrap sx={{ fontSize: MICRO_TEXT, color: 'text.secondary', minWidth: 0 }}>
-          {team ? team.name : 'Free agent'}{position ? ` · ${position}` : ''}
-        </Typography>
-      </Box>
-      {/* NO CROSS ON IT. A ✕ means remove, and this does not remove: it keeps the OTHER
-          player and goes back to the picker to replace this one. The word alone is the
-          accurate control, and it stops the header reading as two delete buttons. */}
-      {onClear && (
-        <Box
-          component="button"
-          onClick={onClear}
-          aria-label={`Replace ${player.name} with another player`}
-          sx={{
-            // Pushed to the bottom so the two columns line up whatever each name costs.
-            mt: 'auto', pt: 0.5,
-            border: 'none', background: 'none', cursor: 'pointer', px: 0.75, py: 0.25,
-            borderRadius: 999, color: 'text.disabled', fontSize: MICRO_TEXT,
-            fontWeight: 700, letterSpacing: typePx(0.3), fontFamily: 'inherit',
-            ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }), ...FOCUS_RING,
-          }}
-        >
-          Change
-        </Box>
-      )}
-    </Box>
-  )
-}
-
-/** A CompareHead before the roster has said who it is: the same column, empty. */
-function CompareHeadSkeleton({ withChange }: { withChange?: boolean }) {
-  return (
-    <Box aria-hidden sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-      <Skeleton variant="circular" width={chromePx(64)} height={chromePx(64)} />
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2 }}>
-        <TextGhost>{GHOST_HEAD_NAME}</TextGhost>
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: '100%' }}>
-        <Skeleton variant="circular" width={chromePx(18)} height={chromePx(18)} sx={{ flexShrink: 0 }} />
-        <Typography noWrap sx={{ fontSize: MICRO_TEXT, minWidth: 0 }}><TextGhost>Firebells · 1B</TextGhost></Typography>
-      </Box>
-      {withChange && (
-        // A real button, inert, because a button's line box is not a div's.
-        <Box component="button" type="button" tabIndex={-1} sx={{
-          mt: 'auto', pt: 0.5, border: 'none', background: 'none', px: 0.75, py: 0.25,
-          color: 'text.disabled', fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: typePx(0.3), fontFamily: 'inherit',
-        }}>Change</Box>
-      )}
-    </Box>
-  )
-}
-
-/** A name not known yet, at a typical name's length. */
-const GHOST_NAME = 'Firstname Lastname'
-/** Shorter in a head and the pair's title, where a typical name (13 or 14 characters) has to sit
- *  on one line at the Large text size, in half a phone's width and in the title's large type. */
-const GHOST_HEAD_NAME = 'Firstn Lastnm'
-
-// ─── The rows ─────────────────────────────────────────────────────────────────
-
-/**
- * A comparison table, with its heading centred over it.
- *
- * NOT `SectionCard`, which is what the rest of the section uses. Its title sits at the left,
- * which is right for a card whose body is prose or a list running left to right, and wrong for
- * this one: the body is a symmetrical three-column table centred on the page, so a left-aligned
- * heading would be the only thing on the card off its own axis.
- *
- * The band is the shape a stats table has had since long before the web (Stathead draws the
- * same thing across the top of its comparison, and Baseball-Reference before it): a caption
- * spanning the full width, centred, in a recessed strip, saying what the block underneath is.
- * It reads as the table's own header rather than as a card that happens to contain one.
- *
- * `action.hover` for the strip, because it is MUI's theme-aware overlay and lands as a lift in
- * dark and a wash in light without this file deciding which theme it is in.
- */
-function CompareCard({ title, subtitle, children }: {
-  title: React.ReactNode
-  subtitle?: string
-  children: React.ReactNode
-}) {
-  return (
-    <Box sx={{
-      border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2,
-      // So the band's top corners clip to the card's radius instead of squaring it off.
-      overflow: 'hidden',
-    }}>
-      <Box sx={{
-        px: 2, py: 0.6, textAlign: 'center',
-        bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: CARD_BORDER,
-      }}>
-        <Typography component="h2" sx={{
-          fontSize: '0.78rem', fontWeight: 800, letterSpacing: typePx(0.8),
-          textTransform: 'uppercase', lineHeight: 1.3,
-        }}>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography sx={{ fontSize: MICRO_TEXT, color: 'text.disabled', lineHeight: 1.3 }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      <Box sx={{ p: 1.25 }}>{children}</Box>
-      <CompareStamp />
-    </Box>
+    <CompareHead
+      name={player.name}
+      href={wpblPlayerPath(player, roster)}
+      portrait={<PlayerPortrait name={player.name} teamId={player.team_id} size={64} />}
+      badge={team && <TeamBadge team={team} size={18} />}
+      subline={`${team ? team.name : 'Free agent'}${position ? ` · ${position}` : ''}`}
+      onNavigate={onNavigate}
+      onClear={onClear}
+    />
   )
 }
 
 /**
- * The source stamp at the foot of every comparison card.
- *
- * WHY IT IS ON EACH CARD RATHER THAN ONCE ON THE PAGE. This page exists to be screenshotted mid
- * argument (it is the reason it has its own URL), and the crop is almost always ONE stat card, not
- * the whole page. A stamp only in the header or at the very bottom is cropped out of exactly the
- * shot that travels. Stathead puts its logo down the middle of the table for the same reason; this
- * is the same idea placed where our card actually gets cut. Muted and aria-hidden: it is
- * attribution, not a control and not a second thing for a screen reader to read on every card.
- *
- * `/logo-mark.png` and the dark-mode invert are the toolbar's own brand mark and treatment (see
- * App.tsx), so the stamp cannot drift from the logo in the bar above it. Height rides --app-chrome
- * like every other badge, since it is art rather than type.
- */
-function CompareStamp() {
-  const dark = useWpblDark()
-  return (
-    <Box aria-hidden sx={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5,
-      px: 1.25, py: 0.6, borderTop: '1px solid', borderColor: CARD_BORDER,
-    }}>
-      <Box component="img" src="/logo-mark.png" alt="" sx={{
-        height: `calc(12px * var(--app-chrome, 1))`, width: 'auto', display: 'block',
-        opacity: 0.5, ...(dark && { filter: 'invert(1)' }),
-      }} />
-      <Typography sx={{
-        fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: typePx(0.3), color: 'text.disabled',
-      }}>
-        sportydolphin.fun
-      </Typography>
-    </Box>
-  )
-}
-
-/**
- * The geometry every row in a group shares: the sample band and the stat rows alike.
- *
- * CAPPED AND CENTRED RATHER THAN FULL-WIDTH, which is a fix for the desktop and costs the
- * phone nothing (it is already narrower than the cap). Left to fill the card, the two numbers
- * sit in a 15rem huddle in the middle of a 45rem rule, so every hairline runs a long way past
- * anything it is separating and the figures read as lost rather than as a table.
- *
- * `chromePx`, because this is STRUCTURE: raw px here shrinks against the type inside it
- * (CLAUDE.md on the three kinds of fixed size). The value columns are `rem` for the opposite
- * reason: they reserve room for a number and must grow with the text.
- */
-const STAT_ROW = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
-  maxWidth: chromePx(400), mx: 'auto',
-} as const
-
-/**
- * One stat, both columns, with the leader marked.
- *
- * THE GEOMETRY IS THE HONESTY. The two value columns are identical in width and position, and
- * the only thing that separates the leader is a wash and a weight. Drawing the leading number
- * larger turns a .312 against a .308 into a picture of one player towering over another over
- * four thousandths of a batting average.
- *
- * The columns reserve their room in `rem`, not px: they hold numbers, they sit next to type
- * sized in rem, and at a reader's Large text setting a px-sized column clips its own contents.
- * See CLAUDE.md on the three kinds of fixed size in this section.
- */
-function CompareStatRow({ row }: { row: WpblCompareRow }) {
-  return <StatRowFrame a={row.aText} label={row.label} b={row.bText} leader={row.leader} />
-}
-
-/** CompareStatRow's geometry, taking nodes so the skeleton draws the very same row. */
-function StatRowFrame({ a, label, b, leader }: {
-  a: React.ReactNode; label: React.ReactNode; b: React.ReactNode; leader?: WpblCompareRow['leader']
-}) {
-  const cell = (side: WpblCompareSide, text: React.ReactNode) => {
-    const leads = leader === side
-    return (
-      // THE WHOLE CELL IS THE HIGHLIGHT, the way Stathead shades a winner's column rather than
-      // ringing the glyph. A pill around a single digit is a dot nobody sees; on the counting
-      // rows, where most figures are one or two characters, it does nothing. The cell is
-      // fixed-width and the figure centred in it, so the wash is the same block whichever side
-      // leads and the number never shifts as the lead changes hands.
-      <Box sx={{
-        flex: '0 0 5.5rem', alignSelf: 'stretch', borderRadius: 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: leads ? 'var(--wpbl-compare-lead)' : 'transparent',
-      }}>
-        {/* A WASH AND A WEIGHT, NOT A SIZE. The leading figure keeps the losing one's font size:
-            drawing .477 larger than .400 turns seventy-seven thousandths of a batting average
-            into a picture of one player towering over another. Full-strength ink both sides so
-            the loser stays readable; the wash plus the bold is what names the winner. */}
-        <Typography component="span" sx={{
-          fontSize: '0.8rem', fontWeight: leads ? 800 : 600,
-          fontVariantNumeric: 'tabular-nums', color: 'text.primary',
-        }}>
-          {text}
-        </Typography>
-      </Box>
-    )
-  }
-  return (
-    <Box sx={{
-      ...STAT_ROW,
-      py: 0.15, borderBottom: '1px solid', borderColor: 'divider',
-      '&:last-of-type': { borderBottom: 'none' },
-    }}>
-      {cell('a', a)}
-      <Typography sx={{
-        flex: '1 1 auto', textAlign: 'center', minWidth: 0,
-        fontSize: MICRO_TEXT, fontWeight: 700, letterSpacing: typePx(0.4),
-        textTransform: 'uppercase', color: 'text.secondary',
-      }}>
-        {label}
-      </Typography>
-      {cell('b', b)}
-    </Box>
-  )
-}
-
-/**
- * One group's table, in Stathead's order: playing time, then the counting line, then the rates.
- *
- * THREE BLOCKS, EACH UNDER ONE RULE. G / PA (or G / GS / IP) lead, then H / HR / RBI / SB and
- * the rest, then the slash line, which is how Stathead's own comparison reads top to bottom. The
- * rule between blocks is all the labelling they need: "Totals" over a column of plain numbers
- * tells a reader what they can already see, and the change of rule says the kind of number
- * changed. `qualified` and `barText` are still built and still tested, for a surface that wants
- * to mark the qualifying bar without writing a paragraph about it.
- *
- * NO "HAS NOT REACHED 36 PA" FOOTNOTE: three lines of small type saying in prose what the
- * playing-time rows already say in figures.
+ * One group's table in Stathead's order: playing time, then the counting line, then the rates.
+ * PLAYING TIME FIRST, ALWAYS, and drawn with no tick (see playedRow in derive/compare.ts): every
+ * rate below is read against it, but more games is context, not a thing to be ahead on.
+ * `qualified` and `barText` are still built and tested, for a surface that wants to mark the bar.
  */
 function CompareGroupCard({ group }: { group: WpblCompareGroup }) {
-  // Each block wrapped so `:last-of-type` inside CompareStatRow means "the last row of THIS
-  // block": flat among its siblings it meant the last row of the card, so every block but the
-  // final one kept its bottom rule and met the next block's top rule with a doubled hairline.
-  const rule = { borderTop: '1px solid', borderColor: CARD_BORDER, maxWidth: chromePx(400), mx: 'auto' } as const
-  return (
-    <CompareCard title={group.label}>
-      {/* PLAYING TIME FIRST, ALWAYS, and drawn with no tick (see playedRow): every rate below
-          is read against it, but more games is context, not a thing to be ahead on. */}
-      <Box>{group.playingTime.map(r => <CompareStatRow key={r.key} row={r} />)}</Box>
-
-      {/* The counting line, under one rule. NO MARGIN AND NO PADDING ON THE BREAK: the last row
-          of the block above drops its own rule (`:last-of-type`) and this supplies it a shade
-          stronger, so the gap either side of a break is exactly the gap between two rows. */}
-      <Box sx={rule}>{group.counting.map(r => <CompareStatRow key={r.key} row={r} />)}</Box>
-
-      {/* The rates last, the same way. */}
-      <Box sx={rule}>{group.rate.map(r => <CompareStatRow key={r.key} row={r} />)}</Box>
-    </CompareCard>
-  )
+  return <CompareBlocksCard title={group.label} blocks={[group.playingTime, group.counting, group.rate]} />
 }
 
 /**
- * What happened when they actually faced each other.
- *
- * THE REASON THIS PAGE IS WORTH BUILDING FOR THIS LEAGUE IN PARTICULAR. Four clubs and six
- * pairings means a hitter sees the same pitcher again and again, a sample a thirty-club league
- * never produces. It is still a small number (the most any pair met in the 2026 regular season
- * is 10), so the card prints the raw line and no rate
- * commentary: 3-for-11 is a fact, "has their number" is not.
+ * What happened when they actually faced each other: THE REASON THIS PAGE IS WORTH BUILDING FOR
+ * THIS LEAGUE IN PARTICULAR. Four clubs means a hitter sees the same pitcher again and again, a
+ * sample a thirty-club league never produces. The playoffs are their own line and NEVER summed
+ * into the season: a reader who set the player card to "Both" can add them, and one who did not
+ * is not handed a total the standings would not recognise.
  */
 function MatchupCard({ comparison, a, b }: {
   comparison: ReturnType<typeof buildWpblComparison>
   a: WpblPlayer
   b: WpblPlayer
 }) {
-  if (comparison.matchups.length === 0) return null
   const name = (side: WpblCompareSide) => (side === 'a' ? a.name : b.name)
-  const line = (m: WpblMatchupCounts) => [
-    `${m.h}-for-${m.ab}${m.avg != null ? ` (${m.avg.toFixed(3).replace(/^0(?=\.)/, '')})` : ''}`,
-    `${m.pa} PA`,
-    m.hr > 0 ? `${m.hr} HR` : null,
-    m.bb > 0 ? `${m.bb} BB` : null,
-    m.so > 0 ? `${m.so} SO` : null,
-  ].filter(Boolean).join(' · ')
-  return (
-    <CompareCard title="Head to head">
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, textAlign: 'center' }}>
-        {comparison.matchups.map(m => (
-          <Box key={m.batter}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, mb: 0.25 }}>
-              {name(m.batter)} batting against {name(m.batter === 'a' ? 'b' : 'a')}
-            </Typography>
-            {/* One line per slice, each labelled, and the playoffs NEVER summed into the season:
-                a reader who set the player card to "Both" can add them, and one who did not is
-                not handed a total the standings would not recognise. */}
-            {/* The label sits ABOVE its line rather than leading it: inline, "Regular season"
-                pushed a phone's line past the width and wrapped it mid-list, stranding "· 1 SO". */}
-            {([['Regular season', m.regular], ['Playoffs', m.postseason]] as const).map(([label, c]) => c && (
-              <Box key={label} sx={{ mt: 0.75 }}>
-                <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
-                  {label}
-                </Typography>
-                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                  {line(c)}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        ))}
-      </Box>
-    </CompareCard>
-  )
+  const duels: HeadToHeadView[] = comparison.matchups.map(m => ({
+    key: m.batter,
+    heading: `${name(m.batter)} batting against ${name(m.batter === 'a' ? 'b' : 'a')}`,
+    slices: ([['Regular season', m.regular], ['Playoffs', m.postseason]] as [string, WpblMatchupCounts | null][])
+      .flatMap(([label, c]) => (c ? [{ label, line: duelLine(c) }] : [])),
+  }))
+  return <HeadToHeadCard duels={duels} />
 }
-
-/** The head-to-head card before the plays behind it have landed: one matchup, one season line. */
-function MatchupCardSkeleton() {
-  return (
-    <CompareCard title="Head to head">
-      <Box aria-hidden sx={{ textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, mb: 0.25 }}>
-          <TextGhost>{GHOST_NAME} batting against {GHOST_NAME}</TextGhost>
-        </Typography>
-        <Box sx={{ mt: 0.75 }}>
-          <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
-            Regular season
-          </Typography>
-          <Typography sx={{ fontSize: '0.82rem', fontVariantNumeric: 'tabular-nums' }}>
-            <TextGhost>0-for-0 (.000) · 0 PA · 0 SO</TextGhost>
-          </Typography>
-        </Box>
-      </Box>
-    </CompareCard>
-  )
-}
-
-/** A comparison group's card before the lines have landed, in its three blocks. */
-function GroupCardSkeleton({ title, blocks }: { title: string; blocks: number[] }) {
-  return (
-    <CompareCard title={<TextGhost>{title}</TextGhost>}>
-      {blocks.map((n, block) => (
-        <Box key={block} aria-hidden sx={block > 0 ? { borderTop: '1px solid', borderColor: CARD_BORDER, maxWidth: chromePx(400), mx: 'auto' } : undefined}>
-          {Array.from({ length: n }, (_, i) => (
-            <StatRowFrame key={i} a={<TextGhost>000</TextGhost>} label={<TextGhost hidden>OBP</TextGhost>} b={<TextGhost>000</TextGhost>} />
-          ))}
-        </Box>
-      ))}
-    </CompareCard>
-  )
-}
-
-// ─── The picker ───────────────────────────────────────────────────────────────
 
 /**
- * Choosing the second player.
- *
- * A FLAT SEARCHABLE LIST rather than a club-by-club drill-down. The comparison a reader wants
- * is usually across clubs (that is what makes it an argument), so grouping by club puts the
- * two halves of every interesting pair on opposite ends of a scroll.
+ * Choosing the other player, in the derive layer's order (see `rankCompareCandidates`), which
+ * typing only filters. Uncapped: the box scrolls, and a cap would hide the back half of the roster.
+ * Each row prints its sort key, the same figure the comparison leads with once picked.
  */
 function PlayerPicker({ candidates, teams, positionOf, onPick, skeleton }: {
-  /** Already in the order to offer them in; see `rankCompareCandidates`. */
   candidates: WpblCompareCandidate[]
-  /** The roster has not arrived: draw the box full of empty rows, which it always is once it has
-   *  (the list scrolls inside a fixed cap, so its height does not depend on the roster's size). */
   skeleton?: boolean
   teams: WpblTeam[]
-  /** Where she has played, not what the roster filed. The same answer the header gives, so a
-   *  reader does not pick "Kelsie Whitmore, RHP" out of a list and land on a centre fielder. */
+  /** Where the player has played, not what the roster filed: the same answer the header gives. */
   positionOf: (p: WpblPlayer) => string | null
   onPick: (p: WpblPlayer) => void
 }) {
-  const [q, setQ] = useState('')
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  // The ranking is the derive layer's, and this only FILTERS it: typing must never reorder the
-  // list under the reader beyond floating the name they are plainly typing. Uncapped, because
-  // the box scrolls; a cap would silently hide the back half of the roster.
-  const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    if (!needle) return candidates
-    const hits = candidates.filter(c => c.player.name.toLowerCase().includes(needle))
-    // A name that STARTS with what was typed first. Someone typing "Mo" means Molly before
-    // Kelsie Whitmore's surname, however much more Whitmore has played.
-    return [
-      ...hits.filter(c => c.player.name.toLowerCase().startsWith(needle)),
-      ...hits.filter(c => !c.player.name.toLowerCase().startsWith(needle)),
-    ]
-  }, [candidates, q])
-
-  return (
-    <Box>
-      <TextField
-        value={q}
-        onChange={e => setQ(e.target.value)}
-        placeholder="Search players"
-        size="small"
-        fullWidth
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start"><SearchIcon sx={{ fontSize: '1.1rem' }} /></InputAdornment>
-          ),
-        }}
-        sx={{ mb: 1.5 }}
-      />
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-        gap: 0.5,
-        maxHeight: chromePx(420),
-        overflowY: 'auto',
-        // Belt to the `minWidth: 0` on each row: nothing in this list is worth a sideways
-        // scrollbar, and a name that cannot fit ellipsises instead.
-        overflowX: 'hidden',
-      }}>
-        {shown.map(({ player: p, playedText }) => {
-          const team = p.team_id ? teamById.get(p.team_id) : undefined
-          return (
-            <Box
-              key={p.id}
-              component="button"
-              onClick={() => onPick(p)}
-              sx={{
-                ...PICK_ROW, borderColor: CARD_BORDER,
-                bgcolor: 'transparent', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit',
-                ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
-              }}
-            >
-              {team && <TeamBadge team={team} size={20} />}
-              <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, minWidth: 0, flex: 1 }} noWrap>
-                {p.name}
-              </Typography>
-              {positionOf(p) && (
-                <Typography noWrap sx={{ fontSize: MICRO_TEXT, color: 'text.disabled', flexShrink: 1, minWidth: 0 }}>
-                  {positionOf(p)}
-                </Typography>
-              )}
-              {/* THE SORT KEY, PRINTED. Without it the order looks arbitrary, which is worse
-                  than alphabetical: a reader can at least trust an alphabet. With it the list
-                  explains itself in one column, and it is the same figure the comparison
-                  leads with once they have picked. */}
-              <Typography sx={{
-                fontSize: MICRO_TEXT, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
-                flexShrink: 0, minWidth: '3.4rem', textAlign: 'right',
-              }}>
-                {playedText}
-              </Typography>
-            </Box>
-          )
-        })}
-        {skeleton && Array.from({ length: 24 }, (_, i) => (
-          <Box key={i} aria-hidden sx={{ ...PICK_ROW, borderColor: CARD_BORDER }}>
-            <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, minWidth: 0, flex: 1 }} noWrap>
-              <TextGhost>{GHOST_NAME}</TextGhost>
-            </Typography>
-          </Box>
-        ))}
-        {!skeleton && shown.length === 0 && (
-          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', p: 1 }}>
-            Nobody by that name.
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  )
+  const byId = useMemo(() => new Map(candidates.map(c => [c.player.id, c.player])), [candidates])
+  const picks: ComparePick[] = useMemo(() => candidates.map(({ player: p, playedText }) => {
+    const team = p.team_id ? teamById.get(p.team_id) : undefined
+    return {
+      key: p.id, name: p.name, position: positionOf(p), playedText,
+      badge: team && <TeamBadge team={team} size={20} />,
+    }
+  }), [candidates, teamById, positionOf])
+  return <ComparePicker candidates={picks} skeleton={skeleton} onPick={id => { const p = byId.get(id); if (p) onPick(p) }} />
 }
-
-/** One row of the picker, shared with its skeleton. */
-const PICK_ROW = {
-  display: 'flex', alignItems: 'center', gap: 1, width: '100%', textAlign: 'left',
-  // A GRID ITEM'S `min-width` IS `auto`, so without this the button refuses to go
-  // narrower than its own contents, the column stretches to fit the longest name
-  // plus its figures, and the whole list grows a horizontal scrollbar. The name
-  // inside is the part that should give, and it does once this lets it.
-  minWidth: 0,
-  p: 0.75, borderRadius: 1.5, border: '1px solid',
-} as const
 
 // ─── The page ─────────────────────────────────────────────────────────────────
 
@@ -638,7 +205,7 @@ export default function WpblComparePage({ path, onNavigate }: {
   // per player, because that is the shape positions.ts offers and the lines are already here.
   const positionIndex = useMemo(
     () => buildPositionIndex(lines?.batting ?? [], games), [lines, games])
-  const positionOf = (p: WpblPlayer) => displayPositionFromIndex(p, positionIndex).label
+  const positionOf = useCallback((p: WpblPlayer) => displayPositionFromIndex(p, positionIndex).label, [positionIndex])
 
   // Who to offer for the empty slot, in the order to offer them. Recomputed only when the
   // league's lines or the chosen player move, which is once per page.
@@ -720,7 +287,7 @@ export default function WpblComparePage({ path, onNavigate }: {
         maxWidth={chromePx(560)}
         title={shape === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
         standfirst={shape === 'pair' ? undefined
-          : shape === 'single' ? <>Pick somebody to put next to <TextGhost>{GHOST_NAME}</TextGhost>.</>
+          : shape === 'single' ? <>Pick somebody to put next to <TextGhost>{GHOST_HEAD_NAME}</TextGhost>.</>
           : 'Pick two players to put their 2026 seasons side by side.'}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
@@ -735,9 +302,9 @@ export default function WpblComparePage({ path, onNavigate }: {
             // A batter and a pitcher, the pair the matchups board links: the head-to-head, then a
             // pitching and a batting card in their three blocks each.
             <>
-              <MatchupCardSkeleton />
-              <GroupCardSkeleton title="Pitching" blocks={[3, 4, 4]} />
-              <GroupCardSkeleton title="Batting" blocks={[2, 9, 5]} />
+              <HeadToHeadSkeleton />
+              <CompareBlocksSkeleton title="Pitching" blocks={[3, 4, 4]} />
+              <CompareBlocksSkeleton title="Batting" blocks={[2, 9, 5]} />
             </>
           ) : (
             <SectionCard title={shape === 'single' ? 'And who else' : 'Choose a player'}>
@@ -765,7 +332,7 @@ export default function WpblComparePage({ path, onNavigate }: {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
       {(pair || single) && (
         <Box sx={HEAD_CARD}>
-          <CompareHead
+          <WpblCompareHead
             player={pair ? pair[0] : single!}
             team={(pair ? pair[0] : single!).team_id ? teamById.get((pair ? pair[0] : single!).team_id!) : undefined}
             roster={players}
@@ -779,7 +346,7 @@ export default function WpblComparePage({ path, onNavigate }: {
           already has one canonical. "vs" says the same thing and promises nothing. */}
           <Typography aria-hidden sx={VS_SX}>vs</Typography>
           {pair ? (
-            <CompareHead
+            <WpblCompareHead
               player={pair[1]}
               team={pair[1].team_id ? teamById.get(pair[1].team_id) : undefined}
               roster={players}
@@ -810,7 +377,7 @@ export default function WpblComparePage({ path, onNavigate }: {
               the page: drawn without it, the page jumped down by a whole card a beat after loading. */}
           {plays?.id === pair[0].id
             ? <MatchupCard comparison={comparison} a={pair[0]} b={pair[1]} />
-            : <MatchupCardSkeleton />}
+            : <HeadToHeadSkeleton />}
           {comparison.groups.map(g => (
             <CompareGroupCard key={g.key} group={g} />
           ))}
@@ -821,38 +388,10 @@ export default function WpblComparePage({ path, onNavigate }: {
           )}
           {/* A WAY OUT THAT IS NOT THE BACK BUTTON. Somebody who has just read one comparison
               usually wants another, and without this the only route to one is retyping a URL. */}
-          <Box
-            component="a"
-            href={WPBL_COMPARE_BASE}
-            onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_COMPARE_BASE) } }}
-            sx={{
-              // Centred like every other thing on this page. At flex-start it was the one
-              // element hanging off the left edge under a column of centred tables.
-              alignSelf: 'center', fontSize: '0.8rem', fontWeight: 700,
-              color: 'var(--wpbl-accent-fg)',
-              textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-            }}
-          >
-            Compare two other players
-          </Box>
+          <CompareAgainLink href={WPBL_COMPARE_BASE} onNavigate={onNavigate} />
         </>
       )}
       </Box>
     </WpblPage>
   )
 }
-
-// The head card's parts, shared by the loaded page and its skeleton.
-const HEAD_CARD = {
-  display: 'flex', alignItems: 'stretch', gap: 1,
-  p: 2, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
-} as const
-const VS_SX = {
-  alignSelf: 'center', flexShrink: 0, px: 0.5,
-  fontSize: MICRO_TEXT, fontWeight: 800, letterSpacing: typePx(0.8),
-  textTransform: 'uppercase', color: 'text.disabled',
-} as const
-const PICK_SLOT = {
-  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  minHeight: chromePx(96), color: 'text.disabled', fontSize: '0.82rem',
-} as const

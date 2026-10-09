@@ -941,27 +941,9 @@ export function ExpandRow({ expanded, moreLabel, onToggle, flush }: {
   )
 }
 
-/**
- * Text that has not arrived, drawn as skeleton bars in the exact room the text will take.
- *
- * For the loading states (CLAUDE.md: the loaded page drawn empty). A `<Skeleton>` is one bar of a
- * width someone guessed, so a sentence that wraps to three lines on a phone and one on a desktop
- * can only be reserved by guessing the line count per breakpoint. This sets a representative
- * string in the real element, transparent, so it wraps where the real text will and every line
- * gets its own bar (`box-decoration-break: clone`). `hidden` keeps the room and draws no bar, for
- * a number inside a sentence that is otherwise already real.
- */
-export function TextGhost({ children, hidden }: { children: React.ReactNode; hidden?: boolean }) {
-  return (
-    <Box component="span" aria-hidden sx={{
-      color: 'transparent', userSelect: 'none', pointerEvents: 'none',
-      ...(hidden ? { visibility: 'hidden' } : {
-        bgcolor: 'action.hover', borderRadius: 1,
-        boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone',
-      }),
-    }}>{children}</Box>
-  )
-}
+// TextGhost moved to src/ui/card.tsx on Oct 9, 2026, so MLB's compare page can draw the same
+// loading text. Re-exported so WPBL's imports hold.
+export { TextGhost } from '../ui/card'
 
 // Small uppercase eyebrow label. Mirrors MLB's SectionLabel.
 export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {

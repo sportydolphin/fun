@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.132.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'MLB: compare two players',
+        full:  "Put any two MLB players side by side, the way WPBL's Compare works: playing time, the counting line, the rates, and WAR, wRC+ and FIP, with the leader of each row marked. When a hitter and a pitcher are compared, the page shows every time they have faced each other, this season, over their careers and in the postseason. Open it from Compare on any player page or from the More menu.",
+      },
+    ],
+  },
+  {
     version: '1.131.0',
     date:    '2026-10-09',
     changes: [

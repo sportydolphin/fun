@@ -49,6 +49,7 @@
 /mlb/charts/     /mlb/charts      301
 /mlb/teams/      /mlb/teams       301
 /mlb/glossary/   /mlb/glossary    301
+/mlb/compare/    /mlb/compare     301
 /mlb/teams/angels/            /mlb/teams/angels           301
 /mlb/teams/diamondbacks/      /mlb/teams/diamondbacks     301
 /mlb/teams/orioles/           /mlb/teams/orioles          301
@@ -157,6 +158,11 @@
 /mlb/teams       /  200
 # The rules & glossary page, standalone beside the tabs as WPBL's is. See MLB_GLOSSARY_PAGE.
 /mlb/glossary    /  200
+# Two players side by side, standalone as WPBL's is. The picker is one line; a slot or a pair is
+# /mlb/compare/<name>-<id>[-vs-<name>-<id>], every player squared, so a wildcard, with
+# functions/mlb/[[path]].ts answering a real 404 for a path that names nobody before this is reached.
+/mlb/compare     /  200
+/mlb/compare/*   /  200
 # One line per club, as WPBL's four are: thirty is enumerable, so an unknown
 # /mlb/teams/<anything> falls through to the real 404 with nothing standing behind it.
 /mlb/teams/angels           /  200
