@@ -53,6 +53,7 @@
  *   npm run sweep -- --experiments --routes wpbl/stats?board=runs
  *   npm run sweep -- --replay --shift --cpu 4      # CI's slower machine, to reproduce its timing
  *   npm run sweep -- --replay --shift --shots out  # save both frames of every case that shifts
+ *   npm run sweep -- --replay --shift --shard 2/4  # the second of four slices, as CI runs it
  *
  * Exits 1 when anything is reported. CI runs it on every pull request (the `layout` job).
  */
@@ -122,9 +123,18 @@ const DEFAULT_ROUTES = [
 ]
 // The leading slash is optional because Git Bash rewrites an argument that starts with one into a
 // Windows path (/wpbl becomes C:/Program Files/Git/wpbl) before node ever sees it.
-const ROUTES = opt('routes', '')
+const ALL_ROUTES = opt('routes', '')
   ? opt('routes', '').split(',').map(r => (r.startsWith('/') ? r : `/${r}`))
   : DEFAULT_ROUTES
+// --shard i/n: every n-th route from the i-th, so CI can split the sweep across parallel jobs. By
+// ROUTE rather than by page load, so each job warms only the routes it sweeps: warming all of them
+// took a minute and a half of a thirteen-minute job before it was split.
+const SHARD = /^(\d+)\/(\d+)$/.exec(opt('shard', '1/1'))
+if (!SHARD || +SHARD[1] < 1 || +SHARD[1] > +SHARD[2]) {
+  console.error('--shard takes i/n, with 1 <= i <= n')
+  process.exit(2)
+}
+const ROUTES = ALL_ROUTES.filter((_, k) => k % +SHARD[2] === +SHARD[1] - 1)
 
 // ─── In-page probes (run inside the browser, so plain DOM only) ──────────────
 
