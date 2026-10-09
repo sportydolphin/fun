@@ -38,7 +38,8 @@ import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
 import { ACCENT_TEXT, CURRENT_SEASON, HEADSHOT_SQUARE, TEAM_NICKNAME, TEAM_SECONDARY, teamPalette } from '../constants'
 import { fetchPlayerContract } from '../api'
 import { careerSpan } from '../lib/utils'
-import { mlbClubById } from '../routes'
+import { mlbClubById, MLB_GLOSSARY_PAGE } from '../routes'
+import { linkTo, UNSTYLED_LINK } from '../../nav'
 import { mlbStatFull, mlbStatPlain } from '../statGlossary'
 import {
   fetchMlbBio, fetchCareer, fetchSeasonBundle, fetchPostseasonLines, fetchSeasonLog, fetchSeasonRanks,
@@ -56,11 +57,22 @@ const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').t
 
 // ─── What the shared parts need from MLB ─────────────────────────────────────────
 
+// Each definition ends in a link to the glossary, where every term is on one page a search engine
+// can read; the tooltip is where a reader meets the term, the page is where it can be found.
+const glossaryLink = linkTo(MLB_GLOSSARY_PAGE)
 const statTip = (k: string): React.ReactNode => {
   const full = mlbStatFull(k)
   if (!full) return null
   const plain = mlbStatPlain(k)
-  return plain ? <><Box sx={{ fontWeight: 700 }}>{full}</Box><Box sx={{ mt: 0.25 }}>{plain}</Box></> : full
+  return (
+    <>
+      <Box sx={{ fontWeight: plain ? 700 : undefined }}>{full}</Box>
+      {plain && <Box sx={{ mt: 0.25 }}>{plain}</Box>}
+      <Box {...glossaryLink} sx={{ ...UNSTYLED_LINK, display: 'inline-block', mt: 0.5, fontWeight: 700, textDecoration: 'underline' }}>
+        Every stat explained ›
+      </Box>
+    </>
+  )
 }
 
 /**

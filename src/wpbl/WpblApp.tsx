@@ -15,7 +15,8 @@ import { panelShiftSx, useSidePanelOpen } from '../ui/ModalShell'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
-import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
+import { useWpblRecents } from './recentSearches'
+import { useAuth } from '../AuthContext'
 import { jerseyQuery, jerseyOf } from './playerSearch'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame } from './types'
 import { fmtSigned } from './stats'
@@ -1756,17 +1757,10 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // Recent searches: the players and teams opened from the header search, newest first, so
   // the empty-query dropdown has something to show (opening a player page is the retention
-  // event, and a search box with nothing typed would otherwise be a dead end). localStorage
-  // only; see recentSearches.ts for why this is not the MLB recents store.
-  const [recentSearches, setRecentSearches] = useState<WpblRecentItem[]>(getWpblRecents)
-  const recordRecent = useCallback((item: WpblRecentItem) => {
-    setRecentSearches(prev => {
-      const next = mergeWpblRecent(prev, item)
-      setWpblRecents(next)
-      return next
-    })
-  }, [])
-  const clearRecents = useCallback(() => { setRecentSearches([]); setWpblRecents([]) }, [])
+  // event, and a search box with nothing typed would otherwise be a dead end). Synced for a
+  // signed-in reader; see recentSearches.ts for why this is not the MLB recents store.
+  const { user } = useAuth()
+  const { items: recentSearches, record: recordRecent, clear: clearRecents } = useWpblRecents(user?.id ?? null)
 
   // The row handlers reach these through refs, so the builders below keep one identity. Both
   // close over the view, so as dependencies they rebuilt the builders on every tab switch, which

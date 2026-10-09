@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.131.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'WPBL: recent searches follow you between devices',
+        full:  'When you are signed in, the players and teams you open from the WPBL search now show up in the search box on your other devices too, the way MLB recents already did.',
+      },
+      {
+        short: 'MLB: a rules & stats glossary',
+        full:  "MLB has its own glossary page, like WPBL's: how a pitcher earns a win or a save, who qualifies for a batting title, extra innings, the postseason format, and what every stat means, from AVG to xwOBA. Find it under More, in the footer, or from any stat's tooltip on a player page.",
+      },
+    ],
+  },
+  {
     version: '1.130.0',
     date:    '2026-10-09',
     changes: [

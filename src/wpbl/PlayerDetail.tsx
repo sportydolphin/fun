@@ -18,7 +18,7 @@ import {
   PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, BATTING_BEST, PITCHING_BEST, isZeroStat, ZERO_SX, bleedSx,
   useCollapsibleTable, ExpandToggle, thSx, tdSx, LOG_MAX_H, LOG_MAX_H_XS, LOG_PREVIEW, TIP_Z, type StatCardEnv,
 } from '../ui/playerCard'
-import { statFull, statPlain } from './glossary'
+import { STAT_TERMS, statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { aboutPlayerFirst } from './derive/articles'
@@ -30,14 +30,14 @@ import PitchProfileBlock from './PitchProfile'
 import { fetchWpblBattedBalls, getCachedWpblBattedBalls } from './api'
 import type { WpblSprayPlay } from './types'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
-import { wpblPlayerShortPath, wpblCompareStartPath, wpblComparePath, WPBL_AWARDS_PATH } from './routes'
+import { wpblPlayerShortPath, wpblCompareStartPath, wpblComparePath, WPBL_AWARDS_PATH, WPBL_GLOSSARY_PAGE } from './routes'
 import { playerMatchups, playerPlayIds, type WpblMatchupLine } from './derive/matchups'
 import { fetchWpblAwardResults, getCachedWpblAwardResults, fanAwardsWon } from './awardVotes'
 import type { WpblAward } from './awards'
 import { EmojiEvents, CompareArrows } from '@mui/icons-material'
 import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from '../ui/headerBar'
 import { useTheme as useMuiTheme } from '@mui/material/styles'
-import { linkTo } from '../nav'
+import { linkTo, UNSTYLED_LINK } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 import { typePx } from '../ui/scale'
@@ -62,16 +62,24 @@ import { typePx } from '../ui/scale'
 // StatsView, Game Center) can explain it, not just this page. `statTip` is the render half, kept
 // here because glossary.ts is deliberately data-only so anything (a Pages Function, a Discord
 // command, a test) can import it without pulling in MUI.
+//
+// Each definition ends in a link to /wpbl/glossary, as MLB's do to its own: the tooltip is where a
+// reader meets the term, the page is where every term can be found, by a reader or a crawler.
+const glossaryLink = linkTo(WPBL_GLOSSARY_PAGE)
 const statTip = (k: string, basis: EraBasis): React.ReactNode => {
+  // An abbreviation the glossary does not define gets no link to a page that would not explain it.
+  if (!STAT_TERMS[k]) return statFull(k, basis)
   const plain = statPlain(k)
-  if (!plain) return statFull(k, basis)
   // Two tiers, because they answer different questions: the expansion says what the letters
   // are, the sentence says what the number is for. A reader who knows the first still wants
   // the second, and one run-on line makes them read it to find out which half they needed.
   return (
     <>
-      <Box sx={{ fontWeight: 700 }}>{statFull(k, basis)}</Box>
-      <Box sx={{ mt: 0.25 }}>{plain}</Box>
+      <Box sx={{ fontWeight: plain ? 700 : undefined }}>{statFull(k, basis)}</Box>
+      {plain && <Box sx={{ mt: 0.25 }}>{plain}</Box>}
+      <Box {...glossaryLink} sx={{ ...UNSTYLED_LINK, display: 'inline-block', mt: 0.5, fontWeight: 700, textDecoration: 'underline' }}>
+        Every stat explained ›
+      </Box>
     </>
   )
 }

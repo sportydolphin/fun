@@ -8,7 +8,7 @@ import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
-import { isMlbPath, MLB_PATH_EVENT } from './mlb/routes'
+import { isMlbPath, isMlbSection, isMlbGlossaryPage, MLB_PATH_EVENT } from './mlb/routes'
 import { preloadMlbViewFor } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { AuthProvider, useAuth } from './AuthContext'
@@ -82,6 +82,7 @@ function preloadSection(path: string) {
 const WpblPlayersIndex = lazy(() => import('./wpbl/PlayersIndex'))
 const WpblLeaguePage = lazy(() => import('./wpbl/LeaguePage'))
 const WpblGlossaryPage = lazy(() => import('./wpbl/GlossaryPage'))
+const MlbGlossaryPage = lazy(() => import('./mlb/GlossaryPage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
 const WpblSeasonPage = lazy(() => import('./wpbl/SeasonPage'))
 const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
@@ -545,7 +546,7 @@ function AppInner() {
   // they share it with the search field. Both fit inline only on a wide screen; below that the
   // field folds to an icon that opens it across the bar, the way a phone's does. In SCREEN pixels,
   // so the 1.25 desktop scale is already inside the number.
-  const navSection = isWpblSection(path) ? 'wpbl' as const : isMlbPath(path) ? 'mlb' as const : null
+  const navSection = isWpblSection(path) ? 'wpbl' as const : isMlbSection(path) ? 'mlb' as const : null
   const hasToolbarNav = isDesktop && navSection !== null
   const roomForSearch = useMediaQuery(`(min-width: ${TOOLBAR_SEARCH_INLINE_MIN}px)`)
   const roomForUsername = useMediaQuery(`(min-width: ${TOOLBAR_USERNAME_MIN}px)`)
@@ -574,7 +575,7 @@ function AppInner() {
     const root = document.documentElement
     root.style.setProperty('--app-scale-desktop', String(DESKTOP_SCALE))
     if (isWpblSection(path)) root.setAttribute('data-app-scale', 'wpbl')
-    else if (isMlbPath(path)) root.setAttribute('data-app-scale', 'mlb')
+    else if (isMlbSection(path)) root.setAttribute('data-app-scale', 'mlb')
     else root.removeAttribute('data-app-scale')
   }, [path])
 
@@ -582,7 +583,7 @@ function AppInner() {
   // settled. `requestIdleCallback` where it exists (not in Safari), a timeout otherwise, and
   // only for the two routes that have another section to go to.
   useEffect(() => {
-    if (!isMlbPath(path) && !isWpblSection(path)) return
+    if (!isMlbSection(path) && !isWpblSection(path)) return
     // Not for a reader who has asked the browser to save data: about 300 KB of a section most
     // visitors never open, on a timer. The hover and focus prefetch still covers a reader who
     // reaches for the switch.
@@ -644,7 +645,7 @@ function AppInner() {
       onOpenChangelog={() => setChangelogOpen(true)}
       onOpenFeedback={() => setFeedbackOpen(true)}
       onNavigate={navigate}
-      isWpbl={false}
+      isMlb
     />
   ), [])
   // The same for WPBL, and for the same reason: WpblApp is memoized, and an inline footer here was
@@ -1059,7 +1060,7 @@ function AppInner() {
               p: '2px', borderRadius: 999, cursor: 'pointer',
               border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
             }}>
-              {(isMlbPath(path) || isWpblSection(path)) && (() => {
+              {(isMlbSection(path) || isWpblSection(path)) && (() => {
                 const wpblActive = isWpblSection(path)
                 return (
                   <Box sx={{
@@ -1090,7 +1091,7 @@ function AppInner() {
                 // slid the rainbow across and left the label in unselected grey on top of it.
                 // Every WPBL tab counts, and /wpbl/api too, so the switch stays "on WPBL" in
                 // the docs.
-                const active = seg.to === '/wpbl' ? isWpblSection(path) : isMlbPath(path)
+                const active = seg.to === '/wpbl' ? isWpblSection(path) : isMlbSection(path)
                 const rainbow = active && seg.to === '/wpbl'
                 return (
                   // An anchor, not a plain Box, purely so a crawler can see the two
@@ -1575,6 +1576,11 @@ function AppInner() {
               <WpblLeaguePage onNavigate={navigateFromStandalone} />
             </Suspense>
           )}
+          {isMlbGlossaryPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <MlbGlossaryPage />
+            </Suspense>
+          )}
           {isWpblGlossaryPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblGlossaryPage />
@@ -1697,6 +1703,7 @@ function AppInner() {
             onOpenFeedback={() => setFeedbackOpen(true)}
             onNavigate={navigate}
             isWpbl={path.startsWith('/wpbl')}
+            isMlb={isMlbSection(path)}
           />
         )}
       </Box>

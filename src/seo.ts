@@ -7,7 +7,8 @@
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
 import { WPBL_RULES } from './wpbl/glossary'
-import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, mlbGamePkFromPath, mlbSeriesFromPath } from './mlb/routes'
+import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, MLB_GLOSSARY_PAGE, mlbGamePkFromPath, mlbSeriesFromPath } from './mlb/routes'
+import { MLB_RULES } from './mlb/statGlossary'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -251,6 +252,23 @@ const ROUTES: Record<string, Seo> = {
     title: 'MLB Teams: all 30 clubs, rosters and stats | sportydolphin.fun',
     description:
       'All 30 Major League Baseball clubs by division: rosters, team batting and pitching, standings and leaders.',
+  },
+  // The rules and the abbreviations, as WPBL's glossary is. The title leads with the questions
+  // people type ("how does a pitcher get a win"), and the FAQ markup is built from MLB_RULES for
+  // the reason WPBL's is built from WPBL_RULES: the claim a crawler reads must be the page.
+  [MLB_GLOSSARY_PAGE]: {
+    title: 'MLB Rules & Stats Glossary: wins, saves, qualifying, WAR | sportydolphin.fun',
+    description:
+      'How an MLB pitcher earns a win or a save, who qualifies for a batting title, extra innings and the postseason format, and what every stat means, from AVG and OPS to WAR, wRC+ and xwOBA.',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: MLB_RULES.map(r => ({
+        '@type': 'Question',
+        name: r.question,
+        acceptedAnswer: { '@type': 'Answer', text: r.note ? `${r.answer} ${r.note}` : r.answer },
+      })),
+    },
   },
   // One per club, written from the routes table rather than registered at runtime, for the reason
   // the WPBL clubs are: thirty fixed pages need no fetch to describe. A player page has thousands

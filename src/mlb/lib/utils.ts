@@ -1,3 +1,5 @@
+import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from '../qualify'
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export function fmt(v: any): string {
@@ -73,19 +75,19 @@ export function filterQualified<T extends { stat: any; teamId?: number }>(
       const g = games.get(e.teamId ?? 0) ?? 0
       if (!g) return false
       return group === 'hitting'
-        ? Number(e.stat?.plateAppearances ?? 0) >= Math.round(g * 3.1)
-        : parseIP(e.stat?.inningsPitched) >= g
+        ? Number(e.stat?.plateAppearances ?? 0) >= Math.round(g * MLB_QUALIFY_PA_PER_GAME)
+        : parseIP(e.stat?.inningsPitched) >= g * MLB_QUALIFY_IP_PER_GAME
     })
   }
   if (group === 'hitting') {
     const maxPA = Math.max(0, ...entries.map(e => Number(e.stat?.plateAppearances ?? 0)))
     const estGames = maxPA > 0 ? Math.round(maxPA / 4.3) : 162
-    const threshold = Math.max(30, Math.round(estGames * 3.1))
+    const threshold = Math.max(30, Math.round(estGames * MLB_QUALIFY_PA_PER_GAME))
     return entries.filter(e => Number(e.stat?.plateAppearances ?? 0) >= threshold)
   } else {
     const maxGS = Math.max(0, ...entries.map(e => Number(e.stat?.gamesStarted ?? 0)))
     const estGames = maxGS > 0 ? maxGS * 5 : 162
-    const ipThreshold = Math.max(20, Math.round(estGames * 1.0))
+    const ipThreshold = Math.max(20, Math.round(estGames * MLB_QUALIFY_IP_PER_GAME))
     const ipOf = (e: any) => parseFloat(String(e.stat?.inningsPitched ?? 0)) || 0
     return entries.filter(e => ipOf(e) >= ipThreshold)
   }

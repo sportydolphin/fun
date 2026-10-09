@@ -6,6 +6,7 @@ import { seasonIsOver } from './seasonPhase'
 import { combineEntries, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from './lib/gameScope'
 import type { GameScope } from './lib/gameScope'
 import { cachedJson, cachedRead, FRESH_LONG_MS } from './lib/readCache'
+import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from './qualify'
 
 // Public API surface split across sibling modules, re-exported here so existing
 // `from '../api'` imports across the app keep resolving unchanged.
@@ -69,8 +70,8 @@ export async function fetchAndRankPlayers(
     const splits = await fetchSeasonPlayerStats(group, season)
     // Estimate how far into the season we are by the max games played by any player
     const maxGames = Math.max(...splits.map(s => Number(s.stat?.gamesPlayed ?? 0)), 1)
-    const minPA = Math.round(maxGames * 3.1)   // batting qualification threshold
-    const minIP = maxGames * 1.0                // pitching qualification threshold
+    const minPA = Math.round(maxGames * MLB_QUALIFY_PA_PER_GAME)   // batting qualification threshold
+    const minIP = maxGames * MLB_QUALIFY_IP_PER_GAME                // pitching qualification threshold
     const map = new Map<string, number[]>()
     for (const def of defs) {
       if (!def.leaderCategory) continue

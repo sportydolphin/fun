@@ -119,7 +119,7 @@ const DEFAULT_ROUTES = [
   '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=fielding', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
-  '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/teams/mariners',
+  '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/teams/mariners', '/mlb/glossary',
 ]
 // The leading slash is optional because Git Bash rewrites an argument that starts with one into a
 // Windows path (/wpbl becomes C:/Program Files/Git/wpbl) before node ever sees it.

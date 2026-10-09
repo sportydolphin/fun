@@ -23,7 +23,8 @@ import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
-import { MLB_VIEW_PATHS, MLB_NAV, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
+import { MLB_VIEW_PATHS, MLB_NAV, MLB_MORE_PAGES, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
+import { linkTo } from './nav'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
@@ -85,6 +86,14 @@ const MORE: MoreItem[] = [
   { key: 'odds',        label: 'Playoff odds',     hint: 'Every club, simulated nightly',                  view: 'standings', link: { kind: 'odds' } },
   { key: 'charts',      label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs wins',  view: 'viz',       charts: true },
 ]
+
+const moreRowSx = {
+  display: 'flex', flexDirection: 'column', gap: 0.1, cursor: 'pointer',
+  py: 1, borderBottom: '1px solid', borderColor: 'divider',
+  // last-child, not last-of-type: the page rows after the boards are anchors, so of-type would
+  // drop the rule under the last board as well as under the last row.
+  '&:last-child': { borderBottom: 'none' },
+} as const
 
 /** A callback with one identity forever that always calls the latest `fn`. For props handed to a
  *  memoized child, where a fresh function each time would undo the memo. */
@@ -683,15 +692,23 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           <Box sx={{ px: 2, pt: 1 }}>
             <Box aria-hidden sx={{ width: chromePx(36), height: chromePx(4), borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
             {MORE.map(m => (
-              <Box key={m.key} role="button" onClick={() => openMore(m)} sx={{
-                display: 'flex', flexDirection: 'column', gap: 0.1, cursor: 'pointer',
-                py: 1, borderBottom: '1px solid', borderColor: 'divider',
-                '&:last-of-type': { borderBottom: 'none' },
-              }}>
+              <Box key={m.key} role="button" onClick={() => openMore(m)} sx={moreRowSx}>
                 <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{m.label}</Typography>
                 <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{m.hint}</Typography>
               </Box>
             ))}
+            {/* The section's standalone pages, after its boards. Real links, since they are pages. */}
+            {MLB_MORE_PAGES.map(pg => {
+              const link = linkTo(pg.href)
+              return (
+                <Box key={pg.href} component="a" href={link.href}
+                  onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { link.onClick(e); if (e.defaultPrevented) setMoreOpen(false) }}
+                  sx={{ ...moreRowSx, textDecoration: 'none', color: 'inherit' }}>
+                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{pg.label}</Typography>
+                  <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{pg.hint}</Typography>
+                </Box>
+              )
+            })}
           </Box>
         </SwipeableDrawer>
       )}

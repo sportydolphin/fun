@@ -6,7 +6,7 @@
 // mounted section publishes only refines it: which tab is lit, the "new" dot, what a tap does.
 // Without it a tap is a plain navigate() and the section boots from the path, as a cold load does.
 //
-// Every tab and every WPBL More row is a real <a href>, for the same reason the pills were: a
+// Every tab and every More row that is a page is a real <a href>, for the same reason the pills were: a
 // crawler does not fire click handlers, and these are how it finds the other four tabs.
 
 import { startTransition, useEffect, useState, type MouseEvent } from 'react'
@@ -15,7 +15,7 @@ import { useSectionNav, type NavSection, type SectionNavTab } from './sectionNav
 import { navigate, linkTo } from './nav'
 import { WPBL_NAV, wpblPathFor, wpblViewFromPath } from './wpbl/routes'
 import { WPBL_MORE_PAGES } from './wpbl/morePages'
-import { MLB_NAV, MLB_VIEW_PATHS, mlbNavKeyFromPath } from './mlb/routes'
+import { MLB_NAV, MLB_VIEW_PATHS, MLB_MORE_PAGES, mlbNavKeyFromPath } from './mlb/routes'
 import { track } from './lib/analytics'
 import { hoverOnly, FOCUS_RING } from './ui/interaction'
 
@@ -61,23 +61,30 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
   useEffect(() => { setPending(null) }, [active])
   const lit = pending ?? active
 
+  const pageRow = (p: { href: string; label: string; hint?: string; event?: string; eventProps?: Record<string, unknown> }): MoreRow => {
+    const link = linkTo(p.href)
+    return {
+      key: p.href, label: p.label, hint: section === 'mlb' ? p.hint : undefined, href: p.href,
+      current: path === p.href || path.startsWith(`${p.href}/`),
+      onClick: e => {
+        if (p.event && !modifiedClick(e)) track(p.event, p.eventProps ?? {})
+        link.onClick(e)
+        if (e.defaultPrevented) setAnchor(null)
+      },
+    }
+  }
   const more: MoreRow[] = section === 'wpbl'
-    ? WPBL_MORE_PAGES.map(p => {
-        const link = linkTo(p.href)
-        return {
-          key: p.href, label: p.label, href: p.href,
-          current: path === p.href || path.startsWith(`${p.href}/`),
-          onClick: e => {
-            if (p.event && !modifiedClick(e)) track(p.event, p.eventProps ?? {})
-            link.onClick(e)
-            if (e.defaultPrevented) setAnchor(null)
-          },
-        }
-      })
-    : (live?.more ?? []).map(m => ({
-        key: m.key, label: m.label, hint: m.hint,
-        onClick: () => { setAnchor(null); m.onSelect() },
-      }))
+    ? WPBL_MORE_PAGES.map(pageRow)
+    // The section's own rows (boards inside its views) once it has published them, then its pages,
+    // which need nothing from it: on /mlb/glossary the section is not mounted at all, and More
+    // would otherwise be an empty, disabled button on the one page that belongs in it.
+    : [
+        ...(live?.more ?? []).map(m => ({
+          key: m.key, label: m.label, hint: m.hint,
+          onClick: () => { setAnchor(null); m.onSelect() },
+        })),
+        ...MLB_MORE_PAGES.map(pageRow),
+      ]
   // On one of the More pages no tab is lit, so More is: the reader is somewhere, and the bar
   // should say where.
   const moreCurrent = more.some(m => m.current)

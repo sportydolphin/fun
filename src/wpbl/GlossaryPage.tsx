@@ -17,14 +17,14 @@
 // our own convention and the win rule is inferred from the league's own scoring. Saying so is
 // the difference between a definition and a claim about somebody else's league, and it is
 // enforced by a test rather than by good intentions (see glossary.test.ts).
-import { useMemo, useState } from 'react'
+import { useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
 import { STAT_TERMS, WPBL_RULES, statFull, type RuleSource } from './glossary'
 import { useEraBasis } from './EraBasisContext'
-import { CARD_BORDER, SectionCard, TYPE_SCALE, PillGroup } from './ui'
+import { TYPE_SCALE } from './ui'
 import { WPBL_ACCENT } from './constants'
 import WpblPage from './WpblPage'
-import { typePx } from '../ui/scale'
+import { GlossaryRules, GlossaryTerms } from '../ui/Glossary'
 
 /** How a source is labelled on screen. `league` gets no badge: it is the default a reader
  *  assumes, and badging all five would make the two that matter invisible among them. */
@@ -56,15 +56,12 @@ const GROUPS: { key: string; label: string; keys: string[] }[] = [
 
 export default function WpblGlossaryPage() {
   const { basis } = useEraBasis()
-  const [group, setGroup] = useState(GROUPS[0].key)
-
-  const shown = useMemo(() => {
-    const g = GROUPS.find(x => x.key === group) ?? GROUPS[0]
-    // Filtered against STAT_TERMS rather than trusted, so a key removed from the glossary
-    // cannot leave a blank row here: the group lists are a running order, not a second
-    // source of truth about which terms exist.
-    return g.keys.filter(k => STAT_TERMS[k]).map(k => ({ k, ...STAT_TERMS[k] }))
-  }, [group])
+  // ERA is the one whose meaning is incomplete without its denominator, and it follows the
+  // reader's own setting here exactly as it does in a tooltip.
+  const term = useCallback((k: string) => {
+    const t = STAT_TERMS[k]
+    return t ? { full: statFull(k, basis), plain: t.plain } : null
+  }, [basis])
 
   return (
     <WpblPage
@@ -76,109 +73,12 @@ export default function WpblGlossaryPage() {
       </>}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <SectionCard title="How the league works" frameless bare>
-        <Box component="dl" sx={{ m: 0, display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-          {WPBL_RULES.map(r => (
-            // A real <dt>/<dd>, because this page IS a definition list and the FAQPage markup
-            // in seo.ts claims as much. An id per rule so a link can point at one: the win
-            // rule is the reason this page exists and it should be quotable on its own.
-            <Box key={r.id} id={r.id} sx={{ scrollMarginTop: '5rem' }}>
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-                <Typography component="dt" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.25 }}>
-                  {r.question}
-                </Typography>
-                {SOURCE_BADGE[r.source] && (
-                  <Typography component="span" sx={{
-                    flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800,
-                    textTransform: 'uppercase', letterSpacing: typePx(0.4),
-                    px: 0.6, py: '1px', borderRadius: 0.75,
-                    border: '1px solid', borderColor: CARD_BORDER, color: 'text.secondary',
-                  }}>
-                    {SOURCE_BADGE[r.source]}
-                  </Typography>
-                )}
-              </Box>
-              <Typography component="dd" sx={{
-                m: 0, mt: 0.4, fontSize: TYPE_SCALE.body, lineHeight: 1.55, color: 'text.primary',
-              }}>
-                {r.answer}
-              </Typography>
-              {r.note && (
-                // The working, and it is quieter than the answer on purpose: a reader who
-                // wants the rule has it above, and a reader who wants to know how we know is
-                // the one who reads on.
-                <Typography sx={{
-                  fontSize: TYPE_SCALE.meta, lineHeight: 1.5, color: 'text.secondary',
-                  mt: 0.5, pl: 1.25, borderLeft: '2px solid', borderColor: CARD_BORDER,
-                }}>
-                  {r.note}
-                </Typography>
-              )}
-            </Box>
-          ))}
-        </Box>
-      </SectionCard>
-
-      <SectionCard
-        title="What the abbreviations mean"
-        subtitle="The same definitions the tooltips show, in one place"
-        frameless
-        bare
-      >
-        {/* IN THE BODY, NOT THE HEADER'S `action` SLOT, and it was there first. That slot does
-            not shrink, so at 375px the three pills took 255px of a 341px header and squeezed
-            the title into 46px: "What the abbreviations mean" wrapping down a column four
-            characters wide, beside a control that fit perfectly. A switch over a list also
-            simply belongs with the list rather than opposite its title. */}
-        <PillGroup
-          options={GROUPS.map(g => ({ value: g.key, label: g.label }))}
-          value={group}
-          onChange={setGroup}
-          mb={1.25}
-        />
-        <Box component="dl" sx={{
-          m: 0, display: 'grid', gap: 0.25,
-          // Two columns from sm up: these are short rows and a single column on a wide screen
-          // is a very long page of mostly empty line.
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 2.5,
-        }}>
-          {shown.map(t => (
-            <Box key={t.k} sx={{
-              display: 'flex', gap: 1.25, py: 0.6,
-              borderTop: '1px solid', borderColor: 'divider',
-              '&:first-of-type': { borderTop: 0 },
-              // The second column's first row needs its rule back: `:first-of-type` only
-              // clears the very first cell in the grid, and without this the top of column
-              // two sits flush while column one has a rule under its heading.
-              '@media (min-width: 600px)': { '&:nth-of-type(2)': { borderTop: 0 } },
-            }}>
-              <Typography component="dt" sx={{
-                flexShrink: 0, width: '3.25rem', fontSize: TYPE_SCALE.meta, fontWeight: 800,
-                fontVariantNumeric: 'tabular-nums', color: WPBL_ACCENT, lineHeight: 1.4,
-              }}>
-                {t.k}
-              </Typography>
-              <Box sx={{ minWidth: 0 }}>
-                <Typography component="dd" sx={{ m: 0, fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1.4 }}>
-                  {/* ERA is the one whose meaning is incomplete without its denominator, and
-                      it follows the reader's own setting here exactly as it does in a tooltip. */}
-                  {statFull(t.k, basis)}
-                </Typography>
-                {t.plain && (
-                  <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, mt: 0.15 }}>
-                    {t.plain}
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-          ))}
-        </Box>
-      </SectionCard>
-
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.5 }}>
-        Not affiliated with the WPBL. Where a rule is not published by the league, this page says
-        so and shows how it was worked out.
-      </Typography>
+        <GlossaryRules title="How the league works" rules={WPBL_RULES} badge={s => SOURCE_BADGE[s as RuleSource]} />
+        <GlossaryTerms groups={GROUPS} term={term} accent={WPBL_ACCENT} />
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.5 }}>
+          Not affiliated with the WPBL. Where a rule is not published by the league, this page says
+          so and shows how it was worked out.
+        </Typography>
       </Box>
     </WpblPage>
   )

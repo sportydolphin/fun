@@ -59,6 +59,9 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
       // A second tap on the same stat toggles it shut; that is the click handler's job, so
       // ignore the press here rather than closing and letting the toggle reopen it.
       if (anchorRef.current?.contains(e.target as Node)) return
+      // Nor a press on the tooltip itself, which can hold a link (MLB's lead to the glossary):
+      // closed on the press, it was gone before the link's click could land.
+      if ((e.target as Element | null)?.closest?.('[role="tooltip"]')) return
       close()
     }
     // Capture phase, and the event stops here: an open tooltip inside the player modal has to
