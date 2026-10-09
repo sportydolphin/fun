@@ -15,7 +15,7 @@ import { gameLink, LINK_SX } from '../lib/links'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { isUnplayed, unplayedLabel, hasStartTime, SCORED_GAME_TYPES } from '../gameStatus'
 import { chromePx, typePx } from '../../ui/scale'
-import { useMlbHeadingTag } from '../components/PageHeading'
+import { MlbTabTitle } from '../components/PageHeading'
 import { cachedJson, FRESH_LIVE_MS, FRESH_LONG_MS } from '../lib/readCache'
 
 // Loaded on first game click, which keeps the Game Center out of the home bundle.
@@ -594,7 +594,6 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
    *  and Game Center behind every card. One component so the two cannot disagree about a slate. */
   layout?:        'strip' | 'page'
 }) {
-  const headingTag = useMlbHeadingTag()
   const [dateISO,    setDateISO]    = useState(() => toISO(new Date()))
   const [games,      setGames]      = useState<FinalGameSummary[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -775,9 +774,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
       {layout === 'page' ? (
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <Typography component={headingTag} sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, letterSpacing: typePx(-0.3), lineHeight: 1.2 }}>
-              Scores
-            </Typography>
+            <MlbTabTitle>MLB Scores</MlbTabTitle>
             <Box sx={{ ml: 'auto' }}><DateNav dateISO={dateISO} onChange={setDateISO} /></Box>
           </Box>
           <ScoresGrid games={sortedGames} loading={loading} followedTeamId={followedTeamId} onGameClick={setOpenGame} />

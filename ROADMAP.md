@@ -290,8 +290,12 @@ will actually see all winter. The functional items do not wait.
 2. **Visible page titles.** Every WPBL page opens with one ("WPBL Standings"); MLB's `<h1>` is
    hidden, so its pages open on a row of pills. *Home done Oct 9 (v1.135.0):* "Major League
    Baseball" in `TAB_TITLE_SX` (moved to `src/ui/card.tsx`), as WPBL's Home draws "Women's Pro
-   Baseball League"; the hidden "MLB scores, stats and standings" is gone. Standings, Stats and
-   Charts still carry hidden ones in `TAB_H1` (MlbStats.tsx).
+   Baseball League"; the hidden "MLB scores, stats and standings" is gone. ✅ *The other tabs,
+   Oct 9:* `MlbTabTitle` (mlb/components/PageHeading.tsx), `TAB_TITLE_SX` under the section's
+   heading owner, draws "MLB Standings", "MLB Scores", "MLB Teams" and each Stats board's own
+   name ("MLB Stat Leaders", "MLB Player Stats", "MLB Charts"); `TAB_H1` is gone, and Scores and
+   Teams lost their two private title sizes. Measured at 1440: 30px, 800, top 81 on every MLB tab
+   and on `/wpbl/standings`.
 3. **One sub-navigation pattern.** WPBL: a left-aligned row of text tabs over filter chips. MLB: a
    centred pill row, sometimes with a second segmented control on the right. Use WPBL's.
 4. **One stats-table look.** WPBL's spans the page with a league-average row and a "+ Qualified"

@@ -1,4 +1,7 @@
 import React, { useSyncExternalStore } from 'react'
+import { Typography } from '@mui/material'
+import type { SxProps, Theme } from '@mui/material'
+import { TAB_TITLE_SX } from '../../ui/card'
 import { isMlbSheetPath, MLB_PATH_EVENT } from '../routes'
 import { sheetEntryUrl } from '../state/sheetHistory'
 import { usePanelActive } from '../../lib/panelActive'
@@ -46,6 +49,19 @@ export function useMlbOwnsHeading(): boolean {
 /** For a page's DRAWN title (Scores, Teams): spread into `component`. Looks the same either way. */
 export function useMlbHeadingTag(): 'h1' | 'div' {
   return useMlbOwnsHeading() ? 'h1' : 'div'
+}
+
+/** A tab's drawn title, in the one style both sections' tabs share (TAB_TITLE_SX), so a switch
+ *  between /wpbl/standings and /mlb/standings changes the words and not the type. Until Oct 9, 2026
+ *  Standings and the Stats boards opened on a row of pills with a hidden h1, and Scores and Teams
+ *  drew theirs at two sizes of their own. Drawn outside any loading branch, since a title needs no
+ *  data. `sx` is the tab's own spacing. */
+export function MlbTabTitle({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
+  return (
+    <Typography component={useMlbHeadingTag()} sx={[TAB_TITLE_SX, ...(Array.isArray(sx) ? sx : [sx])]}>
+      {children}
+    </Typography>
+  )
 }
 
 /** A page heading that is not drawn, for a page whose title is already said by the nav (a tab)
