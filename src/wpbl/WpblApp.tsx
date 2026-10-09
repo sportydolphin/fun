@@ -171,7 +171,9 @@ function TabSkeleton({ view }: { view: WpblView }) {
           ))}
           {strip && (
             <Box sx={{ pt: 0.6, borderTop: '1px solid', borderColor: 'divider' }}>
-              <Typography sx={{ fontSize: '0.72rem' }}><Skeleton width="14rem" /></Typography>
+              {/* On a phone this row is the label alone, in its own smaller type; above, the
+                  label and the series line share it and the larger line sets its height. */}
+              <Typography sx={{ fontSize: { xs: '0.66rem', sm: '0.72rem' } }}><Skeleton width="14rem" /></Typography>
               {/* The series line wraps under its label on a phone. */}
               <Typography sx={{ fontSize: '0.72rem', mt: 0.75, display: { xs: 'block', sm: 'none' } }}><Skeleton width="10rem" /></Typography>
             </Box>
@@ -2016,9 +2018,13 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
       {/* Floor the view height on mobile so even a short tab (e.g. Standings) is tall enough to
           scroll the app toolbar fully off, so the page can keep it hidden (matching the tucked
-          state the tab pager restores) instead of springing the toolbar back. */}
+          state the tab pager restores) instead of springing the toolbar back.
+          ABOVE A PHONE TOO, a screen tall, as MLB holds its tabs (MlbStats.tsx). The Suspense
+          fallback in App.tsx is a screen tall, and a skeleton shorter than that pulled the shared
+          footer up into view and then the loaded tab shoved it back off: on Schedule at 760px,
+          by five thousand pixels. */}
       <Box sx={{
-        minHeight: { xs: 'calc(100dvh - 24px)', sm: 'auto' },
+        minHeight: { xs: 'calc(100dvh - 24px)', sm: '100dvh' },
         // Scroll room under the floating bar, plus the device's own safe-area inset, so the
         // last card in a tab can always be scrolled clear of it.
         pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,

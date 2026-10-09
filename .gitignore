@@ -39,3 +39,4 @@ scripts/fan-photos-staging/
 
 # Share files rendered by npm run road-video (and anything like it): large, regenerable.
 share/
+sweep-shots/

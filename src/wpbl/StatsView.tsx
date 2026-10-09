@@ -1703,8 +1703,11 @@ export default function WpblStatsView({
     }
   }, [loading])
 
+  // The section's skeleton, not a spinner: the players and lines are a SECOND read after the
+  // section's own, so a spinner here replaced the skeleton with a box 200px tall and the board
+  // then landed where the skeleton had been.
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+    return <StatsSkeleton />
   }
 
   // NO text-transform. The column labels are already written in capitals, and the two that are

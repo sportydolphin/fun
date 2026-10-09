@@ -1550,10 +1550,13 @@ export default function FanVoteCard({
   // exists to ask; which of your five picks it was is recoverable from the sheet.
   const short = useWpblName()
   const [fielding, setFielding] = useState<WpblFieldingLine[]>(() => getCachedWpblAllFielding() ?? [])
+  // Whether that read has answered, empty or not: the sheet-only mount's `settled` covers the
+  // caller's reads and cannot see this one.
+  const [fieldingSettled, setFieldingSettled] = useState(() => getCachedWpblAllFielding() != null)
   useEffect(() => {
     if (fielding.length > 0) return
     let cancelled = false
-    fetchWpblAllFielding().then(rows => { if (!cancelled) setFielding(rows) })
+    fetchWpblAllFielding().then(rows => { if (!cancelled) { setFielding(rows); setFieldingSettled(true) } })
     return () => { cancelled = true }
   }, [fielding.length])
 
@@ -1628,7 +1631,12 @@ export default function FanVoteCard({
   // past the results date) still waits, as the card does.
   if (sheetOnly) {
     if (!open) return null
-    const pending = !drawable || !state.loaded
+    // EVERY READ, NOT THE FIRST CATEGORY. `drawable` turns true as soon as any one category has
+    // nominees, and Defensive Wizard and Most Aura get theirs before the stat lines and the play
+    // log land, so on a slow phone the results went from five skeleton categories to two real
+    // ones, then back to five: the dialog halved and re-centred, then grew again. Found by the
+    // layout sweep on CI's runner, never on a desktop.
+    const pending = !drawable || !state.loaded || !settled || !fieldingSettled
     if (pending && !closed) return null
     return (
       <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}

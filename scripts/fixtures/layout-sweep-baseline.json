@@ -1,18 +1,1 @@
-[
-  "/wpbl/awards|1440|default|shift",
-  "/wpbl/awards|1440|large|shift",
-  "/wpbl/awards|760|default|shift",
-  "/wpbl/awards|760|large|shift",
-  "/wpbl/awards|960|default|shift",
-  "/wpbl/awards|960|large|shift",
-  "/wpbl/schedule|375|large|shift",
-  "/wpbl/schedule|760|default|shift",
-  "/wpbl/schedule|760|large|shift",
-  "/wpbl/standings|760|large|shift",
-  "/wpbl/stats?board=runs +experiments|760|default|shift",
-  "/wpbl/stats?board=runs +experiments|760|large|shift",
-  "/wpbl/stats?board=runs|760|default|shift",
-  "/wpbl/stats?board=runs|760|large|shift",
-  "/wpbl/stats|760|default|shift",
-  "/wpbl/stats|760|large|shift"
-]
+[]

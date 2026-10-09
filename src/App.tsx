@@ -1541,8 +1541,13 @@ function AppInner() {
           which the zoom never reached. */}
       <Box>
         {/* p: 2 is 20px at the desktop scale on both sections, so the tab bar under the toolbar
-            sits at the same height on each and a section switch moves nothing. */}
-        <Box sx={{ p: 2 }}>
+            sits at the same height on each and a section switch moves nothing.
+            A SCREEN TALL, so the shared footer below starts under the fold on every route. The
+            standalone pages' Suspense fallbacks are spinners, and while a page's chunk was still
+            on its way the footer painted a third of the way down and was then shoved off: CI's
+            slower runner caught it on Compare and the Glossary, a fast desktop never did. Both
+            sections already hold themselves this tall. */}
+        <Box sx={{ p: 2, minHeight: '100dvh' }}>
           {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
