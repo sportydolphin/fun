@@ -408,10 +408,33 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
   return snap
 }
 
+// ─── The rules & glossary page ────────────────────────────────────────────────
+//
+// /mlb/glossary, WPBL's /wpbl/glossary for this section (the second alignment pass in ROADMAP.md).
+// A STANDALONE page the shell draws, as WPBL's is, and deliberately NOT one of `isMlbPath`'s: that
+// test decides whether MlbStats renders, and the section has no tab to light for it. The shell asks
+// `isMlbSection` wherever it means "the reader is in MLB" (the scale, the toolbar's tabs, the
+// league switch). Before it, MLB explained its stats only in tooltips, which nothing can index.
+export const MLB_GLOSSARY_PAGE = `${MLB_BASE}/glossary`
+
+export const isMlbGlossaryPage = (pathname: string): boolean =>
+  pathname.replace(/\/+$/, '') === MLB_GLOSSARY_PAGE
+
+/** The standalone pages, as rows in the section's More menu on a desktop and on a phone. Real
+ *  addresses, so the toolbar draws them as <a href> without the section loaded, as WPBL's are. */
+export const MLB_MORE_PAGES: readonly { href: string; label: string; hint: string }[] = [
+  { href: MLB_GLOSSARY_PAGE, label: 'Rules & glossary', hint: 'The rules, and what each stat means' },
+]
+
+/** Anything that should read as "the reader is in the MLB section": the section's own paths and
+ *  the standalone pages beside it. */
+export const isMlbSection = (pathname: string): boolean => isMlbPath(pathname) || isMlbGlossaryPage(pathname)
+
 /** Every page with a fixed address, for the sitemap and the tests that pin it to the redirects. */
 export const MLB_STATIC_PATHS: readonly string[] = [
   ...Object.values(MLB_VIEW_PATHS),
   ...MLB_CLUBS.map(c => `${MLB_TEAMS_BASE}/${c.slug}`),
+  MLB_GLOSSARY_PAGE,
 ]
 
 /** Fired after the section rewrites the address bar, so the shell re-reads its path (and seo.ts

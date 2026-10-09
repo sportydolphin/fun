@@ -23,7 +23,7 @@ import {
   WPBL_TEAMS_BASE, teamSlug,
 } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
-import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE, MLB_SERIES_SLUGS, MLB_FIRST_BRACKET_SEASON, MLB_POSTSEASON_BASE, mlbSeriesPath, type MlbSeriesId } from '../src/mlb/routes'
+import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE, MLB_GLOSSARY_PAGE, MLB_SERIES_SLUGS, MLB_FIRST_BRACKET_SEASON, MLB_POSTSEASON_BASE, mlbSeriesPath, type MlbSeriesId } from '../src/mlb/routes'
 
 const SITE = 'https://sportydolphin.fun'
 // Relative to the repo root, NOT to this file: `npm run sitemap` bundles it into
@@ -205,6 +205,8 @@ const mlbEntries: Entry[] = [
   ...Object.values(MLB_VIEW_PATHS).filter(p => !STATIC.some(e => e.loc === p))
     .map(loc => ({ loc, changefreq: 'daily', priority: '0.6' })),
   ...MLB_CLUBS.map(c => ({ loc: `${MLB_TEAMS_BASE}/${c.slug}`, changefreq: 'daily', priority: '0.5' })),
+  // Yearly, as WPBL's glossary is: the rules move about once a decade.
+  { loc: MLB_GLOSSARY_PAGE, changefreq: 'yearly', priority: '0.6' },
 ]
 
 /**

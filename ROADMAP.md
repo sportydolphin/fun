@@ -204,10 +204,15 @@ will actually see all winter. The functional items do not wait.
    See "Link previews, MLB" in ARCHITECTURE.md.
 2. ✅ **Short links for MLB players, games and series** were already there (`/m/<code>`,
    `functions/m/`), and every MLB copy-link button uses them. Listed so nobody builds them twice.
-3. **WPBL's recent searches synced across devices**, on MLB's footing (`user_preferences`).
-   The search box is shared and currently remembers differently per section.
-4. **A glossary and Compare for MLB.** WPBL has `/wpbl/glossary` and `/wpbl/compare`; MLB explains
-   stats only in `InfoTip`s, which nothing can index. The tips should link into the glossary.
+3. ✅ **WPBL's recent searches synced across devices** (Oct 9, v1.131.0), on MLB's footing, in
+   their own column `user_preferences.wpbl_recent_searches` (see the log in ROADMAP-WPBL.md).
+4. **A glossary and Compare for MLB.** ✅ *Glossary shipped Oct 9 (v1.131.0):* `/mlb/glossary`,
+   WPBL's page with MLB's data (`statGlossary.ts`: five rules, terms in three groups, FAQ markup),
+   in the sitemap, the footer and the More menu on both widths. Every stat tooltip on the player
+   card ends in a link to it, and WPBL's tooltips now link to `/wpbl/glossary` the same way. Its frame and lists are the shared `src/ui/StandalonePage.tsx` and
+   `src/ui/Glossary.tsx`, and the qualifying bar it quotes is `qualify.ts`, which replaced four
+   literal 3.1s. *Open:* Compare. The board `InfoTip`s describe a board rather than a term, so they
+   carry no link.
 5. ✅ **Every MLB player link opens the side panel on a desktop** (Oct 9). The team page's roster
    and Team Leaders cards pushed the player's full page themselves, the one place in `/mlb` that
    did; they now go through the section's `openPlayer` like every other list.
@@ -215,7 +220,9 @@ will actually see all winter. The functional items do not wait.
 **Visual, after Nov 1, in order:**
 
 1. **Move WPBL's building blocks into `src/ui/`** (`SectionCard`, `SectionLabel`, `TabTitle`,
-   `TYPE_SCALE`, `LeaderRow`, `TeamBadge`) and rebuild MLB's cards on them. MLB has its own
+   `TYPE_SCALE`, `LeaderRow`, `TeamBadge`) and rebuild MLB's cards on them. *Started Oct 9:*
+   `SectionCard`, the card surfaces and `TYPE_SCALE` are in `src/ui/card.tsx` (the glossary needed
+   them); the rest, and rebuilding MLB's own cards, still waits for Nov 1. MLB has its own
    `SectionLabel`, none of its 565 font sizes go through `TYPE_SCALE` (45 distinct sizes against
    WPBL's 38), its card titles carry emoji ("🔄 Roster Moves") where WPBL's are small-caps labels,
    and its "View All" is a pill where WPBL's "See all ›" is a text link. This one move is most of

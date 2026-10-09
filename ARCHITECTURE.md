@@ -106,6 +106,7 @@ flowchart LR
         wwatch["/wpbl/watch<br/>WatchPage.tsx + Watch.tsx"]
         wphotos["/wpbl/photos<br/>PhotosGalleryPage.tsx + Photos.tsx (archive)"]
         wgloss["/wpbl/glossary<br/>GlossaryPage.tsx + glossary.ts"]
+        mgloss["/mlb/glossary<br/>mlb/GlossaryPage.tsx + statGlossary.ts"]
         wsrc["/wpbl/sources<br/>SourcesPage.tsx + sources.ts"]
         wseason["/wpbl/season<br/>SeasonPage.tsx (recap)"]
         wscori["/wpbl/scorigami<br/>Scorigami.tsx + derive/scorigami.ts"]
@@ -170,6 +171,12 @@ flowchart LR
   the panel's "⤢ Expand". A player has one on the same terms (`playerPage`, PlayerDetailModal's
   `layout="page"`), and both share `DetailPageBar`. Plan and status: #9 in ROADMAP-WPBL.md; MLB's
   half is item 11 in ROADMAP.md.
+- **Standalone pages and cards share their frame** since Oct 9, 2026: `SectionCard`, the card
+  surfaces and `TYPE_SCALE` live in [`src/ui/card.tsx`](src/ui/card.tsx), the standalone-page
+  header in [`src/ui/StandalonePage.tsx`](src/ui/StandalonePage.tsx) (WPBL's `WpblPage` binds it),
+  and both glossaries' lists in [`src/ui/Glossary.tsx`](src/ui/Glossary.tsx). `src/wpbl/ui.tsx`
+  re-exports the moved names. `/mlb/glossary` is a standalone page beside the section, so
+  `isMlbPath` excludes it and the shell asks `isMlbSection` for "the reader is in MLB".
 - **Player cards share their parts** ([`src/ui/playerCard.tsx`](src/ui/playerCard.tsx)) since Oct 6,
   2026: the type scale, the season line with its rank row, the rate strip, `StatLogTable` (game
   log, career, splits), the club band and its form strip, the section heading. WPBL's
@@ -898,6 +905,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - What ERA is divided by, and why it follows the league rather than the arithmetic → `ERA_BASIS_CANONICAL` in [`src/wpbl/stats.ts`](src/wpbl/stats.ts) (stored value, never a setting) with the reader's override in [`src/wpbl/EraBasisContext.tsx`](src/wpbl/EraBasisContext.tsx) (display only). **Per 7 since Sep 3, 2026, per 9 before that**, because the league changed and this follows it. The reasoning and the sources are the Aug 26 and Sep 3, 2026 entries in [`ROADMAP-WPBL.md`](ROADMAP-WPBL.md)
 - Which position a player is listed at (the season overrides the roster) → [`src/wpbl/positions.ts`](src/wpbl/positions.ts), shared by the site, the unfurl card and the Discord bot
 - Where any of it came from, and whose it is → [`src/wpbl/sources.ts`](src/wpbl/sources.ts), drawn by [`src/wpbl/SourcesPage.tsx`](src/wpbl/SourcesPage.tsx) at `/wpbl/sources`. Seven sources, each with what was taken, where it renders and **the basis for using it**, which for the two writers and RetroWPBL is permission alone, each with its date. **A credits page and not a links page**: every entry is something the site actually uses, and the day it grows an "other sites you might like" section it becomes a link farm and stops being worth linking to, which is the point of having it (docs/BACKLINKS.md: inbound links are the remaining constraint, and the honest way to ask for one is to have given one). A sibling of `/wpbl/league` for the same reason the glossary is, plus one of its own: its job is to be CITED, and an anchor inside someone else's page is not a thing you send. It does NOT replace the credit beside the content, which is what stops a reader mistaking somebody else's work for ours. Footer link, no nav pill. The Terms page keeps its accuracy statement and points here for the detail
+- The same for MLB → [`src/mlb/statGlossary.ts`](src/mlb/statGlossary.ts) (terms, `MLB_RULES`, the groups), drawn by [`src/mlb/GlossaryPage.tsx`](src/mlb/GlossaryPage.tsx) at `/mlb/glossary`, linked from the footer, the More menu and every stat tooltip on the player card. The qualifying bar it quotes is [`src/mlb/qualify.ts`](src/mlb/qualify.ts), the one constant every board applies
 - How a pitcher earns a win, why an inning ended, what an abbreviation means → [`src/wpbl/glossary.ts`](src/wpbl/glossary.ts), drawn by [`src/wpbl/GlossaryPage.tsx`](src/wpbl/GlossaryPage.tsx) at `/wpbl/glossary`. **The one page here answering a question with no other answer on the web**, which is why it is a sibling of `/wpbl/league` and not a section of it: one URL cannot rank for both "where the players came from" and "WPBL rules". Footer link, deliberately no sixth nav pill. It is also the single source for the stat definitions that Home, StatsView, Game Center and the player card all abbreviate, which used to be explained on PlayerDetail and nowhere else
 - Which copy of a duplicated game survives, and why deciding it on the id was a coin flip → `bestTwin` in [`supabase/functions/wpbl-ingest/games.ts`](supabase/functions/wpbl-ingest/games.ts), pinned by [`src/wpbl/__tests__/ingestTwins.test.ts`](src/wpbl/__tests__/ingestTwins.test.ts). It DELETES the losing copy, so it is dependency-free and testable from the app's runner for the same reason `names.ts` is
 - Which CLUB a player counted for (the line overrides the roster, because people get traded) → the `team_id` on each box-score line and play; the rules that recognise a trade are `tradeMatch` / `teamMoveWins` in [`supabase/functions/wpbl-ingest/names.ts`](supabase/functions/wpbl-ingest/names.ts), and `wpbl_merge_players(keep, dupe)` folds a duplicate back into one person

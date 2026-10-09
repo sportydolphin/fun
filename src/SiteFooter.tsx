@@ -4,6 +4,7 @@ import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
 import { WPBL_FOOTER_PAGES } from './wpbl/morePages'
+import { MLB_MORE_PAGES } from './mlb/routes'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -21,12 +22,19 @@ const linkSx = {
 // link. Caps + centers on wide screens, wraps and centers on mobile.
 const WPBL_DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
 
-export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl = false }: {
+export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl = false, isMlb = false }: {
   onOpenChangelog: () => void
   onOpenFeedback: () => void
   onNavigate: (path: string) => void
   isWpbl?: boolean
+  /** Off both sections (/privacy, /admin) neither league's pages are listed. */
+  isMlb?: boolean
 }) {
+  // MLB's standalone pages ride the same expander since Oct 9, 2026, for the same reason as WPBL's:
+  // the toolbar's More menu is not in the DOM until it opens, so this is the crawlable link.
+  const pages: { href: string; label: string }[] = isWpbl
+    ? WPBL_FOOTER_PAGES.map(pg => ({ href: pg.href, label: pg.footerLabel ?? pg.label }))
+    : isMlb ? MLB_MORE_PAGES.map(pg => ({ href: pg.href, label: pg.label })) : []
   return (
     <Box
       component="footer"
@@ -62,7 +70,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
         fontSize: '0.72rem', color: 'text.disabled',
       }}>
-        {isWpbl && (
+        {pages.length > 0 && (
           // FOLDED AWAY, NOT DELETED, and the difference is the whole reason this is a `<details>`
           // and not a shorter list. These six are the site's ONLY crawlable <a href> to their pages
           // (the note on each link below says why; the header's More menu links them too but from
@@ -94,11 +102,11 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
                     and each one is load-bearing: several of these pages have no other internal
                     link a crawler can follow (the players index is the only page linking every
                     player; Data sources is the only way in to the API docs). */}
-                {WPBL_FOOTER_PAGES.map((pg, i) => (
+                {pages.map((pg, i) => (
                   <React.Fragment key={pg.href}>
                     {i > 0 && <Dot />}
                     <Box component="a" href={pg.href} onClick={e => { e.preventDefault(); onNavigate(pg.href) }} sx={linkSx}>
-                      {pg.footerLabel ?? pg.label}
+                      {pg.label}
                     </Box>
                   </React.Fragment>
                 ))}

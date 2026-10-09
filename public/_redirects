@@ -48,6 +48,7 @@
 /mlb/stats/      /mlb/stats       301
 /mlb/charts/     /mlb/charts      301
 /mlb/teams/      /mlb/teams       301
+/mlb/glossary/   /mlb/glossary    301
 /mlb/teams/angels/            /mlb/teams/angels           301
 /mlb/teams/diamondbacks/      /mlb/teams/diamondbacks     301
 /mlb/teams/orioles/           /mlb/teams/orioles          301
@@ -154,6 +155,8 @@
 /mlb/stats       /  200
 /mlb/charts      /  200
 /mlb/teams       /  200
+# The rules & glossary page, standalone beside the tabs as WPBL's is. See MLB_GLOSSARY_PAGE.
+/mlb/glossary    /  200
 # One line per club, as WPBL's four are: thirty is enumerable, so an unknown
 # /mlb/teams/<anything> falls through to the real 404 with nothing standing behind it.
 /mlb/teams/angels           /  200

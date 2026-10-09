@@ -14,6 +14,7 @@ import { fetchSeasonPlayerStats } from './apiSeasonStats'
 import { CURRENT_SEASON, TEAM_ABBR } from './constants'
 import { combineStatLines } from './lib/gameScope'
 import type { CareerStatSplit, RecentGameEntry } from './types'
+import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from './qualify'
 
 const API = 'https://statsapi.mlb.com/api/v1'
 
@@ -490,8 +491,8 @@ export const RANK_DEFS: Record<Role, RankDef[]> = {
  */
 export function rankPlayer(pool: any[], playerId: number, role: Role): SeasonRanks {
   const games = Math.max(1, ...pool.map(s => Number(s.stat?.gamesPlayed ?? 0)))
-  const minPa = Math.round(games * 3.1)
-  const minOuts = games * 3
+  const minPa = Math.round(games * MLB_QUALIFY_PA_PER_GAME)
+  const minOuts = games * MLB_QUALIFY_IP_PER_GAME * 3
   const qualifies = (s: any) => role === 'hitting'
     ? Number(s?.plateAppearances ?? 0) >= minPa
     : ipToOuts(s?.inningsPitched) >= minOuts

@@ -1335,6 +1335,17 @@ is retired.
 
 ## Shipped log
 
+### Oct 9, 2026: recents sync across devices (v1.131.0)
+
+The header search's recents now follow a signed-in reader, in their own column,
+`user_preferences.wpbl_recent_searches`, for the reason the Aug 24 entry gives for not sharing
+MLB's. `useWpblRecents` in `recentSearches.ts` owns the list: the stored list wins on sign-in when
+it holds anything, an empty one is seeded from the device, and a write happens only on a pick or a
+Clear, so loading the list never echoes it back. A failed read is not an empty list: the device
+keeps its own and pushes nothing, or one network blip would overwrite every other device. A pick
+made while the read is in flight is kept in front of the stored list rather than replaced by it.
+Pinned in `__tests__/recentsSync.test.tsx`.
+
 ### Oct 9, 2026: a Fielding board in Stats (v1.130.0)
 
 `/wpbl/stats?board=fielding`, a tab beside Players and Teams: FPCT, TC, PO, A, E, DP, PB, SBA and
@@ -6167,7 +6178,7 @@ time, so a traded player carries her current tint and team rather than a stale o
 reuse the same self-describing `SearchResultRow` / `ToolbarResultRow` path the typed WPBL
 results already ride, so the always-loaded toolbar draws them without importing the section's
 lazy chunk. localStorage only: no cross-device sync, which the MLB column would have given but
-cannot hold WPBL ids.
+cannot hold WPBL ids. *Synced from Oct 9, 2026 in a column of its own (see that entry).*
 
 ### Aug 23, 2026: win probability, and a way to read it with a thumb
 
