@@ -68,6 +68,33 @@ export type PlayerSeason = number | 'career'
  *  none, with each path reading its own subset of the query. Neither ever restored a board's
  *  season, so Back from a player opened off a 2023 stat card landed on the 2025 Table drawing
  *  2023, and the URL sync then rewrote that entry's address to say 2023 as well. */
+/**
+ * Back onto a player or team page, at the depth it was left. These pages are rebuilt from a fetch
+ * on Back, so the browser's own restoration fires against the page still on screen and lands
+ * wherever that one allows: a reader returning from a player to a team's roster came back at its
+ * top. This waits until the page is tall enough to hold the saved position, then goes there. It
+ * gives up after a couple of seconds, and the moment the reader scrolls first.
+ */
+export function restoreScroll(y: number): void {
+  const until = performance.now() + 2500
+  let cancelled = false
+  const cancel = () => { cancelled = true }
+  window.addEventListener('wheel', cancel, { once: true, passive: true })
+  window.addEventListener('touchstart', cancel, { once: true, passive: true })
+  const step = () => {
+    if (cancelled) return
+    const max = document.documentElement.scrollHeight - window.innerHeight
+    if (max >= y || performance.now() > until) {
+      window.removeEventListener('wheel', cancel)
+      window.removeEventListener('touchstart', cancel)
+      window.scrollTo({ top: Math.min(y, Math.max(0, max)) })
+      return
+    }
+    requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
 export function restoreTarget(pathname: string, search: string, entry: Record<string, any> | null): {
   snap: MlbSnapshot; playerSeason?: number; statsView?: 'season' | 'career'
 } | null {
@@ -542,8 +569,9 @@ export function useMlbState() {
     // Not on a sheet's own entry: the navigation about to happen replaces that entry (pushEntry),
     // and the entry under it was stamped when the sheet opened over it.
     if (onSheetEntry()) return
-    // Keeping the full Game Center page's marker, so Back to it is the page again.
-    window.history.replaceState(keepSheetMarker(currentHistoryState()), '', window.location.href)
+    // Keeping the full Game Center page's marker, so Back to it is the page again. With the scroll
+    // position, which a player or team page restores itself on Back (see restoreScroll).
+    window.history.replaceState(keepSheetMarker({ ...currentHistoryState(), scrollY: Math.round(window.scrollY) }), '', window.location.href)
   }, [currentHistoryState])
 
   // A player's full page. The panel's Expand comes here with the season the panel was showing, so
@@ -553,7 +581,13 @@ export function useMlbState() {
     const seasonState = season === 'career' ? { statsView: 'career' } : season != null ? { season } : {}
     pushEntry({ view: 'search', playerId, ...seasonState }, mlbUrlFor({ view: 'search', playerId }))
     fetchPlayerDetails(playerId).then(p => {
-      if (p) { selectPlayer(p, season != null ? { season } : undefined); setView('search') }
+      if (!p) return
+      selectPlayer(p, season != null ? { season } : undefined)
+      setView('search')
+      // A new page starts at its top: from deep in a roster on a phone it used to open at the same
+      // depth, on the trend chart, with the header off screen. Safe only because Back restores the
+      // page being left from its own entry (restoreScroll), not from the browser's.
+      requestAnimationFrame(() => window.scrollTo({ top: 0 }))
     }).catch(() => {})
   }, [selectPlayer, stampCurrentEntry])
 
@@ -710,12 +744,15 @@ export function useMlbState() {
       const target = restoreTarget(window.location.pathname, window.location.search, e.state as Record<string, any> | null)
       if (!target) return
       const { snap } = target
+      const savedY = (e.state as { scrollY?: unknown } | null)?.scrollY
       if (snap.playerId) {
         setStatsHighlightPlayerId(null)
         setStatsHighlightStatKey(null)
         setView('search')
-        fetchPlayerDetails(snap.playerId).then(p => {
-          if (p) selectPlayer(p, { season: target.statsView === 'career' ? 'career' : target.playerSeason })
+        fetchPlayerDetails(snap.playerId).then(async p => {
+          if (!p) return
+          await selectPlayer(p, { season: target.statsView === 'career' ? 'career' : target.playerSeason })
+          if (typeof savedY === 'number') restoreScroll(savedY)
         }).catch(() => {})
         return
       }
@@ -725,7 +762,7 @@ export function useMlbState() {
         blockDropdownRef.current = true
         setQuery(t.name)
         setView('search')
-        selectTeam(t)
+        selectTeam(t).then(() => { if (typeof savedY === 'number') restoreScroll(savedY) }).catch(() => {})
         return
       }
       setView(snap.view)

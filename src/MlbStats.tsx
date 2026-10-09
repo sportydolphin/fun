@@ -573,7 +573,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             dropdownOpen={state.dropdownOpen}
             setDropdownOpen={state.setDropdownOpen}
             selectTeam={state.selectTeam}
-            selectPlayer={state.selectPlayer}
+            onPlayerClick={state.handleFollowedPlayerClick}
             onTeamClick={state.handleTeamSearchClick}
             team={state.team}
             palette={state.palette}

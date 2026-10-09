@@ -20,7 +20,7 @@ flowchart TB
 
     subgraph CF["☁️ Cloudflare Pages: sportydolphin.fun"]
         spa["Vite React SPA<br/>(App.tsx router)"]
-        pagefn["Pages Functions<br/>/wpbl, /mlb: real 404s, legacy 301s,<br/>player share cards · /p, /g short links<br/>/discord/wpbl · /api/geo, /api/fan-photo"]
+        pagefn["Pages Functions<br/>/wpbl, /mlb: real 404s, legacy 301s,<br/>player share cards (both sections) · /p, /g, /m short links<br/>/discord/wpbl · /api/geo, /api/fan-photo"]
     end
 
     subgraph SB["🟢 Supabase project"]
@@ -763,6 +763,12 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   `public/.well-known/apple-app-site-association`, **carrying a placeholder Team ID**, plus
   its content-type rule in `public/_headers`, both pinned in `pwaShell.test.ts`. Plan of
   record: [`docs/IOS.md`](docs/IOS.md).
+- **Link previews, MLB:** [`functions/mlb/index.ts`](functions/mlb/index.ts) rewrites the tags of
+  `/mlb/players/<slug>` and `/mlb/games/<pk>` from the StatsAPI read that already proves the page
+  exists (player: name, club and season line, an hour at the edge; game: score, status and series,
+  five minutes). Wording in [`src/mlb/ogCard.ts`](src/mlb/ogCard.ts). The player image is MLB's
+  headshot padded to 1200x630 on the club colour by MLB's image CDN (`c_pad`); a game keeps the
+  default cover. The rewrite itself is [`src/lib/ogTags.ts`](src/lib/ogTags.ts), shared with WPBL.
 - **Link previews:** [`functions/wpbl/index.ts`](functions/wpbl/index.ts) is a Pages
   Function that rewrites the Open Graph tags of `/wpbl?player=<id>` at the edge, so a
   shared player link unfurls with that player's name, club, and season line instead of the
