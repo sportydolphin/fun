@@ -13,7 +13,7 @@ import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 import { chromePx, typePx } from '../../ui/scale'
-import { SectionCard, CardLink } from '../../ui/card'
+import { SectionCard, CardLink, TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 
 // Both open on a tap from the widget, so neither rides in the Home landing (see PredictorModal.tsx).
 const PredictorModal = lazy(() => import('./PredictorModal').then(m => ({ default: m.PredictorModal })))
@@ -267,7 +267,7 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
   )
   const name = (
     <Typography sx={{
-      minWidth: 0, fontSize: '0.82rem', fontWeight: picked ? 800 : 600, lineHeight: 1.1,
+      minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: picked ? 800 : 600, lineHeight: 1.1,
       color: picked ? col : 'text.primary',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       textAlign: away ? 'right' : 'left',
@@ -302,8 +302,8 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
 function PctLabel({ pct, align }: { pct: number | null; align: 'left' | 'right' }) {
   return (
     <Typography sx={{
-      fontSize: '0.72rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-      color: 'text.disabled', textAlign: align, lineHeight: 1, whiteSpace: 'nowrap',
+      fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+      color: 'text.secondary', textAlign: align, lineHeight: 1, whiteSpace: 'nowrap',
       visibility: pct === null ? 'hidden' : 'visible',
     }}>
       {pct ?? 0}%
@@ -346,7 +346,7 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
           dimmed={hasPick && !pickedAway}
           onPick={() => onPick(game.away.teamId)}
         />
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled', px: 0.15, lineHeight: 1 }}>@</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', px: 0.15, lineHeight: 1 }}>@</Typography>
         <QuickPickTeam
           team={game.home}
           side="home"
@@ -615,7 +615,7 @@ export function PredictorWidget({ onPicksSettled }: {
               }} />
             )}
             {(isTomorrow || isLater) && !idle && (
-              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
                 {isTomorrow ? 'Tomorrow' : shortDay(slateDate)}
               </Typography>
             )}
@@ -643,8 +643,8 @@ export function PredictorWidget({ onPicksSettled }: {
             display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.9,
             bgcolor: '#f9731612', borderBottom: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>🔥</Typography>
-            <Typography sx={{ fontSize: '0.74rem', fontWeight: 700, color: TONE.orange, lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>🔥</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: TONE.orange, lineHeight: 1.2 }}>
               You're on a {heaterStreak}-game heater, keep it rolling
             </Typography>
           </Box>
@@ -663,62 +663,62 @@ export function PredictorWidget({ onPicksSettled }: {
           {loading ? (
             // At the size of the summary that replaces it ("3 games left to predict"), so the
             // line under it does not move when the slate lands.
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.4, color: 'text.disabled' }}>Loading the schedule…</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.4, color: 'text.disabled' }}>Loading the schedule…</Typography>
           ) : idle?.kind === 'between-rounds' ? (
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.45 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
               The next games open for picks once their matchups are set.
             </Typography>
           ) : idle?.kind === 'offseason' ? (
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.45 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
               {idle.opening
                 ? <>Predictions are back on Opening Day, <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>{longDay(idle.opening)}</Box>.</>
                 : 'Predictions are back on Opening Day.'}
               {user && ' Your season record is under Stats.'}
             </Typography>
           ) : games.length === 0 ? (
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No upcoming games</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>No upcoming games</Typography>
           ) : finalized.length > 0 && !allDone ? (
             // Results are coming in: lead with the running record + how many are left.
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
-              <Box component="span" sx={{ color: correctCount / finalized.length >= 0.5 ? '#22c55e' : '#ef4444', fontWeight: 800 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+              <Box component="span" sx={{ color: correctCount / finalized.length >= 0.5 ? TONE.green : TONE.red, fontWeight: 800 }}>
                 {correctCount} / {finalized.length}
               </Box>
               {' '}correct
               {pendingPicked > 0 && (
-                <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, fontSize: '0.78rem' }}>
+                <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400, fontSize: TYPE_SCALE.meta }}>
                   {' '}· {pendingPicked} to go
                 </Box>
               )}
             </Typography>
           ) : previewCount > 0 && remainingCount > 0 ? (
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
               <Box component="span" sx={{ color: ACCENT_TEXT, fontWeight: 800 }}>{remainingCount}</Box>
               {' '}{remainingCount === 1 ? 'game' : 'games'} left to predict
               {pickedPreviewCount > 0 && (
-                <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, fontSize: '0.78rem' }}>
+                <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400, fontSize: TYPE_SCALE.meta }}>
                   {' '}· {pickedPreviewCount}/{previewCount} done
                 </Box>
               )}
             </Typography>
           ) : previewCount > 0 ? (
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
               <Box component="span" sx={{ color: TONE.green, fontWeight: 800 }}>✓</Box>
               {' '}All {previewCount === 1 ? 'prediction' : 'predictions'} made
             </Typography>
           ) : allDone && finalized.length > 0 ? (
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
-              <Box component="span" sx={{ color: correctCount / finalized.length >= 0.5 ? '#22c55e' : '#ef4444', fontWeight: 800 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+              <Box component="span" sx={{ color: correctCount / finalized.length >= 0.5 ? TONE.green : TONE.red, fontWeight: 800 }}>
                 {correctCount} / {finalized.length}
               </Box>
               {' '}correct
               {pct !== null && (
-                <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, fontSize: '0.78rem' }}>
+                <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400, fontSize: TYPE_SCALE.meta }}>
                   {' '}· {pct}%
                 </Box>
               )}
             </Typography>
           ) : (
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
               {games.some(g => g.state === 'live') ? 'Games in progress' : 'All games finished'}
             </Typography>
           )}
@@ -750,7 +750,7 @@ export function PredictorWidget({ onPicksSettled }: {
                 onClick={() => canOpen && setModalOpen(true)}
                 sx={{
                   alignSelf: 'center', mt: 0.4, px: 1, py: 0.3,
-                  fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT,
+                  fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT_TEXT,
                   cursor: 'pointer', borderRadius: 999,
                   '&:hover': { bgcolor: `${ACCENT}12` },
                 }}

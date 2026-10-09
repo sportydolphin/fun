@@ -1,4 +1,5 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react'
+import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { CURRENT_SEASON, TEAM_BG, TEAM_NICKNAME, TONE } from '../constants'
 import { LogoBubble, LiveDot } from '../components/boxScore'
@@ -87,7 +88,7 @@ function TeamRow({ t, wins, need, won, lost, onTeamClick, compact = false }: {
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, opacity: lost ? 0.5 : 1 }}>
-      <Typography sx={{ width: '1rem', fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled', textAlign: 'right' }}>
+      <Typography sx={{ width: '1rem', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.disabled', textAlign: 'right' }}>
         {t.seed ?? ''}
       </Typography>
       {t.real
@@ -108,7 +109,7 @@ function TeamRow({ t, wins, need, won, lost, onTeamClick, compact = false }: {
         })() : {})}
         sx={{
           ...LINK_SX, display: 'block',
-          flex: 1, minWidth: 0, fontSize: '0.85rem', fontWeight: won ? 800 : 600,
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600,
           color: t.real ? 'text.primary' : 'text.secondary',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           ...(t.real && onTeamClick ? { cursor: 'pointer', ...FOCUS_RING } : {}),
@@ -147,10 +148,10 @@ function SeriesCard({ s, season, onOpen, onTeamClick, compact = false }: {
     }}>
       {/* The length stays on Home's compact card too: it is the one word on the card that says series. */}
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
-        <Typography {...(whole ? {} : linkPress(href, onOpen))} sx={{ ...LINK_SX, display: 'block', flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...FOCUS_RING }}>
+        <Typography {...(whole ? {} : linkPress(href, onOpen))} sx={{ ...LINK_SX, display: 'block', flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...FOCUS_RING }}>
           {s.label}
         </Typography>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap', flexShrink: 0 }}>
           Best of {s.bestOf}
         </Typography>
       </Box>
@@ -160,7 +161,7 @@ function SeriesCard({ s, season, onOpen, onTeamClick, compact = false }: {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, pt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
           {status.live && <LiveDot size={6} />}
           <Typography sx={{
-            fontSize: compact ? '0.64rem' : '0.7rem', fontWeight: status.decider ? 800 : 600, lineHeight: 1.35,
+            fontSize: compact ? TYPE_SCALE.caption : TYPE_SCALE.meta, fontWeight: status.decider ? 800 : 600, lineHeight: 1.35,
             color: status.live ? TONE.red : status.decider ? TONE.amber : 'text.secondary',
             ...(compact ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : {}),
           }}>
@@ -190,14 +191,14 @@ export function BracketSkeleton({ compact }: { compact: boolean }) {
   return (
     <Box aria-hidden>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25 }}>
-        <Skeleton variant="text" sx={{ width: '7.5rem', fontSize: '0.7rem' }} />
+        <Skeleton variant="text" sx={{ width: '7.5rem', fontSize: TYPE_SCALE.meta }} />
         {/* The real round pills, none chosen yet: a pill-shaped bar of hand-picked size was 3px short of them. */}
         <Box sx={{ ml: 'auto' }}>
           <PillGroup options={ROUNDS.map(r => ({ value: r.key, label: r.short }))} value="" onChange={() => {}} />
         </Box>
       </Box>
       {/* The round's name, which the full card carries under its header. */}
-      {!compact && <Typography sx={{ fontSize: '0.72rem', mb: 1 }}><Skeleton width="6rem" /></Typography>}
+      {!compact && <Typography sx={{ fontSize: TYPE_SCALE.meta, mb: 1 }}><Skeleton width="6rem" /></Typography>}
       <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(4, compact), gap: 1 }}>
         {[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" sx={{ height: SERIES_CARD_H[compact ? 'compact' : 'full'], borderRadius: 2.5 }} />)}
       </Box>
@@ -270,7 +271,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: typePx(1.4), color: 'text.secondary' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
           {/* Once it is over it is a record of a season, read all winter: say which. */}
           {bracket.over ? `${bracket.season} postseason` : heading}
         </Typography>
@@ -283,12 +284,12 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
         </Box>
       </Box>
       {champ && shown === 'ws' && (
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, mb: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1 }}>
           🏆 The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
         </Typography>
       )}
       {!compact && (
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mb: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1 }}>
           {ROUNDS.find(r => r.key === shown)!.label}
         </Typography>
       )}

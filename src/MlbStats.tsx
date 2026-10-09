@@ -64,7 +64,7 @@ const navKeyFor = (v: MlbView): NavKey | null =>
 /** The h1 of a tab that draws no title of its own. Close to the <title> in seo.ts, without the
  *  pitch: the heading names the page, the title also sells it. */
 const TAB_H1: Partial<Record<MlbView, string>> = {
-  home:        'MLB scores, stats and standings',
+  // Home draws its own, visibly (HomeView).
   standings:   'MLB Standings',
   leaderboard: 'MLB Stat Leaders',
   stats:       'MLB Player Stats',

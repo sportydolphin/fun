@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
+import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { DramaEvent, DramaKind, fetchLiveDrama, ord } from '../lib/liveDrama'
 import { useDevDrama } from '../dev/devDrama'
@@ -67,20 +68,20 @@ function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void })
           <Box component="span" sx={{
             px: 0.55, py: '1px', borderRadius: 999, flexShrink: 0,
             bgcolor: `${accent}1c`, border: `1px solid ${accent}55`,
-            fontSize: '0.5rem', fontWeight: 800, color: tone(accent),
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent),
             letterSpacing: typePx(0.5), lineHeight: 1.4, whiteSpace: 'nowrap',
           }}>
             {KIND_TAG[event.kind]}
           </Box>
           <Typography sx={{
-            fontWeight: 800, fontSize: '0.84rem', lineHeight: 1.2,
+            fontWeight: 800, fontSize: TYPE_SCALE.body, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             {event.headline}
           </Typography>
         </Box>
         <Typography sx={{
-          fontSize: '0.66rem', color: 'text.secondary', mt: 0.3, lineHeight: 1.35,
+          fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.3, lineHeight: 1.35,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {event.detail}
@@ -89,10 +90,10 @@ function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void })
 
       {/* Score + inning */}
       <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.title, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
           {event.away.score}–{event.home.score}
         </Typography>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: tone(accent), lineHeight: 1.3 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: tone(accent), lineHeight: 1.3 }}>
           {event.half === 'bottom' ? '▼' : '▲'} {ord(event.inning)}
         </Typography>
       </Box>
@@ -144,7 +145,7 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
 
   return (
     <Box sx={{
-      mb: 2, borderRadius: 2, overflow: 'hidden',
+      mb: 1.5, borderRadius: 2, overflow: 'hidden',
       border: `1px solid ${topAccent}${isDark ? '66' : '55'}`,
       bgcolor: 'background.paper',
       background: `linear-gradient(135deg, ${topAccent}${isDark ? '14' : '0d'} 0%, transparent 55%)`,
@@ -162,10 +163,10 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
           },
           animation: 'dramaPulse 1.6s ease-in-out infinite',
         }} />
-        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>
+        <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>
           Happening Now
         </Typography>
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', ml: 'auto' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', ml: 'auto' }}>
           live around the league
         </Typography>
       </Box>

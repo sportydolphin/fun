@@ -183,7 +183,9 @@ function probeOverflow(includeEllipsis) {
     const over = el.scrollWidth - el.clientWidth
     // A single glyph (▸, a medal emoji) is often set in a box deliberately narrower than it, with
     // negative margins, so it can hang into the gutter. Words and numbers are what clip.
-    const glyph = [...el.textContent.trim()].length === 1
+    // Counted as the reader sees it, by grapheme: ⚔️ and 🏖️ are two code points each (the emoji and a
+    // variation selector), and counted by code point they read as a word that spills its box.
+    const glyph = [...new Intl.Segmenter().segment(el.textContent.trim())].length === 1
     if (over > 1 && !(glyph && cs.overflowX === 'visible')) {
       if (cs.overflowX === 'visible') out.issues.push({ kind: 'spills', px: over, ...describe(el) })
       else if (cs.textOverflow === 'ellipsis') { if (includeEllipsis) out.issues.push({ kind: 'ellipsis', px: over, ...describe(el) }) }

@@ -5,7 +5,7 @@ import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { TEAM_NICKNAME, ACCENT } from '../constants'
 import { useIsDark, highlightColor, fmtGB } from '../lib/colorUtils'
 import { TeamLogo } from '../components/TeamLogo'
-import { SectionCard } from '../../ui/card'
+import { SectionCard, TYPE_SCALE } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
 
@@ -37,6 +37,11 @@ function oddsColor(p: number): string {
 }
 
 // ─── One standings row ──────────────────────────────────────────────────────────
+
+// The two number columns, shared by the rows and the header labels over them. In rem, since they
+// hold numbers: a header in px over cells in rem only lines up at the default text size.
+const GB_W = '2.5rem'
+const ODDS_W = '2.875rem'
 
 function SnapshotRow({ team, rightLabel, rightColor, oddsLabel, oddsClr, isMine, isLast, showSep, onTeamClick }: {
   team:        StandingsTeamRecord
@@ -70,24 +75,24 @@ function SnapshotRow({ team, rightLabel, rightColor, oddsLabel, oddsClr, isMine,
       >
         <TeamLogo teamId={team.teamId} abbr={team.abbr} />
         <Typography sx={{
-          flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: isMine ? 800 : 700,
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: isMine ? 800 : 700,
           lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {TEAM_NICKNAME[team.teamId] ?? team.abbr}
         </Typography>
-        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', minWidth: '2.75rem', textAlign: 'right' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', minWidth: '2.75rem', textAlign: 'right' }}>
           {team.wins}–{team.losses}
         </Typography>
         <Typography sx={{
-          fontSize: '0.76rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-          minWidth: '2.5rem', textAlign: 'right', color: rightColor,
+          fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+          minWidth: GB_W, textAlign: 'right', color: rightColor,
         }}>
           {rightLabel}
         </Typography>
         {oddsLabel !== undefined && (
           <Typography sx={{
-            fontSize: '0.76rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-            minWidth: '2.875rem', textAlign: 'right', color: oddsClr ?? 'text.secondary',
+            fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+            minWidth: ODDS_W, textAlign: 'right', color: oddsClr ?? 'text.secondary',
           }}>
             {oddsLabel}
           </Typography>
@@ -222,7 +227,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
   const title    = view.kind === 'division' ? view.division.divisionName : `${leagueAbbr(view.leagueId)} Wild Card`
   const hasOdds  = odds.size > 0
 
-  const colLabel = { fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', textAlign: 'right' } as const
+  const colLabel = { fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', textAlign: 'right' } as const
 
   return (
     <SectionCard
@@ -232,8 +237,8 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
       // right to land over their columns.
       action={
         <Box sx={{ display: 'flex', gap: 1, mr: -0.5 }}>
-          <Typography sx={{ ...colLabel, minWidth: chromePx(40) }}>GB</Typography>
-          {hasOdds && <Typography sx={{ ...colLabel, minWidth: chromePx(46) }}>Odds</Typography>}
+          <Typography sx={{ ...colLabel, minWidth: GB_W }}>GB</Typography>
+          {hasOdds && <Typography sx={{ ...colLabel, minWidth: ODDS_W }}>Odds</Typography>}
         </Box>
       }
     >

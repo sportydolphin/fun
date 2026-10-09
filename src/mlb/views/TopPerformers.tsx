@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
@@ -195,7 +196,7 @@ export function TopPerformers({
   if (loading) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading performers…</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Loading performers…</Typography>
       </Box>
     )
   }
@@ -248,7 +249,7 @@ export function TopPerformers({
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography {...playerLink(entry.playerId, entry.playerName, onPlayerClick)} sx={{
-            ...LINK_SX, fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
+            ...LINK_SX, fontWeight: 800, fontSize: TYPE_SCALE.body, lineHeight: 1.15, mb: 0.25,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {entry.playerName}
@@ -275,7 +276,7 @@ export function TopPerformers({
                 sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(entry.teamId, isDark), transformOrigin: 'center' }}
               />
             </Box>
-            <Typography className="tp-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
+            <Typography className="tp-abbr" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1 }}>
               {[entry.position, abbr, entry.context].filter(Boolean).join(' · ')}
             </Typography>
           </Box>
@@ -285,15 +286,15 @@ export function TopPerformers({
               {statItems.map(s => (
                 <Box key={s.label}>
                   <Typography sx={{
-                    fontSize:   s.hero ? { xs: '1.35rem', sm: '1.5rem' } : { xs: '0.88rem', sm: '1rem' },
-                    fontWeight: 900, lineHeight: 1,
+                    fontSize:   s.hero ? TYPE_SCALE.display : TYPE_SCALE.title,
+                    fontWeight: 800, lineHeight: 1,
                     color:      s.hero ? accentText : 'text.primary',
                     letterSpacing: s.hero ? typePx(-0.3) : 0,
                   }}>
                     {s.value}
                   </Typography>
                   <Typography sx={{
-                    fontSize: '0.6rem', fontWeight: 700,
+                    fontSize: TYPE_SCALE.caption, fontWeight: 700,
                     textTransform: 'uppercase', letterSpacing: typePx(0.5),
                     color: 'text.secondary', lineHeight: 1, mt: 0.2,
                   }}>
@@ -308,7 +309,7 @@ export function TopPerformers({
               onClick={(e) => { e.stopPropagation(); viewBoxScore(entry) }}
               sx={{
                 flexShrink: 0,
-                fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
                 cursor: 'pointer', px: 0.9, py: 0.3,
                 borderRadius: 999, border: '1px solid', borderColor: 'divider',
                 whiteSpace: 'nowrap',
@@ -409,13 +410,13 @@ export function TopPerformers({
         }}>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, flex: 1, minWidth: 0 }}>
             <Typography sx={{
-              fontWeight: 900, fontSize: '0.64rem', textTransform: 'uppercase',
-              letterSpacing: typePx(0.8), color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
+              fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
+              letterSpacing: typePx(1), color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
             }}>
               {headerEntry.context ? 'Postseason Standout' : 'Single-Game Standout'}
             </Typography>
             <Typography sx={{
-              fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary',
+              fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary',
               lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               · {headerEntry.period}
@@ -424,16 +425,16 @@ export function TopPerformers({
           {/* Left/right indicator */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
             <Box onClick={() => go(-1)} sx={stepBtnSx}>
-              <ChevronLeft sx={{ fontSize: '1.05rem' }} />
+              <ChevronLeft sx={{ fontSize: ICON_SIZE.md }} />
             </Box>
             <Typography sx={{
-              fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary',
+              fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
               fontVariantNumeric: 'tabular-nums', minWidth: '1.875rem', textAlign: 'center', lineHeight: 1,
             }}>
               {headerIdx + 1} / {performers.length}
             </Typography>
             <Box onClick={() => go(1)} sx={stepBtnSx}>
-              <ChevronRight sx={{ fontSize: '1.05rem' }} />
+              <ChevronRight sx={{ fontSize: ICON_SIZE.md }} />
             </Box>
           </Box>
         </Box>

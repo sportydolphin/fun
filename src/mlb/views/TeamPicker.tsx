@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, CardLink } from '../../ui/card'
+import { SectionCard, CardLink, TYPE_SCALE } from '../../ui/card'
 import { TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME } from '../constants'
 import { useIsDark, ringColor } from '../lib/colorUtils'
 import { LogoBubble } from '../components/boxScore'
@@ -39,7 +39,7 @@ export function FollowTeamPrompt({ onFollow, playing }: {
   return (
     <>
       <SectionCard title="Your team" action={<CardLink label="Choose a team" onClick={() => setOpen(true)} />}>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.35 }}>
           Follow a club to put its games, standing and players at the top of this page.
         </Typography>
       </SectionCard>
@@ -75,7 +75,7 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
     <ModalShell onClose={close} maxWidth={chromePx(560)} sheet eyebrow="Choose your team">
       <Box sx={{ px: 2, pt: 1.25, pb: 2 }}>
         {anyPlaying && (
-          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mb: 1, display: 'flex', alignItems: 'center', gap: 0.6 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1, display: 'flex', alignItems: 'center', gap: 0.6 }}>
             <Box component="span" sx={{ width: chromePx(6), height: chromePx(6), borderRadius: '50%', bgcolor: '#22c55e', flexShrink: 0 }} />
             Still playing this postseason
           </Typography>
@@ -84,8 +84,8 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
           {DIVISIONS.map(d => (
             <Box key={d.code}>
               <Typography sx={{
-                fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase',
-                color: 'text.disabled', mb: 0.5,
+                fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+                color: 'text.secondary', mb: 0.5,
               }}>
                 {d.label}
               </Typography>
@@ -103,7 +103,7 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
                       ...FOCUS_RING,
                     }}>
                       <LogoBubble teamId={id} abbr={TEAM_ABBR[id]} size={36} />
-                      <Typography sx={{ fontSize: '0.64rem', fontWeight: 800, lineHeight: 1 }}>{TEAM_ABBR[id]}</Typography>
+                      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1 }}>{TEAM_ABBR[id]}</Typography>
                       {live && (
                         <Box sx={{
                           position: 'absolute', top: chromePx(6), right: `calc(50% - ${chromePx(22)})`,

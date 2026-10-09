@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect, lazy, Suspense } from 'react'
+import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
@@ -72,7 +73,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Typography sx={{
-            fontSize: '0.44rem', fontWeight: 900, letterSpacing: typePx(1.5),
+            fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5),
             color: '#fff', textTransform: 'uppercase', lineHeight: 1,
           }}>
             {isLive ? '● LIVE' : isPostponed ? unplayedTag : isActualToday ? 'TODAY' : 'NEXT'}
@@ -81,14 +82,14 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       )}
 
       <Typography sx={{
-        fontSize: '0.56rem', fontWeight: 600,
-        color: 'text.disabled', lineHeight: 1,
-        mt: highlight ? 1.4 : 0, letterSpacing: typePx(0.3),
+        fontSize: TYPE_SCALE.caption, fontWeight: 600,
+        color: 'text.secondary', lineHeight: 1,
+        mt: highlight ? 1.4 : 0, letterSpacing: typePx(0.5),
       }}>
         {chipDate(game.date)}{game.gameNumber > 1 ? ' · G2' : ''}
       </Typography>
 
-      <Typography sx={{ fontSize: '0.46rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.8) }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.5) }}>
         {game.isHome ? 'VS' : '@'}
       </Typography>
 
@@ -105,31 +106,31 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         />
       </Box>
 
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
         {game.opponentAbbr}
       </Typography>
 
       {isFinal ? (
         <>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.primary', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary', lineHeight: 1 }}>
             {game.teamScore}–{game.opponentScore}
           </Typography>
           <Box sx={{ px: 0.75, py: chromePx(2), borderRadius: 0.75, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
-            <Typography sx={{ fontSize: '0.58rem', fontWeight: 900, lineHeight: 1, color: isWin ? '#22c55e' : '#ef4444' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, color: isWin ? TONE.green : TONE.red }}>
               {isWin ? 'W' : 'L'}
             </Typography>
           </Box>
         </>
       ) : isLive ? (
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: TONE.red, lineHeight: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: TONE.red, lineHeight: 1 }}>
           {game.teamScore}–{game.opponentScore}
         </Typography>
       ) : isPostponed ? (
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.5) }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.5) }}>
           {unplayedTag}
         </Typography>
       ) : (
-        <Typography sx={{ fontSize: '0.54rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1, textAlign: 'center' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary', lineHeight: 1, textAlign: 'center' }}>
           {game.gameTime}
         </Typography>
       )}
@@ -188,8 +189,8 @@ function GameCountdown({ iso }: { iso: string }) {
         }} />
       )}
       <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap',
-        color: (tint && tone(tint)) ?? 'text.disabled',
+        fontSize: TYPE_SCALE.caption, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap',
+        color: (tint && tone(tint)) ?? 'text.secondary',
       }}>
         in {text}
       </Typography>
@@ -257,13 +258,13 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Typography component="div" sx={{ lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 0.7, minWidth: 0 }}>
           {!hideDate && (
-            <Box component="span" sx={{ fontSize: '0.9rem', fontWeight: 800, color: 'text.primary' }}>
+            <Box component="span" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary' }}>
               {relativeChipDate(game.date)}
             </Box>
           )}
           {gmLabel && (
             <Box component="span" sx={{
-              fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.5), color: 'text.disabled',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), color: 'text.secondary',
               px: 0.55, py: 0.2, borderRadius: 999, border: '1px solid', borderColor: 'divider',
               whiteSpace: 'nowrap', flexShrink: 0,
             }}>
@@ -276,7 +277,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
             onClick={e => { e.stopPropagation(); onAction() }}
             sx={{
               flexShrink: 0,
-              fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+              fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
               cursor: 'pointer', px: 0.9, py: 0.3,
               borderRadius: 999, border: '1px solid', borderColor: 'divider',
               whiteSpace: 'nowrap',
@@ -301,7 +302,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
               const awayWon = awayTeamId === myTeamId ? isWin : !isWin
               const scoreTxt = (score: number | null) => (
                 <Typography sx={{
-                  fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
+                  fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1,
                   color: isLive ? TONE.red : 'text.primary',
                 }}>
                   {score ?? 0}
@@ -315,7 +316,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
                     {logo(awayTeamId, awayCol, awayWon)}
                     {scoreTxt(awayScore)}
                   </Box>
-                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 400, color: 'text.disabled', flexShrink: 0 }}>–</Typography>
+                  <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 400, color: 'text.disabled', flexShrink: 0 }}>–</Typography>
                   <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     {scoreTxt(homeScore)}
                     {logo(homeTeamId, homeCol, !awayWon)}
@@ -329,7 +330,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
           <>
             {logoCircle(game.opponentId, oppCol, 32)}
             <Typography sx={{
-              fontSize: '1.05rem', fontWeight: 800, lineHeight: 1,
+              fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1,
               color: isLive ? TONE.red : 'text.primary',
             }}>
               {game.teamScore}–{game.opponentScore}
@@ -338,7 +339,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         ) : (
           // Preview / postponed: game time (+ live countdown). Team logos live in CompactPitcherRow below
           <>
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: game.state === 'postponed' ? 'text.disabled' : 'text.primary', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, color: game.state === 'postponed' ? 'text.disabled' : 'text.primary', lineHeight: 1 }}>
               {game.state === 'postponed' ? (game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD') : game.gameTime}
             </Typography>
             {game.state === 'preview' && game.gameDateISO && (
@@ -350,7 +351,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         {label && (
           <Box component="span" sx={{
             ml: 1, flexShrink: 0, alignSelf: 'center',
-            fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
             color: (labelColor && tone(labelColor)) ?? 'text.secondary', lineHeight: 1,
           }}>
             {label}
@@ -456,11 +457,11 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
 
             {/* ◀ scroll button */}
             <Box onClick={() => scrollStrip('left')} sx={{ ...arrowBtn(canScrollLeft), left: chromePx(6) }}>
-              <Typography sx={{ fontSize: '0.7rem', lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>◀</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>◀</Typography>
             </Box>
             {/* ▶ scroll button */}
             <Box onClick={() => scrollStrip('right')} sx={{ ...arrowBtn(canScrollRight), right: chromePx(6) }}>
-              <Typography sx={{ fontSize: '0.7rem', lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>▶</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>▶</Typography>
             </Box>
 
             <Box
@@ -493,7 +494,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
           </Box>
 
           <Box sx={{ px: 3, pb: 2.5 }}>
-            <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', textAlign: 'center' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center' }}>
               Tap any game to see matchup details & probable starters
             </Typography>
           </Box>
@@ -531,7 +532,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
 
   if (loading) return (
     <Box sx={{ mt: 0.75 }}>
-      <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled' }}>Loading starters…</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>Loading starters…</Typography>
     </Box>
   )
 
@@ -558,14 +559,14 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
         </Box>
         <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
           <Typography className="pmn" sx={{
-            fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
+            fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             transition: 'color 0.12s',
           }}>
             {pitcher ? shortName(pitcher.name) : 'TBD'}
           </Typography>
           {pitcher && (
-            <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap' }}>
               {pitcher.era} ERA
             </Typography>
           )}
@@ -581,7 +582,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       maxWidth: inline ? 'none' : chromePx(COMPACT_ROW_MAX),
     }}>
       <PitcherChip pitcher={awayPitcher} teamId={awayTeamId} />
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
       <PitcherChip pitcher={homePitcher} teamId={homeTeamId} />
     </Box>
   )
@@ -633,13 +634,13 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
         </Box>
         <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
           <Typography className="pmn" sx={{
-            fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
+            fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             transition: 'color 0.12s',
           }}>
             {shortName(player.name)}
           </Typography>
-          <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap' }}>
             {formatIP(player.ip)} IP · {player.er}ER
           </Typography>
         </Box>
@@ -655,7 +656,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
     }}>
       {first && <PlayerCard player={first} />}
       {first && second && (
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
       )}
       {second && <PlayerCard player={second} />}
     </Box>
@@ -845,7 +846,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
 
   if (loading) return collapsed ? null : (
     <Box sx={{ py: 2, textAlign: 'center' }}>
-      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled' }}>Loading schedule…</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Loading schedule…</Typography>
     </Box>
   )
   if (!games.length) return null

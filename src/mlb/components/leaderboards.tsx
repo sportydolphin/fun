@@ -102,10 +102,11 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect, gho
 
       <Box sx={{ flex: 1, minWidth: '4rem' }}>
         <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {/* The nickname on a phone, beside a logo that already says the city: "Dodgers" rather
-              than "Los Angeles Do…". */}
-          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{g(TEAM_NICKNAME[row.teamId] ?? row.name)}</Box>
-          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{g(row.name)}</Box>
+          {/* The nickname beside a logo that already says the city: "Dodgers" rather than "Los Angeles
+              Do…". Always on the three-row card, whose verdict column leaves the name the least room
+              (in Home's narrow column it cut "St. Louis Ca…"); on a phone in the full sheet too. */}
+          <Box component="span" sx={{ display: showLabel ? 'inline' : { xs: 'inline', sm: 'none' } }}>{g(TEAM_NICKNAME[row.teamId] ?? row.name)}</Box>
+          {!showLabel && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{g(row.name)}</Box>}
         </Typography>
         {row.sub && (
           <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', fontWeight: 500, mt: 0.1 }}>
@@ -127,7 +128,7 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect, gho
         <Typography sx={{
           fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent),
           width: LABEL_W, flexShrink: 0, textAlign: 'right',
-          letterSpacing: typePx(0.3), lineHeight: 1.25,
+          letterSpacing: typePx(0.5), lineHeight: 1.25,
           textTransform: 'uppercase',
         }}>
           {g(row.label ?? '')}
@@ -375,7 +376,7 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
         <Typography sx={{
           fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent),
           width: LABEL_W, flexShrink: 0, textAlign: 'right',
-          letterSpacing: typePx(0.3), lineHeight: 1.25,
+          letterSpacing: typePx(0.5), lineHeight: 1.25,
           textTransform: 'uppercase',
         }}>
           {g(row.label ?? '')}

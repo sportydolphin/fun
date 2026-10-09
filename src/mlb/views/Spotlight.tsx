@@ -1,4 +1,5 @@
 import React from 'react'
+import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { postseasonGameLabel } from '../postseason'
@@ -606,8 +607,8 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
         display: 'flex', alignItems: 'center', gap: 0.75,
       }}>
         <Typography sx={{
-          fontWeight: 900, fontSize: '0.68rem', textTransform: 'uppercase',
-          letterSpacing: typePx(1.2), color: (labelColor && tone(labelColor)), flex: 1, lineHeight: 1,
+          fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
+          letterSpacing: typePx(1), color: (labelColor && tone(labelColor)), flex: 1, lineHeight: 1,
         }}>
           {mode === 'hot' ? '🔥 On Fire' : '🥶 Ice Cold'}
         </Typography>
@@ -615,7 +616,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
           px: 1, py: chromePx(3), borderRadius: 999,
           bgcolor: `${labelColor}20`, border: `1px solid ${labelColor}40`, flexShrink: 0,
         }}>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: (labelColor && tone(labelColor)), letterSpacing: typePx(0.3), lineHeight: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: (labelColor && tone(labelColor)), letterSpacing: typePx(0.5), lineHeight: 1 }}>
             {data.period}
           </Typography>
         </Box>
@@ -638,7 +639,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography {...playerLink(data.playerId, data.playerName, onPlayerClick)} sx={{
-            ...LINK_SX, fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
+            ...LINK_SX, fontWeight: 800, fontSize: TYPE_SCALE.body, lineHeight: 1.15, mb: 0.25,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {data.playerName}
@@ -661,7 +662,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
                 sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(data.teamId, isDark), transformOrigin: 'center' }}
               />
             </Box>
-            <Typography className="spotlight-team-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
+            <Typography className="spotlight-team-abbr" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1 }}>
               {data.position} · {abbr}
             </Typography>
           </Box>
@@ -670,15 +671,15 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
             {statItems.map(s => (
               <Box key={s.label}>
                 <Typography sx={{
-                  fontSize:   s.hero ? { xs: '1.35rem', sm: '1.5rem' } : { xs: '0.88rem', sm: '1rem' },
-                  fontWeight: 900, lineHeight: 1,
+                  fontSize:   s.hero ? TYPE_SCALE.display : TYPE_SCALE.title,
+                  fontWeight: 800, lineHeight: 1,
                   color:      s.hero ? accentText : 'text.primary',
                   letterSpacing: s.hero ? typePx(-0.3) : 0,
                 }}>
                   {s.value}
                 </Typography>
                 <Typography sx={{
-                  fontSize: '0.6rem', fontWeight: 700,
+                  fontSize: TYPE_SCALE.caption, fontWeight: 700,
                   textTransform: 'uppercase', letterSpacing: typePx(0.5),
                   color: 'text.secondary',
                   lineHeight: 1, mt: 0.2,
