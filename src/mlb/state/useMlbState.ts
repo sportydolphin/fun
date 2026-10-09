@@ -325,6 +325,9 @@ export function useMlbState() {
       setFollowedPlayerIds(picks)
       try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(picks)) } catch {}
     }
+    // Once, when the clubs first arrive (the ref guards it): the follows are read at that moment
+    // and deliberately not watched, or unfollowing everything would refill them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allTeams])
 
   // WHAT THE BOARDS HOLD IS KEPT while it is fresh, keyed on what it was fetched for. The Stats tab's

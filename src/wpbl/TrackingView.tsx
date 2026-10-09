@@ -7,6 +7,12 @@ import {
 import { aggregateTracking } from './tracking'
 import type { WpblSeasonGame } from './season'
 import type { TrackingBoard, VeloLeader, SpinLeader, BattedBall } from './tracking'
+
+type TrackingRows = {
+  track: Parameters<typeof aggregateTracking>[0]
+  players: Parameters<typeof aggregateTracking>[1]
+  pitching: Parameters<typeof aggregateTracking>[2]
+}
 import { WPBL_ACCENT } from './constants'
 import { SectionCard, LeaderRow, CARD_BORDER, useWpblName, chromePx } from './ui'
 import { useUnits } from '../UnitsContext'
@@ -61,10 +67,18 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
   // Seed from the shared session cache so swiping back to this tab (SwipeableViews
   // unmounts it on the way out) repaints instantly instead of re-running the whole
   // fetch — including the paginated tracking scan — behind the spinner.
-  const [board, setBoard] = useState<TrackingBoard | null>(() => {
+  //
+  // THE ROWS ARE STATE AND THE BOARD IS DERIVED, so it follows the schedule. It used to be built
+  // once, with whatever `games` held at mount, and the schedule is what keeps postseason pitches
+  // out of a season board (CLAUDE.md, "Postseason games must never reach..."): one that arrived or
+  // grew later never reached it.
+  const [rows, setRows] = useState<TrackingRows | null>(() => {
     const tr = getCachedWpblAllTracking(), pl = getCachedWpblAllPlayers(), ln = getCachedWpblAllLines()
-    return tr && pl && ln ? aggregateTracking(tr, pl, ln.pitching, games) : null
+    return tr && pl && ln ? { track: tr, players: pl, pitching: ln.pitching } : null
   })
+  const board = useMemo<TrackingBoard | null>(
+    () => (rows ? aggregateTracking(rows.track, rows.players, rows.pitching, games) : null),
+    [rows, games])
   const [loading, setLoading] = useState(
     () => !(getCachedWpblAllTracking() && getCachedWpblAllPlayers() && getCachedWpblAllLines()))
 
@@ -78,7 +92,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
     Promise.all([fetchWpblAllTracking(), fetchWpblAllPlayers(), fetchWpblAllLines()])
       .then(([track, players, lines]) => {
         if (cancelled) return
-        setBoard(aggregateTracking(track, players, lines.pitching, games))
+        setRows({ track, players, pitching: lines.pitching })
         setLoading(false)
       })
       .catch(() => { if (!cancelled) setLoading(false) })

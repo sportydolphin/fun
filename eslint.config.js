@@ -32,9 +32,12 @@ export default tseslint.config(
     linterOptions: { reportUnusedDisableDirectives: 'error' },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
-      // A warning, not an error: the codebase has deliberate omissions with a comment beside them,
-      // and a missing dependency is a judgement per effect rather than a mechanical fix.
-      'react-hooks/exhaustive-deps': 'warn',
+      // AN ERROR, and every deliberate omission says so with a disable and the reason beside it.
+      // As a warning it sat at 45 in every run's output, where a new one was invisible, and two of
+      // the 45 were real: Draft value and the TrackingView board each built season totals from the
+      // schedule they saw first, so a schedule that arrived later never reached them. A missing
+      // dependency is still a judgement per hook, which is exactly why it has to stop CI.
+      'react-hooks/exhaustive-deps': 'error',
 
       // An unused import is removed by `npm run lint -- --fix`; an unused variable is reported and
       // left for a person, since it is as often a half-finished change as dead code.

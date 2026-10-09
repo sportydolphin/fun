@@ -13,9 +13,11 @@
 > season ran. Over the 14 days to Aug 19, `/mlb` drew 768 events across 33 browsers against
 > `/wpbl`'s 18,213 across 2,036. The WPBL season is over, which is what reopens this file.*
 
-## Handoff: where MLB stands (Oct 2, 2026)
+## Handoff: where MLB stands (Oct 9, 2026)
 
-**State.** Items 0 to 6 of the plan below are done, and 7 is half done. The section now has
+**State.** The whole alignment plan below (items 0 to 7) is done, and so is every item in the
+list that follows: as of Oct 9 there is no open MLB build item. What is left is a decision after
+October (the note under item 12) and whatever that measurement suggests. The section now has
 WPBL's phone shell, history-backed sheets, a real path for every tab, club, player and game, a
 postseason bracket, an offseason-aware Home, the desktop scale with no `zoom`, and a chunk per
 view. The postseason runs to Oct 31, and the offseason shape
@@ -181,7 +183,7 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.
 
-**Tests**: 16 files and 137 cases under `src/mlb/__tests__/`, against 126 files in WPBL. Each item
+**Tests**: 19 files and about 180 cases under `src/mlb/__tests__/` (Oct 9), against 130 files in WPBL. Each item
 above should leave a test behind, as items 0, 4 and 5b did.
 
 ## Aligning with WPBL (Sep 27, 2026) 🎯⚙️

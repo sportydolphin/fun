@@ -55,10 +55,13 @@ Violating these creates real problems. Treat them as hard constraints.
   page at 375, 760, 960 and 1440. A hidden browser pane records no layout-shift entries, so
   compare rects rather than trusting CLS. `npm run sweep -- --shift` does exactly this against the
   dev server ([`scripts/layout-sweep.mjs`](scripts/layout-sweep.mjs)); `--routes` narrows it.
-  **CI runs it on every pull request** (the `layout` job) from a recorded snapshot of the data,
-  with the clock frozen at the moment it was taken. A query the snapshot lacks fails the job, so
-  a change to what a page fetches comes with `npm run sweep:record`, run against real data, and
-  the new `scripts/fixtures/layout-sweep.json.gz` in the same pull request.
+  **CI runs it on every pull request** (the `layout` check, four parallel slices) from a recorded
+  snapshot of the data, with the clock frozen at the moment it was taken. A query the snapshot
+  lacks fails the job, so a change to what a page fetches comes with `npm run sweep:record`, run
+  against real data, and the new `scripts/fixtures/layout-sweep.json.gz` in the same pull request.
+  The accepted-findings baseline is empty: fix a finding, don't baseline it. A failure CI sees and
+  your machine doesn't is CI's slower runner catching a real loading phase; reproduce it with
+  `--cpu 4` and the job's `sweep-shots` artifact ([docs/CI.md](docs/CI.md)).
 - **Never commit secrets.** Client build vars live in Cloudflare Pages env plus `.env`;
   edge-function and cron secrets live in Supabase and GitHub Actions (table in
   ARCHITECTURE §9).
@@ -548,7 +551,9 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
 - [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for anything under `/wpbl`: season clock, prioritized
   next list, dated log of what shipped. [ROADMAP.md](ROADMAP.md) is the MLB equivalent.
 - [README.md](README.md) for quick start and scripts.
-- [docs/](docs/): `DISCORD.md` (fan-server board, final-score box scores, highlight reels,
+- [docs/](docs/): `CI.md` (**read before touching `ci.yml`, the test config, lint rules or the
+  layout sweep**: the required checks by name, the two test environments, the flake hunt, and
+  why the Worker builds `main` only), `DISCORD.md` (fan-server board, final-score box scores, highlight reels,
   the `/player` slash command, and which secret store each writer reads),
   `ADMIN_ANALYTICS.md` (**read before touching the `events` table or the `admin_*` RPCs**;
   its security section is the only thing keeping site analytics from being readable by
@@ -589,12 +594,17 @@ in-site bell and the push senders.
 - **Dev:** `npm install && npm run dev` → http://localhost:5173, redirects to `/wpbl`.
   Needs `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_VAPID_PUBLIC_KEY`
   for push. Without them the app renders empty states.
-- **Tests:** `npm run test` (Vitest), in `src/__tests__/` and `src/**/__tests__`.
+- **Tests:** `npm run test` (Vitest, about 22s), in `src/__tests__/` and `src/**/__tests__`.
+  `.tsx` tests run in jsdom and `.ts` tests in plain Node: a `.ts` test that touches `window`
+  starts with `// @vitest-environment jsdom`. Never sleep for a history move; use `traverse()`
+  from `src/test/history.ts`. Both, and the flake hunt, are in [docs/CI.md](docs/CI.md).
 - **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm run typecheck`, `npm run lint`,
   the tests and the build on every push and pull request. `npm run lint -- --fix` removes unused
   imports; an unused variable is an error left for a person. The tests run against placeholder
   Supabase settings (`test.env` in `vite.config.js`), never the real project, so no test may need
-  `.env`. Its `check` job is required on every pull request into `main`.
+  `.env`. Its `check` and `layout` checks are required on every pull request into `main`.
+  Lint must print nothing: `react-hooks/exhaustive-deps` is an error, and a dependency left out
+  on purpose carries a disable comment with the reason above it.
 - **Cron:** `scripts/*.mjs` are Node jobs on GitHub Actions schedules (table in
   ARCHITECTURE §5), using the service-role key from repo secrets.
 - **Edge functions** deploy by hand: `supabase functions deploy <name>`.

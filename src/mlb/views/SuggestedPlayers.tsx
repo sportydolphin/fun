@@ -161,7 +161,10 @@ export function SuggestedPlayersSection({ teamId, followedPlayerIds, onFollow }:
     fetchSuggestions(teamId, followedPlayerIds)
       .then(setSuggestions)
       .finally(() => setLoading(false))
-  }, [teamId]) // refetch only if team changes; followedIds reflected via alreadyFollowed
+    // Refetch only when the club changes; a follow is reflected through alreadyFollowed, and
+    // refetching on it would reshuffle the list under the reader's finger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId])
 
   if (!loading && suggestions.length === 0) return null
 

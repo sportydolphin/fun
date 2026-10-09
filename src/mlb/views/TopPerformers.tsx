@@ -170,6 +170,8 @@ export function TopPerformers({
     touchStartRef.current = null
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
     go(dx < 0 ? 1 : -1)
+    // `go` reads only refs, so the first render's copy behaves exactly like the latest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Resolves the specific game this performance came from (via the league-wide,

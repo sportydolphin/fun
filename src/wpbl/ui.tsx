@@ -133,6 +133,9 @@ export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
   const grew = useRef(false)
 
   useLayoutEffect(() => { setStage(0); grew.current = false }, [name, fitKey])
+  // After EVERY render on purpose: it measures. Shrinking stops at the last stage and growing is
+  // allowed once per name and width (`grew`), so the loop the rule warns about settles.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return

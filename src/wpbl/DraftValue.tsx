@@ -128,7 +128,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
     const yTicks = Array.from({ length: 5 }, (_, i) => yLo + ((yHi - yLo) * i) / 4)
     const maxWeight = Math.max(...points.map(p => p.weight), 1)
     return { px, py, rounds, yTicks, xMax, maxWeight }
-  }, [points, plotW, plotH, spec.better])
+  }, [points, plotW, plotH])
 
   if (!geom) {
     return (
@@ -350,7 +350,7 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
       hitters: bat, pitchers: pit, roundSize: size, roundCount: lastRound,
       drafted: draftedCount, gamesPlayed: games,
     }
-  }, [players, batting, pitching, cut, eraBasis])
+  }, [players, batting, pitching, cut, eraBasis, schedule])
 
   const hitterPanel = (
     <Panel onOpenPlayer={onOpenPlayer} spec={{

@@ -938,6 +938,8 @@ export default function WpblStatsView({
     setSortKey(next.key)
     setSortAsc(next.asc)
     setPicked(focus.playerId ? { id: focus.playerId, side: axes.side ?? 'hitting', sortKey: next.key } : null)
+    // Once per jump: `requested` is the jump's token, and `focus` arrives with it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requested])
 
   // Arriving at the tab: the first time counts as an open, every later one as a return. Both
@@ -950,6 +952,8 @@ export default function WpblStatsView({
     if (linkLogged.current) { linkLogged.current = false; statsOpened = true; return }
     logBoard(statsOpened ? 'return' : 'open')
     statsOpened = true
+    // On arriving at the tab only; logBoard reads the board showing at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
   // Revalidate on mount, but skip the DB round trip entirely when the shared cache is
@@ -1327,7 +1331,7 @@ export default function WpblStatsView({
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, shortName, lobByGameTeam, games, scope])
+  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, shortName, lobByGameTeam, games, scope, positionIndex])
 
   // Standard competition ranking (1, 2, T-3, T-3, 5), judged on the number AS SHOWN. Three hitters
   // printed at .400 and numbered 8, 9 and 10 claims an order the reader cannot see, which is

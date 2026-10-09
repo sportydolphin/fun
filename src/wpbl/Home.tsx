@@ -660,6 +660,8 @@ function GameReminderRow({ game, away, home, startMs }: {
       .then(pref => { if (!cancelled && pref !== null) setOn(pref) })
       .finally(() => { if (!cancelled) setReady(true) })
     return () => { cancelled = true }
+    // Keyed on the account, not the object, which Supabase replaces on every token refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
   const handleToggle = async (next: boolean) => {

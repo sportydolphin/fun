@@ -37,6 +37,10 @@ import type {
 } from './types'
 import { typePx } from '../ui/scale'
 
+// One empty tally for every category nobody has voted in, so a memo keyed on it holds: a fresh
+// `{}` per render recomputed both lists on every render.
+const NO_VOTES: Record<string, number> = {}
+
 /**
  * The fan awards: five questions, one card on Home, one sheet to answer them in.
  *
@@ -556,7 +560,7 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
   const { award, candidates } = entry
   const picked = state.ballot[award.id] ?? null
   const total = awardVoteCount(state.results, award.id)
-  const bucket = state.results[award.id] ?? {}
+  const bucket = state.results[award.id] ?? NO_VOTES
   // Yours, or the whole league's once it is over: before either, a tally would be telling the
   // next fifty voters what the first fifty thought.
   const showShare = !!picked || closed
@@ -804,7 +808,7 @@ function winnerShareData(
   fmtEra: (v: number) => string,
 ): ShareCardData | null {
   const { award, candidates } = entry
-  const bucket = state.results[award.id] ?? {}
+  const bucket = state.results[award.id] ?? NO_VOTES
   const total = awardVoteCount(state.results, award.id)
   const votesOf = (key: string) => bucket[key] ?? 0
   const winner = withWriteIns(candidates, {
@@ -901,7 +905,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   const { fmtEra } = useEraBasis()
   const { award, candidates } = entry
 
-  const bucket = state.results[award.id] ?? {}
+  const bucket = state.results[award.id] ?? NO_VOTES
   const total = awardVoteCount(state.results, award.id)
   const votesOf = (key: string) => bucket[key] ?? 0
   // Vote order, write-ins included, the same list the tiles fall back to at close. Only names
@@ -909,7 +913,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   // them, and withWriteIns keeps the seeded four in the list at zero.
   const ranked = useMemo(() => withWriteIns(candidates, {
     bucket, players, picked: state.ballot[award.id] ?? null, reveal: true, closed: true,
-  }).filter(c => votesOf(c.key) > 0), [candidates, bucket, players, state.ballot, award.id])
+  }).filter(c => (bucket[c.key] ?? 0) > 0), [candidates, bucket, players, state.ballot, award.id])
 
   const teamOf = (id: string | null) => (id ? teams.find(t => t.id === id) ?? null : null)
   const label = (c: AwardCandidate) => (c.playerId ? short(c.name) : c.name)
@@ -974,6 +978,9 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
     if (!winner || skeleton || !root || !port) { setOrigin(null); return }
     const rr = root.getBoundingClientRect(), pr = port.getBoundingClientRect()
     setOrigin({ x: pr.left - rr.left + pr.width / 2, y: pr.top - rr.top + pr.height / 2, r: pr.width / 2 })
+    // On a new winner, not on every render: `winner` is rebuilt each time, and this effect sets
+    // state, so following the object would measure and re-render in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winner?.key, skeleton])
 
   // STAGGERED, TOP TO BOTTOM. All the winners are on screen when the sheet opens, so firing them at

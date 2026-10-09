@@ -257,6 +257,8 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
       .then(([l, pl]) => { if (!cancelled) setData({ batting: l.batting, pitching: l.pitching, plays: pl }) })
       .catch(() => { /* keep last-good; card falls back to line-score-only recap */ })
     return () => { cancelled = true }
+    // One read per game: `game` is rebuilt whenever the schedule polls.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.id])
 
   const byPlayerId = useMemo(() => new Map(players.map(p => [p.id, p])), [players])

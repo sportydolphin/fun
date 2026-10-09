@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
+import { traverse } from '../../test/history'
 import { useSheetHistory, keepSheetMarker, sheetEntryUrl, sheetOpenAt } from '../state/sheetHistory'
 
 // Game Center's address is its sheet's history entry (/mlb/games/<pk>). These pin the two ways it
@@ -39,7 +40,7 @@ describe('a sheet with an address', () => {
     // must stay the sheet's.
     window.history.replaceState(keepSheetMarker({ view: 'home' }), '', sheetEntryUrl() ?? '/mlb')
     expect(window.location.pathname).toBe('/mlb/games/7')
-    await act(async () => { window.history.back(); await settle() })
+    await act(async () => { await traverse(() => window.history.back()) })
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(window.location.pathname).toBe('/mlb')
   })
@@ -56,7 +57,7 @@ describe('arriving at a game by its address', () => {
     expect(fetchGameSummary).toHaveBeenCalledTimes(1)
     // ONE Back. Had the sheet pushed its own entry over the seated one rather than adopting it,
     // this would land on the seated entry, still the game's address, and the sheet would stay up.
-    await act(async () => { window.history.back(); await settle() })
+    await act(async () => { await traverse(() => window.history.back()) })
     expect(queryByText('game 849844')).toBeNull()
     expect(window.location.pathname).toBe('/mlb/scores')
     expect(window.history.state).toEqual({ view: 'scores' })
@@ -74,10 +75,10 @@ describe('arriving at a game by its address', () => {
     window.history.replaceState(null, '', '/mlb/games/5')
     const { findByText, queryByText } = render(<GameRoute onPlayerClick={() => {}} onTeamClick={() => {}} />)
     await findByText('game 5')
-    await act(async () => { window.history.back(); await settle() })
+    await act(async () => { await traverse(() => window.history.back()) })
     expect(queryByText('game 5')).toBeNull()
     const length = window.history.length
-    await act(async () => { window.history.forward(); await settle() })
+    await act(async () => { await traverse(() => window.history.forward()) })
     await findByText('game 5')
     expect(window.location.pathname).toBe('/mlb/games/5')
     expect(window.history.length).toBe(length)
