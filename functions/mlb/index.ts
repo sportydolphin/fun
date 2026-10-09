@@ -30,6 +30,13 @@
 //    the connection and the phone's CPU, so every page this function hands through goes out
 //    without them (`shell`).
 //
+// 6. THE PREVIEW CARD. A shared player or game link unfurls as that player or game rather than as
+//    the site's one generic card: the title, the season line or the score, and for a player the
+//    headshot on the club's colour. Unfurlers never run JS, so src/seo.ts cannot do this. The
+//    wording is src/mlb/ogCard.ts (tested); the tag rewrite is src/lib/ogTags.ts, shared with WPBL.
+//    The reads that prove a player or game exists are the reads that carry its card, so a card
+//    costs no extra request.
+//
 // It cannot break the page: StatsAPI slow, down or answering something unexpected all fall
 // through to the untouched shell, which resolves the player or game on its own. A 404 is only
 // ever answered on positive evidence that there is no such player or game.
@@ -39,6 +46,10 @@ import {
   MLB_PLAYERS_BASE, MLB_POSTSEASON_BASE,
 } from '../../src/mlb/routes'
 import { SCORED_GAME_TYPES } from '../../src/mlb/gameStatus'
+import { mlbPlayerCard, mlbGameCard, type MlbCardPerson, type MlbCardGame, type MlbOgCard } from '../../src/mlb/ogCard'
+import { rewriteOgTags } from '../../src/lib/ogTags'
+
+const SITE = 'https://sportydolphin.fun'
 
 interface Env { ASSETS?: { fetch: (req: Request) => Promise<Response> } }
 export interface Ctx { request: Request; env: Env; next: () => Promise<Response> }
@@ -87,21 +98,35 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   const id = mlbPlayerIdFromPath(path)
   if (id === null) return notFound(context)
 
-  let fullName: string | null
+  const season = cardSeason(new Date())
+  let person: MlbCardPerson | null
   try {
-    fullName = await readPlayerName(id)
+    person = await readPlayerCard(id, season)
   } catch {
     return next()
   }
-  if (fullName === null) return notFound(context)
+  if (person === null) return notFound(context)
 
-  const canonical = mlbPlayerPath({ id, fullName })
+  const canonical = mlbPlayerPath({ id, fullName: person.fullName })
   if (canonical !== path) {
     const to = new URL(url)
     to.pathname = canonical
     return Response.redirect(to.toString(), 301)
   }
-  return next()
+  return withCard(context, mlbPlayerCard(person, season), canonical, 'profile')
+}
+
+/** The season a card quotes: the one under way, or before April the one just finished, which is
+ *  the season anybody sharing a player in the winter is talking about. */
+export function cardSeason(now: Date): number {
+  return now.getUTCMonth() < 3 ? now.getUTCFullYear() - 1 : now.getUTCFullYear()
+}
+
+/** The page as `shell` serves it, with its preview tags describing this player or game. */
+async function withCard(context: Ctx, card: MlbOgCard | null, path: string, ogType: string): Promise<Response> {
+  const page = await shell(context)
+  if (!card || !(page.headers.get('content-type') ?? '').includes('text/html')) return page
+  return rewriteOgTags(page, { ...card, url: `${SITE}${path}`, ogType })
 }
 
 async function game(context: Ctx, url: URL, path: string): Promise<Response> {
@@ -114,13 +139,13 @@ async function game(context: Ctx, url: URL, path: string): Promise<Response> {
     to.pathname = canonical
     return Response.redirect(to.toString(), 301)
   }
-  let exists: boolean
+  let found: MlbCardGame | null
   try {
-    exists = await gameExists(pk)
+    found = await readGame(pk)
   } catch {
     return shell(context)
   }
-  return exists ? shell(context) : notFound(context)
+  return found ? withCard(context, mlbGameCard(found), canonical, 'website') : notFound(context)
 }
 
 function series(context: Ctx, url: URL, path: string): Promise<Response> | Response {
@@ -137,22 +162,25 @@ function series(context: Ctx, url: URL, path: string): Promise<Response> | Respo
   return shell(context)
 }
 
-/** Whether StatsAPI has this game as one the scoreboard shows. A throw is "could not ask". */
-async function gameExists(pk: number): Promise<boolean> {
+/** The game, when StatsAPI has it as one the scoreboard shows, else null. A throw is "could not
+ *  ask". The fields are the existence check's plus what the preview card prints. */
+async function readGame(pk: number): Promise<MlbCardGame | null> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), STATSAPI_TIMEOUT_MS)
   try {
-    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=${pk}&fields=dates,games,gamePk,gameType`, {
+    const fields = 'dates,games,gamePk,gameType,gameDate,status,abstractGameState,detailedState,teams,away,home,team,name,abbreviation,score,seriesDescription,seriesGameNumber,gamesInSeries'
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=${pk}&hydrate=team&fields=${fields}`, {
       signal: ctrl.signal,
-      // A game's existence and type never change once it is scheduled; an hour spares StatsAPI a
-      // request per crawl and still lets a game published minutes ago stop answering 404 soon.
-      cf: { cacheTtl: 3600, cacheEverything: true },
+      // Five minutes: a game's existence and type never change, but the card prints its score, and
+      // a link pasted during a game should not unfurl the third inning's for an hour. Still spares
+      // StatsAPI a request per crawl.
+      cf: { cacheTtl: 300, cacheEverything: true },
     } as RequestInit)
     if (!res.ok) throw new Error(`statsapi ${res.status}`)
-    const body = await res.json() as { dates?: { games?: { gamePk?: number; gameType?: string }[] }[] }
+    const body = await res.json() as { dates?: { games?: (MlbCardGame & { gameType?: string })[] }[] }
     if (!Array.isArray(body.dates)) throw new Error('statsapi: no dates')
     const g = body.dates.flatMap(d => d.games ?? []).find(x => x.gamePk === pk)
-    return !!g && SCORED_GAME_TYPES.has(g.gameType ?? '')
+    return g && SCORED_GAME_TYPES.has(g.gameType ?? '') ? g : null
   } finally {
     clearTimeout(timer)
   }
@@ -178,6 +206,30 @@ export async function readPlayerName(id: number): Promise<string | null> {
     if (!body.people || body.people.length === 0) return null
     if (typeof name !== 'string' || !name) throw new Error('statsapi: no name')
     return name
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** The player with club and season stats, null when StatsAPI says there is no such player, or a
+ *  throw when it could not be asked. The page's existence check and its preview card in one read. */
+async function readPlayerCard(id: number, season: number): Promise<MlbCardPerson | null> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), STATSAPI_TIMEOUT_MS)
+  try {
+    const hydrate = `currentTeam,stats(group=[hitting,pitching],type=[season],season=${season})`
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/people/${id}?hydrate=${hydrate}`, {
+      signal: ctrl.signal,
+      // An hour, not readPlayerName's day: this carries the season line, which moves nightly.
+      cf: { cacheTtl: 3600, cacheEverything: true },
+    } as RequestInit)
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error(`statsapi ${res.status}`)
+    const body = await res.json() as { people?: MlbCardPerson[] }
+    if (!body.people || body.people.length === 0) return null
+    const p = body.people[0]
+    if (typeof p.fullName !== 'string' || !p.fullName) throw new Error('statsapi: no name')
+    return { ...p, id }
   } finally {
     clearTimeout(timer)
   }

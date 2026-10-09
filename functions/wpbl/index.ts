@@ -32,6 +32,8 @@ import {
 import { wpblGameCard, type WpblCardGame, type WpblCardTeam } from '../../src/wpbl/ogCard'
 // The roster/schedule reads, SITE and Env live in shareEdge so this handler and the short-link
 // resolvers (functions/p, functions/g) cannot drift on how they read the same two tables.
+// The tag rewrite is shared with the MLB section's function (src/lib/ogTags.ts).
+import { rewriteOgTags } from '../../src/lib/ogTags'
 import { readRosterEdge, readScheduleEdge, SITE, DATA_TIMEOUT_MS, type Env } from '../../src/wpbl/shareEdge'
 
 interface Ctx {
@@ -241,7 +243,7 @@ async function withGameCard(
   if (!(page.headers.get('content-type') || '').includes('text/html')) return page
 
   const card = wpblGameCard(game, schedule.teams)
-  return rewrite(page, {
+  return rewriteOgTags(page, {
     ...card,
     // Canonical, not the URL as requested: a trailing slash or an old ?game= spelling must
     // not become the identity an unfurler or a crawler records for this page.
@@ -267,7 +269,7 @@ async function withCard(context: Ctx, playerId: string, url: URL): Promise<Respo
   } catch {
     card = null // stale id, database hiccup, timeout: the static card is a fine fallback
   }
-  return card ? rewrite(page, { ...card, ogType: 'profile' }) : page
+  return card ? rewriteOgTags(page, { ...card, ogType: 'profile' }) : page
 }
 
 /** The site's real 404 page, with a real 404 status. */
@@ -291,17 +293,6 @@ interface PlayerRow { id: string; name: string; position: string | null; team_id
 interface TeamRow { id: string; city: string; name: string }
 interface Resolved extends WpblPlayerCard { url: string; image: string | null; imageAlt: string }
 
-/** What `rewrite` actually needs. A player card is one of these with a headshot; a game
- *  card is one without, riding the site's default cover. */
-interface CardTags {
-  title: string
-  ogTitle: string
-  description: string
-  url: string
-  image: string | null
-  imageAlt: string
-  ogType: string
-}
 
 async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Resolved | null> {
   const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
@@ -377,66 +368,4 @@ async function cardUrl(path: string, env: Env, url: URL): Promise<string | null>
   // Absolute and canonical: unfurlers resolve og:image against the origin they fetched,
   // and a link may be pasted from a deploy-preview host.
   return `${SITE}${path}`
-}
-
-// ─── HTML ──────────────────────────────────────────────────────────────────────
-
-// Every tag is edited in place, never appended, because unfurlers take the FIRST
-// occurrence of a property: a second og:title further down the head would just be
-// ignored. index.html carries a full set of defaults, including the image tags, so
-// there is always something here to edit.
-function rewrite(page: Response, card: CardTags): Response {
-  const replacements: Record<string, string> = {
-    'og:type': card.ogType,
-    'og:title': card.ogTitle,
-    'og:description': card.description,
-    'og:url': card.url,
-    'twitter:title': card.ogTitle,
-    'twitter:description': card.description,
-    description: card.description,
-  }
-
-  // The player image is the same 1200x630 shape as the default cover, so the frame and
-  // the size tags carry over untouched.
-  //
-  // THIS USED TO SEND THE 512 HEADSHOT AND ASK FOR A SMALL SQUARE THUMBNAIL, which is the
-  // right request and only some platforms are listening. Bluesky reads og: alone: it never
-  // sees twitter:card, drops whatever it is given into one banner slot at roughly 1.91:1,
-  // and centre-cropped the square to a band across the player's face. Being handed a card
-  // already at 1.91:1 is the only instruction an unfurler that asks us nothing can follow,
-  // which is why scripts/make-wpbl-share-cards.py exists.
-  if (card.image) {
-    replacements['og:image'] = card.image
-    replacements['og:image:alt'] = card.imageAlt
-    replacements['twitter:image'] = card.image
-    replacements['twitter:card'] = 'summary_large_image'
-  }
-
-  return new HTMLRewriter()
-    .on('title', {
-      element(el) { el.setInnerContent(card.title) },
-    })
-    .on('meta', {
-      element(el) {
-        const key = el.getAttribute('property') || el.getAttribute('name')
-        if (!key) return
-        const value = replacements[key]
-        if (value) el.setAttribute('content', value)
-      },
-    })
-    .transform(page)
-}
-
-// Minimal shapes for the one Workers global this file touches, so the repo doesn't take on
-// @cloudflare/workers-types for a single function. tsconfig.json doesn't cover functions/;
-// Pages builds it with esbuild, which transpiles without type-checking.
-declare class HTMLRewriter {
-  on(selector: string, handlers: { element(el: HtmlElement): void }): HTMLRewriter
-  transform(response: Response): Response
-}
-interface HtmlElement {
-  getAttribute(name: string): string | null
-  setAttribute(name: string, value: string): void
-  setInnerContent(content: string): void
-  remove(): void
 }

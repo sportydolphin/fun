@@ -198,10 +198,12 @@ will actually see all winter. The functional items do not wait.
 
 **Functional, in order:**
 
-1. 🚧 **Share cards for MLB links.** Only `functions/wpbl/` rewrites `og:` tags, so a shared MLB
-   player or game link unfurls as the generic site card. This is how the site looks wherever
-   someone pastes a link, which makes it the most visible gap.
-2. **Short links for MLB players and games.** WPBL has `/p` and `/g`; MLB has them for series only.
+1. ✅ **Share cards for MLB links** (Oct 9). Only `functions/wpbl/` rewrote `og:` tags, so a shared
+   MLB player or game link unfurled as the generic site card. A player now unfurls with club,
+   season line and the headshot on the club colour; a game with the score, status and series.
+   See "Link previews, MLB" in ARCHITECTURE.md.
+2. ✅ **Short links for MLB players, games and series** were already there (`/m/<code>`,
+   `functions/m/`), and every MLB copy-link button uses them. Listed so nobody builds them twice.
 3. **WPBL's recent searches synced across devices**, on MLB's footing (`user_preferences`).
    The search box is shared and currently remembers differently per section.
 4. **A glossary and Compare for MLB.** WPBL has `/wpbl/glossary` and `/wpbl/compare`; MLB explains
