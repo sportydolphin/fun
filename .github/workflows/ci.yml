@@ -57,9 +57,17 @@ jobs:
   # sizes, and what moves on screen when a skeleton is replaced. Against the dev server, because
   # the skeleton check needs ?devSlow, which only exists in a dev build; with every response served
   # from scripts/fixtures/, because this job holds no key and must not read the real database.
-  layout:
+  #
+  # FOUR SLICES IN PARALLEL, by route (--shard). On one runner this was the slowest check on every
+  # pull request, about 13 minutes against 4 for `check`.
+  layout-shard:
+    name: layout ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
       VITE_SUPABASE_URL: 'http://127.0.0.1:54321'
       VITE_SUPABASE_ANON_KEY: 'sweep-anon-key'
@@ -80,12 +88,12 @@ jobs:
           cat vite.log; exit 1
 
       - name: Sweep
-        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots
+        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --shard ${{ matrix.shard }}/4
 
       # The one place a flag-gated layout gets looked at. Name the routes that draw something
       # behind the flag; as of this writing that is the steal card on Run value, and nothing else.
       - name: Sweep with experiments on
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --experiments --routes /wpbl/stats?board=runs
 
       # Both frames of every case that shifted. A shift that hangs on timing can happen on this
@@ -94,9 +102,20 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: sweep-shots
+          name: sweep-shots-${{ matrix.shard }}
           path: sweep-shots
           if-no-files-found: ignore
 
       - if: failure()
         run: cat vite.log
+
+  # THE CHECK THE RULESET REQUIRES. It names `layout`, and a matrix job reports one check per
+  # slice under a different name, so this job carries the name and passes only if every slice did.
+  # `always()` because a job whose needs failed is otherwise SKIPPED, and a skipped required check
+  # counts as passing.
+  layout:
+    needs: layout-shard
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.layout-shard.result }}" = success
