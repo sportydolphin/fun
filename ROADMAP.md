@@ -287,6 +287,11 @@ will actually see all winter. The functional items do not wait.
    to stand down: no polling, no address writes, no claim on the toolbar's search or tabs. And the
    bracket's label sits on the Scores header's box (`SCORES_HEADER_H`, `STRIP_PY`), so both
    scoreboards' labels are the same distance above their cards at every width and text size.
+   ✅ *The switch keeps the page, Oct 9:* the toolbar's MLB | WPBL switch lands on the same tab in
+   the other league (Standings to Standings, any of MLB's three Stats boards to WPBL Stats, WPBL
+   Stats to MLB's Table), and the glossary and Compare likewise; a player, game or series goes to
+   Home, a club page to Teams (`src/sectionSwitch.ts`). A kept-alive WPBL now reads its tab off an
+   address it did not push, where it used to fall back to Home under any WPBL path.
 2. **Visible page titles.** Every WPBL page opens with one ("WPBL Standings"); MLB's `<h1>` is
    hidden, so its pages open on a row of pills. *Home done Oct 9 (v1.135.0):* "Major League
    Baseball" in `TAB_TITLE_SX` (moved to `src/ui/card.tsx`), as WPBL's Home draws "Women's Pro

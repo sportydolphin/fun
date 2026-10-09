@@ -921,6 +921,26 @@ function viewFromLocation(): string | null {
     ?? wpblViewFromPath(window.location.pathname)
 }
 
+/** The snapshot an address asks for when its history entry carries none: a cold load, and an
+ *  entry someone else pushed, which is the toolbar's league switch landing on the same tab in this
+ *  section (src/sectionSwitch.ts). The tab and the awards sheet come from the path; a club, a
+ *  player or a game has to wait for the roster. */
+function snapFromLocation(): WpblSnap {
+  const v = viewFromLocation()
+  if (v != null) return { ...HOME_SNAP, view: normalizeView(v).view }
+  // /wpbl/teams/<slug> is the Teams tab with a club chosen, and `viewFromLocation` says
+  // null for it because it is not a tab path. Left at that fallback the section seeds on
+  // HOME, the very first replaceState rewrites the address bar to /wpbl, and the club that
+  // then resolves out of the path has had its own URL thrown away before it arrives. The
+  // club itself cannot be seeded here (the roster has not loaded), only the tab.
+  if (wpblTeamSlugFromPath(window.location.pathname)) return { ...HOME_SNAP, view: 'teams' }
+  // /wpbl/awards is Home with the ballot open. Unlike a club or a player there is nothing to
+  // resolve, so this is the whole of the cold-load path for it: no pending ref, no effect
+  // waiting on a fetch.
+  if (isWpblAwardsPage(window.location.pathname)) return { ...HOME_SNAP, awards: true }
+  return HOME_SNAP
+}
+
 // The WPBL pages that are not tabs. The footer links them, which is a fine crawl path and a poor
 // way for a reader to find anything, so this menu is one discovery surface for all of them,
 // WITHOUT a sixth tab: WPBL_NAV, the pager and the mobile bottom bar all stay at five, because a
@@ -1006,19 +1026,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const seed = (): WpblSnap => {
     const s = (window.history.state?.wpbl ?? null) as WpblSnap | null
     if (s) return { ...s, view: normalizeView(s.view).view }
-    const v = viewFromLocation()
-    if (v != null) return { ...HOME_SNAP, view: normalizeView(v).view }
-    // /wpbl/teams/<slug> is the Teams tab with a club chosen, and `viewFromLocation` says
-    // null for it because it is not a tab path. Left at that fallback the section seeds on
-    // HOME, the very first replaceState rewrites the address bar to /wpbl, and the club that
-    // then resolves out of the path has had its own URL thrown away before it arrives. The
-    // club itself cannot be seeded here (the roster has not loaded), only the tab.
-    if (wpblTeamSlugFromPath(window.location.pathname)) return { ...HOME_SNAP, view: 'teams' }
-    // /wpbl/awards is Home with the ballot open. Unlike a club or a player there is nothing to
-    // resolve, so this is the whole of the cold-load path for it: no pending ref, no effect
-    // waiting on a fetch.
-    if (isWpblAwardsPage(window.location.pathname)) return { ...HOME_SNAP, awards: true }
-    return HOME_SNAP
+    return snapFromLocation()
   }
   // A legacy ?view=tracking (or a restored snapshot) should open Stats already on the
   // tracking group, with token 1 so the panel treats it as a real request on first mount.
@@ -1957,7 +1965,10 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         setGamePage(false); setPlayerPage(false)
         return
       }
-      apply(((e.state?.wpbl ?? null) as WpblSnap | null) ?? HOME_SNAP)
+      // No snapshot means nobody in the section pushed this entry, so the address is all there is
+      // to go on. It was Home, which was right only while every way in from outside was /wpbl;
+      // the league switch now lands on the tab the reader was on in MLB.
+      apply(((e.state?.wpbl ?? null) as WpblSnap | null) ?? snapFromLocation())
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
