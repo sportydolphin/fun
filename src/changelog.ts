@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.130.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'WPBL: a Fielding board in Stats',
+        full:  'Stats has a Fielding tab beside Players and Teams: fielding percentage, total chances, putouts, assists, errors, double plays, passed balls and stolen bases allowed for every player, sortable like the other boards. A fielder qualifies after playing two thirds of their club\'s games.',
+      },
+    ],
+  },
+  {
     version: '1.129.0',
     date:    '2026-10-07',
     changes: [

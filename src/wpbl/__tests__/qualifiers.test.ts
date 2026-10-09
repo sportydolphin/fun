@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   wpblQualifiers, plateAppearances, sumBatting, sumPitching,
-  QUALIFY_PA_PER_GAME, QUALIFY_OUTS_PER_GAME, QUALIFY_FLOOR_PA, QUALIFY_MIN_GAMES,
+  QUALIFY_PA_PER_GAME, QUALIFY_OUTS_PER_GAME, QUALIFY_FLOOR_PA, QUALIFY_MIN_GAMES, QUALIFY_FIELD_G_SHARE,
 } from '../stats'
 import type { WpblBattingLine, WpblPitchingLine, WpblGame, WpblTeam } from '../types'
 
@@ -60,6 +60,12 @@ describe('wpblQualifiers', () => {
     // the next change to either silently moves both.
     expect(QUALIFY_OUTS_PER_GAME / 3).toBeCloseTo((1.0 * 7) / 9, 1)
     expect(wpblQualifiers(teams, schedule(25)).minOuts).toBe(Math.round(2.4 * 25))
+  })
+
+  it('sets the fielding bar at two thirds of team games, MLB\'s share', () => {
+    expect(QUALIFY_FIELD_G_SHARE).toBeCloseTo(2 / 3)
+    expect(wpblQualifiers(teams, schedule(30)).minG).toBe(20)
+    expect(wpblQualifiers(teams, schedule(1)).minG).toBe(0)
   })
 
   it('floors the opening days so a 2-game bar is not one trip to the plate', () => {

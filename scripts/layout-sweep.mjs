@@ -116,7 +116,7 @@ function samplePages() {
 }
 
 const DEFAULT_ROUTES = [
-  '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
+  '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=fielding', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
   '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/teams/mariners',
