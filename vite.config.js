@@ -4,6 +4,9 @@ import { wpblImageAssets } from './scripts/vite-plugin-wpbl-images.mjs'
 import { wpblPreload } from './scripts/vite-plugin-wpbl-preload.mjs'
 import { noDevCode } from './scripts/vite-plugin-no-dev-code.mjs'
 
+// Bundled for the test runner; see `deps` under `test`.
+const MUI_DEPS = ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled']
+
 export default defineConfig({
   root: '.',
   plugins: [react(), wpblImageAssets(), wpblPreload(), noDevCode()],
@@ -38,7 +41,15 @@ export default defineConfig({
   // emotion (and their shared utils) in ONE chunk and be verified in a real browser first.
   test: {
     globals: true,
-    environment: 'jsdom',
+    // A BROWSER ONLY WHERE A TEST RENDERS. Every file used to start in jsdom, and two thirds of
+    // them are pure logic (stats, derivations, routes) that never touch it: building the window
+    // cost more worker time than the tests themselves (361s against 69s on Oct 9, 2026). The
+    // .tsx files render, so they get jsdom; the .ts files run in Node, and one that does need a
+    // DOM says so in its first line with `// @vitest-environment jsdom`, which wins over this.
+    projects: [
+      { extends: true, test: { name: 'dom', include: ['src/**/*.test.tsx'], environment: 'jsdom' } },
+      { extends: true, test: { name: 'node', include: ['src/**/*.test.ts'], environment: 'node' } },
+    ],
     setupFiles: './src/test/setup.ts',
     // PLACEHOLDERS, NEVER THE REAL PROJECT. `src/lib/supabase.ts` builds its client at import time
     // and throws without a URL, so the suite used to pass only on a machine with a `.env`, which
@@ -55,6 +66,16 @@ export default defineConfig({
     // blows up with "Cannot read properties of null (reading 'useState')". Spread the
     // defaults rather than replacing them: setting `exclude` overrides the built-in list.
     exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
+    // MUI PRE-BUNDLED, ONCE. Each test file loads its own module graph, and MUI plus its icons is
+    // hundreds of small files, so every file that rendered a Box paid for all of them again:
+    // imports were 1,276 worker-seconds of an 87s run. Bundled into one file per environment the
+    // suite runs in 22s. The cost is that a test cannot vi.mock a single MUI module; none does.
+    deps: {
+      optimizer: {
+        client: { enabled: true, include: MUI_DEPS },
+        ssr: { enabled: true, include: MUI_DEPS },
+      },
+    },
     server: {
       deps: {
         // The cron scripts under scripts/ are Node CLI programs and start with a shebang.
