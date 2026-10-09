@@ -53,7 +53,9 @@ Violating these creates real problems. Treat them as hard constraints.
   skeletons; 8s trips the request timeout and shows "No teams yet"), see
   [`src/dev/slowLoad.ts`](src/dev/slowLoad.ts), and compare element rects against the loaded
   page at 375, 760, 960 and 1440. A hidden browser pane records no layout-shift entries, so
-  compare rects rather than trusting CLS. `npm run sweep -- --shift` does exactly this against the
+  compare rects rather than trusting CLS. It also fires no `requestAnimationFrame`, even while it
+  reports itself visible, so anything scheduled on one (a scroll, a measurement) never happens
+  there: check those in Playwright's Chrome, as the sweep does. `npm run sweep -- --shift` does exactly this against the
   dev server ([`scripts/layout-sweep.mjs`](scripts/layout-sweep.mjs)); `--routes` narrows it.
   **CI runs it on every pull request** (the `layout` check, four parallel slices) from a recorded
   snapshot of the data, with the clock frozen at the moment it was taken. A query the snapshot
