@@ -194,17 +194,18 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [state.followedTeamId])  
 
   // Push recent searches + their re-open / clear handlers up to the toolbar
+  const { recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches } = state
   useEffect(() => {
     updateSearchBridge({
-      recentSearches: state.recentSearches,
+      recentSearches,
       handleSelectRecent: (item) => {
         setSearchQuery('')
-        if (item.type === 'team') state.handleTeamSearchClick(item.id, 'recent')
-        else state.handleFollowedPlayerClick(item.id, 'recent')
+        if (item.type === 'team') handleTeamSearchClick(item.id, 'recent')
+        else handleFollowedPlayerClick(item.id, 'recent')
       },
-      clearRecentSearches: state.clearRecentSearches,
+      clearRecentSearches,
     })
-  }, [state.recentSearches, state.handleTeamSearchClick, state.handleFollowedPlayerClick, state.clearRecentSearches])
+  }, [recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches])
 
   // Unregister from toolbar when this component unmounts
   useEffect(() => {

@@ -542,10 +542,12 @@ sequenceDiagram
 
 **Not scheduled, listed here so the workflow folder has no strangers:** `ci.yml` runs on every pull
 request and every commit on `main` (type-check, lint, tests, build) and holds no secrets. Its `check`
-job is required to merge into `main` (`.github/rulesets/`), and so is its `layout` job, which runs
-`npm run sweep` against the dev server, served from a recorded snapshot of the data
+job is required to merge into `main` (`.github/rulesets/`), and so is its `layout` job, which passes
+only when all four `layout i/4` slices do: each runs `npm run sweep` over a quarter of the routes
+against the dev server, served from a recorded snapshot of the data
 (`scripts/fixtures/layout-sweep.json.gz`), and fails on any finding not already in
-`scripts/fixtures/layout-sweep-baseline.json`.
+`scripts/fixtures/layout-sweep-baseline.json`, which is empty. The whole of it is in
+[docs/CI.md](docs/CI.md).
 `workflow-failure-alert.yml` runs on `workflow_run` and pages the owner when a scheduled run goes red:
 it records a `workflow:<name>` row in `cron_heartbeats`, then runs `check-admin-health`. It must name
 every scheduled workflow, and `workflowDeps.test.ts` fails CI otherwise. Every cron installs its few

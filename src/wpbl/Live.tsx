@@ -43,6 +43,9 @@ export function useLiveGame(seed: WpblGame): WpblGame {
   // Read off the merged row, not the seed, so a game that becomes provably over under the poll
   // stops being polled at once rather than at the next schedule read. See gameOver.ts.
   const live = game.status === 'live'
+  // Reseeded when the parent's copy of the game actually changes. Its object is rebuilt on every
+  // parent render, and following that would throw away a fresher polled copy each time.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setGame(seed) }, [seed.id, seed.status, seed.updated_at])
 
   // Merge rather than replace: the fetch returns only the columns that can move during a

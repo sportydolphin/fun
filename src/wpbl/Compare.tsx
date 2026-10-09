@@ -697,7 +697,7 @@ export default function WpblComparePage({ path, onNavigate }: {
       },
     })
     return () => setDynamicSeo(null)
-  }, [pair, slug, path])
+  }, [pair, slug, path, players])
 
   useEffect(() => {
     if (pair) track(EVENTS.WPBL_COMPARE_VIEWED, { a: pair[0].id, b: pair[1].id })

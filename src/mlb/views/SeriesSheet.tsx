@@ -505,6 +505,8 @@ export default function SeriesSheet({ s, bracket, onClose, onTeamClick, onPlayer
     setLeadersLoading(true)
     fetchSeriesLeaders(finals).then(l => { if (alive) { setLeaders(l); setLeadersLoading(false) } })
     return () => { alive = false }
+    // Keyed on which games are final, not on the array, which is rebuilt on every poll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finalKey])
 
   useEffect(() => {
@@ -512,17 +514,21 @@ export default function SeriesSheet({ s, bracket, onClose, onTeamClick, onPlayer
     fetchRegularSeasonRecords(bracket.season).then(m => { if (alive) setRecords(m) })
     if (s.top.real && s.bottom.real) fetchRegularSeasonMeeting(bracket.season, s.top.id, s.bottom.id).then(m => { if (alive) setMeeting(m) })
     return () => { alive = false }
-  }, [bracket.season, s.top.id, s.bottom.id])
+  }, [bracket.season, s.top.id, s.bottom.id, s.top.real, s.bottom.real])
 
+  const featuredPk = featured?.gamePk
   const starterIds = useMemo(() => {
-    const d = featured ? details?.get(featured.gamePk) : undefined
+    const d = featuredPk != null ? details?.get(featuredPk) : undefined
     return [d?.probable.away?.id, d?.probable.home?.id].filter((x): x is number => !!x)
-  }, [details, featured?.gamePk])
+  }, [details, featuredPk])
+  const starterKey = starterIds.join(',')
   useEffect(() => {
     let alive = true
     fetchPitcherLines(starterIds, bracket.season).then(m => { if (alive) setLines(m) })
     return () => { alive = false }
-  }, [starterIds.join(','), bracket.season])
+    // Keyed on WHO is starting: `details` refreshes on every poll and rebuilds the array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [starterKey, bracket.season])
 
   const real = s.top.real && s.bottom.real
   const openDetail = open ? details?.get(open.gamePk) : undefined

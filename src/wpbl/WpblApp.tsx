@@ -1751,6 +1751,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // live poll, and rebuilding a map of 118 names to hand every search row a new object thirty
     // times an hour buys nothing. What the index actually needs from the schedule is which
     // games to leave out, and that only moves when the schedule gains a game.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [games.length, searchUsed])
 
   // Recent searches: the players and teams opened from the header search, newest first, so

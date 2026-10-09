@@ -143,11 +143,14 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
     setEdges({ left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 })
   }, [])
 
+  // Which columns there are, by their ends: a new latest game is what should scroll it home.
+  const firstId = columns[0]?.id
+  const lastId = columns[columns.length - 1]?.id
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollLeft = el.scrollWidth
     updateEdges()
-  }, [columns.length, columns[0]?.id, columns[columns.length - 1]?.id, updateEdges])
+  }, [columns.length, firstId, lastId, updateEdges])
 
   // Recompute the fades when the viewport changes: a window widened past the overflow point
   // has nothing left to scroll to and both fades should clear.
@@ -311,6 +314,9 @@ function GridName({ name, fitKey }: { name: string; fitKey: number }) {
   // Re-measure from the top whenever the name or the column width changes; the latter is what
   // restores a full name when the viewport grows, instead of leaving it abbreviated forever.
   useLayoutEffect(() => { setStage(0) }, [name, fitKey])
+  // After EVERY render on purpose: it measures, and a stage only moves forward to the last, so
+  // the loop the rule warns about ends within two passes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
