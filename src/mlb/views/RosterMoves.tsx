@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, CardLink, TextGhost } from '../../ui/card'
+import { SectionCard, CardLink, TextGhost, TYPE_SCALE } from '../../ui/card'
 import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
-import { CURRENT_SEASON, TEAM_ABBR } from '../constants'
+import { CURRENT_SEASON, TEAM_ABBR, TONE } from '../constants'
 import { useIsDark, ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
@@ -139,26 +139,26 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
         : <PlayerHeadshot playerId={move.playerId} name={move.playerName} size={34} />}
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography {...playerLink(move.playerId, move.playerName, onPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography {...playerLink(move.playerId, move.playerName, onPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {g(move.playerName)}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.2 }}>
           <Box component="span" sx={{
             px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
             bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
-            fontSize: '0.55rem', fontWeight: 800, color: tone(style.color, undefined, 5.6),
-            letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
+            letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
             ...(ghost ? { bgcolor: 'action.hover', borderColor: 'transparent', color: 'transparent' } : {}),
           }}>
             {style.label}
           </Box>
-          <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
             {g(fmtMoveDate(move.date))}
           </Typography>
         </Box>
         {showDescription && move.description && (
           <Typography sx={{
-            fontSize: '0.66rem', color: 'text.secondary', mt: 0.35, lineHeight: 1.35,
+            fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.35, lineHeight: 1.35,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {move.description}
@@ -174,7 +174,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
           </Box>
         )}
         {move.fromTeamId != null && move.toTeamId != null && (
-          <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>→</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>→</Typography>
         )}
         {move.toTeamId != null && (
           <Box onClick={teamClick(move.toTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
@@ -222,12 +222,12 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
         <Box component="span" sx={{
           px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
           bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
-          fontSize: '0.55rem', fontWeight: 800, color: tone(style.color, undefined, 5.6),
-          letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
+          letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
         }}>
           {style.label}
         </Box>
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontWeight: 600 }}>
           {fmtMoveDate(group.date)}
         </Typography>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.4 }}>
@@ -237,7 +237,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
                 <TeamLogo teamId={id} abbr="" size={22} />
               </Box>
               {i < teamIds.length - 1 && (
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>⇄</Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>⇄</Typography>
               )}
             </React.Fragment>
           ))}
@@ -257,12 +257,12 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
             }}
           >
             <PlayerHeadshot playerId={p.playerId} name={p.playerName} size={28} />
-            <Typography {...playerLink(p.playerId, p.playerName, onPlayerClick)} sx={{ ...LINK_SX, display: 'block', flex: 1, minWidth: 0, fontWeight: 700, fontSize: '0.78rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography {...playerLink(p.playerId, p.playerName, onPlayerClick)} sx={{ ...LINK_SX, display: 'block', flex: 1, minWidth: 0, fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {p.playerName}
             </Typography>
             {p.toTeamId != null && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexShrink: 0 }}>
-                <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>→</Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>→</Typography>
                 <Box onClick={teamClick(p.toTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
                   <TeamLogo teamId={p.toTeamId} abbr="" size={20} />
                 </Box>
@@ -273,7 +273,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
       </Box>
 
       {showDescription && description && (
-        <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary', mt: 0.6, lineHeight: 1.35 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.6, lineHeight: 1.35 }}>
           {description}
         </Typography>
       )}
@@ -335,7 +335,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
 
   return (
     <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet sheetFill eyebrow="🔄 Roster moves">
-        <Typography sx={{ px: 2, pt: 1.25, pb: 0.5, fontSize: '0.72rem', color: 'text.secondary', flexShrink: 0 }}>
+        <Typography sx={{ px: 2, pt: 1.25, pb: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.secondary', flexShrink: 0 }}>
           Trades, DFAs, claims and signings · last 14 days
         </Typography>
 
@@ -359,7 +359,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
                 transition: 'border-color 0.12s, background-color 0.12s',
               }}
             >
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, lineHeight: 1, color: filterTeam == null ? 'text.primary' : 'text.secondary' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, color: filterTeam == null ? 'text.primary' : 'text.secondary' }}>
                 All
               </Typography>
             </Box>
@@ -395,18 +395,18 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
                   }}
                 >
                   <KeyboardArrowDown sx={{
-                    fontSize: '0.95rem', color: 'text.disabled',
+                    fontSize: TYPE_SCALE.title, color: 'text.disabled',
                     transform: collapsed ? 'rotate(-90deg)' : 'none',
                     transition: 'transform 0.15s',
                   }} />
                   <Typography className="day-label" sx={{
-                    fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled',
-                    textTransform: 'uppercase', letterSpacing: typePx(1),
+                    fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary',
+                    textTransform: 'uppercase', letterSpacing: typePx(0.5),
                     transition: 'color 0.12s',
                   }}>
                     {fmtMoveDay(group.day)}
                   </Typography>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', ml: 'auto', pr: 0.5 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', ml: 'auto', pr: 0.5 }}>
                     {units.length} {units.length === 1 ? 'move' : 'moves'}
                   </Typography>
                 </Box>
@@ -415,7 +415,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
             )
           })}
           {shown.length === 0 && (
-            <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', textAlign: 'center', py: 4 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', py: 4 }}>
               {filterTeam != null
                 ? `No moves for the ${TEAM_ABBR[filterTeam] ?? ''} in the last two weeks.`
                 : 'No notable moves in the last two weeks.'}
@@ -464,8 +464,8 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
           border: `1px solid ${deadline.hot ? '#ef4444' : '#f97316'}55`,
         }}>
           <Typography sx={{
-            fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.3,
-            color: deadline.hot ? '#ef4444' : '#f97316',
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), lineHeight: 1.3,
+            color: deadline.hot ? TONE.red : TONE.orange,
           }}>
             ⏳ {deadline.label}
           </Typography>
@@ -480,7 +480,7 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
           // moves when the list lands (a trade block is a little taller, and rarer).
           [0, 1, 2, 3].map(i => <MoveRowItem key={i} move={GHOST_MOVE} ghost />)
         ) : top.length === 0 ? (
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'center', py: 2.5 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', py: 2.5 }}>
             No notable moves lately.
           </Typography>
         ) : (

@@ -30,6 +30,12 @@ const ADOPTED = [
   // MLB's first, the Report Card boards (Oct 9, 2026): the scale moved to src/ui/card.tsx so the
   // second alignment pass could rebuild MLB's cards on it. MLB files go on this list as they convert.
   'src/mlb/components/leaderboards.tsx',
+  // Everything MLB's Home draws, from the consistency audit the same day: about 25 sizes from
+  // 0.37rem to 1.5rem across these files, now six steps of the scale.
+  'src/ui/card.tsx',
+  ...['HomeView', 'FinalGames', 'LiveDrama', 'TeamPicker', 'StandingsSnapshot', 'Spotlight',
+    'TopPerformers', 'ScheduleStrip', 'FollowedPlayers', 'RosterMoves', 'MilestoneWatch',
+    'StreakSurvivor', 'Predictor', 'PlayoffBracket'].map(f => `src/mlb/views/${f}.tsx`),
 ]
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')

@@ -6,7 +6,7 @@ import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from '../components/TeamLogo'
-import { SectionCard, CardLink } from '../../ui/card'
+import { SectionCard, CardLink, TYPE_SCALE } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, LINK_SX } from '../lib/links'
 
@@ -67,7 +67,7 @@ function LiveBadge() {
         '@keyframes msLiveDot': { '0%': { opacity: 1 }, '50%': { opacity: 0.2 }, '100%': { opacity: 1 } },
         animation: 'msLiveDot 1.4s ease-in-out infinite',
       }} />
-      <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: typePx(0.5), color: '#fff' }}>LIVE</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), color: '#fff' }}>LIVE</Typography>
     </Box>
   )
 }
@@ -75,7 +75,7 @@ function LiveBadge() {
 function Tag({ color, children }: { color: string; children: React.ReactNode }) {
   const tone = useTextTone()
   return (
-    <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: tone(color), border: `1px solid ${color}55`, borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: tone(color), border: `1px solid ${color}55`, borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
       {children}
     </Typography>
   )
@@ -125,14 +125,14 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
       <TeamLogo teamId={item.teamId} abbr={item.teamAbbr} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-          <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {item.playerName}
           </Typography>
           {isLive && <LiveBadge />}
           {!isLive && achieved && <Tag color={ACHIEVED_GREEN}>✓ Reached</Tag>}
           {!isLive && !achieved && isRecord && <Tag color={RECORD_GOLD}>Record</Tag>}
         </Box>
-        <Typography sx={{ mt: '1px', fontSize: '0.64rem', color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={{ mt: '1px', fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {achieved
             ? `Reached ${item.target} ${item.statLabel} · ${reachedWhen(item.achievedOn!, seasonOver)}`
             : `${kindLabel(item)} · ${item.target} ${item.statLabel}`}
@@ -143,12 +143,12 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0, minWidth: chromePx(42) }}>
         {achieved ? (
-          <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1, color: TONE.green }}>✓</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1, color: TONE.green }}>✓</Typography>
         ) : (<>
-          <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: isLive ? TONE.red : item.remaining <= 3 ? TONE.green : 'text.primary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: isLive ? TONE.red : item.remaining <= 3 ? TONE.green : 'text.primary' }}>
             {item.remaining}
           </Typography>
-          <Typography sx={{ mt: chromePx(2), fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', lineHeight: 1 }}>
+          <Typography sx={{ mt: chromePx(2), fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', lineHeight: 1 }}>
             to go
           </Typography>
         </>)}
@@ -186,7 +186,7 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
       <TeamLogo teamId={item.teamId} abbr={item.teamAbbr} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-          <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {item.playerName}
           </Typography>
           {isLive && <LiveBadge />}
@@ -194,7 +194,7 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
           {!isLive && !achieved && isRecord && <Tag color={RECORD_GOLD}>Record</Tag>}
         </Box>
         {achieved ? (
-          <Typography sx={{ mt: chromePx(2), fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Typography sx={{ mt: chromePx(2), fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Reached {item.target} {item.statLabel} · {reachedWhen(item.achievedOn!, seasonOver)}
           </Typography>
         ) : (
@@ -205,12 +205,12 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
         {achieved ? (
-          <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: TONE.green }}>✓</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1, color: TONE.green }}>✓</Typography>
         ) : (<>
-          <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, color: item.remaining <= 3 ? TONE.green : 'text.primary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, color: item.remaining <= 3 ? TONE.green : 'text.primary' }}>
             {item.remaining}
           </Typography>
-          <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
             {item.statLabel} to {item.target}
           </Typography>
         </>)}
@@ -253,8 +253,8 @@ function TabButton({ active, label, count, color, onClick }: {
         border: '1px solid', borderColor: active ? color : 'transparent',
       }}
     >
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: active ? tone(color) : 'text.secondary' }}>{label}</Typography>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: active ? tone(color) : 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>{count}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: active ? tone(color) : 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: active ? tone(color) : 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>{count}</Typography>
     </Box>
   )
 }
@@ -298,7 +298,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
                   onClick={() => setGroupFilter(f.key)}
                   sx={{
                     px: 1.25, py: chromePx(3), borderRadius: 999, cursor: 'pointer',
-                    fontSize: '0.66rem', fontWeight: 700, userSelect: 'none',
+                    fontSize: TYPE_SCALE.meta, fontWeight: 700, userSelect: 'none',
                     border: '1px solid',
                     borderColor: groupFilter === f.key ? ACCENT : 'divider',
                     bgcolor: groupFilter === f.key ? `${ACCENT}18` : 'transparent',
@@ -320,7 +320,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
             return (
               <Box key={g.key}>
                 <Box sx={{ px: 1.5, py: chromePx(6), bgcolor: 'action.hover' }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary' }}>
                     {g.label}
                   </Typography>
                 </Box>
@@ -340,11 +340,11 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
           ))
         ) : (
           <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
               {seasonOver ? `No milestones reached in ${season}.` : 'No milestones reached yet this season.'}
             </Typography>
             {!seasonOver && (
-              <Typography sx={{ mt: 0.5, fontSize: '0.68rem', color: 'text.disabled' }}>
+              <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
                 Check back as the chases above cross the line.
               </Typography>
             )}

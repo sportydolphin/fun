@@ -16,11 +16,14 @@ const rows: LbRow[] = [
 const board = { icon: '📊', title: 'Fraud Watch', subtitle: 'Run differential against record', accent: '#60a5fa' }
 
 describe('Report Card boards', () => {
-  it('titles the card with an h2 and shows the top three', () => {
+  it('titles the card with an h2 and shows the top three, by nickname', () => {
     render(<LeaderboardCard {...board} rows={rows} loading={false} onExpand={() => {}} />)
     expect(screen.getByRole('heading', { level: 2, name: 'Fraud Watch' })).toBeTruthy()
-    expect(screen.getAllByText('Boston Red Sox').length).toBeGreaterThan(0)
-    expect(screen.queryAllByText('Texas Rangers')).toHaveLength(0)
+    // The nickname at every width: beside the verdict column the full name was cut in Home's
+    // narrow column ("St. Louis Ca…"), and the logo already says the city.
+    expect(screen.getByText('Red Sox')).toBeTruthy()
+    expect(screen.queryByText('Boston Red Sox')).toBeNull()
+    expect(screen.queryByText('Rangers')).toBeNull()
   })
 
   it("links Home's boards to the Charts tab, and keeps the click in the app", () => {

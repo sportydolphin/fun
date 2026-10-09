@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 import { Box, Typography, Skeleton, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TONE } from '../constants'
@@ -304,6 +305,14 @@ const THIN_DAY = 4
 
 // ─── Mini score card (final / live / preview) ────────────────────────────────
 
+const CHIP_W = '7.75rem'
+
+/** The score strip's padding above and below its chips: room for the 2px hover lift, and no more.
+ *  It was 1, which with the header's own bottom padding put 33px between "Scores" and the chips and
+ *  10px of dead strip under them, on top of Home's gap. The skeleton uses it too, so it holds the
+ *  strip's height exactly. */
+const STRIP_PY = 0.5
+
 function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   game:    FinalGameSummary
   onClick?: () => void
@@ -333,14 +342,14 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         <LogoBubble teamId={t.teamId} abbr={t.abbr} size={20} />
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.4 }}>
           <Typography sx={{
-            fontSize: '0.74rem', fontWeight: em ? 800 : 500, lineHeight: 1,
+            fontSize: TYPE_SCALE.meta, fontWeight: em ? 800 : 600, lineHeight: 1,
             color: (isLive || em) ? 'text.primary' : 'text.secondary',
           }}>
             {t.abbr}
           </Typography>
           {noScore && t.record && (
             <Typography sx={{
-              fontSize: '0.56rem', fontWeight: 500, lineHeight: 1, color: 'text.disabled',
+              fontSize: TYPE_SCALE.caption, fontWeight: 600, lineHeight: 1, color: 'text.secondary',
               fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
             }}>
               {t.record}
@@ -349,7 +358,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         </Box>
         {!noScore && (
           <Typography sx={{
-            fontSize: '0.9rem', fontWeight: em ? 800 : 500, lineHeight: 1,
+            fontSize: TYPE_SCALE.title, fontWeight: em ? 800 : 600, lineHeight: 1,
             color: (isLive || em) ? 'text.primary' : 'text.secondary', minWidth: '1rem', textAlign: 'right',
           }}>
             {t.runs}
@@ -366,7 +375,9 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
       {...gameLink(game.gamePk, onClick)}
       sx={{
         ...LINK_SX, display: 'block',
-        flexShrink: 0, width: wide ? '100%' : chromePx(124), minWidth: 0,
+        // In rem: the chip holds a time and a link label on one row, and at a fixed px width they
+        // wrapped under Large text. 7.75rem is the old 124px at both root sizes.
+        flexShrink: 0, width: wide ? '100%' : CHIP_W, minWidth: 0,
         borderRadius: 2, border: '1px solid',
         borderColor: accent ? `${accent}70` : defaultBorder(isDark),
         boxShadow: accent ? `0 0 0 1.5px ${accent}40` : 'none',
@@ -383,13 +394,13 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, px: 1, pt: 0.8, pb: 0.4 }}>
         {isLive && <LiveDot size={5} />}
         <Typography sx={{
-          fontSize: '0.56rem', fontWeight: 800, color: tone(statusColor),
-          letterSpacing: typePx(0.6), textTransform: 'uppercase', lineHeight: 1,
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(statusColor),
+          letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap',
         }}>
           {game.statusText}
         </Typography>
         {onClick && (
-          <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', ml: 'auto', lineHeight: 1, display: 'flex', alignItems: 'center' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', ml: 'auto', lineHeight: 1, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
             {noScore ? 'Preview →' : 'Box →'}
           </Typography>
         )}
@@ -404,8 +415,8 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
       {/* The postseason game's place in its series, and the stakes when it decides one. */}
       {game.series && (
         <Typography sx={{
-          px: 1, pb: 0.7, fontSize: '0.54rem', fontWeight: 700, lineHeight: 1.2,
-          color: game.series.decider ? TONE.amber : 'text.disabled',
+          px: 1, pb: 0.7, fontSize: TYPE_SCALE.caption, fontWeight: 700, lineHeight: 1.2,
+          color: game.series.decider ? TONE.amber : 'text.secondary',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {game.series.label}{game.series.decider ? ' · Decider' : ''}
@@ -454,13 +465,13 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <Box onClick={() => shift(-1)} sx={arrowSx}>
-        <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>‹</Typography>
+        <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>‹</Typography>
       </Box>
 
       {/* Clickable label with an overlaid native date input for jumping */}
       <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         <Typography sx={{
-          fontSize: '0.7rem', fontWeight: 700, color: 'text.primary',
+          fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary',
           minWidth: '5.5rem', textAlign: 'center', lineHeight: 1, userSelect: 'none',
         }}>
           {dateLabel(dateISO)}
@@ -480,7 +491,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
       </Box>
 
       <Box onClick={() => shift(1)} sx={arrowSx}>
-        <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>›</Typography>
+        <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>›</Typography>
       </Box>
 
       {/* Only shown when not already viewing today. Jumps straight back. */}
@@ -488,7 +499,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
         <Box
           onClick={() => onChange(toISO(new Date()))}
           sx={{
-            fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled',
+            fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
             cursor: 'pointer', px: 0.9, py: 0.3, ml: 0.25,
             borderRadius: 999, border: '1px solid', borderColor: 'divider',
             whiteSpace: 'nowrap',
@@ -520,11 +531,11 @@ function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
     <>
     {loading ? (
       <Box sx={{ py: 6, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading…</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Loading…</Typography>
       </Box>
     ) : games.length === 0 ? (
       <Box sx={{ py: 6, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games scheduled on this date</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>No games scheduled on this date</Typography>
       </Box>
     ) : (
       <Box sx={{
@@ -760,7 +771,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
       {layout === 'page' ? (
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <Typography component={headingTag} sx={{ fontWeight: 900, fontSize: '1.15rem', letterSpacing: typePx(-0.3), lineHeight: 1.2 }}>
+            <Typography component={headingTag} sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, letterSpacing: typePx(-0.3), lineHeight: 1.2 }}>
               Scores
             </Typography>
             <Box sx={{ ml: 'auto' }}><DateNav dateISO={dateISO} onChange={setDateISO} /></Box>
@@ -772,12 +783,12 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
       <Box>
         {/* Header with date nav */}
         <Box sx={{
-          px: 0.25, pb: 0.75,
+          px: 0.25,
           display: 'flex', alignItems: 'center', gap: 1,
         }}>
           <Typography sx={{
-            fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase',
-            letterSpacing: typePx(1.4), color: 'text.secondary', lineHeight: 1,
+            fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
+            letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1,
           }}>
             Scores
           </Typography>
@@ -793,7 +804,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                 '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
               }}
             >
-              <Typography sx={{ fontSize: '0.85rem', lineHeight: 1 }}>⛶</Typography>
+              <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>⛶</Typography>
             </Box>
           </Box>
         </Box>
@@ -804,14 +815,14 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
           // third again as tall, moved everything under it on every visit.
           // The postseason card is part type and part structure (1.2rem and 64px, measured Oct 2026 at
           // both text sizes), so its reserve is too: all px, it came up 3px short at Large text.
-          <Box aria-hidden sx={{ display: 'flex', gap: 1, px: 0.25, py: 1, overflow: 'hidden' }}>
+          <Box aria-hidden sx={{ display: 'flex', gap: 1, px: 0.25, py: STRIP_PY, overflow: 'hidden' }}>
             {[0, 1, 2, 3].map(i => (
-              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: chromePx(124), height: bracketLikely() ? `calc(1.2rem + ${chromePx(64)})` : chromePx(71), borderRadius: 2 }} />
+              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: CHIP_W, height: bracketLikely() ? `calc(1.2rem + ${chromePx(64)})` : chromePx(71), borderRadius: 2 }} />
             ))}
           </Box>
         ) : games.length === 0 ? (
           <Box sx={{ py: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: '0.74rem', color: 'text.disabled' }}>No games scheduled on this date</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>No games scheduled on this date</Typography>
           </Box>
         ) : (
           <Box sx={{ position: 'relative' }}>
@@ -836,7 +847,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                 display: 'flex', ml: 0.4, color: 'text.secondary',
                 transition: 'color 0.12s, transform 0.12s',
               }}>
-                <ChevronLeft sx={{ fontSize: '1.3rem' }} />
+                <ChevronLeft sx={{ fontSize: ICON_SIZE.lg }} />
               </Box>
             </Box>
             <Box
@@ -857,7 +868,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                 display: 'flex', mr: 0.4, color: 'text.secondary',
                 transition: 'color 0.12s, transform 0.12s',
               }}>
-                <ChevronRight sx={{ fontSize: '1.3rem' }} />
+                <ChevronRight sx={{ fontSize: ICON_SIZE.lg }} />
               </Box>
             </Box>
 
@@ -866,7 +877,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
               onScroll={handleStripScroll}
               data-swipe-ignore="true"
               sx={{
-                display: 'flex', gap: 1, px: 0.25, py: 1,
+                display: 'flex', gap: 1, px: 0.25, py: STRIP_PY,
                 overflowX: 'auto',
                 '&::-webkit-scrollbar': { display: 'none' },
                 msOverflowStyle: 'none', scrollbarWidth: 'none',
@@ -887,8 +898,8 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                     pl: 0.5, pr: 0.25, borderLeft: '1px solid', borderColor: 'divider', ml: 0.5,
                   }}>
                     <Typography sx={{
-                      fontSize: '0.56rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
-                      color: 'text.disabled', writingMode: 'vertical-rl', transform: 'rotate(180deg)', lineHeight: 1,
+                      fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+                      color: 'text.secondary', writingMode: 'vertical-rl', transform: 'rotate(180deg)', lineHeight: 1,
                     }}>
                       {dateLabel(earlier.date)}
                     </Typography>

@@ -1,7 +1,8 @@
 import React, { memo, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { TYPE_SCALE, TAB_TITLE_SX } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { Team, TeamSummary, SosEntry } from '../types'
-import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
+import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TEAM_PAYROLLS_2026, TONE } from '../constants'
 import {
   fetchDivisionForTeam, fetchTeamSummaryData,
   fetchTeamAverageAges, fetchStrengthOfSchedule,
@@ -38,8 +39,18 @@ import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying
 import { chromePx, typePx } from '../../ui/scale'
 import { cachedJson, FRESH_LIVE_MS } from '../lib/readCache'
 import { MLB_VIEW_PATHS } from '../routes'
+import { useMlbHeadingTag } from '../components/PageHeading'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * The one gap on Home, in MUI spacing units: under the title, under the scoreboard and the
+ * bracket, and between cards in both directions. WPBL's Home gap (`HEADER_GAP` and the card grid
+ * in src/wpbl/Home.tsx), so the two Homes keep one rhythm across the section switch. It was 2
+ * between blocks and 2.5 between columns, and with the padding the bare sections carry inside
+ * themselves, the gaps above "Playoff series" and the cards read as 40px against WPBL's 29.
+ */
+const HOME_GAP = 1.5
 
 function ordinal(n: number): string {
   const s = ['th','st','nd','rd']
@@ -133,6 +144,7 @@ function HomeViewInner({
   // Null until read. Every card whose SHAPE depends on it waits for it rather than drawing the
   // regular-season version and then swapping, which on a phone moved the page under the reader's
   // thumb. The scores and the bracket above never wait. See seasonPhase.ts.
+  const headingTag = useMlbHeadingTag()
   const phase      = useSeasonPhase(CURRENT_SEASON)
   const seasonOver = phase == null ? null : isSeasonOver(phase)
 
@@ -437,17 +449,25 @@ function HomeViewInner({
 
   return (
     <Box>
+      {/* The page's one h1, drawn, as WPBL's Home draws "Women's Pro Baseball League": the league's
+          full name in the tab-title style, so the two Homes open the same way across the section
+          switch. Until Oct 9, 2026 this h1 was hidden ("MLB scores, stats and standings") and the
+          page opened on bare scoreboard tiles. Needs no data, so it is there from the first frame. */}
+      <Typography component={headingTag} sx={{ ...TAB_TITLE_SX, mb: HOME_GAP }}>
+        Major League Baseball
+      </Typography>
+
       {/* ── Scoreboard: full-width header, always visible ─────────────────────── */}
       {/* Every card on this page is a TrackedCard: seen, then used. See TrackedCard.tsx. */}
       {showScores && (
-        <TrackedCard card="scoreboard" sx={{ mb: 2 }}>
+        <TrackedCard card="scoreboard" sx={{ mb: HOME_GAP }}>
           <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
         </TrackedCard>
       )}
 
       {/* The postseason bracket, straight under the scores while one is being played. It draws
           nothing outside a postseason, and TrackedCard hides its own box when it is empty. */}
-      <TrackedCard card="bracket" sx={{ mb: 2 }}>
+      <TrackedCard card="bracket" sx={{ mb: HOME_GAP }}>
         <PlayoffBracketCard compact onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
       </TrackedCard>
 
@@ -463,13 +483,13 @@ function HomeViewInner({
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
-        columnGap: 2.5,
-        rowGap: { xs: 2, md: 0 },
+        columnGap: HOME_GAP,
+        rowGap: { xs: HOME_GAP, md: 0 },
         alignItems: 'start',
       }}>
 
         {/* ═══ Personal column: My Feed ═══════════════════════════════════════ */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: HOME_GAP }}>
 
           {followedTeamId ? (
             <>
@@ -491,7 +511,7 @@ function HomeViewInner({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography sx={{
-                          fontSize: teamQuiet ? { xs: '0.95rem', sm: '1.05rem' } : { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,
+                          fontSize: teamQuiet ? TYPE_SCALE.title : TYPE_SCALE.heading, fontWeight: 800,
                           letterSpacing: typePx(-0.5), lineHeight: 1.25,
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
@@ -499,8 +519,8 @@ function HomeViewInner({
                         </Typography>
                         {standingParts.length > 0 && (
                           <Typography sx={{
-                            fontSize: { xs: '0.62rem', sm: '0.74rem' }, mt: 0.35, lineHeight: 1.3,
-                            color: october?.kind === 'champion' ? '#eab308' : 'text.secondary',
+                            fontSize: TYPE_SCALE.meta, mt: 0.35, lineHeight: 1.3,
+                            color: october?.kind === 'champion' ? TONE.yellow : 'text.secondary',
                             fontWeight: october?.kind === 'champion' ? 800 : undefined,
                           }}>
                             {october?.kind === 'champion' && '🏆 '}
@@ -527,7 +547,7 @@ function HomeViewInner({
                         <Box
                           onClick={() => setShowTeamSchedule(true)}
                           sx={{
-                            fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                            fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
                             cursor: 'pointer', px: 0.9, py: 0.3,
                             borderRadius: 999, border: '1px solid', borderColor: 'divider',
                             whiteSpace: 'nowrap',
@@ -540,7 +560,7 @@ function HomeViewInner({
                         <Box
                           onClick={onUnfollowTeam}
                           sx={{
-                            fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                            fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
                             cursor: 'pointer', px: 0.9, py: 0.3,
                             borderRadius: 999, border: '1px solid', borderColor: 'divider',
                             whiteSpace: 'nowrap',
@@ -557,7 +577,7 @@ function HomeViewInner({
                   {/* Schedule strip. Collapsed on a quiet card: no strip, but Schedule still opens
                       the club's whole season from it. */}
                   <Box sx={teamQuiet ? undefined : { borderTop: '1px solid', borderColor: 'divider' }}>
-                    <Suspense fallback={teamQuiet ? null : <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
+                    <Suspense fallback={teamQuiet ? null : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
                       <TeamScheduleStrip
                         teamId={followedTeamId}
                         teamColor={bg}
@@ -641,7 +661,7 @@ function HomeViewInner({
         </Box>
 
         {/* ═══ Discovery column: Around the League ════════════════════════════ */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: HOME_GAP }}>
 
           {/* Standout performances: the postseason's once the regular season is over */}
           {seasonOver != null && (
@@ -665,14 +685,15 @@ function HomeViewInner({
 
 
           {/* Featured spotlight, hot / cold. No floating section title; the
-              On Fire / Ice Cold cards below are self-labeling. */}
-          <Box>
+              On Fire / Ice Cold cards below are self-labeling. Not drawn at all with nothing in it:
+              an empty box is still a child of the column, which put a gap either side of it. */}
+          {(loadingSpotlight || hotGuy || coldGuy) && <Box>
             {loadingSpotlight && !hotGuy && (
               <Box sx={{ py: 4, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading…</Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Loading…</Typography>
               </Box>
             )}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: HOME_GAP }}>
               {hotGuy && (
                 <TrackedCard card="on_fire">
                   <SpotlightCard data={hotGuy} mode="hot" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
@@ -684,7 +705,7 @@ function HomeViewInner({
                 </TrackedCard>
               )}
             </Box>
-          </Box>
+          </Box>}
 
           {/* Daily report cards: two cards drawn from the full pool (team + player
               boards), rotating day to day. Each carries its own heading. */}

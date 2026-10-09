@@ -116,6 +116,30 @@ export const TYPE_SCALE = {
   nano: '0.5rem',
 } as const
 
+/**
+ * Icon sizes, and they are a SEPARATE SCALE on purpose.
+ *
+ * MUI sizes an icon with `fontSize`, so an icon and a paragraph reach for the same CSS property
+ * and a naive audit reads a 1.35rem emoji as a heading. They are not the same problem: type
+ * sizes are a reading hierarchy and icon sizes are a fit against the text beside them. Keeping
+ * two names means the type test can insist on TYPE_SCALE without an allowlist of exceptions
+ * nobody would maintain.
+ */
+export const ICON_SIZE = {
+  lg: '1.35rem',
+  md: '1.15rem',
+  sm: '0.85rem',
+} as const
+
+/** A tab's own title, Home's league name included. ONE STYLE FOR ALL FIVE because they are read in
+ *  sequence: with the tabs in the toolbar there is no pill row between them to absorb a change,
+ *  so Home's display-size title next to four smaller ones read as the page jumping on every switch.
+ *  The size of a standalone page's (WpblPage) on a desktop, a step down on a phone. */
+export const TAB_TITLE_SX = {
+  fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page },
+  fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.15,
+} as const
+
 // Disclosure chevron, drawn from a rotated border corner rather than pulled from an icon
 // font: the same approach as the highlights play triangle, and it animates for free.
 export function Chevron({ open }: { open: boolean }) {
@@ -213,7 +237,13 @@ export function SectionCard({ icon, title, titleAdornment, subtitle, action, act
           ...(collapsible ? { cursor: 'pointer', userSelect: 'none', ...TAPPABLE } : {}),
         }}
       >
-        {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
+        {/* 1em wide with the glyph centred and let overflow. An emoji font draws each emoji well inside
+            its advance (Segoe UI Emoji: 31.6px of box for 23.6px of ink at 23px), so a box sized by
+            the glyph added about 4px of blank either side: the gap to the title read 14px for a 10px
+            gap, and the emoji sat 4px in from the card's edge. */}
+        {icon != null && (
+          <Box sx={{ fontSize: ICON_SIZE.md, lineHeight: 1, flexShrink: 0, width: '1em', display: 'flex', justifyContent: 'center', overflow: 'visible' }}>{icon}</Box>
+        )}
         <Box sx={actionWraps ? { flexShrink: 0 } : { flex: 1, minWidth: 0 }}>
           {/* A REAL `h2`. Every card title on every WPBL page comes through here, and as plain text
               a screen reader would land on the `h1` and then have no way to skim the page, since
@@ -224,13 +254,13 @@ export function SectionCard({ icon, title, titleAdornment, subtitle, action, act
               prop for it would only invite a card to lie. */}
           {titleAdornment != null ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-              <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{title}</Typography>
+              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{title}</Typography>
               {titleAdornment}
             </Box>
           ) : (
-            <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
+            <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
           )}
-          {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
+          {subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
         {action != null && (
           <Box
@@ -286,7 +316,7 @@ export function TextGhost({ children, hidden }: { children: React.ReactNode; hid
 export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
   return (
     <Typography sx={{
-      fontSize: strong ? '0.78rem' : '0.63rem',
+      fontSize: strong ? TYPE_SCALE.body : TYPE_SCALE.caption,
       fontWeight: strong ? 800 : 700,
       textTransform: 'uppercase', letterSpacing: typePx(1.8),
       color: strong ? 'text.primary' : 'text.disabled', mb: 1,

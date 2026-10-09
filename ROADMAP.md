@@ -258,8 +258,28 @@ will actually see all winter. The functional items do not wait.
    `TeamBadge` and `LeaderRow` stay in WPBL: both read WPBL's own logos, portraits and player
    type, and MLB's `TeamLogo` and `PlayerHeadshot` do the same jobs on StatsAPI's art, so moving
    them would share the box and nothing else.
+   ✅ *Type audit of Home, Oct 9 (v1.135.0):* measured in the browser, every text node in every
+   Home card had about 25 sizes (0.37rem to 1.5rem, often 0.02rem apart), all six weights from
+   400 to 900, and five letter-spacings on caps. Now six `TYPE_SCALE` steps plus `ICON_SIZE`
+   (moved to `src/ui/card.tsx`), four weights, and two caps spacings, by role: a name is `body`
+   700, a value `body` 800, a secondary line ("LF · NYM", a date, a record) `meta`, a column label
+   `caption` caps 700, a status chip `caption` caps 800, an eyebrow `micro` caps 800 at 1px.
+   `text.disabled` is for inert marks only (separators, placeholders, ranks); 37 live labels and
+   dates drawn in it are `text.secondary` now. Raw hexes on text went to `TONE`. Breakpoint bumps
+   on font sizes (`{ xs: 1.05, sm: 1.25 }`) are gone: the root already scales at `md`. All
+   fourteen Home files and `src/ui/card.tsx` are on the type-scale test's adopted list. Two layout
+   fixes came out of it: the scoreboard chip is `7.75rem` rather than `chromePx(124)`, since it
+   reserves room for text, and the standings snapshot's header labels share the rem widths of the
+   cells under them. And `SectionCard`'s icon is a 1em box with the emoji centred in it: an emoji font draws
+   well inside its advance, so the 10px gap to the title read as 14px. Spacing to match: one gap on Home,
+   `HOME_GAP` (1.5, WPBL's), under the title, the scoreboard and the bracket and between cards both
+   ways, where it was 2 and 2.5; and the score strip's padding is 0.5, room for the hover lift.
+   The gaps above "Playoff series" and the cards read 41px; they are 27 and 29 now, as WPBL's do.
 2. **Visible page titles.** Every WPBL page opens with one ("WPBL Standings"); MLB's `<h1>` is
-   hidden, so its pages open on a row of pills.
+   hidden, so its pages open on a row of pills. *Home done Oct 9 (v1.135.0):* "Major League
+   Baseball" in `TAB_TITLE_SX` (moved to `src/ui/card.tsx`), as WPBL's Home draws "Women's Pro
+   Baseball League"; the hidden "MLB scores, stats and standings" is gone. Standings, Stats and
+   Charts still carry hidden ones in `TAB_H1` (MlbStats.tsx).
 3. **One sub-navigation pattern.** WPBL: a left-aligned row of text tabs over filter chips. MLB: a
    centred pill row, sometimes with a second segmented control on the right. Use WPBL's.
 4. **One stats-table look.** WPBL's spans the page with a league-average row and a "+ Qualified"

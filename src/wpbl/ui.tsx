@@ -278,14 +278,8 @@ export { chromePx } from '../ui/scale'
 export const BOARD_COLUMN = chromePx(720)
 export const BOARD_COLUMN_WIDE = chromePx(1150)
 
-/** A tab's own title, Home's league name included. ONE STYLE FOR ALL FIVE because they are read in
- *  sequence: with the tabs in the toolbar there is no pill row between them to absorb a change,
- *  so Home's display-size title next to four smaller ones read as the page jumping on every switch.
- *  The size of a standalone page's (WpblPage) on a desktop, a step down on a phone. */
-export const TAB_TITLE_SX = {
-  fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page },
-  fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.15,
-} as const
+// TAB_TITLE_SX lives in src/ui/card.tsx, shared with MLB's Home title since Oct 9, 2026.
+export { TAB_TITLE_SX } from '../ui/card'
 
 /**
  * WEIGHT HAS A CEILING AT THE BOTTOM OF THIS SCALE, and it is the opposite of the instinct.
@@ -322,20 +316,8 @@ export const TAB_TITLE_SX = {
  * against these bands by whoever writes it.
  */
 
-/**
- * Icon sizes, and they are a SEPARATE SCALE on purpose.
- *
- * MUI sizes an icon with `fontSize`, so an icon and a paragraph reach for the same CSS property
- * and a naive audit reads a 1.35rem emoji as a heading. They are not the same problem: type
- * sizes are a reading hierarchy and icon sizes are a fit against the text beside them. Keeping
- * two names means the type test can insist on TYPE_SCALE without an allowlist of exceptions
- * nobody would maintain.
- */
-export const ICON_SIZE = {
-  lg: '1.35rem',
-  md: '1.15rem',
-  sm: '0.85rem',
-} as const
+// ICON_SIZE lives in src/ui/card.tsx beside TYPE_SCALE, shared with MLB since Oct 9, 2026.
+export { ICON_SIZE } from '../ui/card'
 
 /**
  * THE TWO SHAPES HOME'S FIXTURE CARDS SHARE. Next game and Last game sit one above the other in
