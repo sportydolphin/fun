@@ -67,9 +67,15 @@ export function fetchMlbBio(id: number): Promise<MlbBio | null> {
   if (hit) return hit
   const p = getJson(`${API}/people/${id}?hydrate=currentTeam,draft`).then(d => d.people?.[0] ?? null)
   bioCache.set(id, p)
-  p.catch(() => bioCache.delete(id))
+  p.then(b => { if (b) bioSettled.set(id, b) }, () => bioCache.delete(id))
   return p
 }
+
+const bioSettled = new Map<number, MlbBio>()
+
+/** A bio this session has already read, without waiting a tick for it. The compare page sizes its
+ *  first frame from it: a promise, even a settled one, answers only after that frame is drawn. */
+export const peekMlbBio = (id: number): MlbBio | undefined => bioSettled.get(id)
 
 /** Where the player is from, as a reader would write it: no country for an American. */
 export function birthplace(b: MlbBio): string | null {

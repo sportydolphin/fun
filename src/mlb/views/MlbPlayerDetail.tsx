@@ -38,7 +38,7 @@ import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
 import { ACCENT_TEXT, CURRENT_SEASON, HEADSHOT_SQUARE, TEAM_NICKNAME, TEAM_SECONDARY, teamPalette } from '../constants'
 import { fetchPlayerContract } from '../api'
 import { careerSpan } from '../lib/utils'
-import { mlbClubById, mlbCompareStartPath, MLB_GLOSSARY_PAGE } from '../routes'
+import { mlbClubById, mlbCompareStartPath, withMlbCompareSeason, MLB_GLOSSARY_PAGE } from '../routes'
 import { track, EVENTS } from '../../lib/analytics'
 import { linkTo, UNSTYLED_LINK } from '../../nav'
 import { mlbStatFull, mlbStatPlain } from '../statGlossary'
@@ -238,11 +238,13 @@ function FollowChip({ followed, onToggle, name, compact }: { followed: boolean; 
  * anchor, because it is the one link from inside the section to a page about this player and
  * somebody else, and those pages are found by being linked rather than through the sitemap. It
  * waits for the name, so the link is the canonical spelling rather than the bare id the edge 301s.
+ * It carries the season on screen, so a reader looking at 2019 compares 2019; the career view has
+ * no season to compare, and takes the current one.
  */
-function CompareChip({ id, name, compact }: { id: number; name: string | null; compact?: boolean }) {
+function CompareChip({ id, name, season, compact }: { id: number; name: string | null; season: number; compact?: boolean }) {
   if (!name) return null
   return (
-    <Box {...linkTo(mlbCompareStartPath({ id, fullName: name }))}
+    <Box {...linkTo(withMlbCompareSeason(mlbCompareStartPath({ id, fullName: name }), season, CURRENT_SEASON))}
       onClickCapture={() => track(EVENTS.MLB_COMPARE_OPENED, { from: 'player', playerId: id })}
       title={`Compare ${name} with somebody`} aria-label={`Compare ${name} with another player`}
       sx={headerChipSx}>
@@ -804,7 +806,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const target = { kind: 'player', id: playerId } as const
   const actions = <>
     <FollowChip followed={followed} onToggle={onToggleFollow} name={name} compact={panel} />
-    <CompareChip id={playerId} name={bio?.fullName ?? player?.fullName ?? null} compact={panel} />
+    <CompareChip id={playerId} name={bio?.fullName ?? player?.fullName ?? null}
+      season={!careerView && season != null ? season : CURRENT_SEASON} compact={panel} />
     <CopyLinkButton url={mlbShareUrl(target)} title={`Copy a link to ${name}`} onCopy={() => trackMlbShare(target)} />
   </>
   const card = (

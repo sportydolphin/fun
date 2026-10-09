@@ -243,8 +243,11 @@ flowchart LR
   reads), StatsAPI's `vsPlayer` record for each way round a duel can exist (this season, the career
   and the postseason, never summed), and the two season pools only while the picker is up. The edge
   ([`functions/mlb/index.ts`](functions/mlb/index.ts)) 404s a slug naming nobody, 301s a stale name
-  in the reader's order and titles a pair's unfurl; only the picker is in the sitemap. Entry points:
-  the Compare chip on the player card, the More menu and the footer
+  in the reader's order and titles a pair's unfurl; only the picker is in the sitemap. A season other
+  than the current one is `?season=` (`withMlbCompareSeason`), the section's one query string: a view
+  of the same pair, so every season of it declares the season-less canonical, and the edge keeps it
+  through the 301. Entry points: the Compare chip on the player card (which carries the card's
+  season), the More menu and the footer
 - **Batter vs pitcher** ([`src/wpbl/derive/matchups.ts`](src/wpbl/derive/matchups.ts)): one
   derivation, `batterPitcherMatchups`, behind every surface that shows a duel. It reads the
   UNFILTERED play read (`fetchWpblAllRunValuePlays`), never the firsts read, which drops routine

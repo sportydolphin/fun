@@ -166,7 +166,7 @@ export const EVENTS = {
   // The comparison pages (/wpbl/compare). Worth measuring because the pair is the whole
   // question: these pages are deliberately absent from the sitemap, so which comparisons
   // readers actually build is the only evidence there is about what to link to.
-  WPBL_COMPARE_VIEWED: 'wpbl_compare_viewed', // a pair page rendered, props {a, b}
+  WPBL_COMPARE_VIEWED: 'wpbl_compare_viewed', // a pair page rendered, props {a, b, season}
   WPBL_COMPARE_OPENED: 'wpbl_compare_opened', // opened the compare tool, props {from, playerId?, pair?}
   // Home's Compare card, which took the Leaders board's quadrant and shipped with no telemetry
   // at all — the only card in the feed that could not report whether it was seen or used, the
@@ -203,7 +203,7 @@ export const EVENTS = {
   // /mlb/compare, WPBL's pair: the tool opened (the player card's chip, the More menu), and a pair
   // page drawn.
   MLB_COMPARE_OPENED:  'mlb_compare_opened',  // opened the compare tool, props {from, playerId?}
-  MLB_COMPARE_VIEWED:  'mlb_compare_viewed',  // a pair page rendered, props {a, b}
+  MLB_COMPARE_VIEWED:  'mlb_compare_viewed',  // a pair page rendered, props {a, b, season}
   // A Home card as a pair. SEEN is an impression when the card scrolls into view, not when it
   // renders: MLB Home is one long column on a phone, so "rendered" would be every card on every
   // visit and say nothing about the ones below the fold. USED is the first click anywhere inside

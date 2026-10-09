@@ -7,8 +7,12 @@
 // one's bio and season bundle (the player card's own two reads, the bio already cached from the
 // card a reader came from), the head-to-head from StatsAPI's `vsPlayer` record, and the two season pools only while
 // the picker is on screen, since those are the Stats boards' 1.5 MB and a pair page has no use for
-// them. The season is the one the section shows (CURRENT_SEASON), regular season only, as WPBL's is.
-import { useEffect, useMemo, useState } from 'react'
+// them. Regular season only, as WPBL's is.
+//
+// THE SEASON IS THE URL'S: `?season=` when the reader came from a player card showing another year,
+// else the one the section shows (CURRENT_SEASON). See withMlbCompareSeason in routes.ts for why
+// it is a query string when nothing else in the section is.
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Box, Typography } from '@mui/material'
 import StandalonePage from '../ui/StandalonePage'
 import { SectionCard, TextGhost } from '../ui/card'
@@ -18,21 +22,21 @@ import {
   ComparePicker, CompareAgainLink, duelLine, HEAD_CARD, VS_SX, PICK_SLOT, GHOST_HEAD_NAME,
   type ComparePick, type HeadToHeadView,
 } from '../ui/compare'
-import { fetchMlbBio, fetchSeasonBundle, type MlbBio, type SeasonBundle } from './playerProfile'
+import { fetchMlbBio, peekMlbBio, fetchSeasonBundle, fetchCareer, type MlbBio, type SeasonBundle } from './playerProfile'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'
 import {
-  buildMlbComparison, duelFromVsPlayer, canBat, canPitch, rankMlbCompareCandidates,
+  buildMlbComparison, duelFromVsPlayer, canBat, canPitch, rankMlbCompareCandidates, mlbPairShape,
   type MlbCompareLines, type MlbCompareSide, type MlbDuel, type MlbCompareCandidate,
 } from './compare'
 import {
   MLB_COMPARE_BASE, mlbCompareTargetFromPath, mlbComparePath, mlbCompareCanonicalPath, mlbCompareStartPath, mlbPlayerPath,
+  mlbCompareSeasonFromSearch, withMlbCompareSeason,
 } from './routes'
 import { CURRENT_SEASON, HEADSHOT, TEAM_BG, TEAM_ABBR, TEAM_NICKNAME } from './constants'
 import { TeamLogo } from './components/TeamLogo'
 import { setDynamicSeo } from '../seo'
 import { track, EVENTS } from '../lib/analytics'
 
-const SEASON = CURRENT_SEASON
 const API = 'https://statsapi.mlb.com/api/v1'
 
 /** How many rows the picker draws with no query. The list scrolls in a fixed box, so the cap is
@@ -42,18 +46,40 @@ const PICK_LIMIT = 60
 
 // ─── Reads ──────────────────────────────────────────────────────────────────────
 
-interface Side { bio: MlbBio | null; lines: MlbCompareLines }
+/** `teamId` is the club the season was played for, which for any season but this one need not be
+ *  the club the bio says they are on now. */
+interface Side { bio: MlbBio | null; lines: MlbCompareLines; teamId: number | null }
 
 const toLines = (b: SeasonBundle): MlbCompareLines => ({ hitting: b.hitting, pitching: b.pitching, saber: b.saber })
 
 /** One player's half: the card's own reads, so a player opened from a card is already in hand. A
  *  failed bundle is no season rather than a broken page; a failed bio is a page with no name. */
-async function readSide(id: number): Promise<Side> {
-  const [bio, bundle] = await Promise.all([
+async function readSide(id: number, season: number): Promise<Side> {
+  const [bio, bundle, pastClub] = await Promise.all([
     fetchMlbBio(id).catch(() => null),
-    fetchSeasonBundle(id, SEASON).catch(() => null),
+    fetchSeasonBundle(id, season).catch(() => null),
+    // A past season's club is the card's: off the year-by-year, the last club of a traded season.
+    // Read only for a past season, and cached under the card's own reads.
+    season === CURRENT_SEASON ? null
+      : fetchCareer(id).then(c => [...c.hitting, ...c.pitching].find(r => r.season === season)?.lastTeamId ?? null).catch(() => null),
   ])
-  return { bio, lines: bundle ? toLines(bundle) : { hitting: null, pitching: null, saber: { hitting: null, pitching: null } } }
+  return {
+    bio,
+    lines: bundle ? toLines(bundle) : { hitting: null, pitching: null, saber: { hitting: null, pitching: null } },
+    teamId: season === CURRENT_SEASON ? bio?.currentTeam?.id ?? null : pastClub,
+  }
+}
+
+const subscribeHistory = (cb: () => void) => {
+  window.addEventListener('popstate', cb)
+  return () => window.removeEventListener('popstate', cb)
+}
+const readSearch = () => window.location.search
+
+/** The season the address asks for. The shell routes on the pathname alone, so a move that changes
+ *  only the query would not reach this page through `path`. */
+function useCompareSeason(): number {
+  return mlbCompareSeasonFromSearch(useSyncExternalStore(subscribeHistory, readSearch, () => ''), CURRENT_SEASON)
 }
 
 const duelCache = new Map<string, Promise<any>>()
@@ -76,10 +102,13 @@ function readVsPlayer(batter: number, pitcher: number): Promise<any> {
 
 /** The club's nickname and the position, which fit half a phone's width where "Pittsburgh Pirates
  *  · RF" does not; the badge beside it says the city. */
-const subline = (bio: MlbBio | null) => {
-  const club = bio?.currentTeam?.id ? TEAM_NICKNAME[bio.currentTeam.id] ?? bio.currentTeam.name : 'Free agent'
-  const pos = bio?.primaryPosition?.abbreviation
-  return `${club}${pos ? ` · ${pos}` : ''}`
+const subline = (side: Side, current: boolean) => {
+  // No club this season is a free agent now, and in a past season simply no line that year.
+  const club = side.teamId != null
+    ? TEAM_NICKNAME[side.teamId] ?? (side.bio?.currentTeam?.id === side.teamId ? side.bio.currentTeam.name : null)
+    : current ? 'Free agent' : null
+  const pos = side.bio?.primaryPosition?.abbreviation
+  return [club, pos].filter(Boolean).join(' · ')
 }
 
 function Portrait({ id, name, teamId }: { id: number; name: string; teamId?: number }) {
@@ -92,18 +121,18 @@ function Portrait({ id, name, teamId }: { id: number; name: string; teamId?: num
   )
 }
 
-function Head({ id, side, onNavigate, onClear }: {
-  id: number; side: Side; onNavigate: (to: string) => void; onClear?: () => void
+function Head({ id, side, current, onNavigate, onClear }: {
+  id: number; side: Side; current: boolean; onNavigate: (to: string) => void; onClear?: () => void
 }) {
   const name = side.bio?.fullName ?? 'Unknown player'
-  const teamId = side.bio?.currentTeam?.id
+  const teamId = side.teamId ?? undefined
   return (
     <CompareHead
       name={name}
       href={mlbPlayerPath({ id, fullName: side.bio?.fullName })}
       portrait={<Portrait id={id} name={name} teamId={teamId} />}
       badge={teamId && TEAM_ABBR[teamId] ? <TeamLogo teamId={teamId} abbr={TEAM_ABBR[teamId]} size={18} /> : undefined}
-      subline={subline(side.bio)}
+      subline={subline(side, current)}
       onNavigate={onNavigate}
       onClear={onClear}
     />
@@ -111,26 +140,27 @@ function Head({ id, side, onNavigate, onClear }: {
 }
 
 /** The duel's slices, in the order a reader asks: this year, then all of it, then October. */
-function duelViews(duels: MlbDuel[], name: (s: MlbCompareSide) => string): HeadToHeadView[] {
+function duelViews(duels: MlbDuel[], season: number, name: (s: MlbCompareSide) => string): HeadToHeadView[] {
   return duels.map(d => ({
     key: d.batter,
     heading: `${name(d.batter)} batting against ${name(d.batter === 'a' ? 'b' : 'a')}`,
     slices: ([
-      [`${SEASON} regular season`, d.season],
+      [`${season} regular season`, d.season],
       ['Career regular season', d.career],
       ['Career postseason', d.postseason],
     ] as const).flatMap(([label, c]) => (c ? [{ label, line: duelLine(c) }] : [])),
   }))
 }
 
-/** The likeliest duel's slices, for its skeleton: two players who have met mostly have this year
+/** The likeliest duel's slices, for its skeleton: two players who have met mostly have the season
  *  and the career between them. */
-const DUEL_SKELETON = [`${SEASON} regular season`, 'Career regular season']
-/** The batting card's row counts, block by block: what a pair URL most often names is two hitters. */
-const BATTING_BLOCKS = [2, 9, 5, 2]
+const duelSkeleton = (season: number) => [`${season} regular season`, 'Career regular season']
+/** Each card's row counts, block by block, as compare.ts builds them. */
+const SKELETON_BLOCKS = { batting: [2, 9, 5, 2], pitching: [3, 4, 4, 2] } as const
+const SKELETON_TITLES = { batting: 'Batting', pitching: 'Pitching' } as const
 
-function Picker({ candidates, onPick, skeleton }: {
-  candidates: MlbCompareCandidate[]; onPick: (c: MlbCompareCandidate) => void; skeleton?: boolean
+function Picker({ candidates, season, onPick, skeleton }: {
+  candidates: MlbCompareCandidate[]; season: number; onPick: (c: MlbCompareCandidate) => void; skeleton?: boolean
 }) {
   const byId = useMemo(() => new Map(candidates.map(c => [String(c.id), c])), [candidates])
   const picks: ComparePick[] = useMemo(() => candidates.map(c => ({
@@ -142,8 +172,8 @@ function Picker({ candidates, onPick, skeleton }: {
       candidates={picks}
       skeleton={skeleton}
       limit={PICK_LIMIT}
-      limitNote={`The first ${PICK_LIMIT} by playing time. Search to find anyone else with a ${SEASON} line.`}
-      emptyText={`Nobody by that name with a ${SEASON} line.`}
+      limitNote={`The first ${PICK_LIMIT} by playing time. Search to find anyone else with a ${season} line.`}
+      emptyText={`Nobody by that name with a ${season} line.`}
       onPick={key => { const c = byId.get(key); if (c) onPick(c) }}
     />
   )
@@ -155,34 +185,65 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
   const target = mlbCompareTargetFromPath(path) ?? { kind: 'picker' as const }
   const ids = target.kind === 'pair' ? [target.a, target.b] : target.kind === 'single' ? [target.id] : []
   const idsKey = ids.join(',')
+  const season = useCompareSeason()
+  const current = season === CURRENT_SEASON
+  // Every compare address this page builds stays in the season it is showing.
+  const inSeason = (p: string) => withMlbCompareSeason(p, season, CURRENT_SEASON)
+  // What the reads below are keyed on: the same pair in another season is another page.
+  const readKey = idsKey ? `${idsKey}@${season}` : ''
 
   // Keyed by the ids they belong to, so a pair changed in place never draws the last pair's
   // columns for a frame.
   const [sides, setSides] = useState<{ key: string; list: Side[] } | null>(null)
   useEffect(() => {
-    if (!idsKey) return
+    if (!readKey) return
     let cancelled = false
-    Promise.all(idsKey.split(',').map(n => readSide(Number(n))))
-      .then(list => { if (!cancelled) setSides({ key: idsKey, list }) })
+    Promise.all(idsKey.split(',').map(n => readSide(Number(n), season)))
+      .then(list => { if (!cancelled) setSides({ key: readKey, list }) })
     return () => { cancelled = true }
+  // readKey is idsKey and season together.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readKey])
+  const ready = !readKey || sides?.key === readKey
+  const list = ready && readKey ? sides!.list : []
+
+  // The bios on their own, ahead of the lines, for the one thing the skeleton cannot read off the
+  // URL: whether this pair is two hitters. Read synchronously when the session already has them,
+  // which it does for a player whose card the reader came from.
+  const peeked = useMemo(() => {
+    const got = ids.map(peekMlbBio)
+    return got.every(Boolean) ? got as MlbBio[] : null
+  // `ids` is idsKey, rebuilt every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey])
-  const ready = !idsKey || sides?.key === idsKey
-  const list = ready && idsKey ? sides!.list : []
+  const [bios, setBios] = useState<{ key: string; list: (MlbBio | null)[] } | null>(null)
+  useEffect(() => {
+    if (target.kind !== 'pair' || peeked) return
+    let cancelled = false
+    Promise.all(idsKey.split(',').map(n => fetchMlbBio(Number(n)).catch(() => null)))
+      .then(list => { if (!cancelled) setBios({ key: idsKey, list }) })
+    return () => { cancelled = true }
+  // target.kind is read off the same path as idsKey.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, peeked])
+  const knownBios = peeked ?? (bios?.key === idsKey ? bios.list : [])
+  const shape = mlbPairShape(knownBios.map(b => b?.primaryPosition?.code))
 
   // The pools, only while there is a slot to fill.
   const picking = target.kind !== 'pair'
-  const [pools, setPools] = useState<{ hitting: any[]; pitching: any[] } | null>(null)
+  const [pools, setPools] = useState<{ season: number; hitting: any[]; pitching: any[] } | null>(null)
+  const poolsReady = pools?.season === season
   useEffect(() => {
-    if (!picking || pools) return
+    if (!picking || poolsReady) return
     let cancelled = false
-    Promise.all([fetchSeasonPlayerStats('hitting', SEASON), fetchSeasonPlayerStats('pitching', SEASON)])
-      .then(([hitting, pitching]) => { if (!cancelled) setPools({ hitting, pitching }) })
+    Promise.all([fetchSeasonPlayerStats('hitting', season), fetchSeasonPlayerStats('pitching', season)])
+      .then(([hitting, pitching]) => { if (!cancelled) setPools({ season, hitting, pitching }) })
     return () => { cancelled = true }
-  }, [picking, pools])
+  }, [picking, poolsReady, season])
   const subjectId = target.kind === 'single' ? target.id : null
   const candidates = useMemo(
-    () => (pools ? rankMlbCompareCandidates(subjectId, pools.hitting, pools.pitching) : []),
-    [pools, subjectId])
+    () => (pools && poolsReady ? rankMlbCompareCandidates(subjectId, pools.hitting, pools.pitching) : []),
+    [pools, poolsReady, subjectId])
 
   // Which ways round a duel can exist, once both bios are in: X batting against Y needs Y to pitch.
   const pairSides = target.kind === 'pair' && list.length === 2 ? list : null
@@ -205,12 +266,14 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
     // Each direction allowed to fail alone: a missing half is a card with one duel, and both
     // missing is no card, which is what the page looks like for two who never met.
     Promise.all(directions.map(d => readVsPlayer(d.batterId, d.pitcherId)
-      .then(json => duelFromVsPlayer(json, SEASON, d.batter))
+      .then(json => duelFromVsPlayer(json, season, d.batter))
       .catch(() => null)))
-      .then(found => { if (!cancelled) setDuels({ key: idsKey, list: found.filter((x): x is MlbDuel => x != null) }) })
+      .then(found => { if (!cancelled) setDuels({ key: readKey, list: found.filter((x): x is MlbDuel => x != null) }) })
     return () => { cancelled = true }
-  }, [directions, idsKey])
-  const duelsReady = directions.length === 0 || duels?.key === idsKey
+  // season is in readKey.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directions, readKey])
+  const duelsReady = directions.length === 0 || duels?.key === readKey
 
   const groups = useMemo(() => (pairSides ? buildMlbComparison(pairSides[0].lines, pairSides[1].lines) : []), [pairSides])
 
@@ -218,21 +281,22 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
   const aName = nameOf(list[0]), bName = nameOf(list[1])
 
   // The tags for what ROUTES cannot describe: a pair is titled from two names that arrive with
-  // their bios, and the half-picked state is noindex, a state rather than a page.
+  // their bios, and the half-picked state is noindex, a state rather than a page. Every season of a
+  // pair declares the same canonical, the season-less spelling (see withMlbCompareSeason).
   useEffect(() => {
     const here = path.replace(/\/+$/, '')
     if (target.kind === 'single' && aName) {
       setDynamicSeo({ path: here, seo: {
         title: `Compare ${aName} with another MLB player | sportydolphin.fun`,
-        description: `Pick an MLB player to put next to ${aName} and compare their ${SEASON} seasons.`,
+        description: `Pick an MLB player to put next to ${aName} and compare their ${season} seasons.`,
         noindex: true,
       } })
       return () => setDynamicSeo(null)
     }
     if (target.kind === 'pair' && aName && bName) {
       setDynamicSeo({ path: here, seo: {
-        title: `${aName} vs ${bName}: ${SEASON} MLB stats compared | sportydolphin.fun`,
-        description: `${aName} and ${bName} side by side in ${SEASON}: batting, pitching, WAR, `
+        title: `${aName} vs ${bName}: ${season} MLB stats compared | sportydolphin.fun`,
+        description: `${aName} and ${bName} side by side in ${season}: batting, pitching, WAR, `
           + 'and every time they have faced each other.',
         canonical: mlbCompareCanonicalPath({ id: target.a, fullName: aName }, { id: target.b, fullName: bName }),
       } })
@@ -240,32 +304,35 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
     }
   // `target` is rebuilt from `path` each render; its contents are all in the deps through it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, aName, bName])
+  }, [path, aName, bName, season])
 
   useEffect(() => {
-    if (target.kind === 'pair' && ready) track(EVENTS.MLB_COMPARE_VIEWED, { a: target.a, b: target.b })
-  // Once per pair, when it has drawn.
+    if (target.kind === 'pair' && ready) track(EVENTS.MLB_COMPARE_VIEWED, { a: target.a, b: target.b, season })
+  // Once per pair and season, when it has drawn.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, ready])
+  }, [readKey, ready])
 
   const pick = (c: MlbCompareCandidate) => {
     const chosen = { id: c.id, fullName: c.name }
-    if (target.kind === 'single') onNavigate(mlbComparePath({ id: target.id, fullName: aName }, chosen))
-    else onNavigate(mlbCompareStartPath(chosen))
+    if (target.kind === 'single') onNavigate(inSeason(mlbComparePath({ id: target.id, fullName: aName }, chosen)))
+    else onNavigate(inSeason(mlbCompareStartPath(chosen)))
   }
 
-  const standfirstNone = `Pick two players to put their ${SEASON} seasons side by side.`
+  const standfirstNone = `Pick two players to put their ${season} seasons side by side.`
+  // A pair names its season only when it is not this one, which every other page takes as read.
+  const pairStandfirst = current ? undefined : `The ${season} regular season.`
   const back = { href: '/mlb', label: 'Back to MLB' }
 
   // LOADING IS THE PAGE THE URL WILL OPEN, drawn empty, as WPBL's is: which of the three shapes is
-  // readable off the path before anything has arrived.
+  // readable off the path before anything has arrived, and which cards a pair holds off the bios,
+  // which arrive first.
   if (!ready) {
     return (
       <StandalonePage
         maxWidth={chromePx(560)}
         back={back}
         title={target.kind === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
-        standfirst={target.kind === 'pair' ? undefined : <>Pick somebody to put next to <TextGhost>{GHOST_HEAD_NAME}</TextGhost>.</>}
+        standfirst={target.kind === 'pair' ? pairStandfirst : <>Pick somebody to put next to <TextGhost>{GHOST_HEAD_NAME}</TextGhost>.</>}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           <Box sx={HEAD_CARD}>
@@ -274,10 +341,13 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
             {target.kind === 'pair' ? <CompareHeadSkeleton withChange /> : <Box sx={PICK_SLOT}>Pick somebody below</Box>}
           </Box>
           {target.kind === 'pair'
-            ? <CompareBlocksSkeleton title="Batting" blocks={BATTING_BLOCKS} />
+            ? <>
+                {shape.duel && <HeadToHeadSkeleton labels={duelSkeleton(season)} />}
+                {shape.groups.map(g => <CompareBlocksSkeleton key={g} title={SKELETON_TITLES[g]} blocks={[...SKELETON_BLOCKS[g]]} />)}
+              </>
             : (
               <SectionCard title="And who else">
-                <Picker candidates={[]} onPick={() => {}} skeleton />
+                <Picker candidates={[]} season={season} onPick={() => {}} skeleton />
               </SectionCard>
             )}
         </Box>
@@ -287,7 +357,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
 
   const [a, b] = list
   const title = target.kind === 'pair' ? `${aName ?? 'Unknown player'} vs ${bName ?? 'Unknown player'}` : 'Compare players'
-  const standfirst = target.kind === 'pair' ? undefined
+  const standfirst = target.kind === 'pair' ? pairStandfirst
     : target.kind === 'single' ? `Pick somebody to put next to ${aName ?? 'this player'}.` : standfirstNone
 
   return (
@@ -295,19 +365,19 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
         {target.kind !== 'picker' && (
           <Box sx={HEAD_CARD}>
-            <Head id={ids[0]} side={a} onNavigate={onNavigate}
-              onClear={target.kind === 'pair' ? () => onNavigate(mlbCompareStartPath({ id: target.b, fullName: bName })) : undefined} />
+            <Head id={ids[0]} side={a} current={current} onNavigate={onNavigate}
+              onClear={target.kind === 'pair' ? () => onNavigate(inSeason(mlbCompareStartPath({ id: target.b, fullName: bName }))) : undefined} />
             <Typography aria-hidden sx={VS_SX}>vs</Typography>
             {target.kind === 'pair'
-              ? <Head id={target.b} side={b} onNavigate={onNavigate}
-                  onClear={() => onNavigate(mlbCompareStartPath({ id: target.a, fullName: aName }))} />
+              ? <Head id={target.b} side={b} current={current} onNavigate={onNavigate}
+                  onClear={() => onNavigate(inSeason(mlbCompareStartPath({ id: target.a, fullName: aName })))} />
               : <Box sx={PICK_SLOT}>Pick somebody below</Box>}
           </Box>
         )}
 
         {picking && (
           <SectionCard title={target.kind === 'single' ? 'And who else' : 'Choose a player'}>
-            <Picker candidates={candidates} onPick={pick} skeleton={!pools} />
+            <Picker candidates={candidates} season={season} onPick={pick} skeleton={!poolsReady} />
           </SectionCard>
         )}
 
@@ -316,15 +386,15 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
             {/* The duel leads when there is one: it is the card no season table can draw. Its
                 slot is held while the record is on its way, so the page does not jump by a card. */}
             {directions.length > 0 && (duelsReady
-              ? <HeadToHeadCard duels={duelViews(duels?.list ?? [], s => (s === 'a' ? aName : bName) ?? 'Unknown player')} />
-              : <HeadToHeadSkeleton labels={DUEL_SKELETON} />)}
+              ? <HeadToHeadCard duels={duelViews(duels?.list ?? [], season, s => (s === 'a' ? aName : bName) ?? 'Unknown player')} />
+              : <HeadToHeadSkeleton labels={duelSkeleton(season)} />)}
             {groups.map(g => <CompareBlocksCard key={g.key} title={g.label} blocks={g.blocks} />)}
             {groups.length === 0 && (
               <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>
-                Neither has a regular-season line in {SEASON}, so there is nothing to compare yet.
+                Neither has a regular-season line in {season}, so there is nothing to compare yet.
               </Typography>
             )}
-            <CompareAgainLink href={MLB_COMPARE_BASE} onNavigate={onNavigate} />
+            <CompareAgainLink href={inSeason(MLB_COMPARE_BASE)} onNavigate={onNavigate} />
           </>
         )}
       </Box>

@@ -219,9 +219,12 @@ will actually see all winter. The functional items do not wait.
    season's players by playing time, 60 at a time, with search for the rest. A Compare chip on the
    player card (Follow and Compare drop their words on a phone and in the side panel, where all
    four did not fit), the More menu and the footer. Pinned in `__tests__/compare.test.ts` and the
-   edge cases in `routes.test.ts`. *Open:* a season other than the current one (the player card's
-   year menu has no way to carry its season across), and the pair's skeleton reserves two
-   hitters, so a pitcher pair grows by a card as it lands.
+   edge cases in `routes.test.ts`. ✅ *Follow-ups, Oct 9 (v1.133.0):* any season, as `?season=`,
+   which the player card's Compare chip carries from its year menu (the club in each head is the
+   one that season was played for); and the pair's skeleton is sized from the two bios, which land
+   first and are usually cached, so a pitcher pair reserves a Pitching card and a hitter against a
+   pitcher both cards and the duel. Still a guess with no bio in hand: a cold pitcher pair grows
+   once, when the bios land rather than when the lines do.
 5. ✅ **Every MLB player link opens the side panel on a desktop** (Oct 9). The team page's roster
    and Team Leaders cards pushed the player's full page themselves, the one place in `/mlb` that
    did; they now go through the section's `openPlayer` like every other list.

@@ -272,6 +272,10 @@ describe('the edge function', () => {
     const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/compare/677594-vs-bobby-witt-677951'))
     expect(res.status).toBe(301)
     expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/compare/julio-rodriguez-677594-vs-bobby-witt-jr-677951')
+    // The season is the pair's year, not its name, and survives the fold.
+    people({ people: [{ id: 677951, fullName: 'Bobby Witt Jr.' }, { id: 677594, fullName: 'Julio Rodríguez' }] })
+    const old = await onRequestGet(ctx('https://sportydolphin.fun/mlb/compare/677594-vs-677951?season=2023'))
+    expect(old.headers.get('location')).toBe('https://sportydolphin.fun/mlb/compare/julio-rodriguez-677594-vs-bobby-witt-jr-677951?season=2023')
     const pair = ctx('https://sportydolphin.fun/mlb/compare/julio-rodriguez-677594-vs-bobby-witt-jr-677951')
     await onRequestGet(pair)
     expect(pair.next).toHaveBeenCalled()
