@@ -37,6 +37,7 @@ import { useDevNoTeam } from '../dev/devSeasonPhase'
 import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
 import { cachedJson, FRESH_LIVE_MS } from '../lib/readCache'
+import { MLB_VIEW_PATHS } from '../routes'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -700,6 +701,7 @@ function HomeViewInner({
                     rows={rows as PlayerLbRow[]}
                     loading={loading}
                     onExpand={onViz ?? (() => {})}
+                    actionLabel="All boards" actionHref={MLB_VIEW_PATHS.viz}
                     onSelectPlayer={onPlayerClick}
                   />
                 ) : (
@@ -708,7 +710,7 @@ function HomeViewInner({
                     rows={rows as LbRow[]}
                     loading={loading}
                     onExpand={onViz ?? (() => {})}
-                    expandLabel="View All →"
+                    actionLabel="All boards" actionHref={MLB_VIEW_PATHS.viz}
                     onSelectTeam={onTeamClick}
                   />
                 )}

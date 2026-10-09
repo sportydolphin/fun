@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchStandings, fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
-import { TEAM_NICKNAME, ACCENT, ACCENT_TEXT } from '../constants'
-import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../lib/colorUtils'
+import { TEAM_NICKNAME, ACCENT } from '../constants'
+import { useIsDark, highlightColor, fmtGB } from '../lib/colorUtils'
 import { TeamLogo } from '../components/TeamLogo'
+import { SectionCard } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
 
@@ -183,7 +184,6 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
   season:         number
   onTeamClick?:   (id: number) => void
 }) {
-  const isDark = useIsDark()
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
   const [odds, setOdds] = useState<Map<number, number>>(new Map())
 
@@ -225,27 +225,20 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
   const colLabel = { fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', textAlign: 'right' } as const
 
   return (
-    <Box sx={{
-      borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
-      bgcolor: 'background.paper', overflow: 'hidden',
-    }}>
-      {/* Header: column labels mirror the row's right-aligned cells (record is unlabeled) */}
-      <Box sx={{
-        px: 1.5, py: 1.1, borderBottom: '1px solid', borderColor: 'divider',
-        display: 'flex', alignItems: 'baseline', gap: 1,
-      }}>
-        <Typography sx={{
-          flex: 1, minWidth: 0,
-          fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase',
-          letterSpacing: typePx(1.2), color: ACCENT_TEXT,
-        }}>
-          {title}
-        </Typography>
-        <Box sx={{ minWidth: chromePx(44) }} />
-        <Typography sx={{ ...colLabel, minWidth: chromePx(40) }}>GB</Typography>
-        {hasOdds && <Typography sx={{ ...colLabel, minWidth: chromePx(46) }}>Odds</Typography>}
-      </Box>
-
+    <SectionCard
+      title={title}
+      // The column labels sit on the title's line, as they did in the old header. The rows run to
+      // the card's edges with 12px of padding against the header's 16, so the labels step 4px
+      // right to land over their columns.
+      action={
+        <Box sx={{ display: 'flex', gap: 1, mr: -0.5 }}>
+          <Typography sx={{ ...colLabel, minWidth: chromePx(40) }}>GB</Typography>
+          {hasOdds && <Typography sx={{ ...colLabel, minWidth: chromePx(46) }}>Odds</Typography>}
+        </Box>
+      }
+    >
+      {/* Run to the card's edges: each row's club stripe is the card's left edge. */}
+      <Box sx={{ mx: -2, mb: -1.5 }}>
       {/* Rows */}
       {rows.map((r, i) => {
         const p = odds.get(r.team.teamId)
@@ -264,6 +257,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
           />
         )
       })}
-    </Box>
+      </Box>
+    </SectionCard>
   )
 }

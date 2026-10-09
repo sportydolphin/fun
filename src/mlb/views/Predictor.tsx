@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, isRealClub, CURRENT_SEASON, TONE } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
 import { track, EVENTS } from '../../lib/analytics'
@@ -13,6 +13,7 @@ import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 import { chromePx, typePx } from '../../ui/scale'
+import { SectionCard, CardLink } from '../../ui/card'
 
 // Both open on a tap from the widget, so neither rides in the Home landing (see PredictorModal.tsx).
 const PredictorModal = lazy(() => import('./PredictorModal').then(m => ({ default: m.PredictorModal })))
@@ -389,7 +390,6 @@ export function PredictorWidget({ onPicksSettled }: {
   onPicksSettled?: (remaining: number) => void
 } = {}) {
   const { user } = useAuth()
-  const isDark = useIsDark()
   // Fetch the board and the stats sheet once the landing has settled, on the same 4s footing as
   // the section's view warm-up (MlbStats), so the first tap opens them in one commit instead of
   // waiting on the network. They stay out of the landing itself, which is the point of the split.
@@ -599,9 +599,11 @@ export function PredictorWidget({ onPicksSettled }: {
 
   return (
     <>
-      <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <Box sx={{ px: 2.5, py: 1.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 1, rowGap: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+      <SectionCard
+        icon="🎯"
+        title="Predictions"
+        titleAdornment={(!loading && remainingCount > 0) || ((isTomorrow || isLater) && !idle) ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             {!loading && remainingCount > 0 && (
               <Box sx={{
                 width: chromePx(7), height: chromePx(7), borderRadius: '50%', bgcolor: ACCENT, flexShrink: 0,
@@ -612,54 +614,33 @@ export function PredictorWidget({ onPicksSettled }: {
                 },
               }} />
             )}
-            <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: typePx(1.5), color: ACCENT_TEXT }}>
-              🎯 Predictions
-            </Typography>
             {(isTomorrow || isLater) && !idle && (
               <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
                 {isTomorrow ? 'Tomorrow' : shortDay(slateDate)}
               </Typography>
             )}
           </Box>
-          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0, ml: 'auto' }}>
-            {user && (
-              <Box
-                onClick={() => setStatsOpen(true)}
-                sx={{
-                  fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary',
-                  px: 1.25, py: 0.5, borderRadius: 999,
-                  border: '1px solid', borderColor: 'divider',
-                  cursor: 'pointer', transition: 'all 0.12s',
-                  '&:hover': { bgcolor: 'action.hover', borderColor: `${ACCENT}40`, color: ACCENT_TEXT },
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                📊 Stats
-              </Box>
+        ) : undefined}
+        action={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {user && <CardLink label="Stats" color="text.secondary" onClick={() => setStatsOpen(true)} />}
+            {!idle && (
+              <CardLink
+                label={loading ? '…' : pickedCount === 0 ? 'Make picks' : 'View picks'}
+                color={canOpen ? undefined : 'text.disabled'}
+                onClick={() => { if (canOpen) setModalOpen(true) }}
+              />
             )}
-            {!idle && <Box
-              onClick={() => canOpen && setModalOpen(true)}
-              sx={{
-                fontSize: '0.68rem', fontWeight: 700,
-                color: canOpen ? ACCENT_TEXT : 'text.disabled',
-                px: 1.5, py: 0.5, borderRadius: 999,
-                border: '1px solid',
-                borderColor: canOpen ? `${ACCENT}40` : 'divider',
-                cursor: canOpen ? 'pointer' : 'default',
-                transition: 'background 0.12s',
-                '&:hover': canOpen ? { bgcolor: `${ACCENT}15` } : {},
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {loading ? '…' : pickedCount === 0 ? 'Make Predictions' : 'View Picks'}
-            </Box>}
           </Box>
-        </Box>
-
+        }
+      >
+        {/* The body runs to the card's edges, as it did under the old header: the heater banner is
+            a full-width band, and every block below carries its own padding. */}
+        <Box sx={{ mx: -2, mb: -1.5 }}>
         {/* Heater banner: the user is on a hot correct-pick streak */}
         {heaterStreak >= PREDICTION_HEATER_MIN && (
           <Box sx={{
-            display: 'flex', alignItems: 'center', gap: 0.75, px: 2.5, py: 0.9,
+            display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.9,
             bgcolor: '#f9731612', borderBottom: '1px solid', borderColor: 'divider',
           }}>
             <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>🔥</Typography>
@@ -673,7 +654,7 @@ export function PredictorWidget({ onPicksSettled }: {
         <Box
           onClick={() => canOpen && setModalOpen(true)}
           sx={{
-            px: 2.5, py: 1.5,
+            px: 2, pt: heaterStreak >= PREDICTION_HEATER_MIN ? 1.25 : 0.5, pb: 1.5,
             cursor: canOpen ? 'pointer' : 'default',
             transition: 'background 0.12s',
             '&:hover': canOpen ? { bgcolor: 'action.hover' } : {},
@@ -747,14 +728,14 @@ export function PredictorWidget({ onPicksSettled }: {
             nearly every day with games. Without it the card grew by a third as the games arrived,
             and on a phone everything under it moved. */}
         {loading && (
-          <Box aria-hidden sx={{ px: 2.5, pb: 1.75, pt: 0.25 }}>
+          <Box aria-hidden sx={{ px: 2, pb: 1.75, pt: 0.25 }}>
             <Skeleton variant="rounded" sx={{ height: chromePx(51), borderRadius: 2 }} />
           </Box>
         )}
 
         {/* Inline quick picks: up to 3 open matchups, tap a logo to pick right here */}
         {!loading && quickPicks.length > 0 && (
-          <Box sx={{ px: 2.5, pb: 1.75, pt: 0.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box sx={{ px: 2, pb: 1.75, pt: 0.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {quickPicks.map(g => (
               <QuickPickRow
                 key={g.gamePk}
@@ -779,7 +760,8 @@ export function PredictorWidget({ onPicksSettled }: {
             )}
           </Box>
         )}
-      </Box>
+        </Box>
+      </SectionCard>
 
       {modalOpen && (
         <Suspense fallback={null}>

@@ -239,6 +239,25 @@ will actually see all winter. The functional items do not wait.
    WPBL's 38), its card titles carry emoji ("🔄 Roster Moves") where WPBL's are small-caps labels,
    and its "View All" is a pill where WPBL's "See all ›" is a text link. This one move is most of
    the visual alignment.
+   ✅ *Done Oct 9, ahead of Nov 1 (v1.134.0):* `SectionLabel` (the two copies were identical) and
+   WPBL's header link, now `CardLink`, are in `src/ui/card.tsx`, and `SectionCard` takes a
+   `titleAdornment` for an info tip or a chip beside the title. Every Home card that stays up
+   through the winter is on `SectionCard`: the Report Card boards (Home and Charts, `BoardCard` in
+   `components/leaderboards.tsx`), Roster Moves, Milestone Watch, Predictions, Streak Survivor, the
+   standings snapshot and the follow-a-team prompt. The emoji moved into the card's icon slot, so
+   each `h2` is the words alone; the pills, the expand icon and the "View all" footers are
+   `CardLink`s, a real link to `/mlb/charts` on Home; and the spinners in the boards and Roster
+   Moves are the rows themselves ghosted. Followed players keeps a hand-drawn header, because its
+   title gives way to a search field and an edit count, but in `SectionCard`'s type and padding.
+   `defaultBorder` now returns `CARD_BORDER`'s values, so the cards not converted draw the same
+   outline. The board rows take `TYPE_SCALE`, and `leaderboards.tsx` is the first MLB file on the
+   type-scale test's adopted list. Pinned in `__tests__/boardCard.test.tsx`.
+   *Kept as they are:* Standouts and On Fire / Ice Cold, whose frames are the club's colour and
+   gradient (a hero card, like WPBL's Last game, not a list card); and the scoreboard, bracket
+   and live cards, which retire on Nov 1. `TabTitle` goes with item 2, which is what it is for.
+   `TeamBadge` and `LeaderRow` stay in WPBL: both read WPBL's own logos, portraits and player
+   type, and MLB's `TeamLogo` and `PlayerHeadshot` do the same jobs on StatsAPI's art, so moving
+   them would share the box and nothing else.
 2. **Visible page titles.** Every WPBL page opens with one ("WPBL Standings"); MLB's `<h1>` is
    hidden, so its pages open on a row of pills.
 3. **One sub-navigation pattern.** WPBL: a left-aligned row of text tabs over filter chips. MLB: a

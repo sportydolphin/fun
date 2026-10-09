@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.134.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'MLB: Home cards in the WPBL style',
+        full:  "MLB Home's cards now match WPBL's: Predictions, Streak Survivor, your players, the standings, Roster Moves, Milestone Watch and the daily report cards share one title style and outline, with a plain link in the corner (\"All boards\", \"All moves\") in place of the old buttons. The report cards and Roster Moves hold their shape while they load, so the page no longer jumps when the rows arrive.",
+      },
+    ],
+  },
+  {
     version: '1.133.0',
     date:    '2026-10-09',
     changes: [

@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME } from '../constants'
-import { useIsDark, defaultBorder, ringColor } from '../lib/colorUtils'
+import { SectionCard, CardLink } from '../../ui/card'
+import { TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME } from '../constants'
+import { useIsDark, ringColor } from '../lib/colorUtils'
 import { LogoBubble } from '../components/boxScore'
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
@@ -34,31 +35,14 @@ export function FollowTeamPrompt({ onFollow, playing }: {
   /** Clubs still in the postseason, marked in the sheet. */
   playing?: Set<number>
 }) {
-  const isDark = useIsDark()
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Box sx={{
-        borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper',
-        px: 1.75, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5,
-      }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.2 }}>Your team</Typography>
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35, mt: 0.25 }}>
-            Follow a club to put its games, standing and players at the top of this page.
-          </Typography>
-        </Box>
-        <Box {...pressable(() => setOpen(true))} sx={{
-          flexShrink: 0, px: 1.5, py: 0.75, minHeight: chromePx(36), borderRadius: 999,
-          display: 'flex', alignItems: 'center',
-          border: `1px solid ${ACCENT}`, color: ACCENT_TEXT, bgcolor: `${ACCENT}14`,
-          fontSize: '0.74rem', fontWeight: 800, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
-          ...hoverOnly({ bgcolor: `${ACCENT}26` }),
-          ...FOCUS_RING,
-        }}>
-          Choose a team
-        </Box>
-      </Box>
+      <SectionCard title="Your team" action={<CardLink label="Choose a team" onClick={() => setOpen(true)} />}>
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35 }}>
+          Follow a club to put its games, standing and players at the top of this page.
+        </Typography>
+      </SectionCard>
       {open && (
         <TeamPickerSheet
           playing={playing}

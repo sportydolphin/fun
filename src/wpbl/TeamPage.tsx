@@ -4,7 +4,7 @@ import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
-import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, CARD_FILL, INNER_BORDER, FLAT_CARDS_DARK, TAPPABLE, hoverOnly } from './ui'
+import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, CARD_FILL, INNER_BORDER, FLAT_CARDS_DARK, TAPPABLE, hoverOnly } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   wpblQualifiers, plateAppearances,
@@ -91,23 +91,6 @@ export function scheduleWindow<T>(played: T[], upcoming: T[]): T[] {
   const done = Math.min(played.length, wantDone + Math.max(0, SCHEDULE_WINDOW - wantDone - wantUp))
   const up = Math.min(upcoming.length, wantUp + Math.max(0, SCHEDULE_WINDOW - done - wantUp))
   return [...played.slice(played.length - done), ...upcoming.slice(0, up)]
-}
-
-// A header link in a card's action slot. Same affordance as Results' "All 15".
-function CardLink({ label, accent, onClick }: { label: string; accent: string; onClick: () => void }) {
-  return (
-    <Typography
-      {...pressable(onClick)}
-      sx={{
-        fontSize: '0.72rem', fontWeight: 700, color: accent, cursor: 'pointer',
-        py: 0.5, px: 0.5, whiteSpace: 'nowrap', borderRadius: 1,
-        '&:hover': { textDecoration: 'underline' },
-        ...FOCUS_RING,
-      }}
-    >
-      {label}
-    </Typography>
-  )
 }
 
 // One game in the Results card and in the full-schedule modal, which is why it lives out
@@ -773,7 +756,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
               // Opens the full season in a modal. Expanding in place pushed everything below
               // it down by nine rows, so the card you were reading jumped out from under you
               // and you had to find your way back up to collapse it again.
-              <CardLink label={`All ${schedule.length}`} accent={accent}
+              <CardLink label={`All ${schedule.length}`} color={accent}
                 onClick={() => setScheduleOpen(true)} />
             ) : undefined}
           >
@@ -791,7 +774,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
             action={onOpenStats ? (
               // Lands on the Teams board, which is where these totals become meaningful: a .355 team
               // average says nothing until you can see the other three.
-              <CardLink label="Compare teams" accent={accent}
+              <CardLink label="Compare teams" color={accent}
                 onClick={() => onOpenStats('hitting', undefined, { mode: 'teams' })} />
             ) : undefined}
           >
@@ -890,7 +873,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
               // too. Landing on the qualified board would answer a question nobody asked here: most of the
               // names the reader had just scrolled past would be gone, with only a lit chip above the table
               // as a clue.
-              <CardLink label="Full stats" accent={accent}
+              <CardLink label="Full stats" color={accent}
                 onClick={() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id, qualified: false })} />
             ) : undefined}
           >

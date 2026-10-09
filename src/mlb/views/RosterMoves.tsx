@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography } from '@mui/material'
+import { SectionCard, CardLink, TextGhost } from '../../ui/card'
 import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
-import { CURRENT_SEASON, ACCENT_TEXT, TEAM_ABBR } from '../constants'
-import { useIsDark, defaultBorder, ringColor, useTextTone } from '../lib/colorUtils'
+import { CURRENT_SEASON, TEAM_ABBR } from '../constants'
+import { useIsDark, ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
@@ -99,13 +100,23 @@ function renderUnit(u: DisplayUnit, props: {
 
 // ─── Row ──────────────────────────────────────────────────────────────────────
 
-function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
+/** Only measured, never read: the row a loading card ghosts. One club each side, as a trade or a
+ *  claim draws, which is the widest the logo column gets. */
+const GHOST_MOVE: RosterMove = {
+  id: 0, playerId: 0, playerName: 'Bobby Witt Jr.', typeCode: 'SFA', typeDesc: 'Signed', date: '2026-01-01',
+  fromTeamId: 0, toTeamId: 0, description: '',
+}
+
+function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost }: {
   move: RosterMove
   showDescription?: boolean
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
+  /** Draw the row's exact box with nothing in it, for the card's loading state. */
+  ghost?: boolean
 }) {
   const tone = useTextTone()
+  const g = (text: React.ReactNode) => ghost ? <TextGhost>{text}</TextGhost> : text
   const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: '#94a3b8' }
   const teamClick = (id: number) => (e: React.MouseEvent) => {
     if (!onTeamClick) return
@@ -123,11 +134,13 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
         transition: 'background-color 0.15s',
       }}
     >
-      <PlayerHeadshot playerId={move.playerId} name={move.playerName} size={34} />
+      {ghost
+        ? <Box sx={{ width: chromePx(34), height: chromePx(34), borderRadius: '50%', flexShrink: 0, bgcolor: 'action.hover' }} />
+        : <PlayerHeadshot playerId={move.playerId} name={move.playerName} size={34} />}
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography {...playerLink(move.playerId, move.playerName, onPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {move.playerName}
+          {g(move.playerName)}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.2 }}>
           <Box component="span" sx={{
@@ -135,11 +148,12 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
             bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
             fontSize: '0.55rem', fontWeight: 800, color: tone(style.color, undefined, 5.6),
             letterSpacing: typePx(0.4), textTransform: 'uppercase', lineHeight: 1.4,
+            ...(ghost ? { bgcolor: 'action.hover', borderColor: 'transparent', color: 'transparent' } : {}),
           }}>
             {style.label}
           </Box>
           <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600, whiteSpace: 'nowrap' }}>
-            {fmtMoveDate(move.date)}
+            {g(fmtMoveDate(move.date))}
           </Typography>
         </Box>
         {showDescription && move.description && (
@@ -156,7 +170,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
         {move.fromTeamId != null && (
           <Box onClick={teamClick(move.fromTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
-            <TeamLogo teamId={move.fromTeamId} abbr="" size={24} />
+            {ghost ? <GhostLogo /> : <TeamLogo teamId={move.fromTeamId} abbr="" size={24} />}
           </Box>
         )}
         {move.fromTeamId != null && move.toTeamId != null && (
@@ -164,12 +178,17 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
         )}
         {move.toTeamId != null && (
           <Box onClick={teamClick(move.toTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
-            <TeamLogo teamId={move.toTeamId} abbr="" size={24} />
+            {ghost ? <GhostLogo /> : <TeamLogo teamId={move.toTeamId} abbr="" size={24} />}
           </Box>
         )}
       </Box>
     </Box>
   )
+}
+
+/** A 24px club logo's room, for the ghosted row. TeamLogo's box is exactly its size. */
+function GhostLogo() {
+  return <Box sx={{ width: chromePx(24), height: chromePx(24), borderRadius: '50%', bgcolor: 'action.hover' }} />
 }
 
 // ─── Trade block: both (or all) players in one deal ──────────────────────────
@@ -414,7 +433,6 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
-  const isDark = useIsDark()
   const [moves, setMoves]     = useState<RosterMove[] | null>(null)
   const [showAll, setShowAll] = useState(false)
 
@@ -435,52 +453,32 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
   const top = groupUnits(moves ?? []).slice(0, 4)
 
   return (
-    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', overflow: 'hidden' }}>
-      {/* Header */}
-      <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>🔄 Roster Moves</Typography>
-            {deadline && (
-              <Box sx={{
-                px: 0.75, py: chromePx(2), borderRadius: 999, flexShrink: 0,
-                bgcolor: deadline.hot ? '#ef44441c' : '#f973161c',
-                border: `1px solid ${deadline.hot ? '#ef4444' : '#f97316'}55`,
-              }}>
-                <Typography sx={{
-                  fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.3,
-                  color: deadline.hot ? '#ef4444' : '#f97316',
-                }}>
-                  ⏳ {deadline.label}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>
-            Trades, DFAs, claims and signings
+    <SectionCard
+      icon="🔄"
+      title="Roster Moves"
+      subtitle="Trades, DFAs, claims and signings"
+      titleAdornment={deadline ? (
+        <Box sx={{
+          px: 0.75, py: chromePx(2), borderRadius: 999, flexShrink: 0,
+          bgcolor: deadline.hot ? '#ef44441c' : '#f973161c',
+          border: `1px solid ${deadline.hot ? '#ef4444' : '#f97316'}55`,
+        }}>
+          <Typography sx={{
+            fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.3,
+            color: deadline.hot ? '#ef4444' : '#f97316',
+          }}>
+            ⏳ {deadline.label}
           </Typography>
         </Box>
-        <Box
-          onClick={() => setShowAll(true)}
-          sx={{
-            px: 1, py: chromePx(3), borderRadius: 999, flexShrink: 0,
-            bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
-            cursor: 'pointer', transition: 'border-color 0.12s',
-            '&:hover': { borderColor: 'text.secondary' },
-          }}
-        >
-          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: typePx(0.3), lineHeight: 1 }}>
-            View All →
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Rows */}
-      <Box sx={{ px: 0.5, py: 0.5 }}>
+      ) : undefined}
+      action={<CardLink label="All moves" onClick={() => setShowAll(true)} />}
+    >
+      {/* The rows' own hover inset, pulled back out so their content starts on the title's edge. */}
+      <Box sx={{ mx: -0.75 }}>
         {moves === null ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={22} sx={{ color: ACCENT_TEXT }} />
-          </Box>
+          // Four plain moves, the card's most likely shape: the row itself, ghosted, so nothing
+          // moves when the list lands (a trade block is a little taller, and rarer).
+          [0, 1, 2, 3].map(i => <MoveRowItem key={i} move={GHOST_MOVE} ghost />)
         ) : top.length === 0 ? (
           <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'center', py: 2.5 }}>
             No notable moves lately.
@@ -498,6 +496,6 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
         onPlayerClick={onPlayerClick}
         onTeamClick={onTeamClick}
       />
-    </Box>
+    </SectionCard>
   )
 }
