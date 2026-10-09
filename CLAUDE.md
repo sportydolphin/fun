@@ -473,12 +473,13 @@ Each of these has already cost someone a debugging session, and none of them fai
   check for routing and status codes, but it accepts input the real deploy refuses, so a
   green local run is evidence and not proof. Watch the actual Cloudflare build after a push
   that touches `_redirects`, `_routes.json` or `functions/`, **and watch the one on `main`**:
-  the `Workers Builds: fun` check on a branch PR has been red on every PR observed (a
-  docs-only one in July, another on Aug 27), completing in the same second it starts, against
-  the *production* Worker service, while `Cloudflare Pages` passes on the same commit and
-  deploys a preview. A red Workers check on a PR is therefore evidence of nothing, which is
-  the more expensive half: it trains you to ignore the one signal this rule is asking you to
-  read.
+  the Worker builds `main` only. Until Oct 9, 2026 it also built every PR branch, and those
+  builds were red on every PR ever opened: a branch ran `npx wrangler versions upload`, which
+  needs a Wrangler config the repo does not have, where `main` runs `npx wrangler deploy`,
+  which works it out. "Builds for non-production branches" is now off in the Worker's Build
+  settings, so a PR shows no `Workers Builds` check at all, and `Cloudflare Pages` gives each
+  PR its preview. Turn it back on and the red check returns, training everyone to ignore the
+  one signal this rule is asking you to read.
 - **`public/sitemap.xml` is generated.** `npm run sitemap` rebuilds it from the roster (one
   URL per player). A hand-edit is lost on the next run.
 - **The wildcards in `_redirects` (`/wpbl/players/*`, `/wpbl/games/*`, `/wpbl/compare/*`,
