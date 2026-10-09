@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // The MLB section's URLs, and the files that have to agree about them.
 //
 // A page under /mlb is a line in public/_redirects (or it 404s in production while working in

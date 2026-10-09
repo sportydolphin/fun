@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // ─── Stored notifications never keep the softball ─────────────────────────────
 //
 // WPBL is baseball. The reminder catalog shipped the softball glyph for a while, and

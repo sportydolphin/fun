@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { gamePageOf, expandGameToPage, GAME_PAGE_KEY } from '../state/gamePage'
 import { keepSheetMarker, sheetEntryUrl } from '../state/sheetHistory'
