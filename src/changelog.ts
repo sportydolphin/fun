@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.133.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'MLB: compare any season',
+        full:  "MLB's Compare is no longer this season only. Pick a year on a player page, tap Compare, and the comparison, the players on offer and the head-to-head are all from that season, with each player shown on the club they played for that year.",
+      },
+    ],
+  },
+  {
     version: '1.132.0',
     date:    '2026-10-09',
     changes: [

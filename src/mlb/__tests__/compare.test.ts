@@ -6,9 +6,10 @@ import { describe, it, expect } from 'vitest'
 import {
   MLB_COMPARE_BASE, MLB_MORE_PAGES, mlbComparePath, mlbCompareCanonicalPath, mlbCompareStartPath,
   mlbCompareTargetFromPath, isMlbComparePage, isMlbPath, isMlbSection, MLB_STATIC_PATHS,
+  mlbCompareSeasonFromSearch, withMlbCompareSeason,
 } from '../routes'
 import {
-  buildMlbComparison, duelFromVsPlayer, rankMlbCompareCandidates, canBat, canPitch,
+  buildMlbComparison, duelFromVsPlayer, rankMlbCompareCandidates, canBat, canPitch, mlbPairShape,
   type MlbCompareLines, type MlbCompareRow,
 } from '../compare'
 
@@ -39,6 +40,18 @@ describe('compare addresses', () => {
   it('refuses what names no page', () => {
     for (const p of ['/mlb/compare/nobody', '/mlb/compare/a/b', '/mlb/compare/677951-vs-677951', '/mlb/comparex']) {
       expect(mlbCompareTargetFromPath(p), p).toBeNull()
+    }
+  })
+
+  // A past season rides in the query, and the current one is never written, so today's links do
+  // not pin today's year.
+  it('carries a season other than the current one, and only a real one', () => {
+    const pair = mlbComparePath(witt, julio)
+    expect(withMlbCompareSeason(pair, 2026, 2026)).toBe(pair)
+    expect(withMlbCompareSeason(pair, 2023, 2026)).toBe(`${pair}?season=2023`)
+    expect(mlbCompareSeasonFromSearch('?season=2023', 2026)).toBe(2023)
+    for (const q of ['', '?season=2027', '?season=1850', '?season=23', '?season=abcd', '?season=2023.5']) {
+      expect(mlbCompareSeasonFromSearch(q, 2026), q).toBe(2026)
     }
   })
 
@@ -125,6 +138,18 @@ const vs = (splits: { season: string; gameType: string; pa: number; ab: number; 
     // Repeated per group, and ignored.
     { type: { displayName: 'vsPlayerTotal' }, splits: [{ gameType: 'R', stat: { plateAppearances: 999 } }] },
   ],
+})
+
+describe("the pair's skeleton", () => {
+  // The bios land before the lines; until they do, the commonest pair, two hitters.
+  it('reserves the cards the two positions will draw', () => {
+    expect(mlbPairShape([])).toEqual({ groups: ['batting'], duel: false })
+    expect(mlbPairShape(['6', undefined])).toEqual({ groups: ['batting'], duel: false })
+    expect(mlbPairShape(['6', '8'])).toEqual({ groups: ['batting'], duel: false })
+    expect(mlbPairShape(['1', '1'])).toEqual({ groups: ['pitching'], duel: false })
+    expect(mlbPairShape(['1', '6'])).toEqual({ groups: ['batting', 'pitching'], duel: true })
+    expect(mlbPairShape(['Y', '1'])).toEqual({ groups: ['batting', 'pitching'], duel: true })
+  })
 })
 
 describe('the head to head', () => {

@@ -46,7 +46,7 @@
 // through to the untouched shell, which resolves the player or game on its own. A 404 is only
 // ever answered on positive evidence that there is no such player or game.
 import {
-  mlbCompareTargetFromPath, mlbComparePath, mlbCompareStartPath, MLB_COMPARE_BASE,
+  mlbCompareTargetFromPath, mlbComparePath, mlbCompareStartPath, mlbCompareSeasonFromSearch, MLB_COMPARE_BASE,
   mlbLegacyGamePk, mlbLegacyTarget, mlbGamePath, mlbGamePkFromPath, mlbPlayerIdFromPath, mlbPlayerPath,
   mlbUrlFor, mlbSeriesFromPath, mlbSeriesPath, MLB_GAMES_BASE, MLB_LEGACY_GAME_PARAMS, MLB_LEGACY_PARAMS,
   MLB_PLAYERS_BASE, MLB_POSTSEASON_BASE,
@@ -208,13 +208,14 @@ async function compare(context: Ctx, url: URL, path: string): Promise<Response> 
     ? mlbComparePath({ id: t.a, fullName: names.get(t.a) }, { id: t.b, fullName: names.get(t.b) })
     : mlbCompareStartPath({ id: t.id, fullName: names.get(t.id) })
   if (canonical !== url.pathname) {
+    // The query rides along: `?season=` is the pair's year, not part of its name.
     const to = new URL(url)
     to.pathname = canonical
     return Response.redirect(to.toString(), 301)
   }
   if (t.kind !== 'pair') return shell(context)
   const [a, b] = [names.get(t.a)!, names.get(t.b)!]
-  const season = cardSeason(new Date())
+  const season = mlbCompareSeasonFromSearch(url.search, cardSeason(new Date()))
   return withCard(context, {
     title: `${a} vs ${b}: ${season} MLB stats compared | sportydolphin.fun`,
     ogTitle: `${a} vs ${b}`,

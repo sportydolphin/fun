@@ -229,6 +229,32 @@ export function canBat(positionCode: string | undefined, lines: MlbCompareLines)
   return positionCode !== '1' || pa(lines.hitting) > 0
 }
 
+/** What a pair page will most likely draw, from the two positions alone, for its skeleton. */
+export interface MlbPairShape {
+  groups: MlbCompareGroup['key'][]
+  /** Whether a head-to-head card is likely: one of them pitches and the other bats. */
+  duel: boolean
+}
+
+/**
+ * The pair page's shape before the lines land, read off the bios, which come first and are often
+ * cached from the card a reader came from. Without them it is two hitters, the commonest pair,
+ * which is what the skeleton reserved before this existed. With them a pitcher pair reserves a
+ * Pitching card instead of a Batting one that is five rows taller, and a hitter against a pitcher
+ * reserves both cards and the duel between them. Batting leads a mixed pair: which one leads is a
+ * question of who played more, which the lines answer, and the two cards cost the same height in
+ * either order.
+ */
+export function mlbPairShape(codes: (string | undefined)[]): MlbPairShape {
+  if (codes.length !== 2 || codes.some(c => c == null)) return { groups: ['batting'], duel: false }
+  const pitches = codes.map(c => c === '1' || c === 'Y')
+  const bats = codes.map(c => c !== '1')
+  const groups: MlbCompareGroup['key'][] = []
+  if (bats.some(Boolean)) groups.push('batting')
+  if (pitches.some(Boolean)) groups.push('pitching')
+  return { groups, duel: (bats[0] && pitches[1]) || (bats[1] && pitches[0]) }
+}
+
 // ─── Who to offer ─────────────────────────────────────────────────────────────
 
 export interface MlbCompareCandidate {

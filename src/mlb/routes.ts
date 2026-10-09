@@ -487,6 +487,30 @@ export function mlbCompareTargetFromPath(pathname: string): MlbCompareTarget | n
 
 export const isMlbComparePage = (pathname: string): boolean => mlbCompareTargetFromPath(pathname) !== null
 
+// A SEASON OTHER THAN THE CURRENT ONE IS A QUERY STRING, the one exception to the rule at the top
+// of this file, and on purpose: it is a view of the same pair, as a year is a view of the same
+// player card, so every season of "X vs Y" declares the season-less pair as its canonical and is
+// one page to a search engine. As a path it would be a page per pair per year, which is the
+// doorway problem above multiplied by a century. The current season is never written, so a link
+// shared today follows the section into next season, as every other MLB page with no season in
+// its address does.
+
+/** The first season StatsAPI has lines for. */
+const MLB_FIRST_SEASON = 1876
+
+/** The season a compare URL asks for: `?season=` when it names one that can have lines, else
+ *  `current`. A season in the future or before the record is the current one, not an error page. */
+export function mlbCompareSeasonFromSearch(search: string, current: number): number {
+  const raw = new URLSearchParams(search).get('season')
+  const n = raw && /^\d{4}$/.test(raw) ? Number(raw) : NaN
+  return n >= MLB_FIRST_SEASON && n <= current ? n : current
+}
+
+/** A compare path carrying `season`, which is left off when it is the current one. */
+export function withMlbCompareSeason(path: string, season: number, current: number): string {
+  return season === current ? path : `${path}?season=${season}`
+}
+
 /** The standalone pages, as rows in the section's More menu on a desktop and on a phone. Real
  *  addresses, so the toolbar draws them as <a href> without the section loaded, as WPBL's are. */
 export const MLB_MORE_PAGES: readonly { href: string; label: string; hint: string; event?: string; eventProps?: Record<string, unknown> }[] = [
