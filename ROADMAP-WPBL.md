@@ -70,7 +70,7 @@ season, is retired; it is in git history.)*
 **Live surfaces, in their offseason shape (Sep 24, 2026):** Home (the champion banner, the season
 card, fan-award results until Oct 1, a fan-photo gallery card, the latest post from either writer,
 the bracket without its odds, leaders, standings) · Schedule · Standings · Stats, one row of board
-tabs (Players, Teams, Pitch by pitch, Run value, Tracked, Draft) · Teams and team pages · Game
+tabs (Players, Teams, Fielding, Pitch by pitch, Run value, Tracked, Draft) · Teams and team pages · Game
 Center (recap with a win probability graph, box score, play-by-play with the situation after every
 play with a Clip button on the plays the league filmed, pitch data, story and recap links from
 outside writers, the game's videos and clips) · Player pages at
@@ -149,8 +149,8 @@ Home's one player name currently opens a box score.)* The primer (#4) and SEO (#
 
 ## Next: in priority order
 
-**Nothing in progress (Oct 9, 2026).** #9, desktop detail views, shipped in both sections; the
-winter order below is next.
+**Nothing in progress (Oct 9, 2026).** #9, desktop detail views, shipped in both sections, and so
+did the Fielding board (item 5 below); the rest of the winter order is next.
 
 **The winter order, set Sep 27, 2026.** Every season-locked item below has shipped or missed its
 window. The one problem left is the one "Where the section stands" names: nothing gives a reader a
@@ -171,8 +171,8 @@ reason to come back more than once a month until spring. So the order is by that
 4. ~~**Decide Road to Springfield.**~~ ❌ *Dropped Sep 30: an AI-made hometown map and share
    videos is work that belongs to a visual artist or motion designer, and the site should not be
    standing in for one. Do not rebuild it.*
-5. **Fielding columns in the Stats tab** (#7). Computed in `stats.ts`, surfaced only on player and
-   team pages. Small, and the boards were just rebuilt, so it is the cheapest it will ever be.
+5. ~~**Fielding columns in the Stats tab** (#7).~~ ✅ *Shipped Oct 9 as a Fielding board (v1.130.0,
+   see the log).*
 
 **Not this winter, on purpose.** "This day in the inaugural season" has nothing to replay from
 October to July, since every game was played Aug 1 to Sep 22: park it until August 2027. Rolling
@@ -786,8 +786,8 @@ Still open on top of it: a season WPA leaderboard, and ranking games by how much
 
 ### 7. Incremental depth 🔬
 
-Fielding columns in the Stats tab (already computed in `stats.ts`, only surfaced on
-player/team pages) · player-page splits vs each opponent as the sample grows · ~~WPBL recents
+~~Fielding columns in the Stats tab~~ ✅ *shipped Oct 9, 2026 as the Fielding board (see the log)* ·
+player-page splits vs each opponent as the sample grows · ~~WPBL recents
 in the empty-query search dropdown~~ ✅ *shipped Aug 24, 2026 (see the log)*.
 
 ### 8. Cross-cutting leftover ⚙️
@@ -1334,6 +1334,22 @@ is retired.
 ---
 
 ## Shipped log
+
+### Oct 9, 2026: a Fielding board in Stats (v1.130.0)
+
+`/wpbl/stats?board=fielding`, a tab beside Players and Teams: FPCT, TC, PO, A, E, DP, PB, SBA and
+G for every player with a fielding line, with the same sort, team chips, qualified filter, league
+line and phone list as the season table. Internally it is a third `side` of that table, since the
+table is built per side; on screen it is a board, because a third option in the Hitting/Pitching
+switch made that row 390px wide in a 351px phone bar and pushed Sort and Filters onto a second
+line on every board. The switch is hidden on Fielding.
+
+**G is games played, not fielding lines.** The feed writes a fielding line only for a game with a
+chance in it (none of the season's 752 is all zeros), so a count of lines reads a regular several
+games short. `gamesAppeared` in `stats.ts` takes the union of batting, pitching and fielding lines.
+The qualifier is MLB's two thirds of team games (`QUALIFY_FIELD_G_SHARE`), in any role because a
+line carries no position, so a regular DH qualifies and sinks on a dashed FPCT. Players only: team
+fielding totals were left out rather than given a tab of their own.
 
 ### Oct 7, 2026: "New" markers on Reading and Watch (v1.129.0)
 

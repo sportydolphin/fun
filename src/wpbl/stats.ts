@@ -135,6 +135,8 @@ function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
 // ─── Fielding ──────────────────────────────────────────────────────────────────
 export interface WpblFieldingTotals {
   g: number; po: number; a: number; e: number; pb: number; sba: number; dp: number
+  /** Total chances, PO + A + E: the denominator of FPCT, and how much fielding a line holds. */
+  tc: number
   fpct: number | null   // fielding %: (PO + A) / (PO + A + E)
 }
 
@@ -144,14 +146,39 @@ export interface WpblFieldingTotals {
 // finalist's fielding on her player page counted her postseason while her batting and pitching
 // beside it did not. `games` is REQUIRED to keep forgetting it from being silent.
 export function sumFielding(lines: WpblFieldingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblFieldingTotals {
-  const scoped = scopedLines(lines, games, scope)
-  const t = { g: scoped.length, po: 0, a: 0, e: 0, pb: 0, sba: 0, dp: 0 }
-  for (const l of scoped) {
+  return sumFieldingRaw(scopedLines(lines, games, scope))
+}
+
+function sumFieldingRaw(lines: WpblFieldingLine[]): WpblFieldingTotals {
+  const t = { g: lines.length, po: 0, a: 0, e: 0, pb: 0, sba: 0, dp: 0 }
+  for (const l of lines) {
     t.po += l.po; t.a += l.a; t.e += l.e; t.pb += l.pb; t.sba += l.sba; t.dp += l.dp
   }
-  const chances = t.po + t.a + t.e
-  const fpct = chances > 0 ? (t.po + t.a) / chances : null
-  return { ...t, fpct }
+  const tc = t.po + t.a + t.e
+  const fpct = tc > 0 ? (t.po + t.a) / tc : null
+  return { ...t, tc, fpct }
+}
+
+/** The games each player appeared in, off every kind of box-score line, scoped.
+ *
+ *  THIS, AND NEVER A COUNT OF FIELDING LINES, IS A FIELDER'S G. The feed writes a fielding line
+ *  only for a game in which the player recorded something: of 752 lines in 2026 not one is all
+ *  zeros. So `sumFielding`'s own `g` is "games with a chance", and a shortstop who handled
+ *  nothing on three nights reads three games short. Batting and pitching lines are written for
+ *  every appearance, so the union of all three is the games actually played. */
+export function gamesAppeared(
+  lines: readonly { game_id: string; player_id: string }[][],
+  games: WpblSeasonGame[], scope: SeasonScope = 'regular',
+): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>()
+  for (const set of lines) {
+    for (const l of scopedLines(set as { game_id: string; player_id: string }[], games, scope)) {
+      let s = out.get(l.player_id)
+      if (!s) { s = new Set(); out.set(l.player_id, s) }
+      s.add(l.game_id)
+    }
+  }
+  return out
 }
 
 export interface WpblPitchingTotals {
@@ -309,12 +336,18 @@ export const QUALIFY_PA_PER_GAME = 2.4  // MLB's 3.1 per team game, scaled to a 
 export const QUALIFY_OUTS_PER_GAME = 2.4 // 0.8 IP per team game (MLB's 1.0, scaled the same way)
 export const QUALIFY_FLOOR_PA = 6
 export const QUALIFY_FLOOR_OUTS = 9     // 3 IP
+// MLB's fielding bar is two thirds of the team's games AT THE POSITION. A fielding line carries no
+// position (see `positionsPlayed`), so this is two thirds of the team's games played in ANY role,
+// which lets a regular DH qualify. That costs nothing: with no chances their FPCT is a dash, and
+// a dash sinks to the bottom of every sort.
+export const QUALIFY_FIELD_G_SHARE = 2 / 3
 
 export interface WpblQualifiers {
   active: boolean    // whether to apply the bar at all
   teamGames: number  // games played by the least-played team
   minPa: number      // plate appearances needed for a batting rate title
   minOuts: number    // outs recorded needed for a pitching rate title
+  minG: number       // games played needed for a fielding title
 }
 
 /** Regular-season games played (finals only) per team id.
@@ -339,7 +372,7 @@ function gamesPlayed(games: WpblGame[], scope: SeasonScope = 'regular'): Map<str
 }
 
 export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[], scope: SeasonScope = 'regular'): WpblQualifiers {
-  const inactive = { active: false, teamGames: 0, minPa: 0, minOuts: 0 }
+  const inactive = { active: false, teamGames: 0, minPa: 0, minOuts: 0, minG: 0 }
   if (teams.length === 0) return inactive
   const played = gamesPlayed(games, scope)
   const teamGames = Math.min(...teams.map(t => played.get(t.id) ?? 0))
@@ -349,6 +382,7 @@ export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[], scope: Seas
     teamGames,
     minPa: Math.max(QUALIFY_FLOOR_PA, Math.round(QUALIFY_PA_PER_GAME * teamGames)),
     minOuts: Math.max(QUALIFY_FLOOR_OUTS, Math.round(QUALIFY_OUTS_PER_GAME * teamGames)),
+    minG: Math.round(QUALIFY_FIELD_G_SHARE * teamGames),
   }
 }
 
@@ -380,6 +414,7 @@ export const fmtSigned = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `\u22
 
 export interface WpblBatSeason { player: WpblPlayer; totals: WpblBattingTotals }
 export interface WpblPitSeason { player: WpblPlayer; totals: WpblPitchingTotals }
+export interface WpblFldSeason { player: WpblPlayer; totals: WpblFieldingTotals }
 
 export function aggregateBatting(players: WpblPlayer[], lines: WpblBattingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblBatSeason[] {
   const pmap = new Map(players.map(p => [p.id, p]))
@@ -407,6 +442,31 @@ export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine
   for (const [pid, ls] of byPlayer) {
     const player = pmap.get(pid)
     if (player) out.push({ player, totals: sumPitchingRaw(ls) })
+  }
+  return out
+}
+
+/** Every player with a fielding line in scope, their fielding summed and `g` replaced by the games
+ *  they appeared in (see `gamesAppeared`), so it takes the batting and pitching lines as well. */
+export function aggregateFielding(
+  players: WpblPlayer[], fielding: WpblFieldingLine[],
+  batting: WpblBattingLine[], pitching: WpblPitchingLine[],
+  games: WpblSeasonGame[], scope: SeasonScope = 'regular',
+): WpblFldSeason[] {
+  const pmap = new Map(players.map(p => [p.id, p]))
+  const appeared = gamesAppeared([fielding, batting, pitching], games, scope)
+  const byPlayer = new Map<string, WpblFieldingLine[]>()
+  for (const l of scopedLines(fielding, games, scope)) {
+    const arr = byPlayer.get(l.player_id) ?? []
+    arr.push(l); byPlayer.set(l.player_id, arr)
+  }
+  const out: WpblFldSeason[] = []
+  for (const [pid, ls] of byPlayer) {
+    const player = pmap.get(pid)
+    if (!player) continue
+    const totals = sumFieldingRaw(ls)
+    totals.g = appeared.get(pid)?.size ?? totals.g
+    out.push({ player, totals })
   }
   return out
 }
