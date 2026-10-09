@@ -13,6 +13,7 @@ import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } fr
 import { SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
 import { panelShiftSx, useSidePanelOpen } from '../ui/ModalShell'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
+import { PHONE_COLUMN_W } from '../ui/layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from './recentSearches'
@@ -2005,7 +2006,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         otherwise sit ~4px from it. A -1.5 tuck lived here for the pill row the phone used to pin
         up there, which the bottom bar replaced. */}
     <Box sx={{
-      maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: 0.5, sm: 0 },
+      maxWidth: { xs: PHONE_COLUMN_W, md: chromePx(720) }, mx: 'auto', mt: { xs: 0.5, sm: 0 },
       ...panelShiftSx(panelOpen, contentW),
     }}>
       {/* No tab row here: on a phone the tabs are the bottom bar, and above that the shell's

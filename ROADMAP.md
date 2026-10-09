@@ -275,6 +275,12 @@ will actually see all winter. The functional items do not wait.
    `HOME_GAP` (1.5, WPBL's), under the title, the scoreboard and the bracket and between cards both
    ways, where it was 2 and 2.5; and the score strip's padding is 0.5, room for the hover lift.
    The gaps above "Playoff series" and the cards read 41px; they are 27 and 29 now, as WPBL's do.
+   ✅ *One Home width, Oct 9 (v1.136.0):* MLB Home was 1372px (980 under the old zoom) and WPBL's
+   1260, so a section switch moved the cards 56px each side; below `md` the columns were 640 and 720.
+   Both read `HOME_W` and `PHONE_COLUMN_W` from `src/ui/layoutWidths.ts` now. MLB's Home is SIZED
+   to it and centred with a margin rather than capped, since WPBL's breaks out of the shell's 20px
+   padding and a cap stops short of it below about 1300px. Measured edge to edge at 1440, 1100, 960
+   and 760: the two match.
 2. **Visible page titles.** Every WPBL page opens with one ("WPBL Standings"); MLB's `<h1>` is
    hidden, so its pages open on a row of pills. *Home done Oct 9 (v1.135.0):* "Major League
    Baseball" in `TAB_TITLE_SX` (moved to `src/ui/card.tsx`), as WPBL's Home draws "Women's Pro

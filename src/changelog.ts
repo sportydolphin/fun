@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.136.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'MLB and WPBL Home, one width',
+        full:  "MLB Home and WPBL Home are now the same width on every screen, so switching leagues from the toolbar no longer moves the cards. On a tablet, MLB's pages use the same column as WPBL's.",
+      },
+    ],
+  },
+  {
     version: '1.135.0',
     date:    '2026-10-09',
     changes: [
