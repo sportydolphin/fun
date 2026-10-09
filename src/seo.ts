@@ -7,7 +7,7 @@
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
 import { WPBL_RULES } from './wpbl/glossary'
-import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, MLB_GLOSSARY_PAGE, mlbGamePkFromPath, mlbSeriesFromPath } from './mlb/routes'
+import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, mlbGamePkFromPath, mlbSeriesFromPath } from './mlb/routes'
 import { MLB_RULES } from './mlb/statGlossary'
 
 const SITE = 'https://sportydolphin.fun'
@@ -269,6 +269,13 @@ const ROUTES: Record<string, Seo> = {
         acceptedAnswer: { '@type': 'Answer', text: r.note ? `${r.answer} ${r.note}` : r.answer },
       })),
     },
+  },
+  // The picker, as WPBL's is: the one compare URL knowable in advance and the only one in the
+  // sitemap. A pair is titled from two names through setDynamicSeo (ComparePage.tsx).
+  [MLB_COMPARE_BASE]: {
+    title: 'Compare MLB players: stats side by side, head to head | sportydolphin.fun',
+    description:
+      'Put any two MLB players side by side: the season line, WAR, wRC+ and FIP, and every time the two have faced each other, this season, over their careers and in October.',
   },
   // One per club, written from the routes table rather than registered at runtime, for the reason
   // the WPBL clubs are: thirty fixed pages need no fetch to describe. A player page has thousands

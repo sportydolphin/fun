@@ -37,10 +37,16 @@
 //    The reads that prove a player or game exists are the reads that carry its card, so a card
 //    costs no extra request.
 //
+// 7. THE SAME FOR /mlb/compare/*, every player squared: a path that is not a slot or a pair, or names
+//    an id StatsAPI has no player for, is a 404, and a stale or missing name is 301'd onto the
+//    current one IN THE READER'S ORDER (both orders are real URLs, one canonical between them,
+//    declared by the page). A pair unfurls as its two names; there is no art for a pair.
+//
 // It cannot break the page: StatsAPI slow, down or answering something unexpected all fall
 // through to the untouched shell, which resolves the player or game on its own. A 404 is only
 // ever answered on positive evidence that there is no such player or game.
 import {
+  mlbCompareTargetFromPath, mlbComparePath, mlbCompareStartPath, MLB_COMPARE_BASE,
   mlbLegacyGamePk, mlbLegacyTarget, mlbGamePath, mlbGamePkFromPath, mlbPlayerIdFromPath, mlbPlayerPath,
   mlbUrlFor, mlbSeriesFromPath, mlbSeriesPath, MLB_GAMES_BASE, MLB_LEGACY_GAME_PARAMS, MLB_LEGACY_PARAMS,
   MLB_PLAYERS_BASE, MLB_POSTSEASON_BASE,
@@ -91,6 +97,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
     return next()
   }
 
+  if (path.startsWith(`${MLB_COMPARE_BASE}/`)) return compare(context, url, path)
   if (path.startsWith(`${MLB_GAMES_BASE}/`)) return game(context, url, path)
   if (path.startsWith(`${MLB_POSTSEASON_BASE}/`)) return series(context, url, path)
   if (!path.startsWith(`${MLB_PLAYERS_BASE}/`)) return next()
@@ -181,6 +188,59 @@ async function readGame(pk: number): Promise<MlbCardGame | null> {
     if (!Array.isArray(body.dates)) throw new Error('statsapi: no dates')
     const g = body.dates.flatMap(d => d.games ?? []).find(x => x.gamePk === pk)
     return g && SCORED_GAME_TYPES.has(g.gameType ?? '') ? g : null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function compare(context: Ctx, url: URL, path: string): Promise<Response> {
+  const t = mlbCompareTargetFromPath(path)
+  if (!t || t.kind === 'picker') return notFound(context)
+  const ids = t.kind === 'pair' ? [t.a, t.b] : [t.id]
+  let names: Map<number, string>
+  try {
+    names = await readPlayerNames(ids)
+  } catch {
+    return shell(context)
+  }
+  if (ids.some(id => !names.has(id))) return notFound(context)
+  const canonical = t.kind === 'pair'
+    ? mlbComparePath({ id: t.a, fullName: names.get(t.a) }, { id: t.b, fullName: names.get(t.b) })
+    : mlbCompareStartPath({ id: t.id, fullName: names.get(t.id) })
+  if (canonical !== url.pathname) {
+    const to = new URL(url)
+    to.pathname = canonical
+    return Response.redirect(to.toString(), 301)
+  }
+  if (t.kind !== 'pair') return shell(context)
+  const [a, b] = [names.get(t.a)!, names.get(t.b)!]
+  const season = cardSeason(new Date())
+  return withCard(context, {
+    title: `${a} vs ${b}: ${season} MLB stats compared | sportydolphin.fun`,
+    ogTitle: `${a} vs ${b}`,
+    description: `${a} and ${b} side by side in ${season}: batting, pitching, WAR, and every time they have faced each other.`,
+    image: null,
+    imageAlt: null,
+  }, canonical, 'website')
+}
+
+/** The names StatsAPI has for these ids, in one read. An id missing from the answer is a player
+ *  that does not exist; a throw is "could not ask", which the caller treats as "serve the page". */
+async function readPlayerNames(ids: number[]): Promise<Map<number, string>> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), STATSAPI_TIMEOUT_MS)
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/people?personIds=${ids.join(',')}&fields=people,id,fullName`, {
+      signal: ctrl.signal,
+      // A day, as readPlayerName's: names are about as stable as data gets.
+      cf: { cacheTtl: 86400, cacheEverything: true },
+    } as RequestInit)
+    // A list naming nobody StatsAPI knows answers 404; one naming some answers with just those.
+    if (res.status === 404) return new Map()
+    if (!res.ok) throw new Error(`statsapi ${res.status}`)
+    const body = await res.json() as { people?: { id?: number; fullName?: string }[] }
+    if (!Array.isArray(body.people)) throw new Error('statsapi: no people')
+    return new Map(body.people.filter(p => p.id && p.fullName).map(p => [Number(p.id), p.fullName!]))
   } finally {
     clearTimeout(timer)
   }

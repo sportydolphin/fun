@@ -48,6 +48,7 @@
  *   npm run sweep -- --ellipsis                   # also list intended "…" truncations
  *   npm run sweep -- --json sweep.json            # machine-readable, for diffing two runs
  *   npm run sweep:record                          # refresh FIXTURE from the real data (.env)
+ *   npm run sweep:record -- --merge --routes mlb/compare   # add one page's reads to FIXTURE
  *   npm run sweep -- --replay --shift --baseline  # what CI runs: no database, no network
  *   npm run sweep -- --replay --shift --update-baseline   # after fixing a known finding
  *   npm run sweep -- --experiments --routes wpbl/stats?board=runs
@@ -91,6 +92,11 @@ const CPU = Number(opt('cpu', '1'))
 const SHOTS = opt('shots', '')
 const RECORD = flag('record')
 const REPLAY = flag('replay')
+// --record --merge: add to the fixture rather than replace it, with the clock frozen at ITS moment.
+// For a new page or a new read on one page. A full re-record moves the clock and every page's data
+// at once, so a pull request adding one route would also carry a day of unrelated data changes,
+// and any finding they surface, under the same check.
+const MERGE = flag('merge')
 const FIXTURE = new URL('./fixtures/layout-sweep.json.gz', import.meta.url)
 // THE FINDINGS ALREADY ON MAIN when CI started running this: 94 of them, mostly the footer sitting
 // above the fold under a skeleton shorter than the page it stands in for. A gate that failed on
@@ -119,7 +125,9 @@ const DEFAULT_ROUTES = [
   '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=fielding', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
-  '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/teams/mariners', '/mlb/glossary',
+  '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare',
+  // One slot filled, and a pair: two hitters, the shape the pair's skeleton reserves.
+  '/mlb/compare/zack-wheeler-554430', '/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594',
 ]
 // The leading slash is optional because Git Bash rewrites an argument that starts with one into a
 // Windows path (/wpbl becomes C:/Program Files/Git/wpbl) before node ever sees it.
@@ -452,8 +460,8 @@ async function main() {
     console.error('--record and --replay are opposites; pick one.')
     process.exit(2)
   }
-  if (REPLAY) loadFixture()
-  if (RECORD) fixture.recordedAt = Date.now()
+  if (REPLAY || (RECORD && MERGE)) loadFixture()
+  if (RECORD && !MERGE) fixture.recordedAt = Date.now()
 
   const browser = await chromium.launch(process.env.SWEEP_CHROME
     ? { executablePath: process.env.SWEEP_CHROME } : { channel: 'chrome' })

@@ -200,6 +200,10 @@ export const EVENTS = {
   // Short links (/m/<code>), the MLB half of the WPBL pair above: made, and landed from.
   MLB_SHARE_COPIED:    'mlb_share_copied',    // tapped Copy link, props {kind: series|game|player, path}
   MLB_SHARE_OPENED:    'mlb_share_opened',    // arrived via a short link, props {kind}
+  // /mlb/compare, WPBL's pair: the tool opened (the player card's chip, the More menu), and a pair
+  // page drawn.
+  MLB_COMPARE_OPENED:  'mlb_compare_opened',  // opened the compare tool, props {from, playerId?}
+  MLB_COMPARE_VIEWED:  'mlb_compare_viewed',  // a pair page rendered, props {a, b}
   // A Home card as a pair. SEEN is an impression when the card scrolls into view, not when it
   // renders: MLB Home is one long column on a phone, so "rendered" would be every card on every
   // visit and say nothing about the ones below the fold. USED is the first click anywhere inside

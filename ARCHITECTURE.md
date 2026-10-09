@@ -107,6 +107,7 @@ flowchart LR
         wphotos["/wpbl/photos<br/>PhotosGalleryPage.tsx + Photos.tsx (archive)"]
         wgloss["/wpbl/glossary<br/>GlossaryPage.tsx + glossary.ts"]
         mgloss["/mlb/glossary<br/>mlb/GlossaryPage.tsx + statGlossary.ts"]
+        mcmp["/mlb/compare<br/>+ /mlb/compare/&lt;name&gt;-&lt;id&gt;-vs-&lt;name&gt;-&lt;id&gt;<br/>mlb/ComparePage.tsx + compare.ts"]
         wsrc["/wpbl/sources<br/>SourcesPage.tsx + sources.ts"]
         wseason["/wpbl/season<br/>SeasonPage.tsx (recap)"]
         wscori["/wpbl/scorigami<br/>Scorigami.tsx + derive/scorigami.ts"]
@@ -233,6 +234,17 @@ flowchart LR
   picker with one slot filled (`noindex`, a state rather than a page), and the pair. Reuses
   every read the section already caches, so it costs a reader arriving from anywhere in the
   section nothing
+- **MLB's comparison pages** (`/mlb/compare`, [`src/mlb/ComparePage.tsx`](src/mlb/ComparePage.tsx)
+  + [`src/mlb/compare.ts`](src/mlb/compare.ts)), since Oct 9, 2026: WPBL's three states on MLB's
+  player slugs, `/mlb/compare/<name>-<id>-vs-<name>-<id>`, resolved on the ids. Standalone like the
+  glossary (`isMlbComparePage`, not an `isMlbPath`). The frame (heads, stat tables, head-to-head,
+  picker, their loading states) is shared with WPBL's in [`src/ui/compare.tsx`](src/ui/compare.tsx).
+  Reads per player rather than per league: each one's bio and season bundle (the player card's
+  reads), StatsAPI's `vsPlayer` record for each way round a duel can exist (this season, the career
+  and the postseason, never summed), and the two season pools only while the picker is up. The edge
+  ([`functions/mlb/index.ts`](functions/mlb/index.ts)) 404s a slug naming nobody, 301s a stale name
+  in the reader's order and titles a pair's unfurl; only the picker is in the sitemap. Entry points:
+  the Compare chip on the player card, the More menu and the footer
 - **Batter vs pitcher** ([`src/wpbl/derive/matchups.ts`](src/wpbl/derive/matchups.ts)): one
   derivation, `batterPitcherMatchups`, behind every surface that shows a duel. It reads the
   UNFILTERED play read (`fetchWpblAllRunValuePlays`), never the firsts read, which drops routine
@@ -771,7 +783,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   its content-type rule in `public/_headers`, both pinned in `pwaShell.test.ts`. Plan of
   record: [`docs/IOS.md`](docs/IOS.md).
 - **Link previews, MLB:** [`functions/mlb/index.ts`](functions/mlb/index.ts) rewrites the tags of
-  `/mlb/players/<slug>` and `/mlb/games/<pk>` from the StatsAPI read that already proves the page
+  `/mlb/players/<slug>`, `/mlb/compare/<a>-vs-<b>` (the two names, default cover) and `/mlb/games/<pk>` from the StatsAPI read that already proves the page
   exists (player: name, club and season line, an hour at the edge; game: score, status and series,
   five minutes). Wording in [`src/mlb/ogCard.ts`](src/mlb/ogCard.ts). The player image is MLB's
   headshot padded to 1200x630 on the club colour by MLB's image CDN (`c_pad`); a game keeps the

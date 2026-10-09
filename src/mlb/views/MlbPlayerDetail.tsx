@@ -17,7 +17,7 @@
 
 import React, { lazy, startTransition, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
-import { EmojiEvents, Star, StarBorder } from '@mui/icons-material'
+import { CompareArrows, EmojiEvents, Star, StarBorder } from '@mui/icons-material'
 import {
   CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, CameoBlock, StatLogTable,
   PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, SectionHead, BATTING_BEST, PITCHING_BEST,
@@ -26,7 +26,7 @@ import {
 import { DetailPageBar } from '../../ui/DetailPageBar'
 import { ModalShell } from '../../ui/ModalShell'
 import { ExpandButton } from '../../ui/ExpandButton'
-import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from '../../ui/headerBar'
+import { HEADER_ICON_SX, HEADER_TEXT_SX, headerChipSx } from '../../ui/headerBar'
 import { PillGroup } from '../../ui/PillGroup'
 import { hoverOnly, pressable } from '../../ui/interaction'
 import { chromePx } from '../../ui/scale'
@@ -38,7 +38,8 @@ import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
 import { ACCENT_TEXT, CURRENT_SEASON, HEADSHOT_SQUARE, TEAM_NICKNAME, TEAM_SECONDARY, teamPalette } from '../constants'
 import { fetchPlayerContract } from '../api'
 import { careerSpan } from '../lib/utils'
-import { mlbClubById, MLB_GLOSSARY_PAGE } from '../routes'
+import { mlbClubById, mlbCompareStartPath, MLB_GLOSSARY_PAGE } from '../routes'
+import { track, EVENTS } from '../../lib/analytics'
 import { linkTo, UNSTYLED_LINK } from '../../nav'
 import { mlbStatFull, mlbStatPlain } from '../statGlossary'
 import {
@@ -201,17 +202,52 @@ function Fielding({ lines }: { lines: FieldingLine[] }) {
   )
 }
 
+/**
+ * A chip's word, dropped below 600px, where Back, Follow, Compare and Copy link with all four words
+ * came to 24px wider than a 375px phone and squeezed the club's name out of the bar entirely. The
+ * icon stays and the chip keeps its label for a screen reader (`aria-label` on each). Not inside
+ * HeaderChipLabel's Typography: a hidden word there would still be a flex item, and its gap would
+ * leave the icon off-centre in its pill.
+ */
+function ChipWord({ children, compact }: { children: React.ReactNode; compact?: boolean }) {
+  // `compact` for the side panel, a 525px column whose header is the shell's chrome and so sees the
+  // desktop's breakpoints: with every word it was 30px too wide and pushed Close out of the panel.
+  if (compact) return null
+  return <Typography component="span" sx={{ ...HEADER_TEXT_SX, display: { xs: 'none', sm: 'inline' } }}>{children}</Typography>
+}
+
 /** Follow / Following, beside Copy link and drawn the same way. Followed players lead Home. */
-function FollowChip({ followed, onToggle, name }: { followed: boolean; onToggle: () => void; name: string }) {
+function FollowChip({ followed, onToggle, name, compact }: { followed: boolean; onToggle: () => void; name: string; compact?: boolean }) {
   const Icon = followed ? Star : StarBorder
   return (
     <Box {...pressable(onToggle)} aria-pressed={followed}
       title={followed ? `Stop following ${name}` : `Follow ${name} on your Home page`}
+      aria-label={followed ? `Following ${name}` : `Follow ${name}`}
       sx={{
         ...headerChipSx,
         ...(followed ? { color: ACCENT_TEXT, ...hoverOnly({ bgcolor: 'action.hover', color: ACCENT_TEXT }) } : {}),
       }}>
-      <HeaderChipLabel icon={<Icon aria-hidden sx={HEADER_ICON_SX} />}>{followed ? 'Following' : 'Follow'}</HeaderChipLabel>
+      <Icon aria-hidden sx={HEADER_ICON_SX} />
+      <ChipWord compact={compact}>{followed ? 'Following' : 'Follow'}</ChipWord>
+    </Box>
+  )
+}
+
+/**
+ * Compare, beside Follow: the picker with this player in the first slot, as WPBL's chip is. A real
+ * anchor, because it is the one link from inside the section to a page about this player and
+ * somebody else, and those pages are found by being linked rather than through the sitemap. It
+ * waits for the name, so the link is the canonical spelling rather than the bare id the edge 301s.
+ */
+function CompareChip({ id, name, compact }: { id: number; name: string | null; compact?: boolean }) {
+  if (!name) return null
+  return (
+    <Box {...linkTo(mlbCompareStartPath({ id, fullName: name }))}
+      onClickCapture={() => track(EVENTS.MLB_COMPARE_OPENED, { from: 'player', playerId: id })}
+      title={`Compare ${name} with somebody`} aria-label={`Compare ${name} with another player`}
+      sx={headerChipSx}>
+      <CompareArrows aria-hidden sx={HEADER_ICON_SX} />
+      <ChipWord compact={compact}>Compare</ChipWord>
     </Box>
   )
 }
@@ -767,7 +803,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
 
   const target = { kind: 'player', id: playerId } as const
   const actions = <>
-    <FollowChip followed={followed} onToggle={onToggleFollow} name={name} />
+    <FollowChip followed={followed} onToggle={onToggleFollow} name={name} compact={panel} />
+    <CompareChip id={playerId} name={bio?.fullName ?? player?.fullName ?? null} compact={panel} />
     <CopyLinkButton url={mlbShareUrl(target)} title={`Copy a link to ${name}`} onCopy={() => trackMlbShare(target)} />
   </>
   const card = (
@@ -788,7 +825,9 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   if (panel) return (
     <ModalShell
       onClose={onClose ?? onBack}
-      eyebrow={club?.name ?? bio?.currentTeam?.name ?? player?.currentTeam?.name ?? 'Player'}
+      // The nickname, as WPBL's panel shows its clubs: "Chicago Cubs" beside four controls truncated
+      // to "Chicago C…" in the panel's 525px.
+      eyebrow={(club ? TEAM_NICKNAME[club.id] ?? club.name : null) ?? bio?.currentTeam?.name ?? player?.currentTeam?.name ?? 'Player'}
       maxWidth={{ xs: chromePx(640), md: chromePx(880) }}
       sheet
       sheetFill

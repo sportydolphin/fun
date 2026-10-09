@@ -1335,6 +1335,15 @@ is retired.
 
 ## Shipped log
 
+### Oct 9, 2026: Compare's frame is shared with MLB (v1.132.0)
+
+The heads, stat tables, head-to-head card, picker and their loading states moved from
+`Compare.tsx` to `src/ui/compare.tsx` for `/mlb/compare`; `TextGhost` moved to `src/ui/card.tsx`
+(re-exported). Nothing on the page changes but one fix: the one-slot state's loading standfirst
+used the long placeholder name, which wrapped to two lines at large text on a phone where a real
+name fits on one, so the page moved up 22px as it landed. A 15-letter name still wraps in the head
+at that size (Kelsie Whitmore), which the skeleton cannot know.
+
 ### Oct 9, 2026: recents sync across devices (v1.131.0)
 
 The header search's recents now follow a signed-in reader, in their own column,
