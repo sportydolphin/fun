@@ -804,6 +804,9 @@ function AppInner() {
       })
 
     return () => { cancelled = true }
+    // KEYED ON THE ID, NOT THE OBJECT. Supabase hands over a new `user` on every token refresh,
+    // and this read can assign a username, so following the object would re-run it hourly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
   // Register the shared write-gate's reaction: if any DB write catches this account
@@ -814,7 +817,8 @@ function AppInner() {
     setDeactivationHandler(() => { setDeactivated(true); void signOut() })
     return () => setDeactivationHandler(null)
   }, [signOut])
-  useEffect(() => { if (!user) resetActiveCache() }, [user?.id])
+  const userId = user?.id
+  useEffect(() => { if (!userId) resetActiveCache() }, [userId])
 
   // Dev mobile sim: inside the phone frame, translate mouse click-drag into touch
   // events so finger-driven swipes (tab pager, leaders category swipe) are testable.

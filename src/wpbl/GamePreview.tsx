@@ -97,6 +97,8 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
       .then(l => { if (!cancelled) setLines(l) })
       .catch(() => { if (!cancelled) setFailed(true) })
     return () => { cancelled = true }
+    // Once per mount: `lines` only says whether the cache already had them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

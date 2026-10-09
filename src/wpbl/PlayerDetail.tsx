@@ -1547,6 +1547,8 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     })
     return () => observers.forEach(io => io.disconnect())
     // Re-observed when the set of panes changes; the elements themselves are stable between.
+    // setBandHidden is the band store's own setter, the same function for the store's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bandPinned, player.id, twoWay, pitcherFirst, loading])
 
   const panels = roles.map((r, i) => {

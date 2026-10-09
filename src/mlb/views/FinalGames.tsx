@@ -596,6 +596,8 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
   // restore): fire when the opened game changes, so switching prev/next counts too.
   useEffect(() => {
     if (openGame) track(EVENTS.GAME_CENTER_OPENED, { league: 'mlb', gamePk: openGame.gamePk, state: openGame.state })
+    // One event per game opened: the summary object is replaced on every refresh of the strip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openGame?.gamePk])
 
   const theme = useTheme()

@@ -608,9 +608,10 @@ export function UsersPanel({ open, onClose, onChanged }: {
 
   const all = users ?? []
   const q = query.trim().toLowerCase()
+  // Off \`users\`, not \`all\`: the \`?? []\` is a new array each render while the list loads.
   const visible = useMemo(() => {
     const test = FILTERS.find(f => f.key === filter)?.test ?? (() => true)
-    const rows = all
+    const rows = (users ?? [])
       // Deactivated accounts are out of every view except their own filter. They are a
       // handful of rows that would otherwise sit greyed out in the middle of every sort.
       .filter(u => (filter === 'deleted' ? u.is_deleted : !u.is_deleted))
@@ -620,7 +621,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
         || (u.email ?? '').toLowerCase().includes(q)
         || u.user_id.toLowerCase().includes(q))
     return sortUsers(rows, sort, desc)
-  }, [all, filter, q, sort, desc])
+  }, [users, filter, q, sort, desc])
 
   // The bar scale is the busiest account ON SCREEN, not in the roster: filtered to the seven
   // people who use this every day, a shared scale would draw seven near-identical full bars.

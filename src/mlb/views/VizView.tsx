@@ -130,6 +130,9 @@ export function VizView({
       .catch(() => { if (!cancelled) setSosData([]) })
       .finally(() => { if (!cancelled) setLoadingSos(false) })
     return () => { cancelled = true }
+    // NOT sosData.length: it is the "already have it" guard, and a failed read leaves it at 0,
+    // so watching it would refetch for ever against a source that is down.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vizSeason, showSos])
 
   useEffect(() => {
@@ -149,6 +152,8 @@ export function VizView({
       .catch(() => { if (!cancelled) setAgeEntries([]) })
       .finally(() => { if (!cancelled) setLoadingAges(false) })
     return () => { cancelled = true }
+    // NOT ageEntries.length, for the same reason as the read above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vizSeason, showSos])
 
   // Active streaks only make sense for the live season. Past seasons are over,

@@ -1517,8 +1517,8 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
   // through here first, so a misspelling cannot reach the standout strip or the pitch log raw:
   // the roster's spelling when it resolves uniquely, the feed's otherwise (see
   // canonicalFeedName / feedNames.ts).
-  const canonName = (formatted: string | null): string | null =>
-    formatted ? canonicalFeedName(formatted, names.values()) : formatted
+  const canonName = useCallback((formatted: string | null): string | null =>
+    formatted ? canonicalFeedName(formatted, names.values()) : formatted, [names])
   // Real game pitches only. The feed's "rest_reconciliation" warmup/bullpen rows carry a
   // velocity but no batter (nor pitcher / inning); they are not game pitches and must not
   // count toward the velo stats or be rescued onto a real pitcher. A pitch thrown to a
@@ -1545,7 +1545,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
       if (Number.isFinite(ev) && ev > exit) { exit = ev; batter = raw?.batter_name ? canonName(fmtFeedName(raw.batter_name)) : null }
     }
     return exit > 0 ? { exit, batter } : null
-  }, [tracking, names])
+  }, [tracking, canonName])
   // Attribution: the tracking `play_id` is the FEED's play id (not our plays row), so we
   // can't join to wpbl_game_plays. The pitcher name lives in each event's raw payload
   // ("Last, First"); reconciliation events omit it, so fill from a sibling of the same
@@ -1566,7 +1566,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
       if (t.play_id && nm && !byPlay.has(t.play_id)) byPlay.set(t.play_id, nm)
     }
     return (t: WpblPitchTracking) => canonName(rawName(t) ?? (t.play_id ? byPlay.get(t.play_id) : null) ?? null)
-  }, [tracking, names])
+  }, [tracking, canonName])
 
   const avg = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null)
   const { units } = useUnits()
@@ -2211,9 +2211,9 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   // enough to link it (see matchGame in derive/articles.ts). EVERY one, oldest first: two writers
   // now cover the league, and opening day's LA at New York has a post from each. Same shared-cache
   // treatment as the video above.
-  const storiesFor = (as: readonly WpblArticle[] | null | undefined) =>
+  const storiesFor = useCallback((as: readonly WpblArticle[] | null | undefined) =>
     (as ?? []).filter(a => a.game_id === seed.id)
-      .sort((a, b) => a.published_at.localeCompare(b.published_at))
+      .sort((a, b) => a.published_at.localeCompare(b.published_at)), [seed.id])
   const [stories, setStories] = useState<WpblArticle[]>(() => storiesFor(getCachedWpblArticles()))
   // And the outlet's recap of the same game. A second, independent write-up: see the note
   // where the two cards render for why they stay two cards.
@@ -2349,7 +2349,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
       .then(as => { if (!cancelled) setStories(storiesFor(as)) })
       .catch(() => { /* keep last-good */ })
     return () => { cancelled = true }
-  }, [seed.id])
+  }, [storiesFor])
 
   // And the outlet's. They file within a couple of hours of the final, so this one is usually
   // there on the first open of a finished game, which is the reverse of the Substack above.
@@ -2509,7 +2509,10 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
     if (urlTabChecked.current || !urlTab || loading || tabs.length === 0) return
     urlTabChecked.current = true
     if (!tabs.some(t => t.value === urlTab)) setTab(landingTab)
-  }, [urlTab, loading, tabs, landingTab])
+    // `tabs` is rebuilt every render; the ref makes the extra runs no-ops, and memoising the list
+    // would mean restating everything it is built from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlTab, loading, landingTab])
 
   const tabVia = useRef<'open' | 'pill' | 'swipe'>('open')
   const selectTab = useCallback((v: Tab, via: 'pill' | 'swipe') => { tabVia.current = via; setTab(v) }, [])

@@ -515,11 +515,12 @@ export default function AdminPage() {
   // destinations differ by an order of magnitude, so a shared one would flatten the smaller
   // two into empty tracks and hide the only thing this card is for, which is the mix inside
   // each destination rather than the sizes of the three against each other.
+  const entrySources = entryPoints.sources
   const entryByDest = useMemo(() => {
-    const m = new Map<string, typeof entryPoints.sources>()
-    for (const r of entryPoints.sources) m.set(r.dest, [...(m.get(r.dest) ?? []), r])
+    const m = new Map<string, typeof entrySources>()
+    for (const r of entrySources) m.set(r.dest, [...(m.get(r.dest) ?? []), r])
     return m
-  }, [entryPoints.sources])
+  }, [entrySources])
   // Tab views are grouped into one stacked bar per tab, so the segments share a scale: the
   // busiest tab's TOTAL. Scaling each segment to the largest single segment instead would
   // let a three-way split (stats: 472 + 190 + 113) add up past the full width of its track.
@@ -551,14 +552,15 @@ export default function AdminPage() {
   // MLB cards ordered by how many browsers USED them: reach is mostly where a card sits on Home,
   // and the question the alignment asks is which ones earn their place.
   const mlbCards = useMemo(() => [...mlb.cards].sort((a, b) => b.used - a.used || b.seen - a.seen), [mlb.cards])
+  const mlbTabs = mlb.tabs
   const mlbTabViews = useMemo(() => {
-    const m = new Map<string, { total: number; rows: typeof mlb.tabs }>()
-    for (const r of mlb.tabs) {
+    const m = new Map<string, { total: number; rows: typeof mlbTabs }>()
+    for (const r of mlbTabs) {
       const cur = m.get(r.view) ?? { total: 0, rows: [] }
       m.set(r.view, { total: cur.total + r.events, rows: [...cur.rows, r] })
     }
     return [...m.entries()].sort((a, b) => b[1].total - a[1].total)
-  }, [mlb.tabs])
+  }, [mlbTabs])
   const busiestTabs = useMemo(() => [...tabTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), [tabTotals])
 
   return (

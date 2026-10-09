@@ -35,6 +35,8 @@ export default function MobilePreview() {
     const url = new URL(window.location.href)
     url.searchParams.set(FRAME_PARAM, '1')
     return url.toString()
+    // reloadKey is the Reload button: a new key is a new src, which is how the frame reloads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey])
 
   // Shrink to fit when the phone is taller than the desktop window. A CSS

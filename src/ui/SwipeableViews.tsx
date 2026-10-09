@@ -234,7 +234,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     const target = targetFor(activeIndex, fromY)
     prevActive.current = activeIndex
     window.scrollTo(0, target)
-  }, [activeIndex, pagerOn])
+    // `targetFor` reads refs and the live layout, so a stale copy computes the same target.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, pagerOn, paneMode])
 
   // End a slide (or a swipe commit): show the destination in flow and reset the track. Reads
   // everything from refs/stable setters so the touch handlers can call a frozen copy of it.
@@ -341,7 +343,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   useEffect(() => {
     if (!pagerOn || !warmUnlocked) return
     let cancelled = false
-    const order = [...panels.keys()]
+    const order = Array.from({ length: panels.length }, (_, i) => i)
       .filter(j => j !== activeIndex)
       .sort((a, b) => Math.abs(a - activeIndex) - Math.abs(b - activeIndex))
     let k = 0
@@ -534,6 +536,8 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       el.removeEventListener('touchend', onEnd)
       el.removeEventListener('touchcancel', onEnd)
     }
+    // Rebinding on every render would drop a touch in flight; `targetFor` reads refs only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gestures, paneMode])
 
   // A pane owns its own vertical scroll in pane mode (in window mode the page scrolls, so the

@@ -30,7 +30,10 @@ Client env vars (a `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, an
 npm run dev      # Vite dev server
 npm run build    # production build (vite build)
 npm run preview  # serve the production build locally
-npm run test     # Vitest (jsdom pinned to 26.x, see note below)
+npm run test     # Vitest, about 22s (jsdom pinned to 26.x, see note below); CI in docs/CI.md
+npm run lint     # must print nothing; hook dependencies are an error
+npm run sweep -- --replay --shift --baseline   # the layout check CI runs (see docs/CI.md for the dev server it needs)
+npm run sweep:record                           # re-record its data after changing what a page fetches (needs .env)
 npm run migrate  # apply pending DB migrations (scripts/migrations/; needs SUPABASE_DB_URL)
 npm run auth-link -- recovery you@example.com   # a real reset link pointing at localhost (see below)
 npm run discord-recaps -- --dry-run   # render the WPBL box scores this would post to Discord
