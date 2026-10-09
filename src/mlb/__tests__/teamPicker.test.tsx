@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, act, fireEvent } from '@testing-library/react'
+import { traverse } from '../../test/history'
 import { TeamPickerSheet } from '../views/TeamPicker'
 
 // The follow-a-team sheet. Following lands on Home, so a pick has to take the sheet's history entry
 // down BEFORE it follows: followed first, the entry would be left under Home for the next Back to
 // stop on, and Back would appear to do nothing.
-
-const popped = () => new Promise(r => setTimeout(r, 20))
 
 describe('the team picker sheet', () => {
   beforeEach(() => { window.history.replaceState({ view: 'home' }, '', '/mlb') })
@@ -27,7 +26,7 @@ describe('the team picker sheet', () => {
     const onSelect = vi.fn((id: number) => order.push(`follow ${id}@${window.history.state?.mlbSheet ?? 'none'}`))
     const { getByLabelText } = render(<TeamPickerSheet onSelect={onSelect} onClose={onClose} />)
     expect(window.history.state).toMatchObject({ mlbSheet: 1 })
-    await act(async () => { fireEvent.click(getByLabelText('Follow the Mariners')); await popped() })
+    await act(async () => { await traverse(() => { fireEvent.click(getByLabelText('Follow the Mariners')) }) })
     expect(order).toEqual(['close@none', 'follow 136@none'])
     expect(window.history.state).toEqual({ view: 'home' })
   })
@@ -36,7 +35,7 @@ describe('the team picker sheet', () => {
     const onSelect = vi.fn()
     const onClose = vi.fn()
     render(<TeamPickerSheet onSelect={onSelect} onClose={onClose} />)
-    await act(async () => { window.history.back(); await popped() })
+    await act(async () => { await traverse(() => window.history.back()) })
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(onSelect).not.toHaveBeenCalled()
   })

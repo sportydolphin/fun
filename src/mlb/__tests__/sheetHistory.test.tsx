@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useState } from 'react'
 import { render, act, fireEvent } from '@testing-library/react'
+import { traverse } from '../../test/history'
 import { useSheetHistory, sheetOpen, pushEntry, stackNextPanel } from '../state/sheetHistory'
 import { MlbSheet } from '../components/MlbSheet'
 
@@ -14,9 +15,6 @@ function Sheet({ onClose, expose }: { onClose: () => void; expose: (close: () =>
   return <div>sheet</div>
 }
 
-// jsdom's history.back() is asynchronous and does fire popstate, like a browser.
-const popped = () => new Promise(r => setTimeout(r, 20))
-
 describe('sheet history', () => {
   beforeEach(() => { window.history.replaceState({ view: 'home' }, '', '/mlb') })
 
@@ -27,7 +25,7 @@ describe('sheet history', () => {
     expect(window.history.length).toBe(before + 1)
     expect(window.history.state).toMatchObject({ view: 'home', mlbSheet: 1 })
     expect(sheetOpen()).toBe(true)
-    await act(async () => { window.history.back(); await popped() })
+    await act(async () => { await traverse(() => window.history.back()) })
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(window.history.state).toEqual({ view: 'home' })
   })
@@ -36,7 +34,7 @@ describe('sheet history', () => {
     const onClose = vi.fn()
     let close = () => {}
     render(<Sheet onClose={onClose} expose={c => { close = c }} />)
-    await act(async () => { close(); await popped() })
+    await act(async () => { await traverse(() => { close() }) })
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(window.history.state).toEqual({ view: 'home' })
   })
@@ -84,11 +82,11 @@ describe('sheet history', () => {
     const before = window.history.length
     const { queryByText } = render(<Stack />)
     expect(window.history.length).toBe(before + 2)
-    await act(async () => { fireEvent.keyDown(window, { key: 'Escape' }); await popped() })
+    await act(async () => { await traverse(() => { fireEvent.keyDown(window, { key: 'Escape' }) }) })
     expect(queryByText('game')).toBeNull()
     expect(queryByText('scores')).not.toBeNull()
     expect(window.history.state).toMatchObject({ view: 'home', mlbSheet: 1 })
-    await act(async () => { fireEvent.keyDown(window, { key: 'Escape' }); await popped() })
+    await act(async () => { await traverse(() => { fireEvent.keyDown(window, { key: 'Escape' }) }) })
     expect(queryByText('scores')).toBeNull()
     expect(window.history.state).toEqual({ view: 'home' })
   })
@@ -117,7 +115,7 @@ describe('sheet history', () => {
       expect(window.history.length).toBe(before + 1)
       expect(window.location.pathname).toBe('/mlb/games/3')
       expect(window.history.state).toMatchObject({ mlbSheet: 1, mlbSheetUrl: '/mlb/games/3' })
-      await act(async () => { window.history.back(); await popped() })
+      await act(async () => { await traverse(() => window.history.back()) })
       expect(onClose).toHaveBeenCalledTimes(1)
       expect(window.history.state).toEqual({ view: 'home' })
     })
@@ -158,7 +156,7 @@ describe('sheet history', () => {
       expect(game).not.toHaveBeenCalled()
       expect(window.history.length).toBe(before + 2)
       expect(window.history.state).toMatchObject({ mlbSheet: 2, mlbSheetUrl: '/mlb/players/someone-1' })
-      await act(async () => { window.history.back(); await popped() })
+      await act(async () => { await traverse(() => window.history.back()) })
       expect(player).toHaveBeenCalledTimes(1)
       expect(game).not.toHaveBeenCalled()
       expect(window.location.pathname).toBe('/mlb/games/1')
