@@ -80,13 +80,23 @@ jobs:
           cat vite.log; exit 1
 
       - name: Sweep
-        run: npm run sweep -- --replay --shift --baseline
+        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots
 
       # The one place a flag-gated layout gets looked at. Name the routes that draw something
       # behind the flag; as of this writing that is the steal card on Run value, and nothing else.
       - name: Sweep with experiments on
         if: ${{ !cancelled() }}
-        run: npm run sweep -- --replay --shift --baseline --experiments --routes /wpbl/stats?board=runs
+        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --experiments --routes /wpbl/stats?board=runs
+
+      # Both frames of every case that shifted. A shift that hangs on timing can happen on this
+      # runner and on no desktop (the awards results did, Oct 2026), and the log line alone could
+      # not tell a real jump from the sweep misreading one.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-shots
+          path: sweep-shots
+          if-no-files-found: ignore
 
       - if: failure()
         run: cat vite.log

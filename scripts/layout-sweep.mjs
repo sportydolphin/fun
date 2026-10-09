@@ -51,6 +51,8 @@
  *   npm run sweep -- --replay --shift --baseline  # what CI runs: no database, no network
  *   npm run sweep -- --replay --shift --update-baseline   # after fixing a known finding
  *   npm run sweep -- --experiments --routes wpbl/stats?board=runs
+ *   npm run sweep -- --replay --shift --cpu 4      # CI's slower machine, to reproduce its timing
+ *   npm run sweep -- --replay --shift --shots out  # save both frames of every case that shifts
  *
  * Exits 1 when anything is reported. CI runs it on every pull request (the `layout` job).
  */
@@ -79,6 +81,13 @@ const CONCURRENCY = Number(opt('concurrency', '4'))
 // that trips the request timeout and renders "No teams yet" (CLAUDE.md, loading states).
 const SLOW_MS = Number(opt('slow', '2500'))
 const EXPERIMENTS = flag('experiments')
+// CPU slowdown (Chrome's own throttling). A shift that depends on what is still loading when the
+// first snapshot is taken can show on CI's runner and never on a fast desktop; this brings it home.
+const CPU = Number(opt('cpu', '1'))
+// Where to save the two frames of a case that shifted. CI uploads this directory when the job
+// fails, because a shift that depends on timing may not happen again anywhere else, and a log
+// line saying "2" moved 12px is not enough to tell a real move from the sweep misreading one.
+const SHOTS = opt('shots', '')
 const RECORD = flag('record')
 const REPLAY = flag('replay')
 const FIXTURE = new URL('./fixtures/layout-sweep.json.gz', import.meta.url)
@@ -174,6 +183,13 @@ function probeOverflow(includeEllipsis) {
 /** Where every piece of text sits: for each tag and text, the boxes of every copy of it. */
 function probeAnchors() {
   const out = {}
+  // Whether an element rides in a fixed box (a dialog, the bottom bar), memoised up the tree.
+  const fixed = new Map()
+  const isFixed = el => {
+    if (!el || el === document.body) return false
+    if (!fixed.has(el)) fixed.set(el, getComputedStyle(el).position === 'fixed' || isFixed(el.parentElement))
+    return fixed.get(el)
+  }
   for (const el of document.body.querySelectorAll('*')) {
     const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim().replace(/\s+/g, ' ')
     if (!own || own.length > 80) continue
@@ -184,10 +200,28 @@ function probeAnchors() {
     // rect reports, so a stat label held open under a bar read as 40% shorter than the real one
     // (the awards sheet's "AVG", dh=5) when the box it reserves is exactly the loaded one.
     if (getComputedStyle(el).visibility === 'hidden') continue
+    // Nor can text under an open modal, which MUI marks aria-hidden. /wpbl/awards is a dialog over
+    // Home, and Home loading behind it is invisible; measured, its own "Fan awards" heading paired
+    // with the dialog's title and failed CI on a slow runner.
+    if (el.closest('[aria-hidden="true"]')) continue
     const key = `${el.tagName.toLowerCase()}|${own}`
-    ;(out[key] ??= []).push({ x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height })
+    // A fixed box is measured against the screen and everything else against the document, so a
+    // page that scrolls itself while loading (WPBL Home tucks the toolbar on a touch screen) does
+    // not read as the dialog over it moving: /wpbl/awards' title "moved" 129px that way.
+    const [ox, oy] = isFixed(el) ? [0, 0] : [scrollX, scrollY]
+    ;(out[key] ??= []).push({ x: r.left + ox, y: r.top + oy, w: r.width, h: r.height })
   }
   return out
+}
+
+/** Lets a running transition finish (a dialog sliding in), capped, so a snapshot never measures
+ *  something mid-flight. A skeleton's pulse repeats for ever and is not waited on. */
+function settleAnimations() {
+  const finite = document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity)
+  return Promise.race([
+    Promise.all(finite.map(a => a.finished.catch(() => {}))),
+    new Promise(r => setTimeout(r, 2000)),
+  ])
 }
 
 /**
@@ -343,6 +377,7 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     } catch { /* private mode */ }
   }, [text === 'large' ? 'large' : 'default', EXPERIMENTS])
   const page = await ctx.newPage()
+  if (CPU > 1) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: CPU })
   const result = { route, width, text, pageOverflow: 0, issues: [], shifts: [], error: null }
   try {
     if (warm) {
@@ -354,10 +389,13 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
       const sep = route.includes('?') ? '&' : '?'
       await page.goto(`${BASE}${route}${sep}devSlow=${SLOW_MS}`, { waitUntil: 'domcontentloaded' })
       await page.waitForTimeout(Math.min(1200, SLOW_MS / 2))
+      await page.evaluate(settleAnimations)
       const before = await page.evaluate(probeAnchors)
+      const beforeShot = SHOTS ? await page.screenshot() : null
       await page.waitForTimeout(SLOW_MS)
       await settle(page, 800)
       await recordImages(page)
+      await page.evaluate(settleAnimations)
       const after = await page.evaluate(probeAnchors)
       // Only what was on screen while the skeleton was. Below the fold, a list of unknown length
       // (the schedule, Reading) must push the footer somewhere, and nobody sees it happen.
@@ -370,6 +408,12 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
         }
       }
       result.shifts.sort((p, q) => p.y - q.y)
+      if (SHOTS && result.shifts.length) {
+        const name = `${route.replace(/[^a-z0-9]+/gi, '_')}-${width}-${text}${EXPERIMENTS ? '-exp' : ''}`
+        fs.mkdirSync(SHOTS, { recursive: true })
+        fs.writeFileSync(`${SHOTS}/${name}-before.png`, beforeShot)
+        await page.screenshot({ path: `${SHOTS}/${name}-after.png` })
+      }
     }
     await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
     await settle(page, 600)
