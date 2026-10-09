@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.137.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'Instant switching between MLB and WPBL',
+        full:  "Once you have opened MLB or WPBL, it stays loaded while you are in the other one, so switching back with the toolbar shows its Home straight away instead of loading it again.",
+      },
+      {
+        short: 'MLB: playoff series sit like the scores',
+        full:  "On MLB Home, the playoff series now sit as close under their label as the scores do under theirs, at every screen size and text size.",
+      },
+    ],
+  },
+  {
     version: '1.136.0',
     date:    '2026-10-09',
     changes: [

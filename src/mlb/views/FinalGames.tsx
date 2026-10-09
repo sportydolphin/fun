@@ -311,7 +311,11 @@ const CHIP_W = '7.75rem'
  *  It was 1, which with the header's own bottom padding put 33px between "Scores" and the chips and
  *  10px of dead strip under them, on top of Home's gap. The skeleton uses it too, so it holds the
  *  strip's height exactly. */
-const STRIP_PY = 0.5
+export const STRIP_PY = 0.5
+/** The Scores header's height: its round date and fullscreen buttons. Home's bracket header takes
+ *  the same height and the same padding under it (PlayoffBracket's ScoreboardHeader), so the two
+ *  scoreboards' labels sit the same distance above their cards at every scale. */
+export const SCORES_HEADER_H = chromePx(26)
 
 function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   game:    FinalGameSummary
@@ -783,7 +787,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
       <Box>
         {/* Header with date nav */}
         <Box sx={{
-          px: 0.25,
+          px: 0.25, minHeight: SCORES_HEADER_H,
           display: 'flex', alignItems: 'center', gap: 1,
         }}>
           <Typography sx={{

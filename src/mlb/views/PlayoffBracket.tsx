@@ -9,6 +9,7 @@ import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { fetchBracket, seededBracket, bracketLikely, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
 import type { Bracket, PsSeries, PsTeam, Round } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
+import { SCORES_HEADER_H, STRIP_PY } from './FinalGames'
 import { PillGroup } from '../../ui/PillGroup'
 import { teamLink, rowClick, LINK_SX } from '../lib/links'
 import { mlbSeriesPath } from '../routes'
@@ -187,11 +188,25 @@ function seriesGrid(n: number, compact: boolean) {
     : { xs: '1fr', sm: n > 1 ? '1fr 1fr' : 'minmax(0, 26rem)', lg: four }
 }
 
+/** Home's bracket (compact) puts its label where Scores puts its own: in a box of the Scores
+ *  header's height, with the strip's padding under it, so "Playoff series" sits exactly as far above
+ *  its cards as "Scores" does above its chips. The round pills cannot share that box: they do not
+ *  scale with the chrome the way Scores' buttons do, and a phone draws them touch-sized (41px against
+ *  26), so a margin tuned at one width was 4px off at another and a centred row overlapped the cards.
+ *  So the row aligns to its bottom and the pills rise above the label rather than reaching down past
+ *  it. The full card keeps its centred row and its own gap, since the round's name sits under it. */
+const headerSx = (compact: boolean) => compact
+  ? { alignItems: 'flex-end', mb: STRIP_PY }
+  : { alignItems: 'center', mb: 1.25 }
+const labelBoxSx = (compact: boolean) => compact
+  ? { height: SCORES_HEADER_H, display: 'flex', alignItems: 'center' }
+  : {}
+
 export function BracketSkeleton({ compact }: { compact: boolean }) {
   return (
     <Box aria-hidden>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25 }}>
-        <Skeleton variant="text" sx={{ width: '7.5rem', fontSize: TYPE_SCALE.meta }} />
+      <Box sx={{ display: 'flex', ...headerSx(compact) }}>
+        <Box sx={labelBoxSx(compact)}><Skeleton variant="text" sx={{ width: '7.5rem', fontSize: TYPE_SCALE.meta }} /></Box>
         {/* The real round pills, none chosen yet: a pill-shaped bar of hand-picked size was 3px short of them. */}
         <Box sx={{ ml: 'auto' }}>
           <PillGroup options={ROUNDS.map(r => ({ value: r.key, label: r.short }))} value="" onChange={() => {}} />
@@ -270,11 +285,13 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
-        <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
-          {/* Once it is over it is a record of a season, read all winter: say which. */}
-          {bracket.over ? `${bracket.season} postseason` : heading}
-        </Typography>
+      <Box sx={{ display: 'flex', gap: 1, ...headerSx(compact), flexWrap: 'wrap' }}>
+        <Box sx={labelBoxSx(compact)}>
+          <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1 }}>
+            {/* Once it is over it is a record of a season, read all winter: say which. */}
+            {bracket.over ? `${bracket.season} postseason` : heading}
+          </Typography>
+        </Box>
         <Box sx={{ ml: 'auto' }}>
           <PillGroup
             options={ROUNDS.map(r => ({ value: r.key, label: r.short }))}

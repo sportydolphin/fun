@@ -281,6 +281,12 @@ will actually see all winter. The functional items do not wait.
    to it and centred with a margin rather than capped, since WPBL's breaks out of the shell's 20px
    padding and a cap stops short of it below about 1300px. Measured edge to edge at 1440, 1100, 960
    and 760: the two match.
+   ✅ *Sections kept alive, Oct 9 (v1.137.0):* a section switch tore the section down and rebuilt
+   the other from skeletons and fresh reads. App.tsx now keeps each section mounted once visited,
+   hidden behind the other, and `SectionActiveContext` (src/lib/panelActive.ts) tells the hidden one
+   to stand down: no polling, no address writes, no claim on the toolbar's search or tabs. And the
+   bracket's label sits on the Scores header's box (`SCORES_HEADER_H`, `STRIP_PY`), so both
+   scoreboards' labels are the same distance above their cards at every width and text size.
 2. **Visible page titles.** Every WPBL page opens with one ("WPBL Standings"); MLB's `<h1>` is
    hidden, so its pages open on a row of pills. *Home done Oct 9 (v1.135.0):* "Major League
    Baseball" in `TAB_TITLE_SX` (moved to `src/ui/card.tsx`), as WPBL's Home draws "Women's Pro

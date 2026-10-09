@@ -37,7 +37,7 @@ import { pushEntry, sheetOpenAt, stackNextPanel } from './mlb/state/sheetHistory
 import { usePlayerPanel, closePlayerPanel, usePlayerPanelRestore } from './mlb/state/playerPanel'
 import { gamePageShowing } from './mlb/state/gamePage'
 import { panelShiftSx, useSidePanelOpen, useOpensAsPanel } from './ui/ModalShell'
-import { PanelActiveContext } from './lib/panelActive'
+import { PanelActiveContext, useSectionActive } from './lib/panelActive'
 import { publishSectionNav, clearSectionNav } from './sectionNav'
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
@@ -119,6 +119,10 @@ const GAME_PAGE_W = chromePx(1200)
 
 function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const state = useMlbState()
+  // False while the reader is in WPBL and this section is kept mounted behind it (App.tsx). Every
+  // effect below that reaches outside the section (the toolbar's search and tabs, the page's tags)
+  // waits for it, or the hidden section would answer the other one's search box.
+  const active = useSectionActive()
   const panelPlayer = usePlayerPanel()
   usePlayerPanelRestore(useOpensAsPanel())
   // The full Game Center page (GameRoute) draws in this column, in place of the tabs and pages.
@@ -146,8 +150,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // Sync query typed in the toolbar → useMlbState debounced search
   useEffect(() => {
-    state.setQuery(bridgeQuery)
-  }, [bridgeQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (active) state.setQuery(bridgeQuery)
+  }, [bridgeQuery, active]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Push current result state + selection handlers up to the toolbar bridge
   const handleBridgeSelect = useCallback((fn: () => void, dest: Record<string, any>) => {
@@ -159,6 +163,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [state.stampCurrentEntry, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (!active) return
     updateSearchBridge({
       playerResults: state.playerResults,
       teamResults: state.teamResults,
@@ -173,12 +178,12 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       },
       isRegistered: true,
     })
-  }, [state.playerResults, state.teamResults, state.searching, handleBridgeSelect]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.playerResults, state.teamResults, state.searching, handleBridgeSelect, active]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A player page's title and description. seo.ts describes the tabs and the thirty clubs from a
   // table; a player cannot be in one, since the name arrives with a fetch. Keyed on the player's
   // canonical path, which is the address the URL sync writes, so it cannot outlive the page.
-  const seoPlayer = state.view === 'search' ? state.player : null
+  const seoPlayer = active && state.view === 'search' ? state.player : null
   useEffect(() => {
     if (!seoPlayer) return
     const pos = seoPlayer.primaryPosition?.abbreviation
@@ -196,14 +201,18 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // Fetch toolbar suggestions whenever the followed team changes
   useEffect(() => {
+    if (!active) return
+    let live = true
     fetchSuggestions(state.followedTeamId ?? 0, [])
-      .then(sugs => updateSearchBridge({ toolbarSuggestions: sugs }))
+      .then(sugs => { if (live) updateSearchBridge({ toolbarSuggestions: sugs }) })
       .catch(() => {})
-  }, [state.followedTeamId])  
+    return () => { live = false }
+  }, [state.followedTeamId, active])
 
   // Push recent searches + their re-open / clear handlers up to the toolbar
   const { recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches } = state
   useEffect(() => {
+    if (!active) return
     updateSearchBridge({
       recentSearches,
       handleSelectRecent: (item) => {
@@ -213,15 +222,17 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       },
       clearRecentSearches,
     })
-  }, [recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches])
+  }, [recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches, active])
 
-  // Unregister from toolbar when this component unmounts
+  // Unregister from the toolbar when this section unmounts or is hidden behind WPBL. Within one
+  // commit React runs every cleanup before any setup, so this lands before WPBL registers.
   useEffect(() => {
+    if (!active) return
     return () => {
       updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, toolbarSuggestions: [], recentSearches: [], handleSelectRecent: null, clearRecentSearches: null })
       setSearchQuery('')
     }
-  }, [])
+  }, [active])
 
   // Warm every other view once this one has had the network to itself, on the same few-second
   // footing as App.tsx's warming of the other section, so a later tab tap does not wait on a chunk.
@@ -313,6 +324,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const selectMore = useLatest((key: string) => { const m = MORE.find(x => x.key === key); if (m) openMore(m) })
   const statsHref = viewHref(tabView('stats'))
   useEffect(() => {
+    if (!active) return
     publishSectionNav({
       section: 'mlb',
       tabs: NAV.map(n => ({ key: n.key, label: n.label, href: n.key === 'stats' ? statsHref : viewHref(n.key) })),
@@ -320,8 +332,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       onSelect: selectNav,
       more: MORE.map(m => ({ key: m.key, label: m.label, hint: m.hint, onSelect: () => selectMore(m.key) })),
     })
-  }, [activeTab, statsHref, selectNav, selectMore])
-  useEffect(() => () => clearSectionNav('mlb'), [])
+  }, [activeTab, statsHref, selectNav, selectMore, active])
+  useEffect(() => active ? () => clearSectionNav('mlb') : undefined, [active])
 
   // ONE IDENTITY FOR THE LIFE OF THE SECTION, calling whatever the handler is now. The real
   // handlers are rebuilt whenever what they close over changes, and opening a team does exactly
