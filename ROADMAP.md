@@ -15,9 +15,9 @@
 
 ## Handoff: where MLB stands (Oct 9, 2026)
 
-**State.** The whole alignment plan below (items 0 to 7) is done, and so is every item in the
-list that follows: as of Oct 9 there is no open MLB build item. What is left is a decision after
-October (the note under item 12) and whatever that measurement suggests. The section now has
+**State.** The September alignment plan (items 0 to 7) is done, and so is every item in the list
+that follows. Open work is the **second alignment pass** below this handoff (Oct 9), plus a
+decision after October (the note under item 12). The section now has
 WPBL's phone shell, history-backed sheets, a real path for every tab, club, player and game, a
 postseason bracket, an offseason-aware Home, the desktop scale with no `zoom`, and a chunk per
 view. The postseason runs to Oct 31, and the offseason shape
@@ -185,6 +185,51 @@ October is over; it is the first real measurement of which Home cards are used.
 
 **Tests**: 19 files and about 180 cases under `src/mlb/__tests__/` (Oct 9), against 130 files in WPBL. Each item
 above should leave a test behind, as items 0, 4 and 5b did.
+
+## The second alignment pass (Oct 9, 2026) 🎯⚙️
+
+The September pass (next section) fixed MLB's plumbing: navigation, sheets, Back, URLs, load cost.
+What is left is what a reader sees. MLB still draws with its own building blocks, and a few
+features exist in one section only. Audited against the code and both sections at 1440px on Oct 9.
+
+**Timing.** The MLB postseason ends Oct 31 and the offseason Home switches itself on Nov 1, which
+retires the bracket and live cards. Do the visual items after that, against the screens readers
+will actually see all winter. The functional items do not wait.
+
+**Functional, in order:**
+
+1. 🚧 **Share cards for MLB links.** Only `functions/wpbl/` rewrites `og:` tags, so a shared MLB
+   player or game link unfurls as the generic site card. This is how the site looks wherever
+   someone pastes a link, which makes it the most visible gap.
+2. **Short links for MLB players and games.** WPBL has `/p` and `/g`; MLB has them for series only.
+3. **WPBL's recent searches synced across devices**, on MLB's footing (`user_preferences`).
+   The search box is shared and currently remembers differently per section.
+4. **A glossary and Compare for MLB.** WPBL has `/wpbl/glossary` and `/wpbl/compare`; MLB explains
+   stats only in `InfoTip`s, which nothing can index. The tips should link into the glossary.
+5. ✅ **Every MLB player link opens the side panel on a desktop** (Oct 9). The team page's roster
+   and Team Leaders cards pushed the player's full page themselves, the one place in `/mlb` that
+   did; they now go through the section's `openPlayer` like every other list.
+
+**Visual, after Nov 1, in order:**
+
+1. **Move WPBL's building blocks into `src/ui/`** (`SectionCard`, `SectionLabel`, `TabTitle`,
+   `TYPE_SCALE`, `LeaderRow`, `TeamBadge`) and rebuild MLB's cards on them. MLB has its own
+   `SectionLabel`, none of its 565 font sizes go through `TYPE_SCALE` (45 distinct sizes against
+   WPBL's 38), its card titles carry emoji ("🔄 Roster Moves") where WPBL's are small-caps labels,
+   and its "View All" is a pill where WPBL's "See all ›" is a text link. This one move is most of
+   the visual alignment.
+2. **Visible page titles.** Every WPBL page opens with one ("WPBL Standings"); MLB's `<h1>` is
+   hidden, so its pages open on a row of pills.
+3. **One sub-navigation pattern.** WPBL: a left-aligned row of text tabs over filter chips. MLB: a
+   centred pill row, sometimes with a second segmented control on the right. Use WPBL's.
+4. **One stats-table look.** WPBL's spans the page with a league-average row and a "+ Qualified"
+   chip; MLB's sits in a titled card, pages by 50, and has a "Qual" button. The code can stay two.
+5. **One box score and one play row** inside Game Center. The panel and page frames are shared;
+   the contents (`GameDetail` against `LiveGameCenter` and `boxScore`) are not.
+
+**Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
+team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each
+league keeps its own colour on the section switch.
 
 ## Aligning with WPBL (Sep 27, 2026) 🎯⚙️
 

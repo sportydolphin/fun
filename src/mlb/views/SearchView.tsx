@@ -1,3 +1,4 @@
+import type { MlbOpenSource } from '../state/useMlbState'
 import React, { useRef, useEffect, lazy, Suspense } from 'react'
 import {
   Box, Typography, Paper, CircularProgress, Divider,
@@ -13,10 +14,6 @@ import { TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsC
 // the ScheduleStrip module only loads when a team page is actually opened.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { TeamRoster } from '../components/TeamRoster'
-import { fetchPlayerDetails } from '../api'
-import { track, EVENTS } from '../../lib/analytics'
-import { mlbPlayerPath } from '../routes'
-import { pushEntry } from '../state/sheetHistory'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { MlbPageH1 } from '../components/PageHeading'
@@ -34,7 +31,8 @@ export interface SearchViewProps {
   searching: boolean
   dropdownOpen: boolean
   setDropdownOpen: (o: boolean) => void
-  selectPlayer: (p: Player) => void
+  /** The section's player opener: the side panel on a desktop, the page below that. */
+  onPlayerClick: (playerId: number, from?: MlbOpenSource) => void
   selectTeam: (t: Team) => void
   // History-pushing cross-link nav (for opponent/division team links within this view)
   onTeamClick?: (id: number) => void
@@ -78,7 +76,7 @@ export interface SearchViewProps {
 }
 
 export function SearchView({
-  selectPlayer, onTeamClick,
+  onPlayerClick, onTeamClick,
   team, palette, setPalette, season, loadingStats, hasStats,
   rankMode, setRankMode, currentAvailableSeasons, handleSeasonChange,
   teamHitting, teamPitching,
@@ -97,17 +95,10 @@ export function SearchView({
   const [rosterOpen, setRosterOpen] = React.useState(true)
   const [scheduleOpen, setScheduleOpen] = React.useState(true)
   const [showFullSchedule, setShowFullSchedule] = React.useState(false)
-  // Open a player from within a team page. Pushes the player's entry so the browser Back
-  // button returns to this team (mirrors the Team Leaders cards below); the team's own entry
-  // already carries its snapshot from the URL sync.
-  const openPlayerFromTeam = React.useCallback((playerId: number) => {
-    if (!team) return
-    track(EVENTS.MLB_PLAYER_OPENED, { playerId, from: 'team_page' })
-    pushEntry({ view: 'search', playerId }, mlbPlayerPath({ id: playerId }))
-    fetchPlayerDetails(playerId)
-      .then(details => { if (details) selectPlayer(details) })
-      .catch(() => {})
-  }, [team, selectPlayer])
+  // Through the section's opener, like every other list of players. This page used to push the
+  // player's FULL PAGE itself, so on a desktop its roster and leaders were the one place in /mlb a
+  // player replaced the page instead of opening beside it.
+  const openPlayerFromTeam = React.useCallback((playerId: number) => onPlayerClick(playerId, 'team_page'), [onPlayerClick])
 
   // Close the full-schedule modal when switching teams, so it doesn't linger open.
   useEffect(() => { setShowFullSchedule(false) }, [team?.id])
@@ -429,13 +420,7 @@ export function SearchView({
                         pitLeaders={featuredPitLeaders}
                         awardLabel={p.awardLabel}
                         highlightStat={p.highlightStat}
-                        onClick={() => {
-                          track(EVENTS.MLB_PLAYER_OPENED, { playerId: p.playerId, from: 'team_page' })
-                          pushEntry({ view: 'search', playerId: p.playerId }, mlbPlayerPath({ id: p.playerId }))
-                          fetchPlayerDetails(p.playerId)
-                            .then(details => { if (details) selectPlayer(details) })
-                            .catch(() => {})
-                        }}
+                        onClick={() => openPlayerFromTeam(p.playerId)}
                       />
                     ))}
                   </Box>
