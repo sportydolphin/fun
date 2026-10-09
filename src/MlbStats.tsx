@@ -361,14 +361,22 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // On a phone the site footer ends each page, inside it, so it slides with its tab rather than
   // reflowing under a swipe; the column is floored to the screen less the bar, so on a short page
   // the footer comes to rest just above the bar rather than under it. The same arrangement as WPBL.
+  //
+  // The Suspense is OUTSIDE the footer, so the footer waits for the page's chunk with it. Inside,
+  // an empty page drew the footer resting on the bar, and the page landing shoved it 900px down
+  // the screen: invisible on a fast machine, where the chunk is in before first paint, and caught
+  // by the layout sweep on CI's slower runner on Oct 9, 2026. Callers must not add their own
+  // Suspense around the content, or that one catches the suspension and the footer shows again.
   const withFooter = (content: ReactNode): ReactNode => {
-    if (!bottomNav || !renderFooter) return content
+    if (!bottomNav || !renderFooter) return <Suspense fallback={null}>{content}</Suspense>
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column',
-        minHeight: `calc(100dvh - 24px - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px))` }}>
-        {content}
-        <Box sx={{ mt: 'auto', pt: 4 }}>{renderFooter()}</Box>
-      </Box>
+      <Suspense fallback={null}>
+        <Box sx={{ display: 'flex', flexDirection: 'column',
+          minHeight: `calc(100dvh - 24px - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px))` }}>
+          {content}
+          <Box sx={{ mt: 'auto', pt: 4 }}>{renderFooter()}</Box>
+        </Box>
+      </Suspense>
     )
   }
 
@@ -523,12 +531,10 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             panels={NAV.map((n, i) => (
               <PanelActiveContext.Provider key={n.key} value={!onSearch && i === tabIndex}>
                 {/* Its own boundary, so one tab crashing cannot take the bar and the other four with
-                    it, and its own Suspense, so a chunk still loading for a tab warmed behind the
-                    reader never blanks the one on screen. */}
+                    it, and its own Suspense (in withFooter), so a chunk still loading for a tab
+                    warmed behind the reader never blanks the one on screen. */}
                 {withFooter(
-                  <AppErrorBoundary inline where="tab">
-                    <Suspense fallback={null}>{tabContent(n.key)}</Suspense>
-                  </AppErrorBoundary>,
+                  <AppErrorBoundary inline where="tab">{tabContent(n.key)}</AppErrorBoundary>,
                 )}
               </PanelActiveContext.Provider>
             ))}
@@ -541,69 +547,65 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           rather than inheriting the last one's role tab and scope. */}
       {onSearch && state.player && !gamePageOpen && withFooter(
         <AppErrorBoundary inline where="tab">
-          <Suspense fallback={null}>
-            <MlbPlayerDetail
-              key={state.player.id}
-              playerId={state.player.id}
-              player={state.player}
-              season={state.playerSeason}
-              onSeasonChange={state.setPlayerSeason}
-              onBack={playerBack}
-              onOpenBoard={(key, group) => state.handleStatCardClick(key, group)}
-              onOpenGame={pk => requestDeepLink({ kind: 'game', gamePk: pk })}
-              followed={state.followedPlayerIds.includes(state.player.id)}
-              onToggleFollow={() => {
-                const id = state.player!.id
-                if (state.followedPlayerIds.includes(id)) state.unfollowPlayer(id)
-                else state.followPlayer(id)
-              }}
-            />
-          </Suspense>
+          <MlbPlayerDetail
+            key={state.player.id}
+            playerId={state.player.id}
+            player={state.player}
+            season={state.playerSeason}
+            onSeasonChange={state.setPlayerSeason}
+            onBack={playerBack}
+            onOpenBoard={(key, group) => state.handleStatCardClick(key, group)}
+            onOpenGame={pk => requestDeepLink({ kind: 'game', gamePk: pk })}
+            followed={state.followedPlayerIds.includes(state.player.id)}
+            onToggleFollow={() => {
+              const id = state.player!.id
+              if (state.followedPlayerIds.includes(id)) state.unfollowPlayer(id)
+              else state.followPlayer(id)
+            }}
+          />
         </AppErrorBoundary>,
       )}
 
       {onSearch && !state.player && !gamePageOpen && withFooter(
-        <Suspense fallback={null}>
-          <SearchView
-            query={state.query}
-            setQuery={state.setQuery}
-            playerResults={state.playerResults}
-            teamResults={state.teamResults}
-            searching={state.searching}
-            dropdownOpen={state.dropdownOpen}
-            setDropdownOpen={state.setDropdownOpen}
-            selectTeam={state.selectTeam}
-            onPlayerClick={state.handleFollowedPlayerClick}
-            onTeamClick={state.handleTeamSearchClick}
-            team={state.team}
-            palette={state.palette}
-            setPalette={state.setPalette}
-            season={state.season}
-            loadingStats={state.loadingStats}
-            hasStats={state.hasStats}
-            rankMode={state.rankMode}
-            setRankMode={state.setRankMode}
-            currentAvailableSeasons={state.currentAvailableSeasons}
-            handleSeasonChange={state.handleSeasonChange}
-            teamHitting={state.teamHitting}
-            teamPitching={state.teamPitching}
-            selectedTeamHitStats={state.selectedTeamHitStats}
-            setSelectedTeamHitStats={state.setSelectedTeamHitStats}
-            selectedTeamPitStats={state.selectedTeamPitStats}
-            setSelectedTeamPitStats={state.setSelectedTeamPitStats}
-            toggleTeamHitStat={state.toggleTeamHitStat}
-            toggleTeamPitStat={state.toggleTeamPitStat}
-            teamHitLeaders={state.teamHitLeaders}
-            teamPitLeaders={state.teamPitLeaders}
-            teamCardProps={state.teamCardProps}
-            showFeaturedRight={state.showFeaturedRight}
-            featuredPlayers={state.featuredPlayers}
-            featuredHitLeaders={state.featuredHitLeaders}
-            featuredPitLeaders={state.featuredPitLeaders}
-            divisionStandings={state.divisionStandings}
-            teamRoster={state.teamRoster}
-          />
-        </Suspense>,
+        <SearchView
+          query={state.query}
+          setQuery={state.setQuery}
+          playerResults={state.playerResults}
+          teamResults={state.teamResults}
+          searching={state.searching}
+          dropdownOpen={state.dropdownOpen}
+          setDropdownOpen={state.setDropdownOpen}
+          selectTeam={state.selectTeam}
+          onPlayerClick={state.handleFollowedPlayerClick}
+          onTeamClick={state.handleTeamSearchClick}
+          team={state.team}
+          palette={state.palette}
+          setPalette={state.setPalette}
+          season={state.season}
+          loadingStats={state.loadingStats}
+          hasStats={state.hasStats}
+          rankMode={state.rankMode}
+          setRankMode={state.setRankMode}
+          currentAvailableSeasons={state.currentAvailableSeasons}
+          handleSeasonChange={state.handleSeasonChange}
+          teamHitting={state.teamHitting}
+          teamPitching={state.teamPitching}
+          selectedTeamHitStats={state.selectedTeamHitStats}
+          setSelectedTeamHitStats={state.setSelectedTeamHitStats}
+          selectedTeamPitStats={state.selectedTeamPitStats}
+          setSelectedTeamPitStats={state.setSelectedTeamPitStats}
+          toggleTeamHitStat={state.toggleTeamHitStat}
+          toggleTeamPitStat={state.toggleTeamPitStat}
+          teamHitLeaders={state.teamHitLeaders}
+          teamPitLeaders={state.teamPitLeaders}
+          teamCardProps={state.teamCardProps}
+          showFeaturedRight={state.showFeaturedRight}
+          featuredPlayers={state.featuredPlayers}
+          featuredHitLeaders={state.featuredHitLeaders}
+          featuredPitLeaders={state.featuredPitLeaders}
+          divisionStandings={state.divisionStandings}
+          teamRoster={state.teamRoster}
+        />,
       )}
 
       {/* A player as the desktop side panel, opened from a row on the page or from Game Center.
