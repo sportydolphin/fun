@@ -1,4 +1,5 @@
 import type { LeaderboardEntry, StatDef } from '../types'
+import { parseIP } from './utils'
 
 // The arithmetic of the Stats board, kept out of the component so the phone's ranked list and
 // the desktop grid are provably ranking the same rows, and so a test can reach it.
@@ -65,3 +66,38 @@ export const isBestFirst = (def: StatDef, asc: boolean): boolean => asc === (def
 
 /** The `asc` that puts the best (or worst) end first. */
 export const ascFor = (def: StatDef, bestFirst: boolean): boolean => (def.lowerIsBetter ?? false) === bestFirst
+
+/** A number the way StatsAPI prints a rate: ".245", "1.012", "3.85". */
+const apiRate = (n: number, places: number): string => {
+  const s = n.toFixed(places)
+  return s.startsWith('0.') ? s.slice(1) : s
+}
+
+/**
+ * THE LEAGUE'S OWN LINE for the rate columns, as a stat object the board's defs read like any
+ * player's, so the table's header can print the league average under each label (WPBL's table
+ * does). Counting columns get nothing: a league total of home runs is not an average of anything.
+ *
+ * Summed from the board's own rows, which is only right because a season board's rows are the
+ * whole league: `fetchSeasonPlayerStats` asks for playerPool=All, and on Oct 9, 2026 those rows
+ * summed to the 30 clubs' totals exactly (163,329 at-bats, 39,849 hits). Never call it on a
+ * career board, whose rows are a union of leaders and would print the leaders' average.
+ */
+export function leagueLine(entries: LeaderboardEntry[], group: StatsGroup): Record<string, string> | null {
+  const sum = (k: string) => entries.reduce((n, e) => n + (Number((e.stat as Record<string, unknown>)?.[k]) || 0), 0)
+  if (group === 'hitting') {
+    const ab = sum('atBats'), h = sum('hits'), bb = sum('baseOnBalls'), hbp = sum('hitByPitch'), sf = sum('sacFlies')
+    const tb = h + sum('doubles') + 2 * sum('triples') + 3 * sum('homeRuns')
+    const obpDen = ab + bb + hbp + sf
+    if (!ab || !obpDen) return null
+    const obp = (h + bb + hbp) / obpDen, slg = tb / ab
+    return { avg: apiRate(h / ab, 3), obp: apiRate(obp, 3), slg: apiRate(slg, 3), ops: apiRate(obp + slg, 3) }
+  }
+  const ip = entries.reduce((n, e) => n + parseIP((e.stat as Record<string, unknown>)?.inningsPitched), 0)
+  if (!ip) return null
+  return {
+    era: apiRate(9 * sum('earnedRuns') / ip, 2),
+    whip: apiRate((sum('baseOnBalls') + sum('hits')) / ip, 2),
+    strikeoutsPer9Inn: apiRate(9 * sum('strikeOuts') / ip, 2),
+  }
+}

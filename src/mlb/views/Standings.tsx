@@ -4,7 +4,7 @@ import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME, TONE } from '../constants'
 import { fmtGB, useIsDark, highlightColor } from '../lib/colorUtils'
 import { fetchStandings } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
-import { SegControl } from '../components'
+import { PageTabs } from '../../ui/PageTabs'
 import { PlayoffOddsBoard } from './PlayoffOddsBoard'
 import { useDeepLink } from '../state/deepLink'
 import { PlayoffBracketCard, BracketSkeleton } from './PlayoffBracket'
@@ -446,19 +446,19 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
         </Suspense>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-        {/* While the read that decides it is out, the row is drawn as it will most likely be, with
-            the Bracket pill selected over the bracket skeleton below. Adding the pill when the read
-            landed slid every other pill in this centred row sideways by half its width. */}
-        <SegControl
-          options={[
-            ...(hasBracket || !bracketChecked ? [{ value: 'bracket', label: 'Bracket' }] : []),
-            { value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }, { value: 'odds', label: 'Odds' },
-          ]}
-          value={bracketChecked ? mode : 'bracket'}
-          onChange={v => setMode(v as Mode)}
-        />
-      </Box>
+      {/* WPBL's page row (src/ui/PageTabs): each mode replaces the whole view under it. While the
+          read that decides it is out, the row is drawn as it will most likely be, with Bracket
+          selected over the bracket skeleton below; it is the first tab, so adding it when the read
+          landed would slide every other tab sideways. */}
+      <PageTabs
+        options={[
+          ...(hasBracket || !bracketChecked ? [{ value: 'bracket', label: 'Bracket' }] : []),
+          { value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }, { value: 'odds', label: 'Odds' },
+        ]}
+        value={bracketChecked ? mode : 'bracket'}
+        onChange={v => setMode(v as Mode)}
+        mb={3}
+      />
 
       {/* Odds mode fetches its own precomputed data, so it renders independent of
           the live standings load/error above. */}

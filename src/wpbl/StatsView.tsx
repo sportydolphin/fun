@@ -36,6 +36,8 @@ import { useEraBasis } from './EraBasisContext'
 import { BOTTOM_NAV_SPACE } from './BottomNav'
 import { STATS_FULL_BLEED_W } from './layoutWidths'
 import { typePx } from '../ui/scale'
+import { PageTabs } from '../ui/PageTabs'
+import { FilterChip } from '../ui/FilterChip'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
 // its own layout, not reachable without a deliberate tap. The draft-value model lives on
@@ -1464,20 +1466,7 @@ export default function WpblStatsView({
     ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
   ]
   const activeBoard = source === 'season' ? (side === 'fielding' ? 'fielding' : mode) : source
-  // THE CHOSEN TAB IS KEPT IN VIEW. The row scrolls sideways on a phone, and a link to one of the
-  // later boards (Run value, Draft) opened with its own underlined tab off the right edge, so
-  // nothing on screen said which board this was. Sideways only, and only as far as it takes:
-  // `scrollIntoView` would also scroll the page.
-  const tabsRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const row = tabsRef.current
-    const tab = row?.querySelector<HTMLElement>('[aria-current="page"]')
-    if (!row || !tab) return
-    const r = row.getBoundingClientRect(), t = tab.getBoundingClientRect()
-    const pad = 16
-    if (t.right > r.right) row.scrollLeft += t.right - r.right + pad
-    else if (t.left < r.left) row.scrollLeft -= r.left - t.left + pad
-  }, [activeBoard, isNarrow, loading])
+  // The chosen tab is kept in view by PageTabs itself.
   const selectBoard = (k: string) => {
     // One tap, one board event, named for the widest axis it moved, as the separate source and
     // mode switches named theirs before Fielding made a tap able to move all three.
@@ -1871,37 +1860,17 @@ export default function WpblStatsView({
    // NOT PINNED ON A PHONE, which is where it is rendered from rather than what it looks
    // like. See where this is placed below.
   const boardTabs = (
-        <Box ref={tabsRef} sx={{
-          display: 'flex', alignItems: 'flex-end', gap: { xs: 1.5, sm: 2 }, mb: 1.25,
-          borderBottom: '1px solid', borderColor: 'divider',
-          overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' },
-          msOverflowStyle: 'none', scrollbarWidth: 'none',
-        }}>
-          {boards.map(b => {
-            const on = b.key === activeBoard
-            return (
-              <Box key={b.key} {...pressable(() => selectBoard(b.key))} aria-current={on ? 'page' : undefined}
-                // The dot is aria-hidden, so a badged tab carries the news in its name instead,
-                // the same way SegNav's pills do one level up.
-                aria-label={b.badge ? `${b.label}, updated` : undefined} sx={{
-                ...FOCUS_RING,
-                pb: 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
-                whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center',
-                borderBottom: '2px solid', borderColor: on ? WPBL_ACCENT : 'transparent',
-                color: on ? 'text.primary' : 'text.secondary',
-                // Tightened on a phone so the five fit 375px without the last one, which is the
-                // one that just moved up here, being the one that hangs off the edge. It still
-                // scrolls when Tracked makes it six.
-                fontSize: { xs: '0.86rem', sm: '0.9rem' },
-                fontWeight: on ? 800 : 600, transition: 'color 0.15s',
-                '&:hover': { color: 'text.primary' },
-              }}>
-                {b.label}
-                {b.badge && <NewDot sx={{ ml: 0.6 }} />}
-              </Box>
-            )
-          })}
-        </Box>
+    <PageTabs
+      options={boards.map(b => ({
+        value: b.key, label: b.label,
+        // The dot is aria-hidden, so a badged tab carries the news in its name instead,
+        // the same way SegNav's pills do one level up.
+        adornment: b.badge ? <NewDot sx={{ ml: 0.6 }} /> : undefined,
+        ariaLabel: b.badge ? `${b.label}, updated` : undefined,
+      }))}
+      value={activeBoard}
+      onChange={selectBoard}
+    />
   )
 
   return (
@@ -2865,20 +2834,4 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, scope, onS
 }
 
 // Small pill used for the team filter + qualified toggle.
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <Box {...pressable(onClick)} aria-pressed={active} sx={{
-      ...FOCUS_RING,
-      display: 'inline-flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none',
-      flexShrink: 0, whiteSpace: 'nowrap',
-      px: 1, py: 0.4, borderRadius: 999, fontSize: '0.74rem', fontWeight: 700,
-      border: '1px solid', transition: 'all 0.15s',
-      borderColor: active ? WPBL_ACCENT : CARD_BORDER,
-      color: active ? 'var(--wpbl-accent-fg)' : 'text.secondary',
-      bgcolor: active ? `${WPBL_ACCENT}12` : 'transparent',
-      ...hoverOnly({ borderColor: WPBL_ACCENT }),
-    }}>
-      {children}
-    </Box>
-  )
-}
+const Chip = FilterChip
