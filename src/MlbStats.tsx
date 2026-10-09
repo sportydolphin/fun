@@ -29,7 +29,7 @@ import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
 import { HOME_W, PHONE_COLUMN_W } from './ui/layoutWidths'
-import { MlbPageH1 } from './mlb/components/PageHeading'
+import { MlbTabTitle } from './mlb/components/PageHeading'
 import SwipeableViews from './ui/SwipeableViews'
 import { useSwipeNav } from './AccessibilityContext'
 import { AppErrorBoundary } from './AppErrorBoundary'
@@ -62,11 +62,9 @@ const STATS_BOARDS: { view: MlbView; label: string }[] = [
 ]
 const navKeyFor = (v: MlbView): NavKey | null =>
   v === 'leaderboard' || v === 'viz' ? 'stats' : v === 'search' ? null : v
-/** The h1 of a tab that draws no title of its own. Close to the <title> in seo.ts, without the
- *  pitch: the heading names the page, the title also sells it. */
-const TAB_H1: Partial<Record<MlbView, string>> = {
-  // Home draws its own, visibly (HomeView).
-  standings:   'MLB Standings',
+/** The drawn title of the Stats tab's three boards, which are three addresses with three <title>s
+ *  in seo.ts. Close to those without the pitch: the heading names the page, the title also sells it. */
+const BOARD_TITLE: Partial<Record<MlbView, string>> = {
   leaderboard: 'MLB Stat Leaders',
   stats:       'MLB Player Stats',
   viz:         'MLB Charts',
@@ -432,7 +430,10 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         />
       )
       case 'standings': return (
-        <Standings season={state.season} onTeamClick={state.handleVizNavigate} highlightTeamId={state.followedTeamId} />
+        <>
+          <MlbTabTitle sx={{ mb: 2 }}>MLB Standings</MlbTabTitle>
+          <Standings season={state.season} onTeamClick={state.handleVizNavigate} highlightTeamId={state.followedTeamId} />
+        </>
       )
       case 'teams': return (
         <TeamsView followedTeamId={state.followedTeamId} onTeamClick={id => state.handleTeamSearchClick(id)} />
@@ -442,6 +443,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         const board = lastBoard.current
         return (
           <>
+            <MlbTabTitle sx={{ mb: 2 }}>{BOARD_TITLE[board]}</MlbTabTitle>
             <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 2 }}>
               <SegControl
                 options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
@@ -533,10 +535,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           the Leaders board, the most visited MLB tab. Holding the content a screen tall keeps the
           footer below the fold from the first paint. */}
       <Box sx={{ minHeight: '100dvh' }}>
-      {/* The tabs whose name only the nav says. Scores and Teams draw their own; a player or club
-          page and a game sheet supply theirs (mlb/components/PageHeading.tsx). */}
-      {TAB_H1[state.view] && <MlbPageH1>{TAB_H1[state.view]}</MlbPageH1>}
-
       {/* THE FIVE TABS, KEPT MOUNTED ONCE VISITED, the way WPBL's are. Each view fetched on mount,
           so every tab change unmounted the one being left and refetched the one arrived at:
           Standings and Scores re-read StatsAPI and redrew from a skeleton on every visit, and Back
