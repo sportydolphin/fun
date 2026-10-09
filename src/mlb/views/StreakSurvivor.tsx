@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
+import { SectionCard } from '../../ui/card'
 import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_NICKNAME, TONE } from '../constants'
-import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
+import { useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
 import { searchPlayers } from '../api'
@@ -156,7 +157,6 @@ function SurvivorLeaderboardModal({ userId, onClose }: { userId: string | null; 
 
 export function StreakSurvivorWidget() {
   const { user, openAuthDialog } = useAuth()
-  const isDark = useIsDark()
   const today = survivorToday()
   const season = new Date().getFullYear()
 
@@ -243,33 +243,30 @@ export function StreakSurvivorWidget() {
     }
   }, [user, pickable, slateDate, openAuthDialog])
 
-  const border = defaultBorder(isDark)
   const pickLocked = myPick != null && !pickable.has(myPick.teamId)
   // Graded picks only (hit/miss/void), oldest-left, capped for the form dots.
   const recentForm = recent.filter(r => r.result !== 'pending').slice(0, 6).reverse()
 
   // ── Card shell ──
   const Shell = (children: React.ReactNode) => (
-    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: border, bgcolor: 'background.paper', overflow: 'hidden' }}>
-      {/* Header */}
-      <Box sx={{ px: 1.75, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.15 }}>🎯 Streak Survivor</Typography>
-            {isTomorrow && (
-              <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
-                Tomorrow
-              </Typography>
-            )}
-          </Box>
-          <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', lineHeight: 1.2 }}>Pick a hitter. Keep the streak alive.</Typography>
-        </Box>
-        {user && <StreakBadge current={stats.currentStreak} longest={stats.longestStreak} />}
-      </Box>
+    <SectionCard
+      icon="🎯"
+      title="Streak Survivor"
+      subtitle="Pick a hitter. Keep the streak alive."
+      titleAdornment={isTomorrow ? (
+        <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+          Tomorrow
+        </Typography>
+      ) : undefined}
+      action={user ? <StreakBadge current={stats.currentStreak} longest={stats.longestStreak} /> : undefined}
+    >
+      {/* The body runs to the card's edges, as it did under the old header: the pick, the form row
+          and the footer each carry their own padding and rules. */}
+      <Box sx={{ mx: -2, mb: -1.5 }}>
       {children}
       {/* Recent form: last few graded picks, oldest-left */}
       {user && recentForm.length > 0 && (
-        <Box sx={{ px: 1.75, py: chromePx(8), borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ px: 2, py: chromePx(8), borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled' }}>Recent</Typography>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             {recentForm.map((r, i) => (
@@ -283,11 +280,12 @@ export function StreakSurvivorWidget() {
       {/* Footer */}
       <Box
         onClick={() => setLbOpen(true)}
-        sx={{ px: 1.75, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75, '&:hover': { bgcolor: 'action.hover' } }}
+        sx={{ px: 2, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75, '&:hover': { bgcolor: 'action.hover' } }}
       >
         <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT_TEXT }}>View leaderboard</Typography>
       </Box>
-    </Box>
+      </Box>
+    </SectionCard>
   )
 
   const suggestions = (
@@ -336,7 +334,7 @@ export function StreakSurvivorWidget() {
     body = <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} sx={{ color: ACCENT_TEXT }} /></Box>
   } else if (!user) {
     body = (
-      <Box sx={{ px: 1.75, py: 1.75 }}>
+      <Box sx={{ px: 2, pt: 0.5, pb: 1.75 }}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.4 }}>
           Pick one hitter a day. A hit keeps your streak going, an 0-fer starts you over. How long can you last?
         </Typography>
@@ -350,7 +348,7 @@ export function StreakSurvivorWidget() {
     )
   } else if (myPick && !changing) {
     body = (
-      <Box sx={{ px: 1.75, py: 1.5 }}>
+      <Box sx={{ px: 2, pt: 0.5, pb: 1.5 }}>
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.75 }}>
           {isTomorrow ? "Tomorrow's pick" : "Today's pick"}
         </Typography>
@@ -381,7 +379,7 @@ export function StreakSurvivorWidget() {
     )
   } else {
     body = (
-      <Box sx={{ px: 1.75, py: 1.5 }}>
+      <Box sx={{ px: 2, pt: 0.5, pb: 1.5 }}>
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.75 }}>
           {changing ? 'Change your pick' : isTomorrow ? "Pick tomorrow's hitter" : "Pick today's hitter"}
         </Typography>

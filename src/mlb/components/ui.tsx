@@ -124,18 +124,8 @@ export const linkPillSx = {
   '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
 }
 
-export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
-  return (
-    <Typography sx={{
-      fontSize: strong ? '0.78rem' : '0.63rem',
-      fontWeight: strong ? 800 : 700,
-      textTransform: 'uppercase', letterSpacing: typePx(1.8),
-      color: strong ? 'text.primary' : 'text.disabled', mb: 1,
-    }}>
-      {children}
-    </Typography>
-  )
-}
+// WPBL's eyebrow and card header link, from src/ui/card.tsx (Oct 9, 2026).
+export { SectionLabel, CardLink } from '../../ui/card'
 
 // ─── Stat item ───────────────────────────────────────────────────────────────
 

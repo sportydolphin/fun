@@ -386,7 +386,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
       sx={{
         display: 'flex', alignItems: 'center',
         gap: { xs: 1, sm: 1.5 },
-        px: 1.5, py: 0.9,
+        px: 2, py: 0.9,
         cursor: 'pointer', borderRadius: 1.5,
         transition: 'background 0.12s',
         bgcolor: isSelected ? `${ACCENT}14` : 'transparent',
@@ -661,26 +661,26 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
     }}>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
+      {/* SectionCard's header in its type and padding (the title an h2 at 0.95rem, 16px in), drawn
+          by hand because this one is a control as well: the title gives way to a search field and to
+          the edit mode's count, which SectionCard has no slot for. */}
       <Box ref={headerRef} sx={{
-        px: 1.5, py: compact ? 1.1 : 1.4,
+        px: 2, pt: 1.25, pb: 1,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid', borderColor: 'divider',
         gap: 0.5, minHeight: chromePx(40),
         position: 'relative',
       }}>
         {/* Title, hidden while search is open */}
         {!adding && (
-          <Typography sx={{
-            fontWeight: 800,
-            fontSize: compact ? '0.65rem' : '0.72rem',
-            textTransform: 'uppercase', letterSpacing: typePx(1.2),
-            color: editMode ? 'text.secondary' : ACCENT_TEXT,
+          <Typography component={editMode ? 'div' : 'h2'} sx={{
+            fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2,
+            color: editMode ? 'text.secondary' : 'text.primary',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             transition: 'color 0.15s',
           }}>
             {editMode
               ? (selected.size > 0 ? `${selected.size} selected` : 'Tap to select')
-              : (compact ? '★ Players' : '★ Your Players')}
+              : (compact ? 'Players' : 'Your players')}
           </Typography>
         )}
 
@@ -877,7 +877,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     sm: !showAll && i >= FOLLOWED_PREVIEW_SM ? 'none' : 'block',
                   },
                 }}>
-                  {i > 0 && <Box sx={{ height: '1px', bgcolor: 'divider', mx: 1.5 }} />}
+                  {i > 0 && <Box sx={{ height: '1px', bgcolor: 'divider', mx: 2 }} />}
                   <FollowedPlayerRow
                     id={id}
                     data={data}

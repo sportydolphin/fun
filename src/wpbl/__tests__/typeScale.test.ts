@@ -27,6 +27,9 @@ const ADOPTED = [
   'src/wpbl/GameLineRow.tsx',
   'src/wpbl/FindView.tsx',
   'src/wpbl/MatchupsPage.tsx',
+  // MLB's first, the Report Card boards (Oct 9, 2026): the scale moved to src/ui/card.tsx so the
+  // second alignment pass could rebuild MLB's cards on it. MLB files go on this list as they convert.
+  'src/mlb/components/leaderboards.tsx',
 ]
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')

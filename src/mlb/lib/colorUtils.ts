@@ -86,10 +86,10 @@ export function borderAlpha(hex: string, isDark: boolean): string {
   return `${hex}${isDark ? 'cc' : '45'}`
 }
 
-// Default (non-team-colored) card border, darker than MUI's default 'divider'
-// (~12% opacity) so plain card outlines read more defined.
+// Default (non-team-colored) card border. The values of `CARD_BORDER` in src/ui/card.tsx, so the
+// MLB cards not yet on `SectionCard` draw the same outline as the ones that are, on one page.
 export function defaultBorder(isDark: boolean): string {
-  return isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)'
+  return isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.34)'
 }
 
 // Opacity-suffixed hex for photo/avatar ring borders.

@@ -6,7 +6,8 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import type { Theme } from '@mui/material'
-import { TAPPABLE } from './interaction'
+import { TAPPABLE, FOCUS_RING, pressable, linkPress } from './interaction'
+import { typePx } from './scale'
 
 // Card outline color: noticeably stronger than MUI's faint `divider` so the WPBL
 // cards (and the sub-cards nested inside them) read as crisply outlined in both light
@@ -136,9 +137,12 @@ export function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function SectionCard({ icon, title, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
+export function SectionCard({ icon, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
   icon?: React.ReactNode
   title: string
+  /** Something small on the title's own line, after it: an info tip. Outside the `h2`, so a
+   *  screen reader skimming headings hears the title and nothing else. */
+  titleAdornment?: React.ReactNode
   /** A quiet second line under the title. Keep it to one line; this slot is 0.72rem and the
    *  header does not grow. A live figure does NOT belong here: in the subtitle it reads as a
    *  footnote to the heading, at the smallest size on the card. Put it in `action`, on the
@@ -218,7 +222,14 @@ export function SectionCard({ icon, title, subtitle, action, actionWraps, collap
               from a variant, so the tag moves nothing on screen. The level is fixed at 2 on
               purpose: every consumer is a top-level section of a page that owns the `h1`, and a
               prop for it would only invite a card to lie. */}
-          <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
+          {titleAdornment != null ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+              <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{title}</Typography>
+              {titleAdornment}
+            </Box>
+          ) : (
+            <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
+          )}
           {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
         {action != null && (
@@ -265,5 +276,52 @@ export function TextGhost({ children, hidden }: { children: React.ReactNode; hid
         boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone',
       }),
     }}>{children}</Box>
+  )
+}
+
+/**
+ * Small uppercase eyebrow over a block inside a card. Both sections had a copy of this, word for
+ * word, until Oct 9, 2026; one definition so the two cannot drift into two eyebrows.
+ */
+export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
+  return (
+    <Typography sx={{
+      fontSize: strong ? '0.78rem' : '0.63rem',
+      fontWeight: strong ? 800 : 700,
+      textTransform: 'uppercase', letterSpacing: typePx(1.8),
+      color: strong ? 'text.primary' : 'text.disabled', mb: 1,
+    }}>
+      {children}
+    </Typography>
+  )
+}
+
+/**
+ * The link in a `SectionCard`'s action slot: "All 15", "Compare teams". Plain accent text, never a
+ * pill. MLB's cards had a bordered "View All →" pill and an expand icon for the same job, which put
+ * two controls on Home that looked like buttons beside WPBL's one that reads as a link.
+ *
+ * `href` makes it a real anchor when what it opens has an address (a tab, a page), so a crawler can
+ * follow it and a reader can open it in a new tab. A link that opens a sheet has no address and
+ * stays a button.
+ */
+export function CardLink({ label, onClick, href, color = 'var(--wpbl-accent-fg)' }: {
+  label: string
+  onClick: () => void
+  href?: string
+  color?: string
+}) {
+  return (
+    <Typography
+      {...(href ? linkPress(href, onClick) : pressable(onClick))}
+      sx={{
+        ...FOCUS_RING,
+        fontSize: TYPE_SCALE.meta, fontWeight: 700, color, cursor: 'pointer',
+        py: 0.5, px: 0.5, whiteSpace: 'nowrap', borderRadius: 1, textDecoration: 'none',
+        '&:hover': { textDecoration: 'underline' },
+      }}
+    >
+      {label}
+    </Typography>
   )
 }

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
-import { useIsDark, highlightColor, defaultBorder, useTextTone } from '../lib/colorUtils'
+import { useIsDark, highlightColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from '../components/TeamLogo'
+import { SectionCard, CardLink } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, LINK_SX } from '../lib/links'
 
@@ -366,7 +367,6 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   // marks, so a chase lit up because its club is playing in October would promise a milestone that
   // cannot fall tonight.
   const liveTeamIds = seasonOver ? undefined : liveTeamIdsIn
-  const isDark = useIsDark()
   const [items, setItems] = useState<MilestoneItem[] | null>(null)
   const [recent, setRecent] = useState<MilestoneItem[]>([])
   const [reached, setReached] = useState<MilestoneItem[]>([])
@@ -432,31 +432,24 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
 
   return (
     <>
-      <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <Box sx={{ px: 1.75, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.15 }}>🏆 Milestone Watch</Typography>
-          <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', lineHeight: 1.2 }}>
-            {subtitle}
-          </Typography>
-        </Box>
-
+      <SectionCard
+        icon="🏆"
+        title="Milestone Watch"
+        subtitle={subtitle}
+        // The sheet holds every chase and the season's reached marks; the card shows a few.
+        action={total > featured.length ? <CardLink label={`All ${total}`} onClick={() => setModalOpen(true)} /> : undefined}
+      >
+        {/* Run to the card's edges, as they always were: each row's coloured left rule is the
+            card's edge, and inset by the body padding it would float. */}
+        <Box sx={{ mx: -2, mb: -1.5 }}>
         {featured.map((it, i) => (
           <Box key={`${it.achievedOn ? 'r' : 'c'}-${it.playerId}-${it.statKey}-${it.target}`} sx={{ borderBottom: i < featured.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
             <FeaturedMilestone item={it} isLive={isLive(it)} seasonOver={seasonOver} onPlayerClick={onPlayerClick} />
           </Box>
         ))}
 
-        {total > featured.length && (
-          <Box
-            onClick={() => setModalOpen(true)}
-            sx={{ px: 1.75, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', textAlign: 'center', '&:hover': { bgcolor: 'action.hover' } }}
-          >
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: ACCENT_TEXT }}>
-              View all {total} →
-            </Typography>
-          </Box>
-        )}
-      </Box>
+        </Box>
+      </SectionCard>
 
       {modalOpen && <MilestoneModal items={chases} reached={reached} liveTeamIds={liveTeamIds} seasonOver={seasonOver} season={season} onClose={() => setModalOpen(false)} onPlayerClick={onPlayerClick} />}
     </>

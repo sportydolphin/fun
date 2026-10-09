@@ -945,19 +945,8 @@ export function ExpandRow({ expanded, moreLabel, onToggle, flush }: {
 // loading text. Re-exported so WPBL's imports hold.
 export { TextGhost } from '../ui/card'
 
-// Small uppercase eyebrow label. Mirrors MLB's SectionLabel.
-export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
-  return (
-    <Typography sx={{
-      fontSize: strong ? '0.78rem' : '0.63rem',
-      fontWeight: strong ? 800 : 700,
-      textTransform: 'uppercase', letterSpacing: typePx(1.8),
-      color: strong ? 'text.primary' : 'text.disabled', mb: 1,
-    }}>
-      {children}
-    </Typography>
-  )
-}
+// SectionLabel and CardLink live in src/ui/card.tsx, shared with MLB since Oct 9, 2026.
+export { SectionLabel, CardLink } from '../ui/card'
 
 // The share chip for a sheet header, shared with MLB (src/ui/CopyLinkButton.tsx). WPBL confirms
 // a copy in its own accent.
