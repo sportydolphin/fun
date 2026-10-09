@@ -149,9 +149,8 @@ Home's one player name currently opens a box score.)* The primer (#4) and SEO (#
 
 ## Next: in priority order
 
-**In progress, Oct 6, 2026: #9, desktop detail views.** Players and games open as a side panel
-on a desktop, and both have a full page. The WPBL half is built and not yet released; what is
-left is the MLB half (step 4), listed under #9.
+**Nothing in progress (Oct 9, 2026).** #9, desktop detail views, shipped in both sections; the
+winter order below is next.
 
 **The winter order, set Sep 27, 2026.** Every season-locked item below has shipped or missed its
 window. The one problem left is the one "Where the section stands" names: nothing gives a reader a
@@ -796,7 +795,7 @@ in the empty-query search dropdown~~ ✅ *shipped Aug 24, 2026 (see the log)*.
 Settings accent-color picker (the last open item from the Aug 6 "Sprint C"; shared with the
 MLB section).
 
-### 9. Desktop detail views: the side panel and the full page 🎯⚙️: 🚧 **WPBL built Oct 5 to 6, 2026, not yet released**
+### 9. Desktop detail views: the side panel and the full page 🎯⚙️: ✅ **shipped in both sections by Oct 7, 2026** (MLB as v1.128.0)
 
 **Why.** On a desktop a player or a game opened as a centred dialog over a dimmed page. It was
 about as wide as the 900px section column, so the gutters either side sat dimmed and unused, the
@@ -1347,7 +1346,7 @@ next visit, so the tags stay put while the reader looks at them; opening an item
 tag everywhere at once. A first visit marks nothing, and nothing published before the release
 (`FLOOR`) is ever marked, so the back catalogue never lights up.
 
-### Oct 5, 2026: players and games open beside the page on desktop, and Game Center gets a full page (built, not yet released)
+### Oct 5, 2026: players and games open beside the page on desktop, and Game Center gets a full page
 
 Steps 1 to 3 of #9. On a desktop a player or a game now opens as a side panel down the right
 edge, under the toolbar, instead of a centred dialog over a dimmed page: the page stays usable
