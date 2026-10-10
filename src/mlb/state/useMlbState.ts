@@ -16,7 +16,7 @@ import {
 import {
   HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS,
   DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS,
-  CURRENT_SEASON, TEAM_SEASONS, LB_FEATURED, FEATURED_PLAYER_IDS, DEFAULT_PALETTE, teamPalette, MAX_FOLLOWED_PLAYERS,
+  CURRENT_SEASON, TEAM_SEASONS, LB_FEATURED, TABLE_DEFAULT_SORT, FEATURED_PLAYER_IDS, DEFAULT_PALETTE, teamPalette, MAX_FOLLOWED_PLAYERS,
 } from '../constants'
 import {
   searchPlayers, fetchPlayerDetails,
@@ -315,7 +315,7 @@ export function useMlbState() {
   const [statsAllTime, setStatsAllTime] = useState(!!landing?.allTime)
   // The Table's stat as the address spells it: null for the board's default, so the plain
   // /mlb/stats stays the canonical spelling of the page most readers land on.
-  const sortParam = lbFullscreen && lbFullscreen.group === lbGroup && lbFullscreen.sortKey !== LB_FEATURED[lbGroup][0]
+  const sortParam = lbFullscreen && lbFullscreen.group === lbGroup && lbFullscreen.sortKey !== TABLE_DEFAULT_SORT[lbGroup]
     ? lbFullscreen.sortKey : null
 
   // ─── Refs ─────────────────────────────────────────────────────────────────────
