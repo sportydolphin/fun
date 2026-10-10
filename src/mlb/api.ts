@@ -112,11 +112,12 @@ export async function fetchAllTeams(): Promise<Team[]> {
 // ranking for the rest of the session.
 const allTeamStatsCache = new Map<string, Promise<Map<number, any>>>()
 
-export function fetchAllTeamStats(group: 'hitting' | 'pitching', season: number): Promise<Map<number, any>> {
-  const key = `${group}-${season}`
+/** `gameType` 'P' is the postseason, which answers with only the clubs that played in it. */
+export function fetchAllTeamStats(group: 'hitting' | 'pitching', season: number, gameType: 'R' | 'P' = 'R'): Promise<Map<number, any>> {
+  const key = `${group}-${season}-${gameType}`
   let p = allTeamStatsCache.get(key)
   if (!p) {
-    p = fetch(`https://statsapi.mlb.com/api/v1/teams/stats?stats=season&group=${group}&season=${season}&sportIds=1`)
+    p = fetch(`https://statsapi.mlb.com/api/v1/teams/stats?stats=season&group=${group}&season=${season}&sportIds=1${gameType === 'P' ? '&gameType=P' : ''}`)
       .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json() })
       .then((d: any) => new Map<number, any>(
         (d.stats?.[0]?.splits ?? []).map((s: any) => [Number(s.team?.id), s.stat ?? null] as [number, any]),

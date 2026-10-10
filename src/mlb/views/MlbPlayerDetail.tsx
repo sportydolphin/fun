@@ -29,17 +29,17 @@ import { ExpandButton } from '../../ui/ExpandButton'
 import { HEADER_ICON_SX, HEADER_TEXT_SX, headerChipSx } from '../../ui/headerBar'
 import { PillGroup } from '../../ui/PillGroup'
 import SwipeableViews from '../../ui/SwipeableViews'
-import { hoverOnly, pressable } from '../../ui/interaction'
+import { hoverOnly, linkPress, pressable } from '../../ui/interaction'
 import { chromePx } from '../../ui/scale'
 import { CopyLinkButton } from '../../ui/CopyLinkButton'
 import { SegControl, linkPillSx } from '../components/ui'
 import { ContractPanel } from '../components/ContractPanel'
 import { MlbPageH1, MlbHiddenH1 } from '../components/PageHeading'
 import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
-import { ACCENT_TEXT, CURRENT_SEASON, HEADSHOT_SQUARE, TEAM_NICKNAME, TEAM_SECONDARY, teamPalette } from '../constants'
+import { ACCENT_TEXT, CURRENT_SEASON, TEAM_SEASONS, HEADSHOT_SQUARE, TEAM_NICKNAME, TEAM_SECONDARY, teamPalette } from '../constants'
 import { fetchPlayerContract } from '../api'
 import { careerSpan } from '../lib/utils'
-import { mlbClubById, mlbCompareStartPath, withMlbCompareSeason, MLB_GLOSSARY_PAGE } from '../routes'
+import { mlbClubById, mlbCompareStartPath, withMlbCompareSeason, mlbUrlFor, MLB_GLOSSARY_PAGE, MLB_FIELDING_POSITIONS, type MlbFieldingPosition } from '../routes'
 import { track, EVENTS } from '../../lib/analytics'
 import { linkTo, UNSTYLED_LINK } from '../../nav'
 import { mlbStatFull, mlbStatPlain } from '../statGlossary'
@@ -173,9 +173,17 @@ function PitchMix({ pitches }: { pitches: PitchUsage[] }) {
   )
 }
 
+const isFieldingPosition = (p: string): p is MlbFieldingPosition => (MLB_FIELDING_POSITIONS as readonly string[]).includes(p)
+
 /** Fielding, one line per position played, most-played first. Last among the stats, as on WPBL's
  *  card: it is the least telling number here. */
-function Fielding({ lines }: { lines: FieldingLine[] }) {
+function Fielding({ lines, season, onOpen }: {
+  lines: FieldingLine[]
+  season: number | null
+  /** The Fielding board at this position, the player picked out. Absent where there is no board to
+   *  open (a career view, a season before the board's first). */
+  onOpen?: (position: MlbFieldingPosition) => void
+}) {
   if (lines.length === 0) return null
   const join = (parts: (string | null)[]) => parts.filter(Boolean).join(' · ')
   return (
@@ -186,7 +194,16 @@ function Fielding({ lines }: { lines: FieldingLine[] }) {
         const catcher = f.position === 'C' && (s.stolenBases != null || s.caughtStealing != null)
         return (
           <Typography key={f.position} sx={{ ...TYPE.body, color: 'text.secondary', fontVariantNumeric: 'tabular-nums', mb: 0.25 }}>
-            <Box component="span" sx={{ fontWeight: 800, color: 'text.primary', mr: 0.75 }}>{f.position}</Box>
+            {/* The position is the way to everyone else who played it that season, as a rank is the
+                way to the board it ranks on. A real link: the board's address says the season too. */}
+            {onOpen && season != null && isFieldingPosition(f.position) ? (
+              <Box {...linkPress(mlbUrlFor({ view: 'fielding', season, pos: f.position }, CURRENT_SEASON), () => onOpen(f.position as MlbFieldingPosition))}
+                sx={{ fontWeight: 800, color: ACCENT_TEXT, mr: 0.75, textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }) }}>
+                {f.position}
+              </Box>
+            ) : (
+              <Box component="span" sx={{ fontWeight: 800, color: 'text.primary', mr: 0.75 }}>{f.position}</Box>
+            )}
             {join([
               `${n0(s.gamesPlayed)} G`,
               s.innings && s.innings !== '0.0' ? `${s.innings} INN` : null,
@@ -269,6 +286,8 @@ export interface MlbPlayerDetailProps {
   onBack?: () => void
   /** A league rank opens the leaderboard for that stat, the player picked out. */
   onOpenBoard: (statKey: string, group: Role) => void
+  /** A position in the Fielding section opens the Fielding board there, the player picked out. */
+  onOpenFielding?: (position: MlbFieldingPosition, season: number) => void
   onOpenGame: (gamePk: number) => void
   followed: boolean
   onToggleFollow: () => void
@@ -284,7 +303,7 @@ export interface MlbPlayerDetailProps {
   onName?: (name: string) => void
 }
 
-export default function MlbPlayerDetail({ playerId, player, season: seasonProp, onSeasonChange, onBack, onOpenBoard, onOpenGame, followed, onToggleFollow, panel = false, onClose, backLabel, onExpand, onName }: MlbPlayerDetailProps) {
+export default function MlbPlayerDetail({ playerId, player, season: seasonProp, onSeasonChange, onBack, onOpenBoard, onOpenFielding, onOpenGame, followed, onToggleFollow, panel = false, onClose, backLabel, onExpand, onName }: MlbPlayerDetailProps) {
   // `&& !panel` because THIS component renders the panel's shell, so its own hooks run outside the
   // shell's theme and still see the desktop. Everything inside the card reads the panel's theme.
   const mdUp = useMediaQuery(useTheme().breakpoints.up('md'))
@@ -813,7 +832,9 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
               />
             </Box>
           )}
-          <Fielding lines={hasPost && scope !== 'regular' ? [] : bundle?.fielding ?? []} />
+          <Fielding lines={hasPost && scope !== 'regular' ? [] : bundle?.fielding ?? []}
+            season={season != null && TEAM_SEASONS.includes(season) ? season : null}
+            onOpen={onOpenFielding && season != null ? pos => onOpenFielding(pos, season) : undefined} />
         </>
       )}
       {contract && (

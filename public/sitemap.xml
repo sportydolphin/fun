@@ -1131,6 +1131,18 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://sportydolphin.fun/mlb/team-stats</loc>
+    <lastmod>2026-10-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/mlb/fielding</loc>
+    <lastmod>2026-10-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://sportydolphin.fun/mlb/charts</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>daily</changefreq>

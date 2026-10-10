@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react'
 import MlbPlayerDetail from './MlbPlayerDetail'
 import { useSheetHistory, PANEL_SEASON_KEY } from '../state/sheetHistory'
-import { mlbPlayerPath } from '../routes'
+import { mlbPlayerPath, type MlbFieldingPosition } from '../routes'
 import { getDynamicSeo, setDynamicSeo } from '../../seo'
 import type { Player } from '../types'
 import type { PlayerSeason } from '../state/useMlbState'
@@ -28,12 +28,13 @@ export interface MlbPlayerPanelProps {
   onClose: () => void
   onExpand: (season: PlayerSeason | null) => void
   onOpenBoard: (statKey: string, group: Role, season: PlayerSeason | null) => void
+  onOpenFielding?: (position: MlbFieldingPosition, season: number) => void
   onOpenGame: (gamePk: number) => void
   followed: boolean
   onToggleFollow: () => void
 }
 
-export function MlbPlayerPanel({ playerId, player, stacked, path, initialSeason = null, onClose, onExpand, onOpenBoard, onOpenGame, followed, onToggleFollow }: MlbPlayerPanelProps) {
+export function MlbPlayerPanel({ playerId, player, stacked, path, initialSeason = null, onClose, onExpand, onOpenBoard, onOpenFielding, onOpenGame, followed, onToggleFollow }: MlbPlayerPanelProps) {
   // The address carries the name once it is known; the id alone resolves the same page.
   const [name, setName] = useState<string | null>(player?.fullName ?? null)
   const close = useSheetHistory(onClose, name || !path ? mlbPlayerPath({ id: playerId, fullName: name }) : path, { panel: true })
@@ -71,6 +72,7 @@ export function MlbPlayerPanel({ playerId, player, stacked, path, initialSeason 
       backLabel="Game"
       onExpand={() => onExpand(season)}
       onOpenBoard={(k, g) => onOpenBoard(k, g, season)}
+      onOpenFielding={onOpenFielding}
       onOpenGame={onOpenGame}
       onName={setName}
       followed={followed}

@@ -6,7 +6,7 @@ import {
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, OpenInFull, Tune, MoreVert } from '@mui/icons-material'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, RosterEntry, StandingsDivision } from '../types'
-import { ACCENT, ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, TEAM_BG, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
+import { ACCENT, ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, TEAM_BG, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { PillChip, linkPillSx, SectionLabel } from '../components/ui'
 import { FullscreenEntry } from '../components/MlbSheet'
 import { TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
@@ -17,6 +17,8 @@ import { TeamRoster } from '../components/TeamRoster'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { MlbPageH1 } from '../components/PageHeading'
+import { linkPress } from '../../ui/interaction'
+import { mlbUrlFor } from '../routes'
 
 // THE TEAM PAGE. It was the player page too until Oct 2026, when the player moved to its own
 // self-fetching card (MlbPlayerDetail); the view is still called 'search' because that is the name
@@ -73,6 +75,8 @@ export interface SearchViewProps {
   featuredPitLeaders: Map<string, number[]>
   divisionStandings: StandingsDivision | null
   teamRoster: RosterEntry[]
+  /** Teams or Fielding with this club picked out (useMlbState.openGridBoard). */
+  onOpenGrid?: (to: { view: 'teamStats' | 'fielding'; lb?: 'hitting' | 'pitching'; season?: number; club?: number | null; highlight?: number | null }) => void
 }
 
 export function SearchView({
@@ -84,9 +88,17 @@ export function SearchView({
   toggleTeamHitStat, toggleTeamPitStat,
   teamCardProps,
   showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders, divisionStandings,
-  teamRoster,
+  teamRoster, onOpenGrid,
 }: SearchViewProps) {
   const cardRef = useRef<HTMLDivElement>(null)
+  // THE CLUB AGAINST THE OTHER TWENTY-NINE, on the Stats tab's boards, beside the outside links that
+  // used to be the only way to compare it: WPBL's team page links its Teams board the same way.
+  // Real <a href>s (linkPress), so a crawler reaches the boards from all thirty club pages.
+  const boardLinks = (teamId: number) => onOpenGrid && (<>
+    <Box {...linkPress(mlbUrlFor({ view: 'teamStats', lb: 'hitting', season }, CURRENT_SEASON), () => onOpenGrid({ view: 'teamStats', lb: 'hitting', season, highlight: teamId }))} sx={linkPillSx}>Team batting</Box>
+    <Box {...linkPress(mlbUrlFor({ view: 'teamStats', lb: 'pitching', season }, CURRENT_SEASON), () => onOpenGrid({ view: 'teamStats', lb: 'pitching', season, highlight: teamId }))} sx={linkPillSx}>Team pitching</Box>
+    <Box {...linkPress(mlbUrlFor({ view: 'fielding', season, club: teamId }, CURRENT_SEASON), () => onOpenGrid({ view: 'fielding', season, club: teamId }))} sx={linkPillSx}>Fielding</Box>
+  </>)
   const [fullscreen, setFullscreen] = React.useState(false)
   const exitFullscreen = useRef<(() => void) | null>(null)
   const [cardMenuAnchor, setCardMenuAnchor] = React.useState<HTMLElement | null>(null)
@@ -380,6 +392,7 @@ export function SearchView({
                 {(() => {
                   const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
                   return (<>
+                    {boardLinks(team.id)}
                     <Box component="a" href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
                     <Box component="a" href={`https://baseballsavant.mlb.com/team/${team.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
                   </>)
@@ -507,6 +520,7 @@ export function SearchView({
           {(() => {
             const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
             return (<>
+              {boardLinks(team.id)}
               <Box component="a" href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
               <Box component="a" href={`https://baseballsavant.mlb.com/team/${team.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
             </>)

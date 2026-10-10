@@ -243,6 +243,16 @@ const ROUTES: Record<string, Seo> = {
     description:
       'Sort every qualified MLB hitter or pitcher by any stat, for one season or across careers.',
   },
+  [MLB_VIEW_PATHS.teamStats]: {
+    title: 'MLB Team Stats: batting and pitching for all 30 clubs | sportydolphin.fun',
+    description:
+      'Every MLB club’s batting and pitching, side by side and sortable by any stat, for this season or any past one.',
+  },
+  [MLB_VIEW_PATHS.fielding]: {
+    title: 'MLB Fielding Stats: by player and position | sportydolphin.fun',
+    description:
+      'MLB fielding by player and position: fielding percentage, errors, assists, putouts, double plays and range factor, sortable.',
+  },
   [MLB_VIEW_PATHS.viz]: {
     title: 'MLB Charts: run differential, payroll and streak report cards | sportydolphin.fun',
     description:
