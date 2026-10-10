@@ -26,6 +26,10 @@ Violating these creates real problems. Treat them as hard constraints.
   symbol rather than punctuation.
 - **WPBL is baseball, not softball.** ⚾ never 🥎. It is the *Women's Pro Baseball League*,
   a full pro league. No gender stereotypes, no softball framing, anywhere.
+- **A name that does not fit shortens to "F. Last"; it is never cut off mid-name.** "K. Whitmore",
+  not "Kelsie Whit…", anywhere on the site. The stages and the measured fits live in
+  [`src/ui/names.ts`](src/ui/names.ts) (`nameStages`, `useLineNameFit` for a line of several names)
+  and WPBL's `FittedName`; a CSS ellipsis is only the net under the last stage.
 - **Never use the Yankees or their players as examples.** Not in comments, sample data,
   docs, or explanations. Pick any other club.
 - **`main` is the deploy branch, and it only takes pull requests.** Cloudflare Pages deploys
