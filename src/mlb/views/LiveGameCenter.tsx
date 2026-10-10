@@ -2,25 +2,28 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, HEADSHOT, TONE } from '../constants'
 import { useIsDark, accentColor, chartPairColors, inkOn, textTone, borderAlpha, photoBorderAlpha, useTextTone } from '../lib/colorUtils'
-import { ModalShell, useOpensAsPanel } from '../../ui/ModalShell'
+import { ModalShell, useOpensAsPanel, usePhoneLayout } from '../../ui/ModalShell'
+import { BoxTeamHeading, BoxTeamSwitch, HalfHeading, PlayRow, RUN_GREEN, PLAY_TEXT_SX, PLAY_DETAIL_SX, PLAY_COUNT_SX, PLAY_STATE_SX } from '../../ui/gameCenter'
+import { BaseDiamond, OutDots } from '../../ui/BaseDiamond'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
 import { MlbCopyLink } from '../components/CopyLink'
-import { teamLink, LINK_SX } from '../lib/links'
+import { SegControl } from '../components/ui'
+import { teamLink, playerLink, LINK_SX } from '../lib/links'
 import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { FinalGameSummary } from './FinalGames'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { scrollBehavior } from '../../lib/motion'
 import {
   BoxScore, parseBoxScoreData,
-  LogoBubble, LiveDot, TeamBoxSection,
+  LogoBubble, LiveDot, ClubBox,
 } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
 import { MlbHiddenH1, MlbAddressH1 } from '../components/PageHeading'
 import { DetailPageBar } from '../../ui/DetailPageBar'
 import { ExpandButton } from '../../ui/ExpandButton'
-import { GC_CAPS, GC_META, GC_BODY, runGreen } from './gameType'
+import { GC_CAPS, GC_META, GC_BODY } from './gameType'
 import { useChartScrub } from '../../ui/chartScrub'
 import { pushEntry, sheetOpenAt, stackNextPanel } from '../state/sheetHistory'
 import { openPlayerPanel } from '../state/playerPanel'
@@ -75,8 +78,18 @@ interface GcPlay {
   homeScore:     number
   battingTeamId: number
   batter:        string
+  batterId:      number | null
   pitcher:       string
+  /** After the play, as StatsAPI's count closes it. */
   outs:          number
+  balls:         number
+  strikes:       number
+  /** Who was on when the play was done, for the diamond at the end of its row. */
+  onFirst:       boolean
+  onSecond:      boolean
+  onThird:       boolean
+  /** Runs this play scored: the batting club's score across it, which counts the batter. */
+  runs:          number
 }
 
 interface GameCenterData {
@@ -224,9 +237,21 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
         homeScore:     p.result?.homeScore ?? 0,
         battingTeamId: p.about?.halfInning === 'bottom' ? home.teamId : away.teamId,
         batter:        p.matchup?.batter?.fullName ?? '',
+        batterId:      p.matchup?.batter?.id ?? null,
         pitcher:       p.matchup?.pitcher?.fullName ?? '',
         outs:          p.count?.outs ?? 0,
+        balls:         p.count?.balls ?? 0,
+        strikes:       p.count?.strikes ?? 0,
+        onFirst:       !!p.matchup?.postOnFirst,
+        onSecond:      !!p.matchup?.postOnSecond,
+        onThird:       !!p.matchup?.postOnThird,
+        runs:          0,
       }))
+    // Off the running score rather than the runners: it is the number the line score prints.
+    plays.forEach((p, i) => {
+      const prev = plays[i - 1]
+      p.runs = p.half === 'top' ? p.awayScore - (prev?.awayScore ?? 0) : p.homeScore - (prev?.homeScore ?? 0)
+    })
 
     const box = parseBoxScoreData(ls, ld.boxscore ?? {})
 
@@ -635,47 +660,62 @@ function halfInnings(plays: GcPlay[]): HalfInning[] {
   return out
 }
 
-/** One play. A scoring play is marked in its club's CHART colour (chartPairColors), not its
- *  primary: the primary is near-black for a third of the league, and a brown rail on a 5% brown
- *  wash is how the Padres' runs used to look like everybody else's outs. */
-function PlayCard({ p, away, home }: { p: GcPlay; away: GcTeam; home: GcTeam }) {
-  const isDark = useIsDark()
-  const [awayCol, homeCol] = chartPairColors(away.teamId, home.teamId, isDark)
-  const col = p.battingTeamId === home.teamId ? homeCol : awayCol
+/**
+ * One play, on WPBL's row (src/ui/gameCenter.tsx): the batter in weight with the rest of the first
+ * sentence beside them, the runners' sentences quieter underneath, and the count and the bases and
+ * outs the play left in a column at the right. A run is the shared green rail, as on WPBL, rather
+ * than the club's colour this used to take: the half-inning heading already names the club.
+ */
+function PlayCard({ p, onPlayerClick }: { p: GcPlay; onPlayerClick?: (id: number) => void }) {
+  // StatsAPI writes one sentence for the batter and one per runner. The first is the play; the
+  // rest is WPBL's detail line.
+  const cut = p.description.search(/\.\s+[A-Z]/)
+  const head = cut > 0 ? p.description.slice(0, cut + 1) : p.description
+  const detail = cut > 0 ? p.description.slice(cut + 1).trim() : ''
+  const named = !!p.batter && head.startsWith(p.batter)
+  const link = named && p.batterId != null && onPlayerClick ? playerLink(p.batterId, p.batter, onPlayerClick) : {}
   return (
-    <Box sx={{
-      px: 1.5, py: 1, borderRadius: 1.5,
-      borderLeft: '3px solid',
-      borderLeftColor: p.isScoring ? col : 'divider',
-      bgcolor: p.isScoring ? `${col}${isDark ? '1f' : '14'}` : 'transparent',
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-        <Typography sx={{ fontSize: GC_BODY, fontWeight: 800, lineHeight: 1.3 }}>
-          {p.event}
-        </Typography>
-        {p.isScoring && (
-          <Typography sx={{ ml: 'auto', fontSize: GC_META, fontWeight: 800, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-            {away.abbr} {p.awayScore} · {home.abbr} {p.homeScore}
-          </Typography>
+    <PlayRow
+      scored={p.runs > 0}
+      aside={<>
+        <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'baseline' }}>
+          <Typography sx={PLAY_COUNT_SX}>{p.balls}-{p.strikes}</Typography>
+        </Box>
+        {/* The third out ends the half, and an empty diamond there would read as a cleared inning
+            rather than as no next state at all: WPBL draws nothing on that row too. */}
+        {p.outs < 3 && (
+          <Box sx={PLAY_STATE_SX}>
+            <BaseDiamond first={p.onFirst} second={p.onSecond} third={p.onThird} size={16} scale="chrome" context="After" />
+            <OutDots outs={p.outs} />
+          </Box>
         )}
-      </Box>
-      <Typography sx={{ fontSize: GC_META, color: 'text.secondary', lineHeight: 1.5, mt: 0.25 }}>
-        {p.description}
+      </>}
+    >
+      <Typography sx={PLAY_TEXT_SX}>
+        {named ? <>
+          <Box component="span" {...link} sx={{
+            ...LINK_SX, fontWeight: 700,
+            ...('href' in link ? { ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5, ...hoverOnly({ textDecoration: 'underline' }) } : {}),
+          }}>{p.batter}</Box>
+          {head.slice(p.batter.length)}
+        </> : head}
+        {p.runs > 0 && (
+          <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: RUN_GREEN }}>+{p.runs}</Box>
+        )}
       </Typography>
-    </Box>
+      {detail && <Typography sx={PLAY_DETAIL_SX}>{detail}</Typography>}
+    </PlayRow>
   )
 }
 
-const halfLabel = (g: { half: 'top' | 'bottom'; inning: number; battingTeamId: number }) =>
-  `${g.half === 'top' ? '▲' : '▼'} ${ordinal(g.inning)} · ${TEAM_ABBR[g.battingTeamId] ?? ''} batting`
-
-function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle }: {
+function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle, onPlayerClick }: {
   plays: GcPlay[]; away: GcTeam; home: GcTeam; scoringOnly: boolean
   /** The open half-innings, by key, for the All reading. */
   expanded: ReadonlySet<string>
   onToggle: (key: string) => void
+  onPlayerClick?: (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const dense = usePhoneLayout()
   const shown = scoringOnly ? plays.filter(p => p.isScoring) : plays
   if (shown.length === 0) {
     return (
@@ -687,12 +727,21 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle }: {
     )
   }
 
+  // WPBL's measure: a list has nothing to spend extra width on, and at the sheet's full width a
+  // collapsed half would put the inning at one end of a thousand pixels and the score at the other.
+  const frame = { px: 2, pt: 0.5, maxWidth: chromePx(720), mx: 'auto' } as const
+  // Who the half was pitched to, as WPBL's heading says it: the first pitcher of the half, as an
+  // initial and a surname on a phone, where the full name is the part of the line that truncates.
+  const pitcherName = (n: string) => (dense && n.indexOf(' ') > 0 ? `${n[0]}. ${n.slice(n.indexOf(' ') + 1)}` : n)
+  const label = (g: { half: 'top' | 'bottom'; inning: number; battingTeamId: number }, pitcher?: string) =>
+    `${g.half === 'top' ? 'Top' : 'Bottom'} ${ordinal(g.inning)} · ${TEAM_ABBR[g.battingTeamId] ?? ''}${pitcher ? ` · vs ${pitcherName(pitcher)}` : ''}`
+
   // Latest first, so a live game opens on what just happened.
   if (scoringOnly) {
     const rev = [...shown].reverse()
     let lastKey = ''
     return (
-      <Box>
+      <Box sx={frame}>
         {rev.map(p => {
           const key = `${p.half}${p.inning}`
           const showHeader = key !== lastKey
@@ -700,15 +749,14 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle }: {
           return (
             <React.Fragment key={p.atBatIndex}>
               {showHeader && (
-                <Typography sx={{
-                  px: 2, pt: 1.75, pb: 0.75,
-                  fontSize: GC_CAPS, fontWeight: 800, color: 'text.secondary',
-                  textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1,
-                }}>
-                  {halfLabel(p)}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pt: 1.25, pb: 0.5 }}>
+                  <LogoBubble teamId={p.battingTeamId} abbr={TEAM_ABBR[p.battingTeamId] ?? ''} size={18} ring={1} />
+                  <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
+                    {label(p)}
+                  </Typography>
+                </Box>
               )}
-              <Box sx={{ mx: 2, mb: 0.75 }}><PlayCard p={p} away={away} home={home} /></Box>
+              <PlayCard p={p} onPlayerClick={onPlayerClick} />
             </React.Fragment>
           )
         })}
@@ -718,49 +766,24 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle }: {
 
   const groups = halfInnings(plays).reverse()
   return (
-    <Box sx={{ pt: 0.5 }}>
+    <Box sx={frame}>
       {groups.map(g => {
         const open = expanded.has(g.key)
         return (
-          <Box key={g.key}>
-            <Box
-              {...pressable(() => onToggle(g.key))}
-              aria-expanded={open}
-              sx={{
-                ...FOCUS_RING, display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer',
-                // A finger-sized row (chromePx: a tap target must not shrink with small text).
-                mx: 2, minHeight: chromePx(44), borderBottom: '1px solid', borderColor: 'divider', userSelect: 'none',
-                ...hoverOnly({ '& .pbpChevron': { color: 'text.primary' } }),
-              }}
-            >
-              <Box className="pbpChevron" aria-hidden sx={{
-                fontSize: '0.62rem', color: 'text.secondary', width: '0.75rem', flexShrink: 0,
-                transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'none',
-              }}>▶</Box>
-              <LogoBubble teamId={g.battingTeamId} abbr={TEAM_ABBR[g.battingTeamId] ?? ''} size={20} ring={1} />
-              <Typography noWrap sx={{
-                minWidth: 0, fontSize: GC_CAPS, fontWeight: 800, textTransform: 'uppercase',
-                letterSpacing: typePx(0.8), color: 'text.primary',
-              }}>
-                {g.half === 'top' ? 'Top' : 'Bottom'} {ordinal(g.inning)}
-              </Typography>
-              {g.runs > 0 && (
-                <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, color: runGreen(isDark), whiteSpace: 'nowrap' }}>
-                  +{g.runs} {g.runs === 1 ? 'run' : 'runs'}
-                </Typography>
-              )}
-              <Typography sx={{
-                ml: 'auto', flexShrink: 0, fontSize: GC_META, fontWeight: 700, color: 'text.secondary',
-                fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-              }}>
-                {away.abbr} {g.awayTo} · {home.abbr} {g.homeTo}
-              </Typography>
-            </Box>
-            {/* Indented to the heading's text, past the chevron, so the plays read as the
-                contents of the half above them rather than as the next row of the list. */}
+          <Box key={g.key} sx={{ mb: 1.25 }}>
+            <HalfHeading
+              open={open}
+              onToggle={() => onToggle(g.key)}
+              badge={<LogoBubble teamId={g.battingTeamId} abbr={TEAM_ABBR[g.battingTeamId] ?? ''} size={18} ring={1} />}
+              label={label(g, g.plays[0]?.pitcher)}
+              runs={g.runs}
+              awayTo={g.awayTo}
+              homeTo={g.homeTo}
+              scoreLabel={`${away.abbr} ${g.awayTo}, ${home.abbr} ${g.homeTo} after this half-inning`}
+            />
             {open && (
-              <Box sx={{ ml: { xs: 2, sm: 4.5 }, mr: 2, pt: 1, pb: 1.5, display: 'grid', gap: 0.75 }}>
-                {[...g.plays].reverse().map(p => <PlayCard key={p.atBatIndex} p={p} away={away} home={home} />)}
+              <Box sx={{ mt: 0.75 }}>
+                {[...g.plays].reverse().map(p => <PlayCard key={p.atBatIndex} p={p} onPlayerClick={onPlayerClick} />)}
               </Box>
             )}
           </Box>
@@ -784,39 +807,30 @@ function TeamBoxColumns({ box, onPlayerClick, stacked = false }: {
   stacked?: boolean
 }) {
   const [side, setSide] = useState<'away' | 'home'>('away')
-
-  const teamChip = (value: 'away' | 'home', team: BoxScore['away']) => (
-    <Box
-      onClick={() => setSide(value)}
-      sx={{
-        display: 'flex', alignItems: 'center', gap: 0.6,
-        px: 1.5, py: 0.6, borderRadius: 99, cursor: 'pointer', userSelect: 'none',
-        fontSize: GC_META, fontWeight: 800, lineHeight: 1,
-        color: side === value ? 'background.paper' : 'text.secondary',
-        bgcolor: side === value ? 'text.primary' : 'action.hover',
-        transition: 'all 0.15s',
-      }}
-    >
-      <LogoBubble teamId={team.teamId} abbr={team.abbr} size={16} ring={1} />
-      {team.abbr}
-    </Box>
-  )
+  const isDark = useIsDark()
+  const dense = usePhoneLayout()
+  const club = (t: BoxScore['away'], size: number) => ({
+    badge: <LogoBubble teamId={t.teamId} abbr={t.abbr} size={size} />,
+    name: t.name, short: TEAM_NICKNAME[t.teamId] ?? t.abbr,
+    color: accentColor(TEAM_BG[t.teamId] ?? '#888888', isDark),
+  })
+  // The heading exists only where the switch does not: below `lg` the switch IS the heading, and
+  // drawing both would name the club twice inside forty pixels.
+  const heading = (t: BoxScore['away']) => { const c = club(t, 24); return <BoxTeamHeading badge={c.badge} name={c.name} color={c.color} /> }
 
   return (
-    <Box>
-      <Box sx={{ display: stacked ? 'none' : { xs: 'flex', lg: 'none' }, px: 2, py: 1.25, gap: 0.75, justifyContent: 'center' }}>
-        {teamChip('away', box.away)}
-        {teamChip('home', box.home)}
+    <Box sx={{ px: 2, pt: 1.25 }}>
+      <Box sx={{ display: stacked ? 'none' : { xs: 'block', lg: 'none' } }}>
+        <BoxTeamSwitch away={club(box.away, dense ? 22 : 24)} home={club(box.home, dense ? 22 : 24)} value={side} onChange={setSide} dense={dense} />
       </Box>
-      <Box sx={{ display: 'grid', alignItems: 'start', gridTemplateColumns: stacked ? 'minmax(0, 1fr)' : { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } }}>
+      <Box sx={{
+        display: 'grid', alignItems: 'start', columnGap: 2.5, rowGap: 2,
+        gridTemplateColumns: stacked ? 'minmax(0, 1fr)' : { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
+      }}>
         {(['away', 'home'] as const).map(k => (
-          <Box key={k} sx={stacked ? {
-            minWidth: 0, borderTopStyle: 'solid', borderTopColor: 'divider', borderTopWidth: k === 'home' ? '1px' : 0,
-          } : {
-            minWidth: 0, display: { xs: side === k ? 'block' : 'none', lg: 'block' },
-            borderLeftStyle: 'solid', borderLeftColor: 'divider', borderLeftWidth: { xs: 0, lg: k === 'home' ? '1px' : 0 },
-          }}>
-            <TeamBoxSection team={box[k]} onPlayerClick={onPlayerClick} />
+          <Box key={k} sx={stacked ? { minWidth: 0 } : { minWidth: 0, display: { xs: side === k ? 'block' : 'none', lg: 'block' } }}>
+            <Box sx={{ display: stacked ? 'block' : { xs: 'none', lg: 'block' } }}>{heading(box[k])}</Box>
+            <ClubBox team={box[k]} onPlayerClick={onPlayerClick} />
           </Box>
         ))}
       </Box>
@@ -876,8 +890,10 @@ function Scoreboard({ box, decided, onTeam, blank = false }: {
         {cols.map(num => {
           const i = byNum.get(num)
           const v = i ? (k === 'away' ? i.away : i.home) : undefined
-          // Home team that did not bat in its last frame: the X a scorebook prints.
-          const text = !i ? '' : v == null ? (k === 'home' ? 'X' : '-') : v
+          // Home team that did not bat in its last frame: the X a scorebook prints. ONLY ONCE THE GAME
+          // IS DECIDED: StatsAPI sends the half being played with no `runs` until it starts, so a live
+          // top of the 7th read as the home club having skipped its bottom half.
+          const text = !i ? '' : v != null ? v : !decided ? '' : k === 'home' ? 'X' : '-'
           return (
             <Box component="td" key={num} sx={{
               fontSize: { xs: '0.8rem', sm: '0.88rem' }, fontWeight: v ? 800 : 500, color: v ? 'text.primary' : 'text.secondary',
@@ -1045,25 +1061,12 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
     game.savePitcher && { label: 'SV', name: game.savePitcher },
   ].filter(Boolean) as Array<{ label: string; name: string }>
 
-  const tabChip = (value: 'summary' | 'box' | 'plays', label: string) => (
-    <Box
-      onClick={() => setTab(value)}
-      sx={{
-        px: 1.6, py: 0.75, borderRadius: 99, cursor: 'pointer', userSelect: 'none',
-        fontSize: GC_META, fontWeight: 800, lineHeight: 1,
-        color: tab === value ? 'background.paper' : 'text.secondary',
-        bgcolor: tab === value ? 'text.primary' : 'action.hover',
-        transition: 'all 0.15s',
-      }}
-    >
-      {label}
-    </Box>
-  )
-
   const filterChip = (value: boolean, label: string) => (
     <Box
-      onClick={() => setScoringOnly(value)}
+      {...pressable(() => setScoringOnly(value))}
+      aria-pressed={scoringOnly === value}
       sx={{
+        ...FOCUS_RING, whiteSpace: 'nowrap',
         px: 1.25, py: 0.6, borderRadius: 99, cursor: 'pointer', userSelect: 'none',
         fontSize: GC_CAPS, fontWeight: 800, lineHeight: 1,
         color: scoringOnly === value ? 'text.primary' : 'text.secondary',
@@ -1130,7 +1133,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
           {...pressable(toggleAll)}
           aria-label={allOpen ? 'Collapse every half-inning' : 'Expand every half-inning'}
           sx={{
-            ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4, mr: 0.5,
+            ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4, mr: 0.5, whiteSpace: 'nowrap',
             px: 0.75, minHeight: chromePx(28), borderRadius: 1, cursor: 'pointer', userSelect: 'none',
             fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
             color: 'text.secondary', ...hoverOnly({ color: 'text.primary' }),
@@ -1180,7 +1183,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
   const playsBoard = data && (
     <Box sx={{ pb: 1.5 }}>
       <PlaysList plays={data.plays} away={data.away} home={data.home} scoringOnly={scoringOnly && hasScoring}
-        expanded={expanded} onToggle={toggleHalf} />
+        expanded={expanded} onToggle={toggleHalf} onPlayerClick={selectPlayer} />
     </Box>
   )
 
@@ -1230,21 +1233,33 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
 
       {data && (
         <>
-          {/* Tabs, WPBL's three: the story of the game, the tables, every play. */}
+          {/* Tabs, WPBL's three in WPBL's control: the story of the game, the tables, every play.
+              Alone on their row and centred. The Plays controls shared it until Oct 2026, and on a
+              phone the five did not fit: "Box Score" and "Expand all" wrapped onto two lines and the
+              All chip ran off the edge of the sheet. */}
           <Box sx={{
             mt: 1.5, px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider',
-            display: 'flex', alignItems: 'center', gap: 0.75,
+            display: 'flex', justifyContent: 'center',
             position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
           }}>
-            {tabChip('summary', isLive ? 'Live' : 'Summary')}
-            {tabChip('box', 'Box Score')}
-            {tabChip('plays', 'Plays')}
-            {tab === 'plays' && playsControls}
+            <SegControl
+              options={[
+                { value: 'summary', label: isLive ? 'Live' : 'Summary' },
+                { value: 'box', label: 'Box Score' },
+                { value: 'plays', label: 'Plays' },
+              ]}
+              value={tab}
+              onChange={v => setTab(v as typeof tab)}
+            />
           </Box>
 
           {tab === 'summary' ? summaryBoard : tab === 'box' ? (
             <TeamBoxColumns box={data.box} onPlayerClick={selectPlayer} />
-          ) : playsBoard}
+          ) : <>
+            {/* Over the log they operate, right-aligned, where WPBL's Play-by-Play keeps its own. */}
+            <Box sx={{ display: 'flex', px: 2, pt: 0.5 }}>{playsControls}</Box>
+            {playsBoard}
+          </>}
         </>
       )}
     </ModalShell>

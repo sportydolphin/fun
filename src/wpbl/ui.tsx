@@ -381,85 +381,9 @@ export function TeamBadge({ team, size = 34, ring }: {
   )
 }
 
-/**
- * Who is on, in the words a broadcast uses. The accessible name for `BaseDiamond`, and the one
- * spelling of these eight phrases on any surface that has only the three flags.
- *
- * WORD FOR WORD THE SAME EIGHT as `BASE_PHRASE` in `derive/runExpectancy.ts`, and pinned to it
- * by `baseDiamond.test.tsx`. They are not one constant because the shapes differ: that one is
- * keyed on a base bitmask, which is right where a bitmask is what you hold, and importing it
- * here would pull the whole run-expectancy engine into the live scoreboard's chunk to read a
- * string table. Two short lists and a test that compares them is cheaper than that, and the
- * test is what stops them drifting into two spellings of one phrase.
- */
-export function basesPhrase(first: boolean, second: boolean, third: boolean): string {
-  const on = [first && '1st', second && '2nd', third && '3rd'].filter(Boolean) as string[]
-  if (on.length === 0) return 'nobody on'
-  if (on.length === 3) return 'bases loaded'
-  if (on.length === 1) return `runner on ${on[0]}`
-  return `runners on ${on[0]} and ${on[1]}`
-}
-
-/**
- * Who is on base, as the shape a scoreboard draws.
- *
- * ONE GLYPH FOR THE WHOLE SECTION: two diamonds that disagree about which corner is second base
- * is the kind of difference a reader notices without being able to say what is wrong. Second at
- * the top, third at the left, first at the right: the view from behind the plate, which is every
- * scoreboard and every broadcast graphic.
- *
- * NO HOME PLATE, deliberately. Nobody stands on it, so drawing it adds a fourth mark that is
- * never filled and makes the three that matter harder to count at 20px.
- *
- * IT CARRIES ITS OWN NAME, AND IT WRITES IT ITSELF. Three unlabelled squares are invisible to a
- * screen reader and to anyone who cannot see the fill, so the glyph is a `role="img"` and its
- * name is derived from the same three flags it draws. Derived rather than passed because a
- * required prop is a prop a new call site can get wrong or paste from its neighbour, and a
- * diamond captioned with the wrong bases is worse than one captioned generically. On the
- * run-value table the name is also what lets the written label be dropped on a phone, which is
- * what stops that table scrolling sideways.
- *
- * `scale` IS EXPLICIT AT EVERY CALL SITE and has no default, because the two answers are both
- * right and the wrong one is invisible. `chrome` is the ordinary one: art in the page grows
- * with `--app-chrome` like TeamBadge and PlayerPortrait do. `none` is for a glyph pinned to a
- * strip whose other lengths are raw px, where scaling one of them pulls the row apart.
- * See the scale rules in CLAUDE.md.
- */
-export function BaseDiamond({ first, second, third, size = 34, scale, color = '#60a5fa', context }: {
-  first: boolean; second: boolean; third: boolean
-  size?: number
-  scale: 'chrome' | 'none'
-  /** The fill for an occupied base. An empty base is an outline in `text.disabled` either way. */
-  color?: string
-  /** What this diamond is a picture OF, when the surface means something narrower than "who is
-   *  on": "Bases after the play". A PREFIX AND NOT A LABEL, deliberately, for the reason above:
-   *  the eight phrases stay derived from the three flags, so no call site can caption a diamond
-   *  with bases it is not drawing. All this adds is the sentence a screen reader needs when the
-   *  glyph is one of eighty down a list rather than the one live state at the top of a card. */
-  context?: string
-}) {
-  const phrase = basesPhrase(first, second, third)
-  const label = context ? `${context}: ${phrase}` : phrase
-  const len = (px: number) => (scale === 'chrome' ? chromePx(px) : `${px}px`)
-  // The corners are percentages of the frame, so they follow whichever unit the frame took.
-  const sq = (occ: boolean, pos: object) => (
-    <Box sx={{
-      position: 'absolute', ...pos, width: len(size * 0.3), height: len(size * 0.3),
-      transform: 'translate(-50%,-50%) rotate(45deg)',
-      bgcolor: occ ? color : 'transparent',
-      border: '1.5px solid', borderColor: occ ? color : 'text.disabled', borderRadius: '1px',
-    }} />
-  )
-  return (
-    <Box role="img" aria-label={label} sx={{
-      position: 'relative', width: len(size), height: len(size), flexShrink: 0,
-    }}>
-      {sq(second, { left: '50%', top: '22%' })}
-      {sq(third, { left: '22%', top: '50%' })}
-      {sq(first, { left: '78%', top: '50%' })}
-    </Box>
-  )
-}
+// basesPhrase and BaseDiamond live in src/ui/BaseDiamond.tsx (shared with MLB's play-by-play since
+// Oct 2026); re-exported here so WPBL's imports did not change.
+export { basesPhrase, BaseDiamond } from '../ui/BaseDiamond'
 
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's

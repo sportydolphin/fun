@@ -385,12 +385,17 @@ export function StatsView({
           />
           {/* Which columns, beside which side, where WPBL's table has it. */}
           <PillGroup options={VIEW_OPTIONS} value={shownView} onChange={v => switchView(v as TableView)} />
-          {/* Filters, so chips (src/ui/FilterChip), as WPBL's season / playoffs choice is. */}
-          {scopes.map(sc => (
-            <FilterChip key={sc} active={shownScope === sc} onClick={() => { setGameScope(sc); setLbStatsLimit(50) }}>
-              {GAME_SCOPE_LABEL[sc]}
-            </FilterChip>
-          ))}
+          {/* Filters, so chips (src/ui/FilterChip), as WPBL's season / playoffs choice is, and in
+              WPBL's tighter group: at the row's 8px gap the three came out 4px wider than WPBL's, and
+              at 760 that was the one pixel that wrapped the row and dropped the table 34px below
+              WPBL's. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {scopes.map(sc => (
+              <FilterChip key={sc} active={shownScope === sc} onClick={() => { setGameScope(sc); setLbStatsLimit(50) }}>
+                {GAME_SCOPE_LABEL[sc]}
+              </FilterChip>
+            ))}
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
           {/* A chip, the row's one control language (src/ui/FilterChip). */}
