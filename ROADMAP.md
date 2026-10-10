@@ -362,13 +362,18 @@ will actually see all winter. The functional items do not wait.
      is the position (SP / RP for pitchers), and portraits wear the club's second colour.
    - MLB has Advanced (`src/mlb/lib/advanced.ts`): WPBL's columns, computed from the season line
      except wOBA and wRC+, which come from StatsAPI's sabermetrics and only for a regular season.
-     OPS+ and ERA+ are not park adjusted.
    - Both headers are two rows, the labels and then a pinned "League avg" row
      (`src/ui/statsTableHead.ts`), so every label sits on one line.
    - MLB's phone table is WPBL's: inset, the sorted column frozen beside the name, a tap on a cell
      sorts by it, fitted between the pinned bar and the bottom nav with the site footer stepped
      aside, and vertical scroll handed to the page until the board pins. Both tables lock a drag to
      one axis (`src/ui/useAxisLock.ts`).
+   ✅ *Park factors, Oct 10 (v1.146.0):* OPS+ and ERA+ on a season board are park adjusted, by the
+     club's run factor from StatsAPI's home and road team splits over three seasons, halved for the
+     road half (`fetchParkFactors` in `src/mlb/apiSeasonStats.ts`). Coors reads highest and Seattle
+     lowest, and OPS+ now sits beside wRC+ instead of apart from it. The splits endpoint answers 50
+     of 60 rows without a `limit`; a year that comes back short is dropped. A traded player takes
+     the club StatsAPI files the season under; a career board stays unadjusted.
 
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each

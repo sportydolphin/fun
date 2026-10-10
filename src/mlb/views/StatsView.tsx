@@ -19,8 +19,8 @@ import { BOTTOM_NAV_SPACE } from '../../ui/BottomNav'
 import { usePanelActive } from '../../lib/panelActive'
 import { useAxisLock } from '../../ui/useAxisLock'
 import { HEAD_LABEL_SX, HEAD_LEAGUE_SX, HEAD_LEAGUE_TINT } from '../../ui/statsTableHead'
-import { fetchSeasonSabermetrics } from '../apiSeasonStats'
-import { withAdvanced, advancedLeague, HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS, ADVANCED_ORDER, SABERMETRIC_KEYS } from '../lib/advanced'
+import { fetchSeasonSabermetrics, fetchParkFactors } from '../apiSeasonStats'
+import { withAdvanced, advancedLeague, HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS, ADVANCED_ORDER, SABERMETRIC_KEYS, PARK_ADJUSTED_KEYS } from '../lib/advanced'
 import type { Sabermetric, StatsView as TableView } from '../lib/advanced'
 import { LogoBubble } from '../components/boxScore'
 import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable, controlPill } from './StatsRankedList'
@@ -119,8 +119,19 @@ export function StatsView({
     return () => { live = false }
   }, [needSabermetrics, vizSeason])
   const saberMap = sabermetricsPossible && sabermetrics?.season === vizSeason ? sabermetrics.map : null
+  // OPS+ and ERA+ take the season's park factors, read on the same terms as sabermetrics: only once
+  // a view or a sort shows one. A career board has no season to take them from and stays unadjusted.
+  const needParks = !allTime && (shownView === 'advanced' || PARK_ADJUSTED_KEYS.has(sortKey))
+  const [parks, setParks] = useState<{ season: number; map: Map<number, number> } | null>(null)
+  useEffect(() => {
+    if (!needParks) return
+    let live = true
+    fetchParkFactors(vizSeason).then(map => { if (live) setParks({ season: vizSeason, map }) })
+    return () => { live = false }
+  }, [needParks, vizSeason])
+  const parkMap = allTime ? null : parks?.season === vizSeason ? parks.map : 'pending'
   // Every row with its advanced figures beside StatsAPI's, so a sort on either reads one line.
-  const rows = useMemo(() => (lbData ? withAdvanced(lbData, lbGroup, saberMap) : null), [lbData, lbGroup, saberMap])
+  const rows = useMemo(() => (lbData ? withAdvanced(lbData, lbGroup, saberMap, parkMap) : null), [lbData, lbGroup, saberMap, parkMap])
 
   // ── What a reversed sort means in all-time mode ───────────────────────
   // The career pool is a union of per-stat *leaders*, not the ~22k-player
@@ -282,8 +293,10 @@ export function StatsView({
     setHighlightStatKey?.(null)
   }
 
-  // Ranked by wOBA or wRC+, the board waits for them; anything else draws now and fills them in.
+  // Ranked by wOBA or wRC+, or by a park-adjusted index before the factors land, the board waits for
+  // them; anything else draws now and fills them in.
   const loadingLb = lbData == null || (needSabermetrics && !saberMap && SABERMETRIC_KEYS.has(sortKey))
+    || (parkMap === 'pending' && PARK_ADJUSTED_KEYS.has(sortKey))
   // One axis per drag on the grid (src/ui/useAxisLock). Keyed on what mounts or replaces its scroll box.
   useAxisLock(tableScrollRef, `${listView}|${loadingLb}|${(lbData?.length ?? 0) > 0}`)
   // Career has no "All" (see fetchAllTimeLeaderboardData): the option is not offered there, and a
