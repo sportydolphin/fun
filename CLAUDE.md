@@ -114,9 +114,9 @@ Each of these has already cost someone a debugging session, and none of them fai
   by a silent prefix (OPS+ and ERA+ take their baseline from `fetchWpblAllLines`). Use
   `fetchAllPaged` in [`src/wpbl/api.ts`](src/wpbl/api.ts).
 - **Postseason games must never reach the standings *or any season total*, and the filter
-  fails OPEN.** `countsInStandings()` now lives in [`src/wpbl/season.ts`](src/wpbl/season.ts)
-  (types-only imports, so the Pages Functions can use it without pulling in the supabase
-  client; `api.ts` re-exports it). It is the one definition of "counts toward the regular
+  fails OPEN.** `countsInStandings()` now lives in [`src/league/season.ts`](src/league/season.ts),
+  re-exported by [`src/wpbl/season.ts`](src/wpbl/season.ts) (no imports beyond that, so the Pages
+  Functions can use it without pulling in the supabase client; `api.ts` re-exports it too). It is the one definition of "counts toward the regular
   season", used by `computeStandings`, by Home's season-series line, and by
   `regularSeasonLines()`, which every aggregate in [`stats.ts`](src/wpbl/stats.ts) runs its
   input through. **`sumBatting` / `sumPitching` / `aggregateBatting` / `aggregatePitching`
@@ -599,6 +599,10 @@ router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling
 [`src/ui/`](src/ui/) holds the UI both sections share (the bottom bar, the tab pager,
 `ModalShell`, the tap helpers), which WPBL built and re-exports from its old paths: neither
 section imports the other, both import this;
+[`src/league/`](src/league/) holds the league-neutral engines (single-game bests, the finder,
+the pitch-code boards, run expectancy) on neutral line and play types, each fed a `League` from
+the section's own `league.ts` for anything that differs (innings, pitch letters, how a play's runs
+are counted); WPBL's `derive/` files of the same names bind it and keep their old exports;
 [`src/lib/`](src/lib/) holds the shared client libs;
 [`shared/notifications.js`](shared/notifications.js) is one catalog serving both the
 in-site bell and the push senders.

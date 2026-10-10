@@ -277,11 +277,23 @@ will actually see all winter. The functional items do not wait.
       page or player card opens its board on the regular season, which is what both show.
       On a phone the sorted column is frozen beside the name, as Players' is, on the same styles
       (`frozenSx` in `views/statsTable.tsx`, lifted out of Players).
-   2. *League-neutral engines.* Lift `derive/bests.ts`, `finder.ts`, `pitches.ts`,
-      `runExpectancy.ts` off the `Wpbl*` types onto a neutral `GameLine` / `Play`, with an adapter per
-      league. League constants (7 or 9 innings, the ERA basis, the qualifiers) come from the
-      adapter, never a literal (see the ERA basis trap in CLAUDE.md). Every aggregate keeps taking
-      the schedule, and the postseason filter stays fail-open: MLB types its games `R` / `P`.
+   2. ✅ *League-neutral engines (Oct 10).* The four engines are in `src/league/` (`bests.ts`,
+      `finder.ts`, `pitches.ts`, `runExpectancy.ts`), on neutral line and play types
+      (`league/types.ts`) whose fields are WPBL's column names, so a WPBL row needs no adapter and
+      the MLB mirror's job is to write the same columns. What differs is a `League`:
+      `src/wpbl/league.ts` and `src/mlb/league.ts` give the regulation innings, the pitch-code
+      alphabet (WPBL's `P` is a ball in play, StatsAPI's a pitchout), the pitch boards' bars and
+      `runsOnPlay` (WPBL's feed leaves the batter out of `runs_scored`; the MLB mirror must not).
+      Engines are generic over the league's own player and game types, so a row hands back the
+      caller's object. The season split moved with them to `league/season.ts`; MLB's playoff
+      rounds are single letters the loose pattern cannot match, so the mirror sets
+      `counts_in_standings: false` on them, which is definitive and keeps the filter fail-open.
+      WPBL's `derive/` files of the same names bind the engines and keep every old export, so no
+      caller changed and WPBL's suites are the proof nothing moved. `league/__tests__/leagueNeutral.test.ts`
+      runs them at nine innings in MLB's letters. Not in the adapter yet: the ERA basis, which none
+      of the four computes; it joins `League` with the first engine that does. MLB's pitch codes are
+      unchecked against our own data until step 4, and the unknown count on the coverage line is
+      what will show a missing letter.
    3. *The MLB lines mirror* (migration plus nightly job), then Bests and Find on it.
    4. *Plays and pitches in the mirror,* then Pitch by pitch and Run value. MLB's run-expectancy
       table built from our own plays is a free check against published RE24.

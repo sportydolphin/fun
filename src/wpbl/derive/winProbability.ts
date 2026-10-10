@@ -1,8 +1,9 @@
 import { runsOnPlay } from './playByPlay'
 import {
-  baseCode, buildRunExpectancy, DIST_MAX, REGULATION_INNINGS,
+  baseCode, buildRunExpectancy, DIST_MAX,
   type BaseCode, type ReTable, type RunValueGame,
 } from './runExpectancy.ts'
+import { REGULATION_INNINGS } from '../innings'
 import type { WpblGame, WpblRunValuePlay } from '../types'
 
 /**

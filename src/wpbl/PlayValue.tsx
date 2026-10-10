@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material'
-import { fmtRunValue, type EventValue, type StealEconomy, type topRunners } from './derive/runExpectancy'
+import { fmtRunValue, type EventValue, type RunnerLine, type StealEconomy } from './derive/runExpectancy'
 import { SectionCard, pressable, FOCUS_RING, TAPPABLE, hoverOnly } from './ui'
 import { ExperimentalChip } from '../ExperimentsContext'
 import type { WpblPlayer } from './types'
@@ -57,7 +57,7 @@ import type { WpblPlayer } from './types'
  */
 export function StealCard({ econ, runners, accent, onOpenPlayer }: {
   econ: StealEconomy
-  runners: ReturnType<typeof topRunners>
+  runners: RunnerLine[]
   accent: string
   onOpenPlayer: (p: WpblPlayer) => void
 }) {

@@ -336,7 +336,7 @@ base-out state of those rows is unrecoverable from our side. A re-ingest is the 
 only if the feed has since filled them in.
 
 This is also why the run-value table now reconciles per HALF-INNING against the line score
-(`halfInningEndings` in [`runExpectancy.ts`](../src/wpbl/derive/runExpectancy.ts)) rather than
+(`halfInningEndings` in [`runExpectancy.ts`](../src/league/runExpectancy.ts)) rather than
 per game against the final score. The gap is in the top of the 7th and the line score says so,
 so that one half-inning sits out and the other thirteen of a badly damaged game still count.
 Fourteen blank rows carrying a pitch sequence were also being read as fourteen plate appearances
