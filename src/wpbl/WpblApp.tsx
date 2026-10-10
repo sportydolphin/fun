@@ -29,7 +29,7 @@ import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton, homeLandingReadsLines, offseasonByCalendar } from './Home'
 import FanAwardsSheet from './FanAwardsSheet'
 import { awardsResultsShowOnHome } from './awards'
-import WpblStatsView, { StatsSkeleton, carryStatsParams, type WpblStatsFocus } from './StatsView'
+import WpblStatsView, { StatsSkeleton, carryStatsParams, warmStatsReads, type WpblStatsFocus } from './StatsView'
 import SeasonShapeCard from './SeasonShapeCard'
 import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
 import { useRowFlip, useRowDividers } from './rowFlip'
@@ -1998,6 +1998,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [])
 
   useEffect(() => reload(), [reload])
+  // Stats' own reads beside the section's, not after them: see warmStatsReads. Only while the
+  // section is still loading, since after that the tab mounts and asks for itself.
+  useEffect(() => { if (loading && view === 'stats') warmStatsReads() }, [loading, view])
 
   // Keep the schedule / scoreboard / standings live as the official-feed ingest writes scores
   // and status changes. Teams are static, so only the schedule is re-fetched. Faster while a

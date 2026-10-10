@@ -1,0 +1,52 @@
+name: WPBL Run Environment
+
+on:
+  schedule:
+    # Hourly. The row only goes out of date when a game goes final, and until this run prices it
+    # the Stats tab simply falls back to reading the play log itself, so a lag costs readers
+    # speed for at most an hour, never a wrong number (see the migration). Not season-gated: in
+    # the offseason a run reads, prices the same season again and rewrites the same row.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Price the season and print it, without writing. Run with false after a play correction.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+concurrency:
+  group: wpbl-run-environment
+  cancel-in-progress: false
+
+jobs:
+  price:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # esbuild because the pricing is src/wpbl/derive/runEnvironment.ts, the same code the
+      # browser runs, rather than a copy of it.
+      - name: Install dependencies
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js pg esbuild'
+
+      - name: Price the season's run environment
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN:                   ${{ inputs.dry_run }}
+        # A scheduled run has no `inputs`, so DRY_RUN is empty there and the real write runs.
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm run run-environment -- --dry-run
+          else
+            npm run run-environment
+          fi

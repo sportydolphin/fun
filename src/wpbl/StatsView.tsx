@@ -5,9 +5,11 @@ import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameCount,
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
+  fetchWpblRunEnvironment, getCachedWpblRunEnvironment,
   fetchWpblAllFielding, getCachedWpblAllFielding,
 } from './api'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
+import { runEnvironmentCurrent } from './derive/runEnvironment'
 import { wobaWeights, fipWeights, wobaContext, woba, wrcPlus } from './derive/linearWeights'
 import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
@@ -329,6 +331,23 @@ export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'o
  *  ONE DEFINITION, used by the writer effect below and by `urlFor` in WpblApp, so a param added
  *  here cannot be carried by one and dropped by the other, which is the asymmetry that loses a
  *  board's state on a pasted link. */
+/** Every read the Stats tab makes on mounting, started early. The tab cannot mount until the
+ *  section's teams and schedule are in (WpblApp's `loading`), and none of these reads needs either
+ *  of them to FETCH, only to aggregate, so a reader landing on /wpbl/stats waited one whole Supabase
+ *  round trip (about 650ms) before the slowest reads on the site had even started. Each fetcher
+ *  shares an in-flight request (`once` in api.ts), so the tab's own effects pick these up rather
+ *  than asking twice. Failures are the tab's to handle when it asks; here they are dropped. */
+export function warmStatsReads(): void {
+  const drop = () => { /* the tab's own read reports it */ }
+  fetchWpblAllPlayers().catch(drop)
+  fetchWpblAllLines().catch(drop)
+  fetchWpblAllFielding().catch(drop)
+  fetchWpblTrackedGameCount().catch(drop)
+  // The priced row rather than the play log: the tab asks for the plays itself only if the row
+  // turns out to be behind the schedule.
+  fetchWpblRunEnvironment().catch(drop)
+}
+
 export function carryStatsParams(from: URLSearchParams, to: URLSearchParams): void {
   for (const k of STATS_URL_PARAMS) {
     const v = from.get(k)
@@ -1066,26 +1085,37 @@ export default function WpblStatsView({
     return () => { cancelled = true }
   }, [])
 
-  // wOBA's weights come from the play log, which this board otherwise never reads. Fetched on its
-  // own and never awaited by the table: it is the section's slowest read, and gating the most-read
-  // tab's first paint on two columns would make every visit slower for them. Until it lands those
-  // two columns read as a dash. The Run value board shares the cache, so a reader who has been
-  // there pays nothing.
-  const [rvPlays, setRvPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  // wOBA's and FIP's weights come from the league's run-expectancy table. Read as one priced row
+  // (derive/runEnvironment.ts) when it describes the schedule this reader holds, and only
+  // otherwise from the play log, the section's slowest read, which this board otherwise never
+  // touches: after a game goes final and before the hourly job has priced it, or while a game is
+  // live. Never awaited by the table either way; until the weights land those columns read as a
+  // dash. The Run value board shares the play cache, so a reader who has been there pays nothing.
+  const [runEnv, setRunEnv] = useState(() => getCachedWpblRunEnvironment())
+  const [runEnvAsked, setRunEnvAsked] = useState(() => getCachedWpblRunEnvironment() != null)
   useEffect(() => {
+    let cancelled = false
+    fetchWpblRunEnvironment().then(e => { if (!cancelled) { setRunEnv(e); setRunEnvAsked(true) } })
+    return () => { cancelled = true }
+  }, [])
+  const runEnvCurrent = runEnvironmentCurrent(runEnv, games)
+  const [rvPlays, setRvPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  const needPlays = runEnvAsked && !runEnvCurrent && !rvPlays
+  useEffect(() => {
+    if (!needPlays) return
     let cancelled = false
     fetchWpblAllRunValuePlays().then(p => { if (!cancelled) setRvPlays(p) }).catch(() => { /* columns stay dashed */ })
     return () => { cancelled = true }
-  }, [])
+  }, [needPlays])
   // FIP's weights come from the same pass, and so dash until it lands, rather than falling back
   // to MLB's: a column whose numbers change under the reader once the plays arrive would be
   // worse than one that fills in.
   const rvValues = useMemo(() => {
-    if (!rvPlays || rvPlays.length === 0) return null
+    if (runEnvCurrent || !rvPlays || rvPlays.length === 0) return null
     return playRunValues(rvPlays, games, buildRunExpectancy(rvPlays, games))
-  }, [rvPlays, games])
-  const wWeights = useMemo(() => (rvValues ? wobaWeights(rvValues) : null), [rvValues])
-  const fWeights = useMemo(() => (rvValues ? fipWeights(rvValues) : null), [rvValues])
+  }, [runEnvCurrent, rvPlays, games])
+  const wWeights = useMemo(() => (runEnvCurrent ? runEnv!.woba_weights : rvValues ? wobaWeights(rvValues) : null), [runEnvCurrent, runEnv, rvValues])
+  const fWeights = useMemo(() => (runEnvCurrent ? runEnv!.fip_weights : rvValues ? fipWeights(rvValues) : null), [runEnvCurrent, runEnv, rvValues])
 
   // OPS+ normalizes a hitter's OBP+SLG to the league (100 = league average, 150 = 50%
   // better). It needs league-wide rate context, so build the hitting columns in-component

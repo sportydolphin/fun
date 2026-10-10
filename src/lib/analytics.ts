@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { createEventQueue, type EventRow } from './eventQueue'
 
 // First-party product analytics. Events go to our own Supabase `events` table
 // (scripts/create_events.sql), readable only by the site owner and never shared
@@ -282,34 +283,71 @@ export function trackImpression(event: EventName, props: Record<string, unknown>
 /**
  * `track` for the moment a page is being left, when an ordinary request is cancelled with it.
  *
- * A `keepalive` fetch straight to the REST endpoint, because that is the one kind the browser
- * lets outlive the page and supabase-js has no way to ask for it per call. Signed-out on purpose
- * (`user_id` null, the anon key as the bearer): reading the session is async, and there is no
- * time left to wait for it, and what this carries (see webVitals.ts) is about the page, not the
- * person. The insert policy on `events` accepts exactly that shape. Best effort: a report the
- * browser drops is one missing sample.
+ * A `keepalive` fetch straight to the REST endpoint (postOnExit), because that is the one kind the
+ * browser lets outlive the page and supabase-js has no way to ask for it per call. This row is
+ * signed out on purpose (`user_id` null): reading the session is async, there is no time left to
+ * wait for it, and what this carries (see webVitals.ts) is about the page, not the person. Best
+ * effort: a report the browser drops is one missing sample.
  */
 export function trackOnExit(event: EventName, props: Record<string, unknown> = {}): void {
   if (import.meta.env.MODE === 'test' || automated()) return
   try {
-    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-    if (!url || !key) return
-    fetch(`${url}/rest/v1/events`, {
-      method: 'POST',
-      keepalive: true,
-      headers: {
-        apikey: key, Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json', Prefer: 'return=minimal',
-      },
-      body: JSON.stringify({
-        event: String(event).slice(0, 64), props, path: window.location.pathname,
-        user_id: null, session_id: sessionId(),
-      }),
-    }).catch(() => {})
+    // Rides out with whatever the queue still holds, so the exit costs one request, not two.
+    events().flushOnExit({
+      event: String(event).slice(0, 64), props, path: window.location.pathname,
+      user_id: null, session_id: sessionId(),
+    })
   } catch {
     /* analytics must never throw */
   }
+}
+
+// The reader's access token as last read by `track`, for the exit flush, which has no time to ask
+// for it. The insert policy is `user_id is null or user_id = auth.uid()`, so a row naming a reader
+// must be sent under that reader's token. Without one, those rows go signed out rather than
+// sinking the whole batch on the policy.
+let lastToken: string | null = null
+
+function postOnExit(rows: EventRow[]): void {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!url || !key) return
+  const token = lastToken
+  const body = token ? rows : rows.map(r => (r.user_id ? { ...r, user_id: null } : r))
+  fetch(`${url}/rest/v1/events`, {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      apikey: key, Authorization: `Bearer ${token ?? key}`,
+      'Content-Type': 'application/json', Prefer: 'return=minimal',
+    },
+    body: JSON.stringify(body),
+  }).catch(() => {})
+}
+
+let queue: ReturnType<typeof createEventQueue> | null = null
+
+/** The page's one queue, created on first use with its exit listeners. */
+function events(): ReturnType<typeof createEventQueue> {
+  if (queue) return queue
+  const q = createEventQueue(
+    rows => {
+      // Normalize the query builder to a real promise so a network rejection can't
+      // surface as an unhandled rejection.
+      Promise.resolve(supabase.from('events').insert(rows))
+        .then(({ error }) => { if (error) console.warn('[analytics] track failed:', error.message) })
+        .catch(() => {})
+    },
+    postOnExit,
+  )
+  // `visibilitychange` to hidden is the last event a phone reliably delivers (a tab switched
+  // away from may never see `pagehide`); `pagehide` covers a desktop closing the tab.
+  try {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') q.flushOnExit() })
+    window.addEventListener('pagehide', () => q.flushOnExit())
+  } catch { /* no DOM */ }
+  queue = q
+  return q
 }
 
 export function track(
@@ -327,19 +365,9 @@ export function track(
   try {
     const path = typeof window !== 'undefined' ? window.location.pathname : null
 
+    // Queued, not sent: see eventQueue.ts.
     const write = (uid: string | null) => {
-      const q = supabase.from('events').insert({
-        event: String(event).slice(0, 64),
-        props,
-        path,
-        user_id: uid,
-        session_id: sessionId(),
-      })
-      // Normalize the query builder to a real promise so a network rejection can't
-      // surface as an unhandled rejection.
-      Promise.resolve(q)
-        .then(({ error }) => { if (error) console.warn('[analytics] track failed:', error.message) })
-        .catch(() => {})
+      events().push({ event: String(event).slice(0, 64), props, path, user_id: uid, session_id: sessionId() })
     }
 
     if (userId !== undefined) {
@@ -347,7 +375,7 @@ export function track(
     } else {
       // getSession reads the cached local session (no network round-trip).
       supabase.auth.getSession()
-        .then(({ data }) => write(data.session?.user?.id ?? null))
+        .then(({ data }) => { lastToken = data.session?.access_token ?? null; write(data.session?.user?.id ?? null) })
         .catch(() => {})
     }
   } catch {

@@ -4,6 +4,9 @@ import { playableIn } from './videoChannels'
 import { FIRSTS_EVENT_TYPES } from './firsts'
 import { countsInStandings, standingsFinals } from './season'
 import { settleGames } from './gameOver'
+import { readSeed, writeSeed } from './seed'
+import { applyPlayCorrections, CORRECTION_SELECT, type WpblPlayCorrection } from './playCorrections'
+import { RUN_VALUE_PLAY_SELECT, type WpblRunEnvironment } from './derive/runEnvironment'
 import { buildFanPhotoIndex, type FanPhotoIndex } from './fanPhotos'
 import { playerPlayIds, PA_EVENT_TYPES, type WpblMatchupPlay } from './derive/matchups'
 import type {
@@ -11,7 +14,6 @@ import type {
   WpblBattingLine, WpblPitchingLine,
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
   WpblGameRecap, WpblSprayPlay,
-  WpblCorrectionSource,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblVideoTag, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails, WpblGameRevision,
@@ -71,7 +73,14 @@ function once<T>(key: string, run: () => Promise<T>): Promise<T> {
 // already loaded them (the overlay hosts). Never overwritten by an empty read, same reasoning
 // as the schedule's last-good below.
 let teamsCache: WpblTeam[] | null = null
-export function getCachedWpblTeams(): WpblTeam[] | null { return teamsCache }
+// The last visit's clubs (seed.ts), for the first paint only: kept apart from teamsCache, which
+// short-circuits every later read, so a seed never stops the session's one real read of them.
+let seededTeams: WpblTeam[] | null | undefined
+export function getCachedWpblTeams(): WpblTeam[] | null {
+  if (teamsCache) return teamsCache
+  if (seededTeams === undefined) seededTeams = readSeed<WpblTeam[]>('teams', isList)
+  return seededTeams
+}
 export function fetchWpblTeams(): Promise<WpblTeam[]> {
   // Served from the last good read once there is one. The four clubs do not change inside a
   // session, and without this every surface that joins against them paid its own round trip:
@@ -79,13 +88,13 @@ export function fetchWpblTeams(): Promise<WpblTeam[]> {
   if (teamsCache) return Promise.resolve(teamsCache)
   return once('teams', () => safe('fetchWpblTeams', () =>
     supabase.from('wpbl_teams').select('*').order('sort_order', { ascending: true }),
-    [] as WpblTeam[]).then(t => { if (t.length > 0) teamsCache = t; return t }))
+    [] as WpblTeam[]).then(t => { if (t.length > 0) { teamsCache = t; writeSeed('teams', t) } return t }))
 }
 
 // The last good schedule the section fetched, for the same synchronous seed. `lastGoodSchedule`
 // is what fetchWpblSchedule already keeps for its empty-read guard, so this exposes it rather
 // than holding a second copy.
-export function getCachedWpblSchedule(): WpblGame[] | null { return lastGoodSchedule }
+export function getCachedWpblSchedule(): WpblGame[] | null { seedSchedule(); return lastGoodSchedule }
 
 // The feed occasionally emits a phantom `scheduled` duplicate of a game it already
 // reported final (same date + matchup, different api_game_id). Drop the not-yet-played
@@ -130,6 +139,14 @@ export function mergeSchedule(next: WpblGame[], lastGood: WpblGame[] | null): Wp
 }
 
 let lastGoodSchedule: WpblGame[] | null = null
+// The last visit's schedule (seed.ts) stands in as the last good one until the first real read,
+// so it is also what an empty first read falls back to rather than an empty league.
+let scheduleSeeded = false
+function seedSchedule(): void {
+  if (scheduleSeeded) return
+  scheduleSeeded = true
+  if (!lastGoodSchedule) lastGoodSchedule = readSeed<WpblGame[]>('schedule', isList)
+}
 
 /**
  * A dev-only interception point for the three reads that describe a game in progress.
@@ -163,8 +180,13 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
     // `status` is read in about fifty places and a rule the callers have to remember to apply
     // is a rule that gets forgotten by the next one. Everything downstream of this read sees a
     // game the league has stopped updating as the final it is. See gameOver.ts.
+    seedSchedule()
     const schedule = mergeSchedule(settleGames(dedupeSchedule(games)), lastGoodSchedule)
-    if (schedule.length > 0) lastGoodSchedule = schedule
+    if (schedule.length > 0) {
+      // Only a real read is remembered for the next visit, never the seed handed back.
+      if (games.length > 0) writeSeed('schedule', schedule)
+      lastGoodSchedule = schedule
+    }
     // Last, and after the last-good cache, so what is remembered for the next empty read is the
     // real schedule rather than a simulated moment of it.
     return readOverlay ? readOverlay.schedule(schedule) : schedule
@@ -270,6 +292,24 @@ let fanPhotoFiguresCache:  { data: WpblPhotoFigure[]; at: number } | null = null
 let fanPhotoCategoriesCache: { data: WpblPhotoCategory[]; at: number } | null = null
 let siteGamesCache:   { data: WpblSiteGame[]; at: number } | null = null
 
+// The last visit's copy of the reads a first paint draws (seed.ts), installed at `at: 0` so every
+// freshness check below sees it as stale and the first caller still reads the network. Lazy: a
+// read is parsed only when something asks for it, since the lines alone are half a megabyte.
+const isList = <T,>(d: unknown): d is T[] => Array.isArray(d)
+const isLines = (d: unknown): d is WpblLinesResult =>
+  !!d && Array.isArray((d as WpblLinesResult).batting) && Array.isArray((d as WpblLinesResult).pitching)
+const seededNames = new Set<string>()
+function seeded<T>(name: string, held: unknown, valid: (d: unknown) => d is T, install: (d: T) => void): void {
+  if (held || seededNames.has(name)) return
+  seededNames.add(name)
+  const data = readSeed<T>(name, valid)
+  if (data) install(data)
+}
+const seedPlayers = () => seeded<WpblPlayer[]>('players', allPlayersCache, isList, data => { allPlayersCache = { data, at: 0 } })
+const seedLines = () => seeded('lines', allLinesCache, isLines, data => { allLinesCache = { data, at: 0 } })
+const seedTrackedIds = () => seeded<string[]>('trackedGameIds', trackedGameIdsCache, isList, data => { trackedGameIdsCache = { data, at: 0 } })
+const seedSiteGames = () => seeded<WpblSiteGame[]>('siteGames', siteGamesCache, isList, data => { siteGamesCache = { data, at: 0 } })
+
 // How long a bulk result is served straight from the cache without re-querying.
 //
 // `once()` above collapses reads that overlap in time; this collapses reads that merely
@@ -298,10 +338,10 @@ const SLOW_FRESH_MS = 5 * 60_000
 
 const isFreshSlow = (c: { at: number } | null): boolean => !!c && Date.now() - c.at < SLOW_FRESH_MS
 
-export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
-export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
+export function getCachedWpblAllPlayers(): WpblPlayer[] | null { seedPlayers(); return allPlayersCache?.data ?? null }
+export function getCachedWpblAllLines(): WpblLinesResult | null { seedLines(); return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
-export function getCachedWpblTrackedGameIds(): string[] | null { return trackedGameIdsCache?.data ?? null }
+export function getCachedWpblTrackedGameIds(): string[] | null { seedTrackedIds(); return trackedGameIdsCache?.data ?? null }
 export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
 export function getCachedWpblAllPitchPlays(): WpblPitchPlay[] | null { return allPitchPlaysCache?.data ?? null }
 export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { return allRunValuePlaysCache?.data ?? null }
@@ -313,7 +353,7 @@ export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCach
 export function getCachedWpblFanPhotos(): WpblFanPhoto[] | null { return fanPhotosCache?.data ?? null }
 export function getCachedWpblFanPhotoSubjects(): WpblPhotoSubject[] | null { return fanPhotoSubjectsCache?.data ?? null }
 export function getCachedWpblFanPhotoFigures(): WpblPhotoFigure[] | null { return fanPhotoFiguresCache?.data ?? null }
-export function getCachedWpblSiteGames(): WpblSiteGame[] | null { return siteGamesCache?.data ?? null }
+export function getCachedWpblSiteGames(): WpblSiteGame[] | null { seedSiteGames(); return siteGamesCache?.data ?? null }
 
 // ─── Per-entity session cache ───────────────────────────────────────────────────
 //
@@ -429,12 +469,14 @@ export const getCachedWpblPitcherLocations = pitchLocsCache.get
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
+  seedPlayers(); seedLines()
   if (!allPlayersCache || !allLinesCache) return Infinity
   return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at)
 }
 
 /** Age (ms) of the players+lines+tracking trio the Tracking tab reads; Infinity until all seeded. */
 export function wpblTrackingCacheAgeMs(): number {
+  seedPlayers(); seedLines()
   if (!allPlayersCache || !allLinesCache || !allTrackingCache) return Infinity
   return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, allTrackingCache.at)
 }
@@ -446,6 +488,7 @@ export function wpblTrackingCacheAgeMs(): number {
  *  refetch everything else needlessly. (It used to wait on the firsts play log, which Home has
  *  not read since the Hall of Firsts came off, so this never went warm at all.) */
 export function wpblHomeCacheAgeMs(): number {
+  seedPlayers(); seedLines(); seedTrackedIds()
   if (!allPlayersCache || !allLinesCache || !trackedGameIdsCache) return Infinity
   return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, trackedGameIdsCache.at)
 }
@@ -460,6 +503,7 @@ export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
       [] as WpblPlayer[])
     // Don't clobber a good cache with an empty error/timeout fallback; a genuinely
     // empty first load (pre-migration) still seeds so callers stop showing a spinner.
+    if (data.length > 0) writeSeed('players', data)
     if (data.length > 0 || allPlayersCache == null) allPlayersCache = { data, at: Date.now() }
     return data
   })
@@ -601,9 +645,25 @@ const PITCH_PLAY_SELECT =
  *
  *  Corrected on the way out like the firsts read, because a correction to a play's batter or
  *  pitcher moves that whole at-bat's pitches from one player's line to another's. */
-const RUN_VALUE_PLAY_SELECT =
-  'game_id,sequence,inning,half,team_id,batter_id,batter_name,pitcher_id,pitcher_name,'
-  + 'outs,first_base,second_base,third_base,event_type,runs_scored,narrative,pitch_sequence'
+
+// The season's priced run environment (derive/runEnvironment.ts): one row, read in place of the
+// whole play log by the surfaces that only want its weights. Null when the row is missing or the
+// read fails, which every caller treats as "price it from the plays", the way it was before.
+let runEnvironmentCache: { data: WpblRunEnvironment | null; at: number } | null = null
+export function getCachedWpblRunEnvironment(): WpblRunEnvironment | null { return runEnvironmentCache?.data ?? null }
+export function fetchWpblRunEnvironment(): Promise<WpblRunEnvironment | null> {
+  if (isFresh(runEnvironmentCache)) return Promise.resolve(runEnvironmentCache!.data)
+  return once('runEnvironment', async () => {
+    const rows = await safe<WpblRunEnvironment[]>('fetchWpblRunEnvironment', () =>
+      supabase.from('wpbl_run_environment').select('scope,woba_weights,fip_weights,final_games,plays,computed_at')
+        .eq('scope', 'regular').limit(1) as unknown as
+        PromiseLike<{ data: WpblRunEnvironment[] | null; error: unknown }>,
+      [])
+    const data = rows[0] ?? null
+    runEnvironmentCache = { data, at: Date.now() }
+    return data
+  })
+}
 
 /** Every play in the league, in order, with the base-out state each one started from.
  *
@@ -954,6 +1014,7 @@ export function fetchWpblAllLines(): Promise<WpblLinesResult> {
           .order('id', { ascending: true }).range(from, to) as unknown as
           PromiseLike<{ data: WpblPitchingLine[] | null; error: unknown }>),
     ])
+    seedLines()
     const prevAt = allLinesCache?.at
     const { data, complete } = mergeBulkLines({ batting, pitching }, allLinesCache?.data ?? null)
     if (!complete && prevAt != null) {
@@ -961,6 +1022,7 @@ export function fetchWpblAllLines(): Promise<WpblLinesResult> {
     }
     // A short read updates the DATA (it may still carry a fresher half) but not the clock.
     allLinesCache = { data, at: complete || prevAt == null ? Date.now() : prevAt }
+    if (complete) writeSeed('lines', data)
     return data
   })
 }
@@ -1048,6 +1110,7 @@ export function fetchWpblTrackedGameIds(): Promise<string[]> {
         PromiseLike<{ data: { game_id: string }[] | null; error: unknown }>)
     const ids = [...new Set(rows.map(r => String(r.game_id)))]
     // Last-good, like the table read above: a transient empty must not clobber a good set.
+    if (ids.length > 0) writeSeed('trackedGameIds', ids)
     if (ids.length > 0 || trackedGameIdsCache == null) trackedGameIdsCache = { data: ids, at: Date.now() }
     return ids
   })
@@ -1155,6 +1218,7 @@ export function fetchWpblSiteGames(): Promise<WpblSiteGame[]> {
         .order('event_id', { ascending: true }) as unknown as
         PromiseLike<{ data: WpblSiteGame[] | null; error: unknown }>,
       [])
+    if (data.length > 0) writeSeed('siteGames', data)
     if (data.length > 0 || siteGamesCache == null) siteGamesCache = { data, at: Date.now() }
     return data
   })
@@ -1643,66 +1707,10 @@ function readWpblPitchingUsage(teamId: string): Promise<WpblPitchingUsageRow[]> 
 // deletes and reinserts every play for a game on each pass, so an edit written into it
 // survives until the next cron tick and then disappears without trace.
 //
-// Values arrive as text because one table serves fields of several types; see the migration
-// for why that beats a jsonb blob. Casting happens here, once, rather than at each call site.
-const CORRECTABLE_NUMBER = new Set(['runs_scored'])
-const CORRECTABLE_BOOLEAN = new Set(['is_hit', 'is_scoring_play'])
+export { applyPlayCorrections }
 
-function castCorrection(field: string, value: string | null): unknown {
-  if (value === null) return null
-  if (CORRECTABLE_NUMBER.has(field)) return Number(value)
-  if (CORRECTABLE_BOOLEAN.has(field)) return value === 'true' || value === '1'
-  return value
-}
-
-interface WpblPlayCorrection {
-  game_id: string; sequence: number; field: string; new_value: string | null
-  /** How we know. Carried onto the play so a surface can say where an account came from; see
-   *  `corrected_source` on WpblGamePlay for the reader-facing reason it has to. */
-  source: WpblCorrectionSource | null
-}
-
-/** Best evidence first, matching the order docs/PLAY_VALIDATION.md sets out: somebody watched
- *  it, then a rule concluded it, then a second transcription agreed, then the league's own box
- *  score contradicted its own play log. */
-const SOURCE_RANK: readonly WpblCorrectionSource[] = ['video', 'derived', 'external', 'league']
-const strongestSource = (all: WpblCorrectionSource[]): WpblCorrectionSource =>
-  all.reduce((best, s) => (SOURCE_RANK.indexOf(s) < SOURCE_RANK.indexOf(best) ? s : best), all[0])
-
-/** Overlay corrections onto plays, matched on (game_id, sequence), which is the feed's own
- *  identifier for a play. Never the play's uuid, which wpbl-ingest regenerates on every
- *  reinsert and so identifies a row only for minutes.
- *
- *  `sequence` restarts at 1 in every game, so game_id is load-bearing and not belt-and-braces:
- *  the Hall of Firsts hands this the whole season at once, and on a sequence-only match one
- *  game's correction would rewrite the same-numbered play in every game. */
-export function applyPlayCorrections<T extends { game_id: string; sequence: number }>(
-  plays: T[], corrections: WpblPlayCorrection[],
-): T[] {
-  if (corrections.length === 0) return plays
-  const key = (gameId: string, sequence: number) => `${gameId}:${sequence}`
-  const byPlay = new Map<string, WpblPlayCorrection[]>()
-  for (const c of corrections) {
-    const k = key(c.game_id, c.sequence)
-    const list = byPlay.get(k)
-    if (list) list.push(c); else byPlay.set(k, [c])
-  }
-  return plays.map(play => {
-    const fixes = byPlay.get(key(play.game_id, play.sequence))
-    if (!fixes) return play
-    const next = { ...play } as Record<string, unknown>
-    for (const f of fixes) next[f.field] = castCorrection(f.field, f.new_value)
-    // STAMPED ON THE PLAY, NOT STORED ANYWHERE. The mirror row is always the feed's own; this
-    // says only that what the caller is now holding is not. Where a play carries corrections
-    // from more than one source, the strongest wins: a reader shown one provenance should be
-    // shown the best evidence behind the row rather than whichever correction was written last.
-    const source = fixes.map(f => f.source).filter(Boolean) as WpblCorrectionSource[]
-    if (source.length) next.corrected_source = strongestSource(source)
-    return next as T
-  })
-}
-
-const CORRECTION_SELECT = 'game_id,sequence,field,new_value,source'
+// The overlay itself lives in playCorrections.ts, free of the supabase client, so the scheduled
+// jobs that price plays (scripts/compute-wpbl-run-environment.ts) apply exactly this one.
 
 function fetchPlayCorrections(gameId: string): Promise<WpblPlayCorrection[]> {
   return safe('fetchPlayCorrections', () =>
