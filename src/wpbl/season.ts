@@ -1,3 +1,5 @@
+import { countsInStandings } from '../league/season.ts'
+import type { GameKeyed } from '../league/season.ts'
 import type { WpblGame } from './types'
 
 // What counts as "the season", in one place.
@@ -7,137 +9,26 @@ import type { WpblGame } from './types'
 // up to 8 more on top of its 15. Every one of them is a real final with a real score, and
 // every aggregate on the site would fold them straight in.
 //
-// This module has NO imports beyond types on purpose. It is reached from three different
-// builds: Vite, the Cloudflare Pages Functions behind the OG cards and the Discord `/player`
-// command, and (through stats.ts) anything else that sums a box score. Importing `api.ts` for
-// the predicate would pull the whole supabase client into the edge bundles.
+// This module imports nothing but src/league/season.ts, which imports nothing at all, and that
+// is on purpose. It is reached from three different builds: Vite, the Cloudflare Pages Functions
+// behind the OG cards and the Discord `/player` command, and (through stats.ts) anything else
+// that sums a box score. Importing `api.ts` for the predicate would pull the whole supabase
+// client into the edge bundles.
+
+// The slicing itself is league-neutral and lives in src/league/season.ts; re-exported here under
+// the names sixty-odd callers already use. The `.ts` is for Deno, which loads this file.
+export {
+  countsInStandings, excludedGameIds, regularSeasonLines, isPostseasonGame, postseasonGameIds,
+  scopedLines, scopedGames, regularSeasonGames,
+} from '../league/season.ts'
+export type { SeasonScope } from '../league/season.ts'
 
 /**
  * The fields deciding whether a game counts. A `Pick` rather than the whole row so an edge
- * caller that selects three columns doesn't have to fabricate a full `WpblGame`.
+ * caller that selects three columns doesn't have to fabricate a full `WpblGame`; it satisfies the
+ * neutral `SeasonGame` structurally.
  */
 export type WpblSeasonGame = Pick<WpblGame, 'id' | 'game_type' | 'counts_in_standings'>
-
-/** A box-score line, or anything else keyed to a game. */
-interface GameKeyed { game_id: string }
-
-/** Whether a game counts toward the regular-season record.
- *
- *  DELIBERATELY FAILS OPEN. It excludes a game only on positive evidence that it is a playoff
- *  game, and counts anything it does not recognise. The alternative, counting only what it can
- *  positively identify as regular season, breaks catastrophically and silently the day the feed
- *  renames its game types: every game drops out and the standings render four clubs at 0-0
- *  rather than showing an obviously wrong number. Wrong-by-a-few is recoverable; blank is not.
- *
- *  Two independent signals, because either one can be the one the feed gets wrong. It already
- *  has: the 2026 postseason rows carry `counts_in_standings: true`, so that flag says nothing
- *  there and `game_type` alone is what holds the postseason out. */
-export function countsInStandings(g: WpblSeasonGame): boolean {
-  // The column exists for exactly this, so an explicit false is definitive. `null`/`undefined`
-  // means "not stated" (older, hand-entered rows), which must keep counting.
-  if (g.counts_in_standings === false) return false
-  // Backstop for a feed that labels the round but leaves the flag alone. Matched loosely on
-  // the round names the published schedule uses, and NOT on the bare word "final", which the
-  // status field also uses for every completed regular-season game.
-  if (g.game_type && /post|playoff|semi|champ|wild.?card/i.test(g.game_type)) return false
-  return true
-}
-
-/**
- * The ids of games that do NOT count. Deliberately the negative set.
- *
- * Filtering with "keep the lines whose game is in the counted set" would fail CLOSED: hand a
- * caller a partial schedule and every line drops, and a player page renders an empty season
- * rather than a slightly wrong one. Naming the excluded games instead keeps the same failure
- * direction as `countsInStandings` itself, so a line whose game we have never heard of is
- * still counted.
- */
-export function excludedGameIds(games: WpblSeasonGame[]): Set<string> {
-  const out = new Set<string>()
-  for (const g of games) if (!countsInStandings(g)) out.add(g.id)
-  return out
-}
-
-/**
- * Drop the box-score lines belonging to games that do not count toward the season record.
- *
- * This is the seam the whole postseason problem turns on: `wpbl_batting_lines` and
- * `wpbl_pitching_lines` carry a `game_id` and nothing else about the game, so a line cannot
- * say for itself whether it belongs in a season total. Every aggregate has to be handed the
- * schedule to find out.
- */
-export function regularSeasonLines<T extends GameKeyed>(lines: T[], games: WpblSeasonGame[]): T[] {
-  const skip = excludedGameIds(games)
-  // The overwhelmingly common case, all season long, is that nothing is excluded.
-  return skip.size === 0 ? lines : lines.filter(l => !skip.has(l.game_id))
-}
-
-/**
- * Which slice of the season a surface is showing.
- *
- * BUILT FOR THE STATS PAGE's toggle. `regular` is what every other caller means, so it is the
- * default on every function that takes this: the OG share cards, the Discord `/player` card and
- * the player pages must not change what they publish because a toggle appeared on a board.
- */
-export type SeasonScope = 'regular' | 'postseason' | 'all'
-
-/**
- * Whether a game is positively identifiable as a postseason game.
- *
- * The exact negation of `countsInStandings`, and deliberately expressed as one rather than as
- * a second list of patterns: two definitions of "is this a playoff game" would drift, and the
- * day they disagreed a game would be in neither slice or in both.
- */
-export const isPostseasonGame = (g: WpblSeasonGame): boolean => !countsInStandings(g)
-
-/**
- * The ids of games that ARE postseason. The positive set, which is the opposite of
- * `excludedGameIds`, and the opposite failure direction on purpose.
- */
-export function postseasonGameIds(games: WpblSeasonGame[]): Set<string> {
-  const out = new Set<string>()
-  for (const g of games) if (isPostseasonGame(g)) out.add(g.id)
-  return out
-}
-
-/**
- * Lines belonging to one slice of the season.
- *
- * THE TWO SLICES FAIL IN OPPOSITE DIRECTIONS, AND BOTH ARE CORRECT.
- *
- * `regular` fails OPEN, for the reason written at length on `countsInStandings`: it drops a
- * game only on positive evidence, so the day the feed renames its game types the season
- * totals are wrong by a few games rather than blank.
- *
- * `postseason` fails CLOSED, and it has to. "Everything that does not look regular" is not a
- * definition of the playoffs, it is a definition of "unrecognised", so on that same rename it
- * would relabel all 30 regular-season games as the postseason and publish them under a
- * heading that says Playoffs. An empty playoff board is visibly broken and gets fixed; a full
- * one made of the wrong games is invisible and does not. This is the one place in this module
- * where including-only is the safe choice.
- *
- * `all` filters nothing at all, which is the only honest reading of "everything" and cannot
- * be wrong about a game it has never heard of.
- */
-export function scopedLines<T extends GameKeyed>(
-  lines: T[], games: WpblSeasonGame[], scope: SeasonScope = 'regular',
-): T[] {
-  if (scope === 'all') return lines
-  if (scope === 'regular') return regularSeasonLines(lines, games)
-  const keep = postseasonGameIds(games)
-  return keep.size === 0 ? [] : lines.filter(l => keep.has(l.game_id))
-}
-
-/** The games in one slice. Same asymmetry, same reasons, as `scopedLines`. */
-export function scopedGames<T extends WpblSeasonGame>(games: T[], scope: SeasonScope = 'regular'): T[] {
-  if (scope === 'all') return games
-  return games.filter(g => (scope === 'regular' ? countsInStandings(g) : isPostseasonGame(g)))
-}
-
-/** The games that count, for callers counting games rather than filtering lines. */
-export function regularSeasonGames<T extends WpblSeasonGame>(games: T[]): T[] {
-  return games.filter(countsInStandings)
-}
 
 // ─── The games the standings are made of ──────────────────────────────────────
 //

@@ -1,0 +1,363 @@
+import { scopedLines, type SeasonGame, type SeasonScope } from './season'
+import type { League, LeaguePlayer, PitchKind, PitchPlay } from './types'
+
+export type { PitchKind } from './types'
+
+/**
+ * The pitch-code layer: season-wide plate-discipline and pitch-mix boards built from the one
+ * character per pitch that a league's play log carries in `pitch_sequence`.
+ *
+ * WHY THIS EXISTS (written for WPBL, where it started). WPBL's other pitch-level surface is the
+ * TrackMan board, and the league has published radar for two games. This reads a string that is present on every
+ * plate appearance of every game, so it covers the whole season: roughly 3.8 pitches per PA,
+ * thousands of pitches against 766 tracked rows. Same kind of question, many times the sample,
+ * and no new ingest.
+ *
+ * DECODE THE LETTER, NEVER THE FEED'S LABEL, and the letters are the LEAGUE'S. WPBL's feed
+ * mislabels two of its six codes, and the same letter means different things in the two leagues:
+ * WPBL's `P` is a ball put in play, StatsAPI's `P` is a pitchout. So the alphabet is
+ * `League.pitchCodes`, written down in each section's `league.ts` with the evidence for it, and
+ * nothing in this file knows a single letter.
+ *
+ * PURE. Arrays in, plain shapes out, no supabase and no React, like stats.ts and matchups.ts.
+ */
+
+const isStrike = (k: PitchKind): boolean => k !== 'ball' && k !== 'hbp'
+
+// ── Rates ────────────────────────────────────────────────────────────────────────
+// Every rate is null rather than 0 when its denominator is empty, so a player with no swings
+// renders a dash (fmtRate's convention) instead of a 0% that reads like a measurement.
+export interface PitchRates {
+  /** Anything not a ball or a hit-by-pitch, over all pitches. Fouls count, as they do
+   *  everywhere else this stat is published. */
+  strikePct: number | null
+  /** Swinging strikes over ALL pitches. The "stuff" number: what a pitcher's raw miss rate is
+   *  against everyone who steps in, regardless of how often they offer. */
+  swStrPct: number | null
+  /** Swinging strikes over swings. The same event per opportunity: how often a swing missed. */
+  whiffPct: number | null
+  /** Contact (foul or in play) over swings. The complement of whiffPct, kept because the
+   *  hitting board leads with it and reading a hitter off "1 minus" is a needless step. */
+  contactPct: number | null
+  swingPct: number | null
+  /** Called strikes over all pitches. On the hitting board this is the passivity number:
+   *  strikes taken without offering. */
+  calledPct: number | null
+  pitchesPerPa: number | null
+  /** Plate appearances whose FIRST pitch was a strike. The count the whole at-bat is played
+   *  from, and the one rate here a pitching coach would name first. */
+  firstStrikePct: number | null
+  /** Strikeouts over the plate appearances that reached two strikes: the finishing rate,
+   *  with the at-bats that never got there taken out of the denominator. */
+  putawayPct: number | null
+  /** Outs in play that were on the ground, over outs in play of a known kind. OUTS ONLY, and
+   *  the label on any surface has to say so: the play text says "grounded out" and "flied out"
+   *  reliably, but a hit reads "singled to center field" whatever it was, so a groundball rate
+   *  over all balls in play cannot be measured here and this is not one. See battedOutKind. */
+  groundOutPct: number | null
+  /** Strikeouts and walks over plate appearances: the two discipline rates every fan already
+   *  reads, measured over the same plate appearances as everything else here so a player page
+   *  can rank them against the same pool. */
+  kPct: number | null
+  bbPct: number | null
+}
+
+/** One player's line on the boards, from whichever side they were on. */
+export interface PitchProfile<P extends LeaguePlayer = LeaguePlayer> extends PitchRates {
+  /** Null when the play log names someone we cannot resolve to a roster row. Rare (about 2%
+   *  of WPBL's plays), and the name is still shown, but the row is not clickable. */
+  player: P | null
+  name: string
+  teamId: string | null
+  pitches: number
+  pa: number
+  /** Swings taken (or induced): the denominator of whiffPct and contactPct, and not a fixed
+   *  share of `pitches`, since how often someone offers is the thing being measured. */
+  swings: number
+  strikeouts: number
+  twoStrikePa: number
+  walks: number
+  /** Outs in play by kind, the counts behind groundOutPct. */
+  groundOuts: number
+  airOuts: number
+  /** Per-pitch counts, for anything that wants the mix rather than the rates. */
+  counts: PitchCounts
+}
+
+export interface PitchCounts {
+  ball: number
+  called: number
+  swinging: number
+  foul: number
+  inplay: number
+  hbp: number
+  /** Codes outside the six. Should be 0; surfaced so it cannot silently stop being 0. */
+  unknown: number
+}
+
+export interface PitchBoard<P extends LeaguePlayer = LeaguePlayer> {
+  /** Distinct games with at least one pitch sequence, for the coverage line. */
+  gameCount: number
+  pitches: number
+  pa: number
+  /** The league line, as its own profile. Every board prints it under the leaders so a rate
+   *  has something to be read against: 11% whiffs means nothing until you know the league is
+   *  at 5.4%. */
+  league: PitchProfile<P>
+  pitchers: PitchProfile<P>[]
+  batters: PitchProfile<P>[]
+}
+
+// ── Qualifiers ───────────────────────────────────────────────────────────────────
+// The rates per team game are the league's (`League.pitchBars`), set in each section's
+// `league.ts` against that league's own box-score bars and pitches per plate appearance.
+
+export interface PitchQualifiers { minPitcher: number; minBatter: number }
+
+/** The pitch minimums for a season this far along. `teamGames` is the games played by the
+ *  team that has played fewest, which is what the section's box-score qualifiers already
+ *  compute; pass 0 (or anything below the tab's own threshold) to turn the bar off. */
+export function pitchQualifiers(league: League, teamGames: number): PitchQualifiers {
+  const b = league.pitchBars
+  return {
+    minPitcher: Math.max(b.pitcherFloor, Math.round(b.pitcherPerGame * teamGames)),
+    minBatter: Math.max(b.batterFloor, Math.round(b.batterPerGame * teamGames)),
+  }
+}
+
+// ── Aggregation ──────────────────────────────────────────────────────────────────
+
+interface Tally<P extends LeaguePlayer> {
+  player: P | null
+  name: string
+  teamId: string | null
+  counts: PitchCounts
+  pitches: number
+  pa: number
+  strikeouts: number
+  firstStrikes: number
+  twoStrikePa: number
+  walks: number
+  groundOuts: number
+  airOuts: number
+}
+
+/**
+ * Whether a play's out was on the ground or in the air, from the feed's own event type, or null
+ * when it was not an out in play or its kind cannot be told.
+ *
+ * A fielder's choice is a ground ball: the batter reached because a fielder took the force on a
+ * grounder. LEFT OUT: the generic `out` (the scorer did not say how) and `sacrifice`, which is a
+ * bunt on the ground or a fly in the air and the event type does not say which.
+ */
+export function battedOutKind(eventType: string | null | undefined): 'ground' | 'air' | null {
+  switch (eventType) {
+    case 'groundout': case 'fielders_choice': return 'ground'
+    case 'flyout': case 'popup': case 'lineout': case 'foul_out': return 'air'
+    default: return null
+  }
+}
+
+const emptyCounts = (): PitchCounts => ({ ball: 0, called: 0, swinging: 0, foul: 0, inplay: 0, hbp: 0, unknown: 0 })
+
+const rate = (num: number, den: number): number | null => (den > 0 ? num / den : null)
+
+const swingsOf = (c: PitchCounts): number => c.swinging + c.foul + c.inplay
+
+function ratesOf(t: Tally<LeaguePlayer>): PitchRates {
+  const c = t.counts
+  const graded = c.ball + c.called + c.swinging + c.foul + c.inplay + c.hbp
+  const swings = swingsOf(c)
+  const strikes = c.called + c.swinging + c.foul + c.inplay
+  return {
+    strikePct: rate(strikes, graded),
+    swStrPct: rate(c.swinging, graded),
+    whiffPct: rate(c.swinging, swings),
+    contactPct: rate(c.foul + c.inplay, swings),
+    swingPct: rate(swings, graded),
+    calledPct: rate(c.called, graded),
+    pitchesPerPa: rate(t.pitches, t.pa),
+    firstStrikePct: rate(t.firstStrikes, t.pa),
+    putawayPct: rate(t.strikeouts, t.twoStrikePa),
+    groundOutPct: rate(t.groundOuts, t.groundOuts + t.airOuts),
+    kPct: rate(t.strikeouts, t.pa),
+    bbPct: rate(t.walks, t.pa),
+  }
+}
+
+const profileOf = <P extends LeaguePlayer>(t: Tally<P>): PitchProfile<P> => ({
+  player: t.player, name: t.name, teamId: t.teamId,
+  pitches: t.pitches, pa: t.pa, swings: swingsOf(t.counts),
+  strikeouts: t.strikeouts, twoStrikePa: t.twoStrikePa,
+  walks: t.walks, groundOuts: t.groundOuts, airOuts: t.airOuts,
+  counts: t.counts, ...ratesOf(t),
+})
+
+/** What one plate appearance's sequence says, on its own, in a league's alphabet. Exported for
+ *  the tests, and because a single at-bat's line is the obvious next consumer (a Game Center
+ *  pitch-by-pitch summary). */
+export function readSequence(seq: string, codes: League['pitchCodes']): {
+  counts: PitchCounts; pitches: number; firstPitchStrike: boolean; reachedTwoStrikes: boolean
+} {
+  const counts = emptyCounts()
+  let strikes = 0
+  let reachedTwoStrikes = false
+  let firstPitchStrike = false
+  for (let i = 0; i < seq.length; i++) {
+    const kind = codes[seq[i]]
+    if (!kind) { counts.unknown++; continue }
+    counts[kind]++
+    if (i === 0) firstPitchStrike = isStrike(kind)
+    // The foul rule is the whole reason this is a loop and not six string counts: a foul is a
+    // strike only below two, so a nine-pitch at-bat with five fouls reached two strikes once,
+    // not six times, and its `strikes` never leaves 2.
+    if (kind === 'called' || kind === 'swinging') strikes++
+    else if (kind === 'foul' && strikes < 2) strikes++
+    if (strikes >= 2) reachedTwoStrikes = true
+  }
+  return { counts, pitches: seq.length, firstPitchStrike, reachedTwoStrikes }
+}
+
+/**
+ * Both boards, from the season's plate appearances.
+ *
+ * `games` IS REQUIRED, for the reason `sumBatting` and friends take it (see season.ts): a play
+ * row carries a `game_id` and nothing else about its game, so it cannot say for itself whether
+ * it belongs in a season total, and the postseason would otherwise fold straight into every
+ * rate here. Filtering runs through `regularSeasonLines`, which excludes by
+ * the known-postseason ids rather than keeping the known-regular ones, so a caller holding a
+ * partial schedule over-counts instead of rendering an empty board.
+ */
+export function aggregatePitchCodes<P extends LeaguePlayer>(
+  league: League,
+  plays: PitchPlay[],
+  players: P[],
+  games: SeasonGame[],
+  /** Which games to read. The Stats boards stay on the regular season; a player page follows its
+   *  own Regular / Playoffs / Both control. Same filter as every other season total (scopedLines). */
+  scope: SeasonScope = 'regular',
+): PitchBoard<P> {
+  const byId = new Map(players.map(p => [p.id, p]))
+  const pitchers = new Map<string, Tally<P>>()
+  const batters = new Map<string, Tally<P>>()
+  const gameIds = new Set<string>()
+  const all: Tally<P> = { player: null, name: 'League', teamId: null, counts: emptyCounts(), pitches: 0, pa: 0, strikeouts: 0, firstStrikes: 0, twoStrikePa: 0, walks: 0, groundOuts: 0, airOuts: 0 }
+
+  const take = (
+    map: Map<string, Tally<P>>, id: string | null, name: string | null, fallbackTeam: string | null,
+  ): Tally<P> | null => {
+    if (!id && !name) return null
+    const player = id ? byId.get(id) ?? null : null
+    // Key on the resolved player where there is one, so the same person never splits into two
+    // rows because the feed spelled their name two ways across a season.
+    const key = player ? player.id : `name:${(name ?? '').toLowerCase()}`
+    const existing = map.get(key)
+    if (existing) return existing
+    const t: Tally<P> = {
+      player,
+      name: player?.name ?? name ?? 'Unknown',
+      // A play's own `team_id` is the BATTING side, so it is the batter's club and never the
+      // pitcher's. The pitcher's comes from their roster row or stays null; guessing it from
+      // the game's other team would need the schedule for a badge.
+      teamId: player?.team_id ?? fallbackTeam,
+      counts: emptyCounts(), pitches: 0, pa: 0, strikeouts: 0, firstStrikes: 0, twoStrikePa: 0,
+      walks: 0, groundOuts: 0, airOuts: 0,
+    }
+    map.set(key, t)
+    return t
+  }
+
+  const add = (t: Tally<P>, read: ReturnType<typeof readSequence>, strikeout: boolean, out: 'ground' | 'air' | null, walk: boolean) => {
+    for (const k of Object.keys(read.counts) as (keyof PitchCounts)[]) t.counts[k] += read.counts[k]
+    t.pitches += read.pitches
+    t.pa++
+    if (strikeout) t.strikeouts++
+    if (read.firstPitchStrike) t.firstStrikes++
+    if (read.reachedTwoStrikes) t.twoStrikePa++
+    if (walk) t.walks++
+    if (out === 'ground') t.groundOuts++
+    else if (out === 'air') t.airOuts++
+  }
+
+  for (const play of scopedLines(plays, games, scope)) {
+    const seq = play.pitch_sequence
+    if (!seq) continue
+    const read = readSequence(seq, league.pitchCodes)
+    const strikeout = play.event_type === 'strikeout'
+    const out = battedOutKind(play.event_type)
+    const walk = play.event_type === 'walk'
+    gameIds.add(play.game_id)
+    add(all, read, strikeout, out, walk)
+    const p = take(pitchers, play.pitcher_id, play.pitcher_name, null)
+    if (p) add(p, read, strikeout, out, walk)
+    const b = take(batters, play.batter_id, play.batter_name, play.team_id)
+    if (b) add(b, read, strikeout, out, walk)
+  }
+
+  return {
+    gameCount: gameIds.size,
+    pitches: all.pitches,
+    pa: all.pa,
+    league: profileOf(all),
+    pitchers: [...pitchers.values()].map(profileOf).sort((a, b) => b.pitches - a.pitches),
+    batters: [...batters.values()].map(profileOf).sort((a, b) => b.pitches - a.pitches),
+  }
+}
+
+/** What each rate is actually measured over. A rate is only as good as its own denominator,
+ *  and they are not interchangeable: a hitter can clear a pitches-seen bar and still have
+ *  taken fifteen swings all season. */
+const DENOMINATOR: Record<keyof PitchRates, (p: PitchProfile<LeaguePlayer>) => number> = {
+  strikePct: p => p.pitches,
+  swStrPct: p => p.pitches,
+  swingPct: p => p.pitches,
+  calledPct: p => p.pitches,
+  whiffPct: p => p.swings,
+  contactPct: p => p.swings,
+  pitchesPerPa: p => p.pa,
+  firstStrikePct: p => p.pa,
+  putawayPct: p => p.twoStrikePa,
+  groundOutPct: p => p.groundOuts + p.airOuts,
+  kPct: p => p.pa,
+  bbPct: p => p.pa,
+}
+
+/**
+ * Rank a board on one rate.
+ *
+ * TWO BARS, NOT ONE, and the second is the one that matters. A pitches-seen minimum alone puts
+ * a hitter who has swung 15 times on top of the contact board at a flat 100%, because contact
+ * is measured per swing and nothing would be checking how many swings there were. So the sample
+ * bar is also applied to the rate's OWN denominator, scaled off the league: a qualifier needs as
+ * many swings (or two-strike counts, or plate appearances) as a player with `minPitches` would
+ * typically have had. That keeps one threshold to reason about while every board polices the
+ * number it is actually dividing by.
+ *
+ * Ties break toward the larger denominator, so when four hitters are all at 0.0% the one who
+ * has been tested most often leads. In a short season that is most of the top of a board.
+ */
+export function rankBy<T extends PitchProfile<LeaguePlayer>>(
+  profiles: T[],
+  key: keyof PitchRates,
+  minPitches: number,
+  lowerBetter = false,
+  /** The league line, for scaling the denominator bar. Omit to check `minPitches` alone. */
+  league?: PitchProfile<LeaguePlayer>,
+): T[] {
+  const denom = DENOMINATOR[key]
+  const minSample = league && league.pitches > 0
+    ? Math.round(minPitches * (denom(league) / league.pitches))
+    : 0
+  return profiles
+    .filter(p => p.pitches >= minPitches && p[key] != null && denom(p) >= minSample)
+    .sort((a, b) => {
+      const diff = (lowerBetter ? -1 : 1) * ((b[key] as number) - (a[key] as number))
+      return diff !== 0 ? diff : denom(b) - denom(a)
+    })
+}
+
+/** "24.8%" for a rate, a dash when there is nothing to measure. Matches fmtRate's contract
+ *  (stats.ts) for the dash so the boards agree with the tables about what "no data" looks
+ *  like; the glyph is the em-dash-width "no value" symbol used in every stat line here. */
+export const fmtPct = (v: number | null, digits = 1): string =>
+  v == null ? '—' : `${(v * 100).toFixed(digits)}%`

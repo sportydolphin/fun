@@ -890,6 +890,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Routing/shell → [`src/App.tsx`](src/App.tsx)
 - WPBL section → [`src/wpbl/`](src/wpbl) (`WpblApp.tsx`, `api.ts`, `SwipeableViews.tsx`)
 - MLB section → [`src/MlbStats.tsx`](src/MlbStats.tsx), [`src/mlb/`](src/mlb)
+- League-neutral engines (Bests, Find, the pitch-code boards, run expectancy) → [`src/league/`](src/league), on the neutral types in [`types.ts`](src/league/types.ts). What differs by league is a `League` from [`src/wpbl/league.ts`](src/wpbl/league.ts) or [`src/mlb/league.ts`](src/mlb/league.ts) (regulation innings, the pitch-code alphabet, the pitch boards' bars, how a play's runs are counted), never a literal in an engine. WPBL's `derive/bests.ts`, `finder.ts`, `pitches.ts` and `runExpectancy.ts` bind the engines to WPBL and keep their old exports. The season split those engines take is [`src/league/season.ts`](src/league/season.ts), re-exported by `src/wpbl/season.ts`
 - DB schema → baseline [`scripts/*.sql`](scripts) · new changes [`scripts/migrations/`](scripts/migrations) via [`scripts/migrate.mjs`](scripts/migrate.mjs)
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
 - Discord (board + box scores + the `/predict` game) → [`docs/DISCORD.md`](docs/DISCORD.md)
