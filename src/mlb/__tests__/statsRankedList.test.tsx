@@ -32,7 +32,7 @@ function Harness({ isDesktop = false, onOpen = () => {} }: { isDesktop?: boolean
   const [allTime, setAllTime] = useState(false)
   const [scope, setScope] = useState<'regular' | 'post' | 'all'>('regular')
   return (
-    <StatsView
+    <StatsView boardTabs={null}
       lbGroup={group} setLbGroup={setGroup}
       vizSeason={season} setVizSeason={setSeason}
       allTime={allTime} setAllTime={setAllTime}
@@ -60,7 +60,8 @@ describe('MLB Stats on a phone', () => {
     expect(within(first).getByText('.950')).toBeTruthy()
     // The big number is OPS, so the supporting line must not say it a second time.
     expect(within(first).queryByText(/\.950 OPS/)).toBeNull()
-    expect(within(first).getByText(/\.288 AVG/)).toBeTruthy()
+    // Ranked by a rate, the line leads with what it was measured over, as WPBL's does.
+    expect(within(first).getByText(/600 PA · 40 HR · 90 RBI/)).toBeTruthy()
   })
 
   it('draws each player as a real link to their page, and a plain click stays in the app', () => {
@@ -116,7 +117,8 @@ describe('MLB Stats on a phone', () => {
     fireEvent.click(screen.getByText('Full table'))
     expect(screen.getByRole('table')).toBeTruthy()
     expect(localStorage.getItem(FULL_TABLE_KEY)).toBe('1')
-    expect(screen.queryByRole('button', { name: /Sort\s*OPS/ })).toBeNull()
+    // The sort control stays on the full table, as WPBL's does: its column is frozen beside the name.
+    expect(screen.getByRole('button', { name: /Sort\s*OPS/ })).toBeTruthy()
     fireEvent.click(screen.getByText('Ranked list'))
     expect(screen.queryByRole('table')).toBeNull()
   })

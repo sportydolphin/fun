@@ -1,25 +1,28 @@
 import React, { useRef, useState } from 'react'
 import {
-  Box, Typography, Popover, Switch,
+  Box, Typography, Popover,
 } from '@mui/material'
-import { Tune, KeyboardArrowDown } from '@mui/icons-material'
 import { LeaderboardEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
-import { PillChip, pillActionSx } from '../components/ui'
+import { PillChip } from '../components/ui'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
-import { FilterChip } from '../../ui/FilterChip'
+import { FilterChip, FilterSelect, filterChipSx } from '../../ui/FilterChip'
 import { playerLink } from '../lib/links'
 import { pressable } from '../../ui/interaction'
 import { mlbUrlFor } from '../routes'
 import { StatsFilterSheet, controlPill } from './StatsRankedList'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../../ui/leaders'
 import { LogoBubble } from '../components/boxScore'
+import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
+import { PlayerHeadshot } from '../components/leaderboards'
 
 export interface LeaderboardViewProps {
+  /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
+  boardTabs: React.ReactNode
   lbGroup: 'hitting' | 'pitching'
   setLbGroup: (g: 'hitting' | 'pitching') => void
   vizSeason: number
@@ -38,7 +41,7 @@ export interface LeaderboardViewProps {
 }
 
 export function LeaderboardView({
-  lbGroup, setLbGroup, vizSeason, setVizSeason, gameScope, setGameScope,
+  boardTabs, lbGroup, setLbGroup, vizSeason, setVizSeason, gameScope, setGameScope,
   lbData, loadingLb, lbSelectedKeys, setLbSelectedKeys,
   isDesktop, canHover, handleLbPlayerClick, onOpenStats,
 }: LeaderboardViewProps) {
@@ -59,12 +62,12 @@ export function LeaderboardView({
   })
   const lbIsDefault = lbFeatured.length === lbSelectedKeys.length && lbFeatured.every(k => lbSelectedKeys.includes(k))
   const allLbKeys = lbAllDefs.map(d => d.key)
-  const lbShowAll = allLbKeys.length > 0 && allLbKeys.every(k => lbSelectedKeys.includes(k))
 
   return (
-    <Box>
+    <Box sx={STATS_BOARD_ROOT_SX}>
+      <StatsBar tabs={boardTabs} isDesktop={isDesktop}>
       {/* Desktop controls: room for every one of them in a row. */}
-      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1.5 }}>
+      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
@@ -76,41 +79,23 @@ export function LeaderboardView({
             <FilterChip key={sc} active={gameScope === sc} onClick={() => setGameScope(sc)}>{GAME_SCOPE_LABEL[sc]}</FilterChip>
           ))}
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
-            <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
-              style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(16)}`, borderRadius: 999, fontFamily: 'inherit' }}>
-              {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </Box>
-          {/* Show all toggle */}
+        {/* The chip family on the right too, as WPBL's Players board draws its club chips. The
+            "Show all" switch that sat here is gone: the picker's own "All" does the same thing. */}
+        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
+          <FilterSelect
+            ariaLabel="Season"
+            value={String(vizSeason)}
+            options={TEAM_SEASONS.map(y => ({ value: String(y), label: String(y) }))}
+            onChange={v => setVizSeason(Number(v))}
+            active={vizSeason !== CURRENT_SEASON}
+          />
           <Box
-            onClick={() => setLbSelectedKeys(lbShowAll ? [...lbFeatured] : allLbKeys)}
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.25, cursor: 'pointer', userSelect: 'none' }}
+            ref={statsPillRef} {...pressable(() => setLbPickerAnchor(statsPillRef.current))}
+            aria-haspopup="dialog" aria-expanded={!!lbPickerAnchor}
+            sx={{ ...filterChipSx(!!lbPickerAnchor || !lbIsDefault), gap: 0.4 }}
           >
-            <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: lbShowAll ? ACCENT_TEXT : 'text.secondary' }}>
-              Show all
-            </Typography>
-            <Switch
-              size="small"
-              checked={lbShowAll}
-              onChange={() => setLbSelectedKeys(lbShowAll ? [...lbFeatured] : allLbKeys)}
-              sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: ACCENT_TEXT }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: ACCENT } }}
-            />
-          </Box>
-          {/* Stats picker button */}
-          <Box
-            onClick={e => setLbPickerAnchor(e.currentTarget as HTMLElement)}
-            sx={{
-              ...pillActionSx,
-              borderColor: lbPickerAnchor ? ACCENT : lbIsDefault ? 'divider' : ACCENT,
-              color: lbPickerAnchor ? ACCENT_TEXT : lbIsDefault ? 'text.secondary' : ACCENT_TEXT,
-              bgcolor: lbPickerAnchor || !lbIsDefault ? `${ACCENT}10` : 'transparent',
-            }}
-          >
-            <Tune sx={{ fontSize: '0.85rem' }} />
             Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
-            <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
+            <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
           </Box>
         </Box>
       </Box>}
@@ -119,7 +104,7 @@ export function LeaderboardView({
           and everything else is a pill that says what it is set to and opens a sheet. The desktop
           row wrapped onto three lines at 375px before a single leader was on screen. */}
       {!isDesktop && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
             value={lbGroup}
@@ -139,6 +124,7 @@ export function LeaderboardView({
           </Box>
         </Box>
       )}
+      </StatsBar>
       {filtersOpen && !isDesktop && (
         <StatsFilterSheet
           allTime={false}
@@ -158,7 +144,7 @@ export function LeaderboardView({
         PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: chromePx(280), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
       >
         {(() => {
-          const allLbSelected = allLbKeys.every(k => lbSelectedKeys.includes(k))
+          const allLbSelected = allLbKeys.length > 0 && allLbKeys.every(k => lbSelectedKeys.includes(k))
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
               <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
@@ -251,9 +237,7 @@ export function LeaderboardView({
                   onHover={canHover ? k => setLbHoverId(k == null ? null : Number(k)) : undefined}
                   items={entries.map((e, i) => ({
                     key: String(e.playerId), ...ranks[i], name: e.playerName, value: texts[i],
-                    portrait: <Box component="img" loading="lazy" alt=""
-                      src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
-                      sx={{ width: chromePx(PORTRAIT_PX), height: chromePx(PORTRAIT_PX), borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }} />,
+                    portrait: <PlayerHeadshot variant="ring" playerId={e.playerId} name={e.playerName} teamId={e.teamId} size={PORTRAIT_PX} />,
                     badge: e.teamId > 0 ? <LogoBubble teamId={e.teamId} abbr={e.teamAbbr} size={16} ring={1} /> : undefined,
                     linkProps: playerLink(e.playerId, e.playerName, handleLbPlayerClick),
                   }))} />

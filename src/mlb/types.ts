@@ -208,6 +208,8 @@ export interface LeaderboardEntry {
   playerName: string
   teamAbbr:   string
   teamId:     number
+  /** StatsAPI's abbreviation for where they played ("SS", "DH", "P"), the table's second line. */
+  position?:  string
   stat:       any
   /**
    * All-time only: the player cleared the career PA/IP minimum (they came back

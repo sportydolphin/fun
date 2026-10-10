@@ -64,20 +64,20 @@ describe('direction', () => {
 
 describe('contextKeys', () => {
   it('never repeats the stat that is already the big number', () => {
-    expect(contextKeys('hitting', 'ops')).not.toContain('ops')
-    expect(contextKeys('pitching', 'era')).not.toContain('era')
+    expect(contextKeys('hitting', 'ops', true)).not.toContain('ops')
+    expect(contextKeys('pitching', 'era', true)).not.toContain('era')
   })
 
   it('gives three supporting stats for every sort the sheet offers', () => {
-    for (const d of HITTING_STAT_DEFS) expect(contextKeys('hitting', d.key)).toHaveLength(3)
-    for (const d of PITCHING_STAT_DEFS) expect(contextKeys('pitching', d.key)).toHaveLength(3)
+    for (const d of HITTING_STAT_DEFS) expect(contextKeys('hitting', d.key, !!d.isRate)).toHaveLength(3)
+    for (const d of PITCHING_STAT_DEFS) expect(contextKeys('pitching', d.key, !!d.isRate)).toHaveLength(3)
   })
 
   it('only names stats the board actually has', () => {
     const hitKeys = new Set(HITTING_STAT_DEFS.map(d => d.key))
     const pitKeys = new Set(PITCHING_STAT_DEFS.map(d => d.key))
-    for (const k of contextKeys('hitting', 'avg')) expect(hitKeys.has(k)).toBe(true)
-    for (const k of contextKeys('pitching', 'k')) expect(pitKeys.has(k)).toBe(true)
+    for (const k of contextKeys('hitting', 'avg', true)) expect(hitKeys.has(k)).toBe(true)
+    for (const k of contextKeys('pitching', 'k', false)) expect(pitKeys.has(k)).toBe(true)
   })
 })
 

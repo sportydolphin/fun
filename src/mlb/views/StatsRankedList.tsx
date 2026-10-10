@@ -13,6 +13,7 @@ import { pressable, hoverOnly, tappableIf, linkPress, FOCUS_RING } from '../../u
 import { typePx } from '../../ui/scale'
 import { ExpandRow } from '../../ui/ExpandRow'
 import { LogoBubble } from '../components/boxScore'
+import { PlayerHeadshot } from '../components/leaderboards'
 
 // The phone's Stats board: a ranked list that shows ONE stat, with a sheet to change which.
 //
@@ -35,8 +36,6 @@ export function writeFullTable(on: boolean): void {
   try { localStorage.setItem(FULL_TABLE_KEY, on ? '1' : '0') } catch { /* private mode: it just does not stick */ }
 }
 
-const headshot = (id: number) =>
-  `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${id}/headshot/67/current`
 
 function RankText({ rank }: { rank: RankMark }) {
   // Centred on the number rather than on its baseline: a smaller "T-" on the same baseline hangs at
@@ -84,8 +83,7 @@ function ListRow({ entry, onOpen, rank, value, context, first, total, bestFirst,
           portrait. */}
       <Box sx={{ ...RANK_SX, color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled' }}><RankText rank={rank} /></Box>
 
-      <Box component="img" src={headshot(entry.playerId)} alt="" loading="lazy"
-        sx={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }} />
+      <PlayerHeadshot variant="ring" playerId={entry.playerId} name={entry.playerName} teamId={entry.teamId} size={32} />
 
       {/* Line heights set, not inherited: MUI's 1.5 put 6px of air in each line, and a screen holds
           ten of these. */}
@@ -163,7 +161,7 @@ export function StatsRankedList({
   const cap = expanded ? rows.length : Math.max(LIST_CAP, hlIdx + 1)
   const visible = rows.slice(0, cap)
   const marks = rankMarks(visible.map(r => r._v))
-  const keys = contextKeys(group, def.key)
+  const keys = contextKeys(group, def.key, !!def.isRate)
   const bestFirst = isBestFirst(def, asc)
   const ctx = keys.map(k => statDefs.find(d => d.key === k)).filter((d): d is StatDef => !!d)
 

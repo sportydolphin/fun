@@ -62,13 +62,6 @@ const STATS_BOARDS: { view: MlbView; label: string }[] = [
 ]
 const navKeyFor = (v: MlbView): NavKey | null =>
   v === 'leaderboard' || v === 'viz' ? 'stats' : v === 'search' ? null : v
-/** The drawn title of the Stats tab's three boards, which are three addresses with three <title>s
- *  in seo.ts. Close to those without the pitch: the heading names the page, the title also sells it. */
-const BOARD_TITLE: Partial<Record<MlbView, string>> = {
-  leaderboard: 'MLB Stat Leaders',
-  stats:       'MLB Player Stats',
-  viz:         'MLB Charts',
-}
 
 /** A tab's address, for its href and for the history entry it pushes. */
 const viewHref = (v: MlbView): string => v === 'search' ? MLB_VIEW_PATHS.home : MLB_VIEW_PATHS[v]
@@ -404,7 +397,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         <Box sx={{ display: 'flex', flexDirection: 'column',
           minHeight: `calc(100dvh - 24px - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px))` }}>
           {content}
-          <Box sx={{ mt: 'auto', pt: 4 }}>{renderFooter()}</Box>
+          {/* No gap above a footer that has stepped aside for the phone's stats table (SiteFooter):
+              it would be 32px of nothing the pinned board has to leave room for. */}
+          <Box sx={{ mt: 'auto', pt: 4, 'html[data-mlb-stats-table] &': { pt: 0 } }}>{renderFooter()}</Box>
         </Box>
       </Suspense>
     )
@@ -446,23 +441,42 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       case 'stats': {
         // The board last open, which is the one on screen whenever this tab is.
         const board = lastBoard.current
+        // WPBL's board row (src/ui/PageTabs): each board is its own address, so these are pages, and
+        // they do not share a look with the Hitting / Pitching switch under them. Each board draws it
+        // inside its pinned bar (views/StatsBar). On a phone it sits above the bar, whose top padding
+        // makes up the rest of WPBL's gap.
+        const boardTabs = (
+          <PageTabs
+            options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
+            value={board}
+            onChange={v => go(v as MlbView)}
+            mb={{ xs: 1.25, sm: 1.25 }}
+          />
+        )
         return (
           // 4px past the pane's gutter on a phone, which is where WPBL Stats sits: its boards bleed to
           // 12px from the screen's edge, where every other tab keeps 16, for the width a name needs.
-          <Box sx={{ mx: { xs: '-4px', sm: 0 } }}>
-            <MlbTabTitle sx={{ mb: 2 }}>{BOARD_TITLE[board]}</MlbTabTitle>
-            {/* WPBL's board row (src/ui/PageTabs): each board is its own address, so these are
-                pages, and they no longer share a look with the Hitting / Pitching switch under them. */}
-            <PageTabs
-              options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
-              value={board}
-              onChange={v => go(v as MlbView)}
-              // WPBL's measure under its board row: on a phone the row sits in its own strip above the
-              // control bar, which adds the bar's top padding to the gap.
-              mb={{ xs: 1.75, sm: 1.25 }}
-            />
+          // A flex column at least a screen tall, which the board's root grows into (StatsBar), so the
+          // pinned bar and board have room to hold their place while the page scrolls.
+          <Box sx={{
+            mx: { xs: '-4px', sm: 0 }, display: 'flex', flexDirection: 'column', flexGrow: 1,
+            minHeight: { sm: 'calc(100dvh - var(--app-header-h, 0px))' },
+            // The phone's full table: a screen tall, so the section's own screen-tall floor (the box
+            // around the pager) has no slack left to put AFTER the board, where the board's height
+            // cap cannot know about it and the board would stop pinned short of the page's end.
+            '@media (max-width:599.95px)': { 'html[data-mlb-stats-table] &': { minHeight: '100dvh' } },
+          }}>
+            {/* One title for the three boards, as WPBL's "WPBL Stats" is for its nine: the board row
+                under it names the board, and a title that changed with it ("MLB Stat Leaders", "MLB
+                Player Stats") was the one line that moved when the league switch kept the page.
+                Each board keeps its own <title> in seo.ts. */}
+            {/* 10px of the 20 under it moved into the pinned bar's top padding on a desktop, so a
+                pinned bar does not sit hard against the toolbar. */}
+            <MlbTabTitle sx={{ mb: { xs: 2, sm: 1 } }}>MLB Stats</MlbTabTitle>
             {board === 'viz' && (
               <VizView
+                boardTabs={boardTabs}
+                isDesktop={isDesktop}
                 vizSeason={state.vizSeason}
                 setVizSeason={state.setVizSeason}
                 teamSummaries={state.teamSummaries}
@@ -476,6 +490,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             )}
             {board === 'leaderboard' && (
               <LeaderboardView
+                boardTabs={boardTabs}
                 lbGroup={state.lbGroup}
                 setLbGroup={state.setLbGroup}
                 vizSeason={state.vizSeason}
@@ -494,6 +509,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             )}
             {board === 'stats' && (
               <StatsView
+                boardTabs={boardTabs}
                 lbGroup={state.lbGroup}
                 setLbGroup={state.setLbGroup}
                 vizSeason={state.vizSeason}

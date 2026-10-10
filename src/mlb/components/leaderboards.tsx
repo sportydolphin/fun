@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { InfoTip } from './ui'
 import { SectionCard, CardLink, TextGhost, TYPE_SCALE } from '../../ui/card'
-import { ACCENT, TEAM_BG, HEADSHOT, TEAM_NICKNAME } from '../constants'
+import { ACCENT, TEAM_BG, TEAM_SECONDARY, HEADSHOT, HEADSHOT_THUMB, TEAM_NICKNAME } from '../constants'
 import { useIsDark, useTextTone, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, photoBorderAlpha } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
 import { chromePx, typePx } from '../../ui/scale'
@@ -273,9 +273,29 @@ export interface PlayerBoard {
 
 export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted, variant = 'circle', teamId }: {
   playerId: number; name: string; size?: number; accent?: string; highlighted?: boolean
-  variant?: 'circle' | 'portrait'; teamId?: number
+  variant?: 'circle' | 'portrait' | 'ring'; teamId?: number
 }) {
   const isDark = useIsDark()
+
+  // WPBL's PlayerPortrait, for the two Stats boards it shares a frame with: a round face inside a
+  // 2px ring of the club's second colour, so a row on /mlb/leaders and one on /wpbl/stats are the
+  // same object. The headshot box is the size given, ring included, as WPBL's is. No alt: the
+  // name is printed beside it in every row that draws one.
+  if (variant === 'ring') {
+    return (
+      <Box
+        component="img"
+        src={HEADSHOT_THUMB(playerId)}
+        alt=""
+        loading="lazy"
+        sx={{
+          width: chromePx(size), height: chromePx(size), borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
+          bgcolor: 'action.hover',
+          border: `2px solid ${(teamId && TEAM_SECONDARY[teamId]) || 'rgba(128,128,128,0.3)'}`,
+        }}
+      />
+    )
+  }
 
   // Cropped rounded-rectangle portrait, matching the home-screen player cards
   // (TopPerformers / Spotlight): the face framed near the top rather than a tight
