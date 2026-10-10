@@ -60,6 +60,7 @@ export const EDGE_TABLES: Readonly<Record<string, EdgeTier>> = {
   wpbl_pitch_tracking: 'live',
   wpbl_pitching_usage: 'live',
   wpbl_lineup_history: 'live',
+  wpbl_run_environment: 'live',
 }
 
 /** Seconds an answer is served as current, and how long past that it may be served stale. */

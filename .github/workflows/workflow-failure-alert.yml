@@ -54,6 +54,7 @@ on:
       - WPBL RetroWPBL Stats Check
       - WPBL RetroWPBL Sync
       - WPBL roster fork check
+      - WPBL Run Environment
       - WPBL season archive
       - WPBL Shop Restock Watch
       - WPBL Site Calendar Sync
