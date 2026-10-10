@@ -34,6 +34,7 @@ import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, MLB_PATH_EVEN
 import type { MlbView, MlbSnapshot } from '../routes'
 import type { GameScope } from '../lib/gameScope'
 import type { TeamCardInnerProps } from '../components/cards'
+import { HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS } from '../lib/advanced'
 
 // The view names and the address of each live in ../routes.ts, which the shell and the edge read too.
 export type { MlbView } from '../routes'
@@ -53,7 +54,9 @@ const BOARD_FRESH_MS = 5 * 60_000
  *  or hand-typed `sort=`), which leaves the board on its default rather than on nothing. */
 export function boardSortFor(group: 'hitting' | 'pitching', key: string | null | undefined): LbFullscreenState | null {
   if (!key) return null
-  const def = (group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).find(d => d.key === key)
+  // The advanced columns too (lib/advanced.ts): a link sorted by wRC+ opens on Advanced.
+  const def = (group === 'hitting' ? [...HITTING_STAT_DEFS, ...HITTING_ADVANCED_DEFS] : [...PITCHING_STAT_DEFS, ...PITCHING_ADVANCED_DEFS])
+    .find(d => d.key === key)
   return def ? { def, group, sortKey: key, sortAsc: def.lowerIsBetter ?? false, entries: [] } : null
 }
 

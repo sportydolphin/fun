@@ -46,17 +46,20 @@ export function rankMarks(values: number[]): RankMark[] {
   return out.map(m => ({ n: m.n, tied: (count.get(m.n) ?? 0) > 1 }))
 }
 
-// What a row says under the name. A leaderboard answers "how good" with the big number, and the
-// player page behind one tap answers the rest, so this is three supporting numbers and no more.
-const CONTEXT_ORDER: Record<StatsGroup, string[]> = {
-  hitting:  ['ops', 'avg', 'hr', 'rbi', 'sb'],
-  pitching: ['era', 'whip', 'ip', 'k'],
+// What a row says under the name: WPBL's CONTEXT_KEYS, so a row reads the same in both sections.
+// Ranked by a RATE, the line leads with how much of a season it was measured over (PA, or innings),
+// since .300 off a month and .300 off a season are different claims. Ranked by a COUNT, volume is
+// already the big number, so the line spends itself on the rates. Three numbers, minus whichever
+// one is already the big number on the right.
+const CONTEXT_ORDER: Record<StatsGroup, { rate: string[]; counting: string[] }> = {
+  hitting:  { rate: ['pa', 'hr', 'rbi', 'ops', 'avg'], counting: ['avg', 'rbi', 'ops', 'hr', 'pa'] },
+  pitching: { rate: ['ip', 'wl', 'k', 'era', 'whip'], counting: ['era', 'whip', 'ip', 'k'] },
 }
 
-/** The supporting stats for a list ranked by `sortKey`: the preference order minus the stat that
- *  is already the big number, so the row never says the same figure twice. */
-export function contextKeys(group: StatsGroup, sortKey: string): string[] {
-  return CONTEXT_ORDER[group].filter(k => k !== sortKey).slice(0, 3)
+/** The supporting stats for a list ranked by `sortKey`: the order for a rate or a count, minus the
+ *  stat that is already the big number, so the row never says the same figure twice. */
+export function contextKeys(group: StatsGroup, sortKey: string, isRate: boolean): string[] {
+  return CONTEXT_ORDER[group][isRate ? 'rate' : 'counting'].filter(k => k !== sortKey).slice(0, 3)
 }
 
 /** Whether `asc` is the order a reader would call "best first" for this stat. ERA and WHIP are

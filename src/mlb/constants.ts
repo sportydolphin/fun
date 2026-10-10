@@ -45,22 +45,37 @@ export const ATL = 144, CWS = 145, MIA = 146, NYY = 147, MIL = 158
 
 // ─── Player stat definitions ──────────────────────────────────────────────────
 
+// IN WPBL'S COLUMN ORDER, which is Baseball-Reference's standard batting and pitching lines
+// (VIEW_ORDER in src/wpbl/StatsView.tsx): playing time, the counting line in box-score order, the
+// slash line, then the tail. Until Oct 2026 the two tables put the same stats in different places
+// and MLB's had no G, PA, R or tail, so a switch between the leagues moved every column. The order
+// is the table's; the Leaders cards take theirs from LB_FEATURED. Keys never change, since they are
+// in shared URLs (?sort=k): only the K column's label did, to WPBL's SO. 1B went, as a column
+// neither B-Ref's line nor WPBL's carries, and the one that pushed the table past a 1440 screen.
 export const HITTING_STAT_DEFS: StatDef[] = [
+  { key: 'g', label: 'G', getValue: s => s.gamesPlayed, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'pa', label: 'PA', getValue: s => s.plateAppearances, format: fmt, leaderCategory: '', defaultSelected: false },
   { key: 'ab',   label: 'AB',   getValue: s => s.atBats,        format: fmt,  leaderCategory: '',                    defaultSelected: false },
+  { key: 'r', label: 'R', getValue: s => s.runs, format: fmt, leaderCategory: '', defaultSelected: false },
   { key: 'h',    label: 'H',    leaderLabel: 'Hits',            getValue: s => s.hits,          format: fmt,  leaderCategory: 'hits',                defaultSelected: false },
-  { key: 'avg',  label: 'AVG',  leaderLabel: 'Batting Average', getValue: s => s.avg,           format: fmt,  leaderCategory: 'battingAverage',      defaultSelected: true,  isRate: true },
-  { key: '1b',   label: '1B',   getValue: s => s.hits != null ? s.hits - (s.doubles ?? 0) - (s.triples ?? 0) - (s.homeRuns ?? 0) : null, format: fmt, leaderCategory: '', defaultSelected: false },
   { key: '2b',   label: '2B',   leaderLabel: 'Doubles',         getValue: s => s.doubles,       format: fmt,  leaderCategory: 'doubles',             defaultSelected: false },
   { key: '3b',   label: '3B',   leaderLabel: 'Triples',         getValue: s => s.triples,       format: fmt,  leaderCategory: 'triples',             defaultSelected: false },
   { key: 'hr',   label: 'HR',   leaderLabel: 'Home Runs',       getValue: s => s.homeRuns,      format: fmt,  leaderCategory: 'homeRuns',            defaultSelected: true  },
   { key: 'rbi',  label: 'RBI',  leaderLabel: 'RBIs',            getValue: s => s.rbi,           format: fmt,  leaderCategory: 'runsBattedIn',        defaultSelected: true  },
+  { key: 'sb',   label: 'SB',   leaderLabel: 'Stolen Bases',    getValue: s => s.stolenBases,   format: fmt,  leaderCategory: 'stolenBases',         defaultSelected: false },
+  { key: 'cs',   label: 'CS',   getValue: s => s.caughtStealing, format: fmt, leaderCategory: '',                    defaultSelected: false, poop: true },
+  { key: 'bb',   label: 'BB',   leaderLabel: 'Walks',           getValue: s => s.baseOnBalls,   format: fmt,  leaderCategory: 'walks',               defaultSelected: false },
+  { key: 'k',    label: 'SO',   leaderLabel: 'Strikeouts',      getValue: s => s.strikeOuts,    format: fmt,  leaderCategory: 'strikeouts',          defaultSelected: false, poop: true },
+  { key: 'avg',  label: 'AVG',  leaderLabel: 'Batting Average', getValue: s => s.avg,           format: fmt,  leaderCategory: 'battingAverage',      defaultSelected: true,  isRate: true },
   { key: 'obp',  label: 'OBP',  leaderLabel: 'On-Base %',       getValue: s => s.obp,           format: fmt,  leaderCategory: 'onBasePercentage',    defaultSelected: false, isRate: true },
   { key: 'slg',  label: 'SLG',  leaderLabel: 'Slugging %',      getValue: s => s.slg,           format: fmt,  leaderCategory: 'sluggingPercentage',  defaultSelected: false, isRate: true },
   { key: 'ops',  label: 'OPS',  getValue: s => s.ops,           format: fmt,  leaderCategory: 'onBasePlusSlugging',  defaultSelected: true,  isRate: true },
-  { key: 'k',    label: 'K',    leaderLabel: 'Strikeouts',      getValue: s => s.strikeOuts,    format: fmt,  leaderCategory: 'strikeouts',          defaultSelected: false, poop: true },
-  { key: 'bb',   label: 'BB',   leaderLabel: 'Walks',           getValue: s => s.baseOnBalls,   format: fmt,  leaderCategory: 'walks',               defaultSelected: false },
-  { key: 'sb',   label: 'SB',   leaderLabel: 'Stolen Bases',    getValue: s => s.stolenBases,   format: fmt,  leaderCategory: 'stolenBases',         defaultSelected: false },
-  { key: 'cs',   label: 'CS',   getValue: s => s.caughtStealing, format: fmt, leaderCategory: '',                    defaultSelected: false, poop: true },
+  { key: 'tb', label: 'TB', getValue: s => s.totalBases, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'gdp', label: 'GDP', getValue: s => s.groundIntoDoublePlay, format: fmt, leaderCategory: '', defaultSelected: false, poop: true },
+  { key: 'hbp', label: 'HBP', getValue: s => s.hitByPitch, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'sh', label: 'SH', getValue: s => s.sacBunts, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'sf', label: 'SF', getValue: s => s.sacFlies, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'ibb', label: 'IBB', getValue: s => s.intentionalWalks, format: fmt, leaderCategory: '', defaultSelected: false },
 ]
 
 export const PITCHING_STAT_DEFS: StatDef[] = [
@@ -68,15 +83,20 @@ export const PITCHING_STAT_DEFS: StatDef[] = [
   { key: 'era',  label: 'ERA',  leaderLabel: 'ERA',               getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true,  lowerIsBetter: true, isRate: true },
   { key: 'g',    label: 'G',    getValue: s => s.gamesPlayed,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'gs',   label: 'GS',   getValue: s => s.gamesStarted,     format: fmt,                   leaderCategory: '',                             defaultSelected: false },
-  { key: 'ip',   label: 'IP',   leaderLabel: 'Innings Pitched',   getValue: s => s.inningsPitched,   format: fmt,                   leaderCategory: 'inningsPitched',               defaultSelected: true  },
-  { key: 'whip', label: 'WHIP', leaderLabel: 'WHIP',              getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true,  lowerIsBetter: true, isRate: true },
   { key: 'sv',   label: 'SV',   leaderLabel: 'Saves',             getValue: s => s.saves,            format: fmt,                   leaderCategory: 'saves',                        defaultSelected: false },
+  { key: 'ip',   label: 'IP',   leaderLabel: 'Innings Pitched',   getValue: s => s.inningsPitched,   format: fmt,                   leaderCategory: 'inningsPitched',               defaultSelected: true  },
   { key: 'h',    label: 'H',    getValue: s => s.hits,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'r',    label: 'R',    getValue: s => s.runs,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'er',   label: 'ER',   getValue: s => s.earnedRuns,       format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,         format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
-  { key: 'k',    label: 'K',    leaderLabel: 'Strikeouts',        getValue: s => s.strikeOuts,       format: fmt,                   leaderCategory: 'strikeouts',                   defaultSelected: true  },
+  { key: 'k',    label: 'SO',   leaderLabel: 'Strikeouts',        getValue: s => s.strikeOuts,       format: fmt,                   leaderCategory: 'strikeouts',                   defaultSelected: true  },
+  { key: 'hbp', label: 'HBP', getValue: s => s.hitBatsmen, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'bk', label: 'BK', getValue: s => s.balks, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'wp', label: 'WP', getValue: s => s.wildPitches, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'bf', label: 'BF', getValue: s => s.battersFaced, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'p', label: 'P', getValue: s => s.numberOfPitches, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: 'whip', label: 'WHIP', leaderLabel: 'WHIP',              getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true,  lowerIsBetter: true, isRate: true },
   { key: 'so9',  label: 'SO/9', leaderLabel: 'K per 9',          getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2), leaderCategory: 'strikeoutsPer9Inn',            defaultSelected: false, isRate: true },
 ]
 
@@ -184,6 +204,9 @@ export const FEATURED_PLAYER_IDS = [
 
 export const HEADSHOT = (id: number) =>
   `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/${id}/headshot/67/current`
+/** Half the width, for a face drawn about 32px across in a list of a hundred. */
+export const HEADSHOT_THUMB = (id: number) =>
+  `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${id}/headshot/67/current`
 
 /** The same photo framed square by MLB, with room above the cap. HEADSHOT is 2:3 and its head
  *  fills the whole width, so any square crop of it clips the cap or the chin. */

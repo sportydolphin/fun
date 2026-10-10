@@ -37,6 +37,9 @@ import { BOTTOM_NAV_SPACE } from './BottomNav'
 import { STATS_FULL_BLEED_W } from './layoutWidths'
 import { typePx } from '../ui/scale'
 import { PageTabs } from '../ui/PageTabs'
+import { TABLE_CAP } from '../ui/ExpandRow'
+import { HEAD_LABEL_SX, HEAD_LEAGUE_SX, HEAD_LEAGUE_TINT } from '../ui/statsTableHead'
+import { useAxisLock } from '../ui/useAxisLock'
 import { FilterChip } from '../ui/FilterChip'
 import { LeadersBoard, LeadersBoardSkeleton } from './LeadersBoard'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
@@ -779,7 +782,9 @@ export function StatsSkeleton() {
           </Box>
         </Box>
       ) : (
-        <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: chromePx(546) }, borderRadius: 2, mt: '-1px' }} />
+        // Above a phone, plus the 48px "Show all" row under the capped table (TABLE_CAP), which the
+        // default board, every qualified hitter, always has.
+        <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: `calc(${chromePx(546)} + 48px)` }, borderRadius: 2, mt: '-1px' }} />
       )}
     </Box>
   )
@@ -1561,8 +1566,11 @@ export default function WpblStatsView({
   const pickedIdx = pickedId ? rows.findIndex(r => r.key === pickedId) : -1
   // Arriving from a rank on a player's card, the player has to be on screen: the cap stretches to
   // include them rather than land on a board that does not show who the reader came for.
-  const listCap = Math.max(LIST_CAP, pickedIdx + 1)
-  const capped = listView && !expanded && rows.length > listCap
+  // The desktop table is capped too (TABLE_CAP), MLB's and this one alike; the phone's full table
+  // is not, since it is sized to the screen and its foot is measured into that size.
+  const tableCapped = !listView && !isNarrow
+  const listCap = Math.max(listView ? LIST_CAP : TABLE_CAP, pickedIdx + 1)
+  const capped = (listView || tableCapped) && !expanded && rows.length > listCap
   const visibleRows = capped ? rows.slice(0, listCap) : rows
   const pickedRef = useRef<HTMLElement | null>(null)
   // Centred, after the pane has had a frame to become the visible one. Keyed on the request too,
@@ -1586,6 +1594,8 @@ export default function WpblStatsView({
   useLayoutEffect(() => {
     if (expanded || !collapseRef.current) return
     collapseRef.current = false
+    // The table closes inside its own scroll box, which has to go back to the top with it.
+    scrollRef.current?.scrollTo({ top: 0 })
     listRef.current?.scrollIntoView({ block: 'start' })
   }, [expanded])
 
@@ -1628,7 +1638,7 @@ export default function WpblStatsView({
   const footWords = phoneTable
     ? [teamWord, qualified !== qual.active ? qualWord : null, fadedWord,
         scope !== 'regular' ? scopeWord : null, eraWord]
-    : [capped ? `${LIST_CAP} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
+    : [capped ? `${visibleRows.length} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
         teamWord, qualWord, fadedWord, scopeWord, eraWord]
   const footText = (footWords.filter(Boolean) as string[]).join(' · ')
     + (!listView && !phoneTable ? ' · sort by any column heading' : '')
@@ -1749,6 +1759,9 @@ export default function WpblStatsView({
     window.addEventListener('resize', check)
     return () => { window.removeEventListener('scroll', check); window.removeEventListener('resize', check) }
   }, [pinActive, listView, loading, source, mode])
+
+  // One axis per drag on the grid (src/ui/useAxisLock). Keyed on what mounts or replaces its scroll box.
+  useAxisLock(scrollRef, `${loading}|${listView}|${source}|${mode}|${side}`)
 
   // Track horizontal scroll position to toggle the edge affordances.
   useEffect(() => {
@@ -1871,18 +1884,9 @@ export default function WpblStatsView({
     backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)` : undefined,
     whiteSpace: 'nowrap',
   } as const)
-  // THE LEAGUE AVERAGE, FOLDED INTO THE HEADER, on every screen. As a row of its own it cost 35px
-  // of a phone's capped board, and on a desktop it was a tall two-line label over a row that is
-  // mostly blank, since only the rates have a league figure. The header is also the one line that
-  // never scrolls away, so the averages stay beside the column labels down the whole board. Every
-  // cell gets the second line, blank or not, or a table's middle alignment would put the labels at
-  // two different heights.
-  const headLeague = (text: string, align?: 'right') => (
-    <Box data-league-head="" sx={{
-      fontSize: '0.58rem', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, minHeight: '1.1em',
-      mt: 0.25, color: 'text.secondary', textTransform: 'none', textAlign: align,
-    }}>{text}</Box>
-  )
+  // THE LEAGUE AVERAGE IS IN THE HEADER, on every screen, as the header's second row (see
+  // src/ui/statsTableHead.ts). As a body row it cost 35px of a phone's capped board; in the header
+  // it pins, so the averages stay beside the column labels down the whole board.
 
   /* ROW ONE: WHICH BOARD. One row of underline tabs, because that is what they are:
       tapping one replaces the screen. Drawn differently from the team filter and the
@@ -2290,7 +2294,7 @@ export default function WpblStatsView({
               value={cellText(activeCol, r.totals)}
               context={contextCols.map(c => `${cellText(c, r.totals)} ${c.label}`).join(' · ')} />
           ))}
-          {rows.length > LIST_CAP && (
+          {rows.length > listCap && (
             <ExpandRow expanded={!capped} moreLabel={`Show all ${rows.length} ${noun}`}
               onToggle={capped ? () => setExpanded(true) : collapse} />
           )}
@@ -2392,20 +2396,18 @@ export default function WpblStatsView({
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
                 <Box component="tr">
-                  {/* "League avg" RIGHT-ALIGNED, because it is a row label for the figures to its
-                      right: flush left it sat a column-width away from the number it names. On a
-                      phone the count above it follows, since a lone left-aligned line over a
-                      right-aligned one read as a mistake in a cell that narrow. */}
-                  <Box component="th" data-swipe-handle="" sx={{ ...thBase, textTransform: 'uppercase', left: 0, zIndex: 4, textAlign: pinActive ? 'right' : 'left', width: pinActive ? nameW : undefined, minWidth: nameW, maxWidth: pinActive ? nameW : undefined, borderRight: '1px solid', borderColor: 'divider', px: 1, touchAction: pinActive ? 'pan-y' : undefined }}>
+                  {/* TWO ROWS, the labels and then the league (src/ui/statsTableHead.ts). On a phone
+                      the count follows "League avg" to the right, since a lone left-aligned line over
+                      a right-aligned one read as a mistake in a cell that narrow. */}
+                  <Box component="th" data-swipe-handle="" sx={{ ...thBase, ...HEAD_LABEL_SX, textTransform: 'uppercase', left: 0, zIndex: 4, textAlign: pinActive ? 'right' : 'left', width: pinActive ? nameW : undefined, minWidth: nameW, maxWidth: pinActive ? nameW : undefined, borderRight: '1px solid', borderColor: 'divider', px: 1, touchAction: pinActive ? 'pan-y' : undefined }}>
                     {/* On a phone the count lives here, since the board's footer gave up its line
                         of words for the height; see boardFooter. */}
                     {pinActive ? `${rows.length} ${noun}` : mode === 'teams' ? 'Team' : 'Player'}
-                    {headLeague('League avg', 'right')}
                   </Box>
                   {pinActive && (
                     <Box component="th" data-swipe-handle="" {...headProps(activeCol)} sx={{
                       ...HEAD_FOCUS,
-                      ...thBase, position: 'sticky', left: nameW, zIndex: 5, touchAction: 'pan-y',
+                      ...thBase, ...HEAD_LABEL_SX, position: 'sticky', left: nameW, zIndex: 5, touchAction: 'pan-y',
                       textAlign: 'center', cursor: 'pointer', minWidth: '3.125rem', px: 0.5,
                       color: 'var(--wpbl-accent-fg)',
                       backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
@@ -2417,7 +2419,6 @@ export default function WpblStatsView({
                         {activeCol.label}
                         <Box component="span" sx={{ fontSize: '0.62rem' }}>{sortAsc ? '↑' : '↓'}</Box>
                       </Box>
-                      {headLeague(leagueCell(activeCol))}
                     </Box>
                   )}
                   {scrollCols.map(c => {
@@ -2426,7 +2427,7 @@ export default function WpblStatsView({
                       <Box component="th" key={c.key} {...headProps(c)}
                         data-active={active ? 'true' : undefined}
                         sx={{
-                          ...thBase, ...HEAD_FOCUS, textAlign: 'center', cursor: 'pointer', minWidth: '2.375rem',
+                          ...thBase, ...HEAD_LABEL_SX, ...HEAD_FOCUS, textAlign: 'center', cursor: 'pointer', minWidth: '2.375rem',
                           color: active ? 'var(--wpbl-accent-fg)' : 'text.disabled',
                           // The sorted column's tint rides on backgroundImage over the opaque
                           // paper thBase already sets. As a bgcolor it would REPLACE that paper
@@ -2440,14 +2441,40 @@ export default function WpblStatsView({
                           {c.label}
                           {active && <Box component="span" sx={{ fontSize: '0.62rem' }}>{sortAsc ? '↑' : '↓'}</Box>}
                         </Box>
-                        {headLeague(leagueCell(c))}
                       </Box>
                     )
                   })}
                 </Box>
+                {/* Row two: the league. "League avg" right-aligned in the name column, because it is
+                    a row label for the figures to its right: flush left it sat a column-width away
+                    from the number it names. A rate only, for the reason leagueCell gives. */}
+                <Box component="tr">
+                  <Box component="th" data-swipe-handle="" sx={{
+                    ...thBase, ...HEAD_LEAGUE_SX, left: 0, zIndex: 4, textAlign: 'right', px: 1,
+                    backgroundImage: HEAD_LEAGUE_TINT,
+                    borderRight: '1px solid', borderColor: 'divider', touchAction: pinActive ? 'pan-y' : undefined,
+                  }}><span data-league-head="">League avg</span></Box>
+                  {pinActive && (
+                    <Box component="th" data-swipe-handle="" sx={{
+                      ...thBase, ...HEAD_LEAGUE_SX, left: nameW, zIndex: 5, touchAction: 'pan-y', textAlign: 'center', px: 0.5,
+                      backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24), ${HEAD_LEAGUE_TINT}`,
+                      borderRight: '1px solid', borderColor: 'divider',
+                      '&::before': SEAM_COVER,
+                      '&::after': scrollX.atStart ? undefined : FROZEN_EDGE,
+                    }}><span data-league-head="">{leagueCell(activeCol)}</span></Box>
+                  )}
+                  {scrollCols.map(c => (
+                    <Box component="th" key={c.key} sx={{
+                      ...thBase, ...HEAD_LEAGUE_SX, textAlign: 'center',
+                      backgroundImage: c.key === sortKey
+                        ? `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24), ${HEAD_LEAGUE_TINT}`
+                        : HEAD_LEAGUE_TINT,
+                    }}><span data-league-head="">{leagueCell(c)}</span></Box>
+                  ))}
+                </Box>
               </Box>
               <Box component="tbody">
-                {rows.map((r, i) => {
+                {visibleRows.map((r, i) => {
                   // Under the qualifying bar, on a board showing everyone. Faded rather than
                   // hidden, which is the whole point of choosing Everyone, and rather than
                   // marked with a symbol, which would be one more thing on a row to decode.
@@ -2540,6 +2567,11 @@ export default function WpblStatsView({
             opacity: scrollX.atEnd ? 0 : 1, transition: 'opacity 0.2s',
           })} />
           </Box>
+          {/* Outside the scroll box, so the way to the rest is on screen without reaching its end. */}
+          {tableCapped && rows.length > listCap && (
+            <ExpandRow expanded={!capped} moreLabel={`Show all ${rows.length} ${noun}`}
+              onToggle={capped ? () => setExpanded(true) : collapse} />
+          )}
           {boardFooter}
         </Box>
       )}

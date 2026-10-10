@@ -22,3 +22,31 @@ export function fetchSeasonPlayerStats(group: 'hitting' | 'pitching', season: nu
   }
   return seasonStatsCache.get(key)!
 }
+
+// wOBA and wRC+ for every hitter in a regular season: StatsAPI's `sabermetrics`, which carries the
+// year's linear weights and park factors that nothing else here has. Read only when the Players
+// table needs one of the two (its Advanced view, or a sort on either), so the default board costs
+// no second request. There is no postseason pool (it answers empty), which is why the two columns
+// are offered on the regular season alone. Keyed by player id; a failed read is an empty map, so
+// the columns read "—" rather than taking the table down.
+const sabermetricsCache = new Map<number, Promise<Map<number, { woba?: number; wrcPlus?: number }>>>()
+
+export function fetchSeasonSabermetrics(season: number): Promise<Map<number, { woba?: number; wrcPlus?: number }>> {
+  if (!sabermetricsCache.has(season)) {
+    sabermetricsCache.set(season,
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=sabermetrics&group=hitting&season=${season}&sportId=1&limit=2000&playerPool=All`)
+        .then(r => r.json())
+        .then((d: any) => {
+          const out = new Map<number, { woba?: number; wrcPlus?: number }>()
+          for (const s of d.stats?.[0]?.splits ?? []) {
+            const id = Number(s.player?.id)
+            const woba = Number(s.stat?.woba), wrcPlus = Number(s.stat?.wRcPlus)
+            if (id) out.set(id, { woba: Number.isFinite(woba) ? woba : undefined, wrcPlus: Number.isFinite(wrcPlus) ? wrcPlus : undefined })
+          }
+          return out
+        })
+        // Not cached, so the next visit to Advanced asks again.
+        .catch(() => { sabermetricsCache.delete(season); return new Map() }))
+  }
+  return sabermetricsCache.get(season)!
+}

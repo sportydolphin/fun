@@ -3,6 +3,12 @@ import { TAPPABLE, pressable, FOCUS_RING } from './interaction'
 
 // WPBL's, moved here for MLB's phone Stats list (Oct 9, 2026), so the two lists end the same way.
 
+/** Rows a desktop stats table shows before it asks, in both sections. More than the phone list's
+ *  ten, because the table is the board for reading down a column, but not the 124 qualified MLB
+ *  hitters, whose count and filters sat under a scroll box nobody reached the end of. The phone's
+ *  full table is not capped: it is already sized to the screen, with its own foot measured. */
+export const TABLE_CAP = 25
+
 /**
  * The foot of a capped list: "Show all 34 players", and "Show fewer" once it is open.
  *

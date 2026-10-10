@@ -351,6 +351,24 @@ will actually see all winter. The functional items do not wait.
    124 players · qualified only · 2026 season"). The one measured difference left: at 760 and 960
    WPBL's Players controls wrap to two lines (club chips, Standard / Advanced), so its table sits
    lower there.
+   ✅ *One table, Oct 10 (v1.144.0):* the last of what read as two products.
+   - Headings: "MLB Stats" on all three boards, as WPBL's "WPBL Stats" (each board keeps its own
+     `<title>`). MLB's season picker and Stats picker are chips (`FilterSelect` in
+     `src/ui/FilterChip.tsx`); the Leaders "Show all" switch went, the picker's All does the same.
+   - The bar pins on every MLB board (`src/mlb/views/StatsBar.tsx`), and the table pins under it.
+   - The desktop table stops at 25 rows in both sections (`TABLE_CAP`) with "Show all N players".
+   - MLB's columns are WPBL's, in WPBL's (Baseball-Reference's) order: G, PA, R and the TB to IBB
+     tail added, K labelled SO, 1B gone. Cells, header and padding are WPBL's; the line under a name
+     is the position (SP / RP for pitchers), and portraits wear the club's second colour.
+   - MLB has Advanced (`src/mlb/lib/advanced.ts`): WPBL's columns, computed from the season line
+     except wOBA and wRC+, which come from StatsAPI's sabermetrics and only for a regular season.
+     OPS+ and ERA+ are not park adjusted.
+   - Both headers are two rows, the labels and then a pinned "League avg" row
+     (`src/ui/statsTableHead.ts`), so every label sits on one line.
+   - MLB's phone table is WPBL's: inset, the sorted column frozen beside the name, a tap on a cell
+     sorts by it, fitted between the pinned bar and the bottom nav with the site footer stepped
+     aside, and vertical scroll handed to the page until the board pins. Both tables lock a drag to
+     one axis (`src/ui/useAxisLock.ts`).
 
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each

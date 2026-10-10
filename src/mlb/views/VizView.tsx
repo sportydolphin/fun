@@ -6,13 +6,15 @@ import {
 import { Search } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
-import { pillActionSx, InfoTip } from '../components/ui'
+import { InfoTip } from '../components/ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/charts'
 import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboardCard, PlayerLeaderboardModal } from '../components/leaderboards'
 import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow } from '../api'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
+import { FilterSelect } from '../../ui/FilterChip'
+import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 
 
 // Report card / Graphs is a SWITCH on this board, not a page of its own (both live at /mlb/charts),
@@ -28,6 +30,9 @@ const VIZ_TABS: { value: VizTab; label: string }[] = [
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export interface VizViewProps {
+  /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
+  boardTabs: React.ReactNode
+  isDesktop: boolean
   vizSeason: number
   setVizSeason: (s: number) => void
   teamSummaries: TeamSummary[]
@@ -39,7 +44,7 @@ export interface VizViewProps {
 }
 
 export function VizView({
-  vizSeason, setVizSeason, teamSummaries, loadingViz,
+  boardTabs, isDesktop, vizSeason, setVizSeason, teamSummaries, loadingViz,
   nameMap, handleVizNavigate, handleLbPlayerClick, canHover, defaultTab = 'report-card',
 }: VizViewProps & { defaultTab?: VizTab }) {
   const [vizTab, setVizTab]           = useState<VizTab>(defaultTab)
@@ -279,9 +284,10 @@ export function VizView({
   const activePlayerBoard = playerBoards.find(b => b.id === expandedPlayerBoard) ?? null
 
   return (
-    <Box>
+    <Box sx={STATS_BOARD_ROOT_SX}>
+      <StatsBar tabs={boardTabs} isDesktop={isDesktop}>
       {/* ── Top controls: season picker + team search ─────────────────────── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 1, sm: 1.5 }, flexWrap: 'wrap', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
           <PillGroup options={VIZ_TABS} value={vizTab} onChange={v => setVizTab(v as VizTab)} />
           <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
@@ -341,13 +347,16 @@ export function VizView({
           )}
         </Box>
 
-        <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
-          <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(16)}`, borderRadius: 999, fontFamily: 'inherit' }}>
-            {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </Box>
+        {/* The other two boards' season chip (src/ui/FilterChip). */}
+        <FilterSelect
+          ariaLabel="Season"
+          value={String(vizSeason)}
+          options={TEAM_SEASONS.map(y => ({ value: String(y), label: String(y) }))}
+          onChange={v => setVizSeason(Number(v))}
+          active={vizSeason !== CURRENT_SEASON}
+        />
       </Box>
+      </StatsBar>
 
       {loadingViz && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 

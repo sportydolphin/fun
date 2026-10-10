@@ -10,7 +10,7 @@ import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from './qualify'
 
 // Public API surface split across sibling modules, re-exported here so existing
 // `from '../api'` imports across the app keep resolving unchanged.
-export { fetchSeasonPlayerStats } from './apiSeasonStats'
+export { fetchSeasonPlayerStats, fetchSeasonSabermetrics } from './apiSeasonStats'
 export * from './reportCardData'
 export * from './apiContracts'
 
@@ -153,6 +153,7 @@ export async function fetchLeaderboardData(
       playerName: s.player?.fullName ?? '—',
       teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
       teamId: Number(s.team?.id) || 0,
+      position: s.position?.abbreviation,
       stat: s.stat,
     })).filter((e: any) => e.playerId > 0)
   } catch {
@@ -223,6 +224,7 @@ export interface AllTimeEntry {
   playerName: string
   teamAbbr:   string
   teamId:     number
+  position?:  string
   stat:       any
   /**
    * The API returned this player in a Qualified-pool request, i.e. they cleared
@@ -282,6 +284,7 @@ export function fetchAllTimeLeaderboardData(group: 'hitting' | 'pitching', scope
             playerName: s.player?.fullName ?? '—',
             teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
             teamId: Number(s.team?.id) || 0,
+            position: s.position?.abbreviation,
             stat: s.stat,
             qualified: spec.pool === 'Qualified',
           })

@@ -101,8 +101,9 @@ describe('the season board rows', () => {
     draw()
     await screen.findByText('Hitting')
     expect(document.querySelector('tbody tr[data-league-row]')).toBeNull()
-    const ths = Array.from(document.querySelectorAll('thead th'))
-    const league = (label: string) => ths.find(t => t.textContent?.startsWith(label))?.querySelector('[data-league-head]')?.textContent
+    // The header's second row is the league, column for column under the labels in the first.
+    const [labels, leagueRow] = Array.from(document.querySelectorAll('thead tr')).map(r => Array.from(r.children))
+    const league = (label: string) => leagueRow[labels.findIndex(t => t.textContent?.startsWith(label))]?.querySelector('[data-league-head]')?.textContent
     expect(league('AVG')).toBe('.444')
     expect(league('HR')).toBe('')
   })
