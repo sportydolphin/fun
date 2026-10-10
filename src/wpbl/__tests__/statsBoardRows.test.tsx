@@ -65,9 +65,13 @@ const LINES = [
   bat('g1', 'c', 'SF', 3, 0),
 ]
 
-const draw = () => render(
-  <StatsView teams={TEAMS} games={GAMES} focus={{ group: 'hitting', token: 0 }} onOpenPlayer={() => {}} />
-)
+// On the Players board, which is the one these rows are on: a bare /wpbl/stats opens Leaders.
+const draw = () => {
+  window.history.replaceState({}, '', '/wpbl/stats?board=players')
+  return render(
+    <StatsView teams={TEAMS} games={GAMES} focus={{ group: 'hitting', token: 0 }} onOpenPlayer={() => {}} />
+  )
+}
 const bodyRows = () => Array.from(document.querySelectorAll('tbody tr'))
 
 describe('the season board rows', () => {

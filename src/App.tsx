@@ -1061,7 +1061,7 @@ function AppInner() {
                 // Every WPBL tab and /wpbl/api count as the WPBL side, so flipping from any
                 // of them goes to MLB: to the same page there where it has one (sectionSwitch.ts).
                 const toWpbl = !isWpblSection(path)
-                const target = otherSectionPath(path, !toWpbl)
+                const target = otherSectionPath(path, !toWpbl, window.location.search)
                 if (toWpbl) {
                   // Pop confetti from the bottom edge of the WPBL segment (right half of the
                   // control), held until the thumb finishes sliding across (matches the 0.28s slide).

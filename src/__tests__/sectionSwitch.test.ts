@@ -17,9 +17,14 @@ describe('otherSectionPath', () => {
     }
   })
 
-  it("maps all three of MLB's Stats boards to WPBL Stats, and WPBL Stats to the Table board", () => {
-    for (const p of ['/mlb/leaders', '/mlb/stats', '/mlb/charts']) expect(otherSectionPath(p, false)).toBe('/wpbl/stats')
-    expect(otherSectionPath('/wpbl/stats', true)).toBe('/mlb/stats')
+  it('keeps the Stats board where both leagues have it', () => {
+    expect(otherSectionPath('/mlb/leaders', false)).toBe('/wpbl/stats')
+    expect(otherSectionPath('/wpbl/stats', true)).toBe('/mlb/leaders')
+    expect(otherSectionPath('/mlb/stats', false)).toBe('/wpbl/stats')
+    expect(otherSectionPath('/wpbl/stats', true, '?board=players&sort=hr')).toBe('/mlb/stats')
+    // A board only one league has goes to the other's Leaders.
+    expect(otherSectionPath('/mlb/charts', false)).toBe('/wpbl/stats')
+    expect(otherSectionPath('/wpbl/stats', true, '?board=runs')).toBe('/mlb/leaders')
   })
 
   it('sends a page with no counterpart to Home, and a club page to Teams', () => {
