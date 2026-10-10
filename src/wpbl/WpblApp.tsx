@@ -10,8 +10,8 @@ import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFi
 import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
-import { panelShiftSx, useSidePanelOpen } from '../ui/ModalShell'
+import { SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
+import { panelShiftSx, useSidePanelOpen, usePhoneLayout } from '../ui/ModalShell'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { PHONE_COLUMN_W } from '../ui/layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
@@ -51,6 +51,7 @@ import { linkTo } from '../nav'
 import { publishSectionNav, clearSectionNav } from '../sectionNav'
 import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
+import { useGameNotes, ScoreCardFooter, ScoreCardFooterSkeleton } from './ScoreCardNotes'
 import { WPBL_MORE_PAGES } from './morePages'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import { PanelActiveContext, useSectionActive } from '../lib/panelActive'
@@ -152,63 +153,85 @@ function DetailPageSkeleton() {
   return <Skeleton variant="rounded" sx={{ height: chromePx(480), borderRadius: 3, mt: 4.5 }} />
 }
 
+/**
+ * The Scores tab drawn empty, from the card's own pieces: the kicker, the badge rows, the series
+ * strip and the footer (ScoreCardFooterSkeleton, the footer's own rows). The grid above a phone,
+ * the dated list on one, exactly as ScheduleView decides.
+ */
+function ScoresSkeleton() {
+  const grid = !usePhoneLayout()
+  const offseason = offseasonByCalendar()
+  const card = (key: number, strip: 'none' | 'short' | 'long', footer: boolean) => (
+    <Box key={key} sx={{
+      display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25,
+      borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
+    }}>
+      {grid && (
+        <CardKicker date={<Skeleton width="5rem" />}>
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 700 }}><Skeleton width="2rem" /></Typography>
+        </CardKicker>
+      )}
+      {[0, 1].map(row => (
+        <Box key={row} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Skeleton variant="circular" sx={{ width: chromePx(26), height: chromePx(26), flexShrink: 0 }} />
+          <Typography sx={{ fontSize: '0.9rem', flex: 1 }}><Skeleton width="9rem" /></Typography>
+        </Box>
+      ))}
+      {strip !== 'none' && (grid ? (
+        // The grid's strip stacks its label over its line, as the card does there.
+        <Box sx={GRID_STRIP_SX}>
+          <Typography sx={{ fontSize: '0.66rem' }}><Skeleton width="8rem" /></Typography>
+          <Typography sx={{ fontSize: '0.72rem' }}><Skeleton width="10rem" /></Typography>
+        </Box>
+      ) : (
+        // The list's strip: the label and the series line in two type sizes on one
+        // baseline-aligned row, which stands a fraction of a pixel taller than either size alone.
+        // On a phone a long series line ("Queens win the championship 3-2") wraps under its label
+        // where a short one ("Series tied 2-2") does not, so it comes in both heights.
+        <Box sx={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
+          pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+        }}>
+          <Typography sx={{ fontSize: '0.66rem' }}><Skeleton width="8rem" /></Typography>
+          <Typography sx={{ fontSize: '0.72rem', flexBasis: strip === 'long' ? { xs: '100%', sm: 'auto' } : 'auto' }}>
+            <Skeleton width={strip === 'long' ? '10rem' : '6rem'} />
+          </Typography>
+        </Box>
+      ))}
+      {footer && <ScoreCardFooterSkeleton />}
+    </Box>
+  )
+  const day = (key: number, body: ReactNode) => (
+    <Box key={key}>
+      <SectionLabel><Skeleton width="5.5rem" /></SectionLabel>
+      {body}
+    </Box>
+  )
+  // THE OFFSEASON OPENS ON THE POSTSEASON, newest first, and the calendar alone knows it (see
+  // offseasonByCalendar): every card above the fold is a bracket game with a series strip and a
+  // final's footer, and on a phone the first is the final, whose line names the champion and is
+  // the long one. In season the page opens on the last game day's finals and then games to come.
+  return (
+    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 1.25 }, grid ? SCORES_WIDE_SX : {}, FLAT_CARDS_DARK]}>
+      <TabTitle sx={{ mb: 0.25 }}>WPBL Scores</TabTitle>
+      {grid ? (
+        <Box sx={SCORES_GRID_SX}>
+          {[0, 1, 2, 3, 4, 5].map(i => offseason ? card(i, 'short', true) : card(i, 'none', i < 2))}
+        </Box>
+      ) : offseason
+        ? [0, 1, 2, 3, 4].map(i => day(i, card(i, i === 0 ? 'long' : 'short', true)))
+        : [0, 1, 2, 3, 4].map(i => day(i, card(i, 'none', i === 0)))}
+    </Box>
+  )
+}
+
 function TabSkeleton({ view }: { view: WpblView }) {
   const block = (height: unknown, key?: number) => (
     <Skeleton key={key} variant="rounded" sx={{ height, borderRadius: 2 }} />
   )
   switch (view) {
-    case 'schedule': {
-      // The schedule's own pieces, empty: a date label over a game card, with the card's padding,
-      // gap and badge size. A postseason game carries a series strip under the matchup.
-      const gameCard = (strip: boolean) => (
-        <Box sx={{
-          display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25,
-          borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
-        }}>
-          {[0, 1].map(row => (
-            <Box key={row} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Skeleton variant="circular" sx={{ width: chromePx(26), height: chromePx(26), flexShrink: 0 }} />
-              <Typography sx={{ fontSize: '0.9rem', flex: 1 }}><Skeleton width="9rem" /></Typography>
-            </Box>
-          ))}
-          {strip && (
-            <Box sx={{ pt: 0.6, borderTop: '1px solid', borderColor: 'divider' }}>
-              {/* On a phone this row is the label alone, in its own smaller type; above, the
-                  label and the series line share it and the larger line sets its height. */}
-              <Typography sx={{ fontSize: { xs: '0.66rem', sm: '0.72rem' } }}><Skeleton width="14rem" /></Typography>
-              {/* The series line wraps under its label on a phone. */}
-              <Typography sx={{ fontSize: '0.72rem', mt: 0.75, display: { xs: 'block', sm: 'none' } }}><Skeleton width="10rem" /></Typography>
-            </Box>
-          )}
-        </Box>
-      )
-      const day = (key: number, body: React.ReactNode) => (
-        <Box key={key}>
-          <SectionLabel><Skeleton width="5.5rem" /></SectionLabel>
-          {body}
-        </Box>
-      )
-      return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <TabTitle sx={{ mb: 0.25 }}>WPBL Scores</TabTitle>
-          {offseasonByCalendar() ? (
-            // THE OFFSEASON LIST OPENS DIFFERENTLY, and the calendar alone knows it (see
-            // offseasonByCalendar): today, which has no games, then the day of the final, whose
-            // card carries the series strip, then everything earlier under its own label.
-            <>
-              {day(0, (
-                <Box sx={{ px: 1.25, py: 0.6, borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, display: 'flex', justifyContent: 'center' }}>
-                  <Typography sx={{ fontSize: '0.72rem' }}><Skeleton width="4rem" /></Typography>
-                </Box>
-              ))}
-              {day(1, gameCard(true))}
-              <SectionLabel>Earlier</SectionLabel>
-              {[2, 3, 4].map(i => day(i, gameCard(false)))}
-            </>
-          ) : [0, 1, 2, 3, 4].map(i => day(i, gameCard(false)))}
-        </Box>
-      )
-    }
+    case 'schedule':
+      return <ScoresSkeleton />
     case 'standings':
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -273,6 +296,42 @@ const revisedLabel = (g: WpblGame): string => {
   return r ? formatRevisionDay(r.on) : ''
 }
 
+// Scores breaks out of the 720px column to Home's width on a wide screen, by the same device as
+// Home (see homeWideSx there): the grid spends the width on more games per row, where a list had
+// nothing to spend it on.
+const SCORES_WIDE_SX = {
+  width: { xs: 'auto', md: HOME_WIDE_W },
+  position: 'relative',
+  left: { xs: 0, md: '50%' },
+  transform: { xs: 'none', md: 'translateX(-50%)' },
+} as const
+
+/** The grid itself: as many columns as fit a card's minimum width, which is three on a desktop. */
+const SCORES_GRID_SX = {
+  display: 'grid', gap: 1.25,
+  gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${chromePx(300)}), 1fr))`,
+} as const
+
+/** The series strip inside a grid card: label over line, never side by side. Side by side it
+ *  wraps or not depending on the card's width and the line's length, and a card whose height
+ *  depends on that cannot be reserved by a skeleton. Stacked it is one height everywhere. */
+const GRID_STRIP_SX = {
+  display: 'flex', flexDirection: 'column', gap: 0.25,
+  pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+} as const
+
+/** A grid card's first line: its date, and the game's status on the right. */
+function CardKicker({ date, children }: { date: ReactNode; children?: ReactNode }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.25 }}>
+      <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
+        {date}
+      </Typography>
+      {children}
+    </Box>
+  )
+}
+
 function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, onOpenPlayer }: {
   teams: WpblTeam[]; games: WpblGame[]; siteGames?: WpblSiteGame[]; onOpenGame: (g: WpblGame) => void
   /** For the postseason matchup preview's roster and club links; optional so the view still
@@ -284,6 +343,11 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const isDark = useWpblDark()
   const gameLink = useWpblGameLink()
+  const { notes: gameNotes, players: notePlayers, settled: notesSettled } = useGameNotes(games, teams)
+  // A GRID ABOVE A PHONE. A four-club league plays at most two games a day, so a grid inside each
+  // date would be one card and a hole most days: the date moves into the card instead, and the
+  // games flow across the row in date order. A phone, and the side panel, keep the dated list.
+  const grid = !usePhoneLayout()
   // A postseason placeholder opened as a matchup preview. These have no feed game row to open,
   // so this is a local modal rather than a history-managed page: season comparison and the two
   // rosters, which is what a seeded-but-unplayed fixture can answer.
@@ -327,41 +391,34 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
     list.push(g); byDate.set(g.game_date, list)
   }
 
-  // Open on the current point in the season by *ordering*, not scrolling: the previous
-  // game's date leads, then the next/live game and everything upcoming; earlier completed
-  // games follow under an "Earlier" divider. Nothing moves the window, so switching to this tab
-  // never scrolls the page under the reader.
+  // GAME DAYS ONLY. Every calendar day between the first game and the last used to get a row,
+  // off days as a dashed "No games" card, which in a season of 40 finals over seven weeks was
+  // most of the page saying nothing. Worse, the lead below steps back one DATE from the anchor,
+  // and with off days in the list that date was usually an off day: the offseason page opened on
+  // "Mon, Sep 21 · No games" above the championship. Without them, one step back is the previous
+  // game day, which is what that step was always meant to reach.
   //
-  // Fill the calendar gaps between the first and last game so off-days show up as a slim
-  // "no games" marker: it reads as a continuous run of days, making the rhythm of when
-  // games land easy to see. Nothing is added after the final game.
-  const gameDates = [...byDate.keys()] // date-ascending
-  const dates: string[] = []
-  {
-    const cursor = new Date(`${gameDates[0]}T00:00:00`)
-    // Runs to the last date anything is scheduled on, which after the regular season is the
-    // published postseason rather than the feed. Taking the later of the two keeps the calendar
-    // continuous in both directions: before the league draws the bracket the tail is the published
-    // calendar, and once it does the feed's own rows are the later date and take over.
-    const lastFeed = gameDates[gameDates.length - 1]
-    const lastPost = postRows.length ? postRows[postRows.length - 1].date : lastFeed
-    const end = new Date(`${(lastPost > lastFeed ? lastPost : lastFeed)}T00:00:00`)
-    while (cursor <= end) {
-      const y = cursor.getFullYear()
-      const m = String(cursor.getMonth() + 1).padStart(2, '0')
-      const d = String(cursor.getDate()).padStart(2, '0')
-      dates.push(`${y}-${m}-${d}`)
-      cursor.setDate(cursor.getDate() + 1)
-    }
-  }
+  // The feed's dates plus the published postseason's, since before the league draws the bracket
+  // the tail of the season exists only in the calendar (see postseasonScheduleRows).
+  const dates = [...new Set([...byDate.keys(), ...postByDate.keys()])].sort()
   // The first date the postseason occupies, which is where the divider goes. Taken from the
   // rows rather than from a constant, so it moves on its own once the feed starts publishing
   // real games and the placeholders retire.
   const firstPostDate = postRows[0]?.date ?? null
+  // Nothing left to play: no unfinished feed game and no published postseason game still waiting
+  // for its row. Then the page is the season's results, and results read newest first, the way
+  // every scores page does; the anchored order below would put the final at the top and then
+  // restart the list at opening day.
+  const seasonOver = !games.some(g => g.status !== 'final') && postRows.length === 0
+  // In season, open on the current point by *ordering*, not scrolling: the previous game day
+  // leads, then the next or live game and everything upcoming; the rest of the played games
+  // follow under "Earlier", newest first, so the night before last sits directly under the
+  // divider rather than at the foot of the page. Nothing moves the window, so switching to this
+  // tab never scrolls the page under the reader.
   const anchorIdx = anchorDate ? Math.max(0, dates.indexOf(anchorDate)) : 0
-  const start = Math.max(0, anchorIdx - 1) // include the previous game's date
+  const start = seasonOver ? dates.length : Math.max(0, anchorIdx - 1)
   const lead = dates.slice(start)
-  const earlier = dates.slice(0, start)
+  const earlier = dates.slice(0, start).reverse()
 
   // "Today" / "Tomorrow" / "Yesterday" for the nearby days (with the date kept alongside so the
   // label stays informative), otherwise the weekday + date.
@@ -377,7 +434,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
   // A postseason game the league has dated but not yet drawn. Deliberately a different object
   // from a game card: dashed rather than solid, no score column, no link, and slots that name a
   // seed rather than a club. A reader must not be able to mistake it for a fixture that exists.
-  const renderPostseason = (r: PostseasonScheduleRow) => {
+  const renderPostseason = (r: PostseasonScheduleRow, kicker?: string) => {
     // Away over home when the league has designated one, seed order when it has not, and no venue
     // marker either way, matching the real game card: one ballpark means "home" is only batting last.
     const { slots } = postseasonSlots(r)
@@ -422,9 +479,10 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
           // Solid and clickable once both clubs are seeded (there is a matchup to preview); dashed
           // and inert while a seat is still a seed number.
           borderRadius: 2, border: preview ? '1px solid' : '1px dashed', borderColor: CARD_BORDER,
-          bgcolor: 'background.paper',
+          bgcolor: CARD_FILL,
           ...(preview ? { cursor: 'pointer', ...TAPPABLE, ...FOCUS_RING, transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }) } : {}),
         }}>
+        {kicker && <CardKicker date={kicker} />}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {slots.map(slot)}
@@ -457,25 +515,127 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
     )
   }
 
+  const renderGame = (g: WpblGame, kicker?: string) => {
+    const home = byId.get(g.home_team_id)
+    const away = byId.get(g.away_team_id)
+    const final = g.status === 'final' && g.home_score != null && g.away_score != null
+    const live = g.status === 'live'
+    const ser = series.get(g.id)
+    const status = (
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
+        {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
+      </Typography>
+    )
+    return (
+      // Every card is a real <a href="/wpbl/games/<slug>">. This is the section's
+      // crawl path to all 41 recaps, and it was a bare onClick div: no href for a
+      // crawler, no tab stop for a keyboard, nothing to open in a new tab.
+      // THE GAME LINK IS STRETCHED, not the card: a final's footer names players, and an <a>
+      // inside an <a> is silently unpicked by the browser. The matchup row is the anchor and
+      // its ::after covers the whole card, so a tap anywhere still opens the game, while the
+      // player names sit above it on their own anchors.
+      <Box key={g.id} sx={{
+        position: 'relative',
+        // A column, so a postseason game can carry a series strip under the matchup.
+        // The matchup and the status keep their own row inside it and are unchanged.
+        display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25, cursor: 'pointer',
+        // In light mode a final gets a muted fill, so the past reads as settled against crisp
+        // upcoming cards. In dark mode every card is flat, as on Home and the season recap (see
+        // FLAT_CARDS_DARK): the grey fill this used to carry was the one lifted card on a flat page.
+        borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
+        bgcolor: final && !isDark ? 'action.hover' : CARD_FILL,
+        transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
+      }}>
+        {/* The grid's own date line, since a card there has no date label above it. */}
+        {kicker && <CardKicker date={kicker}>{status}</CardKicker>}
+       <Box {...gameLink(g, onOpenGame)} sx={{
+         display: 'flex', alignItems: 'center', gap: 1, width: '100%', color: 'inherit', textDecoration: 'none',
+         '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 2 },
+       }}>
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {[away, home].map((t, i) => {
+            const score = i === 0 ? g.away_score ?? 0 : g.home_score ?? 0
+            const other = i === 0 ? g.home_score ?? 0 : g.away_score ?? 0
+            const won = final && score > other
+            return t && (
+            <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+              {/* Winner caret on finals: a fixed-width slot keeps both rows' badges aligned. */}
+              {final && (
+                <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
+              )}
+              <TeamBadge team={t} size={26} />
+              {/* Away on top, home on the bottom, and no "@" marking the home side: the league
+                  plays every game in one ballpark, so "home" means batting last and nothing
+                  else, and a venue marker pointing at a ground that never changes is noise. */}
+              <Typography noWrap sx={{ fontSize: '0.9rem', fontWeight: won ? 800 : 600, flex: 1, minWidth: 0, color: final && !won ? 'text.secondary' : 'text.primary' }}>
+                {wpblFullName(t)}
+              </Typography>
+              {(final || live) ? (
+                <Typography sx={{ flexShrink: 0, minWidth: '1.125rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: final && !won ? 'text.disabled' : 'text.primary' }}>
+                  {score}
+                </Typography>
+              ) : recordById.get(t.id) && (
+                <Typography sx={{ flexShrink: 0, textAlign: 'right', fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
+                  {recordById.get(t.id)}
+                </Typography>
+              )}
+            </Box>
+          )})}
+        </Box>
+        {!kicker && (
+          <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: '3.625rem', whiteSpace: 'nowrap' }}>{status}</Box>
+        )}
+       </Box>
+        {/* "Semifinal · Game 2" and the record, which is the unit a fan tracks in the
+            postseason and the one thing three rows between the same two clubs cannot say
+            for themselves. The record only, not what a win would clinch: that is
+            broadcast copy and it belongs on the game's own page, where there is room
+            for it. Wraps rather than truncates, because the club names in it are as
+            long as the row is wide on a small phone. */}
+        {ser && (
+          <Box sx={kicker ? GRID_STRIP_SX : {
+            display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
+            pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+          }}>
+            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: WPBL_ACCENT }}>
+              {ser.label} · Game {ser.gameNumber}
+            </Typography>
+            {ser.line && (
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+                {ser.line}
+              </Typography>
+            )}
+          </Box>
+        )}
+        {/* The league changed this box score in the last week. THE WINDOW IS WHAT MAKES
+            IT A SIGNAL: most of a season's games get revised at some point, so marking all
+            of them says nothing, where "changed since you last looked" is the question a
+            reader scanning the schedule for scoring changes is actually asking. The game's
+            own page carries the date whenever there is one, however old. See
+            boxScoreRevision. */}
+        {final && (notesSettled
+          ? <ScoreCardFooter notes={gameNotes.get(g.id)} players={notePlayers} onOpenPlayer={onOpenPlayer} />
+          : <ScoreCardFooterSkeleton />)}
+        {recentRevision(g) && (
+          <Box sx={{
+            display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.6,
+            pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+          }}>
+            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
+              Box score revised
+            </Typography>
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+              {revisedLabel(g)}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    )
+  }
+
   const renderDate = (date: string) => {
     const dayGames = byDate.get(date)
     const dayPost = postByDate.get(date)
-    // Off-day: a slim dashed marker instead of game cards, so gaps between game days are visible.
-    if (!dayGames && !dayPost) {
-      return (
-        <Box key={date}>
-          <SectionLabel>{dateLabel(date)}</SectionLabel>
-          <Box sx={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
-            px: 1.25, py: 0.6, borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER,
-          }}>
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled', letterSpacing: typePx(0.2) }}>
-              No games
-            </Typography>
-          </Box>
-        </Box>
-      )
-    }
     return (
     <Box key={date}>
       {/* One divider where the regular season stops, so a reader scrolling past the last
@@ -483,120 +643,38 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
       {date === firstPostDate && <SectionLabel>Postseason</SectionLabel>}
       <SectionLabel>{dateLabel(date)}</SectionLabel>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {(dayGames ?? []).map(g => {
-          const home = byId.get(g.home_team_id)
-          const away = byId.get(g.away_team_id)
-          const final = g.status === 'final' && g.home_score != null && g.away_score != null
-          const live = g.status === 'live'
-          const ser = series.get(g.id)
-          return (
-            // Every card is a real <a href="/wpbl/games/<slug>">. This is the section's
-            // crawl path to all 41 recaps, and it was a bare onClick div: no href for a
-            // crawler, no tab stop for a keyboard, nothing to open in a new tab.
-            <Box key={g.id} {...gameLink(g, onOpenGame)} sx={{
-              // A column, so a postseason game can carry a series strip under the matchup.
-              // The matchup and the status keep their own row inside it and are unchanged.
-              display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25, cursor: 'pointer',
-              // Completed games get a muted fill so past reads as visually settled vs. crisp upcoming cards.
-              // action.hover is too faint against the dark paper, so use a stronger explicit tint there.
-              borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
-              bgcolor: final ? (isDark ? 'rgba(255,255,255,0.09)' : 'action.hover') : 'background.paper',
-              transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
-            }}>
-             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {[away, home].map((t, i) => {
-                  const score = i === 0 ? g.away_score ?? 0 : g.home_score ?? 0
-                  const other = i === 0 ? g.home_score ?? 0 : g.away_score ?? 0
-                  const won = final && score > other
-                  return t && (
-                  <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                    {/* Winner caret on finals: a fixed-width slot keeps both rows' badges aligned. */}
-                    {final && (
-                      <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
-                    )}
-                    <TeamBadge team={t} size={26} />
-                    {/* Away on top, home on the bottom, and no "@" marking the home side: the league
-                        plays every game in one ballpark, so "home" means batting last and nothing
-                        else, and a venue marker pointing at a ground that never changes is noise. */}
-                    <Typography noWrap sx={{ fontSize: '0.9rem', fontWeight: won ? 800 : 600, flex: 1, minWidth: 0, color: final && !won ? 'text.secondary' : 'text.primary' }}>
-                      {wpblFullName(t)}
-                    </Typography>
-                    {(final || live) ? (
-                      <Typography sx={{ flexShrink: 0, minWidth: '1.125rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: final && !won ? 'text.disabled' : 'text.primary' }}>
-                        {score}
-                      </Typography>
-                    ) : recordById.get(t.id) && (
-                      <Typography sx={{ flexShrink: 0, textAlign: 'right', fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
-                        {recordById.get(t.id)}
-                      </Typography>
-                    )}
-                  </Box>
-                )})}
-              </Box>
-              <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: '3.625rem', whiteSpace: 'nowrap' }}>
-                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
-                  {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
-                </Typography>
-              </Box>
-             </Box>
-              {/* "Semifinal · Game 2" and the record, which is the unit a fan tracks in the
-                  postseason and the one thing three rows between the same two clubs cannot say
-                  for themselves. The record only, not what a win would clinch: that is
-                  broadcast copy and it belongs on the game's own page, where there is room
-                  for it. Wraps rather than truncates, because the club names in it are as
-                  long as the row is wide on a small phone. */}
-              {ser && (
-                <Box sx={{
-                  display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
-                  pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
-                }}>
-                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: WPBL_ACCENT }}>
-                    {ser.label} · Game {ser.gameNumber}
-                  </Typography>
-                  {ser.line && (
-                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
-                      {ser.line}
-                    </Typography>
-                  )}
-                </Box>
-              )}
-              {/* The league changed this box score in the last week. THE WINDOW IS WHAT MAKES
-                  IT A SIGNAL: most of a season's games get revised at some point, so marking all
-                  of them says nothing, where "changed since you last looked" is the question a
-                  reader scanning the schedule for scoring changes is actually asking. The game's
-                  own page carries the date whenever there is one, however old. See
-                  boxScoreRevision. */}
-              {recentRevision(g) && (
-                <Box sx={{
-                  display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.6,
-                  pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
-                }}>
-                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
-                    Box score revised
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
-                    {revisedLabel(g)}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )
-        })}
-        {(dayPost ?? []).map(renderPostseason)}
+        {(dayGames ?? []).map(g => renderGame(g))}
+        {(dayPost ?? []).map(r => renderPostseason(r))}
       </Box>
     </Box>
     )
   }
 
+  // One date's cards for the grid, each carrying its own date. The postseason divider spans the row.
+  const gridCards = (date: string): ReactNode[] => [
+    ...(date === firstPostDate ? [<Box key="post-label" sx={{ gridColumn: '1 / -1' }}><SectionLabel>Postseason</SectionLabel></Box>] : []),
+    ...(byDate.get(date) ?? []).map(g => renderGame(g, dateLabel(date))),
+    ...(postByDate.get(date) ?? []).map(r => renderPostseason(r, dateLabel(date))),
+  ]
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+    // Flat cards in dark mode, as on Home and the season recap: see FLAT_CARDS_DARK.
+    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 1.25 }, grid ? SCORES_WIDE_SX : {}, FLAT_CARDS_DARK]}>
       {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. Demoted to
           a plain div while a game or player modal is the page; see PageHeading.tsx. */}
       <TabTitle sx={{ mb: 0.25 }}>WPBL Scores</TabTitle>
-      {lead.map(renderDate)}
-      {earlier.length > 0 && <SectionLabel>Earlier</SectionLabel>}
-      {earlier.map(renderDate)}
+      {grid ? (
+        <Box sx={SCORES_GRID_SX}>
+          {lead.flatMap(gridCards)}
+          {lead.length > 0 && earlier.length > 0 && <Box sx={{ gridColumn: '1 / -1' }}><SectionLabel>Earlier</SectionLabel></Box>}
+          {earlier.flatMap(gridCards)}
+        </Box>
+      ) : (<>
+        {lead.map(renderDate)}
+        {/* A divider only under something: with the season over there is no lead to divide from. */}
+        {lead.length > 0 && earlier.length > 0 && <SectionLabel>Earlier</SectionLabel>}
+        {earlier.map(renderDate)}
+      </>)}
       {matchup && (
         <WpblMatchupPreview
           away={matchup.away} home={matchup.home} teams={teams} games={games}
@@ -1052,7 +1130,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // The page moves aside for the side panel (see panelShiftSx), by the width of the widest thing on
   // the current surface: the column itself, or one of the surfaces that break out of it.
   const panelOpen = useSidePanelOpen()
-  const contentW = showGamePage ? GAME_PAGE_W : showPlayerPage ? PLAYER_PAGE_W : view === 'home' ? HOME_WIDE_W : view === 'stats' ? STATS_FULL_BLEED_W : chromePx(720)
+  const contentW = showGamePage ? GAME_PAGE_W : showPlayerPage ? PLAYER_PAGE_W : view === 'home' ? HOME_WIDE_W : view === 'stats' ? STATS_FULL_BLEED_W : view === 'schedule' ? HOME_WIDE_W : chromePx(720)
   // The page takes the window's scroll, so it opens at its top and hands the tab back its place.
   // Layout effect, so neither the page nor the returning tab paints a frame at the wrong depth.
   // Keyed on the game as well: one page can lead to another (a player's log beside it), and the

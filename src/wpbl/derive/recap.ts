@@ -26,7 +26,7 @@ export interface RecapStar {
   score: number             // internal ranking weight
 }
 
-export interface RecapDecision { key: 'W' | 'L' | 'S'; name: string; teamId: string | null; statline: string }
+export interface RecapDecision { key: 'W' | 'L' | 'S'; playerId: string; name: string; teamId: string | null; statline: string }
 export interface RecapTeamLine { teamId: string; name: string; r: number; h: number; e: number }
 
 export interface GameRecap {
@@ -416,7 +416,7 @@ export function buildRecap(
   const decisions: RecapDecision[] = []
   for (const key of ['W', 'L', 'S'] as const) {
     const p = pitching.find(pp => pp.decision === key)
-    if (p) decisions.push({ key, name: nameOf(p.player_id), teamId: p.team_id, statline: pitchingStatline(p) })
+    if (p) decisions.push({ key, playerId: p.player_id, name: nameOf(p.player_id), teamId: p.team_id, statline: pitchingStatline(p) })
   }
 
   // ── H-R-E line for each team. ──────────────────────────────────────────────────────────
