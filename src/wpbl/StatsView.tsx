@@ -329,6 +329,21 @@ export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'o
  *  ONE DEFINITION, used by the writer effect below and by `urlFor` in WpblApp, so a param added
  *  here cannot be carried by one and dropped by the other, which is the asymmetry that loses a
  *  board's state on a pasted link. */
+/** Every read the Stats tab makes on mounting, started early. The tab cannot mount until the
+ *  section's teams and schedule are in (WpblApp's `loading`), and none of these reads needs either
+ *  of them to FETCH, only to aggregate, so a reader landing on /wpbl/stats waited one whole Supabase
+ *  round trip (about 650ms) before the slowest reads on the site had even started. Each fetcher
+ *  shares an in-flight request (`once` in api.ts), so the tab's own effects pick these up rather
+ *  than asking twice. Failures are the tab's to handle when it asks; here they are dropped. */
+export function warmStatsReads(): void {
+  const drop = () => { /* the tab's own read reports it */ }
+  fetchWpblAllPlayers().catch(drop)
+  fetchWpblAllLines().catch(drop)
+  fetchWpblAllFielding().catch(drop)
+  fetchWpblTrackedGameCount().catch(drop)
+  fetchWpblAllRunValuePlays().catch(drop)
+}
+
 export function carryStatsParams(from: URLSearchParams, to: URLSearchParams): void {
   for (const k of STATS_URL_PARAMS) {
     const v = from.get(k)
