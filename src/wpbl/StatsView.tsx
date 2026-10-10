@@ -96,7 +96,7 @@ type Source = 'leaders' | 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 
 // deliberately NOT one: it is a form and a pair of result cards, and at the wide column its
 // controls stretch to absurd widths (a stat dropdown running the whole row) and the cards read as
 // sparse. It caps at the ordinary board column instead; its results still split into two under it.
-const WIDE_BOARDS = new Set<Source>(['leaders', 'runs', 'bests'])
+const WIDE_BOARDS = new Set<Source>(['runs', 'bests'])
 type Mode = 'players' | 'teams'
 
 // The deep-link contract: a link asks for 'hitting'/'pitching' with a column, and a legacy
@@ -774,7 +774,7 @@ export function StatsSkeleton() {
       <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '95px', sm: chromePx(94) }, borderRadius: 2 }} />
       {leaders ? (
         <Box sx={fullBleedSx}>
-          <Box sx={{ maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto' }}>
+          <Box>
             <LeadersBoardSkeleton />
           </Box>
         </Box>
@@ -2020,7 +2020,9 @@ export default function WpblStatsView({
         // columns on a large desktop and the rest do not: one width for all of them would sit level
         // with a 720px board on some tabs and well inside a 1150px one on another, which reads as the
         // control drifting rather than as the board changing.
-        ...(source === 'season' ? {} : {
+        // Leaders spans the bleed as the season table does: four columns of cards use the width,
+        // and MLB's Leaders is the same width, so the two line up across the league switch.
+        ...(source === 'season' || source === 'leaders' ? {} : {
           maxWidth: WIDE_BOARDS.has(source) ? { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE } : BOARD_COLUMN,
           mx: 'auto', width: '100%',
         }),
@@ -2162,9 +2164,9 @@ export default function WpblStatsView({
           the same `side` as the table, so switching Hitting/Pitching above carries straight
           through instead of being asked again inside them. */}
       {source === 'leaders' ? (
-        // Full bleed and capped, as Bests is, for the same 8px on a phone.
+        // Full bleed and not capped, as the season table is.
         <Box sx={fullBleedSx}>
-          <Box sx={{ maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto' }}>
+          <Box>
             {boardSide === 'hitting' ? (
               <LeadersBoard side="hitting" cols={hitCols} seasons={leaderSeasons.batting} qual={qual}
                 onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />

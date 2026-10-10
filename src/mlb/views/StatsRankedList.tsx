@@ -11,6 +11,8 @@ import { LIST_CAP, rankMarks, contextKeys, isBestFirst } from '../lib/statsBoard
 import type { RankedEntry, RankMark, StatsGroup } from '../lib/statsBoard'
 import { pressable, hoverOnly, tappableIf, linkPress, FOCUS_RING } from '../../ui/interaction'
 import { typePx } from '../../ui/scale'
+import { ExpandRow } from '../../ui/ExpandRow'
+import { LogoBubble } from '../components/boxScore'
 
 // The phone's Stats board: a ranked list that shows ONE stat, with a sheet to change which.
 //
@@ -88,10 +90,11 @@ function ListRow({ entry, onOpen, rank, value, context, first, total, bestFirst,
       {/* Line heights set, not inherited: MUI's 1.5 put 6px of air in each line, and a screen holds
           ten of these. */}
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography sx={NAME_SX}>
-          {entry.playerName}
-          <Box component="span" sx={{ ml: 0.6, fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{entry.teamAbbr}</Box>
-        </Typography>
+        {/* The club's logo after the name, where WPBL's list draws its badge. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+          <Typography sx={NAME_SX}>{entry.playerName}</Typography>
+          {entry.teamId > 0 && <LogoBubble teamId={entry.teamId} abbr={entry.teamAbbr} size={16} ring={1} />}
+        </Box>
         <Typography sx={CONTEXT_SX}>
           {context}
         </Typography>
@@ -132,22 +135,24 @@ function ListRowSkeleton({ first }: { first: boolean }) {
 }
 
 export function StatsRankedList({
-  rows, def, statDefs, group, asc, highlightPlayerId, total, limit,
-  onOpenPlayer, onMore, footerNote, skeleton,
+  rows, def, statDefs, group, asc, highlightPlayerId, league, footer,
+  onOpenPlayer, skeleton,
 }: {
-  /** Already filtered, sorted and clipped to `limit` by the caller. */
+  /** Every ranked row, already filtered and sorted by the caller. The list shows ten and opens to all
+   *  of them, as WPBL's does. */
   rows: RankedEntry[]
   def: StatDef
   statDefs: StatDef[]
   group: StatsGroup
   asc: boolean
   highlightPlayerId?: number | null
-  /** How many players have a value, for the count and for whether there is more to ask for. */
-  total: number
-  limit: number
+  /** The league's figure for the ranked stat, printed beside its label as WPBL's list does. Null on a
+   *  counting stat or a career board. */
+  league?: string | null
+  /** The list's last row, given how many rows are showing: what the board is counted from, and the
+   *  switch to the grid. */
+  footer?: (shown: number) => React.ReactNode
   onOpenPlayer: (id: number) => void
-  onMore: () => void
-  footerNote?: string
   /** The board drawn empty while its read is out: the real header, a first page of empty rows. */
   skeleton?: boolean
 }) {
@@ -169,18 +174,19 @@ export function StatsRankedList({
     return () => clearTimeout(t)
   }, [hlIdx])
 
-  const capped = cap < rows.length
-  const canLoadMore = expanded && limit < total
-
   return (
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
-      {/* The header the grid has, so the big number is not the one unlabelled figure on the row,
-          and the list gets the direction arrow: on the ERA board the numbers ascend and nothing
-          else says so. */}
+      {/* WPBL's header: "Player", the league's figure, the ranked stat with its direction arrow. On
+          the ERA board the numbers ascend and nothing else says so. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.7, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
-          {group === 'hitting' ? 'Hitter' : 'Pitcher'}
+          Player
         </Typography>
+        {league && (
+          <Typography data-league-head="" sx={{ flexShrink: 0, fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+            League avg {league}
+          </Typography>
+        )}
         <Typography sx={{ flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), color: 'var(--wpbl-accent-fg)' }}>
           {def.label}
           <Box component="span" aria-label={asc ? 'ascending' : 'descending'} sx={{ ml: 0.3, fontSize: '0.62rem' }}>{asc ? '↑' : '↓'}</Box>
@@ -199,30 +205,14 @@ export function StatsRankedList({
           context={ctx.map(d => `${d.format(d.getValue(r.stat))} ${d.label}`).join(' · ')} />
       ))}
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, px: 1.25, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled' }}>
-          {skeleton
-            ? <Skeleton width="6rem" />
-            : <>{footerNote ? `${footerNote} · ` : ''}Showing {visible.length} of {total}</>}
-        </Typography>
-        {/* Most boards hold more than a page, so the skeleton keeps the button's room. */}
-        {skeleton && <Box sx={{ minHeight: 32, display: 'inline-flex', alignItems: 'center', fontSize: '0.74rem' }}><Skeleton width="3.5rem" /></Box>}
-        {capped && (
-          <Box {...pressable(() => setExpanded(true))} sx={{ ...FOCUS_RING, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', minHeight: 32, display: 'inline-flex', alignItems: 'center' }}>
-            Show {rows.length}
-          </Box>
+      {/* WPBL's foot (src/ui/ExpandRow): the count is in the words, so there is no "Showing 10 of".
+          The skeleton keeps its room, since nearly every board holds more than ten. */}
+      {skeleton
+        ? <Box aria-hidden sx={{ minHeight: 48, borderTop: '1px solid', borderColor: 'divider' }} />
+        : rows.length > LIST_CAP && (
+          <ExpandRow expanded={expanded} moreLabel={`Show all ${rows.length} players`} onToggle={() => setExpanded(e => !e)} />
         )}
-        {!capped && expanded && rows.length > LIST_CAP && !canLoadMore && (
-          <Box {...pressable(() => setExpanded(false))} sx={{ ...FOCUS_RING, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', minHeight: 32, display: 'inline-flex', alignItems: 'center' }}>
-            Show fewer
-          </Box>
-        )}
-        {canLoadMore && (
-          <Box {...pressable(onMore)} sx={{ ...FOCUS_RING, cursor: 'pointer', fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', minHeight: 32, display: 'inline-flex', alignItems: 'center' }}>
-            Load 50 more
-          </Box>
-        )}
-      </Box>
+      {footer?.(visible.length)}
     </Box>
   )
 }

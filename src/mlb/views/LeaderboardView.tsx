@@ -11,6 +11,7 @@ import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
+import { FilterChip } from '../../ui/FilterChip'
 import { playerLink } from '../lib/links'
 import { pressable } from '../../ui/interaction'
 import { mlbUrlFor } from '../routes'
@@ -63,18 +64,17 @@ export function LeaderboardView({
   return (
     <Box>
       {/* Desktop controls: room for every one of them in a row. */}
-      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
+      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
             value={lbGroup}
             onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
           />
-          <PillGroup
-            options={GAME_SCOPES.map(s => ({ value: s, label: GAME_SCOPE_LABEL[s] }))}
-            value={gameScope}
-            onChange={v => setGameScope(v as GameScope)}
-          />
+          {/* Filters, so chips, as on the Players board and on every WPBL board. */}
+          {GAME_SCOPES.map(sc => (
+            <FilterChip key={sc} active={gameScope === sc} onClick={() => setGameScope(sc)}>{GAME_SCOPE_LABEL[sc]}</FilterChip>
+          ))}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
@@ -119,7 +119,7 @@ export function LeaderboardView({
           and everything else is a pill that says what it is set to and opens a sheet. The desktop
           row wrapped onto three lines at 375px before a single leader was on screen. */}
       {!isDesktop && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1, flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
             value={lbGroup}

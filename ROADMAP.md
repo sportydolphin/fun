@@ -338,6 +338,19 @@ will actually see all winter. The functional items do not wait.
    tint, and competition ranks on the sorted column. Kept apart: MLB's season and stat pickers,
    WPBL's Advanced view and club chips. The predictions and Survivor boards keep their medals:
    those are games, not stats.
+   ✅ *One page, Oct 9 (v1.143.0):* measured element by element at 375, 760, 960 and 1440, the
+   title, board tabs, controls, first card and table of both Stats tabs now share every edge.
+   MLB's three boards take WPBL Stats' width (`STATS_W` in `src/ui/layoutWidths.ts`, 1416 against
+   1385 at 1440) and its phone gutter (12px, where other tabs keep 16); both sections' phone column
+   has WPBL's 4px under the toolbar, which MLB lacked on every tab; the gaps under the tabs and
+   controls are WPBL's; the table's height cap is WPBL's. WPBL's Leaders spans the bleed rather than
+   capping at 1150. Card titles are title case, MLB's labels word for word. MLB's scope is WPBL's
+   chips and words ("Regular season / Playoffs / Both"). MLB's phone list takes WPBL's header (Player,
+   the league average), club logos, its "Show all N players" foot (`src/ui/ExpandRow.tsx`) and its
+   footer row with the Full table switch inside the frame, and the foot's words are WPBL's ("10 of
+   124 players · qualified only · 2026 season"). The one measured difference left: at 760 and 960
+   WPBL's Players controls wrap to two lines (club chips, Standard / Advanced), so its table sits
+   lower there.
 
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each

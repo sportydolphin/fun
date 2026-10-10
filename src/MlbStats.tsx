@@ -28,7 +28,7 @@ import { linkTo } from './nav'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
-import { HOME_W, PHONE_COLUMN_W } from './ui/layoutWidths'
+import { HOME_W, PHONE_COLUMN_W, STATS_W } from './ui/layoutWidths'
 import { MlbTabTitle } from './mlb/components/PageHeading'
 import SwipeableViews from './ui/SwipeableViews'
 import { useSwipeNav } from './AccessibilityContext'
@@ -362,14 +362,19 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Centred with a margin rather than WPBL's transform, which would also move the sticky bars and
   // the fixed-position sheets inside it.
   const onHome = state.view === 'home'
+  // The Stats boards take WPBL Stats' width from `sm` up, centred the same way as Home. Below `sm`
+  // the pager's full-bleed panes need the phone column as it is.
+  const onStatsBoard = state.view === 'leaderboard' || state.view === 'stats' || state.view === 'viz'
   const columnSx = onHome
     ? { maxWidth: { xs: PHONE_COLUMN_W, md: 'none' }, width: { md: HOME_W }, mx: { xs: 'auto', md: 0 }, ml: { md: `calc((100% - ${HOME_W}) / 2)` } }
+    : onStatsBoard
+    ? { maxWidth: { xs: PHONE_COLUMN_W, sm: 'none' }, width: { sm: STATS_W }, mx: { xs: 'auto', sm: 0 }, ml: { sm: `calc((100% - ${STATS_W}) / 2)` } }
     : { maxWidth: { xs: PHONE_COLUMN_W, md: PAGE_W }, mx: 'auto' }
   // The page moves aside for a game's side panel as far as its left gutter allows (panelShiftSx).
   // These columns are wide, so below about 1900px it barely moves and the panel covers their right
   // edge, which is the trade WPBL's Home and stats table make too.
   const panelOpen = useSidePanelOpen()
-  const shift = panelShiftSx(panelOpen, gamePageOpen ? GAME_PAGE_W : onHome ? HOME_W : `${PAGE_W}px`)
+  const shift = panelShiftSx(panelOpen, gamePageOpen ? GAME_PAGE_W : onHome ? HOME_W : onStatsBoard ? STATS_W : `${PAGE_W}px`)
   const onSearch = state.view === 'search'
   const tabIndex = NAV.findIndex(n => n.key === activeTab)
   // The pager mounts with the first tab the reader is shown, and stays mounted from then on.
@@ -442,7 +447,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         // The board last open, which is the one on screen whenever this tab is.
         const board = lastBoard.current
         return (
-          <>
+          // 4px past the pane's gutter on a phone, which is where WPBL Stats sits: its boards bleed to
+          // 12px from the screen's edge, where every other tab keeps 16, for the width a name needs.
+          <Box sx={{ mx: { xs: '-4px', sm: 0 } }}>
             <MlbTabTitle sx={{ mb: 2 }}>{BOARD_TITLE[board]}</MlbTabTitle>
             {/* WPBL's board row (src/ui/PageTabs): each board is its own address, so these are
                 pages, and they no longer share a look with the Hitting / Pitching switch under them. */}
@@ -450,7 +457,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
               options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
               value={board}
               onChange={v => go(v as MlbView)}
-              mb={2}
+              // WPBL's measure under its board row: on a phone the row sits in its own strip above the
+              // control bar, which adds the bar's top padding to the gap.
+              mb={{ xs: 1.75, sm: 1.25 }}
             />
             {board === 'viz' && (
               <VizView
@@ -509,7 +518,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 setHighlightStatKey={state.setStatsHighlightStatKey}
               />
             )}
-          </>
+          </Box>
         )
       }
     }
@@ -518,6 +527,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   return (
     // Scaled up on a desktop by the root's --app-type / --app-chrome (styles.css), as WPBL is.
     <Box sx={{
+      // A little room under the toolbar on a phone, WPBL's 4px (WpblApp), so a section switch does
+      // not move every title 4px.
+      mt: { xs: 0.5, sm: 0 },
       ...columnSx, ...shift,
       // Scroll room under the floating bar, plus the device's safe-area inset, so the last card and
       // the footer can always be scrolled clear of it.

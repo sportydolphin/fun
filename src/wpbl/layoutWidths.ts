@@ -7,13 +7,13 @@
 // a wide layout rather than structure inside it (see chromePx).
 
 import { chromePx } from '../ui/scale'
-import { HOME_W } from '../ui/layoutWidths'
+import { HOME_W, STATS_W } from '../ui/layoutWidths'
 
 /** Home's breakout row (the scoreboard, the grid of cards and the league strip above them). The
  *  number is shared with MLB's Home, so it lives in src/ui. */
 export const HOME_WIDE_W = HOME_W
-/** The stats table, which takes the width so every column is visible. */
-export const STATS_FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
+/** The stats table, which takes the width so every column is visible. Shared with MLB's Stats. */
+export const STATS_FULL_BLEED_W = STATS_W
 /** The full-page Game Center. Home's width, so the two pages a game link lands between line up. */
 export const GAME_PAGE_W = HOME_W
 /**

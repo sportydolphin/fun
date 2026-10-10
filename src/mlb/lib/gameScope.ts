@@ -9,7 +9,10 @@ export const GAME_SCOPES: readonly GameScope[] = ['regular', 'post', 'all']
 export const isGameScope = (v: unknown): v is GameScope => typeof v === 'string' && (GAME_SCOPES as readonly string[]).includes(v)
 
 /** The control's labels. "Playoffs" rather than "Postseason" so three fit across a phone. */
-export const GAME_SCOPE_LABEL: Record<GameScope, string> = { regular: 'Regular', post: 'Playoffs', all: 'All' }
+// WPBL's words for the same three slices (its StatsView chips), so the control reads the same in both
+// sections. "Both" rather than "All", for WPBL's reason: beside a filter that has its own "All"
+// (a club, the qualifying bar's Everyone), two Alls in a row are a coin toss.
+export const GAME_SCOPE_LABEL: Record<GameScope, string> = { regular: 'Regular season', post: 'Playoffs', all: 'Both' }
 
 /** The career postseason rate boards' bar, which is ours: StatsAPI has no qualified pool there.
  *  See fetchAllTimeLeaderboardData. */
