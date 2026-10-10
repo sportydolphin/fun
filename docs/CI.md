@@ -11,14 +11,26 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 
 | Check | Job in `ci.yml` | What it runs | Typical time |
 |---|---|---|---|
-| `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build | about 3 min |
-| `layout` | `layout` | nothing itself: passes only if all four `layout i/4` jobs did | seconds |
+| `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, then the code the build never sees (below) | about 3 min |
+| `layout` | `layout` | nothing itself: passes only if every `layout` slice did | seconds |
 
 `layout 1/4` to `layout 4/4` are the layout sweep split by route, run in parallel, about 3 to 4
-minutes each. The `layout` job exists because a matrix reports one check per slice under its own
+minutes each, and `layout experiments` sweeps the flag-gated routes beside them in under a minute. The `layout` job exists because a matrix reports one check per slice under its own
 name, and the ruleset can only require a fixed name. It runs under `always()`: a job whose needs
 failed is otherwise skipped, and a skipped required check counts as passing. **Rename a job and
 you rename the check the ruleset waits for**, so every pull request waits forever.
+
+After the build, `check` looks at the three kinds of code that deploy or run somewhere other than
+the site, each of which used to fail only there:
+
+- **Pages Functions** (`npm run check-functions`): bundled the way Cloudflare bundles them. `tsc`
+  reads `functions/` already, but cannot see an import that drags in a Vite asset.
+- **Cron scripts**: `node --check` on every `scripts/*.mjs`, and an esbuild bundle of every
+  `scripts/*.ts`. Lint and `tsc` skip `scripts/` entirely.
+- **Edge functions**: `deno cache` resolves each `supabase/functions/*/index.ts` and everything it
+  imports, which is how the missing-`.ts` trap in CLAUDE.md now fails on the pull request instead of
+  at `supabase functions deploy`. It is not `deno check`: Deno's strict mode reports ten disagreements
+  between the supabase-js types and the ingest's row shapes, and those are their own piece of work.
 
 Other checks on a pull request:
 
@@ -118,7 +130,7 @@ Flags worth knowing:
 | `--baseline` | fail only on findings not in the baseline file |
 | `--routes a,b` | only these routes (leading slash optional, for Git Bash) |
 | `--shard i/n` | every n-th route from the i-th (CI runs `1/4` to `4/4`) |
-| `--experiments` | with the experiments flag on; CI sweeps the flagged routes this way in shard 1 |
+| `--experiments` | with the experiments flag on; CI sweeps the flagged routes this way in the `layout experiments` slice |
 | `--cpu 4` | slow Chrome down to CI's speed |
 | `--shots dir` | save the before and after frame of every case that shifts |
 

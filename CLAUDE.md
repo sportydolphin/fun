@@ -343,8 +343,8 @@ Each of these has already cost someone a debugging session, and none of them fai
   it: the only check that works is opening the page and looking for a box whose content is
   wider than it is, at more than one text scale, which `npm run sweep` does at four widths and
   both text sizes. **Anything behind the experiments flag is exempt from that check by
-  construction, so it is swept separately**, with `--experiments`, by the second sweep step in
-  CI. That step names its routes: put a new flagged surface behind the flag and its route goes
+  construction, so it is swept separately**, with `--experiments`, by the `layout experiments`
+  slice in CI. That slice names its routes: put a new flagged surface behind the flag and its route goes
   in that list, or it is checked by nothing. The seeding race sat out the whole rebuild for
   exactly this reason and carried four of these bugs into September. As of Sep 14, 2026 the
   flag hides exactly one thing: the steal card on Run value. The win probability chart (v1.48.1), the Run value board (v1.52.0), the bracket and

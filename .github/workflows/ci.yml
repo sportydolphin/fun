@@ -53,6 +53,34 @@ jobs:
       - name: Build
         run: npm run build
 
+      # THE CODE THE APP BUILD NEVER SEES. Everything below deploys or runs somewhere other than the
+      # site, and each one used to fail only there: a Pages Function at Cloudflare's upload (which
+      # leaves the old deploy serving), a cron script at its next scheduled run, an edge function at
+      # `supabase functions deploy`. None needs a key, and the three take about 15 seconds together.
+
+      # tsc already reads functions/, but not what a bundler does with it: a function that imports
+      # a module pulling in a Vite asset type-checks fine and fails Cloudflare's bundle.
+      - name: Pages Functions bundle
+        run: npm run check-functions
+
+      # Lint and tsc both skip scripts/. Node's syntax check for the .mjs jobs, a bundle for the
+      # .ts ones (the same esbuild call their npm scripts make, so a bad import fails here).
+      - name: Cron scripts
+        run: |
+          for f in scripts/*.mjs; do node --check "$f" || exit 1; done
+          npx esbuild "scripts/*.ts" --bundle --platform=node --format=esm --packages=external --outdir=node_modules/.cache/scripts-check --log-level=warning
+
+      # wpbl-ingest loads the recap engine from src/ under Deno, which resolves imports literally:
+      # an import missing its `.ts`, or one reaching constants.ts and its logo assets, fails only at
+      # deploy, and nothing else here runs Deno. This resolves each function's whole module graph.
+      # It is not `deno check`: the supabase-js types disagree with the ingest's row shapes in ten
+      # places Deno's strict mode reports, and that is a separate piece of work.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.x
+      - name: Edge functions resolve
+        run: deno cache --no-config --no-lock supabase/functions/*/index.ts
+
   # The layout checks CLAUDE.md used to ask a person to do: overflow at four widths and both text
   # sizes, and what moves on screen when a skeleton is replaced. Against the dev server, because
   # the skeleton check needs ?devSlow, which only exists in a dev build; with every response served
@@ -60,14 +88,18 @@ jobs:
   #
   # FOUR SLICES IN PARALLEL, by route (--shard). On one runner this was the slowest check on every
   # pull request, about 13 minutes against 4 for `check`.
+  #
+  # The experiments sweep is a FIFTH slice rather than a second step in the first. As a step it ran
+  # after shard 1's own sweep, already the longest of the four, and added its 35 seconds to the
+  # slowest path through every pull request; alone it finishes well before any of them.
   layout-shard:
-    name: layout ${{ matrix.shard }}/4
+    name: layout ${{ matrix.shard }}${{ matrix.shard != 'experiments' && '/4' || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, experiments]
     env:
       VITE_SUPABASE_URL: 'http://127.0.0.1:54321'
       VITE_SUPABASE_ANON_KEY: 'sweep-anon-key'
@@ -88,12 +120,13 @@ jobs:
           cat vite.log; exit 1
 
       - name: Sweep
+        if: ${{ matrix.shard != 'experiments' }}
         run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --shard ${{ matrix.shard }}/4
 
       # The one place a flag-gated layout gets looked at. Name the routes that draw something
       # behind the flag; as of this writing that is the steal card on Run value, and nothing else.
       - name: Sweep with experiments on
-        if: ${{ !cancelled() && matrix.shard == 1 }}
+        if: ${{ matrix.shard == 'experiments' }}
         run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --experiments --routes /wpbl/stats?board=runs
 
       # Both frames of every case that shifted. A shift that hangs on timing can happen on this
