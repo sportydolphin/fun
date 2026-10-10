@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/script-deps
         with:
-          packages: '@supabase/supabase-js esbuild'
+          packages: '@supabase/supabase-js pg esbuild'
 
       - name: Price the season's run environment
         env:

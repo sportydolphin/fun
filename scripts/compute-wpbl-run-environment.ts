@@ -16,10 +16,12 @@
  *   npm run run-environment              # price and write
  *   npm run run-environment -- --dry-run # price and print, write nothing
  *
- * Writes with SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (CI). A dry run needs only
+ * Writes with SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY on CI; by hand with SUPABASE_DB_URL, the
+ * connection string the migration runner uses, as the recap sync does. A dry run needs only
  * VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY, since everything it reads is public.
  */
 import { createClient } from '@supabase/supabase-js'
+import pg from 'pg'
 import { priceRunEnvironment, RUN_VALUE_PLAY_SELECT } from '../src/wpbl/derive/runEnvironment'
 import { applyPlayCorrections, CORRECTION_SELECT, type WpblPlayCorrection } from '../src/wpbl/playCorrections'
 import { settleGames } from '../src/wpbl/gameOver'
@@ -29,13 +31,14 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === 't
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const READ_KEY = SERVICE_KEY || (process.env.VITE_SUPABASE_ANON_KEY ?? '')
+const DB_URL = process.env.SUPABASE_DB_URL ?? ''
 
 if (!SUPABASE_URL || !READ_KEY) {
   console.error('Set SUPABASE_URL and a key before running (try: node --env-file=.env)')
   process.exit(1)
 }
-if (!DRY_RUN && !SERVICE_KEY) {
-  console.error('Set SUPABASE_SERVICE_ROLE_KEY to write. Add --dry-run to read only.')
+if (!DRY_RUN && !SERVICE_KEY && !DB_URL) {
+  console.error('Set SUPABASE_SERVICE_ROLE_KEY or SUPABASE_DB_URL to write. Add --dry-run to read only.')
   process.exit(1)
 }
 
@@ -79,9 +82,26 @@ async function main() {
     console.log('\n--dry-run: nothing written.')
     return
   }
-  const { error } = await db.from('wpbl_run_environment')
-    .upsert({ ...env, computed_at: new Date().toISOString() }, { onConflict: 'scope' })
-  if (error) throw new Error(`wpbl_run_environment upsert failed: ${error.message}`)
+  const row = { ...env, computed_at: new Date().toISOString() }
+  if (SERVICE_KEY) {
+    const { error } = await db.from('wpbl_run_environment').upsert(row, { onConflict: 'scope' })
+    if (error) throw new Error(`wpbl_run_environment upsert failed: ${error.message}`)
+  } else {
+    // The hand-run path: the same upsert, straight over the session pooler.
+    const client = new pg.Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } })
+    await client.connect()
+    try {
+      await client.query(
+        `insert into wpbl_run_environment (scope, woba_weights, fip_weights, final_games, plays, computed_at)
+         values ($1, $2, $3, $4, $5, $6)
+         on conflict (scope) do update set
+           woba_weights = excluded.woba_weights, fip_weights = excluded.fip_weights,
+           final_games = excluded.final_games, plays = excluded.plays, computed_at = excluded.computed_at`,
+        [row.scope, JSON.stringify(row.woba_weights), JSON.stringify(row.fip_weights), row.final_games, row.plays, row.computed_at])
+    } finally {
+      await client.end()
+    }
+  }
   console.log('\nwrote the regular-season row')
 }
 
