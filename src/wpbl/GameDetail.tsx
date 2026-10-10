@@ -21,6 +21,8 @@ import LiveGameView from './LiveGameView'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
+import { BoxTable, BoxTeamHeading, BoxTeamSwitch, BOX_POS_SX } from '../ui/gameCenter'
+import { OutDots } from '../ui/BaseDiamond'
 import { ModalShell, usePhoneLayout, CARD_BORDER, SegNav, TapTip, TeamBadge, BaseDiamond, CopyLinkButton, pressable, hoverOnly, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay, endsInCalledThirdStrike, stateAfter, pitchingChanges } from './derive/playByPlay'
@@ -503,30 +505,6 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   const batCols = BAT_COLS
   // Desktop keeps the shared viewport cap; the phone uses the tighter box budget.
   const boxName = (n: string) => (isMobile ? wpblFeatureName(n, BOX_NAME_MAX) : shortName(n))
-  // A substitute's name is indented under its starter and led by a ↳ marker.
-  const nameCell = (playerId: string, suffix?: React.ReactNode, isSub = false) => {
-    const p = names.get(playerId)
-    const clickable = p && onOpenPlayer
-    return (
-      <Box component="td" sx={{ ...nameCellSx, ...(isMobile ? denseNameSx : {}), pl: isSub ? (isMobile ? 1.1 : 1.75) : (isMobile ? 0.3 : 0.4) }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
-          {/* The ↳ marker is desktop-only. On a phone it and its gap cost about fourteen
-              pixels of a hundred-pixel column, which is the difference between reading
-              "S. Robinson" and reading "S. Robi…". The indent alone still reads as a
-              substitute, the way a printed box score has always done it. */}
-          {isSub && !isMobile && <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0, lineHeight: 1 }}>↳</Box>}
-          <Typography
-            component="span"
-            {...(clickable ? playerLink(p!, onOpenPlayer) : {})}
-            sx={{ fontSize: isMobile ? '0.74rem' : '0.86rem', fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(clickable ? { cursor: 'pointer', '&:hover': { color } } : {}) }}
-          >
-            {p ? boxName(p.name) : '—'}
-          </Typography>
-          {suffix}
-        </Box>
-      </Box>
-    )
-  }
   // Non-hitting pitchers dropped, subs ordered under their starter (see buildBattingRows).
   const battingRows = buildBattingRows(batting)
   const batTotals = battingRows.reduce((t, { b }) => {
@@ -551,64 +529,45 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
 
   if (battingRows.length === 0 && pitching.length === 0) return null
 
+  // A name opens the player where the roster knows who it is; the feed's id is all a line has.
+  const nameFor = (playerId: string) => {
+    const p = names.get(playerId)
+    return {
+      name: p ? boxName(p.name) : '—',
+      nameProps: p && onOpenPlayer ? playerLink(p, onOpenPlayer) as Record<string, unknown> : undefined,
+    }
+  }
   return (
     <Box>
       {battingRows.length > 0 && (
-        <Box sx={{ overflowX: 'auto', mb: 1.5 }}>
-          <Box component="table" sx={isMobile ? denseTableSx : tableSx}>
-            <Box component="thead">
-              <Box component="tr">
-                <Box component="th" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}) }}>Batting</Box>
-                {batCols.map(c => <StatHead key={c.key as string} dense={isMobile}>{c.label}</StatHead>)}
-              </Box>
-            </Box>
-            <Box component="tbody">
-              {battingRows.map(({ b, isSub }) => (
-                <Box component="tr" key={b.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                  {nameCell(b.player_id, b.position ? <Typography component="span" sx={{ ...posSx, textTransform: 'uppercase' }}>{b.position}</Typography> : null, isSub)}
-                  {batCols.map(c => <StatCell key={c.key as string} dense={isMobile} bold={c.key === 'h'}>{Number(b[c.key]) || 0}</StatCell>)}
-                </Box>
-              ))}
-              <Box component="tr" sx={{ borderTop: '2px solid', borderColor: color }}>
-                <Box component="td" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}), color: 'text.secondary', fontSize: isMobile ? '0.72rem' : '0.8rem', fontWeight: 800, textTransform: 'none', letterSpacing: 0 }}>Totals</Box>
-                {batCols.map(c => <StatCell key={c.key as string} dense={isMobile} bold>{batTotals[c.key as string] ?? 0}</StatCell>)}
-              </Box>
-            </Box>
-          </Box>
+        <Box sx={{ mb: 1.5 }}>
+          <BoxTable
+            head="Batting" dense={isMobile} rule={color} hoverColor={color}
+            cols={batCols.map(c => ({ key: c.key as string, label: c.label, bold: c.key === 'h' }))}
+            rows={battingRows.map(({ b, isSub }) => ({
+              key: b.id, isSub, ...nameFor(b.player_id),
+              suffix: b.position ? <Typography component="span" sx={BOX_POS_SX}>{b.position}</Typography> : null,
+              cells: batCols.map(c => Number(b[c.key]) || 0),
+            }))}
+            totals={batCols.map(c => batTotals[c.key as string] ?? 0)}
+          />
         </Box>
       )}
 
+      {/* Its totals are drawn exactly like the batting totals: the same rule in the club's colour,
+          the same label, because they are the same thing and a reader who has learned to look for
+          one at the bottom of a table should find the other. */}
       {pitching.length > 0 && (
-        <Box sx={{ overflowX: 'auto' }}>
-          <Box component="table" sx={isMobile ? denseTableSx : tableSx}>
-            <Box component="thead">
-              <Box component="tr">
-                <Box component="th" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}) }}>Pitching</Box>
-                <StatHead w={32} dense={isMobile}>IP</StatHead>
-                {PIT_COLS.map(c => <StatHead key={c.key as string} dense={isMobile}>{c.label}</StatHead>)}
-              </Box>
-            </Box>
-            <Box component="tbody">
-              {pitching.map(p => (
-                <Box component="tr" key={p.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                  {nameCell(p.player_id, p.decision ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color, lineHeight: 1 }}>({p.decision})</Typography> : null)}
-                  <StatCell dense={isMobile} bold>{outsToIp(p.outs)}</StatCell>
-                  {PIT_COLS.map(c => <StatCell key={c.key as string} dense={isMobile}>{p[c.key] == null ? '—' : Number(p[c.key])}</StatCell>)}
-                </Box>
-              ))}
-              {/* Drawn exactly like the batting totals: same rule above it in the club's colour,
-                  same weight, same label, because they are the same thing and a reader who has
-                  learned to look for one at the bottom of a table should find the other. */}
-              <Box component="tr" sx={{ borderTop: '2px solid', borderColor: color }}>
-                <Box component="td" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}), color: 'text.secondary', fontSize: isMobile ? '0.72rem' : '0.8rem', fontWeight: 800, textTransform: 'none', letterSpacing: 0 }}>Totals</Box>
-                <StatCell dense={isMobile} bold>{outsToIp(pitOuts)}</StatCell>
-                {PIT_COLS.map((c, i) => (
-                  <StatCell key={c.key as string} dense={isMobile} bold>{pitTotals[i] ?? '—'}</StatCell>
-                ))}
-              </Box>
-            </Box>
-          </Box>
-        </Box>
+        <BoxTable
+          head="Pitching" dense={isMobile} rule={color} hoverColor={color}
+          cols={[{ key: 'ip', label: 'IP', bold: true, w: 32 }, ...PIT_COLS.map(c => ({ key: c.key as string, label: c.label }))]}
+          rows={pitching.map(p => ({
+            key: p.id, ...nameFor(p.player_id),
+            suffix: p.decision ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color, lineHeight: 1 }}>({p.decision})</Typography> : null,
+            cells: [outsToIp(p.outs), ...PIT_COLS.map(c => (p[c.key] == null ? null : Number(p[c.key])))],
+          }))}
+          totals={[outsToIp(pitOuts), ...pitTotals]}
+        />
       )}
     </Box>
   )
@@ -1354,42 +1313,6 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
 }
 
 /**
- * How many are away, as the three lamps a scoreboard lights.
- *
- * ONLY EVER 0, 1 OR 2, AND THE THIRD LAMP IS NEVER LIT. `outs` on a feed row is the count
- * BEFORE the pitch, so this is read off the next play of the half (see `stateAfter`), and a play
- * that started with three away cannot exist: the half would have ended. The third lamp is
- * therefore the one the half-inning is heading towards rather than one that is missing, and the
- * row that would light it is the row that draws no glyphs at all.
- *
- * A GLYPH AND NOT A NUMBER, which is why it follows `--app-chrome` like the diamond it sits
- * beside. "2 out" set in type would be the wider thing on the row and would grow with the
- * reader's text scale while the diamond did not, which is how a pair drifts apart.
- *
- * It carries its own name for the same reason `BaseDiamond` does: three small circles are
- * nothing at all to a screen reader.
- */
-function OutDots({ outs }: { outs: number }) {
-  // Clamped for the reason Live.tsx clamps the count: the feed has published a state that
-  // cannot exist, and a value out of range should draw the nearest real thing rather than
-  // three-and-a-bit lamps.
-  const n = Math.max(0, Math.min(3, outs))
-  return (
-    <Box role="img" aria-label={`${n} out`} sx={{
-      display: 'flex', flexDirection: 'column', gap: chromePx(2), flexShrink: 0,
-    }}>
-      {[0, 1, 2].map(k => (
-        <Box key={k} sx={{
-          width: chromePx(4), height: chromePx(4), borderRadius: '50%',
-          border: '1px solid', borderColor: k < n ? 'text.secondary' : 'text.disabled',
-          bgcolor: k < n ? 'text.secondary' : 'transparent',
-        }} />
-      ))}
-    </Box>
-  )
-}
-
-/**
  * The mark on a play the league did not account for itself.
  *
  * A DAGGER AND NOT A CHIP, and that is the whole of the design. Thirteen consecutive rows of
@@ -2075,55 +1998,22 @@ function GameCenterPage({
  */
 function TeamHeading({ team }: { team: WpblTeam }) {
   const isDark = useWpblDark()
-  return (
-    <Box sx={{
-      display: 'flex', alignItems: 'center', gap: 0.75, pb: 0.75, mb: 0.75,
-      borderBottom: '2px solid', borderColor: wpblAccent(team.id, isDark),
-    }}>
-      <TeamBadge team={team} size={24} />
-      <Typography sx={{ fontSize: '0.94rem', fontWeight: 800, whiteSpace: 'nowrap', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {wpblFullName(team)}
-      </Typography>
-    </Box>
-  )
+  return <BoxTeamHeading badge={<TeamBadge team={team} size={24} />} name={wpblFullName(team)} color={wpblAccent(team.id, isDark)} />
 }
 
-// ─── Team switch (underline tabs, deliberately distinct from the pill SegNav) ──
+// The club switch over a phone's box score (src/ui/gameCenter.tsx, shared with MLB). The nickname
+// alone on a phone ("Heights") so the two tabs share a line; "City Nickname" where there is room.
 function TeamSwitch({ away, home, value, onChange }: {
   away: WpblTeam; home: WpblTeam
   value: 'away' | 'home'; onChange: (v: 'away' | 'home') => void
 }) {
   const isDark = useWpblDark()
   const isMobile = usePhoneLayout()
-  const tab = (side: 'away' | 'home', team: WpblTeam) => {
-    const active = value === side
-    const color = wpblAccent(team.id, isDark)
-    return (
-      <Box
-        onClick={() => onChange(side)}
-        sx={{
-          display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer',
-          px: 0.25, pb: 0.75, mb: '-1px', borderBottom: '2px solid',
-          borderColor: active ? color : 'transparent',
-          opacity: active ? 1 : 0.5, transition: 'opacity 0.15s',
-          '&:hover': { opacity: active ? 1 : 0.8 },
-        }}
-      >
-        <TeamBadge team={team} size={isMobile ? 22 : 24} />
-        {/* Nickname only on a phone (e.g. "Heights") so the two tabs sit on one line
-            instead of wrapping "New York / Heights"; full "City Nickname" on desktop. */}
-        <Typography sx={{ fontSize: isMobile ? '0.9rem' : '0.94rem', fontWeight: active ? 800 : 600, whiteSpace: 'nowrap' }}>
-          {isMobile ? team.name : wpblFullName(team)}
-        </Typography>
-      </Box>
-    )
-  }
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', gap: { xs: 2.5, sm: 3 }, borderBottom: '1px solid', borderColor: 'divider', mb: 0.75 }}>
-      {tab('away', away)}
-      {tab('home', home)}
-    </Box>
-  )
+  const side = (team: WpblTeam) => ({
+    badge: <TeamBadge team={team} size={isMobile ? 22 : 24} />,
+    name: wpblFullName(team), short: team.name, color: wpblAccent(team.id, isDark),
+  })
+  return <BoxTeamSwitch away={side(away)} home={side(home)} value={value} onChange={onChange} dense={isMobile} />
 }
 
 // ─── Modal root ────────────────────────────────────────────────────────────────
@@ -2927,20 +2817,8 @@ const gameCache = new Map<string, {
 // columns fit before the wrapper scrolls. maxWidth caps a very long name (inner text
 // ellipsizes); minWidth floors the table so it still scrolls on a narrow phone.
 const tableSx = { tableLayout: 'auto', borderCollapse: 'collapse', width: '100%', minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
-// The phone box score. Nine batting columns and eight pitching columns will not fit a phone
-// at auto layout, and the honest fix is density rather than hiding stats or scrolling.
-//
-// `table-layout: fixed` is what makes this structural instead of a tuned guess: the name
-// column takes a declared share and the stat columns split what is left equally, so the
-// table can never be wider than the space it is given, whatever the names in it are. A long
-// name ellipsizes rather than shoving columns off the screen, which is the failure mode
-// every width-by-content table eventually hits.
-const denseTableSx = { ...tableSx, tableLayout: 'fixed' } as const
-// Sized against the longest name on the roster once abbreviated ("T. Geldenhuis"), plus the
-// position badge; the rest goes to the stats. BOX_NAME_MAX below is the matching character
-// budget, so the two are set together: widen one and the other has to move with it.
-const denseNameSx = { width: '35%', maxWidth: 'none', px: 0.3 } as const
-// What fits that column at the dense font. wpblFeatureName degrades in stages to hit it
+// The phone box score's table and name column live with the table in src/ui/gameCenter.tsx.
+// What fits the phone's name column (src/ui/gameCenter.tsx) at the dense font. wpblFeatureName degrades in stages to hit it
 // ("Ticara Geldenhuis" → "T. Geldenhuis"), which beats the CSS ellipsis: a flat 12-char cap
 // truncates names mid-word as "M. Paddis…" and "Hyeonah K…", losing the surname, which is the
 // one part of a box-score name a reader actually needs.

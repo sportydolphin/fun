@@ -6,10 +6,12 @@
 
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_ABBR } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { TEAM_ABBR, TEAM_BG } from '../constants'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, accentColor } from '../lib/colorUtils'
+import { BoxTable, BOX_POS_SX } from '../../ui/gameCenter'
+import { usePhoneLayout } from '../../ui/ModalShell'
 import { chromePx, typePx } from '../../ui/scale'
-import { playerLink, LINK_SX } from '../lib/links'
+import { playerLink } from '../lib/links'
 
 // Per-inning + R/H/E line score plus full batting / pitching tables.
 interface InningLine { num: number; away: number | null; home: number | null }
@@ -24,6 +26,9 @@ interface BatterLine {
   rbi:   number
   bb:    number
   k:     number
+  hr:    number
+  doubles: number
+  sb:    number
   avg:   string
   isSub: boolean
 }
@@ -38,6 +43,8 @@ interface PitcherLine {
   er:      number
   bb:      number
   k:       number
+  hr:      number
+  outs:    number           // for the totals row: IP summed as outs, never as printed decimals
   pitches: number | null   // pitch count for the game
   era:     string | null    // season ERA when available
 }
@@ -87,6 +94,9 @@ export function parseBoxScoreData(ls: any, box: any): BoxScore {
         rbi:   b.rbi        ?? 0,
         bb:    b.baseOnBalls ?? 0,
         k:     b.strikeOuts ?? 0,
+        hr:    b.homeRuns   ?? 0,
+        doubles: b.doubles  ?? 0,
+        sb:    b.stolenBases ?? 0,
         avg:   sb.avg ?? b.avg ?? '',
         isSub: order !== '' && !order.endsWith('00'),
       }
@@ -106,6 +116,8 @@ export function parseBoxScoreData(ls: any, box: any): BoxScore {
         er:      pt.earnedRuns  ?? 0,
         bb:      pt.baseOnBalls ?? 0,
         k:       pt.strikeOuts  ?? 0,
+        hr:      pt.homeRuns    ?? 0,
+        outs:    pt.outs        ?? 0,
         pitches: pt.pitchesThrown ?? pt.numberOfPitches ?? null,
         era:     sp.era ?? null,
       }
@@ -244,95 +256,74 @@ export function LineScoreTable({ box }: { box: BoxScore }) {
   )
 }
 
-function BattingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
-  return (
-    <Box data-swipe-ignore="true" sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-      {/* On a phone the table fits the width and a long name wraps; at max-content the pitching
-          table ran past a 375px screen and its last column scrolled out of sight. */}
-      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: { xs: 0, sm: 'max-content' } }}>
-        <Box component="thead">
-          <Box component="tr">
-            <Box component="th" sx={{ minWidth: { xs: '6.5rem', sm: '8.25rem' }, textAlign: 'left', fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
-              Batters
-            </Box>
-            <StatHead>AB</StatHead><StatHead>R</StatHead><StatHead>H</StatHead>
-            <StatHead>RBI</StatHead><StatHead>BB</StatHead><StatHead>SO</StatHead>
-            <StatHead w={36}>AVG</StatHead>
-          </Box>
-        </Box>
-        <Box component="tbody">
-          {team.batters.map(b => (
-            <Box component="tr" key={b.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <Box component="td" sx={{ px: 0.4, py: 0.55 }}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-                  <Typography
-                    {...playerLink(b.id, b.name, onPlayerClick)}
-                    sx={{
-                      ...LINK_SX, fontSize: '0.76rem', fontWeight: 600, lineHeight: 1.2,
-                      pl: b.isSub ? 1 : 0,
-                      ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
-                    }}
-                  >
-                    {b.name}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>{b.pos}</Typography>
-                </Box>
-              </Box>
-              <StatCell>{b.ab}</StatCell><StatCell>{b.r}</StatCell><StatCell bold>{b.h}</StatCell>
-              <StatCell>{b.rbi}</StatCell><StatCell>{b.bb}</StatCell><StatCell>{b.k}</StatCell>
-              <StatCell>{b.avg}</StatCell>
-            </Box>
-          ))}
-        </Box>
-      </Box>
-    </Box>
-  )
+// The club's half of a box score, on WPBL's table (src/ui/gameCenter.tsx): WPBL's columns in WPBL's
+// order, then, off a phone, the season AVG and ERA StatsAPI hands over with the line, which WPBL's
+// feed has no equivalent for.
+const BAT_COLS: { key: keyof BatterLine; label: string }[] = [
+  { key: 'ab', label: 'AB' }, { key: 'r', label: 'R' }, { key: 'h', label: 'H' },
+  { key: 'rbi', label: 'RBI' }, { key: 'bb', label: 'BB' }, { key: 'k', label: 'SO' },
+  { key: 'hr', label: 'HR' }, { key: 'doubles', label: '2B' }, { key: 'sb', label: 'SB' },
+]
+const PIT_COLS: { key: keyof PitcherLine; label: string }[] = [
+  { key: 'h', label: 'H' }, { key: 'r', label: 'R' }, { key: 'er', label: 'ER' },
+  { key: 'bb', label: 'BB' }, { key: 'k', label: 'SO' }, { key: 'hr', label: 'HR' },
+  { key: 'pitches', label: 'P' },
+]
+const outsToIp = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3}`
+// What the phone's name column holds at the dense size: past it a first name becomes an initial,
+// so the surname, the part a reader needs, is the part that survives. WPBL's BOX_NAME_MAX.
+const BOX_NAME_MAX = 11
+const boxName = (name: string, dense: boolean) => {
+  if (!dense || name.length <= BOX_NAME_MAX) return name
+  const sp = name.indexOf(' ')
+  return sp > 0 ? `${name[0]}. ${name.slice(sp + 1)}` : name
 }
 
-function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
+export function ClubBox({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
+  const isDark = useIsDark()
+  const dense = usePhoneLayout()
+  const color = accentColor(TEAM_BG[team.teamId] ?? '#888888', isDark)
+  // The season AVG and ERA, where there is room. A phone's table is WPBL's nine fitted columns, and
+  // a tenth clipped ".188" to ".18" and every ERA with it.
+  const season = !dense
+  const nameFor = (id: number, name: string) => ({
+    name: boxName(name, dense),
+    nameProps: onPlayerClick ? playerLink(id, name, onPlayerClick) as Record<string, unknown> : undefined,
+  })
+  const sum = <T,>(rows: T[], k: keyof T) => rows.reduce((n, r) => n + (Number(r[k]) || 0), 0)
+  // One pitch count the feed did not send makes the column unsummable: a dash is a fact, a total
+  // that quietly leaves a reliever out is a wrong number.
+  const pitTotal = (k: keyof PitcherLine) => (team.pitchers.some(p => p[k] == null) ? null : sum(team.pitchers, k))
   return (
-    <Box data-swipe-ignore="true" sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: { xs: 0, sm: 'max-content' } }}>
-        <Box component="thead">
-          <Box component="tr">
-            <Box component="th" sx={{ minWidth: { xs: '6.5rem', sm: '8.25rem' }, textAlign: 'left', fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.5 }}>
-              Pitchers
-            </Box>
-            <StatHead w={32}>IP</StatHead><StatHead>H</StatHead><StatHead>R</StatHead>
-            <StatHead>ER</StatHead><StatHead>BB</StatHead><StatHead>SO</StatHead>
-            <StatHead>P</StatHead>
-            <StatHead w={36}>ERA</StatHead>
-          </Box>
+    <Box>
+      {team.batters.length > 0 && (
+        <Box sx={{ mb: 1.5 }}>
+          <BoxTable
+            head="Batting" dense={dense} rule={color} hoverColor={color}
+            cols={[...BAT_COLS.map(c => ({ key: c.key, label: c.label, bold: c.key === 'h' })), ...(season ? [{ key: 'avg', label: 'AVG', w: 36 }] : [])]}
+            rows={team.batters.map(b => ({
+              key: b.id, isSub: b.isSub, ...nameFor(b.id, b.name),
+              suffix: b.pos ? <Typography component="span" sx={BOX_POS_SX}>{b.pos}</Typography> : null,
+              cells: [...BAT_COLS.map(c => Number(b[c.key]) || 0), ...(season ? [b.avg || null] : [])],
+            }))}
+            totals={[...BAT_COLS.map(c => sum(team.batters, c.key)), ...(season ? [''] : [])]}
+          />
         </Box>
-        <Box component="tbody">
-          {team.pitchers.map(p => (
-            <Box component="tr" key={p.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <Box component="td" sx={{ px: 0.4, py: 0.55 }}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-                  <Typography
-                    {...playerLink(p.id, p.name, onPlayerClick)}
-                    sx={{
-                      ...LINK_SX, fontSize: '0.76rem', fontWeight: 600, lineHeight: 1.2,
-                      ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
-                    }}
-                  >
-                    {p.name}
-                  </Typography>
-                  {p.note && (
-                    <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'primary.main', lineHeight: 1 }}>
-                      {p.note}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-              <StatCell bold>{p.ip}</StatCell><StatCell>{p.h}</StatCell><StatCell>{p.r}</StatCell>
-              <StatCell>{p.er}</StatCell><StatCell>{p.bb}</StatCell><StatCell>{p.k}</StatCell>
-              <StatCell>{p.pitches ?? '—'}</StatCell>
-              <StatCell>{p.era ?? '—'}</StatCell>
-            </Box>
-          ))}
-        </Box>
-      </Box>
+      )}
+      {team.pitchers.length > 0 && (
+        <BoxTable
+          head="Pitching" dense={dense} rule={color} hoverColor={color}
+          cols={[{ key: 'ip', label: 'IP', bold: true, w: 32 }, ...PIT_COLS.map(c => ({ key: c.key, label: c.label })), ...(season ? [{ key: 'era', label: 'ERA', w: 36 }] : [])]}
+          rows={team.pitchers.map(p => ({
+            key: p.id, ...nameFor(p.id, p.name),
+            // The decision alone on a phone, "(W)" as WPBL prints it: the record after it took the
+            // name column down to "E. Sabrow…".
+            suffix: p.note ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color, lineHeight: 1, whiteSpace: 'nowrap' }}>({dense ? p.note.split(',')[0] : p.note})</Typography> : null,
+            cells: [p.ip, ...PIT_COLS.map(c => (p[c.key] == null ? null : Number(p[c.key]))), ...(season ? [p.era] : [])],
+          }))}
+          totals={[outsToIp(sum(team.pitchers, 'outs')), ...PIT_COLS.map(c => pitTotal(c.key)), ...(season ? [''] : [])]}
+        />
+      )}
     </Box>
   )
 }
@@ -345,25 +336,5 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
     }}>
       {children}
     </Typography>
-  )
-}
-
-export function TeamBoxSection({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25, bgcolor: 'action.hover' }}>
-        <LogoBubble teamId={team.teamId} abbr={team.abbr} size={26} />
-        <Typography sx={{ fontSize: '0.84rem', fontWeight: 800, lineHeight: 1 }}>{team.name}</Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', ml: 'auto', lineHeight: 1 }}>
-          {team.runs} R · {team.hits} H · {team.errors} E
-        </Typography>
-      </Box>
-      <Box sx={{ px: 2, py: 1.25 }}>
-        <BattingTable team={team} onPlayerClick={onPlayerClick} />
-      </Box>
-      <Box sx={{ px: 2, pb: 1.5, pt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        <PitchingTable team={team} onPlayerClick={onPlayerClick} />
-      </Box>
-    </Box>
   )
 }

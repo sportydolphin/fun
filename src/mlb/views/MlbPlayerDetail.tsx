@@ -28,6 +28,7 @@ import { ModalShell } from '../../ui/ModalShell'
 import { ExpandButton } from '../../ui/ExpandButton'
 import { HEADER_ICON_SX, HEADER_TEXT_SX, headerChipSx } from '../../ui/headerBar'
 import { PillGroup } from '../../ui/PillGroup'
+import SwipeableViews from '../../ui/SwipeableViews'
 import { hoverOnly, pressable } from '../../ui/interaction'
 import { chromePx } from '../../ui/scale'
 import { CopyLinkButton } from '../../ui/CopyLinkButton'
@@ -288,6 +289,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   // shell's theme and still see the desktop. Everything inside the card reads the panel's theme.
   const mdUp = useMediaQuery(useTheme().breakpoints.up('md'))
   const wide = mdUp && !panel
+  const phoneScreen = useMediaQuery('(max-width:600px)')
   const bio = useLoaded<MlbBio | null>(`${playerId}`, () => fetchMlbBio(playerId))
   const career = useLoaded<Career>(`${playerId}`, () => fetchCareer(playerId))
   const awards = useLoaded<AwardTally[]>(`${playerId}`, () => fetchAwards(playerId)) ?? []
@@ -765,6 +767,9 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const loading = !career || (!careerView && season != null && (!bundle || !log))
   const noStats = !!career && seasons.length === 0
   const shownRoles = wide ? plan.roles : [activeRole]
+  // The device, not the layout: the pager only tracks a finger on a phone-width screen, and the
+  // side panel is never one. Read raw for that reason (see usePhoneLayout for the other question).
+  const pagerBleed = phoneScreen && !panel
 
   const body = (
     <Box sx={{ px: 2, pt: 2, pb: 2.5 }}>
@@ -778,7 +783,16 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       ) : (
         <>
           {!wide && plan.roles.length > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.75 }}>
+            // WPBL's role strip: pinned, so the switch stays in reach down a long game log, with
+            // WPBL's padding (more below than above: the pill belongs to the chrome over it). Pinned
+            // under the shell's own top in the panel, and under the toolbar on the page, which is
+            // 0 on a phone. Bled to the card's edges so the rows scrolling under it do not show
+            // through the gutter at either side.
+            <Box sx={{
+              position: 'sticky', top: panel ? 0 : 'var(--app-header-h, 0px)', zIndex: 2,
+              bgcolor: 'background.paper', mx: -2, mt: -2, mb: 1, px: 2, pt: 0.75, pb: 1,
+              display: 'flex', justifyContent: 'center',
+            }}>
               <SegControl
                 options={plan.roles.map(r => ({ value: r, label: r === 'pitching' ? 'Pitching' : 'Batting' }))}
                 value={activeRole}
@@ -786,7 +800,19 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
               />
             </Box>
           )}
-          {shownRoles.map((r, i) => roleBlock(r, i === 0))}
+          {wide || plan.roles.length < 2 ? shownRoles.map((r, i) => roleBlock(r, i === 0)) : (
+            // The two roles page under a finger, as on WPBL's card. Bled to the card's edges with the
+            // gutter handed back per pane, so a pane slides off the screen rather than clipping at the
+            // padding. Off a phone the pager draws the active role alone and needs no bleed.
+            <Box sx={{ mx: pagerBleed ? -2 : 0 }}>
+              <SwipeableViews
+                index={plan.roles.indexOf(activeRole)}
+                onIndexChange={i => setRoleTab(plan.roles[i])}
+                panels={plan.roles.map(r => roleBlock(r, true))}
+                padX={pagerBleed ? 16 : 0}
+              />
+            </Box>
+          )}
           <Fielding lines={hasPost && scope !== 'regular' ? [] : bundle?.fielding ?? []} />
         </>
       )}
@@ -813,7 +839,9 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const card = (
     <StatCardContext.Provider value={cardEnv}>
       <Box ref={panel ? topRef : undefined} sx={{
-        bgcolor: 'background.paper', overflow: 'hidden', scrollMarginTop: 0,
+        // `clip`, not `hidden`: a hidden box is a scroll container, and the role strip inside would
+        // stick to it rather than to the page.
+        bgcolor: 'background.paper', overflow: 'clip', scrollMarginTop: 0,
         // Edge to edge on a phone, where the page's gutter would cost the tables two columns.
         ...(panel ? {} : { mx: { xs: -2, sm: 0 }, borderRadius: { xs: 0, sm: 3 }, border: { xs: 'none', sm: '1px solid' }, borderColor: { sm: 'divider' } }),
       }}>

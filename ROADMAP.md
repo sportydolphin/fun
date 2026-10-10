@@ -309,8 +309,11 @@ will actually see all winter. The functional items do not wait.
    Report Card / Graphs was a second, centred underline row; it is a switch on one address, so it
    is a `PillGroup` at the head of the board's controls. The rule in both sections now: underline
    tabs are pages, `PillGroup` is a switch, chips are filters. Measured at 1000px: the row sits at
-   y=136 on every MLB tab and on `/wpbl/stats`. `SegControl` is left on the player card's
-   Batting / Pitching for now: WPBL's card draws the same switch its own way, a separate change.
+   y=136 on every MLB tab and on `/wpbl/stats`. ✅ *The player card's Batting / Pitching, Oct 10:*
+   WPBL's way now, a strip pinned under the toolbar (under the shell's top in the panel) with
+   WPBL's padding, and the two roles page under a finger (`SwipeableViews`, window mode, since
+   MLB's phone player is a page and not a sheet). The card frame is `overflow: clip`, or the
+   strip would stick to it instead of the page.
 4. **One stats-table look.** WPBL's spans the page with a league-average row and a "+ Qualified"
    chip; MLB's sits in a titled card, pages by 50, and has a "Qual" button. The code can stay two.
    ✅ *Oct 9:* MLB's grid is in WPBL's hairline frame, with no raised paper and no gradient title
@@ -321,8 +324,19 @@ will actually see all winter. The functional items do not wait.
    scroll box, where "Load 50 more" paged it. The qualifying bar and the regular / playoffs / all
    choice are WPBL's chips (`src/ui/FilterChip.tsx`, moved out of WPBL's StatsView). The phone's
    ranked list is unchanged. Still MLB's own: the medals, the headshots and the sort colours.
-5. **One box score and one play row** inside Game Center. The panel and page frames are shared;
-   the contents (`GameDetail` against `LiveGameCenter` and `boxScore`) are not.
+5. ✅ **One box score and one play row** inside Game Center (Oct 10). The drawing is
+   `src/ui/gameCenter.tsx`, WPBL's, and each section feeds it: `BoxTable` (centred cells, muted
+   zeros, the pinned name column, a totals row under the club's colour, fitted on a phone),
+   `BoxTeamHeading` and `BoxTeamSwitch` (underline tabs, where MLB had pills), `HalfHeading`
+   ("Top 6th · CLE · vs A. Kay", then +N and the score after) and `PlayRow` (the green rail, the
+   batter in weight, the runners underneath, the count and the bases and outs the play left at
+   the right). `BaseDiamond` and the out lamps moved to `src/ui/BaseDiamond.tsx`. MLB's box takes
+   WPBL's columns (HR, 2B and SB added; IP totalled as outs), keeps the season AVG and ERA off a
+   phone, and prints "(W)" there. Kept apart: MLB's latest-first order and its Scoring / All
+   chips, WPBL's pitch sequences, clips and play links, which StatsAPI has no match for here.
+   The sheet's tabs are `SegControl`, centred on their own row, with the Plays controls moved
+   under them: the five shared one row and wrapped on a phone. A live game's unplayed home half
+   no longer prints the X a finished game does.
 
 6. ✅ **One shape for the Stats tab** (Oct 9). Both open on Leaders, a card per stat, with Players
    (MLB's "Table" until now) beside it, so the board rows read "Leaders, Players, …" in both
@@ -348,9 +362,11 @@ will actually see all winter. The functional items do not wait.
    chips and words ("Regular season / Playoffs / Both"). MLB's phone list takes WPBL's header (Player,
    the league average), club logos, its "Show all N players" foot (`src/ui/ExpandRow.tsx`) and its
    footer row with the Full table switch inside the frame, and the foot's words are WPBL's ("10 of
-   124 players · qualified only · 2026 season"). The one measured difference left: at 760 and 960
-   WPBL's Players controls wrap to two lines (club chips, Standard / Advanced), so its table sits
-   lower there.
+   124 players · qualified only · 2026 season"). ✅ *The last measured difference, Oct 10:* WPBL's
+   control row is 1164px with its five club chips, so below `lg` it wrapped and the table sat 42px
+   under MLB's at 960. Below `lg` the clubs are one `FilterSelect` ("All clubs"), as MLB's season
+   is; and MLB's scope chips take WPBL's 6px gap, without which MLB's row overflowed by a pixel at
+   760. The table now starts at the same y on both at 760, 960, 1100 and 1440.
    ✅ *One table, Oct 10 (v1.144.0):* the last of what read as two products.
    - Headings: "MLB Stats" on all three boards, as WPBL's "WPBL Stats" (each board keeps its own
      `<title>`). MLB's season picker and Stats picker are chips (`FilterSelect` in

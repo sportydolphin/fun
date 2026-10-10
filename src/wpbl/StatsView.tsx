@@ -42,7 +42,7 @@ import { PageTabs } from '../ui/PageTabs'
 import { TABLE_CAP } from '../ui/ExpandRow'
 import { HEAD_LABEL_SX, HEAD_LEAGUE_SX, HEAD_LEAGUE_TINT } from '../ui/statsTableHead'
 import { useAxisLock } from '../ui/useAxisLock'
-import { FilterChip } from '../ui/FilterChip'
+import { FilterChip, FilterSelect } from '../ui/FilterChip'
 import { LeadersBoard, LeadersBoardSkeleton } from './LeadersBoard'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
@@ -2179,13 +2179,28 @@ export default function WpblStatsView({
         {/* Desktop: the filters themselves, no sheet in the way. */}
         {source === 'season' && mode === 'players' && !isNarrow && (
           <Box sx={{ ml: 'auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Chip active={teamId === null} onClick={() => filterTeam(null)}>All</Chip>
-            {teamChips.map(t => (
-              <Chip key={t.id} active={teamId === t.id} onClick={() => filterTeam(teamId === t.id ? null : t.id)}>
-                <TeamBadge team={t} size={16} />
-                <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
-              </Chip>
-            ))}
+            {/* ONE CHIP BELOW `lg`. The whole row measures 1164px with the five club chips, so under
+                1200 they wrapped onto a second line and the table started 42px lower than MLB's,
+                whose thirty clubs were never chips. A select there, the way MLB picks its season;
+                both are drawn and CSS picks, so nothing is measured and nothing moves on load. */}
+            <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.75 }}>
+              <Chip active={teamId === null} onClick={() => filterTeam(null)}>All</Chip>
+              {teamChips.map(t => (
+                <Chip key={t.id} active={teamId === t.id} onClick={() => filterTeam(teamId === t.id ? null : t.id)}>
+                  <TeamBadge team={t} size={16} />
+                  <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
+                </Chip>
+              ))}
+            </Box>
+            <Box sx={{ display: { xs: 'flex', lg: 'none' } }}>
+              <FilterSelect
+                value={teamId ?? ''}
+                options={[{ value: '', label: 'All clubs' }, ...teamChips.map(t => ({ value: t.id, label: t.abbr }))]}
+                onChange={v => filterTeam(v || null)}
+                active={teamId !== null}
+                ariaLabel="Club"
+              />
+            </Box>
             <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
             <Chip active={qualified} onClick={() => toggleQualified()}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
           </Box>
