@@ -12,9 +12,16 @@ import { fmt, fmtDecimal, parseIP } from './utils'
 // season: those two columns are offered there and nowhere else (`sabermetricsApply`).
 //
 // THE LEAGUE CONTEXT IS THE TABLE'S OWN POOL, everyone in it rather than the qualified rows, as the
-// header's league line is (leagueLine). OPS+ and ERA+ are not park adjusted, so they are close to
-// Baseball-Reference's and not equal to it; FIP's constant is derived from the same pool, so the
+// header's league line is (leagueLine). FIP's constant is derived from the same pool, so the
 // league's FIP equals its ERA by construction, as FanGraphs sets it up.
+//
+// OPS+ AND ERA+ ARE PARK ADJUSTED on a season board, by the player's club's halved run factor
+// (fetchParkFactors): OPS+ divided by it and ERA+ multiplied, which is Baseball-Reference's shape.
+// Dividing the whole index rather than scaling OBP and SLG apart is deliberate: OPS+ is built to read
+// as a ratio of runs (100 * (a + b - 1) is close to a * b), and the factor is a ratio of runs. Two
+// approximations remain. A traded player carries only the club StatsAPI files the season under, so
+// the factor is that club's rather than one weighted by games in each park; and a career board has
+// no single season to take factors from, so it reads unadjusted (`parks` absent).
 //
 // A value that cannot be computed is UNDEFINED, never null or 0: `rankValue` takes Number() of it,
 // and Number(null) is 0, which would put a pitcher with no innings at the top of the FIP board.
@@ -81,13 +88,13 @@ export function advancedContext(entries: LeaderboardEntry[], group: 'hitting' | 
 }
 
 /** One stat line's advanced figures. The keys are the advanced defs' own. */
-export function advancedFor(stat: unknown, group: 'hitting' | 'pitching', ctx: AdvancedContext, saber?: Sabermetric): Derived {
+export function advancedFor(stat: unknown, group: 'hitting' | 'pitching', ctx: AdvancedContext, saber?: Sabermetric, park: number | null = 1): Derived {
   const s = (stat ?? {}) as Stat
   if (group === 'hitting') {
     const l = hittingLine(s)
     return {
       bbPct: l.bbPct, kPct: l.kPct, iso: l.iso, xbh: l.xbh, babipCalc: l.babip, sbPct: l.sbPct,
-      opsPlus: l.obp != null && l.slg != null && ctx.obp && ctx.slg ? 100 * (l.obp / ctx.obp + l.slg / ctx.slg - 1) : undefined,
+      opsPlus: l.obp != null && l.slg != null && park != null && ctx.obp && ctx.slg ? 100 * (l.obp / ctx.obp + l.slg / ctx.slg - 1) / park : undefined,
       woba: saber?.woba, wrcPlus: saber?.wrcPlus,
     }
   }
@@ -96,17 +103,22 @@ export function advancedFor(stat: unknown, group: 'hitting' | 'pitching', ctx: A
   const era = Number(s.era)
   return {
     kPct: l.kPct, bbPct: l.bbPct, kbbPct: l.kbbPct, kbb: l.kbb, hr9: l.hr9, strikePct: l.strikePct, babipCalc: l.babip,
-    eraPlus: era > 0 && ctx.era ? 100 * ctx.era / era : undefined,
+    eraPlus: park != null && era > 0 && ctx.era ? 100 * ctx.era * park / era : undefined,
     fip: l.fipCore != null && ctx.fipConstant != null ? l.fipCore + ctx.fipConstant : undefined,
   }
 }
 
-/** Every row with its advanced figures folded into its stat line, beside StatsAPI's own fields. */
+/** Every row with its advanced figures folded into its stat line, beside StatsAPI's own fields.
+ *  `parks` is club id to halved park factor; a club missing from it is neutral, so a failed read
+ *  leaves the whole board unadjusted rather than half of it. 'pending' leaves OPS+ and ERA+ blank
+ *  until the factors land, so no unadjusted figure is painted and then replaced under the reader. */
 export function withAdvanced(
   entries: LeaderboardEntry[], group: 'hitting' | 'pitching', saber?: Map<number, Sabermetric> | null,
+  parks?: Map<number, number> | 'pending' | null,
 ): LeaderboardEntry[] {
   const ctx = advancedContext(entries, group)
-  return entries.map(e => ({ ...e, stat: { ...e.stat, ...advancedFor(e.stat, group, ctx, saber?.get(e.playerId)) } }))
+  const parkFor = (teamId: number) => (parks === 'pending' ? null : parks?.get(teamId) ?? 1)
+  return entries.map(e => ({ ...e, stat: { ...e.stat, ...advancedFor(e.stat, group, ctx, saber?.get(e.playerId), parkFor(e.teamId)) } }))
 }
 
 /** The league line's advanced half, for the header: the same arithmetic over the pool's totals. The
@@ -156,6 +168,9 @@ export const PITCHING_ADVANCED_DEFS: StatDef[] = [
   def('eraPlus', 'ERA+', whole),
   def('fip', 'FIP', two, { lowerIsBetter: true }),
 ]
+
+/** The two indexes a season board park-adjusts (fetchParkFactors). */
+export const PARK_ADJUSTED_KEYS: ReadonlySet<string> = new Set(['opsPlus', 'eraPlus'])
 
 /** The two stats only StatsAPI's sabermetrics can supply. */
 export const SABERMETRIC_KEYS: ReadonlySet<string> = new Set(['woba', 'wrcPlus'])
