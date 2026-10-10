@@ -43,6 +43,7 @@ import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 import { ADMIN_EMAIL } from './lib/admin'
 import { typePx } from './ui/scale'
 import { SectionActiveContext } from './lib/panelActive'
+import { otherSectionPath } from './sectionSwitch'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
@@ -1058,9 +1059,10 @@ function AppInner() {
               onPointerDown={() => preloadSection(path)}
               onClick={() => {
                 // Every WPBL tab and /wpbl/api count as the WPBL side, so flipping from any
-                // of them goes to MLB.
-                const target = isWpblSection(path) ? '/mlb' : '/wpbl'
-                if (target === '/wpbl') {
+                // of them goes to MLB: to the same page there where it has one (sectionSwitch.ts).
+                const toWpbl = !isWpblSection(path)
+                const target = otherSectionPath(path, !toWpbl)
+                if (toWpbl) {
                   // Pop confetti from the bottom edge of the WPBL segment (right half of the
                   // control), held until the thumb finishes sliding across (matches the 0.28s slide).
                   const r = leagueSwitchRef.current?.getBoundingClientRect()
