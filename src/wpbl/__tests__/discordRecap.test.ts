@@ -33,7 +33,7 @@ const recap = (o: Partial<GameRecap> = {}): GameRecap => ({
   headline: 'Hunters top Heights',
   blurb: 'The Hunters held on for a 6-1 win.',
   stars: [{ playerId: 'p1', name: 'Gigi Schiano', teamId: 'BOS', kind: 'pitch', statline: '3.0 IP, 1 K, 0 ER', score: 9 }],
-  decisions: [{ key: 'W', name: 'Gigi Schiano', teamId: 'BOS', statline: '3.0 IP, 1 K, 0 ER' }],
+  decisions: [{ key: 'W', playerId: 'p-w', name: 'Gigi Schiano', teamId: 'BOS', statline: '3.0 IP, 1 K, 0 ER' }],
   teamLine: [
     { teamId: 'BOS', name: 'Boston Hunters', r: 6, h: 11, e: 0 },
     { teamId: 'NY', name: 'New York Heights', r: 1, h: 8, e: 2 },

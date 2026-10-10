@@ -1335,6 +1335,42 @@ is retired.
 
 ## Shipped log
 
+### Oct 10, 2026: Scores, newest first, with names on every final (v1.148.0)
+
+- **Game days only, newest first after the season.** Every calendar day between the first game and
+  the last had a row, off days as a dashed "No games" card, and the step back from the anchor
+  usually landed on one: the offseason page opened on "Mon, Sep 21 · No games" above the final.
+  In season the page still opens on the last game day; "Earlier" now runs newest first.
+- **Every final names its star and its pitchers of record,** each a link to the player, from
+  `buildRecap` itself, so the name matches Game Center, Discord and Bluesky. The game link is
+  stretched over the card rather than wrapping it, since an `<a>` cannot hold another. Read by
+  `fetchWpblScoreCardLines`, filtered to the lines buildRecap could rank, not the whole box score.
+- **A grid above a phone**, on Home's width: three games across on a desktop, two at 760, the
+  date moved into each card. A phone and the side panel keep the dated list. Flat cards in dark
+  mode, as on Home and the recap.
+- The skeleton is the grid or the list drawn empty, and a final whose names are still in flight
+  draws its footer empty, so nothing moves at 375, 760, 960, 1280 or 1440.
+
+### Oct 10, 2026: a lighter first load, and MLB's chunks with the entry (v1.147.0)
+
+Measured on a phone profile (4x CPU, 150ms, 1.6 Mbps), seven runs each, through `wrangler pages dev`.
+
+- **The Supabase client is two parts, not five.** `createClient` built storage, realtime and the
+  functions client up front, 274KB of the entry's 1.87MB of source. `src/lib/supabase.ts` now
+  assembles auth and the REST client itself; realtime loads on a live game's first subscription
+  (`supabase.watchChanges`), and the two edge-function calls are a plain POST. The entry went from
+  243KB to 217KB gzipped; `/wpbl` loads 26KB less JS and its DOM is ready about 130ms sooner. The
+  auth storage key is the one createClient used, so nobody is signed out.
+- **`/mlb` preloads its own chunks.** The section had the waterfall the WPBL preload fixed in
+  August: MlbStats and the landing view started only after the entry ran. The build now writes
+  MLB's links inside inert `<template>`s, and the `/mlb` Pages Function unwraps the shell's and the
+  landing view's (`mlbLandingChunks`, the rule the app's own prefetch uses). Largest paint on
+  `/mlb` 4.2s to 3.6s, on `/mlb/standings` 4.2s to 3.6s. Every other page carries the templates
+  inert, about 1KB gzipped.
+- Looked at and left: the four reads of today's MLB schedule go out in parallel at the same
+  moment, so folding them into one would save almost nothing; and the MUI tooltip's Popper in the
+  entry would only move to the WPBL chunk, which every `/wpbl` load fetches anyway.
+
 ### Oct 10, 2026: the site's reads, faster (v1.145.0)
 
 Measured before: every Supabase read took 230 to 670ms, uncached; `/wpbl/stats` finished its reads

@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { mlbTargetFromUrl } from '../routes'
+import { mlbLandingChunks } from '../routes'
 import type { MlbView } from '../routes'
 
 // EACH MLB VIEW IS ITS OWN CHUNK. They all shipped inside MlbStats, so a reader landing on
@@ -47,11 +47,11 @@ function warm(view: MlbView) {
 
 /** The chunk for whatever view this address opens. */
 export function preloadMlbViewFor(pathname: string, search: string) {
-  const target = mlbTargetFromUrl(pathname, search)
-  // A game's address on a desktop is the full Game Center page, which is that chunk.
-  if (target?.gamePk != null) import('./LiveGameCenter').catch(() => {})
-  if (target?.playerId != null) loadPlayer().catch(() => {})
-  else warm(target?.view ?? 'home')
+  for (const key of mlbLandingChunks(pathname, search)) {
+    if (key === 'game') import('./LiveGameCenter').catch(() => {})
+    else if (key === 'player') loadPlayer().catch(() => {})
+    else warm(key as MlbView)
+  }
 }
 
 /** Every view's chunk. Once the landing view has settled, so that a tab tap renders in one commit

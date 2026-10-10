@@ -1027,6 +1027,47 @@ export function fetchWpblAllLines(): Promise<WpblLinesResult> {
   })
 }
 
+/** The box-score lines that can put a name on a Scores card, and only the columns that decide it. */
+export interface WpblScoreCardLines {
+  batting: Pick<WpblBattingLine, 'game_id' | 'player_id' | 'team_id' | 'ab' | 'h' | 'r' | 'rbi' | 'hr' | 'doubles' | 'triples' | 'sb' | 'bb' | 'tb'>[]
+  pitching: Pick<WpblPitchingLine, 'game_id' | 'player_id' | 'team_id' | 'outs' | 'h' | 'er' | 'bb' | 'so' | 'decision' | 'gs'>[]
+}
+let scoreCardLinesCache: { data: WpblScoreCardLines; at: number } | null = null
+
+/**
+ * The Scores tab's own read of the box scores: the star of each game and its pitchers of record.
+ *
+ * NOT fetchWpblAllLines, the heaviest read in the section, for a footer of three names. The rows
+ * are filtered by the same tests buildRecap applies before a line can rank at all (a batter who
+ * hit, scored or drove one in; a pitcher with a decision or three innings), and the columns are the
+ * ones its star and decision code reads, so a line this drops could never have reached a card.
+ * If buildRecap's eligibility rules widen, these filters have to widen with them.
+ */
+export function fetchWpblScoreCardLines(): Promise<WpblScoreCardLines> {
+  if (isFresh(scoreCardLinesCache)) return Promise.resolve(scoreCardLinesCache!.data)
+  return once('scoreCardLines', async () => {
+    const [batting, pitching] = await Promise.all([
+      fetchAllPaged<WpblScoreCardLines['batting'][number]>('fetchWpblScoreCardBatting', (from, to) =>
+        supabase.from('wpbl_batting_lines')
+          .select('id,game_id,player_id,team_id,ab,h,r,rbi,hr,doubles,triples,sb,bb,tb')
+          .or('h.gt.0,r.gt.0,rbi.gt.0')
+          .order('id', { ascending: true }).range(from, to) as unknown as
+          PromiseLike<{ data: WpblScoreCardLines['batting'] | null; error: unknown }>),
+      fetchAllPaged<WpblScoreCardLines['pitching'][number]>('fetchWpblScoreCardPitching', (from, to) =>
+        supabase.from('wpbl_pitching_lines')
+          .select('id,game_id,player_id,team_id,outs,h,er,bb,so,decision,gs')
+          .or('decision.not.is.null,outs.gte.9')
+          .order('id', { ascending: true }).range(from, to) as unknown as
+          PromiseLike<{ data: WpblScoreCardLines['pitching'] | null; error: unknown }>),
+    ])
+    // Both halves or the last good pair: a card with a star and no pitchers reads as a game nobody
+    // pitched in, and an empty read looks exactly like a quiet one.
+    if ((batting.length === 0 || pitching.length === 0) && scoreCardLinesCache) return scoreCardLinesCache.data
+    scoreCardLinesCache = { data: { batting, pitching }, at: Date.now() }
+    return scoreCardLinesCache.data
+  })
+}
+
 // Every TrackMan tracking row in the league, slimmed to the fields the velocity board
 // needs (see WpblTrackRow): the raw-payload sub-fields are projected server-side so we
 // never transfer the whole `raw` blob. Paginated past PostgREST's 1000-row default so it

@@ -28,7 +28,10 @@
 //    links for the WPBL section because /wpbl is where most traffic lands
 //    (scripts/vite-plugin-wpbl-preload.mjs). On /mlb they only compete with the MLB chunks for
 //    the connection and the phone's CPU, so every page this function hands through goes out
-//    without them (`shell`).
+//    without them (`shell`). AND PUT MLB'S IN: the same plugin writes MLB's links inside inert
+//    <template>s, and this unwraps the shell's block and the landing view's, so MlbStats and that
+//    view download beside the entry chunk rather than after it has run. Which view an address
+//    lands on is `mlbLandingChunks`, the rule the app's own prefetch uses.
 //
 // 6. THE PREVIEW CARD. A shared player or game link unfurls as that player or game rather than as
 //    the site's one generic card: the title, the season line or the score, and for a player the
@@ -47,7 +50,7 @@
 // ever answered on positive evidence that there is no such player or game.
 import {
   mlbCompareTargetFromPath, mlbComparePath, mlbCompareStartPath, mlbCompareSeasonFromSearch, MLB_COMPARE_BASE,
-  mlbLegacyGamePk, mlbLegacyTarget, mlbGamePath, mlbGamePkFromPath, mlbPlayerIdFromPath, mlbPlayerPath,
+  mlbLandingChunks, mlbLegacyGamePk, mlbLegacyTarget, mlbGamePath, mlbGamePkFromPath, mlbPlayerIdFromPath, mlbPlayerPath,
   mlbUrlFor, mlbSeriesFromPath, mlbSeriesPath, MLB_GAMES_BASE, MLB_LEGACY_GAME_PARAMS, MLB_LEGACY_PARAMS,
   MLB_PLAYERS_BASE, MLB_POSTSEASON_BASE,
 } from '../../src/mlb/routes'
@@ -308,25 +311,44 @@ export async function notFound(context: Ctx): Promise<Response> {
 /** What the WPBL preload plugin marks its links with. See item 5 at the top. */
 export const WPBL_PRELOAD_SELECTOR = 'link[data-section="wpbl"]'
 
+/** Where the same plugin holds MLB's links, inert until this function unwraps them. */
+export const MLB_PRELOAD_SELECTOR = 'template[data-section="mlb"]'
+
+/** Whether one of those blocks is for this address: the shell's own (no `data-view`) always,
+ *  a view's when the address lands on it. */
+export function unwrapMlbPreload(view: string | null, landing: string[]): boolean {
+  return view == null || landing.includes(view)
+}
+
 /**
- * The app shell as it would have been served, minus the WPBL section's modulepreload links.
+ * The app shell as it would have been served, minus the WPBL section's modulepreload links and
+ * with MLB's own in their place: MlbStats and the chunks of the view this address opens, so they
+ * download beside the entry chunk instead of after it has run.
  *
  * Only an HTML response is touched, and only where the Workers runtime provides HTMLRewriter (the
  * test runner has none), so anything unexpected passes through exactly as before. The links are a
  * hint: without them WpblApp still loads the moment someone flips to WPBL, and the shell's hover
- * and idle prefetch warms it ahead of that.
+ * and idle prefetch warms it ahead of that; MLB's chunks load as the app asks for them.
  */
 async function shell(context: Ctx): Promise<Response> {
   const res = await context.next()
   if (typeof HTMLRewriter === 'undefined') return res
   if (!(res.headers.get('content-type') ?? '').includes('text/html')) return res
+  const url = new URL(context.request.url)
+  const landing = mlbLandingChunks(url.pathname, url.search)
   return new HTMLRewriter()
     .on(WPBL_PRELOAD_SELECTOR, { element(el) { el.remove() } })
+    .on(MLB_PRELOAD_SELECTOR, {
+      element(el) {
+        if (unwrapMlbPreload(el.getAttribute('data-view'), landing)) el.removeAndKeepContent()
+        else el.remove()
+      },
+    })
     .transform(res)
 }
 
 // The one Workers global this file touches; see the same declaration in functions/wpbl/index.ts.
 declare class HTMLRewriter {
-  on(selector: string, handlers: { element(el: { remove(): void }): void }): HTMLRewriter
+  on(selector: string, handlers: { element(el: { remove(): void; removeAndKeepContent(): void; getAttribute(name: string): string | null }): void }): HTMLRewriter
   transform(response: Response): Response
 }

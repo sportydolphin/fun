@@ -165,7 +165,7 @@ describe('the card', () => {
   it('lists every character it draws, so the font subset can cover them', () => {
     // A glyph missing from the subset renders as nothing at all, silently: an accented name
     // simply vanishes from a card that otherwise looks perfect.
-    const svg = boxScoreCard(game(), recap({ decisions: [{ key: 'W', name: 'Maïka Dumais', teamId: BOS.id, statline: '' }] }), teams)
+    const svg = boxScoreCard(game(), recap({ decisions: [{ key: 'W', playerId: 'p-w', name: 'Maïka Dumais', teamId: BOS.id, statline: '' }] }), teams)
     expect(cardCharset(svg)).toContain('ï')
   })
 
