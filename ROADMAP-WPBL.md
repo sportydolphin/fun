@@ -1335,6 +1335,19 @@ is retired.
 
 ## Shipped log
 
+### Oct 9, 2026: Stats opens on Leaders (v1.141.0)
+
+A new first board, `LeadersBoard.tsx`: the top five in eight hitting and eight pitching stats, one
+card each, with "See all ›" opening Players sorted by that stat. MLB's Stats tab opened on this
+shape and WPBL's on the table, so the same tab answered two different first questions across the
+league switch. No arithmetic of its own: the rows are StatsView's season aggregates and every figure
+is printed by the Players column, so ERA and the K rate follow the reader's basis. Rates are gated
+on the PA / outs qualifier and counting stats are not, `teamLeaders`' rule; a zero is not a lead.
+A bare `/wpbl/stats` is Leaders now, so the table is `?board=players`, and a link from before that
+names a sort and no board is read as the table and gains the board in the address. The skeleton is
+the cards drawn empty; the sweep is clean under `--replay --cpu 4`. Pinned in
+`__tests__/leadersBoard.test.ts` and `statsUrlState.test.tsx`.
+
 ### Oct 9, 2026: Compare's frame is shared with MLB (v1.132.0)
 
 The heads, stat tables, head-to-head card, picker and their loading states moved from

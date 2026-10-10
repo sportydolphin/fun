@@ -8,6 +8,12 @@ import type { WpblView } from './wpbl/routes'
 // landed on Home, and tapped Standings again, every time. The five tabs are the same five on both
 // sides, and so are the glossary and Compare, since the second alignment pass in ROADMAP.md.
 //
+// Into MLB, Stats lands on the same BOARD where both have it: WPBL's Players board on MLB's, and
+// Leaders or a WPBL-only board on Leaders, since MLB's boards are paths it reads on every move. Into
+// WPBL it is the Stats tab as the reader last left it (Leaders on a first visit): WPBL's boards are a
+// query its Stats view reads once, at mount, so a kept-alive one would ignore `?board=` and a link
+// that works only on a first visit is worse than none.
+//
 // A page with no counterpart (a player, a game, a series, /wpbl/api, the sources page) goes to the
 // other section's Home. A club page goes to Teams: the nearest page that is about clubs. Matching a
 // player or a club ACROSS leagues is not a thing to attempt: they are different people and clubs.
@@ -23,15 +29,16 @@ const WPBL_TO_MLB: Record<WpblView, string> = {
   home: MLB_BASE,
   schedule: MLB_VIEW_PATHS.scores,
   standings: MLB_VIEW_PATHS.standings,
-  // The Table board, which is what WPBL's Stats is: every player, a column per stat. Not the
-  // Leaders board MLB's tab opens on, which WPBL has no equivalent of.
-  stats: MLB_VIEW_PATHS.stats,
+  // Leaders, the board both Stats tabs open on. WPBL's Players board goes to MLB's (see below).
+  stats: MLB_VIEW_PATHS.leaderboard,
   teams: MLB_TEAMS_BASE,
 }
 
-/** The other section's counterpart of `pathname`, which is a page in one of the two sections. */
-export function otherSectionPath(pathname: string, onWpbl: boolean): string {
+/** The other section's counterpart of `pathname` (and `search`, for WPBL's Stats boards), which is
+ *  a page in one of the two sections. */
+export function otherSectionPath(pathname: string, onWpbl: boolean, search = ''): string {
   if (onWpbl) {
+    if (wpblViewFromPath(pathname) === 'stats' && new URLSearchParams(search).get('board') === 'players') return MLB_VIEW_PATHS.stats
     if (isWpblGlossaryPage(pathname)) return MLB_GLOSSARY_PAGE
     if (isWpblComparePage(pathname)) return MLB_COMPARE_BASE
     const view = wpblViewFromPath(pathname)

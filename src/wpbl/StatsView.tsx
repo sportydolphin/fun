@@ -38,6 +38,7 @@ import { STATS_FULL_BLEED_W } from './layoutWidths'
 import { typePx } from '../ui/scale'
 import { PageTabs } from '../ui/PageTabs'
 import { FilterChip } from '../ui/FilterChip'
+import { LeadersBoard, LeadersBoardSkeleton } from './LeadersBoard'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
 // its own layout, not reachable without a deliberate tap. The draft-value model lives on
@@ -87,7 +88,7 @@ type Side = 'hitting' | 'pitching' | 'fielding'
 /** The side every board other than the season tables speaks. */
 type BallSide = 'hitting' | 'pitching'
 type Totals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals
-type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
+type Source = 'leaders' | 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
 
 /** Boards that lay themselves out in two columns on a large desktop, and so take the wider
  *  page column. Everything else is one column and stays at the list measure. */
@@ -95,7 +96,7 @@ type Source = 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'dr
 // deliberately NOT one: it is a form and a pair of result cards, and at the wide column its
 // controls stretch to absurd widths (a stat dropdown running the whole row) and the cards read as
 // sparse. It caps at the ordinary board column instead; its results still split into two under it.
-const WIDE_BOARDS = new Set<Source>(['runs', 'bests'])
+const WIDE_BOARDS = new Set<Source>(['leaders', 'runs', 'bests'])
 type Mode = 'players' | 'teams'
 
 // The deep-link contract: a link asks for 'hitting'/'pitching' with a column, and a legacy
@@ -298,7 +299,7 @@ function viewFor(side: Side, key: string, current: View): View {
  * sees one tab called Teams, where the code sees `source: 'season'` plus `mode: 'teams'`. The
  * URL is read by people, so it spells the thing on screen.
  */
-type BoardParam = 'players' | 'teams' | 'fielding' | 'bests' | 'find' | 'pitches' | 'runs' | 'tracked' | 'draft'
+type BoardParam = 'leaders' | 'players' | 'teams' | 'fielding' | 'bests' | 'find' | 'pitches' | 'runs' | 'tracked' | 'draft'
 
 const STATS_PATH = '/wpbl/stats'
 
@@ -340,6 +341,7 @@ function boardParam(source: Source, mode: Mode, side: Side): BoardParam {
 
 function boardAxes(board: string | null): { source: Source; mode: Mode; side?: Side } | null {
   switch (board) {
+    case 'leaders': return { source: 'leaders', mode: 'players' }
     case 'players': return { source: 'season', mode: 'players' }
     case 'fielding': return { source: 'season', mode: 'players', side: 'fielding' }
     case 'teams':   return { source: 'season', mode: 'teams' }
@@ -366,7 +368,9 @@ function axesFromQuery(): {
   // belong to the entry underneath rather than to the page being shown.
   if (window.location.pathname.replace(/\/+$/, '') !== STATS_PATH) return {}
   const q = new URLSearchParams(window.location.search)
-  const board = boardAxes(q.get('board'))
+  // A sort with no board is a link from before Leaders opened the tab, when a bare /wpbl/stats was
+  // the Players table: `?sort=ops` asks for a column, and only Players has columns.
+  const board = boardAxes(q.get('board')) ?? (q.get('sort') || q.get('dir') ? boardAxes('players') : null)
   const side = q.get('side')
   const dir = q.get('dir')
   const venue = q.get('venue')
@@ -759,13 +763,24 @@ function SubViewFallback() {
  *  at the same full-bleed measure the loaded tab draws them at, so nothing moves when it lands.
  *  Desktop measurements over the 1.25 scale, in chromePx. See TabSkeleton in WpblApp.tsx. */
 export function StatsSkeleton() {
+  // The board the address will open on: Leaders, unless it names another (axesFromQuery). Only
+  // the table has a skeleton of its own besides; any other board draws the table's, as before.
+  const leaders = (axesFromQuery().source ?? 'leaders') === 'leaders'
   return (
     <Box sx={{ flexGrow: 1 }}>
       <TabTitle sx={{ ...fullBleedSx, mb: 1 }}>WPBL Stats</TabTitle>
       {/* The bar and the table touch: the table's top border tucks under the bar's last pixel. */}
       {/* A phone stacks the board tabs over the filters, so its bar is its own number. */}
       <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '95px', sm: chromePx(94) }, borderRadius: 2 }} />
-      <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: chromePx(546) }, borderRadius: 2, mt: '-1px' }} />
+      {leaders ? (
+        <Box sx={fullBleedSx}>
+          <Box sx={{ maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto' }}>
+            <LeadersBoardSkeleton />
+          </Box>
+        </Box>
+      ) : (
+        <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: chromePx(546) }, borderRadius: 2, mt: '-1px' }} />
+      )}
     </Box>
   )
 }
@@ -828,7 +843,9 @@ export default function WpblStatsView({
   const fromUrl = useRef(axesFromQuery()).current
   const [side, setSide] = useState<Side>(
     fromUrl.side ?? seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
-  const [source, setSource] = useState<Source>(fromUrl.source ?? seedAxes.source)
+  // Leaders unless something asked for a board: the address, or an in-app jump (a player card's
+  // rank, a club's "Full stats"), which always means a table sorted by a column.
+  const [source, setSource] = useState<Source>(fromUrl.source ?? (focus?.token ? seedAxes.source : 'leaders'))
   // The last of Hitting and Pitching the reader chose, for every board but Fielding and for the
   // switch to come back to on the way out of it.
   const [ballSide, setBallSide] = useState<BallSide>(
@@ -1281,11 +1298,12 @@ export default function WpblStatsView({
     // Only what the reader has actually changed. A default view keeps a bare /wpbl/stats, and a
     // link they paste carries only the part worth saying.
     const set = (k: string, v: string | null) => { if (v == null) q.delete(k); else q.set(k, v) }
-    set('board', board === 'players' ? null : board)
+    set('board', board === 'leaders' ? null : board)
     // `board=fielding` already says the side, so `side` is only ever the switch's.
     set('side', boardSide === 'hitting' || side === 'fielding' ? null : boardSide)
-    set('sort', sortKey === def.key ? null : sortKey)
-    set('dir', sortAsc === defaultSort(side, sortKey).asc ? null : (sortAsc ? 'asc' : 'desc'))
+    // Not on Leaders, which has no sort: a stray ?sort= with no board reads as a Players link.
+    set('sort', source === 'leaders' || sortKey === def.key ? null : sortKey)
+    set('dir', source === 'leaders' || sortAsc === defaultSort(side, sortKey).asc ? null : (sortAsc ? 'asc' : 'desc'))
     // THE FIND BOARD'S QUESTION, and only while that board is the one open. Left on, a reader
     // who built a question and then walked to Players would carry `?q=so.gte.5` on a board that
     // has no idea what it means, and would paste it to somebody who lands on a table.
@@ -1439,6 +1457,9 @@ export default function WpblStatsView({
   // links, the ?view= URLs and axesOf() all speak that language, and collapsing them into a
   // single state would mean rewriting all of it to gain a variable.
   const boards: { key: string; label: string; badge?: boolean }[] = [
+    // First, and where the tab opens: who leads each stat, the question most readers bring. MLB's
+    // Stats tab opens on the same board. See LeadersBoard.tsx.
+    { key: 'leaders', label: 'Leaders' },
     { key: 'players', label: 'Players' },
     { key: 'teams', label: 'Teams' },
     // Beside the two season tables because it IS one: the same table, sort and filters, over the
@@ -1485,6 +1506,25 @@ export default function WpblStatsView({
     if (k === 'players' || k === 'teams') { setSource('season'); setMode(k as Mode) }
     else setSource(k as Source)
   }
+
+  // The Leaders board's rows: the same aggregates as the Players table, before its sort, its club
+  // chip or its qualifier, which the board applies per card (rates only; see LeadersBoard.tsx).
+  const leaderSeasons = useMemo(() => source !== 'leaders' ? { batting: [], pitching: [] } : {
+    batting: aggregateBatting(players, lines.batting, games, scope),
+    pitching: aggregatePitching(players, lines.pitching, games, scope),
+  }, [source, players, lines, games, scope])
+  // "See all" on a card: the Players table sorted by that stat, showing the population the card
+  // ranked, so its top five are the table's top five. A rate card ranked qualifiers and a counting
+  // card ranked everyone.
+  const seeAll = (key: string) => {
+    selectBoard('players')
+    setTeamId(null)
+    const col = (boardSide === 'hitting' ? hitCols : pitCols).find(c => c.key === key) as Col<Totals> | undefined
+    setQualified(col?.rate ? qual.active : false)
+    setSortKey(key); setSortAsc(defaultSort(boardSide, key).asc)
+  }
+  const seeAllHref = (key: string) =>
+    `${STATS_PATH}?board=players${boardSide === 'pitching' ? '&side=pitching' : ''}&sort=${key}`
 
   // Anything the reader has changed away from how the board opens. Drives the dot on the
   // Filters pill: `qualified` defaults to `qual.active`, so "on" is not the same as "set".
@@ -2027,7 +2067,7 @@ export default function WpblStatsView({
         {/* Phones: the two controls that do the work, stating what they are set to. Desktop
             keeps the chips inline, where there is room for the whole filter set at once and
             the column headers already sort. */}
-        {(source === 'season' || source === 'bests' || source === 'find') && isNarrow && (
+        {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && isNarrow && (
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
             {/* NO SORT PILL ON BESTS. Its boards each rank by their own stat and say so in
                 their own title, so there is no column to choose: the equivalent control would
@@ -2088,7 +2128,7 @@ export default function WpblStatsView({
         {/* DESKTOP ONLY. On a phone these three would wrap onto a row of their own and take that
             height from the table, which is capped so its column headers cannot be carried up
             behind the bar. They are in the Filters sheet there, which is what they are. */}
-        {(source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && (
+        {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {/* "Both" rather than "All", which is what this option is: the team filter sitting
                 immediately to its right already has an "All" chip, and two chips reading All
@@ -2121,7 +2161,20 @@ export default function WpblStatsView({
           rather than the shared table: a different shape of data, not more columns. Both read
           the same `side` as the table, so switching Hitting/Pitching above carries straight
           through instead of being asked again inside them. */}
-      {source === 'tracked' ? (
+      {source === 'leaders' ? (
+        // Full bleed and capped, as Bests is, for the same 8px on a phone.
+        <Box sx={fullBleedSx}>
+          <Box sx={{ maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto' }}>
+            {boardSide === 'hitting' ? (
+              <LeadersBoard side="hitting" cols={hitCols} seasons={leaderSeasons.batting} qual={qual}
+                onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
+            ) : (
+              <LeadersBoard side="pitching" cols={pitCols} seasons={leaderSeasons.pitching} qual={qual}
+                onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
+            )}
+          </Box>
+        </Box>
+      ) : source === 'tracked' ? (
         <Suspense fallback={<SubViewFallback />}>
           <WpblTrackingView side={boardSide} games={games} onOpenPlayer={onOpenPlayer} />
         </Suspense>

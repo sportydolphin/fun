@@ -57,7 +57,7 @@ type NavKey = MlbNavKey
 const NAV = MLB_NAV
 const STATS_BOARDS: { view: MlbView; label: string }[] = [
   { view: 'leaderboard', label: 'Leaders' },
-  { view: 'stats',       label: 'Table' },
+  { view: 'stats',       label: 'Players' },
   { view: 'viz',         label: 'Charts' },
 ]
 const navKeyFor = (v: MlbView): NavKey | null =>

@@ -76,10 +76,20 @@ describe('the stats view in the address bar', () => {
     await screen.findByText('Hitting')
     // THE URL SURVIVING IS THE PROOF. The effect rewrites the query from the component's own
     // state on every change and strips anything that matches a default, so had the seed been
-    // ignored it would have tidied these two away and left a bare /wpbl/stats, which is
-    // exactly what the nonsense case below asserts. Both params still standing means the state
-    // behind them is pitching, sorted by WHIP.
-    expect(url()).toBe('/wpbl/stats?side=pitching&sort=whip')
+    // ignored it would have tidied these two away and left a bare /wpbl/stats. Both params still
+    // standing means the state behind them is pitching, sorted by WHIP.
+    //
+    // AND `board=players` IS ADDED. A link from before Leaders opened the tab names a column and
+    // no board, which can only mean the table; now that the table is not the default, the address
+    // says so, or the next paste of it would open on Leaders.
+    expect(url()).toBe('/wpbl/stats?side=pitching&sort=whip&board=players')
+  })
+
+  it('opens on Leaders at a bare address', async () => {
+    draw()
+    // This harness has no games, so every card is empty, and only the Leaders board says this.
+    expect((await screen.findAllByText('Nobody yet')).length).toBeGreaterThan(0)
+    expect(url()).toBe('/wpbl/stats')
   })
 
   // The columns spliced in at render time (they need the league or the reader's basis) are not
@@ -88,14 +98,14 @@ describe('the stats view in the address bar', () => {
     at('/wpbl/stats?sort=wrcPlus')
     draw()
     await screen.findByText('Hitting')
-    expect(url()).toBe('/wpbl/stats?sort=wrcPlus')
+    expect(url()).toBe('/wpbl/stats?sort=wrcPlus&board=players')
   })
 
   it('keeps a lower-is-better render-time column ascending without saying so', async () => {
     at('/wpbl/stats?side=pitching&sort=fip')
     draw()
     await screen.findByText('Hitting')
-    expect(url()).toBe('/wpbl/stats?side=pitching&sort=fip')
+    expect(url()).toBe('/wpbl/stats?side=pitching&sort=fip&board=players')
   })
 
   // wRC+ is only in Advanced. Leaving the board sorted by a column the reader can no longer see
@@ -104,16 +114,17 @@ describe('the stats view in the address bar', () => {
     at('/wpbl/stats?sort=wrcPlus')
     draw()
     fireEvent.click(await screen.findByText('Standard'))
-    // OPS is the default, so the query tidies away entirely.
-    expect(url()).toBe('/wpbl/stats')
+    // OPS is the default, so the sort tidies away, and the board stays said.
+    expect(url()).toBe('/wpbl/stats?board=players')
   })
 
-  // A hand-edited or stale link is the case that must not render a blank board.
+  // A hand-edited or stale link is the case that must not render a blank board. It names a sort,
+  // so it is read as a table link, and the table's default column replaces the nonsense one.
   it('falls back to the default view on nonsense, and tidies the url', async () => {
     at('/wpbl/stats?board=nonsense&side=zzz&sort=notacolumn&dir=sideways')
     draw()
     await screen.findByText('Hitting')
-    expect(url()).toBe('/wpbl/stats')
+    expect(url()).toBe('/wpbl/stats?board=players')
   })
 
   // The pager keeps every visited tab mounted, so an inactive board must not rewrite the URL

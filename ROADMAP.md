@@ -324,6 +324,11 @@ will actually see all winter. The functional items do not wait.
 5. **One box score and one play row** inside Game Center. The panel and page frames are shared;
    the contents (`GameDetail` against `LiveGameCenter` and `boxScore`) are not.
 
+6. ✅ **One shape for the Stats tab** (Oct 9). Both open on Leaders, a card per stat, with Players
+   (MLB's "Table" until now) beside it, so the board rows read "Leaders, Players, …" in both
+   sections. WPBL's Leaders board is new (see its log); the league switch maps WPBL's Players board
+   to MLB's and everything else on Stats to Leaders. The rest of each row is the league's own.
+
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each
 league keeps its own colour on the section switch.
