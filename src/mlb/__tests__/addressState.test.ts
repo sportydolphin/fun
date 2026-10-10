@@ -24,8 +24,10 @@ describe('reading every address the section writes', () => {
     { view: 'search', playerId: 660271 },
     { view: 'search', teamId: 111 },
     { view: 'leaderboard', lb: 'pitching', allTime: false, season: PAST, games: 'post' },
-    { view: 'stats', lb: 'hitting', allTime: true, season: null, games: 'all', sort: 'homeRuns' },
-    { view: 'stats', lb: 'pitching', allTime: false, season: null, games: 'regular', sort: null },
+    { view: 'stats', lb: 'hitting', allTime: true, season: null, games: 'all', sort: 'homeRuns', dir: null },
+    { view: 'stats', lb: 'pitching', allTime: false, season: null, games: 'regular', sort: null, dir: 'desc' },
+    { view: 'teamStats', lb: 'pitching', allTime: false, season: PAST, games: 'post', sort: 'whip', dir: 'desc' },
+    { view: 'fielding', lb: 'hitting', allTime: false, season: null, games: 'all', sort: null, dir: 'asc', pos: 'SS', club: 136 },
     { view: 'viz', lb: 'hitting', allTime: false, season: PAST },
   ]
   it('is the inverse of mlbUrlFor', () => {

@@ -23,6 +23,32 @@ export function fetchSeasonPlayerStats(group: 'hitting' | 'pitching', season: nu
   return seasonStatsCache.get(key)!
 }
 
+// Every fielder's season, ONE ROW PER PLAYER PER POSITION: StatsAPI splits fielding by position,
+// so a utility player is four rows and a traded one carries the club they finished with. About 2,700
+// rows a full season, under the 3000 asked for; `totalSplits` says how many there were, and a read
+// that came back short is thrown away rather than drawn as the whole league. DH rows are dropped:
+// there is no fielding in them, and they would rank 1.000 on nothing.
+const fieldingCache = new Map<string, Promise<any[]>>()
+
+/** `gameType` 'P' is the postseason; StatsAPI has no combined pool, so "Both" is summed by the
+ *  caller (combineFieldingSplits in lib/seasonGrid.ts). */
+export function fetchSeasonFielding(season: number, gameType: 'R' | 'P' = 'R'): Promise<any[]> {
+  const key = `${season}-${gameType}`
+  if (!fieldingCache.has(key)) {
+    const p = fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=fielding&season=${season}&sportId=1&limit=3000&playerPool=All${gameType === 'P' ? '&gameType=P' : ''}`)
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json() })
+      .then((d: any) => {
+        const block = d.stats?.[0]
+        const splits: any[] = block?.splits ?? []
+        if (typeof block?.totalSplits === 'number' && splits.length < block.totalSplits) throw new Error('short read')
+        return splits.filter(s => s.position?.abbreviation !== 'DH')
+      })
+    p.catch(() => fieldingCache.delete(key))
+    fieldingCache.set(key, p)
+  }
+  return fieldingCache.get(key)!
+}
+
 // wOBA and wRC+ for every hitter in a regular season: StatsAPI's `sabermetrics`, which carries the
 // year's linear weights and park factors that nothing else here has. Read only when the Players
 // table needs one of the two (its Advanced view, or a sort on either), so the default board costs

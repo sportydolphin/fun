@@ -228,6 +228,69 @@ will actually see all winter. The functional items do not wait.
 5. ✅ **Every MLB player link opens the side panel on a desktop** (Oct 9). The team page's roster
    and Team Leaders cards pushed the player's full page themselves, the one place in `/mlb` that
    did; they now go through the section's `openPlayer` like every other list.
+6. **WPBL's Stats boards on MLB** (scoped Oct 10). WPBL's Stats tab has ten boards and MLB's had
+   three. The goal is the same as the rest of this pass: a board gets written once, for both
+   leagues. What blocks most of them is data rather than drawing. WPBL's engines run over every
+   box-score line and play we store, and MLB has only StatsAPI's season totals.
+
+   | WPBL board | MLB needs | Size |
+   |---|---|---|
+   | Teams, Fielding | StatsAPI `teams/stats` and `group=fielding` | ✅ done |
+   | Draft | StatsAPI `/draft/{year}`; WPBL's engine is 6 rounds over one season, so it needs rethinking for 20 rounds that take years to pay off | M |
+   | Bests, Find | every game line, league-wide | L |
+   | Pitch by pitch, Run value | every play with base/out state and pitch codes | XL |
+   | Tracked | Savant leaderboards, through a Pages Function or a nightly job (CORS); Savant already does this board better | M, maybe never |
+
+   **The fork is where MLB's game lines live.** A season is about 2,430 games, 170k plays and 700k
+   pitches, which no browser can fetch. Recommended: mirror finished games into Supabase
+   (`mlb_game_lines`, `mlb_plays`) with a nightly `scripts/*.mjs` job reading `feed/live`, the same
+   shape as `wpbl-ingest`, so WPBL's engines run unchanged once their inputs are league-neutral
+   types. The alternative, a cron job per board writing static JSON, is cheaper but needs a new job
+   for every new board, which is what this item exists to stop. Check Supabase storage first:
+   plays and pitches are roughly 1M rows a season.
+
+   **In order:**
+   1. ✅ *Teams and Fielding (Oct 10).* `/mlb/team-stats` and `/mlb/fielding`, in WPBL's board order
+      (Leaders, Players, Teams, Fielding, then Charts). One component, `views/SeasonGridView.tsx`,
+      for both, reading its own rows (`fetchAllTeamStats`, new `fetchSeasonFielding`); arithmetic in
+      `lib/seasonGrid.ts`. The table frame is now `views/statsTable.tsx`, shared with Players. Fielding
+      is one row per player per position, as StatsAPI splits it, with WPBL's columns plus GS, INN and
+      RF/9, the catching columns (SB, CS, CS%, PB) on the C chip only, and Rule 9.22(c)'s bar
+      (`qualify.ts`). All leaves out the pitchers, who have their own chip: on All they filled the
+      top of FPCT with 1.000s on a dozen chances. "Is this a Stats board" is now `isMlbStatsBoard`
+      in `routes.ts`, where it was spelled out by hand in the shell, the state and the URL code.
+      Pinned in `__tests__/seasonGrid.test.ts`. *Linked through, Oct 10:* everything on both boards
+      is on the address (`?lb=`, `?season=`, `?sort=`, and Fielding's `?pos=` and `?team=<slug>`, a
+      club filter), held in `useMlbState` so Back restores it; the URL sync now writes the board's
+      own history snapshot, so a field added there reaches the address with no second list. A club
+      page links "Team batting", "Team pitching" (the club picked out and scrolled to) and
+      "Fielding" (its fielders, on innings, bar off); each position in a player card's Fielding
+      section links that position's board with the player picked out, turning the bar off if they
+      do not clear it. All of these are real `<a href>`s (`openGridBoard`). The glossary gained TC,
+      DP, RF/9, CS% and PB. *Then, Oct 10:* a reversed sort is on the address on all three tables,
+      Players included, as `?dir=asc|desc`, written only when the column is turned round from its
+      natural order. Teams and Fielding take the section's Regular season / Playoffs / Both, shared
+      with Players and Leaders (`?games=`): the playoffs are StatsAPI's `gameType=P`, and Both is
+      the halves summed per club and per player-position (`combineTeamLines`,
+      `combineFieldingSplits`), rates rebuilt from the counts. Fielding's bar uses the club's games
+      in the same slice, so a playoff catcher qualifies on half the club's playoff games. A club
+      page or player card opens its board on the regular season, which is what both show.
+      On a phone the sorted column is frozen beside the name, as Players' is, on the same styles
+      (`frozenSx` in `views/statsTable.tsx`, lifted out of Players).
+   2. *League-neutral engines.* Lift `derive/bests.ts`, `finder.ts`, `pitches.ts`,
+      `runExpectancy.ts` off the `Wpbl*` types onto a neutral `GameLine` / `Play`, with an adapter per
+      league. League constants (7 or 9 innings, the ERA basis, the qualifiers) come from the
+      adapter, never a literal (see the ERA basis trap in CLAUDE.md). Every aggregate keeps taking
+      the schedule, and the postseason filter stays fail-open: MLB types its games `R` / `P`.
+   3. *The MLB lines mirror* (migration plus nightly job), then Bests and Find on it.
+   4. *Plays and pitches in the mirror,* then Pitch by pitch and Run value. MLB's run-expectancy
+      table built from our own plays is a free check against published RE24.
+   5. *Draft,* then Tracked last, if at all.
+
+   Every new board is a route (`routes.ts`, `seo.ts`, `_redirects`, the sitemap, pinned in
+   `routes.test.ts`) and a layout-sweep route, so it ships with a `sweep:record --merge` of its reads.
+   Thirty clubs against WPBL's four: anything WPBL lays out per club (team chips, a Teams board's
+   frozen column) needs a 30-row shape on MLB.
 
 **Visual, after Nov 1, in order:**
 

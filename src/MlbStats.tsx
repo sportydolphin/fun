@@ -18,12 +18,12 @@ import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './m
 let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_REF_PARAM) === MLB_SHORT_REF_VALUE
 const arrivedAt = window.location.pathname
 import { PageTabs } from './ui/PageTabs'
-import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
+import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SeasonGridView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
-import { MLB_VIEW_PATHS, MLB_NAV, MLB_MORE_PAGES, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
+import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_BOARDS, isMlbStatsBoard, type MlbStatsBoard, MLB_MORE_PAGES, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
 import { linkTo } from './nav'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
@@ -55,13 +55,19 @@ import { publishSectionNav, clearSectionNav } from './sectionNav'
 
 type NavKey = MlbNavKey
 const NAV = MLB_NAV
-const STATS_BOARDS: { view: MlbView; label: string }[] = [
-  { view: 'leaderboard', label: 'Leaders' },
-  { view: 'stats',       label: 'Players' },
-  { view: 'viz',         label: 'Charts' },
-]
+// WPBL's first four boards in WPBL's order, so the row reads the same in both sections, and MLB's
+// Charts after them. The rest of WPBL's row needs every game line or play stored on our side, which
+// MLB does not have yet: see "WPBL's Stats boards on MLB" in ROADMAP.md.
+const STATS_BOARD_LABEL: Record<MlbStatsBoard, string> = {
+  leaderboard: 'Leaders',
+  stats:       'Players',
+  teamStats:   'Teams',
+  fielding:    'Fielding',
+  viz:         'Charts',
+}
+const STATS_BOARDS = MLB_STATS_BOARDS.map(view => ({ view, label: STATS_BOARD_LABEL[view] }))
 const navKeyFor = (v: MlbView): NavKey | null =>
-  v === 'leaderboard' || v === 'viz' ? 'stats' : v === 'search' ? null : v
+  isMlbStatsBoard(v) ? 'stats' : v === 'search' ? null : v
 
 /** A tab's address, for its href and for the history entry it pushes. */
 const viewHref = (v: MlbView): string => v === 'search' ? MLB_VIEW_PATHS.home : MLB_VIEW_PATHS[v]
@@ -270,8 +276,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   if (direct) lastTab.current = direct
   const activeTab: NavKey = direct ?? (state.team && !state.player ? 'teams' : lastTab.current)
   // The Stats tab returns to whichever board was last open, Leaders the first time.
-  const lastBoard = useRef<MlbView>(state.view === 'stats' || state.view === 'viz' ? state.view : 'leaderboard')
-  if (state.view === 'leaderboard' || state.view === 'stats' || state.view === 'viz') lastBoard.current = state.view
+  const lastBoard = useRef<MlbStatsBoard>(isMlbStatsBoard(state.view) ? state.view : 'leaderboard')
+  if (isMlbStatsBoard(state.view)) lastBoard.current = state.view
 
   // Every deliberate move to another view: a fresh start (never let a stale Home modal reopen
   // from a prior Back-restore path, see homeOverlay), a history entry, and the tab event's `via`.
@@ -357,7 +363,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const onHome = state.view === 'home'
   // The Stats boards take WPBL Stats' width from `sm` up, centred the same way as Home. Below `sm`
   // the pager's full-bleed panes need the phone column as it is.
-  const onStatsBoard = state.view === 'leaderboard' || state.view === 'stats' || state.view === 'viz'
+  const onStatsBoard = isMlbStatsBoard(state.view)
   const columnSx = onHome
     ? { maxWidth: { xs: PHONE_COLUMN_W, md: 'none' }, width: { md: HOME_W }, mx: { xs: 'auto', md: 0 }, ml: { md: `calc((100% - ${HOME_W}) / 2)` } }
     : onStatsBoard
@@ -488,6 +494,29 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 defaultTab={state.vizDefaultTab}
               />
             )}
+            {(board === 'teamStats' || board === 'fielding') && (
+              <SeasonGridView
+                kind={board === 'teamStats' ? 'teams' : 'fielding'}
+                boardTabs={boardTabs}
+                isDesktop={isDesktop}
+                lbGroup={state.lbGroup}
+                setLbGroup={state.setLbGroup}
+                vizSeason={state.vizSeason}
+                setVizSeason={state.setVizSeason}
+                gameScope={state.lbGameScope}
+                setGameScope={state.setLbGameScope}
+                onOpenPlayer={state.handleLbPlayerClick}
+                onOpenTeam={state.handleVizNavigate}
+                sort={board === 'teamStats' ? state.teamGridSort : state.fieldingSort}
+                setSort={board === 'teamStats' ? state.setTeamGridSort : state.setFieldingSort}
+                position={state.fieldingPos}
+                setPosition={state.setFieldingPos}
+                club={state.fieldingClub}
+                setClub={state.setFieldingClub}
+                highlightId={state.gridHighlightId}
+                setHighlightId={state.setGridHighlightId}
+              />
+            )}
             {board === 'leaderboard' && (
               <LeaderboardView
                 boardTabs={boardTabs}
@@ -609,6 +638,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             onSeasonChange={state.setPlayerSeason}
             onBack={playerBack}
             onOpenBoard={(key, group) => state.handleStatCardClick(key, group)}
+            onOpenFielding={(pos, season) => state.openGridBoard({ view: 'fielding', pos, season, highlight: state.player?.id ?? null })}
             onOpenGame={pk => requestDeepLink({ kind: 'game', gamePk: pk })}
             followed={state.followedPlayerIds.includes(state.player.id)}
             onToggleFollow={() => {
@@ -659,6 +689,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           featuredPitLeaders={state.featuredPitLeaders}
           divisionStandings={state.divisionStandings}
           teamRoster={state.teamRoster}
+          onOpenGrid={state.openGridBoard}
         />,
       )}
 
@@ -677,6 +708,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
               onClose={() => closePlayerPanel(panelPlayer.id)}
               onExpand={season => state.openPlayerPage(panelPlayer.id, season)}
               onOpenBoard={(key, group, season) => state.handleStatCardClick(key, group, false, { playerId: panelPlayer.id, season })}
+              onOpenFielding={(pos, season) => state.openGridBoard({ view: 'fielding', pos, season, highlight: panelPlayer.id, overSheet: true })}
               onOpenGame={pk => {
                 // The game this player was opened from is still beneath, as a panel or the page:
                 // going back is the way there.

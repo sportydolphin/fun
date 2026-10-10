@@ -30,8 +30,9 @@ import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } fr
 import { openPlayerPanel } from './playerPanel'
 import { useOpensAsPanel } from '../../ui/ModalShell'
 import { useSectionActive } from '../../lib/panelActive'
-import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, MLB_PATH_EVENT } from '../routes'
-import type { MlbView, MlbSnapshot } from '../routes'
+import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbStatsBoard, MLB_PATH_EVENT } from '../routes'
+import type { MlbView, MlbSnapshot, MlbFieldingPosition } from '../routes'
+import { gridDefaultSort, type GridSort } from '../lib/seasonGrid'
 import type { GameScope } from '../lib/gameScope'
 import type { TeamCardInnerProps } from '../components/cards'
 import { HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS } from '../lib/advanced'
@@ -52,13 +53,25 @@ const BOARD_FRESH_MS = 5 * 60_000
 
 /** The Table's sort state for `key` on a board, or null when the key names no stat there (a stale
  *  or hand-typed `sort=`), which leaves the board on its default rather than on nothing. */
-export function boardSortFor(group: 'hitting' | 'pitching', key: string | null | undefined): LbFullscreenState | null {
-  if (!key) return null
+export function boardSortFor(group: 'hitting' | 'pitching', key: string | null | undefined, dir?: 'asc' | 'desc' | null): LbFullscreenState | null {
+  // A direction with no column is the default column turned round (`?dir=asc` on /mlb/stats).
+  const k = key || (dir ? TABLE_DEFAULT_SORT[group] : null)
+  if (!k) return null
   // The advanced columns too (lib/advanced.ts): a link sorted by wRC+ opens on Advanced.
   const def = (group === 'hitting' ? [...HITTING_STAT_DEFS, ...HITTING_ADVANCED_DEFS] : [...PITCHING_STAT_DEFS, ...PITCHING_ADVANCED_DEFS])
-    .find(d => d.key === key)
-  return def ? { def, group, sortKey: key, sortAsc: def.lowerIsBetter ?? false, entries: [] } : null
+    .find(d => d.key === k)
+  return def ? { def, group, sortKey: k, sortAsc: dir ? dir === 'asc' : def.lowerIsBetter ?? false, entries: [] } : null
 }
+
+/** A Teams or Fielding sort from an address: the board's default column when only a direction is
+ *  given, and `asc` only when the address turned it round (see GridSort). */
+function gridSortFor(key: string | null | undefined, dir: 'asc' | 'desc' | null | undefined, defaultKey: string): GridSort | null {
+  if (!key && !dir) return null
+  return { key: key || defaultKey, ...(dir ? { asc: dir === 'asc' } : {}) }
+}
+
+/** How an address spells a direction: only when it is not the column's natural one. */
+const dirOf = (asc: boolean, natural: boolean): 'asc' | 'desc' | null => (asc === natural ? null : asc ? 'asc' : 'desc')
 
 /** A player page's span: one season, or the whole career. */
 export type PlayerSeason = number | 'career'
@@ -308,7 +321,7 @@ export function useMlbState() {
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
   // Seeded from `sort=` so a Leaders card's link (and a shared address) lands on its stat.
-  const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(() => boardSortFor(landing?.lb ?? 'hitting', landing?.sort))
+  const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(() => boardSortFor(landing?.lb ?? 'hitting', landing?.sort, landing?.dir))
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
   const [lbQualified, setLbQualified] = useState(true)
   // All-time (career) mode for the Stats tab only, kept separate from vizSeason so
@@ -316,10 +329,24 @@ export function useMlbState() {
   // Regular season, postseason or both, for the Leaders and Table boards. On the URL as `games=`.
   const [lbGameScope, setLbGameScope] = useState<GameScope>(landing?.games ?? 'regular')
   const [statsAllTime, setStatsAllTime] = useState(!!landing?.allTime)
+  // ─── Teams and Fielding (views/SeasonGridView) ────────────────────────────────
+  // Each board's sort, kept apart so a switch between them returns each to where it was. Here
+  // rather than in the view because the address carries them (mlbUrlFor), and Back restores them.
+  const [teamGridSort, setTeamGridSort] = useState<GridSort | null>(() => landing?.view === 'teamStats'
+    ? gridSortFor(landing.sort, landing.dir, gridDefaultSort('teamStats', landing.lb ?? 'hitting')) : null)
+  const [fieldingSort, setFieldingSort] = useState<GridSort | null>(() => landing?.view === 'fielding'
+    ? gridSortFor(landing.sort, landing.dir, gridDefaultSort('fielding', 'hitting', landing.club ?? null)) : null)
+  const [fieldingPos, setFieldingPos] = useState<MlbFieldingPosition | 'all'>(landing?.pos ?? 'all')
+  const [fieldingClub, setFieldingClub] = useState<number | null>(landing?.club ?? null)
+  // The row a link came to see: a club on Teams, a player on Fielding. Not on the address, as the
+  // Table's picked-out player is not: it belongs to the trip, and a shared link has no trip.
+  const [gridHighlightId, setGridHighlightId] = useState<number | null>(null)
+
   // The Table's stat as the address spells it: null for the board's default, so the plain
   // /mlb/stats stays the canonical spelling of the page most readers land on.
   const sortParam = lbFullscreen && lbFullscreen.group === lbGroup && lbFullscreen.sortKey !== TABLE_DEFAULT_SORT[lbGroup]
     ? lbFullscreen.sortKey : null
+  const dirParam = lbFullscreen && lbFullscreen.group === lbGroup ? dirOf(lbFullscreen.sortAsc, lbFullscreen.def.lowerIsBetter ?? false) : null
 
   // ─── Refs ─────────────────────────────────────────────────────────────────────
   const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
@@ -562,12 +589,29 @@ export function useMlbState() {
     if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
+    if (view === 'teamStats') s.lb = lbGroup
+    // Teams and Fielding share the section's regular / playoffs / both choice with Players and Leaders,
+    // as they share its season.
+    if (view === 'teamStats' || view === 'fielding') s.games = lbGameScope
     // The board's season, which only a game sheet's entry is ever read for (restoreTarget): every
     // other entry's address already says it.
-    if (view === 'leaderboard' || view === 'stats' || view === 'viz') s.season = vizSeason
+    if (isMlbStatsBoard(view)) s.season = vizSeason
     if (view === 'stats' && sortParam) s.sort = sortParam
+    if (view === 'stats' && dirParam) s.dir = dirParam
+    // A grid sort carries `asc` only when it is turned round, so its presence is the direction.
+    const gridDir = (g: GridSort | null) => (g?.asc != null ? (g.asc ? 'asc' : 'desc') : null)
+    if (view === 'teamStats' && teamGridSort) {
+      if (teamGridSort.key !== gridDefaultSort('teamStats', lbGroup)) s.sort = teamGridSort.key
+      if (gridDir(teamGridSort)) s.dir = gridDir(teamGridSort)
+    }
+    if (view === 'fielding') {
+      if (fieldingSort && fieldingSort.key !== gridDefaultSort('fielding', lbGroup, fieldingClub)) s.sort = fieldingSort.key
+      if (gridDir(fieldingSort)) s.dir = gridDir(fieldingSort)
+      if (fieldingPos !== 'all') s.pos = fieldingPos
+      if (fieldingClub != null) s.club = fieldingClub
+    }
     return s
-  }, [player, team, playerSeason, view, lbGroup, statsAllTime, lbGameScope, sortParam, vizSeason])
+  }, [player, team, playerSeason, view, lbGroup, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -670,6 +714,37 @@ export function useMlbState() {
     setView('stats')
   }, [lbGroup, lbGameScope, vizSeason, stampCurrentEntry])
 
+  /** A link into Teams or Fielding from a club's page or a player's card: its own history entry, so
+   *  Back returns to the page, with the row the link was about picked out. From the side panel it
+   *  goes on top of the panel's entry, as a stat rank's link does (handleStatCardClick). */
+  const openGridBoard = useCallback((to: {
+    view: 'teamStats' | 'fielding'
+    lb?: 'hitting' | 'pitching'
+    season?: number
+    pos?: MlbFieldingPosition | 'all'
+    club?: number | null
+    highlight?: number | null
+    overSheet?: boolean
+  }) => {
+    const group = to.lb ?? lbGroup
+    const season = to.season ?? vizSeason
+    // The regular season: a club page and a player card both show it, so the board they open does too.
+    const snap: MlbSnapshot = to.view === 'teamStats'
+      ? { view: 'teamStats', lb: group, season, games: 'regular' }
+      : { view: 'fielding', season, games: 'regular', pos: to.pos && to.pos !== 'all' ? to.pos : null, club: to.club ?? null }
+    stampCurrentEntry()
+    pushEntry({ ...snap }, mlbUrlFor(snap, CURRENT_SEASON), { overSheet: !!to.overSheet })
+    if (to.view === 'teamStats') { setLbGroup(group); setTeamGridSort(null) }
+    else { setFieldingSort(null); setFieldingPos(to.pos ?? 'all'); setFieldingClub(to.club ?? null) }
+    setVizSeason(season)
+    setLbGameScope('regular')
+    setGridHighlightId(to.highlight ?? null)
+    setPlayer(null)
+    setTeam(null)
+    setView(to.view)
+    requestAnimationFrame(() => window.scrollTo({ top: 0 }))
+  }, [lbGroup, vizSeason, stampCurrentEntry])
+
   /** Leave the player or team page for a tab. Without it the player stays selected behind the
    *  tab, and the address and the history entry go on naming them rather than the tab on screen. */
   const clearSelection = useCallback(() => {
@@ -730,7 +805,9 @@ export function useMlbState() {
     const snap: MlbSnapshot = player
       ? { view: 'search', playerId: player.id, playerName: player.fullName }
       : team ? { view: 'search', teamId: team.id }
-      : { view, lb: lbGroup, allTime: statsAllTime, season: vizSeason, games: lbGameScope, sort: sortParam }
+      // The board's own snapshot, the one its history entry carries, so a field added there (the
+      // Fielding board's position, say) reaches the address without a second list to keep in step.
+      : { ...currentHistoryState(), view } as MlbSnapshot
     // Re-stamp the active entry with a self-describing snapshot of the view it now
     // shows (not just the URL). This is what makes Back work: whichever entry you later
     // land on carries an accurate description of its own screen, so popstate can restore
@@ -775,16 +852,25 @@ export function useMlbState() {
       setView(snap.view)
       setPlayer(null)
       setTeam(null)
-      if (snap.view !== 'leaderboard' && snap.view !== 'stats' && snap.view !== 'viz') return
+      if (!isMlbStatsBoard(snap.view)) return
       const group = snap.lb ?? 'hitting'
-      setLbGroup(group)
+      // Fielding has no side, so Back onto it leaves the one the other boards were on.
+      if (snap.view !== 'fielding') setLbGroup(group)
       // Career has no season of its own: the season board behind it keeps the one it had.
       if (!snap.allTime) setVizSeason(snap.season ?? CURRENT_SEASON)
-      if (snap.view === 'viz') return
+      setGridHighlightId(null)
+      if (snap.view === 'teamStats' || snap.view === 'fielding') setLbGameScope(snap.games ?? 'regular')
+      if (snap.view === 'teamStats') setTeamGridSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('teamStats', group)))
+      if (snap.view === 'fielding') {
+        setFieldingSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('fielding', group, snap.club ?? null)))
+        setFieldingPos(snap.pos ?? 'all')
+        setFieldingClub(snap.club ?? null)
+      }
+      if (snap.view !== 'leaderboard' && snap.view !== 'stats') return
       setLbGameScope(snap.games ?? 'regular')
       if (snap.view === 'stats') {
         setStatsAllTime(!!snap.allTime)
-        setLbFullscreen(boardSortFor(group, snap.sort))
+        setLbFullscreen(boardSortFor(group, snap.sort, snap.dir))
       }
     }
     window.addEventListener('popstate', handlePop)
@@ -937,6 +1023,14 @@ export function useMlbState() {
     nameMap,
     teamCardProps,
     handleSeasonChange,
+
+    // Teams and Fielding
+    teamGridSort, setTeamGridSort,
+    fieldingSort, setFieldingSort,
+    fieldingPos, setFieldingPos,
+    fieldingClub, setFieldingClub,
+    gridHighlightId, setGridHighlightId,
+    openGridBoard,
 
     // Stats-table highlight
     statsHighlightPlayerId, setStatsHighlightPlayerId,

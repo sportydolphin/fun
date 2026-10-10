@@ -70,7 +70,12 @@ const G: Record<string, [full: string, plain?: string]> = {
   'ERA-': ['ERA minus', 'ERA against the league, adjusted for park. 100 is average and lower is better: 80 is 20% better.'],
   'FIP-': ['FIP minus', 'FIP against the league, adjusted for park. Lower is better.'],
   INN: ['Innings in the field'],
-  FPCT: ['Fielding percentage'],
+  FPCT: ['Fielding percentage', 'Putouts and assists over total chances: how often a chance was handled without an error. Says nothing about the balls a fielder never reached.'],
+  TC: ['Total chances', 'Putouts, assists and errors together: every play a fielder had a hand in.'],
+  DP: ['Double plays', 'Double plays a fielder took part in, turning or finishing.'],
+  'RF/9': ['Range factor per nine innings', 'Putouts and assists for every nine innings in the field: a rough measure of how many balls a fielder gets to.'],
+  'CS%': ['Caught stealing rate', "A catcher's runners thrown out, over every steal tried against them."],
+  PB: ['Passed balls', 'A pitch the catcher should have held that let a runner move up.'],
   E: ['Errors'],
   PO: ['Putouts'],
   A: ['Assists'],
@@ -109,7 +114,7 @@ export const MLB_GLOSSARY_GROUPS: { key: string; label: string; keys: string[] }
   },
   {
     key: 'fielding', label: 'Fielding',
-    keys: ['FPCT', 'INN', 'PO', 'A', 'E', 'G', 'POS'],
+    keys: ['FPCT', 'RF/9', 'INN', 'TC', 'PO', 'A', 'E', 'DP', 'G', 'POS', 'CS%', 'PB'],
   },
 ]
 

@@ -46,6 +46,8 @@
 /mlb/standings/  /mlb/standings   301
 /mlb/leaders/    /mlb/leaders     301
 /mlb/stats/      /mlb/stats       301
+/mlb/team-stats/ /mlb/team-stats  301
+/mlb/fielding/   /mlb/fielding    301
 /mlb/charts/     /mlb/charts      301
 /mlb/teams/      /mlb/teams       301
 /mlb/glossary/   /mlb/glossary    301
@@ -154,6 +156,8 @@
 /mlb/standings   /  200
 /mlb/leaders     /  200
 /mlb/stats       /  200
+/mlb/team-stats  /  200
+/mlb/fielding    /  200
 /mlb/charts      /  200
 /mlb/teams       /  200
 # The rules & glossary page, standalone beside the tabs as WPBL's is. See MLB_GLOSSARY_PAGE.

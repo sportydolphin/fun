@@ -25,6 +25,7 @@ import type { Sabermetric, StatsView as TableView } from '../lib/advanced'
 import { LogoBubble } from '../components/boxScore'
 import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable, controlPill } from './StatsRankedList'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
+import { TABLE_FRAME_SX, TABLE_MAX_H, NAME_W, NAME_INNER_MAX, ROW_TINT_VAR, ROW_TINT, TABLE_FOOT_SX, FOOT_TEXT_SX, RankMarkText, frozenSx, FROZEN_EDGE } from './statsTable'
 
 export interface StatsViewProps {
   /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
@@ -747,20 +748,6 @@ const shownScopeFor = (allTime: boolean, scope: GameScope): GameScope => allTime
 
 // WPBL's board frame: a hairline card, no raised paper and no title strip. Edge to edge on a
 // phone's full table, where the gutter is worth a column.
-// Inset with its border on a phone too, as WPBL's is. It ran edge to edge until Oct 2026, and once
-// the tab's gutter came in to 12px its -16px reached 4px past the screen's left edge, cutting the
-// "T-" off a tied rank.
-const TABLE_FRAME_SX = {
-  border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden',
-  bgcolor: 'background.paper',
-  // PINNED UNDER THE BAR, as WPBL's board is, so the page cannot carry the column headings up behind
-  // it. UNDER, never over: the bar is z-index 6.
-  position: 'sticky', top: STATS_BOARD_TOP, zIndex: 1,
-} as const
-/** The scroll box's cap, WPBL's own (its season table's desktop measure), so the two tables are the
- *  same height on a switch: they were 593 and 683 at 1440x900. One value for the board and its
- *  skeleton. */
-const TABLE_MAX_H = 'calc(100dvh - 260px)'
 /** The phone's cap: the screen under the pinned bar, less the board's own foot, the bottom nav and
  *  the home indicator, less PHONE_TABLE_TAIL_PX for what follows the board. Exactly what fits, so
  *  the board stays pinned to the end of the page; a few pixels more and its column headings slide
@@ -769,42 +756,7 @@ const TABLE_MAX_H = 'calc(100dvh - 260px)'
 const PHONE_TABLE_TAIL_PX = 20 // the shell's 16px under the section, the frame's 2 borders, 2 of slack
 const PHONE_TABLE_MAX_H = `max(240px, calc(100dvh - ${STATS_BOARD_TOP} - var(--mlb-board-foot-h, 0px)`
   + ` - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px) - ${PHONE_TABLE_TAIL_PX}px))`
-/** WPBL's NAME_W and NAME_INNER_MAX (src/wpbl/StatsView.tsx), which explains both: rem, because
- *  they reserve room for a name, and the frozen column's `left` is this same width. */
-const NAME_W = '9.375rem'
-const NAME_INNER_MAX = '5.125rem'
-/** A row's highlight (picked out, or under the pointer), set on the row and layered into each
- *  cell's background-image over its own opaque paper. See the row's sx. */
-const ROW_TINT_VAR = '--mlb-row-tint'
-const ROW_TINT = `linear-gradient(var(${ROW_TINT_VAR}, transparent), var(${ROW_TINT_VAR}, transparent))`
 
 /** The frozen sorted column on a phone: pinned flush against the name column. */
-const FROZEN_SX = {
-  position: 'sticky', left: NAME_W, bgcolor: 'background.paper',
-  borderRight: '1px solid', borderColor: 'divider', px: 0.5, whiteSpace: 'nowrap',
-  // WPBL's SEAM_COVER: the two frozen cells are separate cells, and at a fractional device pixel
-  // the join between them opens onto the stats scrolling underneath. 3px of paint over the name
-  // cell's last padding, redrawing its divider, closes it without moving anything.
-  '&::before': {
-    content: '""', position: 'absolute', top: 0, bottom: 0, right: '100%', width: 3,
-    bgcolor: 'background.paper', borderRight: '1px solid', borderColor: 'divider', pointerEvents: 'none',
-  },
-} as const
-/** The frozen columns' shadow onto the scrolling stats once the table is off its left edge. */
-const FROZEN_EDGE = {
-  content: '""', position: 'absolute', top: 0, bottom: 0, left: '100%', width: 6,
-  background: 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0))', pointerEvents: 'none',
-} as const
+const FROZEN_SX = frozenSx(NAME_W)
 
-/** A tied rank, "T-12", with the "T-" a size down, as the list draws it, so a two-digit tie fits the
- *  rank column; centred on the number rather than on its baseline, where it reads as a superscript. */
-function RankMarkText({ rank }: { rank: { rank: number; tied: boolean } }) {
-  return (
-    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
-      {rank.tied && <Box component="span" sx={{ fontSize: '0.8em', lineHeight: 1 }}>T-</Box>}
-      <Box component="span" sx={{ lineHeight: 1 }}>{rank.rank}</Box>
-    </Box>
-  )
-}
-const TABLE_FOOT_SX = { px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 } as const
-const FOOT_TEXT_SX = { fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0 } as const
