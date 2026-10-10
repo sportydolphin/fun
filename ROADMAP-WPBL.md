@@ -1335,6 +1335,26 @@ is retired.
 
 ## Shipped log
 
+### Oct 10, 2026: the site's reads, faster (v1.145.0)
+
+Measured before: every Supabase read took 230 to 670ms, uncached; `/wpbl/stats` finished its reads
+at about 2.4s in two waves; a page load sent six separate analytics inserts.
+
+- **Edge cache.** Signed-out GETs of the public tables go through `functions/api/sb`, answered from
+  Cloudflare's cache (`src/lib/edgeTables.ts` lists the tables and the two tiers). Daily-job tables
+  are served stale while one read refreshes them; game tables keep a 10s cache and are never served
+  stale while a game is live or dated within a day. Signed-in reads stay direct. See the trap in
+  CLAUDE.md: a database edit can take a while to show to a signed-out reader.
+- **Stats in one wave.** The tab's reads start at section boot (`warmStatsReads`) instead of after
+  the schedule; about 750ms uncached, about 200ms from a warm edge.
+- **Last visit's data on the first frame** (`seed.ts`): teams, schedule, players, the calendar,
+  tracked games and the lines, installed stale and revalidated by the first read.
+- **Run environment priced once.** The Stats tab's wOBA and FIP weights come from one row,
+  `wpbl_run_environment`, priced hourly by `scripts/compute-wpbl-run-environment.ts` from the same
+  code; the tab reads the 3,707-play log only when the row is behind its schedule or a game is live.
+- **Analytics in one batch**, held a second and flushed on the page being hidden or left
+  (`src/lib/eventQueue.ts`).
+
 ### Oct 9, 2026: Stats opens on Leaders (v1.141.0)
 
 A new first board, `LeadersBoard.tsx`: the top five in eight hitting and eight pitching stats, one
