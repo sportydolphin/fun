@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import { fetchWpblScoreCardLines, fetchWpblAllPlayers, type WpblScoreCardLines } from './api'
 import { buildRecap, leagueRecapContext, type RecapDecision, type RecapStar } from './derive/recap'
-import { PlayerPortrait, TYPE_SCALE, useWpblName } from './ui'
+import { PlayerPortrait, TYPE_SCALE } from './ui'
 import { useWpblPlayerLink } from './LinkContext'
 import { typePx } from '../ui/scale'
+import { nameAtStage, useLineNameFit } from '../ui/names'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
 
 /** What a final's card says about the people in it: the pitchers of record and the star. */
@@ -62,18 +63,18 @@ export function useGameNotes(games: WpblGame[], teams: WpblTeam[]): {
   return { notes, players, settled: pending === 0 }
 }
 
-/** A name that opens the player, raised above the card's stretched game link. */
+/** A name that opens the player, raised above the card's stretched game link. `name` is drawn as
+ *  given: the line holding it decides how far to shorten it (useLineNameFit). */
 function PersonLink({ id, name, players, onOpenPlayer, bold }: {
   id: string; name: string; players: Map<string, WpblPlayer>
   onOpenPlayer?: (p: WpblPlayer) => void; bold?: boolean
 }) {
   const playerLink = useWpblPlayerLink()
-  const short = useWpblName(14)
   return (
     <Box component="span" {...playerLink(players.get(id) ?? null, onOpenPlayer)} sx={{
       position: 'relative', zIndex: 1, color: 'text.primary', fontWeight: bold ? 700 : 600,
       textDecoration: 'none', '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
-    }}>{short(name)}</Box>
+    }}>{name}</Box>
   )
 }
 
@@ -82,17 +83,35 @@ const PORTRAIT = 24
 
 const KEY_SX = { fontWeight: 800, color: 'text.disabled', mr: 0.4 } as const
 
+// ONE LINE, ALWAYS. Wrapped, a card's height depended on its width and on how long three pitchers'
+// names happened to be, so no skeleton could reserve it and the grid's rows went ragged. When the
+// three do not fit, all of them step down to "F. Last" together (the site's rule: shorten a name,
+// never cut it off), and only a line still too long after that is ellipsed.
 function Decisions({ notes, players, onOpenPlayer }: {
   notes: GameNotes; players: Map<string, WpblPlayer>; onOpenPlayer?: (p: WpblPlayer) => void
 }) {
+  const { ref, stage } = useLineNameFit<HTMLDivElement>(notes.decisions.map(d => d.name))
   return (
-    <Typography component="div" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', display: 'flex', flexWrap: 'wrap', columnGap: 1.25, rowGap: 0.25 }}>
-      {notes.decisions.map(d => (
-        <span key={d.key}>
+    <Typography ref={ref} component="div" noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minWidth: 0 }}>
+      {notes.decisions.map((d, i) => (
+        <Box component="span" key={d.key} sx={{ ml: i ? 1.25 : 0 }}>
           <Box component="span" sx={KEY_SX}>{d.key}</Box>
-          <PersonLink id={d.playerId} name={d.name} players={players} onOpenPlayer={onOpenPlayer} />
-        </span>
+          <PersonLink id={d.playerId} name={nameAtStage(d.name, stage)} players={players} onOpenPlayer={onOpenPlayer} />
+        </Box>
       ))}
+    </Typography>
+  )
+}
+
+/** The star's name and line, the name stepping down before the line is cut. */
+function StarLine({ star, players, onOpenPlayer }: {
+  star: RecapStar; players: Map<string, WpblPlayer>; onOpenPlayer?: (p: WpblPlayer) => void
+}) {
+  const { ref, stage } = useLineNameFit<HTMLDivElement>([star.name])
+  return (
+    <Typography ref={ref} component="div" noWrap sx={{ fontSize: TYPE_SCALE.body, minWidth: 0, color: 'text.secondary' }}>
+      <PersonLink id={star.playerId} name={nameAtStage(star.name, stage)} players={players} onOpenPlayer={onOpenPlayer} bold />
+      <Box component="span" sx={{ ml: 0.75 }}>{star.statline}</Box>
     </Typography>
   )
 }
@@ -112,10 +131,7 @@ export function ScoreCardFooter({ notes, players, onOpenPlayer }: {
       {s && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
           <PlayerPortrait name={s.name} teamId={s.teamId} size={PORTRAIT} />
-          <Typography component="div" noWrap sx={{ fontSize: TYPE_SCALE.body, minWidth: 0, color: 'text.secondary' }}>
-            <PersonLink id={s.playerId} name={s.name} players={players} onOpenPlayer={onOpenPlayer} bold />
-            <Box component="span" sx={{ ml: 0.75 }}>{s.statline}</Box>
-          </Typography>
+          <StarLine star={s} players={players} onOpenPlayer={onOpenPlayer} />
           <Typography sx={{ ml: 'auto', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
             Star
           </Typography>

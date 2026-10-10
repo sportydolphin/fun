@@ -10,7 +10,7 @@ import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFi
 import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
+import { SectionLabel, TYPE_SCALE, TeamBadge, useWpblDark, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
 import { panelShiftSx, useSidePanelOpen, usePhoneLayout } from '../ui/ModalShell'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { PHONE_COLUMN_W } from '../ui/layoutWidths'
@@ -203,7 +203,7 @@ function ScoresSkeleton() {
   )
   const day = (key: number, body: ReactNode) => (
     <Box key={key}>
-      <SectionLabel><Skeleton width="5.5rem" /></SectionLabel>
+      <DateLabel><Skeleton width="7rem" /></DateLabel>
       {body}
     </Box>
   )
@@ -320,11 +320,22 @@ const GRID_STRIP_SX = {
   pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
 } as const
 
+// THE DATE IS THE PAGE'S INDEX, so it is drawn in ink rather than as a grey caption: a reader
+// scrolling for "the game on the 14th" scans dates, not matchups, and a tracked-out disabled label
+// at caption size was the faintest thing on the card. The Postseason and Earlier dividers keep
+// the caption style, so the two kinds of label read apart.
+const DATE_SX = { fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary', lineHeight: 1.3 } as const
+
+/** A game day's heading in the list, above that day's cards. */
+function DateLabel({ children }: { children: ReactNode }) {
+  return <Typography sx={{ ...DATE_SX, mb: 0.75 }}>{children}</Typography>
+}
+
 /** A grid card's first line: its date, and the game's status on the right. */
 function CardKicker({ date, children }: { date: ReactNode; children?: ReactNode }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mb: 0.25 }}>
-      <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
+      <Typography sx={{ ...DATE_SX, fontSize: TYPE_SCALE.body }}>
         {date}
       </Typography>
       {children}
@@ -641,7 +652,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
       {/* One divider where the regular season stops, so a reader scrolling past the last
           regular-season date is told what the dashed cards below it are before meeting one. */}
       {date === firstPostDate && <SectionLabel>Postseason</SectionLabel>}
-      <SectionLabel>{dateLabel(date)}</SectionLabel>
+      <DateLabel>{dateLabel(date)}</DateLabel>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {(dayGames ?? []).map(g => renderGame(g))}
         {(dayPost ?? []).map(r => renderPostseason(r))}

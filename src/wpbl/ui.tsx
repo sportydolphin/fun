@@ -15,6 +15,7 @@ import { useWpblPlayerLink } from './LinkContext'
 import { TAPPABLE, tappableIf, pressable, FOCUS_RING } from '../ui/interaction'
 import { chromePx, typePx } from '../ui/scale'
 import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
+import { nameStages } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
 import { TYPE_SCALE, CARD_BORDER } from '../ui/card'
@@ -38,21 +39,6 @@ export function wpblShortName(name: string, maxLen = 16): string {
   const parts = full.split(/\s+/)
   if (parts.length < 2 || !parts[0]) return full
   return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
-}
-
-// Surname particles that belong to the name that follows them. "Rosi del Castillo" must
-// never shorten to "R. Castillo": the particle is part of the surname, not a separate word.
-// Lowercased for comparison; a capitalised "Del" is matched too.
-const NAME_PARTICLES = new Set([
-  'de', 'del', 'de la', 'della', 'di', 'da', 'das', 'dos', 'do',
-  'la', 'le', 'los', 'san', 'santa', 'van', 'von', 'der', 'den', 'ter', 'bin', 'ibn', 'al', 'mc', 'mac', "o'",
-])
-
-/** The trailing surname of a full name, keeping any particles attached ("del Castillo"). */
-function surnameOf(parts: string[]): string {
-  let i = parts.length - 1
-  while (i > 1 && NAME_PARTICLES.has(parts[i - 1].toLowerCase())) i--
-  return parts.slice(i).join(' ')
 }
 
 // Name formatter for the FEATURED rows, where a name gets a line to itself and should read in
@@ -84,15 +70,7 @@ export function wpblFeatureName(name: string, maxLen: number): string {
 // rather than a character budget: `FittedName` below renders each one and keeps the
 // longest that isn't truncated. Two-part names collapse stages 2 and 3 into one entry,
 // since "K. Whitmore" is both.
-export function wpblNameStages(name: string): string[] {
-  const full = (name ?? '').trim()
-  const parts = full.split(/\s+/).filter(Boolean)
-  if (parts.length < 2) return [full]   // nothing to abbreviate ("Ichiro")
-  const initial = `${parts[0][0]}.`
-  const withRest = `${initial} ${parts.slice(1).join(' ')}`
-  const surnameOnly = `${initial} ${surnameOf(parts)}`
-  return withRest === surnameOnly ? [full, surnameOnly] : [full, withRest, surnameOnly]
-}
+export const wpblNameStages = nameStages
 
 // ─── FittedName: a name that degrades instead of being cut off ─────────────────
 // It renders the full name, and only if the browser actually truncates it does it fall back to
