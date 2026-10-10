@@ -1335,6 +1335,26 @@ is retired.
 
 ## Shipped log
 
+### Oct 10, 2026: a lighter first load, and MLB's chunks with the entry (v1.147.0)
+
+Measured on a phone profile (4x CPU, 150ms, 1.6 Mbps), seven runs each, through `wrangler pages dev`.
+
+- **The Supabase client is two parts, not five.** `createClient` built storage, realtime and the
+  functions client up front, 274KB of the entry's 1.87MB of source. `src/lib/supabase.ts` now
+  assembles auth and the REST client itself; realtime loads on a live game's first subscription
+  (`supabase.watchChanges`), and the two edge-function calls are a plain POST. The entry went from
+  243KB to 217KB gzipped; `/wpbl` loads 26KB less JS and its DOM is ready about 130ms sooner. The
+  auth storage key is the one createClient used, so nobody is signed out.
+- **`/mlb` preloads its own chunks.** The section had the waterfall the WPBL preload fixed in
+  August: MlbStats and the landing view started only after the entry ran. The build now writes
+  MLB's links inside inert `<template>`s, and the `/mlb` Pages Function unwraps the shell's and the
+  landing view's (`mlbLandingChunks`, the rule the app's own prefetch uses). Largest paint on
+  `/mlb` 4.2s to 3.6s, on `/mlb/standings` 4.2s to 3.6s. Every other page carries the templates
+  inert, about 1KB gzipped.
+- Looked at and left: the four reads of today's MLB schedule go out in parallel at the same
+  moment, so folding them into one would save almost nothing; and the MUI tooltip's Popper in the
+  entry would only move to the WPBL chunk, which every `/wpbl` load fetches anyway.
+
 ### Oct 10, 2026: the site's reads, faster (v1.145.0)
 
 Measured before: every Supabase read took 230 to 670ms, uncached; `/wpbl/stats` finished its reads

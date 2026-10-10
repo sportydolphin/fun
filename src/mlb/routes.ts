@@ -337,6 +337,21 @@ export function mlbTargetFromUrl(pathname: string, search: string): MlbTarget | 
   return target
 }
 
+/** The lazy chunks an address needs to draw, as keys: a view, `player` or `game`. ONE RULE FOR
+ *  TWO CALLERS: the app warms these chunks itself (`preloadMlbViewFor` in views/lazyViews.ts) and
+ *  the /mlb Pages Function preloads the same ones from the HTML before any script has run
+ *  (scripts/vite-plugin-wpbl-preload.mjs, whose MLB_VIEWS names a chunk per key). `scores` is
+ *  never listed: that view is in MlbStats's own chunk. */
+export function mlbLandingChunks(pathname: string, search: string): string[] {
+  const target = mlbTargetFromUrl(pathname, search)
+  const keys: string[] = []
+  // A game's address on a desktop is the full Game Center page, which is that chunk.
+  if (target?.gamePk != null) keys.push('game')
+  if (target?.playerId != null) keys.push('player')
+  else if ((target?.view ?? 'home') !== 'scores') keys.push(target?.view ?? 'home')
+  return keys
+}
+
 /** The query names the legacy form spends, which the new paths make redundant. Everything else
  *  on a query (`open=`, `gamePk=`, `lb=`, `season=`, `sort=`) is carried through a redirect untouched. */
 export const MLB_LEGACY_PARAMS = ['view', 'pid', 'tid'] as const

@@ -74,10 +74,7 @@ export function useLiveGame(seed: WpblGame): WpblGame {
 
   useEffect(() => {
     if (!live) return
-    const ch = supabase.channel(`wpbl-game-${seed.id}-${uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_games', filter: `id=eq.${seed.id}` }, refresh)
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return supabase.watchChanges(`wpbl-game-${seed.id}-${uid}`, [{ table: 'wpbl_games', filter: `id=eq.${seed.id}` }], refresh)
   }, [seed.id, live, refresh, uid])
   return game
 }
