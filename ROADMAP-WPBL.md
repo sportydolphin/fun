@@ -1335,6 +1335,22 @@ is retired.
 
 ## Shipped log
 
+### Oct 10, 2026: Scores, newest first, with names on every final (v1.148.0)
+
+- **Game days only, newest first after the season.** Every calendar day between the first game and
+  the last had a row, off days as a dashed "No games" card, and the step back from the anchor
+  usually landed on one: the offseason page opened on "Mon, Sep 21 · No games" above the final.
+  In season the page still opens on the last game day; "Earlier" now runs newest first.
+- **Every final names its star and its pitchers of record,** each a link to the player, from
+  `buildRecap` itself, so the name matches Game Center, Discord and Bluesky. The game link is
+  stretched over the card rather than wrapping it, since an `<a>` cannot hold another. Read by
+  `fetchWpblScoreCardLines`, filtered to the lines buildRecap could rank, not the whole box score.
+- **A grid above a phone**, on Home's width: three games across on a desktop, two at 760, the
+  date moved into each card. A phone and the side panel keep the dated list. Flat cards in dark
+  mode, as on Home and the recap.
+- The skeleton is the grid or the list drawn empty, and a final whose names are still in flight
+  draws its footer empty, so nothing moves at 375, 760, 960, 1280 or 1440.
+
 ### Oct 10, 2026: a lighter first load, and MLB's chunks with the entry (v1.147.0)
 
 Measured on a phone profile (4x CPU, 150ms, 1.6 Mbps), seven runs each, through `wrangler pages dev`.
