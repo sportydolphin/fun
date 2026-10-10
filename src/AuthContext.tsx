@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, lazy, Suspense } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/auth-js'
 import { supabase } from './lib/supabase'
 import { usernameValidationMsg, isUsernameTaken } from './lib/usernames'
 import { passwordProblem } from './lib/passwordPolicy'

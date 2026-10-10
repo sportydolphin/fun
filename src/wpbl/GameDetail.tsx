@@ -2258,11 +2258,10 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   useForegroundInterval(() => reload(false), game.status === 'live' ? LIVE_POLL_MS : null)
   useEffect(() => {
     if (game.status !== 'live') return
-    const ch = supabase.channel(`wpbl-gc-${seed.id}-${gcUid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_game_plays', filter: `game_id=eq.${seed.id}` }, () => reload(false))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_batting_lines', filter: `game_id=eq.${seed.id}` }, () => reload(false))
-      .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return supabase.watchChanges(`wpbl-gc-${seed.id}-${gcUid}`, [
+      { table: 'wpbl_game_plays', filter: `game_id=eq.${seed.id}` },
+      { table: 'wpbl_batting_lines', filter: `game_id=eq.${seed.id}` },
+    ], () => reload(false))
   }, [game.status, seed.id, reload, gcUid])
 
   const final = game.status === 'final' && game.home_score != null && game.away_score != null

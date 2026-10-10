@@ -18,10 +18,11 @@ import {
 } from '../routes'
 import { SERIES_ORDER } from '../postseason'
 import { pushEntry } from '../state/sheetHistory'
-import { onRequestGet, WPBL_PRELOAD_SELECTOR } from '../../../functions/mlb/index'
+import { onRequestGet, WPBL_PRELOAD_SELECTOR, MLB_PRELOAD_SELECTOR, unwrapMlbPreload } from '../../../functions/mlb/index'
+import { MLB_VIEWS } from '../../../scripts/vite-plugin-wpbl-preload.mjs'
 import wpblPreloadPlugin from '../../../scripts/vite-plugin-wpbl-preload.mjs?raw'
 import { onRequestGet as onShortGet } from '../../../functions/m/[[code]]'
-import { mlbShortPath, mlbShortTargetFromPath } from '../routes'
+import { mlbShortPath, mlbShortTargetFromPath, mlbLandingChunks } from '../routes'
 
 describe('reading an address', () => {
   it('round-trips every tab', () => {
@@ -356,6 +357,43 @@ describe('the WPBL preloads an /mlb page leaves out', () => {
   // renames it: /mlb just goes back to downloading the WPBL section at first paint, unseen.
   it('strips by the attribute the plugin writes', () => {
     expect(WPBL_PRELOAD_SELECTOR).toBe('link[data-section="wpbl"]')
-    expect(wpblPreloadPlugin).toContain(`'data-section': 'wpbl'`)
+    expect(wpblPreloadPlugin).toContain(`'data-section': section`)
+    expect(wpblPreloadPlugin).toContain(`link(f, 'wpbl')`)
+  })
+})
+
+describe('the MLB preloads an /mlb page unwraps', () => {
+  // The same pairing the other way: the plugin holds MLB's links in templates, and the function
+  // unwraps them by this mark and by view key. A key either side drops is a view that silently
+  // goes back to loading its chunk only after the entry has run.
+  it('unwraps by the element the plugin writes', () => {
+    expect(MLB_PRELOAD_SELECTOR).toBe('template[data-section="mlb"]')
+    expect(wpblPreloadPlugin).toContain(`'data-section': 'mlb'`)
+    expect(wpblPreloadPlugin).toContain(`link(f, 'mlb')`)
+    expect(wpblPreloadPlugin).toContain(`tag: 'template'`)
+  })
+
+  it('has a block for every chunk an address can land on', () => {
+    const keys = new Set<string>()
+    for (const path of Object.values(MLB_VIEW_PATHS)) for (const k of mlbLandingChunks(path, '')) keys.add(k)
+    for (const k of mlbLandingChunks('/mlb/players/660271', '')) keys.add(k)
+    for (const k of mlbLandingChunks('/mlb/games/776543', '')) keys.add(k)
+    // A club's page is the view `search` with a team picked.
+    for (const k of mlbLandingChunks('/mlb', '?tid=119')) keys.add(k)
+    expect([...keys].sort()).toEqual(Object.keys(MLB_VIEWS).sort())
+  })
+
+  it('names the landing view, a player, or a game with the view under it', () => {
+    expect(mlbLandingChunks('/mlb', '')).toEqual(['home'])
+    expect(mlbLandingChunks('/mlb/standings', '')).toEqual(['standings'])
+    expect(mlbLandingChunks(MLB_VIEW_PATHS.scores, '')).toEqual([])
+    expect(mlbLandingChunks('/mlb/players/660271', '')).toEqual(['player'])
+    expect(mlbLandingChunks('/mlb', '?pid=660271')).toEqual(['player'])
+  })
+
+  it('keeps the shell block always and a view block only on its own address', () => {
+    expect(unwrapMlbPreload(null, [])).toBe(true)
+    expect(unwrapMlbPreload('home', ['home'])).toBe(true)
+    expect(unwrapMlbPreload('standings', ['home'])).toBe(false)
   })
 })
