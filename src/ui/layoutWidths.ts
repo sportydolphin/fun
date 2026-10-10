@@ -14,3 +14,8 @@ export const HOME_W = 'min(1260px, calc(100vw - 24px))'
 
 /** The column below `md`, for both sections: WPBL's whole section is built on 720. */
 export const PHONE_COLUMN_W = 720
+
+/** Both Stats tabs above a phone: wider than the page column, so every column of the Players table
+ *  is in view. WPBL's since the table needed it; MLB's three boards since Oct 9, 2026, when the two
+ *  tabs were 1416 and 1385 wide at 1440 and the title, tabs and cards moved 15px on a switch. */
+export const STATS_W = 'min(1540px, calc(100vw - 24px))'

@@ -30,7 +30,7 @@ export function PageTabs({ options, value, onChange, mb = 1.25 }: {
   options: PageTab[]
   value: string
   onChange: (v: string) => void
-  mb?: number
+  mb?: number | { xs?: number; sm?: number; md?: number }
 }) {
   // THE CHOSEN TAB IS KEPT IN VIEW. The row scrolls sideways on a phone, and a link to one of the
   // later tabs opened with its own underline off the right edge, so nothing on screen said which

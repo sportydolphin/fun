@@ -46,7 +46,7 @@ export interface StatsViewProps {
 export function StatsView({
   lbGroup, setLbGroup, vizSeason, setVizSeason, allTime, setAllTime, gameScope, setGameScope,
   lbData, lbFullscreen, setLbFullscreen,
-  lbStatsLimit, setLbStatsLimit,
+  setLbStatsLimit,
   lbQualified, setLbQualified,
   isDesktop, handleLbPlayerClick,
   highlightPlayerId, highlightStatKey,
@@ -100,9 +100,8 @@ export function StatsView({
   })()
 
   const rankedAll = sortBoard(qualifiedPool, activeDef, effectiveAsc)
-  // The phone's list pages (StatsRankedList's "Show 50"); the grid shows every row, as WPBL's does,
-  // in a scroll box with its headers pinned. "Load 50 more" under a capped box was a second scroll.
-  const sortedEntries = rankedAll.slice(0, lbStatsLimit)
+  // Every row on both: the grid in a scroll box with its headers pinned, the phone's list ten at a
+  // time and then all of them, as WPBL's do. Both paged by fifty until Oct 9, 2026.
   // Over the WHOLE pool rather than the qualified rows: the league's average is everyone's, and a
   // qualified-only figure would move when the reader flips the chip. Season boards only; see
   // leagueLine for why a career board has none.
@@ -188,24 +187,39 @@ export function StatsView({
   // reader who had it chosen sees the regular season, which is what the board then shows.
   const scopes = allTime ? GAME_SCOPES.filter(s => s !== 'all') : GAME_SCOPES
   const shownScope: GameScope = allTime && gameScope === 'all' ? 'regular' : gameScope
-  const scopeNote = shownScope === 'post' ? ' · Playoffs' : shownScope === 'all' ? ' · Regular + playoffs' : ''
-
-  // Say which population this is: an all-time rate board is qualified players only, and reversing
-  // it shows the worst of them, not the worst of everyone who ever played.
-  const populationNote =
-    (allTime && activeDef.isRate
-      ? shownScope === 'post' ? ` · Min ${lbGroup === 'hitting' ? `${CAREER_POST_MIN_PA} PA` : `${CAREER_POST_MIN_IP} IP`}` : ' · Qualified'
-      : '') +
-    (allTime && !activeDef.isRate ? ' · Leaders' : '') +
-    (activeDef.lowerIsBetter ? ' · lower = better' : '')
-  const boardSubtitle = `${allTime ? 'All-Time · Career' : `${vizSeason} MLB`}${scopeNote}${populationNote}`
-  // The grid's caption is its footer, as on WPBL's: the board's own title strip said what the
-  // column headings and the controls above already say.
-  const qualNote = !allTime && activeDef.isRate && lbQualified ? ' · Qualified' : ''
-  // `null` while loading: the words need no data, the count does.
-  const footText = (n: number | null) =>
-    `${n == null ? '' : `${n} ${lbGroup === 'hitting' ? 'hitters' : 'pitchers'} · `}`
-    + `${allTime ? 'All-Time · Career' : `${vizSeason} MLB`}${scopeNote}${qualNote}${populationNote} · sort by any column heading`
+  // THE FOOT'S WORDS, in WPBL's words and order (its footWords): the count, who is counted, then
+  // which games. Lower case and joined by dots, so a switch between the leagues reads one sentence.
+  const scopeWord = allTime
+    ? (shownScope === 'post' ? 'career playoffs' : 'career')
+    : shownScope === 'post' ? `${vizSeason} playoffs` : shownScope === 'all' ? `${vizSeason} season + playoffs` : `${vizSeason} season`
+  // Who is on the board. An all-time rate board is qualified players only (or a minimum we set, on
+  // career playoffs), and a counting one is the leaders StatsAPI ranks, not everyone who played.
+  const whoWord = allTime
+    ? (activeDef.isRate
+      ? (shownScope === 'post' ? `min ${lbGroup === 'hitting' ? `${CAREER_POST_MIN_PA} PA` : `${CAREER_POST_MIN_IP} IP`}` : 'qualified only')
+      : 'leaders only')
+    : activeDef.isRate && lbQualified ? 'qualified only' : null
+  // `n` is null while loading, when the words need no data and the count does; `shown` is the
+  // phone list's ten before it opens ("10 of 124 players").
+  const footText = (n: number | null, shown?: number) =>
+    [n == null ? null : shown != null && shown < n ? `${shown} of ${n} players` : `${n} players`, whoWord, scopeWord]
+      .filter(Boolean).join(' · ')
+    + (listView ? '' : ' · sort by any column heading')
+  // THE BOARD'S LAST ROW, inside its frame, as WPBL's boardFooter is: what the board is counted from,
+  // and on a phone the way between the list and the grid. The words were a caption above the list
+  // and the switch a pill under the frame.
+  const boardFoot = (n: number | null, shown?: number) => (
+    <Box sx={TABLE_FOOT_SX}>
+      <Typography sx={FOOT_TEXT_SX}>{footText(n, shown)}</Typography>
+      {!isDesktop && (
+        <Box {...pressable(toggleFullTable)} sx={{
+          ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+          minHeight: 34, px: 1.25, display: 'inline-flex', alignItems: 'center', borderRadius: 999,
+          border: '1px solid', borderColor: CARD_BORDER, fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+        }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
+      )}
+    </Box>
+  )
   const filtersSet = allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
 
   const pill = controlPill
@@ -215,7 +229,7 @@ export function StatsView({
       {/* Phone controls: the two that do the work, stating what they are set to. The grid's
           chips stay on desktop, where there is room for all of them and the headers already sort. */}
       {!isDesktop && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1, flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
             value={lbGroup}
@@ -244,7 +258,7 @@ export function StatsView({
       )}
 
       {/* Controls row */}
-      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
+      {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <PillGroup
             options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
@@ -290,9 +304,8 @@ export function StatsView({
           empty rows. It was a centred spinner, which left the footer in view on a phone. */}
       {loadingLb && listView && (
         <Box aria-hidden>
-          <Typography sx={BOARD_SUBTITLE_SX}>{boardSubtitle}</Typography>
           <StatsRankedList skeleton rows={[]} def={activeDef} statDefs={statDefs} group={lbGroup} asc={effectiveAsc}
-            total={0} limit={lbStatsLimit} onOpenPlayer={() => {}} onMore={() => {}} />
+            onOpenPlayer={() => {}} footer={() => boardFoot(null)} />
         </Box>
       )}
       {loadingLb && !listView && (
@@ -301,7 +314,7 @@ export function StatsView({
           <Box sx={{ height: TABLE_MAX_H, px: 2, pt: 1 }}>
             {Array.from({ length: 12 }, (_, i) => <Skeleton key={i} sx={{ fontSize: '1.6rem' }} />)}
           </Box>
-          <Box sx={TABLE_FOOT_SX}><Typography sx={FOOT_TEXT_SX}>{footText(null)}</Typography></Box>
+          {boardFoot(null)}
         </Box>
       )}
 
@@ -313,9 +326,6 @@ export function StatsView({
 
       {!loadingLb && lbData && lbData.length > 0 && listView && (
         <>
-          <Typography sx={BOARD_SUBTITLE_SX}>
-            {boardSubtitle}
-          </Typography>
           {rankedAll.length === 0 ? (
             <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
               {/* Only point at Everyone where the sheet offers it: a rate stat on a season board. */}
@@ -324,12 +334,12 @@ export function StatsView({
                 : 'Nobody on this board yet.'}
             </Typography>
           ) : (
-            // Keyed on everything that reorders or repopulates the board, so "Show 50" closes
+            // Keyed on everything that reorders or repopulates the board, so "Show all" closes
             // again when the reader changes what they are looking at.
             <StatsRankedList key={`${lbGroup}|${sortKey}|${effectiveAsc}|${allTime}|${vizSeason}|${shownScope}|${lbQualified}`}
-              rows={sortedEntries} def={activeDef} statDefs={statDefs} group={lbGroup} asc={effectiveAsc}
-              highlightPlayerId={highlightPlayerId} total={totalInDataset} limit={lbStatsLimit}
-              onOpenPlayer={handleLbPlayerClick} onMore={() => setLbStatsLimit(l => l + 50)} />
+              rows={rankedAll} def={activeDef} statDefs={statDefs} group={lbGroup} asc={effectiveAsc}
+              highlightPlayerId={highlightPlayerId} league={leagueCell(activeDef) || null}
+              onOpenPlayer={handleLbPlayerClick} footer={shown => boardFoot(totalInDataset, shown)} />
           )}
         </>
       )}
@@ -482,20 +492,8 @@ export function StatsView({
             </Box>
           </Box>
 
-          <Box sx={TABLE_FOOT_SX}>
-            <Typography sx={FOOT_TEXT_SX}>{footText(totalInDataset)}</Typography>
-          </Box>
+          {boardFoot(totalInDataset)}
         </Box>
-      )}
-
-      {/* Phones only: the way between the list and the grid, under the board where it is not in the
-          way of the thing most readers came for. */}
-      {!isDesktop && (loadingLb || (lbData && lbData.length > 0)) && (
-        <Box {...pressable(toggleFullTable)} sx={{
-          ...FOCUS_RING, mt: 1.5, mx: 'auto', width: 'fit-content', cursor: 'pointer', userSelect: 'none',
-          minHeight: 34, px: 1.5, display: 'flex', alignItems: 'center', borderRadius: 999,
-          border: '1px solid', borderColor: 'divider', fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-        }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
       )}
 
       {sortOpen && listView && (
@@ -520,16 +518,15 @@ export function StatsView({
   )
 }
 
-// The board's frame, shared by the loaded board and its skeleton.
-const BOARD_SUBTITLE_SX = { fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: typePx(1), mb: 0.75 } as const
 // WPBL's board frame: a hairline card, no raised paper and no title strip. Edge to edge on a
 // phone's full table, where the gutter is worth a column.
 const TABLE_FRAME_SX = {
   border: '1px solid', borderColor: CARD_BORDER, borderRadius: { xs: 0, sm: 2 }, overflow: 'hidden',
   bgcolor: 'background.paper', mx: { xs: -2, sm: 0 }, borderLeftWidth: { xs: 0, sm: 1 }, borderRightWidth: { xs: 0, sm: 1 },
 } as const
-/** The scroll box's cap: everything standing above it at the top of the page, scaled with that
- *  chrome. One value for the board and its skeleton. */
-const TABLE_MAX_H = `calc(100vh - ${chromePx(280)})`
+/** The scroll box's cap, WPBL's own (its season table's desktop measure), so the two tables are the
+ *  same height on a switch: they were 593 and 683 at 1440x900. One value for the board and its
+ *  skeleton. */
+const TABLE_MAX_H = 'calc(100dvh - 260px)'
 const TABLE_FOOT_SX = { px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 } as const
 const FOOT_TEXT_SX = { fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0 } as const

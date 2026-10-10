@@ -35,22 +35,26 @@ export interface LeaderCol<T> {
 export interface LeaderSeason<T> { player: WpblPlayer; totals: T }
 
 /** Which columns get a card, in reading order, and the card's title. Keys are the Players board's.
- *  Short noun phrases, as every card title on the site is. The strikeout rate takes its column's
- *  own label, since its basis (K/7 or K/9) is the reader's setting. */
+ *  Titles are MLB's `leaderLabel`s word for word (src/mlb/constants.ts), in title case, so the two
+ *  boards' cards read alike across the league switch. Runs and FIP have no MLB card; they follow the
+ *  same style. The strikeout rate names the reader's basis ("K per 7"), as MLB's says "K per 9". */
 export const LEADER_CARDS: Record<'hitting' | 'pitching', { key: string; title?: string }[]> = {
   hitting: [
-    { key: 'avg', title: 'Batting average' }, { key: 'obp', title: 'On-base percentage' },
-    { key: 'ops', title: 'OPS' }, { key: 'hr', title: 'Home runs' },
-    { key: 'rbi', title: 'Runs batted in' }, { key: 'r', title: 'Runs' },
-    { key: 'h', title: 'Hits' }, { key: 'sb', title: 'Stolen bases' },
+    { key: 'avg', title: 'Batting Average' }, { key: 'obp', title: 'On-Base %' },
+    { key: 'ops', title: 'OPS' }, { key: 'hr', title: 'Home Runs' },
+    { key: 'rbi', title: 'RBIs' }, { key: 'r', title: 'Runs' },
+    { key: 'h', title: 'Hits' }, { key: 'sb', title: 'Stolen Bases' },
   ],
   pitching: [
     { key: 'era', title: 'ERA' }, { key: 'whip', title: 'WHIP' },
     { key: 'so', title: 'Strikeouts' }, { key: 'w', title: 'Wins' },
-    { key: 'sv', title: 'Saves' }, { key: 'ip', title: 'Innings pitched' },
+    { key: 'sv', title: 'Saves' }, { key: 'ip', title: 'Innings Pitched' },
     { key: 'k9' }, { key: 'fip', title: 'FIP' },
   ],
 }
+
+/** A card with no title of its own takes its column's label, spelled out: "K/7" reads "K per 7". */
+const titleFor = (card: { title?: string }, col: { label: string }) => card.title ?? col.label.replace('/', ' per ')
 
 /** The rows a card shows: qualified first for a rate, best end first, ties broken toward the bigger
  *  sample, and a dash never ranked. Ranks are competition ranks on the number AS PRINTED, the
@@ -96,7 +100,7 @@ export function LeadersBoard<T extends WpblBattingTotals | WpblPitchingTotals>({
         const col = byKey.get(card.key)
         if (!col) return null
         return (
-          <LeaderCard key={card.key} title={card.title ?? col.label}
+          <LeaderCard key={card.key} title={titleFor(card, col)}
             seeAll={{ href: seeAllHref(card.key), onClick: () => onSeeAll(card.key) }}
             hoverKey={hover} onHover={setHover}
             items={leadersFor(seasons, col, side, qual).map(r => ({
