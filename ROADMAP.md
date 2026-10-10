@@ -328,6 +328,16 @@ will actually see all winter. The functional items do not wait.
    (MLB's "Table" until now) beside it, so the board rows read "Leaders, Players, …" in both
    sections. WPBL's Leaders board is new (see its log); the league switch maps WPBL's Players board
    to MLB's and everything else on Stats to Leaders. The rest of each row is the league's own.
+   ✅ *One look, Oct 9 (v1.142.0):* both Leaders boards draw `src/ui/leaders.tsx`'s card: five
+   rows, ranks as numbers with the top three in the accent and "T-2" for a shared place, no medals,
+   a portrait and the club's mark beside the name, "See all ›" in the header, and the hovered player
+   lit across every card. MLB's default cards are WPBL's eight in WPBL's order (Walks for Runs, and
+   seven on pitching, since FIP is no StatsAPI leader category); the table's default sort moved to
+   `TABLE_DEFAULT_SORT` so it no longer rides on that list. MLB's Players grid takes WPBL's row: a
+   20px club logo where the 35px headshot was (rows 42px, were 56), centred cells in WPBL's sizes and
+   tint, and competition ranks on the sorted column. Kept apart: MLB's season and stat pickers,
+   WPBL's Advanced view and club chips. The predictions and Survivor boards keep their medals:
+   those are games, not stats.
 
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each

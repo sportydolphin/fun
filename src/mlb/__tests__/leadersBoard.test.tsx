@@ -32,17 +32,18 @@ function renderLeaders(onOpenStats = vi.fn()) {
 }
 
 describe('MLB Leaders', () => {
-  it('shares first place between equal values instead of handing out gold and silver', () => {
+  // Plain ranks, as WPBL's card draws them (src/ui/leaders.tsx): no medals since Oct 2026.
+  it('shares first place between equal values, and the next place skips the one they used', () => {
     renderLeaders()
     const rows = screen.getAllByRole('link').filter(a => a.getAttribute('href')?.startsWith('/mlb/players/'))
     expect(within(rows[0]).getByText('T-1')).toBeTruthy()
     expect(within(rows[1]).getByText('T-1')).toBeTruthy()
-    expect(within(rows[2]).getByText('🥉')).toBeTruthy()
+    expect(within(rows[2]).getByText('3')).toBeTruthy()
   })
 
   it('links each card to the Table ranked by its stat, and opens it in the app on a plain click', () => {
     const onOpen = renderLeaders()
-    const all = screen.getByRole('link', { name: /All 3 ranked/ })
+    const all = screen.getByRole('link', { name: /See all/ })
     expect(all.getAttribute('href')).toBe('/mlb/stats?sort=hr')
     fireEvent.click(all)
     expect(onOpen).toHaveBeenCalledWith('hr')

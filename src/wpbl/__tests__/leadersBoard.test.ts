@@ -37,6 +37,7 @@ describe('leadersFor', () => {
       season('a', { ab: 40, hr: 5 }), season('b', { ab: 30, hr: 5 }), season('c', { ab: 40, hr: 3 }),
     ], HR, 'hitting', QUAL)
     expect(rows.map(r => r.rank)).toEqual([1, 1, 3])
+    expect(rows.map(r => r.tied)).toEqual([true, true, false])
     // The tie breaks toward the bigger sample.
     expect(rows[0].player.id).toBe('a')
   })

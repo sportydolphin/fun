@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
-import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
+import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, TABLE_DEFAULT_SORT, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from '../lib/gameScope'
@@ -13,6 +13,8 @@ import { FilterChip } from '../../ui/FilterChip'
 import { CARD_BORDER } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { sortBoard, ascFor, isBestFirst, leagueLine } from '../lib/statsBoard'
+import { printedRanks } from '../../ui/leaders'
+import { LogoBubble } from '../components/boxScore'
 import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable, controlPill } from './StatsRankedList'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
 
@@ -67,7 +69,7 @@ export function StatsView({
     return () => clearTimeout(timer)
   }, [highlightPlayerId, highlightStatKey, lbData])
   const statDefs = lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
-  const sortKey   = lbFullscreen?.sortKey   ?? LB_FEATURED[lbGroup][0]
+  const sortKey   = lbFullscreen?.sortKey   ?? TABLE_DEFAULT_SORT[lbGroup]
   const sortAsc   = lbFullscreen?.sortAsc   ?? (statDefs.find(d => d.key === sortKey)?.lowerIsBetter ?? false)
   const activeDef = statDefs.find(d => d.key === sortKey) ?? statDefs[0]
 
@@ -106,7 +108,10 @@ export function StatsView({
   // leagueLine for why a career board has none.
   const league = !allTime && lbData ? leagueLine(lbData, lbGroup) : null
 
-  const MEDALS_FS = ['🥇', '🥈', '🥉']
+  // Competition ranks on the sorted column AS PRINTED, with ties marked, as WPBL's table numbers
+  // its rows. They were positions with medals on the first three, which put a gold and a silver
+  // between two players on the same 45 home runs.
+  const ranks = printedRanks(rankedAll.map(e => activeDef.format(activeDef.getValue(e.stat))))
   const colPx = isDesktop ? chromePx(10) : chromePx(5)
   // WPBL's header: small heavy labels with the league's figure on a second line under each.
   const stThSx = {
@@ -127,8 +132,9 @@ export function StatsView({
   )
   const leagueCell = (def: (typeof statDefs)[number]) =>
     league && def.isRate ? def.format(def.getValue(league)) : ''
+  // WPBL's row: half a unit of padding, so a row is its text plus a 20px badge, about 42px.
   const stTdSx = {
-    py: chromePx(7), px: colPx,
+    py: 0.5, px: colPx,
     borderBottom: '1px solid', borderColor: 'divider',
     whiteSpace: 'nowrap' as const,
     verticalAlign: 'middle' as const,
@@ -369,7 +375,7 @@ export function StatsView({
                         sx={{
                           ...stThSx,
                           position: 'sticky', top: 0, zIndex: 3,
-                          textAlign: 'right', cursor: 'pointer',
+                          textAlign: 'center', cursor: 'pointer',
                           bgcolor: 'background.paper',
                           boxShadow: isActive ? `inset 0 0 0 9999px ${ACCENT}14` : 'none',
                           borderBottom: isActive ? `2px solid ${ACCENT}` : '2px solid',
@@ -387,7 +393,7 @@ export function StatsView({
                             </Box>
                           )}
                         </Box>
-                        {headLeague(leagueCell(def), 'right')}
+                        {headLeague(leagueCell(def))}
                       </Box>
                     )
                   })}
@@ -397,9 +403,6 @@ export function StatsView({
               <Box component="tbody">
                 {rankedAll.map((e, idx) => {
                   const stat = e.stat
-                  // Rank 1 = best. Descending: row 0 is best → rank 1, 2, 3…
-                  // Ascending: row 0 is worst → rank total, total-1, total-2…
-                  const displayRank = idx + 1
                   const isHighlighted = e.playerId === highlightPlayerId
                   return (
                     <Box component="tr" key={e.playerId}
@@ -425,27 +428,21 @@ export function StatsView({
                         pr: isDesktop ? chromePx(12) : chromePx(8),
                         'tr:hover > &': { boxShadow: `inset 0 0 0 9999px ${isHighlighted ? ACCENT + '18' : ACCENT + '0e'}` },
                       }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
-                          <Typography sx={{
-                            fontSize: displayRank <= 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
-                            color: 'text.disabled',
-                            minWidth: isDesktop ? '1.375rem' : '1.75rem',
-                            textAlign: 'center', flexShrink: 0, lineHeight: 1,
-                          }}>
-                            {displayRank <= 3 ? MEDALS_FS[displayRank - 1] : `${displayRank}`}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          {/* Flex-end so a wide tied rank ("T-24") overflows into the padding on
+                              its left rather than into the badge. */}
+                          <Typography sx={{ width: '1.5rem', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', lineHeight: 1 }}>
+                            {ranks[idx].tied ? `T-${ranks[idx].rank}` : ranks[idx].rank}
                           </Typography>
-                          {isDesktop && (
-                            <Box component="img"
-                              src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
-                              alt={e.playerName} loading="lazy"
-                              sx={{ width: chromePx(28), height: chromePx(28), borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
-                            />
-                          )}
+                          {/* The club's mark where the headshot was, as WPBL's table draws it: a
+                              face per row made every row 56px against WPBL's 42, and the player
+                              card behind the tap already has the face. */}
+                          {e.teamId > 0 && <LogoBubble teamId={e.teamId} abbr={e.teamAbbr} size={20} ring={1} />}
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography {...playerLink(e.playerId, e.playerName, handleLbPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 700, fontSize: isDesktop ? '0.82rem' : '0.75rem', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <Typography {...playerLink(e.playerId, e.playerName, handleLbPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {isDesktop ? e.playerName : abbrevName(e.playerName)}
                             </Typography>
-                            <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', fontWeight: 600 }}>
+                            <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>
                               {e.teamAbbr}
                             </Typography>
                           </Box>
@@ -461,11 +458,12 @@ export function StatsView({
                           <Box component="td" key={def.key}
                             ref={isFocused ? (el: HTMLElement | null) => { highlightColRef.current = el } : undefined}
                             sx={{
-                            ...stTdSx, textAlign: 'right',
-                            bgcolor: isFocused ? `${ACCENT}28` : isActive ? `${ACCENT}08` : undefined,
-                            fontSize: isActive || isFocused ? '0.88rem' : '0.78rem',
-                            fontWeight: isActive || isFocused ? 800 : 400,
-                            color: isFocused ? ACCENT_TEXT : isActive ? ACCENT_TEXT : 'text.primary',
+                            ...stTdSx, textAlign: 'center',
+                            // WPBL's cell: the sorted column a step bigger, heavier and tinted.
+                            bgcolor: isFocused ? `${ACCENT}28` : isActive ? `${ACCENT}12` : undefined,
+                            fontSize: isActive || isFocused ? '0.84rem' : '0.8rem',
+                            fontWeight: isActive || isFocused ? 800 : 500,
+                            color: isFocused || isActive ? 'var(--wpbl-accent-fg)' : 'text.primary',
                             // Inset ring (not `outline`): an outline paints in a late phase and
                             // escapes this border-collapse table's stacking, so it bled over the
                             // sticky player-name column when the row scrolled under it. An inset

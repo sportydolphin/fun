@@ -146,10 +146,17 @@ export const TEAM_SEASONS = Array.from({ length: CURRENT_SEASON - 2000 + 1 }, (_
 export const PREDICTION_HEATER_MIN = 3
 
 // Featured leaderboard stat keys shown by default (fewer = less overwhelming)
+// The Leaders board's cards, in WPBL's order (LEADER_CARDS in src/wpbl/LeadersBoard.tsx) so the
+// two boards read alike across the league switch. MLB has no Runs leader in its stat defs, so Walks
+// takes that slot, and FIP is not a StatsAPI leader category, so pitching is seven.
 export const LB_FEATURED: Record<'hitting' | 'pitching', string[]> = {
-  hitting:  ['ops', 'hr', 'sb'],
-  pitching: ['era', 'whip', 'so9'],
+  hitting:  ['avg', 'obp', 'ops', 'hr', 'rbi', 'h', 'sb', 'bb'],
+  pitching: ['era', 'whip', 'k', 'wl', 'sv', 'ip', 'so9'],
 }
+
+/** The column the Players table sorts on until the reader picks one. Its own constant since
+ *  LB_FEATURED stopped starting with it. */
+export const TABLE_DEFAULT_SORT: Record<'hitting' | 'pitching', string> = { hitting: 'ops', pitching: 'era' }
 
 // Curated list of notable active players for random auto-load on Search tab
 export const FEATURED_PLAYER_IDS = [

@@ -1,7 +1,8 @@
-import { Box, Skeleton } from '@mui/material'
-import { SectionCard, LeaderRow, chromePx } from './ui'
-import { CardLink } from '../ui/card'
-import { WPBL_ACCENT } from './constants'
+import { useState } from 'react'
+import { Box } from '@mui/material'
+import { PlayerPortrait, TeamBadge, useWpblName } from './ui'
+import { useWpblPlayerLink } from './LinkContext'
+import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../ui/leaders'
 import { plateAppearances, type WpblBattingTotals, type WpblPitchingTotals } from './stats'
 import type { WpblPlayer } from './types'
 
@@ -33,9 +34,6 @@ export interface LeaderCol<T> {
 
 export interface LeaderSeason<T> { player: WpblPlayer; totals: T }
 
-/** Five, everywhere. Ten is the Players board again, card after card. */
-const SHOWN = 5
-
 /** Which columns get a card, in reading order, and the card's title. Keys are the Players board's.
  *  Short noun phrases, as every card title on the site is. The strikeout rate takes its column's
  *  own label, since its basis (K/7 or K/9) is the reader's setting. */
@@ -54,18 +52,13 @@ export const LEADER_CARDS: Record<'hitting' | 'pitching', { key: string; title?:
   ],
 }
 
-const GRID_SX = {
-  display: 'grid', gap: 1.5,
-  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' },
-} as const
-
 /** The rows a card shows: qualified first for a rate, best end first, ties broken toward the bigger
  *  sample, and a dash never ranked. Ranks are competition ranks on the number AS PRINTED, the
- *  Players board's rule, so two hitters at .400 are both 1. */
+ *  Players board's rule, so two hitters at .400 share a place. */
 export function leadersFor<T extends WpblBattingTotals | WpblPitchingTotals>(
   seasons: LeaderSeason<T>[], col: LeaderCol<T>, side: 'hitting' | 'pitching',
   qual: { active: boolean; minPa: number; minOuts: number },
-): { player: WpblPlayer; text: string; rank: number }[] {
+): { player: WpblPlayer; text: string; rank: number; tied: boolean }[] {
   const sample = (t: T) => side === 'pitching' ? (t as WpblPitchingTotals).outs : plateAppearances(t as WpblBattingTotals)
   const qualifies = (t: T) => !qual.active || (side === 'pitching' ? sample(t) >= qual.minOuts : sample(t) >= qual.minPa)
   const pool = seasons
@@ -76,14 +69,10 @@ export function leadersFor<T extends WpblBattingTotals | WpblPitchingTotals>(
     // would print five names under a number that ranks nobody.
     .filter(x => col.rate || x.v > 0)
     .sort((a, b) => (a.v !== b.v ? (col.lowerBetter ? a.v - b.v : b.v - a.v) : sample(b.s.totals) - sample(a.s.totals)))
-    .slice(0, SHOWN)
-  const text = (t: T) => (col.display ? col.display(t) : String(col.value(t)))
-  const out: { player: WpblPlayer; text: string; rank: number }[] = []
-  pool.forEach((x, i) => {
-    const t = text(x.s.totals)
-    out.push({ player: x.s.player, text: t, rank: i > 0 && out[i - 1].text === t ? out[i - 1].rank : i + 1 })
-  })
-  return out
+    .slice(0, LEADERS_SHOWN)
+  const texts = pool.map(x => (col.display ? col.display(x.s.totals) : String(col.value(x.s.totals))))
+  const ranks = printedRanks(texts)
+  return pool.map((x, i) => ({ player: x.s.player, text: texts[i], ...ranks[i] }))
 }
 
 export function LeadersBoard<T extends WpblBattingTotals | WpblPitchingTotals>({ side, cols, seasons, qual, onOpenPlayer, onSeeAll, seeAllHref }: {
@@ -97,50 +86,37 @@ export function LeadersBoard<T extends WpblBattingTotals | WpblPitchingTotals>({
   seeAllHref: (key: string) => string
 }) {
   const byKey = new Map(cols.map(c => [c.key, c]))
+  // The same short form LeaderRow uses: 18 characters, so a card's name column shows whole names.
+  const shortName = useWpblName(18)
+  const playerLink = useWpblPlayerLink()
+  const [hover, setHover] = useState<string | null>(null)
   return (
-    <Box sx={GRID_SX}>
+    <Box sx={LEADER_GRID_SX} onMouseLeave={() => setHover(null)}>
       {LEADER_CARDS[side].map(card => {
         const col = byKey.get(card.key)
         if (!col) return null
-        const rows = leadersFor(seasons, col, side, qual)
         return (
-          <SectionCard key={card.key} bare title={card.title ?? col.label}
-            action={<CardLink label="See all ›" href={seeAllHref(card.key)} onClick={() => onSeeAll(card.key)} />}>
-            {rows.length === 0
-              ? <Box sx={{ py: 1.5, color: 'text.secondary', fontSize: '0.8rem' }}>Nobody yet</Box>
-              : rows.map(r => (
-                  <LeaderRow key={r.player.id} rank={r.rank} player={r.player} name={r.player.name}
-                    teamId={r.player.team_id} value={r.text} accent={WPBL_ACCENT} onOpen={onOpenPlayer} />
-                ))}
-          </SectionCard>
+          <LeaderCard key={card.key} title={card.title ?? col.label}
+            seeAll={{ href: seeAllHref(card.key), onClick: () => onSeeAll(card.key) }}
+            hoverKey={hover} onHover={setHover}
+            items={leadersFor(seasons, col, side, qual).map(r => ({
+              key: r.player.id, rank: r.rank, tied: r.tied, name: shortName(r.player.name), value: r.text,
+              portrait: <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={PORTRAIT_PX} />,
+              badge: r.player.team_id ? <TeamBadge team={{ id: r.player.team_id, abbr: r.player.team_id }} size={16} /> : undefined,
+              linkProps: playerLink(r.player, onOpenPlayer),
+            }))} />
         )
       })}
     </Box>
   )
 }
 
-/** The board before the season's lines have landed: the real titles, which need no data, over five
- *  ghost rows each, so nothing moves when the names arrive. Hitting, because that is the side the
- *  tab opens on. A ghost row is a LeaderRow's box: 32px portrait, its padding and its rule. */
+/** The board before the season's lines have landed: the real titles over ghost rows. Hitting,
+ *  because that is the side the tab opens on. */
 export function LeadersBoardSkeleton() {
   return (
-    <Box aria-hidden sx={GRID_SX}>
-      {LEADER_CARDS.hitting.map(card => (
-        <SectionCard key={card.key} bare title={card.title ?? card.key}
-          action={<CardLink label="See all ›" onClick={() => {}} />}>
-          {Array.from({ length: SHOWN }, (_, i) => (
-            <Box key={i} sx={{
-              display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
-              borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider',
-            }}>
-              <Box sx={{ width: '1.125rem', flexShrink: 0 }} />
-              <Skeleton variant="circular" width={chromePx(32)} height={chromePx(32)} sx={{ flexShrink: 0 }} />
-              <Box sx={{ flex: 1, fontSize: '0.85rem' }}><Skeleton width="60%" /></Box>
-              <Box sx={{ fontSize: '1.05rem' }}><Skeleton width="2.5rem" /></Box>
-            </Box>
-          ))}
-        </SectionCard>
-      ))}
+    <Box aria-hidden sx={LEADER_GRID_SX}>
+      {LEADER_CARDS.hitting.map(card => <LeaderCardSkeleton key={card.key} title={card.title ?? card.key} />)}
     </Box>
   )
 }
