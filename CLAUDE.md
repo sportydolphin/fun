@@ -402,6 +402,16 @@ Each of these has already cost someone a debugging session, and none of them fai
   inside a sheet. Headless Chrome cannot show this (no display, so no real input latency); measure on
   a phone: `adb` is in `~/.bubblewrap/android_sdk/platform-tools`, `adb reverse tcp:4173 tcp:4173`
   with `vite preview --host 127.0.0.1` (preview binds IPv6 only by default, which `adb` cannot reach).
+- **A signed-out reader's Supabase reads come from Cloudflare's cache, so a database edit can
+  take a while to show.** In a built site the client's `fetch` ([`edgeFetch.ts`](src/lib/edgeFetch.ts))
+  sends every signed-out GET of a table in [`edgeTables.ts`](src/lib/edgeTables.ts) through
+  `functions/api/sb`. Tables a daily job writes are held 5 minutes and then served stale for up to
+  a day while a refresh runs. Tables a game writes are held 10 seconds while the league is active
+  (a game live, or dated within a day) and like the slow ones when it is not. So a hand correction
+  out of season can sit unseen behind a stale answer at a quiet location until a reader there
+  triggers the refresh; signed in, you read direct and see it at once, which is why it looks fixed
+  to you. **A table goes on that list only if every signed-out reader sees the same rows**: the
+  cache hands one reader's answer to the next. `npm run dev` never uses it.
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))
   is loaded by three builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and
