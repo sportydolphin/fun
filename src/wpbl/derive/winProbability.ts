@@ -331,6 +331,82 @@ export function gameWinProb(
   }
 }
 
+// ─── The season's wildest games ───────────────────────────────────────────────
+
+/** How often the lead changed hands. A tie in between does not end a lead change: 2-1, 2-2, 2-3
+ *  is one change, not two, which is how a broadcast counts it. */
+export function leadChanges(points: WinProbPoint[]): number {
+  let leader = 0, changes = 0
+  for (const pt of points) {
+    const now = Math.sign(pt.homeScore - pt.awayScore)
+    if (now === 0) continue
+    if (leader !== 0 && now !== leader) changes++
+    leader = now
+  }
+  return changes
+}
+
+/** How often a side drew level after trailing. The other half of "back and forth": the season's
+ *  wildest game by this ranking (Aug 9, New York at Boston) never changed leader at all, it was
+ *  caught at 5-5 and won in the eighth, and "no lead changes" alone says it was dull. */
+export function tiesFromBehind(points: WinProbPoint[]): number {
+  let ties = 0, prev = 0
+  for (const pt of points) {
+    const now = Math.sign(pt.homeScore - pt.awayScore)
+    if (now === 0 && prev !== 0) ties++
+    prev = now
+  }
+  return ties
+}
+
+export interface WildGame<G> {
+  game: G
+  wp: GameWinProb
+  homeWon: boolean
+  leadChanges: number
+  ties: number
+  /** The last inning played: past regulation means extra innings. */
+  innings: number
+}
+
+/**
+ * Finished games ranked by `excitement`, every swing in win probability added up. The season's
+ * tightest game and its walkover differ by a factor of five on it, which is the whole case for it
+ * as the ranking: a one-run final can still have been decided in the second inning, and this tells
+ * the two apart where the score cannot.
+ *
+ * A GAME WHOSE PLAY LOG STOPS SHORT IS LEFT OUT, not ranked low. Its excitement is the sum over the
+ * plays the feed recorded, so a game missing its last inning reads as quieter than it was, by
+ * exactly the inning most likely to have been the loud one (the Aug 19 game at San Francisco ends
+ * in the bottom of the sixth). So is a tie, which this league does not play to and the feed has
+ * only ever produced as a game abandoned.
+ */
+export function wildestGames<G extends GameForWinProb & { id: string }>(
+  model: WinProbModel,
+  plays: WpblRunValuePlay[],
+  games: G[],
+): WildGame<G>[] {
+  const byGame = new Map<string, WpblRunValuePlay[]>()
+  for (const p of plays) {
+    const arr = byGame.get(p.game_id)
+    if (arr) arr.push(p); else byGame.set(p.game_id, [p])
+  }
+  const out: WildGame<G>[] = []
+  for (const g of games) {
+    if (g.status !== 'final' || g.home_score == null || g.away_score == null || g.home_score === g.away_score) continue
+    const gp = byGame.get(g.id)
+    if (!gp || gp.length === 0) continue
+    const wp = gameWinProb(model, gp, g)
+    const last = wp.points[wp.points.length - 1]
+    if (!last || last.play.inning < REGULATION_INNINGS) continue
+    out.push({
+      game: g, wp, homeWon: g.home_score > g.away_score,
+      leadChanges: leadChanges(wp.points), ties: tiesFromBehind(wp.points), innings: last.play.inning,
+    })
+  }
+  return out.sort((a, b) => b.wp.excitement - a.wp.excitement)
+}
+
 /** "34%": the only rounding anyone should see. A win model that prints a decimal place is
  *  claiming a precision 263 half-innings cannot support. */
 export function fmtWinPct(p: number): string {
