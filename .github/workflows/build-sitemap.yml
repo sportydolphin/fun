@@ -35,14 +35,14 @@ jobs:
       VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Pushes as the main-bot deploy key, the one thing allowed to commit to `main` without a
           # pull request (.github/rulesets/). GITHUB_TOKEN cannot be: a ruleset on a personal repo
           # will not exempt the Actions app.
           ssh-key: ${{ secrets.MAIN_BOT_DEPLOY_KEY }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm

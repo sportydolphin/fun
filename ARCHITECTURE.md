@@ -883,7 +883,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   (tracked in a `schema_migrations` table; needs `SUPABASE_DB_URL`). The legacy
   `scripts/*.sql` baseline was applied by hand and is not re-run.
 - **pg_cron:** `scripts/wpbl_cron.sql` once, after deploying `wpbl-ingest`.
-- **Cron scripts:** run automatically by GitHub Actions (Node 20/22 runners) using repo
+- **Cron scripts:** run automatically by GitHub Actions (Node 22) using repo
   secrets.
 
 ---

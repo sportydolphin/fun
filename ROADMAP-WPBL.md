@@ -194,9 +194,10 @@ item 2 describes, which is why that item comes first.
    90 days. Settle this before the MLB plays mirror, which ROADMAP.md estimates at about 1M rows a
    season; check the plan's database limit first (the free tier's is 500 MB). `events_test` (9 MB)
    is the test-run quarantine and stays.
-5. **Actions off Node 20.** `actions/checkout@v4` and `actions/setup-node@v4` (39 uses each) and
-   `upload-artifact@v4` run on Node 20 and are already being forced onto Node 24, with a warning on
-   every run. Bump to their Node 24 majors in one pass.
+5. ✅ **Actions off Node 20** (Oct 11). `checkout`, `setup-node` and `upload-artifact` moved from
+   v4 to v7, their Node 24 majors, in all 38 workflows. `daily-bots.yml` also ran its own scripts on
+   Node 20, past end of life since April; it is on 22 with everything else. The deploy-key pushes
+   (sitemap, archive, feature requests) are the part CI cannot exercise: watch their next runs.
 6. **Dependencies.** Patch and minor first, as one pull request: supabase-js 2.106 to 2.117, MUI
    7.3.7 to 7.3.11, Vite 6.4.4, Vitest 4.1, playwright-core 1.64 (the sweep's browser, so run it),
    pg, ws, and the one moderate audit finding (`yaml` under cosmiconfig, dev only). Then the majors,
