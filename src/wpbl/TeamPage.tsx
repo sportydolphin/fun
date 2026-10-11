@@ -920,7 +920,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                       borderTop: '1px solid', borderColor: 'divider',
                       borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
                     }}>
-                      <Typography sx={{ width: '1.625rem', textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, color: accent }}>
+                      {/* 2rem, the width of "RHP,": a two-way player's label ("RHP, UTL") wraps to two
+                          lines, and at 1.625rem its first word spilled the column at Large text. */}
+                      <Typography sx={{ width: '2rem', textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, lineHeight: 1.15, color: accent }}>
                         {displayPositionFromIndex(p, positionIndex).label || '—'}
                       </Typography>
                       <PlayerPortrait name={p.name} teamId={p.team_id} size={34} />

@@ -24,7 +24,7 @@ const DATA: LeaderboardEntry[] = [
 ]
 
 function Harness({ isDesktop = false, onOpen = () => {} }: { isDesktop?: boolean; onOpen?: (id: number) => void }) {
-  const [group, setGroup] = useState<'hitting' | 'pitching'>('hitting')
+  const [group] = useState<'hitting' | 'pitching'>('hitting')
   const [fs, setFs] = useState<LbFullscreenState | null>(null)
   const [limit, setLimit] = useState(50)
   const [qualified, setQualified] = useState(true)
@@ -33,7 +33,7 @@ function Harness({ isDesktop = false, onOpen = () => {} }: { isDesktop?: boolean
   const [scope, setScope] = useState<'regular' | 'post' | 'all'>('regular')
   return (
     <StatsView boardTabs={null}
-      lbGroup={group} setLbGroup={setGroup}
+      lbGroup={group} sideSwitch={null}
       vizSeason={season} setVizSeason={setSeason}
       allTime={allTime} setAllTime={setAllTime}
       gameScope={scope} setGameScope={setScope}

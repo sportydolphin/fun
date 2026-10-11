@@ -180,7 +180,8 @@ describe('the params a cold load arrives with', () => {
     at('/wpbl/stats')
     draw()
     fireEvent.click(await screen.findByText('Pitching'))
-    fireEvent.click(await screen.findByText('Run value'))
+    fireEvent.click(await screen.findByText('Analysis'))
+    fireEvent.click(await screen.findByText('Pitch by pitch'))
     const keys = [...new URLSearchParams(window.location.search).keys()]
     expect(keys.length).toBeGreaterThan(0)
     for (const k of keys) expect(STATS_URL_PARAMS).toContain(k)

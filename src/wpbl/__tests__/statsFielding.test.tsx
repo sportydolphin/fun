@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblPlayer } from '../types'
 
-// The Fielding board: the season table over the fielding lines. The trap it pins: the feed writes a fielding line only
+// The Fielding side: the season tables over the fielding lines. The trap it pins: the feed writes a fielding line only
 // for a game in which the player recorded something, so a fielder's G counted off fielding lines
 // reads short by every quiet night, and the games bar for a fielding title would quietly drop
 // regulars who simply had nothing hit to them.
@@ -73,6 +73,11 @@ const FIELDING = [
   fld('g1', 'c', 'SF', { a: 1 }),
 ]
 
+/** Players, then Fielding: the table the first three tests read. */
+const openFielding = async () => {
+  fireEvent.click(await screen.findByText('Players'))
+  fireEvent.click(screen.getByText('Fielding'))
+}
 const draw = () => render(
   <StatsView teams={TEAMS} games={GAMES} focus={{ group: 'hitting', token: 0 }} onOpenPlayer={() => {}} />
 )
@@ -87,7 +92,7 @@ const cell = (row: Element, label: string) => {
 describe('the Fielding side', () => {
   it('opens on fielding percentage, best first, with no Standard/Advanced switch', async () => {
     draw()
-    fireEvent.click(await screen.findByText('Fielding'))
+    await openFielding()
     expect(document.querySelector('th[data-active="true"]')?.textContent).toMatch(/^FPCT/)
     expect(bodyRows().map(r => r.querySelector('th')?.textContent)).toEqual([
       expect.stringContaining('Baker'), expect.stringContaining('Able'),
@@ -97,7 +102,7 @@ describe('the Fielding side', () => {
 
   it('counts games played off every line, not games with a chance in them', async () => {
     draw()
-    fireEvent.click(await screen.findByText('Fielding'))
+    await openFielding()
     const alex = bodyRows().find(r => r.textContent?.includes('Able'))!
     expect(cell(alex, 'G')).toBe('3')
     expect(cell(alex, 'TC')).toBe('6')
@@ -106,7 +111,7 @@ describe('the Fielding side', () => {
 
   it('fades a fielder under the games bar and says what the bar is', async () => {
     draw()
-    fireEvent.click(await screen.findByText('Fielding'))
+    await openFielding()
     expect(bodyRows()).toHaveLength(2)
     fireEvent.click(screen.getByText('✓ Qualified'))
     const faded = bodyRows().filter(r => r.hasAttribute('data-faded'))
@@ -115,21 +120,59 @@ describe('the Fielding side', () => {
     expect(document.querySelector('[data-board-foot]')?.textContent).toContain('faded: under 2 G')
   })
 
-  it('hides the Hitting/Pitching switch, and leaving returns to the side the reader had', async () => {
+  // One switch for all three sides, on every board. A board with no fielding answer keeps the
+  // option drawn and disabled, and moving to one while on Fielding drops back to the side the
+  // reader last had, so the board is never asked a question it cannot answer.
+  it('is one switch with Hitting and Pitching, greyed where a board has no fielding', async () => {
     draw()
     fireEvent.click(await screen.findByText('Pitching'))
+    await openFielding()
+    expect(screen.getByText('Hitting')).toBeTruthy()
+    expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByText('Bests'))
+    expect(screen.getByText('Pitching').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Fielding').getAttribute('aria-disabled')).toBe('true')
     fireEvent.click(screen.getByText('Fielding'))
-    expect(screen.queryByText('Hitting')).toBeNull()
-    expect(screen.queryByText('Pitching')).toBeNull()
-    fireEvent.click(screen.getByText('Players'))
     expect(screen.getByText('Pitching').getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('is a board in the address bar, so a pasted link opens it', async () => {
+  it('stays on Fielding from Players to Teams, and sums each club', async () => {
+    draw()
+    await openFielding()
+    fireEvent.click(screen.getByText('Teams'))
+    expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
+    // SF: Alex's 5 PO and 1 E plus Cam's assist, over the three games SF batted in.
+    const sf = bodyRows().find(r => r.textContent?.includes('SF'))!
+    expect(cell(sf, 'G')).toBe('3')
+    expect(cell(sf, 'TC')).toBe('7')
+    expect(cell(sf, 'FPCT')).toBe('.857')
+  })
+
+  it('is a side in the address bar, and the old board link still opens it', async () => {
     window.history.replaceState(null, '', '/wpbl/stats')
     draw()
-    fireEvent.click(await screen.findByText('Fielding'))
-    expect(window.location.search).toBe('?board=fielding')
+    await openFielding()
+    expect(window.location.search).toBe('?board=players&side=fielding')
+    window.history.replaceState(null, '', '/')
+  })
+
+  // The league switch moves an already-mounted tab to a new address; it has to obey it.
+  it('moves to the board and side an address it is moved to names', async () => {
+    window.history.replaceState(null, '', '/wpbl/stats')
+    draw()
+    expect((await screen.findByText('Leaders')).getAttribute('aria-current')).toBe('page')
+    window.history.pushState(null, '', '/wpbl/stats?board=teams&side=fielding')
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')) })
+    expect(screen.getByText('Teams').getAttribute('aria-current')).toBe('page')
+    expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('opens a link written when Fielding was a board', async () => {
+    window.history.replaceState(null, '', '/wpbl/stats?board=fielding')
+    draw()
+    expect((await screen.findByText('Fielding')).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Players').getAttribute('aria-current')).toBe('page')
     window.history.replaceState(null, '', '/')
   })
 })

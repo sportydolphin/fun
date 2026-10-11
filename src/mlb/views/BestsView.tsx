@@ -3,11 +3,13 @@ import { Box, Skeleton, Typography, useMediaQuery, useTheme } from '@mui/materia
 import { bestGames, BEST_ROWS, type BestBoard } from '../../league/bests'
 import { scopedGames } from '../../league/season'
 import { SectionCard, TYPE_SCALE } from '../../ui/card'
-import { PillGroup } from '../../ui/PillGroup'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { PORTRAIT_PX } from '../../ui/leaders'
 import { chromePx } from '../../ui/scale'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
+import { StatsFilterSheet, controlPill } from './StatsRankedList'
+import { pressable } from '../../ui/interaction'
+import { ACCENT } from '../constants'
 import GameLineRow from '../components/GameLineRow'
 import { GAME_SCOPES, GAME_SCOPE_LABEL, type GameScope } from '../lib/gameScope'
 import { CURRENT_SEASON } from '../constants'
@@ -28,7 +30,6 @@ type Board = BestBoard<MlbLinePlayer, MlbLineGame>
 
 /** A card's rows, ties included. Past it the card counts the rest; see `rankRows`. */
 const BEST_CAP = 10
-const SIDE_OPTIONS = [{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]
 /** WPBL's wide board column, in chrome px: two columns of cards on a large desktop. */
 const BOARD_W = chromePx(1150)
 
@@ -36,7 +37,9 @@ export interface MlbLinesBoardProps {
   boardTabs: React.ReactNode
   isDesktop: boolean
   lbGroup: 'hitting' | 'pitching'
-  setLbGroup: (g: 'hitting' | 'pitching') => void
+  /** The Stats tab's Hitting / Pitching / Fielding switch, built once by the section (MlbStats) so
+   *  every board draws the same control in the same place. */
+  sideSwitch: React.ReactNode
   vizSeason: number
   setVizSeason: (s: number) => void
   gameScope: GameScope
@@ -67,6 +70,55 @@ export function LinesSeasonSelect({ season, setSeason }: { season: number; setSe
     <FilterSelect ariaLabel="Season" value={String(season)}
       options={[...options].sort((a, b) => b - a).map(y => ({ value: String(y), label: String(y) }))}
       onChange={v => setSeason(Number(v))} active={season !== CURRENT_SEASON} />
+  )
+}
+
+/** THE CONTROLS OF BOTH BOARDS ON THE MIRRORED LINES (Bests, Find): the side, the games and the
+ *  season. On a phone the games and the season are one Filters pill and a sheet, as on every other
+ *  board on both Stats tabs: as chips they were a second pinned row under the switch, the only one. */
+export function LinesBoardControls({ isDesktop, sideSwitch, gameScope, setGameScope, season, setSeason }: {
+  isDesktop: boolean
+  sideSwitch: React.ReactNode
+  gameScope: GameScope
+  setGameScope: (s: GameScope) => void
+  season: number
+  setSeason: (s: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const filtersSet = season !== CURRENT_SEASON || gameScope !== 'regular'
+  if (!isDesktop) {
+    const seasons = MLB_LINES_SEASONS.includes(season) ? MLB_LINES_SEASONS : [season, ...MLB_LINES_SEASONS]
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+        {sideSwitch}
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+          <Box {...pressable(() => setOpen(true))} aria-haspopup="dialog" aria-expanded={open} sx={controlPill(filtersSet)}>
+            Filters
+            {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
+            <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+          </Box>
+        </Box>
+        {open && (
+          <StatsFilterSheet allTime={false} seasons={[...seasons].sort((a, b) => b - a)}
+            seasonValue={String(season)} onSeason={v => setSeason(Number(v))}
+            scope={gameScope} scopes={GAME_SCOPES} onScope={setGameScope}
+            canQualify={false} qualified onQualified={() => {}}
+            onClose={() => setOpen(false)} />
+        )}
+      </Box>
+    )
+  }
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+      {sideSwitch}
+      <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
+        {GAME_SCOPES.map(sc => (
+          <FilterChip key={sc} active={gameScope === sc} onClick={() => setGameScope(sc)}>{GAME_SCOPE_LABEL[sc]}</FilterChip>
+        ))}
+        <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
+        <LinesSeasonSelect season={season} setSeason={setSeason} />
+      </Box>
+    </Box>
   )
 }
 
@@ -111,7 +163,7 @@ function BoardSkeleton({ label }: { label: string }) {
 }
 
 export function MlbBestsView({
-  boardTabs, isDesktop, lbGroup, setLbGroup, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenGame,
+  boardTabs, isDesktop, lbGroup, sideSwitch, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenGame,
 }: MlbLinesBoardProps) {
   const theme = useTheme()
   const twoCol = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true })
@@ -136,16 +188,8 @@ export function MlbBestsView({
   return (
     <Box sx={STATS_BOARD_ROOT_SX}>
       <StatsBar tabs={boardTabs} isDesktop={isDesktop}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-          <PillGroup options={SIDE_OPTIONS} value={lbGroup} onChange={v => setLbGroup(v as 'hitting' | 'pitching')} />
-          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
-            {GAME_SCOPES.map(sc => (
-              <FilterChip key={sc} active={gameScope === sc} onClick={() => setGameScope(sc)}>{GAME_SCOPE_LABEL[sc]}</FilterChip>
-            ))}
-            <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
-            <LinesSeasonSelect season={vizSeason} setSeason={setVizSeason} />
-          </Box>
-        </Box>
+        <LinesBoardControls isDesktop={isDesktop} sideSwitch={sideSwitch} gameScope={gameScope} setGameScope={setGameScope}
+          season={vizSeason} setSeason={setVizSeason} />
       </StatsBar>
 
       {!mirrored ? <NotMirrored season={vizSeason} /> : failed ? (

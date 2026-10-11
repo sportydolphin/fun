@@ -29,8 +29,8 @@ export interface GridSort { key: string; asc?: boolean }
 /** The column each board opens on, and so the one its address leaves off. One club's fielders open
  *  on innings, most first, so the board reads like the club's defence; on fielding percentage with
  *  no bar (see SeasonGridView) its top was every one-game cameo with a clean 1.000. */
-export const gridDefaultSort = (view: 'teamStats' | 'fielding', group: 'hitting' | 'pitching', club: number | null = null): string =>
-  view === 'fielding' ? (club != null ? 'inn' : 'fpct') : group === 'hitting' ? 'ops' : 'era'
+export const gridDefaultSort = (view: 'teamStats' | 'fielding', group: 'hitting' | 'pitching' | 'fielding', club: number | null = null): string =>
+  view === 'fielding' ? (club != null ? 'inn' : 'fpct') : group === 'fielding' ? 'fpct' : group === 'hitting' ? 'ops' : 'era'
 
 const inn = (s: any) => s.innings ?? null
 

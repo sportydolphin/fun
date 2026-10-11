@@ -18,12 +18,13 @@ import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './m
 let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_REF_PARAM) === MLB_SHORT_REF_VALUE
 const arrivedAt = window.location.pathname
 import { PageTabs } from './ui/PageTabs'
+import { PillGroup } from './ui/PillGroup'
 import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SeasonGridView, MlbBestsView, MlbFindView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
-import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_BOARDS, isMlbStatsBoard, type MlbStatsBoard, MLB_MORE_PAGES, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
+import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_TABS, isMlbStatsBoard, type MlbStatsBoard, type MlbStatsTab, MLB_MORE_PAGES, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
 import { linkTo } from './nav'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
@@ -45,9 +46,10 @@ import { publishSectionNav, clearSectionNav } from './sectionNav'
 // FIVE TABS, THE SAME SHAPE AS WPBL (Sep 28, 2026). There were six pills in a sideways scroller,
 // and at 375px wide two of them (Stats, Search) were off the screen. Now:
 //   - Scores and Teams are tabs of their own; neither had one.
-//   - Leaderboard, Stats and Visualize were three tabs over the same numbers. They are the three
-//     BOARDS of one Stats tab. They stay separate views underneath, each with its own address
-//     (/mlb/leaders, /mlb/stats, /mlb/charts; see mlb/routes.ts).
+//   - Leaderboard, Stats and Visualize were three tabs over the same numbers. They became BOARDS of
+//     one Stats tab, each still its own view and address (/mlb/leaders, /mlb/stats; see routes.ts).
+//     Charts (/mlb/charts) moved on to Standings in Oct 2026: it was the one Stats board with no
+//     Hitting / Pitching / Fielding side, and run differential and payroll are standings questions.
 //   - Search is the toolbar's alone; the player and team pages it opens are the view 'search'.
 //   - Everything that is a board inside a Home card (Predictions, Survivor, Milestones, Roster
 //     moves) or a mode of another tab (Odds, Charts) is one tap away under More.
@@ -55,22 +57,26 @@ import { publishSectionNav, clearSectionNav } from './sectionNav'
 
 type NavKey = MlbNavKey
 const NAV = MLB_NAV
-// WPBL's boards in WPBL's order, so the row reads the same in both sections, and MLB's Charts after
-// them. Bests and Find read the mirrored box scores (seasonLines.ts); the rest of WPBL's row needs
-// every play stored on our side, which MLB does not have yet: see "WPBL's Stats boards on MLB" in
-// ROADMAP.md.
-const STATS_BOARD_LABEL: Record<MlbStatsBoard, string> = {
+// WPBL's first five boards in WPBL's order, so the row reads the same in both sections. Bests and
+// Find read the mirrored box scores (seasonLines.ts); WPBL's Analysis boards need every play stored
+// on our side, which MLB does not have yet: see "WPBL's Stats boards on MLB" in ROADMAP.md.
+const STATS_BOARD_LABEL: Record<MlbStatsTab, string> = {
   leaderboard: 'Leaders',
   stats:       'Players',
   teamStats:   'Teams',
-  fielding:    'Fielding',
   bests:       'Bests',
   find:        'Find',
-  viz:         'Charts',
 }
-const STATS_BOARDS = MLB_STATS_BOARDS.map(view => ({ view, label: STATS_BOARD_LABEL[view] }))
+const STATS_BOARDS = MLB_STATS_TABS.map(view => ({ view, label: STATS_BOARD_LABEL[view] }))
+/** The row's tab for a Stats view: Players on its Fielding side is the 'fielding' view. */
+const statsTabFor = (v: MlbStatsBoard): MlbStatsTab => (v === 'fielding' ? 'stats' : v)
 const navKeyFor = (v: MlbView): NavKey | null =>
-  isMlbStatsBoard(v) ? 'stats' : v === 'search' ? null : v
+  isMlbStatsBoard(v) ? 'stats' : v === 'viz' ? 'standings' : v === 'search' ? null : v
+
+/** The side of the game every Stats board switches between. */
+type StatsSide = 'hitting' | 'pitching' | 'fielding'
+/** The views with a fielding answer: Leaders, Teams, and Players (whose fielding side is its own view). */
+const FIELDING_VIEWS = new Set<MlbView>(['leaderboard', 'stats', 'teamStats', 'fielding'])
 
 /** A tab's address, for its href and for the history entry it pushes. */
 const viewHref = (v: MlbView): string => v === 'search' ? MLB_VIEW_PATHS.home : MLB_VIEW_PATHS[v]
@@ -414,6 +420,54 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     )
   }
 
+  // ─── The Stats boards' side, and the switch every board draws ──────────────
+  // ONE SWITCH, BUILT HERE, handed to each board, so the five boards cannot draw five versions of it
+  // (they did: Players and Leaders had Hitting / Pitching, Fielding had none, Charts had its own).
+  // Fielding is drawn on every board and disabled where the board has no fielding answer, so the
+  // switch is the same width and in the same place everywhere (PillGroup's `disabled`).
+  const statsSide: StatsSide = state.view === 'fielding'
+    || (state.statsFielding && (state.view === 'leaderboard' || state.view === 'teamStats')) ? 'fielding' : state.lbGroup
+  const pickSide = (next: StatsSide) => {
+    if (next === statsSide) return
+    // What each board reset for itself when it owned the switch: a sort is a column of one side,
+    // Find's conditions are fields of one side, and a picked-out row belonged to the old question.
+    state.setLbFullscreen(null)
+    state.setLbStatsLimit(50)
+    state.setTeamGridSort(null)
+    state.setGridHighlightId(null)
+    if (state.view === 'find') state.setFindQuery(q => ({ ...q, conditions: [] }))
+    if (next === 'fielding') {
+      state.setStatsFielding(true)
+      if (state.view === 'stats') go('fielding')
+      return
+    }
+    state.setStatsFielding(false)
+    state.setLbGroup(next)
+    if (state.view === 'fielding') go('stats')
+  }
+  const sideSwitch = (
+    <PillGroup
+      options={[
+        { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' },
+        FIELDING_VIEWS.has(state.view)
+          ? { value: 'fielding', label: 'Fielding' }
+          : { value: 'fielding', label: 'Fielding', disabled: true, hint: 'Fielding is on Leaders, Players and Teams' },
+      ]}
+      value={statsSide}
+      onChange={v => pickSide(v as StatsSide)}
+    />
+  )
+  // A board tab keeps the side where the board has it, and drops back to the last of Hitting and
+  // Pitching where it does not, as WPBL's does (selectBoard in src/wpbl/StatsView.tsx).
+  const pickBoard = (tab: MlbStatsTab) => {
+    let target: MlbView = tab
+    if (statsSide === 'fielding') {
+      if (tab === 'stats') target = 'fielding'
+      else state.setStatsFielding(tab === 'leaderboard' || tab === 'teamStats')
+    }
+    if (target !== state.view) go(target)
+  }
+
   const tabContent = (k: NavKey): ReactNode => {
     switch (k) {
       case 'home': return (
@@ -438,10 +492,30 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           onTeamClick={state.handleTeamSearchClick}
         />
       )
+      // Charts is a mode of Standings with an address of its own (/mlb/charts): the same element in
+      // both views, so the mode the reader left Standings on is still there when they come back.
       case 'standings': return (
         <>
           <MlbTabTitle sx={{ mb: 2 }}>MLB Standings</MlbTabTitle>
-          <Standings season={state.season} onTeamClick={state.handleVizNavigate} highlightTeamId={state.followedTeamId} />
+          <Standings season={state.season} onTeamClick={state.handleVizNavigate} highlightTeamId={state.followedTeamId}
+            chartsHref={MLB_VIEW_PATHS.viz}
+            onCharts={() => { if (state.view !== 'viz') go('viz') }}
+            onLeaveCharts={() => { if (state.view === 'viz') go('standings') }}
+            charts={state.view === 'viz' ? (
+              <VizView
+                boardTabs={null}
+                isDesktop={isDesktop}
+                vizSeason={state.vizSeason}
+                setVizSeason={state.setVizSeason}
+                teamSummaries={state.teamSummaries}
+                loadingViz={state.loadingViz}
+                nameMap={state.nameMap}
+                handleVizNavigate={state.handleVizNavigate}
+                handleLbPlayerClick={state.handleLbPlayerClick}
+                canHover={canHover}
+                defaultTab={state.vizDefaultTab}
+              />
+            ) : null} />
         </>
       )
       case 'teams': return (
@@ -456,9 +530,12 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         // makes up the rest of WPBL's gap.
         const boardTabs = (
           <PageTabs
-            options={STATS_BOARDS.map(b => ({ value: b.view, label: b.label, href: viewHref(b.view) }))}
-            value={board}
-            onChange={v => go(v as MlbView)}
+            options={STATS_BOARDS.map(b => ({
+              value: b.view, label: b.label,
+              href: viewHref(statsSide === 'fielding' && b.view === 'stats' ? 'fielding' : b.view),
+            }))}
+            value={statsTabFor(board)}
+            onChange={v => pickBoard(v as MlbStatsTab)}
             mb={{ xs: 1.25, sm: 1.25 }}
           />
         )
@@ -482,28 +559,14 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             {/* 10px of the 20 under it moved into the pinned bar's top padding on a desktop, so a
                 pinned bar does not sit hard against the toolbar. */}
             <MlbTabTitle sx={{ mb: { xs: 2, sm: 1 } }}>MLB Stats</MlbTabTitle>
-            {board === 'viz' && (
-              <VizView
-                boardTabs={boardTabs}
-                isDesktop={isDesktop}
-                vizSeason={state.vizSeason}
-                setVizSeason={state.setVizSeason}
-                teamSummaries={state.teamSummaries}
-                loadingViz={state.loadingViz}
-                nameMap={state.nameMap}
-                handleVizNavigate={state.handleVizNavigate}
-                handleLbPlayerClick={state.handleLbPlayerClick}
-                canHover={canHover}
-                defaultTab={state.vizDefaultTab}
-              />
-            )}
             {(board === 'teamStats' || board === 'fielding') && (
               <SeasonGridView
                 kind={board === 'teamStats' ? 'teams' : 'fielding'}
                 boardTabs={boardTabs}
                 isDesktop={isDesktop}
                 lbGroup={state.lbGroup}
-                setLbGroup={state.setLbGroup}
+                fielding={statsSide === 'fielding'}
+                sideSwitch={sideSwitch}
                 vizSeason={state.vizSeason}
                 setVizSeason={state.setVizSeason}
                 gameScope={state.lbGameScope}
@@ -523,7 +586,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             {(board === 'bests' || board === 'find') && (() => {
               const lines = {
                 boardTabs, isDesktop,
-                lbGroup: state.lbGroup, setLbGroup: state.setLbGroup,
+                lbGroup: state.lbGroup, sideSwitch,
                 vizSeason: state.vizSeason, setVizSeason: state.setVizSeason,
                 gameScope: state.lbGameScope, setGameScope: state.setLbGameScope,
                 onOpenPlayer: state.handleLbPlayerClick,
@@ -537,7 +600,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
               <LeaderboardView
                 boardTabs={boardTabs}
                 lbGroup={state.lbGroup}
-                setLbGroup={state.setLbGroup}
+                fielding={statsSide === 'fielding'}
+                sideSwitch={sideSwitch}
                 vizSeason={state.vizSeason}
                 setVizSeason={state.setVizSeason}
                 gameScope={state.lbGameScope}
@@ -550,13 +614,14 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 canHover={canHover}
                 handleLbPlayerClick={state.handleLbPlayerClick}
                 onOpenStats={state.openStatsBoard}
+                onOpenFielding={key => state.openGridBoard({ view: 'fielding', sort: key, games: state.lbGameScope })}
               />
             )}
             {board === 'stats' && (
               <StatsView
                 boardTabs={boardTabs}
                 lbGroup={state.lbGroup}
-                setLbGroup={state.setLbGroup}
+                sideSwitch={sideSwitch}
                 vizSeason={state.vizSeason}
                 setVizSeason={state.setVizSeason}
                 allTime={state.statsAllTime}

@@ -19,7 +19,7 @@ const DATA = [hitter(1, 'Ada Lovelace', 45), hitter(2, 'Grace Hopper', 45), hitt
 function renderLeaders(onOpenStats = vi.fn()) {
   render(
     <LeaderboardView boardTabs={null}
-      lbGroup="hitting" setLbGroup={() => {}}
+      lbGroup="hitting" sideSwitch={null} fielding={false} onOpenFielding={() => {}}
       vizSeason={CURRENT_SEASON} setVizSeason={() => {}}
       gameScope="regular" setGameScope={() => {}}
       lbData={DATA} loadingLb={false}

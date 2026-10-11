@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Box, Typography, Paper, List, ListItemButton, Divider,
-  ClickAwayListener, CircularProgress,
+  ClickAwayListener, Skeleton,
 } from '@mui/material'
 import { Search } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
@@ -41,6 +41,12 @@ export interface VizViewProps {
   handleVizNavigate: (id: number) => void
   handleLbPlayerClick: (id: number) => void
   canHover: boolean
+}
+
+/** A plot before its clubs land: the plots' own 560:400 box (charts.tsx), so the panel is its loaded
+ *  height from the first frame. A plot drawn over no data divides by an empty range. */
+function PlotSkeleton() {
+  return <Skeleton variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '560 / 400' }} />
 }
 
 export function VizView({
@@ -358,11 +364,14 @@ export function VizView({
       </Box>
       </StatsBar>
 
-      {loadingViz && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
-
       {/* The swipe between Report card and Graphs is this board's own, so the section's tab
-          pager stands aside here (data-swipe-lock) rather than changing tab under it too. */}
-      {!loadingViz && teamSummaries.length > 0 && (
+          pager stands aside here (data-swipe-lock) rather than changing tab under it too.
+
+          DRAWN WHILE LOADING TOO: every card holds its own rows' room while its read is out
+          (`loading` on each board), so the page is its loaded height from the first frame. It was a
+          28px spinner, which left the site footer on a phone's first screen and threw it 3,300px
+          down when the cards landed (the layout sweep, Oct 2026). */}
+      {(loadingViz || teamSummaries.length > 0) && (
         <Box data-swipe-lock="true" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} sx={{ overflow: 'hidden' }}>
           <Box sx={{
             display: 'flex',
@@ -391,7 +400,7 @@ export function VizView({
                     } />
                   </Box>
                   <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>How good a team's pitching and hitting are · top-right = best of both</Typography>
-                  <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} />
+                  {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
                 </Box>
 
                 {/* Wins vs Run Margin */}
@@ -406,7 +415,7 @@ export function VizView({
                     } />
                   </Box>
                   <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>Actual record vs expected W-L based on scoring · above the curve = outperforming</Typography>
-                  <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} />
+                  {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
                 </Box>
 
                 {/* Payroll vs Performance, current season only */}
@@ -422,7 +431,7 @@ export function VizView({
                         } />
                       </Box>
                       <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
-                      <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} />
+                      {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
                     </Box>
                 )}
               </Box>

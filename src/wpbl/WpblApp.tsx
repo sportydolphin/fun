@@ -2188,7 +2188,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         </AppErrorBoundary>
       )}
       {loading
-        ? (showGamePage || showPlayerPage ? null : view === 'home' ? <WpblHomeSkeleton /> : view === 'stats' ? <StatsSkeleton /> : <TabSkeleton view={view} />)
+        ? (showGamePage || showPlayerPage ? null : view === 'home' ? <WpblHomeSkeleton /> : view === 'stats' ? <StatsSkeleton newBoards={newBoards} /> : <TabSkeleton view={view} />)
         : (
           // One panel per nav tab, in NAV order, so mobile can swipe between them. The `active` flag lets a
           // view react to becoming current after a swipe reuses its already-mounted node (e.g. Schedule

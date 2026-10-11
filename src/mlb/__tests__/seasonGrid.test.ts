@@ -50,9 +50,24 @@ describe('the fielding rows', () => {
 
 describe('the Teams and Fielding addresses', () => {
   it('are Stats boards, lit as the Stats tab', () => {
-    expect(MLB_STATS_BOARDS).toEqual(['leaderboard', 'stats', 'teamStats', 'fielding', 'bests', 'find', 'viz'])
+    expect(MLB_STATS_BOARDS).toEqual(['leaderboard', 'stats', 'teamStats', 'fielding', 'bests', 'find'])
     expect(mlbNavKeyFromPath(MLB_VIEW_PATHS.teamStats)).toBe('stats')
     expect(mlbNavKeyFromPath(MLB_VIEW_PATHS.fielding)).toBe('stats')
+  })
+
+  // Charts left the Stats row for Standings in Oct 2026 and kept its address and its season.
+  it('lights Standings for Charts, which still carries its season', () => {
+    expect(mlbNavKeyFromPath(MLB_VIEW_PATHS.viz)).toBe('standings')
+    expect(mlbUrlFor({ view: 'viz', season: 2024 }, 2026)).toBe('/mlb/charts?season=2024')
+    expect(mlbSnapshotFromUrl('/mlb/charts', '?season=2024')?.season).toBe(2024)
+  })
+
+  // Fielding is a side of Leaders and Teams as well as the Players board's own address.
+  it('spells Leaders and Teams on Fielding as lb=fielding, and reads it nowhere else', () => {
+    expect(mlbUrlFor({ view: 'teamStats', fielding: true, lb: 'pitching' }, 2026)).toBe('/mlb/team-stats?lb=fielding')
+    expect(mlbUrlFor({ view: 'leaderboard', fielding: true }, 2026)).toBe('/mlb/leaders?lb=fielding')
+    expect(mlbSnapshotFromUrl('/mlb/leaders', '?lb=fielding')?.fielding).toBe(true)
+    expect(mlbSnapshotFromUrl('/mlb/bests', '?lb=fielding')?.fielding).toBeUndefined()
   })
 
   it('carry the side, the season and the games, and nothing they cannot use', () => {

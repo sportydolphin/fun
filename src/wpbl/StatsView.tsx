@@ -15,8 +15,7 @@ import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import {
   TeamBadge, PlayerPortrait, ModalShell, SectionLabel, PillGroup, ExpandRow, NewDot,
-  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf, chromePx,
-  BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
+  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf, chromePx } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, aggregateFielding, sumBatting, sumPitching, sumFielding,
@@ -81,27 +80,59 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // "Pitches", which beside the side named Pitching reads as "you are about to leave the
 // hitters". The internal value stays 'pitches' so the board-usage analytics keep one name.
 //
-// FIELDING IS A THIRD SIDE TO THE SEASON TABLE AND A BOARD TO THE READER. Internally it is a side,
-// because the whole table (columns, sort, qualifier, league line, phone list) is built per side and
-// Fielding wants all of it. On screen it is a tab in the board row, because a third option in the
-// Hitting/Pitching switch does not fit a phone: at 375px the switch, Sort and Filters came to
-// 390px in a 351px row, so Hitting itself wrapped onto a second line. The board row already
-// scrolls sideways and has the room. So `side` is 'fielding' exactly while the Fielding tab is
-// open, the switch is hidden there (no other side applies), and every other board reads
-// `boardSide`, the last of Hitting or Pitching the reader chose.
+// FIELDING IS THE THIRD SIDE, on screen as well as in here (Oct 2026). It was a tab in the board row
+// for a while, because a third option did not fit a phone beside Sort and Filters (390px in a 351px
+// row); those two are one pill now, which is what made the room. Only Leaders, Players and Teams
+// answer it (`fieldingBoard`). Every other board reads `boardSide`, the last of Hitting or Pitching
+// the reader chose, and moving to one of them while on Fielding drops the switch back to it.
 type Side = 'hitting' | 'pitching' | 'fielding'
 /** The side every board other than the season tables speaks. */
 type BallSide = 'hitting' | 'pitching'
 type Totals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals
 type Source = 'leaders' | 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
 
-/** Boards that lay themselves out in two columns on a large desktop, and so take the wider
- *  page column. Everything else is one column and stays at the list measure. */
-// Boards whose CONTENT is a wide multi-column grid and so earns the wider page column. Find is
-// deliberately NOT one: it is a form and a pair of result cards, and at the wide column its
-// controls stretch to absurd widths (a stat dropdown running the whole row) and the cards read as
-// sparse. It caps at the ordinary board column instead; its results still split into two under it.
-const WIDE_BOARDS = new Set<Source>(['runs', 'bests'])
+// SIX BOARDS IN THE ROW, five of them asked of every season and one door to the rest. There were
+// ten until Oct 2026, which at 375px put Pitch by pitch, Run value and Draft off the right edge of a
+// row nobody scrolls. Module scope so the skeleton draws the same words in the same places.
+const BOARD_TABS: { key: string; label: string }[] = [
+  // First, and where the tab opens: who leads each stat, the question most readers bring. MLB's
+  // Stats tab opens on the same board. See LeadersBoard.tsx.
+  { key: 'leaders', label: 'Leaders' },
+  { key: 'players', label: 'Players' },
+  { key: 'teams', label: 'Teams' },
+  // Directly after the two season tables, because it is the same subject asked a different way:
+  // those rank a player's whole season, this ranks one night of it.
+  { key: 'bests', label: 'Bests' },
+  // Straight after Bests, because the two are the same idea at two levels of patience: Bests is
+  // the questions worth putting on a board, Find is everything else.
+  { key: 'find', label: 'Find' },
+  { key: 'analysis', label: 'Analysis' },
+]
+// ANALYSIS: the boards that each answer one deeper question in a shape of their own, rather than
+// ranking a season by a stat. Behind one tab with a row of their own under it, so the row above
+// stays the five things every visit is for.
+const ANALYSIS_TABS: { key: Source; label: string }[] = [
+  // First, and where the tab opens. Not behind the experiments switch: the board most likely to be
+  // misread should not be shown only to the readers least likely to misread it. What it needs is
+  // the sentence above the table saying what a "run" means here.
+  { key: 'runs', label: 'Run value' },
+  { key: 'pitches', label: 'Pitch by pitch' },
+  // One question about one season's draft, answered once.
+  { key: 'draft', label: 'Draft' },
+]
+/** The boards behind the Analysis tab: ANALYSIS_TABS, and Tracked when it is offered. */
+const ANALYSIS_SOURCES = new Set<Source>(['runs', 'pitches', 'draft', 'tracked'])
+/** The board row as PageTabs draws it, with the "new here" dot on the boards that wear one. */
+const boardTabOptions = (newBoards?: ReadonlySet<string>) => BOARD_TABS.map(b => {
+  const badge = newBoards?.has(b.key)
+  return {
+    value: b.key, label: b.label,
+    // The dot is aria-hidden, so a badged tab carries the news in its name instead, the same way
+    // SegNav's pills do one level up.
+    adornment: badge ? <NewDot sx={{ ml: 0.6 }} /> : undefined,
+    ariaLabel: badge ? `${b.label}, updated` : undefined,
+  }
+})
 type Mode = 'players' | 'teams'
 
 // The deep-link contract: a link asks for 'hitting'/'pitching' with a column, and a legacy
@@ -265,7 +296,18 @@ const VIEW_ORDER: Record<Side, Record<View, readonly string[]>> = {
   },
 }
 const VIEW_OPTIONS = [{ value: 'standard', label: 'Standard' }, { value: 'advanced', label: 'Advanced' }]
-const SIDES = [{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]
+// THE SIDE OF THE GAME IS ONE SWITCH, on every board, in the same place, with all three sides in it.
+// Fielding was a board in the tab row until Oct 2026 while Hitting and Pitching were this switch,
+// so the three answers to one question lived in two places, and opening Fielding made the switch
+// vanish and the controls after it slide left. A board that cannot answer Fielding keeps the option
+// drawn and disabled (PillGroup), so the switch is the same width everywhere.
+const SIDES: { value: Side; label: string }[] = [
+  { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }, { value: 'fielding', label: 'Fielding' },
+]
+/** The boards with a fielding answer: the season tables (one row per fielder, one per club) and the
+ *  leader cards built from the same lines. Bests, Find and the play-by-play boards read batting and
+ *  pitching lines only. */
+const fieldingBoard = (source: Source) => source === 'season' || source === 'leaders'
 function inView(side: Side, view: View, key: string): boolean {
   const order = VIEW_ORDER[side]
   if (!order.standard.includes(key) && !order.advanced.includes(key)) return view === 'standard'
@@ -355,9 +397,11 @@ export function carryStatsParams(from: URLSearchParams, to: URLSearchParams): vo
   }
 }
 
-function boardParam(source: Source, mode: Mode, side: Side): BoardParam {
+// `side` is written as its own param now that Fielding is a side of every season board rather than a
+// board: `?board=players&side=fielding`. `board=fielding` is still READ (boardAxes), so the links
+// written before Oct 2026 open the same table.
+function boardParam(source: Source, mode: Mode): BoardParam {
   if (source !== 'season') return source as BoardParam
-  if (side === 'fielding') return 'fielding'
   return mode === 'teams' ? 'teams' : 'players'
 }
 
@@ -398,7 +442,10 @@ function axesFromQuery(): {
   const venue = q.get('venue')
   return {
     ...(board ?? {}),
-    side: board?.side ?? (side === 'hitting' || side === 'pitching' ? side : undefined),
+    // Fielding only where a board answers it; anywhere else the param is a hand-edited link, and the
+    // board's own default side is the honest reading of it.
+    side: board?.side ?? (side === 'hitting' || side === 'pitching' ? side
+      : side === 'fielding' && fieldingBoard(board?.source ?? 'leaders') ? side : undefined),
     sortKey: q.get('sort') ?? undefined,
     sortAsc: dir === 'asc' ? true : dir === 'desc' ? false : undefined,
     // The Find board's question. Decoded against the side the URL names, since the fields
@@ -784,20 +831,31 @@ function SubViewFallback() {
 /** This tab while the section's first read is in flight: its title, its control bar and its table,
  *  at the same full-bleed measure the loaded tab draws them at, so nothing moves when it lands.
  *  Desktop measurements over the 1.25 scale, in chromePx. See TabSkeleton in WpblApp.tsx. */
-export function StatsSkeleton() {
+export function StatsSkeleton({ newBoards }: { newBoards?: ReadonlySet<string> }) {
   // The board the address will open on: Leaders, unless it names another (axesFromQuery). Only
-  // the table has a skeleton of its own besides; any other board draws the table's, as before.
-  const leaders = (axesFromQuery().source ?? 'leaders') === 'leaders'
+  // the leaders and the table have skeletons of their own; any other board draws the table's.
+  const q = axesFromQuery()
+  const source = q.source ?? 'leaders'
+  const analysis = ANALYSIS_SOURCES.has(source)
+  const board = source === 'season' ? (q.mode ?? 'players') : analysis ? 'analysis' : source
   return (
     <Box sx={{ flexGrow: 1 }}>
       <TabTitle sx={{ ...fullBleedSx, mb: 1 }}>WPBL Stats</TabTitle>
-      {/* The bar and the table touch: the table's top border tucks under the bar's last pixel. */}
-      {/* A phone stacks the board tabs over the filters, so its bar is its own number. */}
-      <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '95px', sm: chromePx(94) }, borderRadius: 2 }} />
-      {leaders ? (
+      {/* THE BOARD ROWS THEMSELVES, not a block the size of them: the words need no data, and a row
+          that is the real component cannot come out a different height from the loaded one, which
+          the Analysis row under it made a second number to keep in step. Inert until the tab lands. */}
+      <Box aria-hidden sx={{ ...fullBleedStickySx, pt: 1, pointerEvents: 'none' }}>
+        <PageTabs options={boardTabOptions(newBoards)} value={board} onChange={() => {}} />
+        {analysis && <PageTabs sub options={ANALYSIS_TABS.map(b => ({ value: b.key, label: b.label }))} value={source} onChange={() => {}} />}
+      </Box>
+      {/* The controls row: on a phone the bar's 4px top, the 34px pill and its 8px foot; above
+          one, the switch's chrome-scaled height and the row's foot. The table's top border tucks
+          under its last pixel. */}
+      <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '46px', sm: `calc(${chromePx(28)} + 6px + ${chromePx(12)})` }, borderRadius: 2 }} />
+      {source === 'leaders' ? (
         <Box sx={fullBleedSx}>
           <Box>
-            <LeadersBoardSkeleton />
+            <LeadersBoardSkeleton side={q.side ?? 'hitting'} />
           </Box>
         </Box>
       ) : (
@@ -900,8 +958,8 @@ export default function WpblStatsView({
   const barRef = useRef<HTMLDivElement>(null)
   const stuckMarkRef = useRef<HTMLDivElement>(null)
   const [barStuck, setBarStuck] = useState(false)
-  const [sortOpen, setSortOpen] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  // The phone's one sheet, open on its Sort or its Filter tab.
+  const [sheetOpen, setSheetOpen] = useState<null | 'sort' | 'filter'>(null)
   const [trackedGames, setTrackedGames] = useState<number | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -1260,6 +1318,35 @@ export default function WpblStatsView({
       return conditions.length === prev.conditions.length ? prev : { ...prev, conditions }
     })
   }
+  // AN ADDRESS THE TAB IS MOVED TO, not only the one it mounted on. The league switch lands here
+  // with the board and side MLB was showing (`/wpbl/stats?board=teams&side=pitching`, from
+  // sectionSwitch.ts), and so do Back and Forward between two Stats entries. This view stays
+  // mounted once visited, so without this it read `?board=` once and opened every later visit on
+  // whatever board was last left, which is how the switch from MLB's Teams kept landing on
+  // Leaders. An address with none of the board's own params says nothing and changes nothing:
+  // a tap on the Stats tab from another WPBL tab arrives as a bare /wpbl/stats.
+  const applyAddress = useRef<() => void>(() => {})
+  applyAddress.current = () => {
+    const sp = new URLSearchParams(window.location.search)
+    if (!['board', 'side', 'sort'].some(k => sp.has(k))) return
+    const q = axesFromQuery()
+    if (!q.source && !q.side && !q.sortKey) return
+    // The writer leaves every default off, so a param that is absent IS the default.
+    const nextSource = q.source ?? 'leaders'
+    const nextSide: Side = q.side ?? 'hitting'
+    setSource(nextSource)
+    setMode(q.mode ?? 'players')
+    if (nextSide !== side) switchSide(nextSide, false)
+    // After the switch, which re-sorts on the side's headline column: no `sort` is that column.
+    const next = defaultSort(nextSide, q.sortKey)
+    setSortKey(next.key); setSortAsc(q.sortAsc ?? next.asc)
+  }
+  useEffect(() => {
+    const onPop = () => applyAddress.current()
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
   // The two filters don't change which board is open, only what it shows, so they get their
   // own event rather than muddying the board counts. Both are here to answer one question
   // each: does a four-team league need a team filter, and does the qualified toggle earn
@@ -1299,7 +1386,7 @@ export default function WpblStatsView({
   // reversed the list when you tapped the row already ticked would be a trap. Direction is its
   // own control below the stats, in the words a fan would use for it.
   const pickSort = (c: Col<Totals>) => {
-    setSortOpen(false)
+    setSheetOpen(null)
     if (c.key === sortKey) return
     track(EVENTS.WPBL_STATS_SORTED, { key: c.key, asc: c.lowerBetter ?? false, side, mode })
     setSortKey(c.key)
@@ -1328,14 +1415,13 @@ export default function WpblStatsView({
     if (!active) return
     if (window.location.pathname.replace(/\/+$/, '') !== STATS_PATH) return
     const q = new URLSearchParams(window.location.search)
-    const board = boardParam(source, mode, side)
+    const board = boardParam(source, mode)
     const def = defaultSort(side)
     // Only what the reader has actually changed. A default view keeps a bare /wpbl/stats, and a
     // link they paste carries only the part worth saying.
     const set = (k: string, v: string | null) => { if (v == null) q.delete(k); else q.set(k, v) }
     set('board', board === 'leaders' ? null : board)
-    // `board=fielding` already says the side, so `side` is only ever the switch's.
-    set('side', boardSide === 'hitting' || side === 'fielding' ? null : boardSide)
+    set('side', side === 'hitting' ? null : side)
     // Not on Leaders, which has no sort: a stray ?sort= with no board reads as a Players link.
     set('sort', source === 'leaders' || sortKey === def.key ? null : sortKey)
     set('dir', source === 'leaders' || sortAsc === defaultSort(side, sortKey).asc ? null : (sortAsc ? 'asc' : 'desc'))
@@ -1351,7 +1437,7 @@ export default function WpblStatsView({
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, boardSide, sortKey, sortAsc, findQuery, scope])
+  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc
@@ -1382,6 +1468,18 @@ export default function WpblStatsView({
       // One row per team (only four). Team G is the team's games played (the count of distinct
       // game_ids), not the number of player lines that sumBatting/sumPitching add up.
       built = teams.map(team => {
+        if (side === 'fielding') {
+          // The club's fielding lines summed, scoped like the rest. G is the club's games off its
+          // BATTING lines, which are written for every game: a fielding line exists only for a game
+          // in which someone recorded something (see `gamesAppeared` in stats.ts).
+          const totals = sumFielding((fielding ?? []).filter(l => l.team_id === team.id), games, scope)
+          totals.g = new Set(scopedLines(lines.batting.filter(l => l.team_id === team.id), games, scope).map(l => l.game_id)).size
+          return {
+            key: team.id, team, label: wpblFullName(team), shortLabel: team.name,
+            totals: totals as Totals, qualified: true,
+            onClick: onOpenTeam ? () => onOpenTeam(team) : undefined,
+          }
+        }
         const src = side === 'hitting'
           ? lines.batting.filter(l => l.team_id === team.id)
           : lines.pitching.filter(l => l.team_id === team.id)
@@ -1488,78 +1586,49 @@ export default function WpblStatsView({
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 
-  // The five boards, in one row. `source` and `mode` stay as they were underneath: the deep
-  // links, the ?view= URLs and axesOf() all speak that language, and collapsing them into a
-  // single state would mean rewriting all of it to gain a variable.
-  const boards: { key: string; label: string; badge?: boolean }[] = [
-    // First, and where the tab opens: who leads each stat, the question most readers bring. MLB's
-    // Stats tab opens on the same board. See LeadersBoard.tsx.
-    { key: 'leaders', label: 'Leaders' },
-    { key: 'players', label: 'Players' },
-    { key: 'teams', label: 'Teams' },
-    // Beside the two season tables because it IS one: the same table, sort and filters, over the
-    // fielding lines. See `Side` for why it is a tab and not a third option in the switch.
-    { key: 'fielding', label: 'Fielding' },
-    // Third, directly after the two season tables, because it is the same subject asked a
-    // different way: those rank a player's whole season, this ranks one night of it. Putting
-    // it after Run value would have filed a plain counting-stat board behind the most
-    // expert-looking one on the tab.
-    { key: 'bests', label: 'Bests', badge: newBoards?.has('bests') },
-    // Straight after Bests, because the two are the same idea at two levels of patience: Bests
-    // is the questions worth putting on a board, Find is everything else. A reader who has just
-    // read a records board and wondered "how often does that happen" is one tab away from the
-    // answer.
-    { key: 'find', label: 'Find', badge: newBoards?.has('find') },
-    { key: 'pitches', label: 'Pitch by pitch' },
-    // Not behind the experiments switch: the board most likely to be misread should not be shown
-    // only to the readers least likely to misread it. What it needs is the sentence above the
-    // table saying what a "run" means here.
-    { key: 'runs', label: 'Run value' },
-    // Last of the always-on boards: one question about one season's draft, answered once.
-    { key: 'draft', label: 'Draft' },
-    // Hidden while the league has published radar for barely any games, and kept for the
-    // session once a link has opened it anyway. See trackedOffered.
-    ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
-  ]
-  const activeBoard = source === 'season' ? (side === 'fielding' ? 'fielding' : mode) : source
+  // Tracked joins Analysis while the league has published radar for enough games, and stays for the
+  // session once a link has opened it anyway. See trackedOffered.
+  const analysisBoards = trackedOffered ? [...ANALYSIS_TABS, { key: 'tracked' as Source, label: 'Tracked' }] : ANALYSIS_TABS
+  const isAnalysis = ANALYSIS_SOURCES.has(source)
+  const activeBoard = source === 'season' ? mode : isAnalysis ? 'analysis' : source
+  // Which Analysis board the tab returns to: the last one read, for the session.
+  const [lastAnalysis, setLastAnalysis] = useState<Source>(() => (ANALYSIS_SOURCES.has(source) ? source : 'runs'))
+  useEffect(() => { if (ANALYSIS_SOURCES.has(source)) setLastAnalysis(source) }, [source])
   // The chosen tab is kept in view by PageTabs itself.
   const selectBoard = (k: string) => {
-    // One tap, one board event, named for the widest axis it moved, as the separate source and
-    // mode switches named theirs before Fielding made a tap able to move all three.
-    if (k !== activeBoard) {
-      const next = k === 'fielding' ? { source: 'season' as Source, mode: 'players' as Mode, side: 'fielding' as Side }
-        : k === 'players' || k === 'teams' ? { source: 'season' as Source, mode: k as Mode, side: boardSide }
-        : { source: k as Source, mode, side: boardSide }
-      logBoard(next.source !== source ? 'source' : next.mode !== mode ? 'mode' : 'side', next)
+    const target: Source = k === 'players' || k === 'teams' ? 'season' : k === 'analysis' ? lastAnalysis : k as Source
+    const nextMode: Mode = k === 'players' || k === 'teams' ? k : mode
+    // A board with no fielding drops the switch to the side last chosen before it; one that has
+    // fielding keeps it, so Players to Teams on Fielding compares the clubs' gloves.
+    const nextSide: Side = side === 'fielding' && !fieldingBoard(target) ? ballSide : side
+    // One tap, one board event, named for the widest axis it moved.
+    if (target !== source || nextMode !== mode) {
+      logBoard(target !== source ? 'source' : 'mode', { source: target, mode: nextMode, side: nextSide })
     }
-    if (k === 'fielding') {
-      setSource('season'); setMode('players')
-      if (side !== 'fielding') switchSide('fielding', false)
-      return
-    }
-    if (side === 'fielding') switchSide(ballSide, false)
-    if (k === 'players' || k === 'teams') { setSource('season'); setMode(k as Mode) }
-    else setSource(k as Source)
+    if (nextSide !== side) switchSide(nextSide, false)
+    setSource(target)
+    setMode(nextMode)
   }
 
   // The Leaders board's rows: the same aggregates as the Players table, before its sort, its club
   // chip or its qualifier, which the board applies per card (rates only; see LeadersBoard.tsx).
-  const leaderSeasons = useMemo(() => source !== 'leaders' ? { batting: [], pitching: [] } : {
+  const leaderSeasons = useMemo(() => source !== 'leaders' ? { batting: [], pitching: [], fielding: [] } : {
     batting: aggregateBatting(players, lines.batting, games, scope),
     pitching: aggregatePitching(players, lines.pitching, games, scope),
-  }, [source, players, lines, games, scope])
+    fielding: side === 'fielding' ? aggregateFielding(players, fielding ?? [], lines.batting, lines.pitching, games, scope) : [],
+  }, [source, side, players, lines, fielding, games, scope])
   // "See all" on a card: the Players table sorted by that stat, showing the population the card
   // ranked, so its top five are the table's top five. A rate card ranked qualifiers and a counting
   // card ranked everyone.
   const seeAll = (key: string) => {
     selectBoard('players')
     setTeamId(null)
-    const col = (boardSide === 'hitting' ? hitCols : pitCols).find(c => c.key === key) as Col<Totals> | undefined
+    const col = cols.find(c => c.key === key)
     setQualified(col?.rate ? qual.active : false)
-    setSortKey(key); setSortAsc(defaultSort(boardSide, key).asc)
+    setSortKey(key); setSortAsc(defaultSort(side, key).asc)
   }
   const seeAllHref = (key: string) =>
-    `${STATS_PATH}?board=players${boardSide === 'pitching' ? '&side=pitching' : ''}&sort=${key}`
+    `${STATS_PATH}?board=players${side !== 'hitting' ? `&side=${side}` : ''}&sort=${key}`
 
   // Anything the reader has changed away from how the board opens. Drives the dot on the
   // Filters pill: `qualified` defaults to `qual.active`, so "on" is not the same as "set".
@@ -1573,6 +1642,10 @@ export default function WpblStatsView({
   const filtersSet = source === 'season'
     ? teamId !== null || qualified !== qual.active || scope !== 'regular'
     : scope !== 'regular'
+  // Whether the phone's sheet has a Filter tab: the club and the qualifying bar on Players, and the
+  // season slice wherever it does something (see the chips below) once there is a postseason.
+  const canFilter = (source === 'season' && mode === 'players')
+    || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason)
 
   // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
   // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
@@ -1875,7 +1948,7 @@ export default function WpblStatsView({
   // section's own, so a spinner here replaced the skeleton with a box 200px tall and the board
   // then landed where the skeleton had been.
   if (loading) {
-    return <StatsSkeleton />
+    return <StatsSkeleton newBoards={newBoards} />
   }
 
   // NO text-transform. The column labels are already written in capitals, and the two that are
@@ -1934,18 +2007,13 @@ export default function WpblStatsView({
    // NOT PINNED ON A PHONE, which is where it is rendered from rather than what it looks
    // like. See where this is placed below.
   const boardTabs = (
-    <PageTabs
-      options={boards.map(b => ({
-        value: b.key, label: b.label,
-        // The dot is aria-hidden, so a badged tab carries the news in its name instead,
-        // the same way SegNav's pills do one level up.
-        adornment: b.badge ? <NewDot sx={{ ml: 0.6 }} /> : undefined,
-        ariaLabel: b.badge ? `${b.label}, updated` : undefined,
-      }))}
-      value={activeBoard}
-      onChange={selectBoard}
-    />
+    <PageTabs options={boardTabOptions(newBoards)} value={activeBoard} onChange={selectBoard} />
   )
+  // Analysis's own boards, under the row that opened them, and only there.
+  const analysisTabs = isAnalysis ? (
+    <PageTabs sub options={analysisBoards.map(b => ({ value: b.key, label: b.label }))} value={source}
+      onChange={k => selectBoard(k)} />
+  ) : null
 
   return (
     // STRETCHED TO FILL THE TAB, which is what gives the pinned board somewhere to stay pinned.
@@ -1986,7 +2054,7 @@ export default function WpblStatsView({
           bottom edge and has to fit between there and the footer: the tabs are about half the
           bar, and pinning them would cost a row of stats on every phone at every scroll
           position. Desktop keeps them in the bar, where the whole thing is one row. */}
-      {isNarrow && <Box sx={{ ...fullBleedStickySx, pt: 1 }}>{boardTabs}</Box>}
+      {isNarrow && <Box sx={{ ...fullBleedStickySx, pt: 1 }}>{boardTabs}{analysisTabs}</Box>}
       <Box ref={stuckMarkRef} aria-hidden sx={{ height: 0 }} />
       <Box ref={barRef} sx={{
         position: 'sticky',
@@ -2028,70 +2096,46 @@ export default function WpblStatsView({
         ...fullBleedStickySx,
       }}>
       {!isNarrow && boardTabs}
+      {!isNarrow && analysisTabs}
 
-      {/* ROW TWO: HOW TO CUT IT. Side of the ball on the left in a segmented pill, which is a
-          third visual language on purpose: underline tabs are pages, this is a two-way switch
-          that applies to whichever page you are on, and chips are filters. The row keeps its
-          height on every board (the right-hand controls just empty out), so the bar does not
-          grow and shrink under a sticky header as you move between boards. Emptying them out
-          is not enough on its own to hold that height on a phone: see the switch below. */}
+      {/* ROW TWO: HOW TO CUT IT. Side of the game on the left in a segmented pill, which is a
+          third visual language on purpose: underline tabs are pages, this is a switch that applies
+          to whichever page you are on, and chips are filters. The row keeps its height on every
+          board (the right-hand controls just empty out), so the bar does not grow and shrink under
+          a sticky header as you move between boards.
+
+          THE SWITCH IS IN ONE PLACE ON EVERY BOARD: first, at the bleed's left edge, under the first
+          board tab. It used to follow each board's own column, which at 1440 sent it 300px to the
+          right on Bests and back again on Players, so "where is Hitting/Pitching" had a different
+          answer per board; a control the reader reaches for on every board has to be where their
+          hand already is. The boards keep their own columns underneath. */}
       <Box sx={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: { xs: 1, sm: 1.5 },
-        // THE SWITCH SITS OVER THE BOARD IT SWITCHES, which is not the same place on every board.
-        // This bar is full-bleed because the season table under it is, and on Players and Teams that
-        // is right: the pills start level with the table's first column. On boards whose content is
-        // the ordinary page column, a full-bleed switch would hang off the edge of the page, well
-        // left of everything it applies to.
-        //
-        // The same page-column cap and centring those boards use, so this is not a number to keep in
-        // step with them: it is the page column. On a season board the cap is not applied at all and
-        // the row spans the bleed, which also keeps Sort and Filters hard against the table's right edge.
-        //
-        // So the switch MOVES between boards (the note above is about height, not position). The
-        // trade is worth it: the row of board tabs stays put, because that is the control pressed to
-        // change boards and it cannot move out from under the press, while this one belongs to the
-        // board and follows it. The cap follows the BOARD, because Run value lays itself out in two
-        // columns on a large desktop and the rest do not: one width for all of them would sit level
-        // with a 720px board on some tabs and well inside a 1150px one on another, which reads as the
-        // control drifting rather than as the board changing.
-        // Leaders spans the bleed as the season table does: four columns of cards use the width,
-        // and MLB's Leaders is the same width, so the two line up across the league switch.
-        ...(source === 'season' || source === 'leaders' ? {} : {
-          maxWidth: WIDE_BOARDS.has(source) ? { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE } : BOARD_COLUMN,
-          mx: 'auto', width: '100%',
-        }),
       }}>
         {/* Two things, both about the switch staying put as the reader moves between boards on
             a phone.
 
-            HEIGHT. The Sort/Filters pair on the right is 34px high against this switch's 28.7,
-            so without a reserve the row stands 34 on Players and Teams and 28.7 elsewhere, and
-            moving between them nudges the switch and the board under it by five pixels, under a
-            bar that is otherwise pinned still. The reserve is HERE rather than on the row: the
-            row carries its own bottom padding, so a min-height on it would have to know that
-            padding, and would go quietly wrong the day the padding changed.
+            HEIGHT. The pill on the right is 34px high against this switch's 28.7, so without a
+            reserve the row stands 34 on the boards that have one and 28.7 elsewhere, and moving
+            between them nudges the switch and the board under it by five pixels, under a bar that
+            is otherwise pinned still. The reserve is HERE rather than on the row: the row carries
+            its own bottom padding, so a min-height on it would have to know that padding.
 
-            WIDTH. It sits next to a pair that refuses to shrink, so on a narrow phone the flex
-            algorithm would take any overflow out of this one (a long sort label like "Sort ERA+"
-            is enough), and the switch would come out narrower on some boards than others.
-            Wrapping is the better failure. */}
-        {/* NOT ON FIELDING, where neither side applies. Its height stays, on the row, so moving to
-            Fielding does not lift the board by the switch's height: on a phone Sort and Filters
-            hold the row at 34 anyway, and on a desktop the switch is the tallest thing in it. */}
-        {side === 'fielding' ? (
-          !isNarrow && <Box aria-hidden sx={{ minHeight: `calc(${chromePx(28)} + 6px)`, width: 0, mr: -1 }} />
-        ) : (
+            WIDTH. It sits next to a pill that refuses to shrink, so on a narrow phone the flex
+            algorithm would take any overflow out of this one, and the switch would come out
+            narrower on some boards than others. Wrapping is the better failure. */}
         <Box sx={{
           flexShrink: 0, display: 'flex', alignItems: 'center',
           minHeight: isNarrow ? 34 : undefined,
         }}>
           <PillGroup
-            options={SIDES}
-            value={boardSide}
+            options={SIDES.map(o => o.value === 'fielding' && !fieldingBoard(source)
+              ? { ...o, disabled: true, hint: 'Fielding is on Leaders, Players and Teams' }
+              : o)}
+            value={side}
             onChange={v => switchSide(v as Side)}
           />
         </Box>
-        )}
         {/* Desktop only. A phone's ranked list shows one stat, so there is nothing to switch; its
             full table carries the same switch in the footer, where the bar has no room left. */}
         {source === 'season' && !isNarrow && hasViews && (
@@ -2100,50 +2144,39 @@ export default function WpblStatsView({
           </Box>
         )}
 
-        {/* Phones: the two controls that do the work, stating what they are set to. Desktop
-            keeps the chips inline, where there is room for the whole filter set at once and
-            the column headers already sort. */}
-        {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && isNarrow && (
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
-            {/* NO SORT PILL ON BESTS. Its boards each rank by their own stat and say so in
-                their own title, so there is no column to choose: the equivalent control would
-                be "which board", and that is the tab row above. */}
-            {source === 'season' && (
-            <Box {...pressable(() => setSortOpen(true))} aria-haspopup="dialog" aria-expanded={sortOpen} sx={{
-              ...FOCUS_RING,
-              display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
-              cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-              minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
-              border: '1px solid', borderColor: WPBL_ACCENT, bgcolor: `${WPBL_ACCENT}12`,
-              color: 'var(--wpbl-accent-fg)',
-            }}>
-              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Sort</Box>
-              {activeCol.label}
-              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
-            </Box>
-            )}
+        {/* PHONES: ONE PILL, for the sort and the filters together, in one sheet with a tab for
+            each. Two pills beside a three-way switch came to 382px in a 351px row, and the switch
+            was the one thing that could not give. The pill says what the board is ranked by, which
+            is what a reader checks most; the dot says some filter is off its default, so a filter
+            can never be silently on. Desktop keeps the chips inline, where there is room for the
+            whole filter set at once and the column headers already sort.
 
-            {/* One pill for both filters. Which ones are on is not written here: the footer
-                under the board says the population in words ("34 players · Boston · qualified
-                only"), which is the same fact plus its consequence, and it costs no room in a
-                bar this narrow. The dot is only there to say "something is not the default",
-                so a filter can never be silently on. */}
-            {(source === 'season' ? mode === 'players' || hasPostseason : hasPostseason) && (
-              <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={{
+            NO SORT ON LEADERS, BESTS OR FIND. Each of their boards ranks by its own stat and says
+            so in its own title, so there is no column to choose there. */}
+        {isNarrow && (source === 'season' || canFilter) && (
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <Box {...pressable(() => setSheetOpen(source === 'season' ? 'sort' : 'filter'))}
+              aria-haspopup="dialog" aria-expanded={sheetOpen != null}
+              aria-label={source === 'season' ? `Sort ${activeCol.label}${filtersSet ? ', filters on' : ''}` : `Filters${filtersSet ? ', on' : ''}`}
+              sx={{
                 ...FOCUS_RING,
                 display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
                 cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                 minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
                 border: '1px solid', transition: 'all 0.15s',
-                borderColor: filtersSet ? WPBL_ACCENT : CARD_BORDER,
-                bgcolor: filtersSet ? `${WPBL_ACCENT}12` : 'transparent',
-                color: filtersSet ? 'var(--wpbl-accent-fg)' : 'text.secondary',
+                borderColor: source === 'season' || filtersSet ? WPBL_ACCENT : CARD_BORDER,
+                bgcolor: source === 'season' || filtersSet ? `${WPBL_ACCENT}12` : 'transparent',
+                color: source === 'season' || filtersSet ? 'var(--wpbl-accent-fg)' : 'text.secondary',
               }}>
-                Filters
-                {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: WPBL_ACCENT }} />}
-                <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
-              </Box>
-            )}
+              {source === 'season' ? (
+                <>
+                  <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Sort</Box>
+                  {activeCol.label}
+                </>
+              ) : 'Filters'}
+              {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: WPBL_ACCENT }} />}
+              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+            </Box>
           </Box>
         )}
 
@@ -2216,7 +2249,12 @@ export default function WpblStatsView({
         // Full bleed and not capped, as the season table is.
         <Box sx={fullBleedSx}>
           <Box>
-            {boardSide === 'hitting' ? (
+            {side === 'fielding' ? (
+              fielding == null ? <LeadersBoardSkeleton side="fielding" /> : (
+                <LeadersBoard side="fielding" cols={FLD_COLS} seasons={leaderSeasons.fielding} qual={qual}
+                  onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
+              )
+            ) : side === 'hitting' ? (
               <LeadersBoard side="hitting" cols={hitCols} seasons={leaderSeasons.batting} qual={qual}
                 onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
             ) : (
@@ -2285,7 +2323,7 @@ export default function WpblStatsView({
           <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>
             {qualified
               ? (isNarrow
-                  ? 'Nobody has qualified yet. Filters → Everyone shows the whole roster.'
+                  ? 'Nobody has qualified yet. Sort, then Filter → Everyone, shows the whole roster.'
                   : 'Nobody has qualified yet. Turn off Qualified to show the whole roster.')
               : 'Stats fill in as games are played.'}
           </Typography>
@@ -2621,19 +2659,21 @@ export default function WpblStatsView({
         </Box>
       )}
 
-      {sortOpen && (
-        <SortSheet cols={cols} sortKey={sortKey} side={side} eraBasis={eraBasis} bestFirst={bestFirst}
-          onPick={pickSort}
-          onDirection={best => setSortAsc(best ? bestAsc : !bestAsc)}
-          onClose={() => setSortOpen(false)} />
-      )}
-      {filtersOpen && (
-        <FilterSheet teams={teamChips} teamId={teamId} onTeam={filterTeam}
-          qualified={qualified} onQualified={toggleQualified}
-          scope={hasPostseason ? scope : null} onScope={setScope}
-          showWho={source === 'season' && mode === 'players'}
-          bar={qual.active ? qualBar : null}
-          onClose={() => setFiltersOpen(false)} />
+      {sheetOpen && (
+        <StatsSheet tab={source === 'season' ? sheetOpen : 'filter'} onTab={setSheetOpen} side={side}
+          onClose={() => setSheetOpen(null)}
+          sort={source === 'season' ? (
+            <SortBody cols={cols} sortKey={sortKey} side={side} eraBasis={eraBasis} bestFirst={bestFirst}
+              onPick={pickSort} onDirection={best => setSortAsc(best ? bestAsc : !bestAsc)} />
+          ) : null}
+          filter={canFilter ? (
+            <FilterBody teams={teamChips} teamId={teamId} onTeam={filterTeam}
+              qualified={qualified} onQualified={toggleQualified}
+              scope={hasPostseason ? scope : null} onScope={setScope}
+              showWho={source === 'season' && mode === 'players'}
+              bar={qual.active ? qualBar : null} />
+          ) : null}
+          filtersSet={filtersSet} />
       )}
 
     </Box>
@@ -2849,7 +2889,7 @@ function SheetGroup({ title, children }: { title: string; children: React.ReactN
 // Direction is named rather than described. "Ascending" is a fact about the sort and "best
 // first" is what the reader wants, and the two are opposites for ERA and WHIP, which is
 // exactly where getting it wrong is least forgivable.
-function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirection, onClose }: {
+function SortBody({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirection }: {
   cols: Col<Totals>[]
   sortKey: string
   side: Side
@@ -2857,7 +2897,6 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
   bestFirst: boolean
   onPick: (c: Col<Totals>) => void
   onDirection: (bestFirst: boolean) => void
-  onClose: () => void
 }) {
   // ERA carries its denominator here and nowhere else on the board. This sheet is the one
   // place a reader is already asking what a stat means, so it is the cheapest place to answer
@@ -2872,25 +2911,50 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
   // past the sheet and the whole picker scrolled sideways on a phone.
   const grid = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 } as const
   return (
-    <ModalShell sheet eyebrow={side === 'pitching' ? 'Rank pitchers by' : side === 'fielding' ? 'Rank fielders by' : 'Rank hitters by'}
-      onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
-      <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {groups.map(([title, list]) => list.length === 0 ? null : (
-          <SheetGroup key={title} title={title}>
-            <Box sx={grid}>
-              {list.map(c => (
-                <OptionTile key={c.key} label={c.label} hint={names[c.key]}
-                  on={c.key === sortKey} onClick={() => onPick(c)} />
-              ))}
-            </Box>
-          </SheetGroup>
-        ))}
-        <SheetGroup title="Order">
+    <>
+      {groups.map(([title, list]) => list.length === 0 ? null : (
+        <SheetGroup key={title} title={title}>
           <Box sx={grid}>
-            <OptionTile label="Best first" on={bestFirst} onClick={() => onDirection(true)} />
-            <OptionTile label="Worst first" on={!bestFirst} onClick={() => onDirection(false)} />
+            {list.map(c => (
+              <OptionTile key={c.key} label={c.label} hint={names[c.key]}
+                on={c.key === sortKey} onClick={() => onPick(c)} />
+            ))}
           </Box>
         </SheetGroup>
+      ))}
+      <SheetGroup title="Order">
+        <Box sx={grid}>
+          <OptionTile label="Best first" on={bestFirst} onClick={() => onDirection(true)} />
+          <OptionTile label="Worst first" on={!bestFirst} onClick={() => onDirection(false)} />
+        </Box>
+      </SheetGroup>
+    </>
+  )
+}
+
+// THE PHONE'S ONE SHEET: the sort and the filters, a tab each, behind the one pill in the bar. The
+// tabs are drawn only when the board has both. The Filter tab carries the bar's dot, so a reader who
+// opened the sheet to change the sort still sees that something else is set.
+function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose }: {
+  tab: 'sort' | 'filter'
+  onTab: (t: 'sort' | 'filter') => void
+  side: Side
+  sort: React.ReactNode
+  filter: React.ReactNode
+  filtersSet: boolean
+  onClose: () => void
+}) {
+  const shown = sort && filter ? tab : sort ? 'sort' : 'filter'
+  const eyebrow = shown === 'filter' ? 'Filter'
+    : side === 'pitching' ? 'Rank pitchers by' : side === 'fielding' ? 'Rank fielders by' : 'Rank hitters by'
+  return (
+    <ModalShell sheet eyebrow={eyebrow} onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
+      <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {sort && filter && (
+          <PillGroup options={[{ value: 'sort', label: 'Sort' }, { value: 'filter', label: filtersSet ? 'Filter •' : 'Filter' }]}
+            value={shown} onChange={v => onTab(v as 'sort' | 'filter')} />
+        )}
+        {shown === 'sort' ? sort : filter}
       </Box>
     </ModalShell>
   )
@@ -2900,7 +2964,7 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
 //
 // Rows rather than tiles: there are only seven, and a club wants its badge and its whole name
 // rather than three letters.
-function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, showWho, bar, onClose }: {
+function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, showWho, bar }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
@@ -2910,58 +2974,53 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, scope, onS
    *  rather than when it is set to the regular season. */
   scope: SeasonScope | null
   onScope: (s: SeasonScope) => void
-  /** The teams board has no per-player population to filter, so it gets the season group and
-   *  nothing else. It is also the reason the sheet can open there at all now. */
+  /** Only the player board has a per-player population to filter. */
   showWho: boolean
   /** The qualifying bar in its own unit ("36 PA", "12.0 IP"), or null before it applies. Said
    *  here because the phone's table no longer says it under the board unless Everyone is on. */
   bar: string | null
-  onClose: () => void
 }) {
   const rows = { display: 'flex', flexDirection: 'column', gap: 0.75 } as const
   return (
-    <ModalShell sheet eyebrow="Filter" onClose={onClose} maxWidth={480}
-      footer={<SheetDone onClose={onClose} />}>
-      <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* FIRST, because it is the widest of the three: it changes which GAMES everything
-            below is counted from, where the other two only choose who to list out of them. */}
-        {scope && (
-          <SheetGroup title="Games">
-            <Box sx={rows}>
-              <OptionRow label="Regular season" on={scope === 'regular'} onClick={() => onScope('regular')} />
-              <OptionRow label="Playoffs" on={scope === 'postseason'} onClick={() => onScope('postseason')} />
-              {/* "Both" rather than "All": the team group below opens on "All teams", and two
-                  rows reading All in one sheet is a coin toss about which one a tap changes. */}
-              <OptionRow label="Both" on={scope === 'all'} onClick={() => onScope('all')} />
-            </Box>
-          </SheetGroup>
-        )}
-
-        {showWho && (
-        <>
-        <SheetGroup title="Team">
+    <>
+      {/* FIRST, because it is the widest of the three: it changes which GAMES everything
+          below is counted from, where the other two only choose who to list out of them. */}
+      {scope && (
+        <SheetGroup title="Games">
           <Box sx={rows}>
-            <OptionRow label="All teams" on={teamId === null} onClick={() => onTeam(null)} />
-            {teams.map(t => (
-              <OptionRow key={t.id} label={wpblFullName(t)} on={teamId === t.id}
-                icon={<TeamBadge team={t} size={28} />}
-                onClick={() => onTeam(teamId === t.id ? null : t.id)} />
-            ))}
+            <OptionRow label="Regular season" on={scope === 'regular'} onClick={() => onScope('regular')} />
+            <OptionRow label="Playoffs" on={scope === 'postseason'} onClick={() => onScope('postseason')} />
+            {/* "Both" rather than "All": the team group below opens on "All teams", and two
+                rows reading All in one sheet is a coin toss about which one a tap changes. */}
+            <OptionRow label="Both" on={scope === 'all'} onClick={() => onScope('all')} />
           </Box>
         </SheetGroup>
+      )}
 
-        <SheetGroup title="Who to include">
-          <Box sx={rows}>
-            <OptionRow label="Qualified" on={qualified} hint={bar ? `${bar} or more` : undefined}
-              onClick={() => { if (!qualified) onQualified() }} />
-            <OptionRow label="Everyone" on={!qualified} hint={bar ? `Under ${bar} shown faded` : undefined}
-              onClick={() => { if (qualified) onQualified() }} />
-          </Box>
-        </SheetGroup>
-        </>
-        )}
-      </Box>
-    </ModalShell>
+      {showWho && (
+      <>
+      <SheetGroup title="Team">
+        <Box sx={rows}>
+          <OptionRow label="All teams" on={teamId === null} onClick={() => onTeam(null)} />
+          {teams.map(t => (
+            <OptionRow key={t.id} label={wpblFullName(t)} on={teamId === t.id}
+              icon={<TeamBadge team={t} size={28} />}
+              onClick={() => onTeam(teamId === t.id ? null : t.id)} />
+          ))}
+        </Box>
+      </SheetGroup>
+
+      <SheetGroup title="Who to include">
+        <Box sx={rows}>
+          <OptionRow label="Qualified" on={qualified} hint={bar ? `${bar} or more` : undefined}
+            onClick={() => { if (!qualified) onQualified() }} />
+          <OptionRow label="Everyone" on={!qualified} hint={bar ? `Under ${bar} shown faded` : undefined}
+            onClick={() => { if (qualified) onQualified() }} />
+        </Box>
+      </SheetGroup>
+      </>
+      )}
+    </>
   )
 }
 

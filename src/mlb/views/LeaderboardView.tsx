@@ -9,12 +9,12 @@ import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
 import { chromePx, typePx } from '../../ui/scale'
-import { PillGroup } from '../../ui/PillGroup'
 import { FilterChip, FilterSelect, filterChipSx } from '../../ui/FilterChip'
 import { playerLink } from '../lib/links'
 import { pressable } from '../../ui/interaction'
 import { mlbUrlFor } from '../routes'
 import { StatsFilterSheet, controlPill } from './StatsRankedList'
+import { FieldingLeaders } from './FieldingLeaders'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../../ui/leaders'
 import { LogoBubble } from '../components/boxScore'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
@@ -24,7 +24,13 @@ export interface LeaderboardViewProps {
   /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
   boardTabs: React.ReactNode
   lbGroup: 'hitting' | 'pitching'
-  setLbGroup: (g: 'hitting' | 'pitching') => void
+  /** The board is on its Fielding side: the fielding cards replace the bat or the arm's. */
+  fielding: boolean
+  /** The Fielding table ranked by this column, from a fielding card's "See all". */
+  onOpenFielding: (key: string) => void
+  /** The Stats tab's Hitting / Pitching / Fielding switch, built once by the section (MlbStats) so
+   *  every board draws the same control in the same place. */
+  sideSwitch: React.ReactNode
   vizSeason: number
   setVizSeason: (s: number) => void
   gameScope: GameScope
@@ -41,7 +47,7 @@ export interface LeaderboardViewProps {
 }
 
 export function LeaderboardView({
-  boardTabs, lbGroup, setLbGroup, vizSeason, setVizSeason, gameScope, setGameScope,
+  boardTabs, lbGroup, fielding, onOpenFielding, sideSwitch, vizSeason, setVizSeason, gameScope, setGameScope,
   lbData, loadingLb, lbSelectedKeys, setLbSelectedKeys,
   isDesktop, canHover, handleLbPlayerClick, onOpenStats,
 }: LeaderboardViewProps) {
@@ -50,6 +56,8 @@ export function LeaderboardView({
   const [filtersOpen, setFiltersOpen] = useState(false)
   const statsPillRef = useRef<HTMLElement | null>(null)
   const filtersSet = vizSeason !== CURRENT_SEASON || gameScope !== 'regular'
+  // Which cards: on the Fielding side the four are fixed (FieldingLeaders), so there is no picker.
+  const canPick = !fielding
 
   const lbAllDefs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).filter(d => d.leaderCategory)
   const lbFeatured = LB_FEATURED[lbGroup]
@@ -69,11 +77,7 @@ export function LeaderboardView({
       {/* Desktop controls: room for every one of them in a row. */}
       {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <PillGroup
-            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-            value={lbGroup}
-            onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
-          />
+          {sideSwitch}
           {/* Filters, so chips, as on the Players board and on every WPBL board. */}
           {GAME_SCOPES.map(sc => (
             <FilterChip key={sc} active={gameScope === sc} onClick={() => setGameScope(sc)}>{GAME_SCOPE_LABEL[sc]}</FilterChip>
@@ -89,36 +93,31 @@ export function LeaderboardView({
             onChange={v => setVizSeason(Number(v))}
             active={vizSeason !== CURRENT_SEASON}
           />
-          <Box
-            ref={statsPillRef} {...pressable(() => setLbPickerAnchor(statsPillRef.current))}
-            aria-haspopup="dialog" aria-expanded={!!lbPickerAnchor}
-            sx={{ ...filterChipSx(!!lbPickerAnchor || !lbIsDefault), gap: 0.4 }}
-          >
-            Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
-            <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
-          </Box>
+          {canPick && (
+            <Box
+              ref={statsPillRef} {...pressable(() => setLbPickerAnchor(statsPillRef.current))}
+              aria-haspopup="dialog" aria-expanded={!!lbPickerAnchor}
+              sx={{ ...filterChipSx(!!lbPickerAnchor || !lbIsDefault), gap: 0.4 }}
+            >
+              Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
+              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+            </Box>
+          )}
         </Box>
       </Box>}
 
       {/* Phone controls, the Table's design: the switch that changes the whole board stays visible,
-          and everything else is a pill that says what it is set to and opens a sheet. The desktop
-          row wrapped onto three lines at 375px before a single leader was on screen. */}
+          and everything else is ONE pill that opens a sheet. The cards picker had a pill of its own
+          beside Filters, and with Fielding in the switch the three came to more than the row: the
+          picker is a group in the sheet now, and the dot counts it as set. */}
       {!isDesktop && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          <PillGroup
-            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-            value={lbGroup}
-            onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
-          />
+          {sideSwitch}
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box ref={statsPillRef} {...pressable(() => setLbPickerAnchor(statsPillRef.current))}
-              aria-haspopup="dialog" aria-expanded={!!lbPickerAnchor} sx={controlPill(!lbIsDefault)}>
-              Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
-              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
-            </Box>
-            <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={controlPill(filtersSet)}>
+            <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen}
+              sx={controlPill(filtersSet || (canPick && !lbIsDefault))}>
               Filters
-              {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
+              {(filtersSet || (canPick && !lbIsDefault)) && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
               <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
             </Box>
           </Box>
@@ -132,6 +131,12 @@ export function LeaderboardView({
           onSeason={v => setVizSeason(Number(v))}
           scope={gameScope} scopes={GAME_SCOPES} onScope={setGameScope}
           canQualify={false} qualified onQualified={() => {}}
+          cards={canPick ? {
+            options: lbSortedDefs.map(d => ({ key: d.key, label: d.leaderLabel ?? d.label })),
+            selected: lbSelectedKeys,
+            onToggle: key => setLbSelectedKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]),
+            onReset: lbIsDefault ? undefined : () => setLbSelectedKeys([...lbFeatured]),
+          } : undefined}
           onClose={() => setFiltersOpen(false)} />
       )}
 
@@ -194,7 +199,12 @@ export function LeaderboardView({
       {/* LOADING IS THE BOARD DRAWN EMPTY: the same cards under their real titles, which need no
           data, each holding its rows open. It was a centred spinner, which left the footer in view
           on a phone and threw it 500px down when the cards landed. */}
-      {loadingLb && (
+      {fielding && (
+        <FieldingLeaders season={vizSeason} gameScope={gameScope} canHover={canHover}
+          onOpenPlayer={handleLbPlayerClick} onSeeAll={onOpenFielding} />
+      )}
+
+      {!fielding && loadingLb && (
         <Box aria-hidden sx={LEADER_GRID_SX}>
           {lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key)).map(def => (
             <LeaderCardSkeleton key={def.key} title={def.leaderLabel ?? def.label} />
@@ -202,13 +212,13 @@ export function LeaderboardView({
         </Box>
       )}
 
-      {!loadingLb && lbData && lbData.length === 0 && gameScope === 'post' && (
+      {!fielding && !loadingLb && lbData && lbData.length === 0 && gameScope === 'post' && (
         <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
           No playoff games in {vizSeason}{vizSeason >= CURRENT_SEASON ? ' yet' : ''}.
         </Typography>
       )}
 
-      {!loadingLb && lbData && (() => {
+      {!fielding && !loadingLb && lbData && (() => {
         const defs = lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key))
         // Qualification only applies to rate stats. Otherwise a player with a
         // handful of ABs/IP could camp the top of AVG/ERA. Counting-stat boards

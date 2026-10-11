@@ -7,7 +7,10 @@ import { parseIP } from './utils'
 export type StatsGroup = 'hitting' | 'pitching'
 
 /** A leaderboard row with the number it was ranked on. */
-export type RankedEntry = LeaderboardEntry & { _v: number }
+export type RankedEntry = LeaderboardEntry & { _v: number; rowKey?: string }
+/** The side a phone list ranks: the bat, the arm, or the glove (the Fielding board's rows are a
+ *  player at one position). A club list says so separately: it ranks by the same side's stats. */
+export type ListGroup = StatsGroup | 'fielding'
 
 /** How many rows a phone's list shows before it asks. Ten is a leaderboard; fifty is a directory,
  *  and everything under an uncapped list (the sort control's footer, the switch to the grid) ends
@@ -51,14 +54,16 @@ export function rankMarks(values: number[]): RankMark[] {
 // since .300 off a month and .300 off a season are different claims. Ranked by a COUNT, volume is
 // already the big number, so the line spends itself on the rates. Three numbers, minus whichever
 // one is already the big number on the right.
-const CONTEXT_ORDER: Record<StatsGroup, { rate: string[]; counting: string[] }> = {
+const CONTEXT_ORDER: Record<StatsGroup | 'fielding', { rate: string[]; counting: string[] }> = {
   hitting:  { rate: ['pa', 'hr', 'rbi', 'ops', 'avg'], counting: ['avg', 'rbi', 'ops', 'hr', 'pa'] },
   pitching: { rate: ['ip', 'wl', 'k', 'era', 'whip'], counting: ['era', 'whip', 'ip', 'k'] },
+  // Games and chances are what a fielding rate is measured over; a count reads against the rate.
+  fielding: { rate: ['g', 'tc', 'e', 'fpct'], counting: ['fpct', 'g', 'tc'] },
 }
 
 /** The supporting stats for a list ranked by `sortKey`: the order for a rate or a count, minus the
  *  stat that is already the big number, so the row never says the same figure twice. */
-export function contextKeys(group: StatsGroup, sortKey: string, isRate: boolean): string[] {
+export function contextKeys(group: ListGroup, sortKey: string, isRate: boolean): string[] {
   return CONTEXT_ORDER[group][isRate ? 'rate' : 'counting'].filter(k => k !== sortKey).slice(0, 3)
 }
 
