@@ -96,9 +96,8 @@ the league is not reachable to fix them at source, so a nightly job checks the p
 against the rules of baseball and our own corrections are applied as a read-time overlay
 (`wpbl_play_corrections`), never written into the mirror.
 
-**What it does NOT have:** a season WPA leaderboard or any ranking of games by how much they
-moved (the win model that would feed both is live, and `excitement` is computed on every game and
-drawn nowhere), any credit for baserunning in a player's season value (the MVP race prices the
+**What it does NOT have:** a season WPA leaderboard (the win model that would feed it is live;
+ranking games by how much they moved shipped Oct 11 as "The wildest games" on `/wpbl/season`), any credit for baserunning in a player's season value (the MVP race prices the
 plate and the mound and a steal is neither), and a reason to come back more than once a month
 between now and spring. Reading and the photo gallery are the only surfaces that still change in
 the offseason, and both change only when somebody else publishes.
@@ -224,7 +223,8 @@ item 2 describes, which is why that item comes first.
 ## Next: in priority order
 
 **Nothing in progress (Oct 11, 2026).** The Oct 10 audit's ops items 1 to 5 have shipped. MLB's
-Hot Stove card shipped Oct 11 (ROADMAP.md). Next here is the wildest games of 2026 (item 2 below).
+Hot Stove card shipped Oct 11 (ROADMAP.md), and so did the wildest games (item 2 below). Next here
+is a Compare pair that unfurls as itself (item 6).
 Call the Play has been moved to the end of the list. The crash triage (ops item 2) and the
 layout-shift fixes (ops item 3) wait for about a week of reports, around Oct 18.
 
@@ -242,7 +242,13 @@ reason to come back more than once a month until spring. So the order is by that
    years of them. Aimed straight at the gap. Post the day's question to the fan Discord as well
    (Oct 10): that server is the one channel the traffic says is durable, and a post there costs a
    reader nothing to answer.
-2. **The wildest games of 2026** (#6's open half, and the Game quilt under Visuals). `excitement`
+2. ✅ **The wildest games of 2026** (shipped Oct 11 as a section of `/wpbl/season`: the six games
+   whose win probability moved most, each with its line from the winner's side, its lead changes,
+   ties and extra innings, and a link into Game Center. Postseason included, since it ranks games
+   rather than totalling a season; a game whose play log stops before the seventh is left out
+   rather than ranked low. `wildestGames` in `derive/winProbability.ts`. The top game, Aug 9 at
+   Boston, never changed leader, which is why ties are counted beside lead changes.) The original
+   item: **The wildest games of 2026** (#6's open half, and the Game quilt under Visuals). `excitement`
    is computed on every game and read only by the awards shortlist. A ranked list, or the quilt, on
    `/wpbl/season`, every entry a link into Game Center, which is the other half of the retention
    gradient. Cheap, and it doubles as an Offseason Visual.
@@ -877,8 +883,8 @@ many runs follow each base-out state, and keeping that as a histogram instead of
 the two distributions a win model needs. From there it is exact dynamic programming backwards
 from the last out, no simulation and no sampling noise.
 
-Still open on top of it: a season WPA leaderboard, and ranking games by how much they moved
-(the excitement number is computed already and nothing draws it).
+Still open on top of it: a season WPA leaderboard. Ranking games by how much they moved shipped
+Oct 11 as "The wildest games" on `/wpbl/season`.
 
 ### 7. Incremental depth 🔬
 
@@ -1183,8 +1189,9 @@ both are cheap, survive Sep 22 and make a share image.
 - **Pitcher barcodes** 🎯🔬. A pitcher's season as a strip of coloured ticks, one per pitch (ball,
   called strike, whiff, foul, in play). An attacker and a nibbler look different before a number is
   read. Doubles as share-card art.
-- **Game quilt** 🎯. Every game's win-probability line as a small tile, ordered by `excitement`,
-  which is computed on every game and drawn nowhere. Tap a tile to open the game.
+- **Game quilt** 🎯. Every game's win-probability line as a small tile, ordered by `excitement`.
+  Tap a tile to open the game. *The top six of it shipped Oct 11 as "The wildest games" on
+  `/wpbl/season`, each with its line; the full grid of all 40 is what is left.*
 - **Who owns whom, as a web** 🔬. Batters and pitchers as nodes, edges weighted by plate
   appearances and coloured by who won the matchup. A drawn form of the league-wide board still
   open under "Who owns whom" above; four clubs make the web dense enough to read.

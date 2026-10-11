@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  buildWinProbModel, winProbability, gameWinProb, fmtWinPct,
+  buildWinProbModel, winProbability, gameWinProb, fmtWinPct, leadChanges, tiesFromBehind, wildestGames,
 } from '../derive/winProbability'
 import type { RunValueGame } from '../derive/runExpectancy'
 import type { WpblRunValuePlay } from '../types'
@@ -254,5 +254,64 @@ describe('fmtWinPct', () => {
     expect(fmtWinPct(0.5)).toBe('50%')
     expect(fmtWinPct(0.344)).toBe('34%')
     expect(fmtWinPct(1)).toBe('100%')
+  })
+})
+
+// The wildest games on /wpbl/season: ranked by every swing added up, with the lead changes beside.
+describe('the wildest games', () => {
+  /** A whole game from runs per half-inning, top of the first first. Three plate appearances a
+   *  half, the runs on the first of them. `halves` short of 14 is a log the feed never finished. */
+  function scripted(id: string, runs: number[], halves = runs.length) {
+    const plays: WpblRunValuePlay[] = []
+    let home = 0, away = 0
+    for (let h = 0; h < halves; h++) {
+      const half = h % 2 === 0 ? 'top' : 'bottom'
+      const r = runs[h] ?? 0
+      if (half === 'top') away += r; else home += r
+      for (let o = 0; o < 3; o++) {
+        plays.push(play({
+          game_id: id, inning: Math.floor(h / 2) + 1, half, outs: o,
+          team_id: half === 'top' ? 'away' : 'home',
+          event_type: o === 0 && r > 0 ? 'home_run' : 'strikeout',
+          runs_scored: o === 0 && r > 0 ? r - 1 : 0,
+        }))
+      }
+    }
+    return { plays, game: game({ id, home_score: home, away_score: away }) as RunValueGame & { home_score: number; away_score: number } }
+  }
+
+  const { plays: seasonPlays, games: seasonGames } = synthetic(h => (h % 3 === 0 ? 1 : 0))
+  const model = buildWinProbModel(seasonPlays, seasonGames)
+  //                            1     2     3     4     5     6     7
+  const quiet = scripted('quiet', [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  const wild  = scripted('wild',  [1, 0, 0, 2, 2, 0, 0, 2, 0, 0, 1, 0, 0, 1])
+  const short = scripted('short', [1, 0, 0, 2, 2, 0, 0, 2, 0, 0, 1, 0, 0, 1], 11)
+
+  it('ranks the back-and-forth game above the early walkover', () => {
+    const ranked = wildestGames(model, [...quiet.plays, ...wild.plays], [quiet.game, wild.game])
+    expect(ranked.map(r => r.game.id)).toEqual(['wild', 'quiet'])
+    expect(ranked[0].wp.excitement).toBeGreaterThan(ranked[1].wp.excitement)
+  })
+
+  it('counts a lead change through a tie once', () => {
+    // 1-0 away, 1-2 home, 3-2 away, 3-4 home, 4-4, 4-5 home: three changes; the tie is not one.
+    const wp = gameWinProb(model, wild.plays, wild.game)
+    expect(leadChanges(wp.points)).toBe(3)
+    expect(leadChanges(gameWinProb(model, quiet.plays, quiet.game).points)).toBe(0)
+  })
+
+  // Aug 9, 2026 is the shape: New York led or was level all game, was caught at 5-5 and won in the
+  // eighth. No lead change, and still the wildest game of the season.
+  it('counts a side drawing level from behind', () => {
+    expect(tiesFromBehind(gameWinProb(model, wild.plays, wild.game).points)).toBe(1)
+    expect(tiesFromBehind(gameWinProb(model, quiet.plays, quiet.game).points)).toBe(0)
+    expect(wildestGames(model, wild.plays, [wild.game])[0]).toMatchObject({ leadChanges: 3, ties: 1, innings: 7 })
+  })
+
+  it('leaves out a game whose log stops before the seventh, and a game not final', () => {
+    const notFinal = { ...wild.game, id: 'live', status: 'live' as const }
+    const ranked = wildestGames(model, [...short.plays, ...wild.plays.map(p => ({ ...p, game_id: 'live' }))],
+      [{ ...short.game, home_score: 4, away_score: 5 }, notFinal])
+    expect(ranked).toEqual([])
   })
 })

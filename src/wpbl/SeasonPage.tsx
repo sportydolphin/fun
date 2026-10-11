@@ -43,9 +43,10 @@ import {
   sumBatting, sumPitching, fmtRate, fmtTwo, fmtPct, ERA_BASIS_CANONICAL,
   type WpblBatSeason, type WpblPitSeason,
 } from './stats'
-import { countsInStandings } from './season'
+import { countsInStandings, isPostseasonGame } from './season'
+import { REGULATION_INNINGS } from './innings'
 import { useRowFlip, useRowDividers } from './rowFlip'
-import { winProbModel, gameWinProb, swingOfGame, fmtWinPct } from './derive/winProbability'
+import { winProbModel, gameWinProb, swingOfGame, fmtWinPct, wildestGames, type WildGame } from './derive/winProbability'
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath, wpblComparePath, WPBL_MATCHUPS_PAGE } from './routes'
 import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './derive/matchups'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
@@ -218,6 +219,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
   // under another that sit side by side on a desktop. See `BoardSet` and the jump row.
   const isPhone = useMediaQuery('(max-width:600px)')
   const [allPlays, setAllPlays] = useState(false)
+  const [allWild, setAllWild] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -428,9 +430,12 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
 
   // Biggest plays and the most improbable win, both a walk of the same per-game win-probability
   // model. Built only once the plays are in; empty until then.
-  const { bigPlays, comeback } = useMemo(() => {
-    if (plays.length === 0 || regFinals.length === 0) return { bigPlays: [] as BigPlay[], comeback: null as Comeback | null }
+  const { bigPlays, comeback, wildest } = useMemo(() => {
+    if (plays.length === 0 || regFinals.length === 0) return { bigPlays: [] as BigPlay[], comeback: null as Comeback | null, wildest: [] as WildGame<WpblGame>[] }
     const model = winProbModel(plays, games)
+    // The postseason is in this one, unlike every total on the page: it ranks games, not a season,
+    // and the final is exactly where a reader would look for the wildest of them.
+    const wildest = wildestGames(model, plays, games.filter(g => g.status === 'final')).slice(0, WILD_N)
     const byGame = new Map<string, WpblRunValuePlay[]>()
     for (const p of plays) {
       const arr = byGame.get(p.game_id) ?? []
@@ -470,7 +475,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
     }
     // Sort the plays by how far they moved the winner, and keep a handful.
     big.sort((a, b) => (b.winnerAfter - b.winnerBefore) - (a.winnerAfter - a.winnerBefore))
-    return { bigPlays: big.slice(0, 6), comeback: best }
+    return { bigPlays: big.slice(0, 6), comeback: best, wildest }
   }, [plays, games, regFinals])
 
   const gameCount = regFinals.length
@@ -819,6 +824,35 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                       })}
                     </LeaderBoard>
                   ))}
+              </Box>
+            </>
+          )}
+
+          {/* ── The wildest games ────────────────────────────────────────────── */}
+          {wildest.length > 0 && (
+            <>
+              <SectionHeading seen="season" id="season-wildest">The wildest games</SectionHeading>
+              <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>
+                Every swing in win probability over a game, added up. The line is the winner&rsquo;s
+                chance, play by play.
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {(isPhone && !allWild ? wildest.slice(0, PHONE_PLAYS) : wildest).map((w, i) => (
+                  <WildGameRow
+                    key={w.game.id} rank={i + 1} wild={w} teamName={teamName} phone={isPhone}
+                    href={gameHref(w.game)}
+                    onOpen={() => { opened('wildest_games', 'game'); onOpenGame(w.game, { teams, games }) }}
+                  />
+                ))}
+                {isPhone && wildest.length > PHONE_PLAYS && (
+                  <Box {...pressable(() => setAllWild(v => !v))} sx={{
+                    ...FOCUS_RING, alignSelf: 'center', cursor: 'pointer', userSelect: 'none',
+                    px: 1.5, py: 0.75, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
+                    fontSize: '0.8rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+                  }}>
+                    {allWild ? 'Show fewer' : `Show all ${wildest.length}`}
+                  </Box>
+                )}
               </Box>
             </>
           )}
@@ -1224,6 +1258,88 @@ function eraFipContext(r: EraFipRow): string {
 
 /** Plays shown on a phone before "Show all". Each is a paragraph of narrative, about 240px. */
 const PHONE_PLAYS = 3
+/** Six, as the turning plays: enough to reach past the obvious two or three, few enough to read. */
+const WILD_N = 6
+
+// ─── The wildest games ───────────────────────────────────────────────────────────
+// A row per game: its win-probability line as a sparkline, the score, and the two numbers behind
+// the rank. The line is drawn from the WINNER's side, so every one ends at the top and what differs
+// is the road there; drawn from the home side, half of them would end at the bottom and read as
+// losses. Midline at 50%. Real <a href>, the plain click intercepted, like every game link here.
+
+/** "2 lead changes · tied once · 8 innings", or "led throughout" when none of them happened. */
+function wildContext(w: WildGame<WpblGame>): string {
+  const times = (n: number) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`)
+  const parts = [
+    w.leadChanges > 0 ? `${w.leadChanges} lead change${w.leadChanges === 1 ? '' : 's'}` : null,
+    w.ties > 0 ? `tied ${times(w.ties)}` : null,
+    w.innings > REGULATION_INNINGS ? `${w.innings} innings` : null,
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'led throughout'
+}
+
+function WildLine({ wild, wide }: { wild: WildGame<WpblGame>; wide?: boolean }) {
+  const isDark = useWpblDark()
+  const pts = wild.wp.points
+  const ys = [pts[0]?.before ?? 0.5, ...pts.map(p => p.after)].map(v => winnerProb(v, wild.homeWon))
+  const step = ys.length > 1 ? 100 / (ys.length - 1) : 0
+  const line = ys.map((y, i) => `${(i * step).toFixed(2)},${((1 - y) * 30).toFixed(2)}`).join(' ')
+  const winnerId = wild.homeWon ? wild.game.home_team_id : wild.game.away_team_id
+  return (
+    <Box component="svg" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden
+      sx={{ display: 'block', width: wide ? '100%' : chromePx(96), height: chromePx(wide ? 28 : 32), flexShrink: 0, overflow: 'visible' }}>
+      <line x1="0" x2="100" y1="15" y2="15" stroke="currentColor" strokeOpacity={0.25} strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+      <polyline points={line} fill="none" stroke={wpblAccent(winnerId, isDark)} strokeWidth={1.75} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </Box>
+  )
+}
+
+// On a phone the line goes under the words at full width: beside them it left the score about ten
+// characters and wrapped "Los Angeles 7" across three lines.
+function WildGameRow({ rank, wild, teamName, href, onOpen, phone }: {
+  rank: number
+  phone: boolean
+  wild: WildGame<WpblGame>
+  teamName: (id: string | null | undefined) => string
+  href: string
+  onOpen: () => void
+}) {
+  const g = wild.game
+  return (
+    <Box
+      component="a" href={href}
+      onClick={e => { if (!isModified(e)) { e.preventDefault(); onOpen() } }}
+      sx={{
+        display: 'flex', flexWrap: phone ? 'wrap' : 'nowrap', alignItems: 'center', columnGap: 1.5, rowGap: 0.75,
+        textDecoration: 'none', color: 'inherit', borderRadius: 2, p: 1.5,
+        border: '1px solid', borderColor: CARD_BORDER,
+        ...TAPPABLE,
+      }}
+    >
+      <Typography sx={{ flexShrink: 0, width: '1.25rem', textAlign: 'right', fontSize: '0.85rem', fontWeight: 800, color: 'text.disabled' }}>
+        {rank}
+      </Typography>
+      {!phone && <Box sx={{ color: 'text.secondary' }}><WildLine wild={wild} /></Box>}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.35 }}>
+          {teamName(g.away_team_id)} {g.away_score}, {teamName(g.home_team_id)} {g.home_score}
+        </Typography>
+        <Typography sx={{ fontSize: '0.76rem', color: 'text.disabled', lineHeight: 1.35 }}>
+          {shortDate(g.game_date)}{isPostseasonGame(g) ? ' · Playoffs' : ''} · {wildContext(wild)}
+        </Typography>
+      </Box>
+      <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
+        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', lineHeight: 1.2 }}>
+          {Math.round(wild.wp.excitement * 100)}
+        </Typography>
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', lineHeight: 1.2 }}>
+          {phone ? 'swing' : 'points of swing'}
+        </Typography>
+      </Box>
+      {phone && <Box sx={{ flexBasis: '100%', pl: theme => `calc(1.25rem + ${theme.spacing(1.5)})`, color: 'text.secondary' }}><WildLine wild={wild} wide /></Box>}
+    </Box>
+  )
+}
 
 type Board = { key: string; chip: string; node: React.ReactNode }
 
