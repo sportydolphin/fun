@@ -218,7 +218,8 @@ export const EVENTS = {
   APP_UPDATED:         'app_updated',         // the page moved itself onto a new deploy, props {via: chunk_reload|navigation}
   // What a real reader's page load felt like, once per load, sent as the page is left or hidden.
   // See lib/webVitals.ts.
-  WEB_VITALS:          'web_vitals',          // props {lcp, fcp, ttfb, inp (ms), cls, device, section, conn}
+  // The cls_* props name the largest shift: element, heading, its own score, load state, route.
+  WEB_VITALS:          'web_vitals',          // props {lcp, fcp, ttfb, inp (ms), cls, device, section, conn, cls_target, cls_label, cls_shift, cls_state, cls_route}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

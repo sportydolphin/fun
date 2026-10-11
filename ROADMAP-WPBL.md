@@ -180,20 +180,24 @@ item 2 describes, which is why that item comes first.
    "Rendered more hooks than during the previous render" (`where: app`, a conditional hook), a
    lazy import resolving to `undefined` (`$._result is undefined`, 8 rows), `seasonStat.volume.toFixed
    is not a function`, `onPage is not a function`, and a temporal-dead-zone read of `desktopNow`.
-3. **Field layout shift is poor on MLB desktop and middling everywhere else.** `web_vitals` p75
-   over the 14 days (production builds only, so this one is not polluted): WPBL 0.149 on a phone and
-   0.154 on a desktop, MLB 0.182 and **0.270**, where Google's lines are 0.1 good and 0.25 poor.
-   The sweep's baseline is empty because it measures the load; the field metric is the worst burst
-   across the whole visit, so these shifts come after first paint: a tab switch, a sheet opening, a
-   card arriving late. Send `web-vitals`' attribution build's `largestShiftTarget` with the metric so
-   `/admin` names the element, then fix the top few.
-4. **Database headroom: 254 MB in use.** `events` is 86 MB (230k rows since Aug 5, no retention),
-   `cron.job_run_details` 49 MB (pg_cron keeps every run forever), `mlb_batting_lines` 45 MB and
-   `mlb_pitching_lines` 17 MB from one backfilled season. Purge `job_run_details` on a schedule
-   (a week is plenty), and give `events` a daily rollup for `/admin`'s trends with raw rows kept
-   90 days. Settle this before the MLB plays mirror, which ROADMAP.md estimates at about 1M rows a
-   season; check the plan's database limit first (the free tier's is 500 MB). `events_test` (9 MB)
-   is the test-run quarantine and stays.
+3. ✅ **Field layout shift is poor on MLB desktop and middling everywhere else** (the attribution
+   shipped Oct 11; the fixes are open). `web_vitals` p75 over the 14 days (production builds only,
+   so this one is not polluted): WPBL 0.149 on a phone and 0.154 on a desktop, MLB 0.182 and
+   **0.270**, where Google's lines are 0.1 good and 0.25 poor. The sweep's baseline is empty because
+   it measures the load; the field metric is the worst burst across the whole visit, so these
+   shifts come after first paint: a tab switch, a sheet opening, a card arriving late. Every report
+   now names its largest shift (the element, the heading of its box, and the route the reader was
+   on when it moved), and Page speed on `/admin` ranks them. **Open:** read that list once a week
+   of reports has landed and fix the top few. 70 loads in the 14 days were over 0.1, so a week is
+   about 35 named ones.
+4. ✅ **Database headroom** (Oct 11). 332 MB by then, not 254: `mlb_batting_lines` had reached
+   100 MB and `mlb_pitching_lines` 37 MB. `events` now keeps 90 days of raw rows, each UTC day rolled
+   into `events_daily` first (the first delete is due Nov 3), and pg_cron forgets runs older than a
+   week, which took `cron.job_run_details` from 112k rows to 15k and, after one VACUUM FULL by hand,
+   from 49 MB to 4.5 MB (the database to 305 MB). Both on pg_cron, in
+   `20261011034522_events_rollup_and_retention.sql`. The plan's limit is not readable from the CLI;
+   if it is the free tier's 500 MB, the MLB line tables are now the thing to watch before the plays
+   mirror, not analytics. `events_test` (9 MB) is the test-run quarantine and stays.
 5. ✅ **Actions off Node 20** (Oct 11). `checkout`, `setup-node` and `upload-artifact` moved from
    v4 to v7, their Node 24 majors, in all 38 workflows. `daily-bots.yml` also ran its own scripts on
    Node 20, past end of life since April; it is on 22 with everything else. The deploy-key pushes

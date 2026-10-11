@@ -167,6 +167,24 @@ describe('AdminPage readable cards', () => {
     expect(head.textContent).toContain('Phones: largest paint 4.4s (poor), 30 loads')
   })
 
+  // A poor CLS score is only actionable with the element behind it, so the card names it, in the
+  // heading's words first and the selector under it, on the route where it moved.
+  it('names the largest layout shifts under Page speed', async () => {
+    const row = { device: null, section: null, loads: 40, lcp_p75: 2000, inp_p75: 120, cls_p75: 0.27,
+      fcp_p75: 1500, ttfb_p75: 300, lcp_good: 0.8, inp_good: 0.9, cls_good: 0.6, fcp_good: 0.8, ttfb_good: 1 }
+    fetchAnalytics.mockResolvedValueOnce(bundle({ vitals: { rows: [row], shifts: { over: 12, named: 9, rows: [
+      { section: 'mlb', device: 'desktop', route: '/mlb/standings', target: 'div.MuiCard-root>div',
+        label: 'Standings', loads: 5, shift_p50: 0.18, after_load: 0.8 },
+    ] } } }))
+    renderPage()
+    const head = await screen.findByRole('button', { name: /Page speed/ })
+    fireEvent.click(head)
+    const card = head.parentElement!
+    expect(within(card).getByText('12 loads over CLS 0.1; 9 name the element that moved most.')).toBeInTheDocument()
+    expect(within(card).getByText('Standings · Desktop, /mlb/standings')).toBeInTheDocument()
+    expect(within(card).getByText('div.MuiCard-root>div')).toBeInTheDocument()
+  })
+
   it('says Page speed has nothing yet rather than drawing empty numbers', async () => {
     renderPage()
     const head = await screen.findByRole('button', { name: /Page speed/ })
