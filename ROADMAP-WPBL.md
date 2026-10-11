@@ -4,8 +4,8 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last updated: **Oct 6, 2026**, with #9 (desktop detail views: the side panel and the full pages
-> for games and players), built and not yet released.
+> Last updated: **Oct 10, 2026**, with the audit (CI, crons, dependencies, the database and two
+> weeks of `events`): a site-wide ops list, and three items added to the winter order.
 > Last reviewed for handoff: **Oct 2, 2026** (doc accuracy only; priorities unchanged since Sep 27).
 > Last checked against production: **Sep 24, 2026**. The season is over (40 finals, the last on
 > Sep 22), the feed has gone quiet, and every surface below is in its offseason shape.
@@ -147,10 +147,82 @@ Home's one player name currently opens a box score.)* The primer (#4) and SEO (#
 
 ---
 
+## The Oct 10, 2026 audit ⚙️
+
+Read from CI, the cron runs, `npm outdated`, the database and the `events` table over the 14 days to
+Oct 10. The ops list is site-wide: it lives here because neither roadmap owns the shell, and
+[ROADMAP.md](ROADMAP.md) points here rather than copying it.
+
+**Traffic.** WPBL sessions a week: 1,544 (week of Sep 7), 1,408, 973, 508, **350** (week of
+Oct 5). MLB rose to 178 in the week of Sep 28 on its own postseason, then 71. WPBL pages by
+sessions over the 14 days: Home 650, Stats 179, players 155, games 104, **Compare 76**, Teams 57,
+Schedule 43, the season recap 38. Compare at fifth, with no work since it shipped, is the one
+surprise; it is item 6 of the winter order now. Every figure here carries the dev-server rows
+item 2 describes, which is why that item comes first.
+
+**Ops, in order:**
+
+1. ✅ **RetroWPBL moved its data, and three jobs went red together** (fixed Oct 10). On Oct 9 the
+   repo took Retrosheet's download layout and put every folder under `alldata/`, so
+   `events/2026SFF.EVW` answered 404 and `wpbl-retro-sync`, `wpbl-play-gap-fill` and
+   `wpbl-retro-stats-check` failed every run after. `RAW` in `check-wpbl-retro-stats.mjs` (which
+   the gap fill imports) and the sync's own copy now point at `alldata/`; all three pass locally,
+   and the stats check is clean against its baseline.
+2. ✅ **Keep the dev server out of `events`** (the gate and the build tag shipped Oct 10; the
+   triage below is open). `track()` refused a test run but not `npm run dev`,
+   which talks to the production project, so every local session writes real rows. 234 of the 286
+   `app_error` rows in the 14 days were HMR crashes against `localhost:5173` (`useShellZ is not
+   defined`, "doesn't provide an export named"), which buries Site health on `/admin` and inflates
+   every session count. Now `silenced()` in `analytics.ts` refuses a DEV build (opt back in with
+   `localStorage.sdDevTrack = '1'`), and `app_error` carries `build`, the entry script's name.
+   **Open:** triage what is left once a week of tagged rows has landed (a row with a `build` is a
+   reader's), which looks real but could not be told from dev before:
+   "Rendered more hooks than during the previous render" (`where: app`, a conditional hook), a
+   lazy import resolving to `undefined` (`$._result is undefined`, 8 rows), `seasonStat.volume.toFixed
+   is not a function`, `onPage is not a function`, and a temporal-dead-zone read of `desktopNow`.
+3. **Field layout shift is poor on MLB desktop and middling everywhere else.** `web_vitals` p75
+   over the 14 days (production builds only, so this one is not polluted): WPBL 0.149 on a phone and
+   0.154 on a desktop, MLB 0.182 and **0.270**, where Google's lines are 0.1 good and 0.25 poor.
+   The sweep's baseline is empty because it measures the load; the field metric is the worst burst
+   across the whole visit, so these shifts come after first paint: a tab switch, a sheet opening, a
+   card arriving late. Send `web-vitals`' attribution build's `largestShiftTarget` with the metric so
+   `/admin` names the element, then fix the top few.
+4. **Database headroom: 254 MB in use.** `events` is 86 MB (230k rows since Aug 5, no retention),
+   `cron.job_run_details` 49 MB (pg_cron keeps every run forever), `mlb_batting_lines` 45 MB and
+   `mlb_pitching_lines` 17 MB from one backfilled season. Purge `job_run_details` on a schedule
+   (a week is plenty), and give `events` a daily rollup for `/admin`'s trends with raw rows kept
+   90 days. Settle this before the MLB plays mirror, which ROADMAP.md estimates at about 1M rows a
+   season; check the plan's database limit first (the free tier's is 500 MB). `events_test` (9 MB)
+   is the test-run quarantine and stays.
+5. **Actions off Node 20.** `actions/checkout@v4` and `actions/setup-node@v4` (39 uses each) and
+   `upload-artifact@v4` run on Node 20 and are already being forced onto Node 24, with a warning on
+   every run. Bump to their Node 24 majors in one pass.
+6. **Dependencies.** Patch and minor first, as one pull request: supabase-js 2.106 to 2.117, MUI
+   7.3.7 to 7.3.11, Vite 6.4.4, Vitest 4.1, playwright-core 1.64 (the sweep's browser, so run it),
+   pg, ws, and the one moderate audit finding (`yaml` under cosmiconfig, dev only). Then the majors,
+   one at a time, this winter while nothing is live: React 19 with its types, MUI 9, Vite 8 with
+   plugin-react 6, ESLint 10 with react-hooks 7 (whose new rules will find things), TypeScript 7,
+   jsdom 29. Spring is the wrong time for any of them.
+7. **Rehearse the spring.** Replay the archived 2026 feed through `wpbl-ingest` into a scratch
+   schema and diff it against the mirror, so the feed re-verification on the clock above is a run
+   rather than a reading of CLAUDE.md. Same item as the clock's: make `wpbl-postseason-check` fail
+   on missing secrets.
+8. **Open data, and something to embed** 🎯. A `/wpbl/data` page offering the 2026 season as CSV
+   (and Retrosheet-style event files where RetroWPBL's permission covers it), credited, and an
+   embeddable standings and box-score widget for the two writers. Links are the brake on search
+   (#3), and a dataset and a widget are the two things other sites link to without being asked.
+9. **Google Play.** A signed build works on a device; what is left is Play's own process
+   ([docs/ANDROID.md](docs/ANDROID.md)).
+
+---
+
 ## Next: in priority order
 
-**Nothing in progress (Oct 9, 2026).** #9, desktop detail views, shipped in both sections, and so
-did the Fielding board (item 5 below); the rest of the winter order is next.
+**Nothing in progress (Oct 10, 2026).** #9, desktop detail views, shipped in both sections, and so
+did the Fielding board (item 5 below). The Oct 10 audit (the section above this one) put a
+site-wide ops list ahead of the winter order: its first two items shipped that day (the RetroWPBL
+paths, and the dev server kept out of `events`). Call the Play is next; the crash triage under
+ops item 2 waits for a week of tagged rows.
 
 **The winter order, set Sep 27, 2026.** Every season-locked item below has shipped or missed its
 window. The one problem left is the one "Where the section stands" names: nothing gives a reader a
@@ -160,7 +232,9 @@ reason to come back more than once a month until spring. So the order is by that
    is written, pure and tested, and nothing calls it: not the site, and not Discord either, despite
    what its header says. A date-seeded daily question with a shareable result is the only item on
    this page that gives a reason to come back TOMORROW, and about 980 usable plate appearances is
-   years of them. Aimed straight at the gap.
+   years of them. Aimed straight at the gap. Post the day's question to the fan Discord as well
+   (Oct 10): that server is the one channel the traffic says is durable, and a post there costs a
+   reader nothing to answer.
 2. **The wildest games of 2026** (#6's open half, and the Game quilt under Visuals). `excitement`
    is computed on every game and read only by the awards shortlist. A ranked list, or the quilt, on
    `/wpbl/season`, every entry a link into Game Center, which is the other half of the retention
@@ -173,6 +247,21 @@ reason to come back more than once a month until spring. So the order is by that
    standing in for one. Do not rebuild it.*
 5. ~~**Fielding columns in the Stats tab** (#7).~~ ✅ *Shipped Oct 9 as a Fielding board (v1.130.0,
    see the log).*
+6. **A Compare pair that unfurls as itself** (added Oct 10). Compare is the fifth most-visited
+   page in the section over the two weeks to Oct 10 (76 sessions, ahead of Teams, Schedule and the
+   season recap) and has had no work since it shipped. A shared `/wpbl/compare/<a>-vs-<b>` link
+   unfurls as the generic site card: [`functions/wpbl/index.ts`](functions/wpbl/index.ts) resolves
+   the pair for its 404 and then calls `next()` without rewriting a tag. Give it the player
+   pages' treatment through `src/lib/ogTags.ts`: both names, both headline lines, and a 1200x630
+   image (two share cards side by side, or drawn by the same Python as the player cards). The
+   pair is the thing people argue about, which is the thing people share.
+7. **A season WPA leaderboard, and credit for baserunning** (added Oct 10, both from "What it does
+   NOT have"). The win model is live and per play, so WPA per player is a sum over plays already
+   held; it belongs on Run value beside RE24, where the reader will already be. Baserunning is the
+   larger half: the MVP race prices the plate and the mound, and a steal or an extra base is
+   neither. Start with stolen bases and caught stealing at run-expectancy values: the per-play run
+   values that `stealEconomy` (in `src/league/runExpectancy.ts`, behind the steal card) sums for
+   the league already price each attempt, so this is crediting them to the runner.
 
 **Not this winter, on purpose.** "This day in the inaugural season" has nothing to replay from
 October to July, since every game was played Aug 1 to Sep 22: park it until August 2027. Rolling

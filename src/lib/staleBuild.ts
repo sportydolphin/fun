@@ -80,6 +80,20 @@ export function loadFullyOnNextNavigation(): void {
   }
 }
 
+/** The build this page is running, named by its entry script's file ("index-B3x9kQ1a"), or null
+ *  outside a production build. Carried on `app_error` so a crash can be pinned to the deploy that
+ *  shipped it: without it a reader's error from last week and one from today look the same, and
+ *  so does one from a dev server. */
+export function runningBuild(): string | null {
+  if (!import.meta.env.PROD) return null
+  try {
+    const src = document.querySelector('script[type="module"][src]')?.getAttribute('src')
+    return src ? (src.split('/').pop() ?? '').replace(/\.js$/, '') || null : null
+  } catch {
+    return null
+  }
+}
+
 /** Re-read index.html when the tab comes back (and every few minutes while it is in front), and
  *  arm `loadFullyOnNextNavigation` once it names a different entry script from the one running. */
 function watchForNewBuild(): void {
