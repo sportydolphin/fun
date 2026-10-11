@@ -9,6 +9,8 @@ import {
   fmtRe, fmtRunValue, playRunValues, runValueLeaders, stealEconomy, topRunners,
   type ReTable, type WorkedExample,
 } from './derive/runExpectancy'
+import { winProbModel, wpaLeaders } from './derive/winProbability'
+import { baserunningEvents, baserunningLeaders, runnerIds, type BaserunningLine } from './derive/baserunning'
 import { PlayValueCard, StealCard } from './PlayValue'
 import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, ExpandRow, useWpblDark, chromePx,
@@ -369,6 +371,14 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
   )
 }
 
+/** "8 SB, 1 caught · 7 of 12 extra". A pickoff is folded into "caught": to a reader both are a
+ *  runner out on the bases without a ball in play, and two words for it would not fit a phone. */
+function basesLine(r: BaserunningLine<unknown>): string {
+  const caught = r.cs + r.pickoffs
+  const steals = caught ? `${r.sb} SB, ${caught} caught` : `${r.sb} SB`
+  return r.chances ? `${steals} · ${r.extra} of ${r.chances} extra` : steals
+}
+
 /** "6th", for an inning in a sentence. Innings only, so the teens never come up. */
 function ordinal(n: number): string {
   return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`
@@ -410,6 +420,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     requestAnimationFrame(() => explainerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
   }, [])
   const [allLeaders, setAllLeaders] = useState(false)
+  const [allWpa, setAllWpa] = useState(false)
+  const [allBases, setAllBases] = useState(false)
   const [allTakeSwing, setAllTakeSwing] = useState(false)
 
   const [plays, setPlays] = useState(() => getCachedWpblAllRunValuePlays())
@@ -439,6 +451,22 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     () => (plays && table ? playRunValues(plays, games, table) : []), [plays, games, table])
   const leaders = useMemo(
     () => runValueLeaders(values, players, side).slice(0, 10), [values, players, side])
+  // The same plays priced in wins. The model is cached on these two arrays for the session, so
+  // Game Center's chart and this board build it once between them.
+  // The runner's name off a base, resolved to the player who batted under it that game.
+  const idOf = useMemo(() => (plays ? runnerIds(plays, players) : null), [plays, players])
+  const wpa = useMemo(
+    () => (plays && idOf
+      ? wpaLeaders(winProbModel(plays, games), plays, games, players, side, idOf).slice(0, 10)
+      : []),
+    [plays, games, players, side, idOf])
+  // Hitting only: a pitcher's side of a steal is shared with the catcher, and nothing on the
+  // row says how.
+  const bases = useMemo(
+    () => (plays && table && idOf && side === 'hitting'
+      ? baserunningLeaders(baserunningEvents(plays, games, table, idOf), players).slice(0, 10)
+      : []),
+    [plays, games, table, idOf, players, side])
 
   // The per-event averages, which the play-value card draws and the worked example has to land
   // on. One memo for both, which is the point of them being on one board: they are pure and
@@ -488,6 +516,14 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   const pitching = side === 'pitching'
 
   const shownLeaders = isNarrow && !allLeaders ? leaders.slice(0, LIST_CAP) : leaders
+  const shownWpa = isNarrow && !allWpa ? wpa.slice(0, LIST_CAP) : wpa
+  const shownBases = isNarrow && !allBases ? bases.slice(0, LIST_CAP) : bases
+  // Drawn in one of two columns depending on the side; see the column notes below.
+  const takeSwingBoard = (
+    <TakeSwingBoard rows={takeSwing} side={side} accent={accent} isNarrow={isNarrow}
+      expanded={allTakeSwing} onToggle={() => setAllTakeSwing(v => !v)}
+      onOpenPlayer={onOpenPlayer} />
+  )
 
   // The two cells step 1 quotes in words, read off the same table the grid under it draws, so
   // the sentence and the spreadsheet can never disagree. Both are nullable: a state the season
@@ -539,10 +575,13 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       measures one card against a column over three times its height. There are only ever ten
       or so qualifying players, so that side would never fill itself.
 
-      Taking and swinging sits with it, and not only for the height. The left column is the
-      two boards that rank PEOPLE and open a player card; the right is the prices, which are
-      measured over the whole league and are about nobody. The two sides come out close in
-      height, and a reader can say what each side is for.
+      The left column is the three season totals, one question each: runs at the plate, wins
+      at the plate, runs on the bases. The right is the prices, which are measured over the
+      whole league, and Taking and swinging, which ranks people too but is priced off the count
+      table directly above it, so it reads as that table's consequence. It was on the left
+      until the wins and bases boards arrived (Oct 2026) and left the right column 1,200px
+      short at 1440. The two sides come out close in height again. On pitching, which has no
+      bases board, it stays on the left in that board's place, for the same reason.
 
       `lg` rather than `md`, and that is about the section's desktop scale rather than the
       viewport: `--app-chrome` is 1.25 from 900px up, so two 560px columns already measure
@@ -558,9 +597,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
         alignItems: 'start',
         gap: { xs: 1.5, sm: 2 },
       }}>
-      {/* THE LEFT COLUMN IS THE PLAYERS. Both boards in it rank people and open a player
-          card; everything in the other one is a price, measured over the whole league and
-          about nobody. */}
+      {/* THE LEFT COLUMN IS THE SEASON TOTALS: runs and wins at the plate, runs on the bases. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
       <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}>
         {leaders.length === 0
@@ -577,9 +614,44 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
         )}
       </SectionCard>
 
-      <TakeSwingBoard rows={takeSwing} side={side} accent={accent} isNarrow={isNarrow}
-        expanded={allTakeSwing} onToggle={() => setAllTakeSwing(v => !v)}
-        onOpenPlayer={onOpenPlayer} />
+      {/* WINS, BESIDE RUNS, because the difference between the two lists is the point: the
+          same plays, priced by the score as well as the situation, so a hit in a tie game
+          outranks the same hit in a rout. See `wpaLeaders`. */}
+      <SectionCard title="Most wins added" subtitle="Priced by the score, not only the situation">
+        {wpa.length === 0
+          ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+          : shownWpa.map((r, i) => (
+              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.name}
+                teamId={r.teamId} value={fmtRunValue(r.wpa, 2)} unit="wins" accent={accent}
+                onOpen={onOpenPlayer}
+                sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
+            ))}
+        {isNarrow && wpa.length > LIST_CAP && (
+          <ExpandRow flush expanded={allWpa} moreLabel={`Show all ${wpa.length}`}
+            onToggle={() => setAllWpa(v => !v)} />
+        )}
+      </SectionCard>
+
+      {/* THE RUNS NOBODY WAS CREDITED WITH. Every board above is plate appearances, and a steal
+          is a row with no pitch sequence. See derive/baserunning.ts for how a runner is read
+          off the play and what each decision is priced against. */}
+      {!pitching && (
+        <SectionCard title="Best on the bases" subtitle="Steals and extra bases, against the average">
+          {bases.length === 0
+            ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+            : shownBases.map((r, i) => (
+                <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.name}
+                  teamId={r.teamId} value={fmtRunValue(r.total)} unit="runs" accent={accent}
+                  onOpen={onOpenPlayer} sub={basesLine(r)} />
+              ))}
+          {isNarrow && bases.length > LIST_CAP && (
+            <ExpandRow flush expanded={allBases} moreLabel={`Show all ${bases.length}`}
+              onToggle={() => setAllBases(v => !v)} />
+          )}
+        </SectionCard>
+      )}
+      {/* Pitching has no bases board, so this takes its slot and the columns stay even. */}
+      {pitching && takeSwingBoard}
       </Box>
 
       {/* THE RIGHT COLUMN IS THE PRICES, measurements over the explanation, since a reader who
@@ -600,6 +672,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       )}
 
       {counts.length > 0 && <CountBoard counts={counts} fullCount={fullCount} accent={accent} />}
+
+      {!pitching && takeSwingBoard}
 
       {/* THE WHOLE EXPLANATION, IN ONE SHUT CARD, in the order the idea is actually built:
       a situation is worth something, a play is worth what it changed to it, and here is one
@@ -666,9 +740,9 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           </Step>
 
           {/* The small print, and it is the last thing on purpose. Only one line of it carries a
-          surprise: a steal moves the situation but nobody's total, because the feed names the
-          batter standing at the plate rather than the runner who ran, so the caught stealing
-          that ended an inning is priced to nobody. The rest are house rules a reader can
+          surprise: a steal row names the batter standing at the plate, so it is kept out of the
+          hitters' totals and credited to the runner the narrative names instead, on the bases
+          board (derive/baserunning.ts). The rest are house rules a reader can
           assume (a walk-off inning stops when the winning run scores rather than at three
           outs, so it cannot say what the inning went on to be worth; an inning short of its
           own line score is missing rows; the postseason is out of every season number on the
@@ -685,8 +759,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           }}>
             Measured from this league&rsquo;s own games and nowhere else: {table.pa.toLocaleString()}{' '}
             plate appearances across {table.games} games, each one scored forward to the end of
-            its inning. Steals and wild pitches move the situation but not a player&rsquo;s total,
-            because the feed names the batter rather than the runner. Walk-off innings, the
+            its inning. A steal counts toward the runner the play names, on the bases board and in
+            wins added, and not toward the batter at the plate; a wild pitch is nobody&rsquo;s. Walk-off innings, the
             postseason, and any inning the league&rsquo;s own line score says is missing runs are
             left out.
           </Typography>

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildWinProbModel, winProbability, gameWinProb, fmtWinPct, leadChanges, tiesFromBehind, wildestGames,
+  wpaLeaders,
 } from '../derive/winProbability'
 import type { RunValueGame } from '../derive/runExpectancy'
 import type { WpblRunValuePlay } from '../types'
@@ -313,5 +314,59 @@ describe('the wildest games', () => {
     const ranked = wildestGames(model, [...short.plays, ...wild.plays.map(p => ({ ...p, game_id: 'live' }))],
       [{ ...short.game, home_score: 4, away_score: 5 }, notFinal])
     expect(ranked).toEqual([])
+  })
+})
+
+describe('wins added', () => {
+  const { plays: seasonPlays, games: seasonGames } = synthetic(h => (h % 3 === 0 ? 2 : 0))
+  const model = buildWinProbModel(seasonPlays, seasonGames)
+  const players = [{ id: 'hb' }, { id: 'ab' }, { id: 'hp' }, { id: 'ap' }]
+
+  // Away batter "ab" against home pitcher "hp", home batter "hb" against away pitcher "ap".
+  // The home team wins it on a walk-off homer in the last of the seventh.
+  function walkOff(gameId = 'w') {
+    seq = 0
+    const away = { game_id: gameId, team_id: 'away', batter_id: 'ab', batter_name: 'Away Bat', pitcher_id: 'hp', pitcher_name: 'Home Arm' }
+    const home = { game_id: gameId, team_id: 'home', batter_id: 'hb', batter_name: 'Home Bat', pitcher_id: 'ap', pitcher_name: 'Away Arm' }
+    const plays = [
+      play({ ...away, inning: 1, half: 'top', outs: 0, event_type: 'single' }),
+      play({ ...away, inning: 1, half: 'top', outs: 0, first_base: 'Away Bat', event_type: 'strikeout' }),
+      play({ ...home, inning: 7, half: 'bottom', outs: 2, event_type: 'home_run', runs_scored: 0 }),
+    ]
+    const g = game({ id: gameId, home_score: 1, away_score: 0 })
+    return { plays, games: [g] }
+  }
+
+  it('credits the batter and charges the pitcher the same amount', () => {
+    const { plays, games } = walkOff()
+    const bat = wpaLeaders(model, plays, games, players, 'hitting')
+    const arm = wpaLeaders(model, plays, games, players, 'pitching')
+    const hb = bat.find(r => r.name === 'Home Bat')!
+    const ap = arm.find(r => r.name === 'Away Arm')!
+    expect(hb.wpa).toBeGreaterThan(0.3)
+    expect(ap.wpa).toBeCloseTo(-hb.wpa, 10)
+    // A pitcher's club is the one in the field, which the play does not name.
+    expect(ap.teamId).toBe('away')
+    expect(hb.teamId).toBe('home')
+  })
+
+  it('adds up to the game: home batters less away batters is the whole move to the result', () => {
+    const { plays, games } = walkOff()
+    const wp = gameWinProb(model, plays, games[0])
+    const bat = wpaLeaders(model, plays, games, players, 'hitting')
+    const home = bat.filter(r => r.teamId === 'home').reduce((s, r) => s + r.wpa, 0)
+    const away = bat.filter(r => r.teamId === 'away').reduce((s, r) => s + r.wpa, 0)
+    expect(home - away).toBeCloseTo(1 - wp.points[0].before, 10)
+  })
+
+  it('leaves out the postseason, unfinished games, and plays that are not a plate appearance', () => {
+    const a = walkOff('post'), b = walkOff('live'), c = walkOff('steal')
+    const steal = c.plays.map(p => ({ ...p, pitch_sequence: null }) as WpblRunValuePlay)
+    const rows = wpaLeaders(model, [...a.plays, ...b.plays, ...steal], [
+      { ...a.games[0], game_type: 'postseason' },
+      { ...b.games[0], status: 'live' },
+      c.games[0],
+    ], players, 'hitting')
+    expect(rows).toEqual([])
   })
 })

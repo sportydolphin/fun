@@ -96,9 +96,9 @@ the league is not reachable to fix them at source, so a nightly job checks the p
 against the rules of baseball and our own corrections are applied as a read-time overlay
 (`wpbl_play_corrections`), never written into the mirror.
 
-**What it does NOT have:** a season WPA leaderboard (the win model that would feed it is live;
-ranking games by how much they moved shipped Oct 11 as "The wildest games" on `/wpbl/season`), any credit for baserunning in a player's season value (the MVP race prices the
-plate and the mound and a steal is neither), and a reason to come back more than once a month
+**What it does NOT have:** baserunning or wins added on the player card (both are on Run value
+since Oct 11, and the MVP race deliberately still prices only the plate and the mound), and a
+reason to come back more than once a month
 between now and spring. Reading and the photo gallery are the only surfaces that still change in
 the offseason, and both change only when somebody else publishes.
 
@@ -224,7 +224,8 @@ item 2 describes, which is why that item comes first.
 
 **Nothing in progress (Oct 11, 2026).** The Oct 10 audit's ops items 1 to 5 have shipped. MLB's
 Hot Stove card shipped Oct 11 (ROADMAP.md), and so did the wildest games (item 2) and the Compare
-unfurl (item 6). Next here is the six season-series pages (item 3).
+unfurl (item 6), and wins added and baserunning on Run value (item 7). Next here is the same two
+numbers on the player card and Compare (item 8), then the six season-series pages (item 3).
 Call the Play has been moved to the end of the list. The crash triage (ops item 2) and the
 layout-shift fixes (ops item 3) wait for about a week of reports, around Oct 18.
 
@@ -276,19 +277,33 @@ reason to come back more than once a month until spring. So the order is by that
    pages' treatment through `src/lib/ogTags.ts`: both names, both headline lines, and a 1200x630
    image (two share cards side by side, or drawn by the same Python as the player cards). The
    pair is the thing people argue about, which is the thing people share.
-   *In progress, Oct 11:* the handler now rewrites the tags (`withCompareCard`, reading both
-   players' rows and lines in one parallel round), `wpblCompareCard` in `ogCard.ts` words them
-   (both names, each with club and a season headline by the player card's role rule, canonical
-   URL the alphabetical spelling), and `make-wpbl-share-cards.py` draws one 1200x630 card per club
-   pair, `/cards/compare-<a>-<b>.webp`, 16 in all, rather than one per player pair. Left: tests
-   green, the build, and a check under `wrangler pages dev`.
-7. **A season WPA leaderboard, and credit for baserunning** (added Oct 10, both from "What it does
+7. ✅ **A season WPA leaderboard, and credit for baserunning** (shipped Oct 11 as two cards on
+   Run value, "Most wins added" and "Best on the bases"; see the log). The player card and Compare are item 8; the MVP race stays as it is (see the log
+   for why). The original item:
+   **A season WPA leaderboard, and credit for baserunning** (added Oct 10, both from "What it does
    NOT have"). The win model is live and per play, so WPA per player is a sum over plays already
    held; it belongs on Run value beside RE24, where the reader will already be. Baserunning is the
    larger half: the MVP race prices the plate and the mound, and a steal or an extra base is
    neither. Start with stolen bases and caught stealing at run-expectancy values: the per-play run
    values that `stealEconomy` (in `src/league/runExpectancy.ts`, behind the steal card) sums for
    the league already price each attempt, so this is crediting them to the runner.
+8. **Wins added and baserunning on the player card and Compare** (decided Oct 11). Item 7 put both
+   numbers on Run value only; a reader looking at one player, or arguing about two, should meet
+   them there too. Neither surface reads the league play log today, which is what both numbers
+   are summed from (`wpaLeaders` in `derive/winProbability.ts`, `baserunningEvents` and
+   `runnerIds` in `derive/baserunning.ts`). Things to settle while building it:
+   - **The read.** `fetchWpblAllRunValuePlays` is cached for the session and already paid by Run
+     value, Home and the recap, but a cold player link would pay it for two numbers. Either take
+     it after the card has drawn (the card must not wait on it, and its box is reserved from the
+     first paint, per the loading rule), or add a per-player read. A player's own plays are not
+     enough for baserunning: a runner's extra bases are on OTHER batters' plays, and the
+     average-runner baseline needs the whole league.
+   - **Compare** takes `plays` already, for the head-to-head, but as `WpblMatchupPlay`, which
+     carries the narrative but not the bases, the outs or the sequence. Widen it to `WpblRunValuePlay` or pass the league log alongside.
+   - **Rank, not just the number,** the way the season line shows league ranks, from the same
+     leaderboard Run value draws, so the card and the board can never disagree.
+   - A pitcher's card gets wins added only; the bases are a hitting number.
+   - New reads mean `npm run sweep:record` and the new fixture in the same pull request.
 
 **Not this winter, on purpose.** "This day in the inaugural season" has nothing to replay from
 October to July, since every game was played Aug 1 to Sep 22: park it until August 2027. Rolling
@@ -786,7 +801,8 @@ in plate appearances (2.4 per team game, floor 6, so 36 PA at 15 games); it need
   on to win. `derive/winProbability.ts` computes this per play already and `excitement` is
   computed on every game and drawn nowhere (see "What it does NOT have"), so this is a read of
   something that exists rather than a new model.
-- **Baserunning.** 96 steals against 16 caught, 85.7%, and what that was worth against the
+- **Baserunning.** *The per-runner half is built (Oct 11, `derive/baserunning.ts`, on Run value); this
+  page can read it.* 96 steals against 16 caught, 85.7%, and what that was worth against the
   league's own run expectancy table. The MVP race explicitly prices the plate and not the bases,
   so this is also the season's answer to a gap that entry names.
 - **The mess: errors, balks, wild pitches, passed balls, hit batters.** 22 balks and 71 wild
@@ -897,8 +913,8 @@ many runs follow each base-out state, and keeping that as a histogram instead of
 the two distributions a win model needs. From there it is exact dynamic programming backwards
 from the last out, no simulation and no sampling noise.
 
-Still open on top of it: a season WPA leaderboard. Ranking games by how much they moved shipped
-Oct 11 as "The wildest games" on `/wpbl/season`.
+Built on it since: ranking games by how much they moved (Oct 11, "The wildest games" on
+`/wpbl/season`) and a season WPA leaderboard (Oct 11, "Most wins added" on Run value).
 
 ### 7. Incremental depth 🔬
 
@@ -1451,6 +1467,45 @@ is retired.
 ---
 
 ## Shipped log
+
+### Oct 11, 2026: wins added, and the runs on the bases, on Run value (v1.155.0)
+
+Winter order item 7. Two new cards in the left column of Run value, beside "Most runs created".
+
+- **Most wins added** (both sides). Win probability added per player, summed over finished
+  regular-season games: every plate appearance's swing in the win model, to the batter and
+  against the pitcher. Same plays as run value, priced by the score as well as the situation, so
+  the two lists part where a player did it when it mattered. `wpaLeaders` in
+  `derive/winProbability.ts`. A batter's and a pitcher's share of each plate appearance are equal
+  and opposite, and a game's batters add up to its whole move to the result, both pinned.
+- **Best on the bases** (hitting only). `derive/baserunning.ts`. A steal row names the batter at
+  the plate, which is why steals were credited to nobody; but the row carries the bases as runner
+  NAMES from before the play, and each runner gets a clause in the narrative ("X stole second",
+  "X advanced to third, out at home"), so the runner is read exactly, matched on a name that is
+  actually on a base. Steals, caught stealing and pickoffs are priced on the base-out states they
+  changed (a double steal split between the runners; a base the catcher threw away is not the
+  runner's). Extra bases on singles and doubles, and tag-ups on caught flies, are priced against
+  the league's AVERAGE runner in the same spot (play, base, outs). Against the safe base instead,
+  the half came to +49 runs with one runner thrown out, because scoring from second on a single is
+  what most runners here do; centred, every spot sums to zero. A runner's clause is followed up to
+  the first error, since the feed writes a runner thrown out stretching as "advanced to third, out
+  at home": stopping at the first step had turned seven of the season's eight into runners who held.
+  Names resolve through the batters of that club in that game, then the roster where a name is
+  unique (Diana Ibarra's two ids stay apart).
+- **Wins added credits steals to the runner** too, through the same name reading, with the whole
+  swing (error included, since wins added is what happened). A pitcher's wins added stays plate
+  appearances: the catcher is half of every steal and the row cannot tell the halves apart.
+- **What the season says.** The running game cost this league about 7 runs on the attempts
+  themselves (93 steals, 15 caught, 4 picked off), the break-even it ran under made concrete. The
+  steal card's +1.3 is the same attempts with the catcher's errors left in. Natsuki Yonetani leads
+  the bases board at +2.6 (10 of 15 extra bases), Denae Benites leads wins added at +1.51,
+  steals included.
+- **The MVP race is NOT changed,** on purpose: it defined the fan-awards shortlist, and that ballot
+  closed Sep 16. Adding baserunning now would reorder a decided vote. It belongs in the 2027 race.
+- Taking and swinging moved to the right column under the count table it is priced off, so the
+  two columns stay within a few hundred pixels at 1440; on pitching, which has no bases board, it
+  keeps the left column's third slot. Glossary: WPA and BsR, in the words the board uses.
+- Swept clean on both sides of the board and the glossary; 16 cases in `baserunning.test.ts`.
 
 ### Oct 10, 2026: Scores, newest first, with names on every final (v1.148.0)
 

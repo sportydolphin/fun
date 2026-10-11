@@ -4,6 +4,8 @@ import {
   type BaseCode, type ReTable, type RunValueGame,
 } from './runExpectancy.ts'
 import { REGULATION_INNINGS } from '../innings'
+import { countsInStandings } from '../../league/season.ts'
+import { stealRunners } from './baserunning.ts'
 import type { WpblGame, WpblRunValuePlay } from '../types'
 
 /**
@@ -405,6 +407,93 @@ export function wildestGames<G extends GameForWinProb & { id: string }>(
     })
   }
   return out.sort((a, b) => b.wp.excitement - a.wp.excitement)
+}
+
+// ─── Wins added, by player ────────────────────────────────────────────────────
+
+export interface WpaLine<P> {
+  player: P | null
+  name: string
+  /** The club they batted or pitched for in these games, off the play, never the roster row,
+   *  which describes today and would put a traded player's July with the club they joined. */
+  teamId: string | null
+  pa: number
+  /** Win probability added, summed: +1 is one win's worth of moving the game. */
+  wpa: number
+}
+
+/**
+ * Win probability added over the season, the run-value board's question asked in wins.
+ *
+ * WHY THIS IS NOT THE RUN-VALUE BOARD AGAIN. Run value prices a play by the situation; this
+ * prices it by the SCOREBOARD as well, so a two-run double in a 2-2 sixth counts for several
+ * times a two-run double at 12-1. Over a season the two orders mostly agree, and where they part
+ * is the player who did it when it mattered, which is the thing people argue about.
+ *
+ * THE SAME ACTORS AS `runValueLeaders` at the plate: a plate appearance belongs to its batter and
+ * its pitcher. A steal row carries the batter standing at the plate, so it goes to the runner
+ * its narrative names when the caller can resolve one (`runnerId`), and to nobody otherwise.
+ * A wild pitch or a passed ball is nobody's.
+ *
+ * FINALS ONLY, AND REGULAR SEASON ONLY. A live game's last play has no "after" yet, and the
+ * postseason is out of every season total on the section (CLAUDE.md). A final whose log stops
+ * short still counts: `gameWinProb` leaves its last play unpriced rather than snapping it to the
+ * result, so a missing inning loses its plays and invents none.
+ */
+export function wpaLeaders<P extends { id: string }>(
+  model: WinProbModel,
+  plays: WpblRunValuePlay[],
+  games: RunValueGame[],
+  players: P[],
+  side: 'hitting' | 'pitching',
+  /** Resolves a runner's name to an id (`runnerIds` in baserunning.ts). Pass it and a steal,
+   *  a caught stealing or a pickoff is credited to the runner it names, split on a double
+   *  steal; leave it out and those rows count for nobody, as they did before the runner could
+   *  be read. Hitting only: a pitcher's total stays plate appearances, since the catcher's arm
+   *  is half of every steal and this cannot tell the halves apart. */
+  runnerId?: (gameId: string, teamId: string, name: string) => string | null,
+): WpaLine<P>[] {
+  const byGame = new Map<string, WpblRunValuePlay[]>()
+  for (const p of plays) {
+    const arr = byGame.get(p.game_id)
+    if (arr) arr.push(p); else byGame.set(p.game_id, [p])
+  }
+  const byId = new Map(players.map(p => [p.id, p]))
+  const rows = new Map<string, WpaLine<P>>()
+  const credit = (id: string | null, name: string, teamId: string | null, wpa: number, pa: boolean) => {
+    const key = id ?? `name:${name.toLowerCase()}`
+    let row = rows.get(key)
+    if (!row) rows.set(key, row = { player: id ? byId.get(id) ?? null : null, name, teamId, pa: 0, wpa: 0 })
+    if (pa) row.pa++
+    row.wpa += wpa
+  }
+
+  for (const g of games) {
+    if (g.status !== 'final' || !countsInStandings(g)) continue
+    const gp = byGame.get(g.id)
+    if (!gp || gp.length === 0) continue
+    for (const pt of gameWinProb(model, gp, g).points) {
+      const p = pt.play
+      // `swing` is from the home side; turn it to the batting side's, then to the pitcher's.
+      const homeBatting = p.team_id === g.home_team_id
+      const forBatter = homeBatting ? pt.swing : -pt.swing
+      if (!p.pitch_sequence) {
+        // The whole swing, error and all, unlike the run value the bases board prices: wins
+        // added is what happened, and the throw that got away is part of what the steal did.
+        if (side === 'hitting' && runnerId && p.team_id) {
+          const names = stealRunners(p)
+          for (const name of names) credit(runnerId(g.id, p.team_id, name), name, p.team_id, forBatter / names.length, false)
+        }
+        continue
+      }
+      const id = side === 'hitting' ? p.batter_id : p.pitcher_id
+      const name = (side === 'hitting' ? p.batter_name : p.pitcher_name) ?? ''
+      if (!name) continue
+      const teamId = side === 'hitting' ? p.team_id : (homeBatting ? g.away_team_id : g.home_team_id)
+      credit(id, name, teamId, side === 'hitting' ? forBatter : -forBatter, true)
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.wpa - a.wpa)
 }
 
 /** "34%": the only rounding anyone should see. A win model that prints a decimal place is

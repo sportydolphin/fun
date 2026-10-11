@@ -19,10 +19,10 @@ import type { WpblGame, WpblPlayer } from '../types'
  * WHAT IT IS NOT. There is no replacement level, no positional adjustment and no fielding in
  * here, so this is not WAR and must never be labelled as such. It is runs added at the plate
  * plus runs saved on the mound, which is a narrower and more literal claim, and the card says
- * so in as many words. Baserunning is out too, and not by choice: a stolen base is a play row
- * with no pitch sequence, so it belongs to no plate appearance and is credited to nobody here.
- * In a league that has attempted 94 steals at a break-even it does not clear, that is a real
- * omission rather than a rounding one.
+ * so in as many words. Baserunning is out too. It was out by necessity until Oct 11, 2026, when
+ * the runner could first be read off the play (derive/baserunning.ts), and it stays out by
+ * choice: this race defined the fan-awards shortlist, that ballot closed on Sep 16, and adding
+ * the bases now would reorder a decided vote. It belongs in the 2027 race.
  *
  * A COUNTING STAT, DELIBERATELY. It rewards playing time, which is what an MVP case is
  * partly made of, and it means no rate qualifier is needed: a cameo cannot accumulate runs it
