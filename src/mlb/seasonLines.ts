@@ -90,9 +90,12 @@ export function adaptSeasonLines(row: {
   return { season: row.season, games, batting, pitching, players, syncedAt: row.synced_at ?? null }
 }
 
-/** The first season the mirror holds: the job began with 2026's, read back in full. An earlier one
- *  can be added with `node scripts/sync-mlb-lines.mjs --season <year> --all`, and lowering this. */
-export const MLB_LINES_FIRST_SEASON = 2026
+/** The first season the mirror holds. 2026 was read first, then 2000 to 2025 (Oct 10, 2026: every
+ *  game but 35 of 2000's, whose StatsAPI box scores list nobody). Stopped at 2000 because pitch
+ *  counts thin out before the late 1980s and the Pitches thrown board would print zeros as records;
+ *  an earlier season needs that board to stand aside first. Add one with
+ *  `node scripts/sync-mlb-lines.mjs --season <year>`, then lower this. */
+export const MLB_LINES_FIRST_SEASON = 2000
 /** Every season a board may ask the mirror for, oldest first. */
 export const MLB_LINES_SEASONS: readonly number[] = Array.from(
   { length: Math.max(1, CURRENT_SEASON - MLB_LINES_FIRST_SEASON + 1) }, (_, i) => MLB_LINES_FIRST_SEASON + i)
