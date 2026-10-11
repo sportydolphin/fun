@@ -325,7 +325,12 @@ will actually see all winter. The functional items do not wait.
       `venue`). **One change the engine needed at this size**: a tie at the cut is two rows in WPBL
       and sixty in MLB (every three-homer game), so `bestGames` takes a `cap` and counts the rows
       past it (`more`, printed as "And 14 more with 3 HR") instead of dropping them; WPBL passes
-      none. Seasons before 2026 are not mirrored and say so; adding one is a `--season` backfill.
+      none. *Oct 10:* 2000 to 2025 backfilled as well (65,026 games, 1.37M batting and 524k
+      pitching lines, 197 MB in all; a season still reads in about 420 ms), so the boards offer every
+      season from 2000. 35 of 2000's listed finals have StatsAPI box scores with nobody in them and
+      are not stored. Before 2000 waits on two things: the Pitches thrown board standing aside for
+      seasons without pitch counts (mostly missing before the late 1980s), and a duplicate check on
+      the old schedules (1920 lists more finals than its clubs could have played).
    4. *Plays and pitches in the mirror,* then Pitch by pitch and Run value. MLB's run-expectancy
       table built from our own plays is a free check against published RE24. *Gated Oct 10* on
       database headroom: see the audit's ops item 4 in ROADMAP-WPBL.md.
