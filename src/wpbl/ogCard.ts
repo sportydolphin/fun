@@ -105,6 +105,76 @@ function describeSeason(
 }
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
+
+// ─── Compare cards ─────────────────────────────────────────────────────────────
+//
+// The same job for /wpbl/compare/<a>-vs-<b>. Compare was the fifth most-visited page in the
+// section over the two weeks to Oct 10, 2026, and a shared pair unfurled as the site's generic
+// card, which says nothing about either player. A pair is the thing people argue about, so the
+// card names both and gives each one line, by the same role rule as the player card.
+
+export interface WpblCompareSide {
+  player: WpblCardPlayer
+  /** Short club name, "San Francisco": two full names do not fit one description. */
+  team: string | null
+  /** The club's id ("SF"), for the pair art. Today's club, as the player card's is. */
+  teamId: string | null
+  batting: WpblCardBatting[]
+  pitching: WpblCardPitching[]
+}
+
+export interface WpblCompareCard {
+  title: string; ogTitle: string; description: string
+  /** /cards/compare-<a>-<b>.webp, the club-pair art in the link's order, or null when either
+   *  player has no club. Drawn by scripts/make-wpbl-share-cards.py under the same name. */
+  cardPath: string | null
+}
+
+/** The pair art's path. Lowercased club ids, first player's club first, matching the script. */
+export function compareCardPath(a: string | null, b: string | null): string | null {
+  const ok = (id: string | null): id is string => !!id && /^[A-Za-z]+$/.test(id)
+  return ok(a) && ok(b) ? `/cards/compare-${a.toLowerCase()}-${b.toLowerCase()}.webp` : null
+}
+
+/** One player's season in a phrase: ".312/.400/.500, 4 HR" or "3-1, 2.10 ERA, 40 K". Null for a
+ *  player with no regular-season line yet, who is then named without numbers. */
+export function seasonHeadline(
+  player: WpblCardPlayer,
+  batting: WpblCardBatting[],
+  pitching: WpblCardPitching[],
+  games: WpblSeasonGame[],
+): string | null {
+  const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
+  const bt = sumBatting(batted as WpblBattingLine[], games)
+  const pt = sumPitching(pitching as WpblPitchingLine[], games)
+  const hasBatting = plateAppearances(bt) > 0
+  const hasPitching = pt.outs > 0 || pt.bf > 0
+  if (leadsWithPitching({
+    position: player.position, hasBatting, hasPitching,
+    gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
+  })) {
+    const record = pt.w || pt.l ? `${pt.w}-${pt.l}, ` : ''
+    return `${record}${fmtTwo(pt.era)} ERA, ${pt.so} K`
+  }
+  if (!hasBatting) return null
+  const slash = `${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}`
+  return bt.hr ? `${slash}, ${bt.hr} HR` : slash
+}
+
+export function wpblCompareCard(a: WpblCompareSide, b: WpblCompareSide, games: WpblSeasonGame[]): WpblCompareCard {
+  const side = (s: WpblCompareSide) => {
+    const line = seasonHeadline(s.player, s.batting, s.pitching, games)
+    const who = s.team ? `${s.player.name} (${s.team})` : s.player.name
+    return line ? `${who}: ${line}` : who
+  }
+  return {
+    // The page's own title (Compare.tsx), so a search result and an unfurl agree.
+    title: `${a.player.name} vs ${b.player.name}: 2026 WPBL stats compared | sportydolphin.fun`,
+    ogTitle: `${a.player.name} vs ${b.player.name}`,
+    description: `${side(a)}. ${side(b)}. Their 2026 seasons side by side.`,
+    cardPath: compareCardPath(a.teamId, b.teamId),
+  }
+}
 // Innings pitched read as outs: 16 outs = "5.1". The same arithmetic as `outsToIp` in
 // innings.ts, kept local. constants.ts is the module the Pages function must never import:
 // it pulls in the team logos through import.meta.glob, which only Vite understands.

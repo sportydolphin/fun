@@ -5,8 +5,9 @@ make-brand-icons.py. Run it when the roster changes, when someone changes club, 
 when the art changes, then commit whatever it rewrites.
 
     pip install Pillow fonttools brotli
-    python scripts/make-wpbl-share-cards.py            # every player
+    python scripts/make-wpbl-share-cards.py            # every player, and the pair art
     python scripts/make-wpbl-share-cards.py jamie-mackay   # one, while designing
+    python scripts/make-wpbl-share-cards.py pairs      # only the compare art
 
 WHY THIS EXISTS. og:image used to be the bundled headshot, which is 512x512, and
 functions/wpbl/index.ts asked for it to be shown as a small square thumbnail by setting
@@ -315,6 +316,98 @@ def card(player: dict, team: dict, face, out_path: Path) -> None:
     im.resize((W, H), Image.LANCZOS).save(out_path, "WEBP", quality=88, method=6)
 
 
+# ─── Compare art ────────────────────────────────────────────────────────────
+#
+# The image behind a shared /wpbl/compare/<a>-vs-<b> link. A card per PAIR OF PLAYERS is out of
+# reach: composing two faces per request needs image work at the edge, which the zone does not
+# have (Cloudflare's transforms are off) and which a free Worker's CPU budget would not cover, and
+# drawing every pair ahead of time is 6,903 files. So the art is per pair of CLUBS, 16 of them in
+# the link's order (left is the first player's club), and the names and numbers are the card's
+# text, rewritten at the edge. Named `compare-<a>-<b>.webp` with the lowercased club ids, which is
+# what compareCardPath in src/wpbl/ogCard.ts asks for; the two must agree or the image 404s.
+
+
+def logo_tile(team: dict, size: int) -> Image.Image:
+    """The club mark on a rounded tile of the club's own colour, ringed in its secondary.
+
+    The club colour, not white, because two of the four marks (New York, San Francisco) are
+    white knockouts drawn for a dark ground and vanish on white; it is the ground the site puts
+    them on too. The ring is what lifts the tile off a plate of the same colour. Boston's mark is
+    a finished lockup with its own background (`logoFill`), so it fills the tile.
+    """
+    ring = round(5 * SS)
+    tile = Image.new("RGBA", (size, size), rgb(team["secondary"]) + (255,))
+    inner_bg = Image.new("RGBA", (size - 2 * ring, size - 2 * ring), rgb(team["color"]) + (255,))
+    inner_mask = Image.new("L", inner_bg.size, 0)
+    ImageDraw.Draw(inner_mask).rounded_rectangle(
+        [0, 0, inner_bg.size[0] - 1, inner_bg.size[1] - 1], radius=(TILE_RADIUS - 5) * SS, fill=255)
+    tile.paste(inner_bg, (ring, ring), inner_mask)
+    logo_path = LOGOS / team["logo_file"]
+    if team["logo_file"] and logo_path.exists():
+        logo = Image.open(logo_path).convert("RGBA")
+        inner = size - 2 * ring if team["logo_fill"] else round(size * 0.74)
+        logo = logo.resize((inner, inner), Image.LANCZOS)
+        off = (size - inner) // 2
+        if team["logo_fill"]:
+            lm = Image.new("L", (inner, inner), 0)
+            ImageDraw.Draw(lm).rounded_rectangle([0, 0, inner - 1, inner - 1], radius=(TILE_RADIUS - 5) * SS, fill=255)
+            logo.putalpha(lm)
+        tile.alpha_composite(logo, (off, off))
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=TILE_RADIUS * SS, fill=255)
+    tile.putalpha(mask)
+    return tile
+
+
+def pair_card(left: dict, right: dict, face, out_path: Path) -> None:
+    im = plate(rgb(left["color"]), rgb(left["secondary"]))
+    other = plate(rgb(right["color"]), rgb(right["secondary"]))
+    # A slanted seam rather than a straight one, so the two plates read as facing each other.
+    seam = Image.new("L", im.size, 0)
+    lean = 60 * SS
+    ImageDraw.Draw(seam).polygon(
+        [(W * SS // 2 + lean, 0), (W * SS, 0), (W * SS, H * SS), (W * SS // 2 - lean, H * SS)], fill=255)
+    im.paste(other, (0, 0), seam)
+
+    draw = ImageDraw.Draw(im)
+    size = round(250 * SS)
+    name_face = face(32, 650)
+    top = round(118 * SS)
+    for i, team in enumerate((left, right)):
+        cx = round((W / 4 + i * W / 2) * SS)
+        tile = logo_tile(team, size)
+        im.paste(tile, (cx - size // 2, top), tile)
+        label = team["full"]
+        draw.text((cx - name_face.getlength(label) / 2, top + size + round(34 * SS)), label,
+                  font=name_face, fill=(255, 255, 255))
+
+    # "vs" on the seam, in a white disc so it reads on any two plates.
+    r = round(52 * SS)
+    cx, cy = W * SS // 2, top + size // 2
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 255, 255))
+    vs_face = face(40, 800)
+    draw.text((cx - vs_face.getlength("vs") / 2, cy - vs_face.size * 0.62), "vs", font=vs_face, fill=(20, 22, 30))
+
+    footer_face = face(26, 500)
+    footer = "Compare players · sportydolphin.fun"
+    draw.text(((W * SS - footer_face.getlength(footer)) / 2, H * SS - PAD * SS - footer_face.size),
+              footer, font=footer_face, fill=(235, 238, 245))
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    im.resize((W, H), Image.LANCZOS).save(out_path, "WEBP", quality=88, method=6)
+
+
+def pairs(teams: dict, face) -> int:
+    made = 0
+    for a, left in teams.items():
+        for b, right in teams.items():
+            pair_card({**left, "full": f"{left['city']} {left['name']}"},
+                      {**right, "full": f"{right['city']} {right['name']}"},
+                      face, OUT / f"compare-{a.lower()}-{b.lower()}.webp")
+            made += 1
+    return made
+
+
 # ─── Run ────────────────────────────────────────────────────────────────────
 
 
@@ -322,6 +415,11 @@ def main() -> None:
     only = {a for a in sys.argv[1:]}
     teams = team_meta()
     face = font_faces()
+
+    if not only or "pairs" in only:
+        print(f"wrote {pairs(teams, face)} compare cards to {OUT.relative_to(ROOT)}")
+    if only == {"pairs"}:
+        return
 
     rows = supabase("wpbl_players?select=name,position,team_id")
     # A player's club here is "now", which is the right answer for art regenerated when

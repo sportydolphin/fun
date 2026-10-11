@@ -223,8 +223,8 @@ item 2 describes, which is why that item comes first.
 ## Next: in priority order
 
 **Nothing in progress (Oct 11, 2026).** The Oct 10 audit's ops items 1 to 5 have shipped. MLB's
-Hot Stove card shipped Oct 11 (ROADMAP.md), and so did the wildest games (item 2 below). Next here
-is a Compare pair that unfurls as itself (item 6).
+Hot Stove card shipped Oct 11 (ROADMAP.md), and so did the wildest games (item 2) and the Compare
+unfurl (item 6). Next here is the six season-series pages (item 3).
 Call the Play has been moved to the end of the list. The crash triage (ops item 2) and the
 layout-shift fixes (ops item 3) wait for about a week of reports, around Oct 18.
 
@@ -260,7 +260,15 @@ reason to come back more than once a month until spring. So the order is by that
    standing in for one. Do not rebuild it.*
 5. ~~**Fielding columns in the Stats tab** (#7).~~ ✅ *Shipped Oct 9 as a Fielding board (v1.130.0,
    see the log).*
-6. **A Compare pair that unfurls as itself** (added Oct 10). Compare is the fifth most-visited
+6. ✅ **A Compare pair that unfurls as itself** (shipped Oct 11). A shared pair now carries both
+   names, a season line for each by the player card's role rule (`wpblCompareCard` in
+   `ogCard.ts`), the alphabetical canonical as og:url, and club-pair art. The art is per pair of
+   CLUBS, not players: composing two faces per request needs image work the edge cannot do (the
+   zone's Cloudflare transforms are off, and a free Worker's CPU budget would not cover it), and
+   drawing all 6,903 player pairs ahead of time is about 250 MB. So 16 files,
+   `cards/compare-<a>-<b>.webp` in the link's order, drawn by `make-wpbl-share-cards.py pairs`.
+   Faces per pair would need either of those two things. The original item:
+   **A Compare pair that unfurls as itself** (added Oct 10). Compare is the fifth most-visited
    page in the section over the two weeks to Oct 10 (76 sessions, ahead of Teams, Schedule and the
    season recap) and has had no work since it shipped. A shared `/wpbl/compare/<a>-vs-<b>` link
    unfurls as the generic site card: [`functions/wpbl/index.ts`](functions/wpbl/index.ts) resolves
@@ -268,6 +276,12 @@ reason to come back more than once a month until spring. So the order is by that
    pages' treatment through `src/lib/ogTags.ts`: both names, both headline lines, and a 1200x630
    image (two share cards side by side, or drawn by the same Python as the player cards). The
    pair is the thing people argue about, which is the thing people share.
+   *In progress, Oct 11:* the handler now rewrites the tags (`withCompareCard`, reading both
+   players' rows and lines in one parallel round), `wpblCompareCard` in `ogCard.ts` words them
+   (both names, each with club and a season headline by the player card's role rule, canonical
+   URL the alphabetical spelling), and `make-wpbl-share-cards.py` draws one 1200x630 card per club
+   pair, `/cards/compare-<a>-<b>.webp`, 16 in all, rather than one per player pair. Left: tests
+   green, the build, and a check under `wrangler pages dev`.
 7. **A season WPA leaderboard, and credit for baserunning** (added Oct 10, both from "What it does
    NOT have"). The win model is live and per play, so WPA per player is a sum over plays already
    held; it belongs on Run value beside RE24, where the reader will already be. Baserunning is the
