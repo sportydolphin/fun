@@ -4,6 +4,200 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.155.0',
+    date:    '2026-10-11',
+    changes: [
+      {
+        short: 'WPBL: who added the most wins',
+        full:  "Run value has a new board, Most wins added: how much each player's trips to the plate moved their team's chance of winning, added up over the season, for hitters and for pitchers. It counts the score as well as the situation, so a hit in a tie game is worth more than the same hit in a rout.",
+      },
+      {
+        short: 'WPBL: the best baserunners',
+        full:  "Run value also has Best on the bases: the runs each player gained or cost with steals, caught stealing and pickoffs, and by taking the extra base on a hit or tagging up on a fly ball, measured against the league's average runner in the same spot. Steals now count toward the runner in wins added too, where before they counted toward nobody.",
+      },
+      {
+        short: 'WPBL: two new glossary terms',
+        full:  'The glossary explains WPA (win probability added) and BsR (baserunning runs), in the same words the Run value board uses.',
+      },
+    ],
+  },
+  {
+    version: '1.154.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'WPBL: the wildest games of 2026',
+        full:  "The season recap has a new section: the six games whose win probability swung the most, each with its score, lead changes, ties and extra innings, and a link into Game Center.",
+      },
+      {
+        short: 'WPBL: shared Compare links show the pair',
+        full:  "A shared link to a WPBL comparison now previews as the two players, with each one's club and season line and a card in the two clubs' colours, instead of the site's general card.",
+      },
+      {
+        short: 'MLB: the Hot Stove for the winter',
+        full:  "From the end of the World Series to opening day, Roster Moves on MLB Home becomes the Hot Stove: it covers 30 days instead of 14, adds free-agent declarations and Rule 5 picks, and leaves out minor-league signings.",
+      },
+    ],
+  },
+  {
+    version: '1.153.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'MLB: the whole bracket on a desktop',
+        full:  'On a wide screen the MLB postseason bracket now shows every round at once, AL above NL, with lines joining each series to the next, so you can see who a winner plays next. Phones keep one round at a time.',
+      },
+      {
+        short: 'MLB: Bests and Find back to 2000',
+        full:  'The MLB Bests and Find boards now cover every season from 2000, not only this one.',
+      },
+    ],
+  },
+  {
+    version: '1.152.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'MLB: Bests and Find',
+        full:  "MLB Stats gets WPBL's Bests and Find boards: the season's best single-game lines, and a search across every box score by club, opponent and park, for the regular season, the playoffs or both.",
+      },
+    ],
+  },
+  {
+    version: '1.150.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'MLB: Teams and Fielding boards',
+        full:  'MLB Stats has two new boards, Teams and Fielding, laid out like WPBL’s. A club page links to its own team batting, team pitching and fielders, and each position on a player page links to that position’s board.',
+      },
+    ],
+  },
+  {
+    version: '1.149.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'Scores: dates you can find',
+        full:  'On Scores the date is now the easiest thing to spot on each card. The winning, losing and saving pitchers always fit on one line: when the names are long, all three shorten to an initial and a surname together.',
+      },
+    ],
+  },
+  {
+    version: '1.148.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'WPBL Scores, newest first',
+        full:  'WPBL Scores lists game days only, newest first, so the offseason page opens on the final instead of a run of empty days. Every final names its star and its pitchers of record, and on a wider screen the games sit in a grid.',
+      },
+    ],
+  },
+  {
+    version: '1.147.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'A lighter first load',
+        full:  'The site downloads less before it can draw its first page, which is most noticeable on a phone on a slow connection.',
+      },
+    ],
+  },
+  {
+    version: '1.146.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'One Game Center for both leagues',
+        full:  "MLB's Game Center now draws its box score and play-by-play the way WPBL's does: centred columns, totals under the club's colour, and each play ending in the bases and outs it left.",
+      },
+      {
+        short: 'MLB: OPS+ and ERA+ adjust for the park',
+        full:  "OPS+ and ERA+ on MLB's Players table now allow for the park a player calls home, from three seasons of home and road scoring, so a hitter at Coors Field and one in Seattle are measured on the same footing.",
+      },
+    ],
+  },
+  {
+    version: '1.145.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'Faster pages',
+        full:  'Most of the data behind the site now comes from a cache close to you, so pages fill in sooner, especially Stats.',
+      },
+    ],
+  },
+  {
+    version: '1.144.0',
+    date:    '2026-10-10',
+    changes: [
+      {
+        short: 'One stats table for both leagues',
+        full:  "MLB and WPBL Stats now share one table: the same columns in the same order, a league-average row under the headings, and an Advanced view on both. On a phone the table fits between the controls and the bottom bar and scrolls cleanly in either direction.",
+      },
+    ],
+  },
+  {
+    version: '1.143.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'Both Stats tabs line up',
+        full:  'The MLB and WPBL Stats tabs now share the same widths and spacing at every screen size, so switching leagues no longer moves the page.',
+      },
+    ],
+  },
+  {
+    version: '1.142.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'One leader card for both leagues',
+        full:  'Leaders cards look the same in MLB and WPBL: five names each, plain ranks with ties shown as "T-2", and the player you hover lit up on every card at once.',
+      },
+    ],
+  },
+  {
+    version: '1.141.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'WPBL Stats opens on Leaders',
+        full:  "WPBL Stats now opens on Leaders, the top five in each stat, with the full Players table beside it. MLB's Table is called Players to match.",
+      },
+    ],
+  },
+  {
+    version: '1.140.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'The league switch keeps your page',
+        full:  'Switching between MLB and WPBL from the toolbar now lands on the same page in the other league, Standings to Standings and Stats to Stats, instead of going back to Home.',
+      },
+    ],
+  },
+  {
+    version: '1.139.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'MLB: tabs and filters like WPBL',
+        full:  "MLB's Stats boards and Standings views now use WPBL's pattern: tabs along the top for pages, a switch for a choice on the page, and chips for filters.",
+      },
+    ],
+  },
+  {
+    version: '1.138.0',
+    date:    '2026-10-09',
+    changes: [
+      {
+        short: 'MLB: a title on every tab',
+        full:  'Every MLB tab now opens with its name, "MLB Standings", "MLB Scores" and so on, in the same style as WPBL.',
+      },
+    ],
+  },
+  {
     version: '1.137.0',
     date:    '2026-10-09',
     changes: [

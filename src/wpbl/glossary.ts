@@ -84,6 +84,8 @@ export const STAT_TERMS: Record<string, GlossaryTerm> = {
   'SB%': { full: 'Stolen base success rate', plain: 'Steals divided by attempts. A caught stealing costs more than a steal gains, so a low rate can mean the running is hurting the team.' },
   IBB: { full: 'Intentional walks' },
   XBH: { full: 'Extra-base hits', plain: 'Doubles, triples and home runs together.' },
+  WPA: { full: 'Win probability added', plain: 'How much a player moved their team’s chance of winning, added up over the season: +1.00 is one whole win. The Run value board calls it wins added. Unlike run value it counts the score, so a hit in a tie game is worth more than the same hit in a rout.' },
+  BsR: { full: 'Baserunning runs', plain: 'Runs a player gained or cost on the bases: steals, caught stealing and pickoffs priced on the situation they changed, plus extra bases taken on hits and tag-ups, measured against the league’s average runner in the same spot. Zero is an average runner.' },
   FIP: { full: 'Fielding independent pitching', plain: 'An ERA rebuilt from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches, each weighted by what it is worth in this league. Scaled so the league average matches league ERA; a FIP well below a pitcher’s ERA suggests bad luck or poor defence behind them.' },
 }
 
