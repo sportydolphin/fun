@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { SectionCard, CardLink, TextGhost, TYPE_SCALE } from '../../ui/card'
 import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
+import { cardMoves, moveWindowDays } from '../lib/rosterMoves'
 import { CURRENT_SEASON, TEAM_ABBR, TONE } from '../constants'
 import { useIsDark, ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
@@ -17,6 +18,10 @@ import { playerLink, rowClick, LINK_SX } from '../lib/links'
 // Home "Around the League" card showing the last two weeks of notable roster
 // moves (fetchRosterMoves filters the churn), with a trade-deadline countdown
 // through July. "View All →" opens the full list grouped by day.
+//
+// From the end of the World Series to opening day it is the HOT STOVE: the same card and list over
+// a longer window, adding the free-agent class and Rule 5 picks (lib/rosterMoves.ts), because in
+// the winter the transactions are the only MLB news there is and nothing else on Home changes.
 
 export const MOVE_STYLE: Record<string, { label: string; color: string }> = {
   TR:  { label: 'Trade',     color: '#f97316' },
@@ -25,6 +30,9 @@ export const MOVE_STYLE: Record<string, { label: string; color: string }> = {
   REL: { label: 'Released',  color: '#94a3b8' },
   SFA: { label: 'Signed',    color: '#22c55e' },
   SU:  { label: 'Suspended', color: '#ef4444' },
+  // Winter only. `DFA` on the wire is a player declaring free agency, not a designation (`DES`).
+  DFA: { label: 'Free agent', color: '#38bdf8' },
+  R5:  { label: 'Rule 5',     color: '#a78bfa' },
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -283,10 +291,11 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
 
 // ─── Fullscreen modal: every move in the window, grouped by day ──────────────
 
-function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick, onTeamClick }: {
+function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPlayerClick, onTeamClick }: {
   open: boolean
   onClose: () => void
   moves: RosterMove[]
+  hotStove: boolean
   followedTeamId?: number | null
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
@@ -298,6 +307,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
 
   if (!open) return null
+  const days = moveWindowDays(hotStove)
 
   // Cross-links leave Home, which unmounts this modal, so stamp the overlay so
   // the Back button can reopen it.
@@ -334,9 +344,9 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
   })
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet sheetFill eyebrow="🔄 Roster moves">
+    <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet sheetFill eyebrow={hotStove ? '🔄 Hot stove' : '🔄 Roster moves'}>
         <Typography sx={{ px: 2, pt: 1.25, pb: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.secondary', flexShrink: 0 }}>
-          Trades, DFAs, claims and signings · last 14 days
+          {hotStove ? 'Signings, trades, free agents and claims' : 'Trades, DFAs, claims and signings'} · last {days} days
         </Typography>
 
         {/* Team filter: every club in the window; tap to isolate, tap again to clear. Pinned while
@@ -417,8 +427,8 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
           {shown.length === 0 && (
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', py: 4 }}>
               {filterTeam != null
-                ? `No moves for the ${TEAM_ABBR[filterTeam] ?? ''} in the last two weeks.`
-                : 'No notable moves in the last two weeks.'}
+                ? `No moves for the ${TEAM_ABBR[filterTeam] ?? ''} in the last ${days} days.`
+                : `No notable moves in the last ${days} days.`}
             </Typography>
           )}
         </Box>
@@ -428,7 +438,14 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: {
+// The months the card can be the Hot Stove, for its title while the season phase is still being
+// read (a first visit only; after that it is remembered). The title is the one thing drawn before
+// the phase is known, so it should be the likely one.
+const winterMonth = () => [10, 11, 0, 1, 2].includes(new Date().getMonth())
+
+export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTeamClick }: {
+  /** Winter mode, from the season phase; null while the phase is read, and nothing is fetched. */
+  hotStove: boolean | null
   followedTeamId?: number | null
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
@@ -437,8 +454,13 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
   const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
-    fetchRosterMoves().then(setMoves).catch(() => setMoves([]))
-  }, [])
+    if (hotStove == null) return
+    let live = true
+    setMoves(null)
+    fetchRosterMoves(hotStove).then(m => { if (live) setMoves(m) }).catch(() => { if (live) setMoves([]) })
+    return () => { live = false }
+  }, [hotStove])
+  const winter = hotStove ?? winterMonth()
 
   // Back-from-Search restore: reopen the full list the user cross-linked from.
   useEffect(() => {
@@ -447,16 +469,16 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
   // The More sheet's Roster moves row.
   useDeepLink('rosterMoves', () => setShowAll(true))
 
-  const deadline = deadlineInfo()
+  const deadline = winter ? null : deadlineInfo()
   // Group trades first, then take the top units, so a two-player swap counts as one
   // entry and never gets split across the card's cutoff.
-  const top = groupUnits(moves ?? []).slice(0, 4)
+  const top = groupUnits(cardMoves(moves ?? [], winter, followedTeamId)).slice(0, 4)
 
   return (
     <SectionCard
       icon="🔄"
-      title="Roster Moves"
-      subtitle="Trades, DFAs, claims and signings"
+      title={winter ? 'Hot Stove' : 'Roster Moves'}
+      subtitle={winter ? 'Signings, trades and free agents' : 'Trades, DFAs, claims and signings'}
       titleAdornment={deadline ? (
         <Box sx={{
           px: 0.75, py: chromePx(2), borderRadius: 999, flexShrink: 0,
@@ -492,6 +514,7 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
         open={showAll}
         onClose={() => { setShowAll(false); clearOverlayIf('rosterMoves') }}
         moves={moves ?? []}
+        hotStove={winter}
         followedTeamId={followedTeamId}
         onPlayerClick={onPlayerClick}
         onTeamClick={onTeamClick}
