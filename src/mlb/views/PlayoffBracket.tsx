@@ -7,7 +7,7 @@ import { useIsDark, borderAlpha } from '../lib/colorUtils'
 import { hoverOnly, linkPress, FOCUS_RING } from '../../ui/interaction'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { fetchBracket, seededBracket, bracketLikely, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
-import type { Bracket, PsSeries, PsTeam, Round } from '../postseason'
+import type { Bracket, PsSeries, PsTeam, Round, SeriesId } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
 import { SCORES_HEADER_H, STRIP_PY } from './FinalGames'
 import { PillGroup } from '../../ui/PillGroup'
@@ -203,19 +203,84 @@ const labelBoxSx = (compact: boolean) => compact
   : {}
 
 export function BracketSkeleton({ compact }: { compact: boolean }) {
+  const card = <Skeleton variant="rounded" sx={{ height: SERIES_CARD_H[compact ? 'compact' : 'full'], borderRadius: 2.5 }} />
   return (
     <Box aria-hidden>
       <Box sx={{ display: 'flex', ...headerSx(compact) }}>
         <Box sx={labelBoxSx(compact)}><Skeleton variant="text" sx={{ width: '7.5rem', fontSize: TYPE_SCALE.meta }} /></Box>
         {/* The real round pills, none chosen yet: a pill-shaped bar of hand-picked size was 3px short of them. */}
-        <Box sx={{ ml: 'auto' }}>
+        <Box sx={{ ml: 'auto', ...(compact ? {} : ROUNDS_ONLY) }}>
           <PillGroup options={ROUNDS.map(r => ({ value: r.key, label: r.short }))} value="" onChange={() => {}} />
         </Box>
       </Box>
-      {/* The round's name, which the full card carries under its header. */}
-      {!compact && <Typography sx={{ fontSize: TYPE_SCALE.meta, mb: 1 }}><Skeleton width="6rem" /></Typography>}
-      <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(4, compact), gap: 1 }}>
-        {[0, 1, 2, 3].map(i => <Skeleton key={i} variant="rounded" sx={{ height: SERIES_CARD_H[compact ? 'compact' : 'full'], borderRadius: 2.5 }} />)}
+      <Box sx={compact ? {} : ROUNDS_ONLY}>
+        {/* The round's name, which the full card carries under its header. */}
+        {!compact && <Typography sx={{ fontSize: TYPE_SCALE.meta, mb: 1 }}><Skeleton width="6rem" /></Typography>}
+        <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(4, compact), gap: 1 }}>
+          {[0, 1, 2, 3].map(i => <React.Fragment key={i}>{card}</React.Fragment>)}
+        </Box>
+      </Box>
+      {/* The round names need no data, so the tree's skeleton draws the real ones. */}
+      {!compact && <BracketTree cell={() => card} />}
+    </Box>
+  )
+}
+
+// ─── The whole bracket at once, on a desktop ──────────────────────────────────
+//
+// A round at a time is what fits a phone, but on a wide screen it hid the one thing a bracket is
+// for: who a winner plays next. From `lg` the full card draws every round as a tree instead, AL
+// above NL, left to right into the World Series, at the four-column card width the round view
+// already uses there. The swap is CSS only (ROUNDS_ONLY / TREE_ONLY), so the first paint is
+// already the right layout and the skeleton can draw the same one. Home's compact card keeps its
+// rounds: it shares a row with other cards.
+
+const ROUNDS_ONLY = { display: { xs: 'block', lg: 'none' } } as const
+const TREE_ONLY = { display: { xs: 'none', lg: 'block' } } as const
+
+/** Each row pairs a Wild Card series with the Division Series its winner goes on to: the 1 seed
+ *  meets the 4-5 winner and the 2 seed the 3-6 winner. Pinned by the series ids, as SHAPE is. */
+const TREE_ROWS: [SeriesId, SeriesId][] = [['F_2', 'D_1'], ['F_1', 'D_2'], ['F_4', 'D_3'], ['F_3', 'D_4']]
+const TREE_COLS = `minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr)`
+const ROW_GAP = chromePx(10)
+const LINE = { position: 'absolute', borderColor: 'divider', borderStyle: 'solid', borderWidth: 0 } as const
+
+/** Two cards joining into one, as an elbow from the middle of each to the middle of the next.
+ *  The rows are equal (gridAutoRows 1fr), so for both joins, the Division Series pair over two
+ *  rows and the League Championship pair over four, the two middles sit (span - gap) / 4 in from
+ *  either end of the span. */
+const Join = ({ column, rows }: { column: number; rows: string }) => (
+  <Box sx={{ position: 'relative', gridColumn: column, gridRow: rows }}>
+    <Box sx={{ ...LINE, left: 0, width: '50%', top: `calc((100% - ${ROW_GAP}) / 4)`, bottom: `calc((100% - ${ROW_GAP}) / 4)`, borderTopWidth: '1px', borderBottomWidth: '1px', borderRightWidth: '1px' }} />
+    <Box sx={{ ...LINE, left: '50%', right: 0, top: '50%', borderTopWidth: '1px' }} />
+  </Box>
+)
+
+function BracketTree({ cell }: { cell: (id: SeriesId) => React.ReactNode }) {
+  const at = (id: SeriesId, rows: string, column: number) => (
+    <Box key={id} sx={{ gridRow: rows, gridColumn: column, alignSelf: 'center', minWidth: 0 }}>{cell(id)}</Box>
+  )
+  return (
+    <Box sx={TREE_ONLY}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: TREE_COLS, mb: 1 }}>
+        {ROUNDS.map((r, i) => (
+          <Typography key={r.key} sx={{ gridColumn: i * 2 + 1, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{r.label}</Typography>
+        ))}
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: TREE_COLS, gridAutoRows: '1fr', rowGap: ROW_GAP }}>
+        {TREE_ROWS.flatMap(([wc, ds], i) => [
+          at(wc, `${i + 1}`, 1),
+          <Box key={`line-${wc}`} sx={{ position: 'relative', gridRow: `${i + 1}`, gridColumn: 2 }}>
+            <Box sx={{ ...LINE, left: 0, right: 0, top: '50%', borderTopWidth: '1px' }} />
+          </Box>,
+          at(ds, `${i + 1}`, 3),
+        ])}
+        <Join column={4} rows="1 / span 2" />
+        <Join column={4} rows="3 / span 2" />
+        {at('L_1', '1 / span 2', 5)}
+        {at('L_2', '3 / span 2', 5)}
+        <Join column={6} rows="1 / span 4" />
+        {at('W_1', '1 / span 4', 7)}
       </Box>
     </Box>
   )
@@ -292,7 +357,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
             {bracket.over ? `${bracket.season} postseason` : heading}
           </Typography>
         </Box>
-        <Box sx={{ ml: 'auto' }}>
+        <Box sx={{ ml: 'auto', ...(compact ? {} : ROUNDS_ONLY) }}>
           <PillGroup
             options={ROUNDS.map(r => ({ value: r.key, label: r.short }))}
             value={shown}
@@ -300,21 +365,32 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
           />
         </Box>
       </Box>
-      {champ && shown === 'ws' && (
-        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1 }}>
+      {/* The tree always shows the World Series, so it always carries the champion. */}
+      {champ && !compact && (
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1, ...TREE_ONLY }}>
           🏆 The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
         </Typography>
       )}
-      {!compact && (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1 }}>
-          {ROUNDS.find(r => r.key === shown)!.label}
-        </Typography>
-      )}
-      <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(inRound.length, compact), gap: 1 }}>
-        {inRound.map(s => (
-          <SeriesCard key={s.id} s={s} season={bracket.season} compact={compact} onOpen={() => setOpenId(s.id)} onTeamClick={onTeamClick} />
-        ))}
+      <Box sx={compact ? {} : ROUNDS_ONLY}>
+        {champ && shown === 'ws' && (
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1 }}>
+            🏆 The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
+          </Typography>
+        )}
+        {!compact && (
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1 }}>
+            {ROUNDS.find(r => r.key === shown)!.label}
+          </Typography>
+        )}
+        <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(inRound.length, compact), gap: 1 }}>
+          {inRound.map(s => (
+            <SeriesCard key={s.id} s={s} season={bracket.season} compact={compact} onOpen={() => setOpenId(s.id)} onTeamClick={onTeamClick} />
+          ))}
+        </Box>
       </Box>
+      {!compact && (
+        <BracketTree cell={id => <SeriesCard s={bracket.series[id]} season={bracket.season} onOpen={() => setOpenId(id)} onTeamClick={onTeamClick} />} />
+      )}
       {openSeries && (
         <Suspense fallback={null}>
           <SeriesSheet s={openSeries} bracket={bracket} onClose={() => setOpenId(null)} onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />

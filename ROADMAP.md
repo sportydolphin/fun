@@ -255,7 +255,7 @@ will actually see all winter. The functional items do not wait.
    | WPBL board | MLB needs | Size |
    |---|---|---|
    | Teams, Fielding | StatsAPI `teams/stats` and `group=fielding` | ✅ done |
-   | Draft | StatsAPI `/draft/{year}`; WPBL's engine is 6 rounds over one season, so it needs rethinking for 20 rounds that take years to pay off | M |
+   | Draft | StatsAPI `/draft/{year}`; WPBL's engine is 6 rounds over one season, so it needs rethinking for 20 rounds that take years to pay off | M, later (see below) |
    | Bests, Find | every game line, league-wide | L |
    | Pitch by pitch, Run value | every play with base/out state and pitch codes | XL |
    | Tracked | Savant leaderboards, through a Pages Function or a nightly job (CORS); Savant already does this board better | M, maybe never |
@@ -329,7 +329,10 @@ will actually see all winter. The functional items do not wait.
    4. *Plays and pitches in the mirror,* then Pitch by pitch and Run value. MLB's run-expectancy
       table built from our own plays is a free check against published RE24. *Gated Oct 10* on
       database headroom: see the audit's ops item 4 in ROADMAP-WPBL.md.
-   5. *Draft,* then Tracked last, if at all.
+   5. *Tracked* last, if at all.
+
+   **Later, not in this pass: Draft.** Deferred Oct 10; nothing in the order above waits on it. It
+   needs only StatsAPI's `/draft/{year}`, not the mirror, so it can be picked up at any time.
 
    Every new board is a route (`routes.ts`, `seo.ts`, `_redirects`, the sitemap, pinned in
    `routes.test.ts`) and a layout-sweep route, so it ships with a `sweep:record --merge` of its reads.
