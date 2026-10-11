@@ -147,6 +147,7 @@ function HomeViewInner({
   const headingTag = useMlbHeadingTag()
   const phase      = useSeasonPhase(CURRENT_SEASON)
   const seasonOver = phase == null ? null : isSeasonOver(phase)
+  const hotStove   = phase == null ? null : phase === 'offseason' || phase === 'preseason'
 
   // NO SCOREBOARD IN THE WINTER, for WPBL's reason: with no games left the strip sits frozen on the
   // World Series' last night until spring, at the top of the page. The bracket under it says the
@@ -596,6 +597,7 @@ function HomeViewInner({
               {/* Your players, capped so a long list doesn't dominate; scrolls internally */}
               <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: chromePx(460) } }}>
                 <FollowedPlayersSection
+                  hotStove={hotStove ?? false}
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}
                   onPlayerClick={onPlayerClick}
@@ -634,6 +636,7 @@ function HomeViewInner({
               </TrackedCard>
               <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, minWidth: 0 }}>
                 <FollowedPlayersSection
+                  hotStove={hotStove ?? false}
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}
                   onPlayerClick={onPlayerClick}
@@ -670,9 +673,10 @@ function HomeViewInner({
             </TrackedCard>
           )}
 
-          {/* Roster moves: trades, DFAs, claims, signings; deadline countdown in July */}
+          {/* Roster moves: trades, DFAs, claims, signings; deadline countdown in July; the Hot Stove
+              from the end of the World Series to opening day */}
           <TrackedCard card="roster_moves">
-            <RosterMovesCard followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+            <RosterMovesCard hotStove={hotStove} followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
           </TrackedCard>
 
           {/* Milestone Watch: players closing in on career/season/record marks, and once the season

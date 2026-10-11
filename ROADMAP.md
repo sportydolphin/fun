@@ -192,12 +192,18 @@ October is over; it is the first real measurement of which Home cards are used.
   against WPBL's 0.15; Google calls anything over 0.25 poor. The sweep passes because it measures
   the load, so the shifts come after it. The audit's ops item 3 adds attribution; MLB's elements
   are likely the first fixes.
-- **A winter Home needs something that changes.** From Nov 1 the bracket and live cards retire,
-  and nothing on Home moves until spring training. StatsAPI publishes transactions
-  (`/api/v1/transactions`): signings, trades, the 40-man adds in November, the non-tender
-  deadline, the Winter Meetings. A "Hot stove" card on Home, filtered to followed clubs when there
-  are any, and a full list on its own page, is MLB's answer to the problem WPBL's winter order is
-  built around. Pairs with the roster-moves card Home already has.
+- ✅ **A winter Home needs something that changes** (shipped Oct 11 as the Hot Stove). From Nov 1
+  the bracket and live cards retire, and nothing else on Home moves until spring training. Rather
+  than a new card, Roster Moves becomes "Hot Stove" from the end of the World Series to opening day
+  (`useSeasonPhase`, so nothing needs doing on the date). It reads 30 days rather than 14, and adds
+  players declaring free agency (`DFA` on the wire, not a designation, which is `DES`) and Rule 5
+  picks. It drops minor-league contracts in both modes: over Nov 1 to Dec 15, 2025, 234 of 279
+  signings were minor-league deals. The free-agent class declares all at once the day after the
+  World Series, so on the card only the followed club's free agents show; the full list keeps every
+  one, and its club filter answers "who left my team". The filter is `lib/rosterMoves.ts`, pinned
+  in `__tests__/rosterMoves.test.ts`. *Not built:* a page of its own, and tracking the free-agent
+  class to where each player signs. Read "MLB: what gets used" on `/admin` in December before
+  building either.
 - **The plays mirror (second pass, item 6, step 4) waits on database headroom.** The database is
   at 254 MB, 62 MB of it the two line tables from one backfilled season; plays and pitches are
   roughly 1M rows more. Ops item 4 clears room first.

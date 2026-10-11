@@ -528,7 +528,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
 
 // ─── FollowedPlayersSection ───────────────────────────────────────────────────
 
-export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow, liveTeamIds, compact, teamId }: {
+export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow, liveTeamIds, compact, teamId, hotStove = false }: {
   followedPlayerIds: number[]
   onUnfollow:    (id: number) => void
   onPlayerClick: (id: number) => void
@@ -536,6 +536,8 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   liveTeamIds?:  Set<number>
   compact?:      boolean
   teamId?:       number
+  /** The Roster Moves card's winter mode, so a followed player who became a free agent says so. */
+  hotStove?:     boolean
 }) {
   const [playerData, setPlayerData]     = useState<Record<number, FollowedPlayerInfo>>({})
   const [adding, setAdding]             = useState(false)
@@ -550,7 +552,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   // older move surface in their place.
   const [playerMoves, setPlayerMoves] = useState<Map<number, RosterMove>>(new Map())
   useEffect(() => {
-    fetchRosterMoves().then(async moves => {
+    fetchRosterMoves(hotStove).then(async moves => {
       const served = await fetchServedSuspensionIds(moves)
       const byPlayer = new Map<number, RosterMove>()
       for (const m of moves) {
@@ -559,7 +561,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
       }
       setPlayerMoves(byPlayer)
     }).catch(() => {})
-  }, [])
+  }, [hotStove])
   const [addQuery, setAddQuery]         = useState('')
   const [addResults, setAddResults]     = useState<Player[]>([])
   const [addSearching, setAddSearching] = useState(false)

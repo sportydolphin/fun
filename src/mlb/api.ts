@@ -7,6 +7,7 @@ import { combineEntries, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from './lib/ga
 import type { GameScope } from './lib/gameScope'
 import { cachedJson, cachedRead, FRESH_LONG_MS } from './lib/readCache'
 import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from './qualify'
+import { pickMoves, moveWindowDays } from './lib/rosterMoves'
 
 // Public API surface split across sibling modules, re-exported here so existing
 // `from '../api'` imports across the app keep resolving unchanged.
@@ -688,62 +689,36 @@ export interface RosterMove {
   fromTeamId:  number | null   // MLB club, or null when that side is a minor-league/other roster
   toTeamId:    number | null
   date:        string          // YYYY-MM-DD
-  typeCode:    string          // TR / DES / CLW / REL / SFA / SU
+  typeCode:    string          // TR / DES / CLW / REL / SFA / SU, and DFA / R5 in the winter
   typeDesc:    string
   description: string
 }
 
-// Move types worth surfacing. Everything else on the wire (options, recalls,
-// rehab assignments, draft signings, paper status changes) is daily churn.
-const NOTABLE_MOVE_TYPES = new Set(['TR', 'DES', 'CLW', 'REL', 'SFA', 'SU'])
+const rosterMovesCache = new Map<boolean, Promise<RosterMove[]>>()
 
-const ROSTER_MOVE_DAYS = 14
-
-let rosterMovesCache: Promise<RosterMove[]> | null = null
-
-export function fetchRosterMoves(): Promise<RosterMove[]> {
-  if (!rosterMovesCache) {
-    rosterMovesCache = computeRosterMoves().catch(e => { rosterMovesCache = null; throw e })
+/** The notable moves of the last few weeks, in season or Hot Stove mode (lib/rosterMoves.ts says
+ *  which moves each one keeps, and why). One read per mode per page load. */
+export function fetchRosterMoves(hotStove = false): Promise<RosterMove[]> {
+  let p = rosterMovesCache.get(hotStove)
+  if (!p) {
+    p = computeRosterMoves(hotStove).catch(e => { rosterMovesCache.delete(hotStove); throw e })
+    rosterMovesCache.set(hotStove, p)
   }
-  return rosterMovesCache
+  return p
 }
 
 function localYmd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-async function computeRosterMoves(): Promise<RosterMove[]> {
+async function computeRosterMoves(hotStove: boolean): Promise<RosterMove[]> {
   const end   = new Date()
-  const start = new Date(end.getTime() - ROSTER_MOVE_DAYS * 86400000)
+  const start = new Date(end.getTime() - moveWindowDays(hotStove) * 86400000)
   const r = await fetch(
     `https://statsapi.mlb.com/api/v1/transactions?sportId=1&startDate=${localYmd(start)}&endDate=${localYmd(end)}`
   )
   const d = await r.json()
-  const moves: RosterMove[] = []
-  // A trade shares one transaction id across both sides (one row per player, from/to
-  // swapped), so dedupe on id+person, not id alone, which would drop the other player.
-  const seen = new Set<string>()
-  for (const t of d.transactions ?? []) {
-    if (!NOTABLE_MOVE_TYPES.has(t.typeCode) || !t.person?.id) continue
-    const key = `${t.id}:${t.person.id}`
-    if (seen.has(key)) continue
-    const fromId = t.fromTeam?.id && TEAM_ABBR[t.fromTeam.id] ? Number(t.fromTeam.id) : null
-    const toId   = t.toTeam?.id   && TEAM_ABBR[t.toTeam.id]   ? Number(t.toTeam.id)   : null
-    // The feed includes minor-league paper moves. Keep only moves touching an MLB club.
-    if (fromId == null && toId == null) continue
-    seen.add(key)
-    moves.push({
-      id: t.id, playerId: Number(t.person.id), playerName: t.person.fullName ?? '?',
-      fromTeamId: fromId, toTeamId: toId,
-      date: t.date ?? '', typeCode: t.typeCode, typeDesc: t.typeDesc ?? '',
-      description: t.description ?? '',
-    })
-  }
-  // Newest first; trades outrank other moves from the same day.
-  moves.sort((a, b) =>
-    b.date.localeCompare(a.date) ||
-    Number(b.typeCode === 'TR') - Number(a.typeCode === 'TR'))
-  return moves
+  return pickMoves(d.transactions ?? [], hotStove)
 }
 
 // ─── Served-suspension check ──────────────────────────────────────────────────

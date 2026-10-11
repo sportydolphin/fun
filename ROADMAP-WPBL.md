@@ -223,17 +223,19 @@ item 2 describes, which is why that item comes first.
 
 ## Next: in priority order
 
-**Nothing in progress (Oct 10, 2026).** #9, desktop detail views, shipped in both sections, and so
-did the Fielding board (item 5 below). The Oct 10 audit (the section above this one) put a
-site-wide ops list ahead of the winter order: its first two items shipped that day (the RetroWPBL
-paths, and the dev server kept out of `events`). Call the Play is next; the crash triage under
-ops item 2 waits for a week of tagged rows.
+**Nothing in progress (Oct 11, 2026).** The Oct 10 audit's ops items 1 to 5 have shipped. MLB's
+Hot Stove card shipped Oct 11 (ROADMAP.md). Next here is the wildest games of 2026 (item 2 below).
+Call the Play has been moved to the end of the list. The crash triage (ops item 2) and the
+layout-shift fixes (ops item 3) wait for about a week of reports, around Oct 18.
 
 **The winter order, set Sep 27, 2026.** Every season-locked item below has shipped or missed its
 window. The one problem left is the one "Where the section stands" names: nothing gives a reader a
 reason to come back more than once a month until spring. So the order is by that, and by cost:
 
-1. **Call the Play, on the site** (data-mining list). The engine, [`derive/trivia.ts`](src/wpbl/derive/trivia.ts),
+1. ⏸ **Call the Play: deferred to much later (Oct 11).** The owner does not rate it as it stands;
+   the build is parked in `git stash` ("Call the Play (daily play predictor), parked 2026-09-28").
+   Do not pick it up from this list without asking. The original case for it, kept for the record:
+   **Call the Play, on the site** (data-mining list). The engine, [`derive/trivia.ts`](src/wpbl/derive/trivia.ts),
    is written, pure and tested, and nothing calls it: not the site, and not Discord either, despite
    what its header says. A date-seeded daily question with a shareable result is the only item on
    this page that gives a reason to come back TOMORROW, and about 980 usable plate appearances is
