@@ -26,11 +26,11 @@ jobs:
     # instead of hanging. Queue/provisioning time is not counted toward this.
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       # Nothing to do outside the MLB calendar's 'games' window: see scripts/mlb-job-due.mjs.
