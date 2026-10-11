@@ -49,7 +49,8 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 
 const REPO = 'exu6jh/RetroWPBL'
-const RAW = `https://raw.githubusercontent.com/${REPO}/main`
+// alldata/ since Oct 9, 2026: see the RAW in check-wpbl-retro-stats.mjs.
+const RAW = `https://raw.githubusercontent.com/${REPO}/main/alldata`
 const API = `https://api.github.com/repos/${REPO}`
 
 // Their event files are per home team, one file per club for the season.

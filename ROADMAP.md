@@ -8,6 +8,9 @@
 > Last realigned: **Sep 27, 2026**, around bringing the section up to the WPBL standard (see
 > "Aligning with WPBL" below, which is now the live front). Before that Aug 10, 2026.
 > Last reviewed for handoff: **Oct 2, 2026**, at v1.115.1. Start at "Handoff" just below.
+> Audited **Oct 10, 2026** with the rest of the site: the site-wide ops list (error reporting,
+> layout shift, database headroom, Actions, dependencies) is in "The Oct 10, 2026 audit" in
+> [ROADMAP-WPBL.md](ROADMAP-WPBL.md), and MLB's own findings are under "Handoff".
 >
 > *Status note, Aug 22, 2026, now history: the section was dormant on purpose while the WPBL
 > season ran. Over the 14 days to Aug 19, `/mlb` drew 768 events across 33 browsers against
@@ -183,6 +186,22 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
 **Before deciding what moves into More**, read "MLB: what gets used" on `/admin` (item 1) once
 October is over; it is the first real measurement of which Home cards are used.
 
+**From the Oct 10 audit** (the site-wide half is in ROADMAP-WPBL.md):
+
+- **Layout shift is worst here.** The field p75 is 0.270 on an MLB desktop and 0.182 on a phone,
+  against WPBL's 0.15; Google calls anything over 0.25 poor. The sweep passes because it measures
+  the load, so the shifts come after it. The audit's ops item 3 adds attribution; MLB's elements
+  are likely the first fixes.
+- **A winter Home needs something that changes.** From Nov 1 the bracket and live cards retire,
+  and nothing on Home moves until spring training. StatsAPI publishes transactions
+  (`/api/v1/transactions`): signings, trades, the 40-man adds in November, the non-tender
+  deadline, the Winter Meetings. A "Hot stove" card on Home, filtered to followed clubs when there
+  are any, and a full list on its own page, is MLB's answer to the problem WPBL's winter order is
+  built around. Pairs with the roster-moves card Home already has.
+- **The plays mirror (second pass, item 6, step 4) waits on database headroom.** The database is
+  at 254 MB, 62 MB of it the two line tables from one backfilled season; plays and pitches are
+  roughly 1M rows more. Ops item 4 clears room first.
+
 **Tests**: 19 files and about 180 cases under `src/mlb/__tests__/` (Oct 9), against 130 files in WPBL. Each item
 above should leave a test behind, as items 0, 4 and 5b did.
 
@@ -308,7 +327,8 @@ will actually see all winter. The functional items do not wait.
       past it (`more`, printed as "And 14 more with 3 HR") instead of dropping them; WPBL passes
       none. Seasons before 2026 are not mirrored and say so; adding one is a `--season` backfill.
    4. *Plays and pitches in the mirror,* then Pitch by pitch and Run value. MLB's run-expectancy
-      table built from our own plays is a free check against published RE24.
+      table built from our own plays is a free check against published RE24. *Gated Oct 10* on
+      database headroom: see the audit's ops item 4 in ROADMAP-WPBL.md.
    5. *Tracked* last, if at all.
 
    **Later, not in this pass: Draft.** Deferred Oct 10; nothing in the order above waits on it. It
@@ -764,7 +784,7 @@ Solo-first games sharing auth + leaderboards + streak infra. Bots play these too
 - **Precompute nightly, serve from Supabase** ⚙️: Streak leaders ✅, playoff odds ✅, and milestone watch ✅ shipped on this template; next candidates: report cards, spotlight, trivia, grid puzzles. Client reads one row instead of fanning out to StatsAPI.
 - **Server-side leaderboard ranking** ⚙️: Move the Wilson-score ranking from `PredictionStats.tsx` into a SQL RPC (top N + current user's row) before the table gets big.
 - **Payroll source resilience** ⚙️: Fallback for FanGraphs 403s (Spotrac/Cot's) so payroll boards don't silently go stale.
-- **Prod error visibility** ⚙️: No way to know today whether visitors hit errors. Even a tiny Supabase `client_errors` table fed by a `window.onerror` hook would answer "is anything broken?"
+- ~~**Prod error visibility**~~ ⚙️: ✅ answered by `app_error` (Sep 26, 2026; `AppErrorBoundary`, reported under "Site health" on `/admin`). *Oct 10:* most of its rows were the dev server's, see the audit's ops item 2 in ROADMAP-WPBL.md.
 
 ---
 

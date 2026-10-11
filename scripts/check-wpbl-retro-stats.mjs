@@ -44,7 +44,10 @@ import pg from 'pg'
 import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-export const RAW = 'https://raw.githubusercontent.com/exu6jh/RetroWPBL/main'
+// Every data folder sits under alldata/ since Oct 9, 2026, when the repo took Retrosheet's
+// download layout. The old top-level paths 404, which reads as a failed fetch and turns this,
+// the retro sync and the gap fill red together; if they all go red at once, check here first.
+export const RAW = 'https://raw.githubusercontent.com/exu6jh/RetroWPBL/main/alldata'
 export const EVENT_FILES = ['2026BSH.EVW', '2026LAQ.EVW', '2026NYH.EVW', '2026SFF.EVW']
 /** Their club codes to ours. Hard-coded for the reason sync-wpbl-retro hard-codes it: four
  *  clubs, and a wrong guess silently attributes one club's game to another. */

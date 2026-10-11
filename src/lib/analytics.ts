@@ -214,7 +214,7 @@ export const EVENTS = {
   MLB_CARD_USED:       'mlb_card_used',       // first click inside a Home card, once per load, props {card}
   // The site's own health, which nothing else here can see: an error screen is drawn only on
   // someone else's device. See lib/staleBuild.ts and AppErrorBoundary.tsx.
-  APP_ERROR:           'app_error',           // an error screen was drawn, props {kind: stale|crash, where: app|page|tab, message}
+  APP_ERROR:           'app_error',           // an error screen was drawn, props {kind: stale|crash, where: app|page|tab, message, build}
   APP_UPDATED:         'app_updated',         // the page moved itself onto a new deploy, props {via: chunk_reload|navigation}
   // What a real reader's page load felt like, once per load, sent as the page is left or hidden.
   // See lib/webVitals.ts.
@@ -273,6 +273,25 @@ function automated(): boolean {
   try { return typeof navigator !== 'undefined' && navigator.webdriver === true } catch { return false }
 }
 
+/**
+ * NOT FROM THE DEV SERVER EITHER, for the reason test runs are refused in `track`: `npm run dev`
+ * talks to the production project, so every local session wrote real rows. Over the 14 days to
+ * Oct 10, 2026 that was 234 of the 286 `app_error` rows, every one a hot-reload crash against
+ * localhost:5173 (a half-saved file, "is not defined"), which buried the readers' crashes under
+ * the owner's and padded every session count on /admin. `localStorage.sdDevTrack = '1'` lets a
+ * dev build send anyway, for watching a new event arrive; it is read only under DEV, so it does
+ * nothing in production.
+ */
+function devSilenced(): boolean {
+  if (!import.meta.env.DEV) return false
+  try { return localStorage.getItem('sdDevTrack') !== '1' } catch { return true }
+}
+
+/** Every reason a row must not be written: a test run, automation, or the dev server. */
+export function silenced(): boolean {
+  return import.meta.env.MODE === 'test' || automated() || devSilenced()
+}
+
 export function trackImpression(event: EventName, props: Record<string, unknown> = {}, key = ''): void {
   const id = `${event}|${key}`
   if (impressionsSent.has(id)) return
@@ -290,7 +309,7 @@ export function trackImpression(event: EventName, props: Record<string, unknown>
  * effort: a report the browser drops is one missing sample.
  */
 export function trackOnExit(event: EventName, props: Record<string, unknown> = {}): void {
-  if (import.meta.env.MODE === 'test' || automated()) return
+  if (silenced()) return
   try {
     // Rides out with whatever the queue still holds, so the exit costs one request, not two.
     events().flushOnExit({
@@ -360,8 +379,8 @@ export function track(
   // suite run is ~130 sessions on path "/" with fixture ids like "g1". By Sep 24, 2026 that was
   // 600 of the day's 806 sessions and read as a traffic spike on /admin. MODE is a build-time
   // constant, so this is gone from the production bundle. Tests that care about an event mock
-  // this module and never reach here.
-  if (import.meta.env.MODE === 'test' || automated()) return
+  // this module and never reach here. The dev server is refused for the same reason (`silenced`).
+  if (silenced()) return
   try {
     const path = typeof window !== 'undefined' ? window.location.pathname : null
 

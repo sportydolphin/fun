@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { isChunkLoadError, reloadForNewBuild } from './lib/staleBuild'
+import { isChunkLoadError, reloadForNewBuild, runningBuild } from './lib/staleBuild'
 import { track, EVENTS } from './lib/analytics'
 
 // The last line under the whole app. Before this there was none, so ANY render error, most often
@@ -56,6 +56,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
         kind: stale ? 'stale' : 'crash',
         where: this.props.where ?? 'app',
         message: raw.replace(/\?[^\s)"']*/g, '').slice(0, 120),
+        build: runningBuild(),
       })
     } catch { /* never let the report be the second failure */ }
   }

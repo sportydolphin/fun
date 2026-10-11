@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { isChunkLoadError, reloadForNewBuild, entryScriptIn, loadFullyOnNextNavigation, installStaleBuildRecovery } from '../lib/staleBuild'
+import { isChunkLoadError, reloadForNewBuild, entryScriptIn, loadFullyOnNextNavigation, installStaleBuildRecovery, runningBuild } from '../lib/staleBuild'
 import { AppErrorBoundary } from '../AppErrorBoundary'
 
 const track = vi.hoisted(() => vi.fn())
@@ -118,11 +118,28 @@ describe('reporting an error screen', () => {
 
   it('says which layer drew it and drops query strings from the message', () => {
     render(<AppErrorBoundary inline where="tab"><Throws error={new Error('bad /api/x?token=abc123 here')} /></AppErrorBoundary>)
-    expect(track).toHaveBeenCalledWith('app_error', { kind: 'crash', where: 'tab', message: 'bad /api/x here' })
+    expect(track).toHaveBeenCalledWith('app_error', { kind: 'crash', where: 'tab', message: 'bad /api/x here', build: null })
   })
 
   it('does not report a stale chunk it could reload', () => {
     render(<AppErrorBoundary><Throws error={new TypeError('Failed to fetch dynamically imported module: /assets/x.js')} /></AppErrorBoundary>)
     expect(track).not.toHaveBeenCalledWith('app_error', expect.anything())
+  })
+})
+
+describe('runningBuild', () => {
+  // On every app_error, so a crash names the deploy that shipped it and a dev server's names none.
+  afterEach(() => { vi.unstubAllEnvs(); document.querySelectorAll('script[data-test-entry]').forEach(n => n.remove()) })
+
+  it('names the entry script a production page is running', () => {
+    vi.stubEnv('PROD', true)
+    const s = document.createElement('script')
+    s.type = 'module'; s.src = '/assets/index-B3x9kQ1a.js'; s.dataset.testEntry = ''
+    document.head.appendChild(s)
+    expect(runningBuild()).toBe('index-B3x9kQ1a')
+  })
+  it('is null outside a production build', () => {
+    vi.stubEnv('PROD', false)
+    expect(runningBuild()).toBeNull()
   })
 })

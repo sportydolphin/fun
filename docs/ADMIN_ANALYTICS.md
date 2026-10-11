@@ -145,6 +145,17 @@ under Vitest, and a `before insert` trigger on `events` diverts any `'/'` row in
 [`20260924233310_quarantine_test_run_events.sql`](../scripts/migrations/20260924233310_quarantine_test_run_events.sql),
 which also carries the one statement that moves them back.
 
+**The dev server writes nothing either, as of Oct 10, 2026.** `npm run dev` talks to the
+production project, and until then every local session wrote real rows: 234 of the 286
+`app_error` rows in the two weeks before were hot-reload crashes against `localhost:5173`. Unlike
+the test runs, these left no signature to divert on (a dev page records the same paths a reader's
+does), so the gate is in the client only: `silenced()` in `analytics.ts` refuses a test run,
+automation (`navigator.webdriver`, which covers the layout sweep) and a DEV build. To watch a new
+event arrive while building it, set `localStorage.sdDevTrack = '1'` in the dev build. Rows from
+before the gate stay where they are, so `app_error` counts before Oct 11 are mostly noise.
+`app_error` also carries `build` now, the entry script's name (`index-B3x9kQ1a`), so a crash can
+be pinned to the deploy that shipped it.
+
 ---
 
 ## 3. The RPCs
