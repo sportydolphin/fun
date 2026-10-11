@@ -65,8 +65,9 @@ const rule = (i: number) => ({ borderTop: i === 0 ? 'none' : '1px solid', border
 
 export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKey, onHover }: {
   title: string
-  /** The full ranking for this stat: a real address, and the in-app move on a plain click. */
-  seeAll: { href: string; onClick: () => void }
+  /** The full ranking for this stat: a real address, and the in-app move on a plain click. Left
+   *  off where the card IS the whole ranking (Find's tally), so there is nowhere further to go. */
+  seeAll?: { href: string; onClick: () => void }
   items: LeaderItem[]
   empty?: string
   /** The player pointed at, on any card: their row lights and every other row dims, so one
@@ -75,7 +76,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
   onHover?: (key: string | null) => void
 }) {
   return (
-    <SectionCard bare title={title} action={<CardLink label="See all ›" href={seeAll.href} onClick={seeAll.onClick} />}>
+    <SectionCard bare title={title} action={seeAll && <CardLink label="See all ›" href={seeAll.href} onClick={seeAll.onClick} />}>
       {items.length === 0
         ? <Typography sx={{ py: 1.5, color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>{empty}</Typography>
         : items.map((it, i) => {
@@ -109,10 +110,16 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
 
 /** The card before its rows have landed: the real title, which needs no data, over ghost rows of
  *  the loaded row's box, so nothing moves when the names arrive. */
-export function LeaderCardSkeleton({ title }: { title: string }) {
+export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true }: {
+  title: string
+  /** The rows the loaded card will have. */
+  rows?: number
+  /** Whether the loaded card has a "See all" link, so the title line is the same height. */
+  seeAll?: boolean
+}) {
   return (
-    <SectionCard bare title={title} action={<CardLink label="See all ›" onClick={() => {}} />}>
-      {Array.from({ length: LEADERS_SHOWN }, (_, i) => (
+    <SectionCard bare title={title} action={seeAll ? <CardLink label="See all ›" onClick={() => {}} /> : undefined}>
+      {Array.from({ length: rows }, (_, i) => (
         <Box key={i} sx={{ ...ROW_SX, ...rule(i) }}>
           <Box sx={RANK_SX}>&nbsp;</Box>
           <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />

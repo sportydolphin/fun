@@ -33,6 +33,7 @@ import { useSectionActive } from '../../lib/panelActive'
 import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbStatsBoard, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot, MlbFieldingPosition } from '../routes'
 import { gridDefaultSort, type GridSort } from '../lib/seasonGrid'
+import { decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
 import type { GameScope } from '../lib/gameScope'
 import type { TeamCardInnerProps } from '../components/cards'
 import { HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS } from '../lib/advanced'
@@ -130,6 +131,19 @@ export function restoreTarget(pathname: string, search: string, entry: Record<st
     snap,
     playerSeason: typeof entry.season === 'number' ? entry.season : undefined,
     statsView: entry.statsView === 'career' || entry.statsView === 'season' ? entry.statsView : undefined,
+  }
+}
+
+/** Find's question as a snapshot spells it. A condition the side cannot ask about is dropped by
+ *  the decoder, so a hand-edited link opens a wider search rather than an error. */
+function findQueryOf(snap: MlbSnapshot | null): FinderQuery {
+  if (snap?.view !== 'find') return EMPTY_FINDER_QUERY
+  return {
+    ...EMPTY_FINDER_QUERY,
+    conditions: decodeFinderQuery(snap.find ?? null, snap.lb ?? 'hitting'),
+    teamId: snap.findTeam != null ? String(snap.findTeam) : null,
+    oppId: snap.findOpp != null ? String(snap.findOpp) : null,
+    venue: snap.findVenue ?? 'any',
   }
 }
 
@@ -338,6 +352,10 @@ export function useMlbState() {
     ? gridSortFor(landing.sort, landing.dir, gridDefaultSort('fielding', 'hitting', landing.club ?? null)) : null)
   const [fieldingPos, setFieldingPos] = useState<MlbFieldingPosition | 'all'>(landing?.pos ?? 'all')
   const [fieldingClub, setFieldingClub] = useState<number | null>(landing?.club ?? null)
+  // ─── Find (views/FindView) ─────────────────────────────────────────────────
+  // The question, held here because the address carries it and Back restores it. Its `scope` is
+  // unused: the section's Regular season / Playoffs / Both stands in for it.
+  const [findQuery, setFindQuery] = useState<FinderQuery>(() => findQueryOf(landing))
   // The row a link came to see: a club on Teams, a player on Fielding. Not on the address, as the
   // Table's picked-out player is not: it belongs to the trip, and a shared link has no trip.
   const [gridHighlightId, setGridHighlightId] = useState<number | null>(null)
@@ -589,10 +607,10 @@ export function useMlbState() {
     if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
-    if (view === 'teamStats') s.lb = lbGroup
+    if (view === 'teamStats' || view === 'bests' || view === 'find') s.lb = lbGroup
     // Teams and Fielding share the section's regular / playoffs / both choice with Players and Leaders,
     // as they share its season.
-    if (view === 'teamStats' || view === 'fielding') s.games = lbGameScope
+    if (view === 'teamStats' || view === 'fielding' || view === 'bests' || view === 'find') s.games = lbGameScope
     // The board's season, which only a game sheet's entry is ever read for (restoreTarget): every
     // other entry's address already says it.
     if (isMlbStatsBoard(view)) s.season = vizSeason
@@ -610,8 +628,14 @@ export function useMlbState() {
       if (fieldingPos !== 'all') s.pos = fieldingPos
       if (fieldingClub != null) s.club = fieldingClub
     }
+    if (view === 'find') {
+      s.find = encodeFinderQuery(findQuery) || null
+      s.findTeam = findQuery.teamId ? Number(findQuery.teamId) : null
+      s.findOpp = findQuery.oppId ? Number(findQuery.oppId) : null
+      s.findVenue = findQuery.venue === 'any' ? null : findQuery.venue
+    }
     return s
-  }, [player, team, playerSeason, view, lbGroup, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub])
+  }, [player, team, playerSeason, view, lbGroup, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -859,7 +883,8 @@ export function useMlbState() {
       // Career has no season of its own: the season board behind it keeps the one it had.
       if (!snap.allTime) setVizSeason(snap.season ?? CURRENT_SEASON)
       setGridHighlightId(null)
-      if (snap.view === 'teamStats' || snap.view === 'fielding') setLbGameScope(snap.games ?? 'regular')
+      if (snap.view === 'teamStats' || snap.view === 'fielding' || snap.view === 'bests' || snap.view === 'find') setLbGameScope(snap.games ?? 'regular')
+      if (snap.view === 'find') setFindQuery(findQueryOf(snap))
       if (snap.view === 'teamStats') setTeamGridSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('teamStats', group)))
       if (snap.view === 'fielding') {
         setFieldingSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('fielding', group, snap.club ?? null)))
@@ -1031,6 +1056,9 @@ export function useMlbState() {
     fieldingClub, setFieldingClub,
     gridHighlightId, setGridHighlightId,
     openGridBoard,
+
+    // Find
+    findQuery, setFindQuery,
 
     // Stats-table highlight
     statsHighlightPlayerId, setStatsHighlightPlayerId,

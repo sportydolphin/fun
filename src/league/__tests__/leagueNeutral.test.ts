@@ -132,3 +132,25 @@ describe('the postseason stays out on the adapter\'s flag', () => {
     expect(hr.rows[0].player).toBe(players[0])
   })
 })
+
+describe('a records board at a big league size', () => {
+  const games: LeagueGame[] = Array.from({ length: 20 }, (_, i) => ({ ...GAME, id: `t${i}` }))
+  const players = [{ id: 'x', name: 'Ada Example', team_id: 'away' }]
+  const lines: BattingGameLine[] = games.map((g, i) => ({
+    id: `l${i}`, game_id: g.id, player_id: 'x', team_id: 'away', ab: 4, r: 3, h: 3, doubles: 0, triples: 0,
+    hr: 3, rbi: 3, bb: 0, so: 0, hbp: 0, sb: 0, cs: 0, sf: 0, sh: 0, tb: 12,
+  }))
+
+  it('extends through every tie when no cap is passed, as WPBL does', () => {
+    const hr = bestGames('hitting', lines, [], players, games).find(b => b.key === 'hr')!
+    expect(hr.rows).toHaveLength(20)
+    expect(hr.more).toBe(0)
+  })
+
+  it('stops at the cap and counts the ties it left off rather than dropping them', () => {
+    const hr = bestGames('hitting', lines, [], players, games, 'regular', 5, 10).find(b => b.key === 'hr')!
+    expect(hr.rows).toHaveLength(10)
+    expect(hr.more).toBe(10)
+    expect(hr.rows.every(r => r.rank === 1)).toBe(true)
+  })
+})

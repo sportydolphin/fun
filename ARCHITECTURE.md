@@ -373,6 +373,7 @@ flowchart TB
         m_contract["player_contracts"]
         m_gpred["game_predictions"]
         m_pstats["prediction_stats"]
+        m_lines["mlb_games + mlb_batting_lines<br/>+ mlb_pitching_lines + mlb_players<br/>(every box-score line; view mlb_season_lines)"]
     end
 
     subgraph APP["App / users / notifications"]
@@ -611,6 +612,7 @@ the season's final word, and the site reads it that way rather than as stale.
 | `wpbl-commons-sync` | `0 9 * * 0` (weekly, Sun) | `sync-wpbl-commons` | Mirror freely licensed women's baseball photography from Wikimedia Commons → `wpbl_photos` (the "From the archive" category of the `/wpbl/photos` gallery). Writes to a review queue: rows land `approved = false` and nothing renders until a human publishes them ([`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)) |
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight (gated: `games`) |
 | `update-playoff-odds` | `20 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds (gated: `regular`) |
+| `mlb-lines` | `0 10` | `sync-mlb-lines` | Every finished MLB game's box-score lines → `mlb_games`, `mlb_batting_lines`, `mlb_pitching_lines`, `mlb_players` (gated: `games`), for the Bests and Find boards on `/mlb/bests` and `/mlb/find`. Reads finals not yet stored plus the last three days again, so the scorer's changes land; manual input `all` re-reads the season. **Final means `codedGameState` F**: a postponed game also says `abstractGameState: "Final"`, and its makeup reuses the gamePk. Lines are replaced per game inside a transaction, 25 games to one, and nothing else is ever deleted. The browser reads the season as ONE row of the `mlb_season_lines` view (column names plus arrays, about 600 KB gzipped, edge-cached `slow`), because the plain tables are 71 pages and 12 MB of JSON; WPBL's engines in `src/league/` run over it unchanged. Playoff rounds are written `counts_in_standings = false`, the definitive signal, since one-letter round codes cannot be matched by pattern. Backfill another season with `node --env-file=.env scripts/sync-mlb-lines.mjs --season <year> --all` and lower `MLB_LINES_FIRST_SEASON` |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards (gated: `regular`) |
 | `update-milestones` | `0 7` | `update-milestones` | Milestone watch (gated: `regular`) |
 | `update-prediction-boards` | `30 7` | `update-prediction-boards` | Prediction leaderboards (gated: `games`) |

@@ -50,7 +50,7 @@ describe('the fielding rows', () => {
 
 describe('the Teams and Fielding addresses', () => {
   it('are Stats boards, lit as the Stats tab', () => {
-    expect(MLB_STATS_BOARDS).toEqual(['leaderboard', 'stats', 'teamStats', 'fielding', 'viz'])
+    expect(MLB_STATS_BOARDS).toEqual(['leaderboard', 'stats', 'teamStats', 'fielding', 'bests', 'find', 'viz'])
     expect(mlbNavKeyFromPath(MLB_VIEW_PATHS.teamStats)).toBe('stats')
     expect(mlbNavKeyFromPath(MLB_VIEW_PATHS.fielding)).toBe('stats')
   })

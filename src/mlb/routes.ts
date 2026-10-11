@@ -18,15 +18,15 @@
 
 /** Every screen the section can show. 'search' is a player or team page; the views in
  *  MLB_STATS_BOARDS are the boards of the Stats tab. */
-export type MlbView = 'home' | 'scores' | 'standings' | 'stats' | 'leaderboard' | 'teamStats' | 'fielding' | 'viz' | 'teams' | 'search'
-const MLB_VIEWS: readonly MlbView[] = ['home', 'scores', 'standings', 'stats', 'leaderboard', 'teamStats', 'fielding', 'viz', 'teams', 'search']
+export type MlbView = 'home' | 'scores' | 'standings' | 'stats' | 'leaderboard' | 'teamStats' | 'fielding' | 'bests' | 'find' | 'viz' | 'teams' | 'search'
+const MLB_VIEWS: readonly MlbView[] = ['home', 'scores', 'standings', 'stats', 'leaderboard', 'teamStats', 'fielding', 'bests', 'find', 'viz', 'teams', 'search']
 export const isMlbView = (v: unknown): v is MlbView => typeof v === 'string' && (MLB_VIEWS as readonly string[]).includes(v)
 
 /** The Stats tab's boards, in WPBL's order (Leaders, Players, Teams, Fielding), with MLB's Charts
  *  after them. ONE LIST because "is this a Stats board" was spelled out by hand all over the
  *  section, and a board missing from one of those tests loses its season on Back, or its column
  *  width, with no error. */
-export const MLB_STATS_BOARDS = ['leaderboard', 'stats', 'teamStats', 'fielding', 'viz'] as const
+export const MLB_STATS_BOARDS = ['leaderboard', 'stats', 'teamStats', 'fielding', 'bests', 'find', 'viz'] as const
 export type MlbStatsBoard = (typeof MLB_STATS_BOARDS)[number]
 export const isMlbStatsBoard = (v: unknown): v is MlbStatsBoard =>
   typeof v === 'string' && (MLB_STATS_BOARDS as readonly string[]).includes(v)
@@ -49,6 +49,9 @@ export const MLB_VIEW_PATHS: Record<Exclude<MlbView, 'search'>, string> = {
   // Not /mlb/teams/stats: everything under /mlb/teams/ is a club, and a club slug is the nickname.
   teamStats:   '/mlb/team-stats',
   fielding:    '/mlb/fielding',
+  // The two boards on the mirrored box scores (seasonLines.ts), WPBL's Bests and Find.
+  bests:       '/mlb/bests',
+  find:        '/mlb/find',
   viz:         '/mlb/charts',
   teams:       MLB_TEAMS_BASE,
 }
@@ -395,6 +398,13 @@ export interface MlbSnapshot {
   /** Fielding's club filter, by id; the address spells it as the club's slug. Not `teamId`, which
    *  is a club's own PAGE: this is a board narrowed to one club's fielders. */
   club?: number | null
+  /** Find's conditions, in the finder's own grammar (`so.gte.10~bb.lte.0`; src/league/finder.ts).
+   *  Kept as the string here because this module imports nothing; the section decodes it. */
+  find?: string | null
+  /** Find's club, its opponent, and home or away. The clubs go on the address as slugs. */
+  findTeam?: number | null
+  findOpp?: number | null
+  findVenue?: 'home' | 'away' | null
 }
 
 /** The positions the Fielding board offers, in scorebook order with the pitcher last. Here rather
@@ -425,6 +435,14 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
       if (s.pos) params.set('pos', s.pos)
       const club = s.club != null ? mlbClubById(s.club) : undefined
       if (club) params.set('team', club.slug)
+    }
+    if (s.view === 'find') {
+      if (s.find) params.set('q', s.find)
+      const team = s.findTeam != null ? mlbClubById(s.findTeam) : undefined
+      if (team) params.set('team', team.slug)
+      const opp = s.findOpp != null ? mlbClubById(s.findOpp) : undefined
+      if (opp) params.set('opp', opp.slug)
+      if (s.findVenue) params.set('venue', s.findVenue)
     }
   }
   const qs = params.toString()
@@ -467,6 +485,13 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
     const pos = q.get('pos')
     snap.pos = isFieldingPosition(pos) ? pos : null
     snap.club = MLB_CLUBS.find(c => c.slug === q.get('team'))?.id ?? null
+  }
+  if (v === 'find') {
+    snap.find = q.get('q') || null
+    snap.findTeam = MLB_CLUBS.find(c => c.slug === q.get('team'))?.id ?? null
+    snap.findOpp = MLB_CLUBS.find(c => c.slug === q.get('opp'))?.id ?? null
+    const venue = q.get('venue')
+    snap.findVenue = venue === 'home' || venue === 'away' ? venue : null
   }
   return snap
 }
