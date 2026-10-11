@@ -129,9 +129,9 @@ flowchart LR
 
     root["/"] -->|redirect| wpbl
     wpbl --> wtabs["Tabs (SwipeableViews), one PATH each:<br/>Home · Schedule · Standings · Stats · Teams"]
-    wtabs --> wstats["Stats sub-boards:<br/>Players · Teams · Bests · Find · Pitch by pitch · Run value ·<br/>Tracked (hidden until radar returns) · Draft"]
+    wtabs --> wstats["Stats boards:<br/>Leaders · Players · Teams · Bests · Find · Analysis<br/>(Analysis = Run value · Pitch by pitch · Draft · Tracked)<br/>each on Hitting / Pitching / Fielding"]
     wpbl --> wplayers
-    mlb --> mtabs["Tabs, one PATH each:<br/>Home · Scores · Standings · Stats · Teams<br/>(Stats = Leaders / Table / Charts)"]
+    mlb --> mtabs["Tabs, one PATH each:<br/>Home · Scores · Standings · Stats · Teams<br/>(Stats = Leaders · Players · Teams · Bests · Find;<br/>Standings carries Charts)"]
     mlb --> mmore["More: Predictions · Streak Survivor ·<br/>Milestone Watch · Roster moves ·<br/>Postseason bracket · Playoff odds · Charts & payroll"]
 ```
 

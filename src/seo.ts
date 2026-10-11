@@ -59,9 +59,9 @@ const ROUTES: Record<string, Seo> = {
       "Current WPBL standings: wins, losses, run differential and games back for all four Women's Pro Baseball League clubs.",
   },
   '/wpbl/stats': {
-    title: "WPBL Stat Leaders 2026: batting & pitching | sportydolphin.fun",
+    title: "WPBL Stat Leaders 2026: batting, pitching & fielding | sportydolphin.fun",
     description:
-      "WPBL batting and pitching leaders for 2026: OPS, home runs, RBI, ERA, strikeouts and TrackMan pitch data for the Women's Pro Baseball League.",
+      "WPBL batting, pitching and fielding leaders for 2026: OPS, home runs, RBI, ERA, strikeouts, fielding percentage and TrackMan pitch data for the Women's Pro Baseball League.",
   },
   '/wpbl/teams': {
     title: "WPBL Teams & Rosters: Women's Pro Baseball League | sportydolphin.fun",
@@ -234,9 +234,9 @@ const ROUTES: Record<string, Seo> = {
       'Current MLB standings for all six divisions and the wild card races, with nightly simulated playoff odds and the postseason bracket.',
   },
   [MLB_VIEW_PATHS.leaderboard]: {
-    title: 'MLB Stat Leaders: batting and pitching | sportydolphin.fun',
+    title: 'MLB Stat Leaders: batting, pitching and fielding | sportydolphin.fun',
     description:
-      'MLB batting and pitching leaders: home runs, batting average, OPS, ERA, strikeouts and more, for this season or any past one.',
+      'MLB batting, pitching and fielding leaders: home runs, batting average, OPS, ERA, strikeouts, fielding percentage and more, for this season or any past one.',
   },
   [MLB_VIEW_PATHS.stats]: {
     title: 'MLB Player Stats table: sortable, every qualifier | sportydolphin.fun',
@@ -244,9 +244,9 @@ const ROUTES: Record<string, Seo> = {
       'Sort every qualified MLB hitter or pitcher by any stat, for one season or across careers.',
   },
   [MLB_VIEW_PATHS.teamStats]: {
-    title: 'MLB Team Stats: batting and pitching for all 30 clubs | sportydolphin.fun',
+    title: 'MLB Team Stats: batting, pitching and fielding for all 30 clubs | sportydolphin.fun',
     description:
-      'Every MLB club’s batting and pitching, side by side and sortable by any stat, for this season or any past one.',
+      'Every MLB club’s batting, pitching and fielding, side by side and sortable by any stat, for this season or any past one.',
   },
   [MLB_VIEW_PATHS.bests]: {
     title: 'MLB Single-Game Bests: the best games of the season | sportydolphin.fun',

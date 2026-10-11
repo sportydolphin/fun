@@ -26,11 +26,14 @@ export interface PageTab {
   ariaLabel?: string
 }
 
-export function PageTabs({ options, value, onChange, mb = 1.25 }: {
+export function PageTabs({ options, value, onChange, mb = 1.25, sub = false }: {
   options: PageTab[]
   value: string
   onChange: (v: string) => void
   mb?: number | { xs?: number; sm?: number; md?: number }
+  /** A second row, picking a page WITHIN the tab above it (WPBL's Analysis boards): smaller type,
+   *  so the two rows read as a level and the level under it rather than as two rows of equals. */
+  sub?: boolean
 }) {
   // THE CHOSEN TAB IS KEPT IN VIEW. The row scrolls sideways on a phone, and a link to one of the
   // later tabs opened with its own underline off the right edge, so nothing on screen said which
@@ -62,13 +65,13 @@ export function PageTabs({ options, value, onChange, mb = 1.25 }: {
           // the keep-in-view effect above looks for.
           <Box key={o.value} {...press} aria-current={on ? 'page' : undefined} aria-label={o.ariaLabel} sx={{
             ...FOCUS_RING,
-            pb: 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
+            pb: sub ? 0.75 : 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
             whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center',
             textDecoration: 'none',
             borderBottom: '2px solid', borderColor: on ? UNDERLINE : 'transparent',
             color: on ? 'text.primary' : 'text.secondary',
             // Tightened on a phone so WPBL's five fit 375px without the last one hanging off the edge.
-            fontSize: { xs: '0.86rem', sm: '0.9rem' },
+            fontSize: sub ? { xs: '0.78rem', sm: '0.8rem' } : { xs: '0.86rem', sm: '0.9rem' },
             fontWeight: on ? 800 : 600, transition: 'color 0.15s',
             '&:hover': { color: 'text.primary' },
           }}>

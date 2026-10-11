@@ -346,6 +346,14 @@ will actually see all winter. The functional items do not wait.
       first, measured, before any backfill (see "From the Oct 10 audit" above).
    5. *Tracked* last, if at all.
 
+   ✅ *Oct 11: one navigation for both Stats tabs.* Fielding stopped being a board and became the
+   third option of the side switch every board draws (`sideSwitch` in MlbStats, PillGroup's
+   `disabled` on Bests and Find), so Leaders and Teams gained fielding (`FieldingLeaders.tsx`,
+   StatsAPI's team `group=fielding`, `?lb=fielding` on the address) and `/mlb/fielding` is Players on
+   Fielding. Charts left the row for a Standings mode with its own address. On a phone, Sort and
+   Filters are one pill and one sheet with a tab each, and Teams and Fielding draw Players' ranked
+   list instead of the grid. WPBL's row is the same five plus Analysis.
+
    **Later, not in this pass: Draft.** Deferred Oct 10; nothing in the order above waits on it. It
    needs only StatsAPI's `/draft/{year}`, not the mirror, so it can be picked up at any time.
 

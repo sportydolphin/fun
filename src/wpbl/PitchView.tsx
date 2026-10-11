@@ -64,9 +64,11 @@ const offerColors = (isDark: boolean): Record<Offer, string> => ({
 })
 
 // The three columns every row lines up on, group headings included, so a group's bar reads as
-// the sum of the bars indented under it.
-const LABEL_W = { xs: 104, sm: 112 }
-const VALUE_W = 34
+// the sum of the bars indented under it. In rem, because each reserves room for type: at px,
+// "Swinging strike" spilled out of its box on every desktop, where the type scales up and a px box
+// does not, and the percentages did at Large text.
+const LABEL_W = '6.75rem'
+const VALUE_W = '2.375rem'
 
 function PitchMix({ counts, total }: { counts: PitchCounts; total: number }) {
   const color = offerColors(useWpblDark())

@@ -3,7 +3,7 @@ import { Box } from '@mui/material'
 import { PlayerPortrait, TeamBadge, useWpblName } from './ui'
 import { useWpblPlayerLink } from './LinkContext'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../ui/leaders'
-import { plateAppearances, type WpblBattingTotals, type WpblPitchingTotals } from './stats'
+import { plateAppearances, type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals } from './stats'
 import type { WpblPlayer } from './types'
 
 // THE STATS TAB'S FIRST BOARD: the top five in each headline stat, one card each. MLB's Stats tab
@@ -34,11 +34,16 @@ export interface LeaderCol<T> {
 
 export interface LeaderSeason<T> { player: WpblPlayer; totals: T }
 
+export type LeaderSide = 'hitting' | 'pitching' | 'fielding'
+type LeaderTotals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals
+/** The qualifiers this board reads, in each side's unit (stats.ts, `wpblQualifiers`). */
+export interface LeaderQual { active: boolean; minPa: number; minOuts: number; minG: number }
+
 /** Which columns get a card, in reading order, and the card's title. Keys are the Players board's.
  *  Titles are MLB's `leaderLabel`s word for word (src/mlb/constants.ts), in title case, so the two
  *  boards' cards read alike across the league switch. Runs and FIP have no MLB card; they follow the
  *  same style. The strikeout rate names the reader's basis ("K per 7"), as MLB's says "K per 9". */
-export const LEADER_CARDS: Record<'hitting' | 'pitching', { key: string; title?: string }[]> = {
+export const LEADER_CARDS: Record<LeaderSide, { key: string; title?: string }[]> = {
   hitting: [
     { key: 'avg', title: 'Batting Average' }, { key: 'obp', title: 'On-Base %' },
     { key: 'ops', title: 'OPS' }, { key: 'hr', title: 'Home Runs' },
@@ -51,6 +56,12 @@ export const LEADER_CARDS: Record<'hitting' | 'pitching', { key: string; title?:
     { key: 'sv', title: 'Saves' }, { key: 'ip', title: 'Innings Pitched' },
     { key: 'k9' }, { key: 'fip', title: 'FIP' },
   ],
+  // One row of four. Errors and the catcher's columns are left off: a fewest-errors card is led by
+  // whoever played least, and a catcher's card ranks four people.
+  fielding: [
+    { key: 'fpct', title: 'Fielding %' }, { key: 'a', title: 'Assists' },
+    { key: 'po', title: 'Putouts' }, { key: 'dp', title: 'Double Plays' },
+  ],
 }
 
 /** A card with no title of its own takes its column's label, spelled out: "K/7" reads "K per 7". */
@@ -59,12 +70,14 @@ const titleFor = (card: { title?: string }, col: { label: string }) => card.titl
 /** The rows a card shows: qualified first for a rate, best end first, ties broken toward the bigger
  *  sample, and a dash never ranked. Ranks are competition ranks on the number AS PRINTED, the
  *  Players board's rule, so two hitters at .400 share a place. */
-export function leadersFor<T extends WpblBattingTotals | WpblPitchingTotals>(
-  seasons: LeaderSeason<T>[], col: LeaderCol<T>, side: 'hitting' | 'pitching',
-  qual: { active: boolean; minPa: number; minOuts: number },
+export function leadersFor<T extends LeaderTotals>(
+  seasons: LeaderSeason<T>[], col: LeaderCol<T>, side: LeaderSide, qual: LeaderQual,
 ): { player: WpblPlayer; text: string; rank: number; tied: boolean }[] {
-  const sample = (t: T) => side === 'pitching' ? (t as WpblPitchingTotals).outs : plateAppearances(t as WpblBattingTotals)
-  const qualifies = (t: T) => !qual.active || (side === 'pitching' ? sample(t) >= qual.minOuts : sample(t) >= qual.minPa)
+  // Fielding ties break on chances and qualifies on games, the Players board's rules for the side.
+  const sample = (t: T) => side === 'pitching' ? (t as WpblPitchingTotals).outs
+    : side === 'fielding' ? (t as WpblFieldingTotals).tc : plateAppearances(t as WpblBattingTotals)
+  const qualifies = (t: T) => !qual.active || (side === 'pitching' ? sample(t) >= qual.minOuts
+    : side === 'fielding' ? (t as WpblFieldingTotals).g >= qual.minG : sample(t) >= qual.minPa)
   const pool = seasons
     .filter(s => !col.rate || qualifies(s.totals))
     .map(s => ({ s, v: col.value(s.totals) }))
@@ -79,11 +92,11 @@ export function leadersFor<T extends WpblBattingTotals | WpblPitchingTotals>(
   return pool.map((x, i) => ({ player: x.s.player, text: texts[i], ...ranks[i] }))
 }
 
-export function LeadersBoard<T extends WpblBattingTotals | WpblPitchingTotals>({ side, cols, seasons, qual, onOpenPlayer, onSeeAll, seeAllHref }: {
-  side: 'hitting' | 'pitching'
+export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual, onOpenPlayer, onSeeAll, seeAllHref }: {
+  side: LeaderSide
   cols: LeaderCol<T>[]
   seasons: LeaderSeason<T>[]
-  qual: { active: boolean; minPa: number; minOuts: number }
+  qual: LeaderQual
   onOpenPlayer: (p: WpblPlayer) => void
   onSeeAll: (key: string) => void
   /** The Players board sorted by `key`, as a real address, so "See all" is a link a crawler can follow. */
@@ -115,12 +128,12 @@ export function LeadersBoard<T extends WpblBattingTotals | WpblPitchingTotals>({
   )
 }
 
-/** The board before the season's lines have landed: the real titles over ghost rows. Hitting,
- *  because that is the side the tab opens on. */
-export function LeadersBoardSkeleton() {
+/** The board before the season's lines have landed: the real titles over ghost rows, for the side
+ *  the address asks for (Hitting, unless it says otherwise). */
+export function LeadersBoardSkeleton({ side = 'hitting' }: { side?: LeaderSide }) {
   return (
     <Box aria-hidden sx={LEADER_GRID_SX}>
-      {LEADER_CARDS.hitting.map(card => <LeaderCardSkeleton key={card.key} title={card.title ?? card.key} />)}
+      {LEADER_CARDS[side].map(card => <LeaderCardSkeleton key={card.key} title={card.title ?? card.key} />)}
     </Box>
   )
 }

@@ -70,7 +70,8 @@ season, is retired; it is in git history.)*
 **Live surfaces, in their offseason shape (Sep 24, 2026):** Home (the champion banner, the season
 card, fan-award results until Oct 1, a fan-photo gallery card, the latest post from either writer,
 the bracket without its odds, leaders, standings) · Schedule · Standings · Stats, one row of board
-tabs (Players, Teams, Fielding, Pitch by pitch, Run value, Tracked, Draft) · Teams and team pages · Game
+tabs (Leaders, Players, Teams, Bests, Find, Analysis, the last holding Run value, Pitch by pitch,
+Draft and Tracked) over one Hitting / Pitching / Fielding switch · Teams and team pages · Game
 Center (recap with a win probability graph, box score, play-by-play with the situation after every
 play with a Clip button on the plays the league filmed, pitch data, story and recap links from
 outside writers, the game's videos and clips) · Player pages at

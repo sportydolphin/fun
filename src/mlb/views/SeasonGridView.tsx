@@ -3,7 +3,8 @@ import { Box, Typography, Skeleton } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR, TEAM_NICKNAME, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
 import type { StatDef } from '../types'
 import { typePx } from '../../ui/scale'
-import { PillGroup } from '../../ui/PillGroup'
+import { CARD_BORDER } from '../../ui/card'
+import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { printedRanks } from '../../ui/leaders'
 import { ExpandRow, TABLE_CAP } from '../../ui/ExpandRow'
@@ -15,20 +16,27 @@ import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 import { fetchAllTeamStats } from '../api'
 import { fetchSeasonFielding } from '../apiSeasonStats'
 import { GAME_SCOPES, GAME_SCOPE_LABEL, type GameScope } from '../lib/gameScope'
-import { sortBoard, leagueLine } from '../lib/statsBoard'
+import { sortBoard, leagueLine, isBestFirst, ascFor } from '../lib/statsBoard'
 import type { LeaderboardEntry } from '../types'
 import {
   FIELDING_POSITIONS, fieldingDefsFor, fieldingQualified, fieldingRows, fieldingLeagueLine,
-  gridDefaultSort, combineTeamLines, combineFieldingSplits, type FieldingPosition, type GridRow, type GridSort,
+  gridDefaultSort, combineTeamLines, combineFieldingSplits, combineFieldingLines, type FieldingPosition, type GridRow, type GridSort,
 } from '../lib/seasonGrid'
+import { StatsRankedList, StatsSortFilterSheet, SortBody, FilterBody, SortFilterPill, readFullTable, writeFullTable } from './StatsRankedList'
 import { MLB_CLUBS } from '../routes'
 import { scrollBehavior } from '../../lib/motion'
+import { useStagesFit } from '../../ui/names'
 
 // THE TEAMS AND FIELDING BOARDS, WPBL's two season tables that MLB's Stats tab lacked (ROADMAP.md,
 // "WPBL's Stats boards on MLB"). One component because they are one table with two kinds of row,
 // which is also how WPBL draws them: the same frame, header, league row and sorted-column tint as
-// Players (statsTable.tsx), minus what only a player board needs (career, the playoffs pool,
-// Standard and Advanced, the phone's ranked list).
+// Players (statsTable.tsx), minus what only a player board needs (career, Standard and Advanced).
+// Teams answers all three sides, Fielding included (the clubs' own fielding lines), since Oct 2026.
+//
+// ON A PHONE, PLAYERS' RANKED LIST (StatsRankedList), with the table behind the same "Full table"
+// preference. Until Oct 2026 these two drew the desktop grid at 375px, the only boards that did:
+// a club's name ran out of its column ("Diamondb…"), Fielding's position chips wrapped to three
+// rows before a fielder was on screen, and the ranked stat was the one number frozen in place.
 //
 // EACH BOARD READS FOR ITSELF, on mount, as WPBL's Tracked board does, rather than through
 // useMlbState: nothing else in the section wants these rows, and the club lines it reads are the
@@ -46,7 +54,10 @@ export interface SeasonGridViewProps {
   boardTabs: React.ReactNode
   isDesktop: boolean
   lbGroup: 'hitting' | 'pitching'
-  setLbGroup: (g: 'hitting' | 'pitching') => void
+  /** Teams on its Fielding side: the clubs' fielding lines. Fielding (the player board) always is. */
+  fielding: boolean
+  /** The Stats tab's Hitting / Pitching / Fielding switch, built once by the section (MlbStats). */
+  sideSwitch: React.ReactNode
   vizSeason: number
   setVizSeason: (s: number) => void
   /** Regular season, playoffs or both: the section's, shared with Players and Leaders. */
@@ -66,7 +77,6 @@ export interface SeasonGridViewProps {
   setHighlightId: (id: number | null) => void
 }
 
-const SIDE_OPTIONS = [{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]
 const POSITION_OPTIONS = [{ value: 'all', label: 'All' }, ...FIELDING_POSITIONS.map(p => ({ value: p, label: p }))]
 const CLUB_OPTIONS = [{ value: '', label: 'All clubs' }, ...[...MLB_CLUBS]
   .sort((a, b) => (TEAM_NICKNAME[a.id] ?? a.name).localeCompare(TEAM_NICKNAME[b.id] ?? b.name))
@@ -92,6 +102,12 @@ const SAMPLE: Record<string, string> = {
   sba: '58', csPct: '.342', pb: '6',
 }
 
+/** A club's fielding totals, wider than any fielder's: a season of innings is five digits. */
+const TEAM_FIELDING_SAMPLE: Record<string, string> = {
+  g: '162', gs: '162', inn: '13023.0', tc: '6038', po: '4385', a: '1653', e: '118', dp: '163',
+  fpct: '.990', rf9: '4.26', sba: '160', cs: '51', csPct: '.325', pb: '16',
+}
+
 /** "Cal Raleigh" as "C. Raleigh", as Players' phone table shortens a name to fit its column. */
 const abbrevName = (name: string) => {
   const i = name.indexOf(' ')
@@ -100,37 +116,55 @@ const abbrevName = (name: string) => {
 
 interface Loaded { key: string; rows: GridRow[]; teamGames: Map<number, number> }
 
+/** A club in the frozen name column: its nickname, or its abbreviation when the nickname does not
+ *  fit (CLAUDE.md's rule for names, applied to a club), never "Diamondb…". */
+function ClubName({ teamId, name, sx }: { teamId: number; name: string; sx: object }) {
+  const { ref, stage } = useStagesFit<HTMLSpanElement>([name, TEAM_ABBR[teamId] ?? name])
+  return <Typography component="span" ref={ref} sx={sx}>{stage ? (TEAM_ABBR[teamId] ?? name) : name}</Typography>
+}
+
 export function SeasonGridView({
-  kind, boardTabs, isDesktop, lbGroup, setLbGroup, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenTeam,
+  kind, boardTabs, isDesktop, lbGroup, fielding, sideSwitch, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenTeam,
   sort, setSort, position: posProp, setPosition, club: clubProp, setClub, highlightId, setHighlightId,
 }: SeasonGridViewProps) {
   const teams = kind === 'teams'
+  // The side the rows are: a club's bat or arm, or a glove (every Fielding row, and Teams on Fielding).
+  const teamFielding = teams && fielding
+  const side: 'hitting' | 'pitching' | 'fielding' = teams && !fielding ? lbGroup : 'fielding'
   const position = teams ? 'all' : posProp
   const club = teams ? null : clubProp
   // One club's fielders open on everyone, as WPBL's roster link opens its board: the bar would leave a
   // club's page showing eight of the names the reader had just been reading.
   const [qualified, setQualified] = useState(club == null)
   useEffect(() => { setQualified(club == null) }, [club])
+  // THE PHONE'S LIST, Players' (StatsRankedList), and the table behind the same remembered choice.
+  const [fullTable, setFullTable] = useState(readFullTable)
+  const toggleFullTable = () => { const next = !fullTable; setFullTable(next); writeFullTable(next) }
+  const listView = !isDesktop && !fullTable
+  const [sheetTab, setSheetTab] = useState<null | 'sort' | 'filter'>(null)
   // A reader's own control is a new question, so the row a link picked out stops being the point.
   const choose = <T,>(set: (v: T) => void) => (v: T) => { set(v); setHighlightId(null) }
 
   // ── The read ───────────────────────────────────────────────────────────
-  const loadKey = teams ? `teams|${lbGroup}|${vizSeason}|${gameScope}` : `fielding|${vizSeason}|${gameScope}`
+  const loadKey = teams ? `teams|${side}|${vizSeason}|${gameScope}` : `fielding|${vizSeason}|${gameScope}`
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   useEffect(() => {
     let live = true
     setFailed(null)
     // Each half as StatsAPI serves it, and "Both" as the two summed (lib/seasonGrid.ts).
-    const clubLines = (group: 'hitting' | 'pitching') => gameScope === 'all'
-      ? Promise.all([fetchAllTeamStats(group, vizSeason), fetchAllTeamStats(group, vizSeason, 'P')]).then(([r, p]) => combineTeamLines(r, p))
+    const clubLines = (group: 'hitting' | 'pitching' | 'fielding') => gameScope === 'all'
+      ? Promise.all([fetchAllTeamStats(group, vizSeason), fetchAllTeamStats(group, vizSeason, 'P')]).then(([r, p]) => group === 'fielding'
+        // A fielding line's rates rebuilt from the summed counts, as a fielder's are (combineFieldingSplits).
+        ? new Map([...r].map(([id, line]) => [id, p.has(id) ? combineFieldingLines(line, p.get(id)) : line] as [number, any]))
+        : combineTeamLines(r, p))
       : fetchAllTeamStats(group, vizSeason, gameScope === 'post' ? 'P' : 'R')
     // Fielding qualifies each row on its club's games IN THE SAME GAMES, which the clubs' own lines
     // carry: a catcher's half of a club's playoff games, not of its season.
     const games = clubLines('hitting')
       .then(m => new Map([...m].map(([id, s]) => [id, Number(s?.gamesPlayed) || 0] as [number, number])))
     const rows: Promise<GridRow[]> = teams
-      ? clubLines(lbGroup).then(m => [...m]
+      ? clubLines(side).then(m => [...m]
         .filter(([id, s]) => s && TEAM_ABBR[id])
         .map(([id, s]) => ({ id: String(id), name: TEAM_NICKNAME[id] ?? TEAM_ABBR[id], teamId: id, stat: s })))
       : (gameScope === 'all'
@@ -141,15 +175,16 @@ export function SeasonGridView({
       .then(([r, g]) => { if (live) setLoaded({ key: loadKey, rows: r, teamGames: g }) })
       .catch(() => { if (live) setFailed(loadKey) })
     return () => { live = false }
-  }, [loadKey, teams, lbGroup, vizSeason, gameScope])
+  }, [loadKey, teams, side, vizSeason, gameScope])
   const data = loaded?.key === loadKey ? loaded : null
   const loading = !data && failed !== loadKey
 
   // ── Columns and sort ───────────────────────────────────────────────────
-  const defs: StatDef[] = teams
-    ? (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS)
+  // A club's fielding is every position's, so its battery columns (SB allowed, CS, PB) are the club's.
+  const defs: StatDef[] = teamFielding ? fieldingDefsFor('C')
+    : teams ? (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS)
     : fieldingDefsFor(position)
-  const defaultSort = gridDefaultSort(teams ? 'teamStats' : 'fielding', lbGroup, club)
+  const defaultSort = gridDefaultSort(teams ? 'teamStats' : 'fielding', side, club)
   // A sort the columns no longer hold (CS% after leaving the catchers, ERA after switching to
   // hitting, a hand-edited address) falls back to the board's default rather than ranking on a
   // blank, and is dropped, so the address stops naming a column the board is not sorted by.
@@ -189,8 +224,8 @@ export function SeasonGridView({
   const ranks = printedRanks(ranked.map(r => activeDef.format(activeDef.getValue(r.stat))))
   const league = useMemo(() => {
     if (!onPosition.length) return null
-    return teams ? leagueLine(onPosition as unknown as LeaderboardEntry[], lbGroup) : fieldingLeagueLine(onPosition)
-  }, [onPosition, teams, lbGroup])
+    return side !== 'fielding' ? leagueLine(onPosition as unknown as LeaderboardEntry[], side) : fieldingLeagueLine(onPosition)
+  }, [onPosition, side])
   const rowKeyId = (r: GridRow) => (teams ? r.teamId : r.playerId)
   const hlIdx = highlightId == null ? -1 : ranked.findIndex(r => rowKeyId(r) === highlightId)
   const hlRef = useRef<HTMLElement | null>(null)
@@ -288,8 +323,33 @@ export function SeasonGridView({
         ].filter(Boolean).join(' · ')}
         {isDesktop ? ' · sort by any column heading' : ''}
       </Typography>
+      {/* The way between the list and the grid on a phone, Players' switch. */}
+      {!isDesktop && (
+        <Box {...pressable(toggleFullTable)} sx={{
+          ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+          minHeight: 34, px: 1.25, display: 'inline-flex', alignItems: 'center', borderRadius: 999,
+          border: '1px solid', borderColor: CARD_BORDER, fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+        }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
+      )}
     </Box>
   )
+
+  // Anything off the board's default, for the dot on the phone's pill.
+  const filtersSet = vizSeason !== CURRENT_SEASON || gameScope !== 'regular'
+    || (!teams && (position !== 'all' || club != null || (canQualify && qualified !== (club == null))))
+  // The rows as the phone's list reads them: a club's id stands in for the player's on Teams, which
+  // is what its highlight and its key read.
+  const listRows = ranked.map(r => ({
+    playerId: r.playerId ?? r.teamId, playerName: r.name, teamId: r.teamId, teamAbbr: TEAM_ABBR[r.teamId] ?? '',
+    position: r.position, stat: r.stat, _v: r._v, rowKey: r.id,
+  }))
+  const pickSort = (def: StatDef) => { if (def.key !== activeDef.key) pickColumn(def); setSheetTab(null) }
+  const setDirection = (bestFirst: boolean) => {
+    const asc = ascFor(activeDef, bestFirst)
+    const natural = activeDef.lowerIsBetter ?? false
+    setSort(asc === natural ? { key: activeDef.key } : { key: activeDef.key, asc })
+    setHighlightId(null)
+  }
 
   // Every row while loading is a row of the loaded table's height: thirty clubs, or the fielders'
   // cap, which a season's qualified fielders always fill.
@@ -299,19 +359,29 @@ export function SeasonGridView({
   return (
     <Box sx={STATS_BOARD_ROOT_SX}>
       <StatsBar tabs={boardTabs} isDesktop={isDesktop}>
+        {/* Phones: the side, and one pill for the sort and the filters, as on Players. */}
+        {!isDesktop && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            {sideSwitch}
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+              <SortFilterPill label={activeDef.label} bestFirst={isBestFirst(activeDef, asc)} filtersSet={filtersSet}
+                open={sheetTab != null} onOpen={() => setSheetTab('sort')} />
+            </Box>
+          </Box>
+        )}
+        {isDesktop && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
-            {teams
-              ? <PillGroup options={SIDE_OPTIONS} value={lbGroup} onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setSort(null); setHighlightId(null) }} />
-              : POSITION_OPTIONS.map(o => (
-                <FilterChip key={o.value} active={position === o.value} onClick={() => choose(setPosition)(o.value as FieldingPosition | 'all')}>
-                  {o.label}
-                </FilterChip>
-              ))}
+            {/* The side first on every board, then what only this one has: Fielding's positions. */}
+            {sideSwitch}
+            {!teams && POSITION_OPTIONS.map(o => (
+              <FilterChip key={o.value} active={position === o.value} onClick={() => choose(setPosition)(o.value as FieldingPosition | 'all')}>
+                {o.label}
+              </FilterChip>
+            ))}
           </Box>
           {/* Allowed to shrink and wrap inside itself: on Fielding this group is the games, the club,
-              the season and the bar, which at 375px is wider than the phone, and a group that would
-              not shrink pushed the page 154px sideways. */}
+              the season and the bar. */}
           <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
             {/* Players' chips (src/ui/FilterChip), the same three words in the same order. */}
             {GAME_SCOPES.map(sc => (
@@ -345,6 +415,7 @@ export function SeasonGridView({
             )}
           </Box>
         </Box>
+        )}
       </StatsBar>
 
       {failed === loadKey && (
@@ -353,7 +424,28 @@ export function SeasonGridView({
         </Typography>
       )}
 
-      {failed !== loadKey && (
+      {failed !== loadKey && listView && (
+        loading ? (
+          <Box aria-hidden>
+            <StatsRankedList skeleton rows={[]} def={activeDef} statDefs={defs} group={side} asc={asc} clubs={teams}
+              onOpenPlayer={() => {}} footer={() => foot(null)} />
+          </Box>
+        ) : ranked.length === 0 ? (
+          <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+            {canQualify && qualified ? 'Nobody has qualified here yet. Sort, then Filter → Everyone, shows everyone.'
+              : gameScope === 'post' ? `No playoff games in ${vizSeason}${vizSeason >= CURRENT_SEASON ? ' yet' : ''}.`
+              : 'No games in this season yet.'}
+          </Typography>
+        ) : (
+          // Keyed on everything that reorders or repopulates it, so "Show all" closes again.
+          <StatsRankedList key={boardKey} rows={listRows} def={activeDef} statDefs={defs} group={side} asc={asc}
+            clubs={teams} noun={noun} highlightPlayerId={highlightId}
+            league={league && activeDef.isRate ? activeDef.format(activeDef.getValue(league)) : null}
+            onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} footer={() => foot(ranked.length)} />
+        )
+      )}
+
+      {failed !== loadKey && !listView && (
         <Box sx={TABLE_FRAME_SX}>
           <Box onScroll={frozenOn ? e => setAtStart(e.currentTarget.scrollLeft <= 1) : undefined}
             sx={{ overflowX: 'auto', overscrollBehaviorX: 'contain', overflowY: isDesktop ? 'auto' : 'visible', maxHeight: isDesktop ? TABLE_MAX_H : undefined }}>
@@ -369,7 +461,7 @@ export function SeasonGridView({
                       const on = def.key === activeDef.key
                       return (
                         <Box component="td" key={def.key} sx={{ ...tdSx, ...(isFrozen(def) ? frozen : {}), textAlign: 'center', fontSize: on ? '0.84rem' : '0.8rem', fontWeight: on ? 800 : 500, color: 'transparent' }}>
-                          {SAMPLE[def.key] ?? '000'}
+                          {(teamFielding ? TEAM_FIELDING_SAMPLE : SAMPLE)[def.key] ?? '000'}
                         </Box>
                       )
                     })}
@@ -393,7 +485,9 @@ export function SeasonGridView({
                           {r.teamId > 0 && <LogoBubble teamId={r.teamId} abbr={TEAM_ABBR[r.teamId] ?? ''} size={20} ring={1} />}
                           <Box sx={{ minWidth: 0 }}>
                             <Typography {...link} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {frozenOn && r.playerId ? abbrevName(r.name) : r.name}
+                              {r.playerId
+                                ? (frozenOn ? abbrevName(r.name) : r.name)
+                                : <ClubName teamId={r.teamId} name={r.name} sx={{ font: 'inherit', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />}
                             </Typography>
                             {r.position && (
                               <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.position}</Typography>
@@ -435,6 +529,20 @@ export function SeasonGridView({
           )}
           {foot(loading ? null : ranked.length)}
         </Box>
+      )}
+
+      {sheetTab && !isDesktop && (
+        <StatsSortFilterSheet tab={sheetTab} onTab={setSheetTab} group={side} clubs={teams} filtersSet={filtersSet}
+          onClose={() => setSheetTab(null)}
+          sort={<SortBody statDefs={defs} sortKey={activeDef.key} asc={asc} reversible onPick={pickSort} onDirection={setDirection} />}
+          filter={<FilterBody allTime={false}
+            seasonValue={String(vizSeason)} onSeason={v => choose(setVizSeason)(Number(v))}
+            scope={gameScope} scopes={GAME_SCOPES} onScope={sc => choose(setGameScope)(sc)}
+            canQualify={canQualify} qualified={qualified} onQualified={() => setQualified(q => !q)}
+            choices={teams ? undefined : [
+              { title: 'Position', options: POSITION_OPTIONS, value: position, onChange: v => choose(setPosition)(v as FieldingPosition | 'all') },
+              { title: 'Club', options: CLUB_OPTIONS, value: club == null ? '' : String(club), onChange: v => choose(setClub)(v ? Number(v) : null) },
+            ]} />} />
       )}
     </Box>
   )

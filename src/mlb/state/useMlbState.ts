@@ -30,7 +30,7 @@ import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } fr
 import { openPlayerPanel } from './playerPanel'
 import { useOpensAsPanel } from '../../ui/ModalShell'
 import { useSectionActive } from '../../lib/panelActive'
-import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbStatsBoard, MLB_PATH_EVENT } from '../routes'
+import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbSeasonView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot, MlbFieldingPosition } from '../routes'
 import { gridDefaultSort, type GridSort } from '../lib/seasonGrid'
 import { decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
@@ -331,6 +331,10 @@ export function useMlbState() {
 
   // ─── Leaderboard ─────────────────────────────────────────────────────────────
   const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>(landing?.lb ?? 'hitting')
+  // Leaders and Teams on the Fielding side. `lbGroup` keeps the last of Hitting and Pitching, which
+  // every board without a fielding answer reads and which the switch returns to off Fielding.
+  // Players on Fielding is the 'fielding' view rather than this flag (see routes.ts).
+  const [statsFielding, setStatsFielding] = useState(!!landing?.fielding || landing?.view === 'fielding')
   const [lbData, setLbData] = useState<LeaderboardEntry[] | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
@@ -347,7 +351,7 @@ export function useMlbState() {
   // Each board's sort, kept apart so a switch between them returns each to where it was. Here
   // rather than in the view because the address carries them (mlbUrlFor), and Back restores them.
   const [teamGridSort, setTeamGridSort] = useState<GridSort | null>(() => landing?.view === 'teamStats'
-    ? gridSortFor(landing.sort, landing.dir, gridDefaultSort('teamStats', landing.lb ?? 'hitting')) : null)
+    ? gridSortFor(landing.sort, landing.dir, gridDefaultSort('teamStats', landing.fielding ? 'fielding' : landing.lb ?? 'hitting')) : null)
   const [fieldingSort, setFieldingSort] = useState<GridSort | null>(() => landing?.view === 'fielding'
     ? gridSortFor(landing.sort, landing.dir, gridDefaultSort('fielding', 'hitting', landing.club ?? null)) : null)
   const [fieldingPos, setFieldingPos] = useState<MlbFieldingPosition | 'all'>(landing?.pos ?? 'all')
@@ -608,18 +612,19 @@ export function useMlbState() {
     const s: Record<string, any> = { view }
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
     if (view === 'teamStats' || view === 'bests' || view === 'find') s.lb = lbGroup
+    if ((view === 'leaderboard' || view === 'teamStats') && statsFielding) s.fielding = true
     // Teams and Fielding share the section's regular / playoffs / both choice with Players and Leaders,
     // as they share its season.
     if (view === 'teamStats' || view === 'fielding' || view === 'bests' || view === 'find') s.games = lbGameScope
     // The board's season, which only a game sheet's entry is ever read for (restoreTarget): every
     // other entry's address already says it.
-    if (isMlbStatsBoard(view)) s.season = vizSeason
+    if (isMlbSeasonView(view)) s.season = vizSeason
     if (view === 'stats' && sortParam) s.sort = sortParam
     if (view === 'stats' && dirParam) s.dir = dirParam
     // A grid sort carries `asc` only when it is turned round, so its presence is the direction.
     const gridDir = (g: GridSort | null) => (g?.asc != null ? (g.asc ? 'asc' : 'desc') : null)
     if (view === 'teamStats' && teamGridSort) {
-      if (teamGridSort.key !== gridDefaultSort('teamStats', lbGroup)) s.sort = teamGridSort.key
+      if (teamGridSort.key !== gridDefaultSort('teamStats', statsFielding ? 'fielding' : lbGroup)) s.sort = teamGridSort.key
       if (gridDir(teamGridSort)) s.dir = gridDir(teamGridSort)
     }
     if (view === 'fielding') {
@@ -635,7 +640,7 @@ export function useMlbState() {
       s.findVenue = findQuery.venue === 'any' ? null : findQuery.venue
     }
     return s
-  }, [player, team, playerSeason, view, lbGroup, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery])
+  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -749,19 +754,24 @@ export function useMlbState() {
     club?: number | null
     highlight?: number | null
     overSheet?: boolean
+    /** Fielding only: the column to rank by, from a Leaders card's "See all". */
+    sort?: string | null
+    /** The games, where the caller has a choice of them on screen (Leaders); else the regular season. */
+    games?: GameScope
   }) => {
     const group = to.lb ?? lbGroup
     const season = to.season ?? vizSeason
+    const games = to.games ?? 'regular'
     // The regular season: a club page and a player card both show it, so the board they open does too.
     const snap: MlbSnapshot = to.view === 'teamStats'
-      ? { view: 'teamStats', lb: group, season, games: 'regular' }
-      : { view: 'fielding', season, games: 'regular', pos: to.pos && to.pos !== 'all' ? to.pos : null, club: to.club ?? null }
+      ? { view: 'teamStats', lb: group, season, games }
+      : { view: 'fielding', season, games, pos: to.pos && to.pos !== 'all' ? to.pos : null, club: to.club ?? null, sort: to.sort ?? null }
     stampCurrentEntry()
     pushEntry({ ...snap }, mlbUrlFor(snap, CURRENT_SEASON), { overSheet: !!to.overSheet })
-    if (to.view === 'teamStats') { setLbGroup(group); setTeamGridSort(null) }
-    else { setFieldingSort(null); setFieldingPos(to.pos ?? 'all'); setFieldingClub(to.club ?? null) }
+    if (to.view === 'teamStats') { setLbGroup(group); setTeamGridSort(null); setStatsFielding(false) }
+    else { setFieldingSort(to.sort ? { key: to.sort } : null); setFieldingPos(to.pos ?? 'all'); setFieldingClub(to.club ?? null); setStatsFielding(true) }
     setVizSeason(season)
-    setLbGameScope('regular')
+    setLbGameScope(games)
     setGridHighlightId(to.highlight ?? null)
     setPlayer(null)
     setTeam(null)
@@ -876,8 +886,9 @@ export function useMlbState() {
       setView(snap.view)
       setPlayer(null)
       setTeam(null)
-      if (!isMlbStatsBoard(snap.view)) return
+      if (!isMlbSeasonView(snap.view)) return
       const group = snap.lb ?? 'hitting'
+      setStatsFielding(!!snap.fielding || snap.view === 'fielding')
       // Fielding has no side, so Back onto it leaves the one the other boards were on.
       if (snap.view !== 'fielding') setLbGroup(group)
       // Career has no season of its own: the season board behind it keeps the one it had.
@@ -885,7 +896,7 @@ export function useMlbState() {
       setGridHighlightId(null)
       if (snap.view === 'teamStats' || snap.view === 'fielding' || snap.view === 'bests' || snap.view === 'find') setLbGameScope(snap.games ?? 'regular')
       if (snap.view === 'find') setFindQuery(findQueryOf(snap))
-      if (snap.view === 'teamStats') setTeamGridSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('teamStats', group)))
+      if (snap.view === 'teamStats') setTeamGridSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('teamStats', snap.fielding ? 'fielding' : group)))
       if (snap.view === 'fielding') {
         setFieldingSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('fielding', group, snap.club ?? null)))
         setFieldingPos(snap.pos ?? 'all')
@@ -1032,6 +1043,7 @@ export function useMlbState() {
 
     // Leaderboard
     lbGroup, setLbGroup,
+    statsFielding, setStatsFielding,
     lbData, loadingLb,
     lbSelectedKeys, setLbSelectedKeys,
     lbFullscreen, setLbFullscreen, openStatsBoard,

@@ -11,7 +11,7 @@ const season = (id: string, t: Partial<WpblBattingTotals>): LeaderSeason<WpblBat
 })
 const AVG: LeaderCol<WpblBattingTotals> = { key: 'avg', label: 'AVG', value: t => t.avg, display: t => (t.avg ?? 0).toFixed(3).replace(/^0/, ''), rate: true }
 const HR: LeaderCol<WpblBattingTotals> = { key: 'hr', label: 'HR', value: t => t.hr }
-const QUAL = { active: true, minPa: 10, minOuts: 30 }
+const QUAL = { active: true, minPa: 10, minOuts: 30, minG: 5 }
 
 describe('leadersFor', () => {
   it('ranks a rate among qualifiers only, by plate appearances', () => {

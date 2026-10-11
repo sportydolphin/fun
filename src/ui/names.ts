@@ -53,9 +53,19 @@ export function nameAtStage(name: string, stage: number): string {
  * down inside one width, so it settles in at most `maxStage` passes rather than oscillating.
  */
 export function useLineNameFit<T extends HTMLElement>(names: string[]): { ref: RefObject<T>; stage: number } {
+  return useStageFit<T>(names.join('|'), Math.max(0, ...names.map(n => nameStages(n).length - 1)))
+}
+
+/**
+ * The same measured fit for a string whose stages are not a person's name: a club's nickname then
+ * its abbreviation ("Diamondbacks", "AZ"). Render `stages[stage]`; `key` is what resets it.
+ */
+export function useStagesFit<T extends HTMLElement>(stages: string[]): { ref: RefObject<T>; stage: number } {
+  return useStageFit<T>(stages.join('|'), stages.length - 1)
+}
+
+function useStageFit<T extends HTMLElement>(key: string, maxStage: number): { ref: RefObject<T>; stage: number } {
   const ref = useRef<T>(null)
-  const key = names.join('|')
-  const maxStage = Math.max(0, ...names.map(n => nameStages(n).length - 1))
   const [stage, setStage] = useState(0)
   // A narrower line re-renders nothing by itself, so the measure below would never run: this
   // forces the render it needs.

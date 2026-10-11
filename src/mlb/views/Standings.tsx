@@ -373,10 +373,18 @@ function PlayoffPicture({ divisions, onTeamClick, highlightTeamId }: {
 
 // ─── Standings component ──────────────────────────────────────────────────────
 
-export function Standings({ season, onTeamClick, highlightTeamId }: {
+export function Standings({ season, onTeamClick, highlightTeamId, charts, chartsHref, onCharts, onLeaveCharts }: {
   season: number
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
+  /** CHARTS, A MODE WITH AN ADDRESS OF ITS OWN (/mlb/charts), drawn by the section: the view is its,
+   *  so this only says where the tab goes and draws what it is handed. Non-null exactly while it is
+   *  the page on screen, which is what lights its tab. */
+  charts?: React.ReactNode
+  chartsHref?: string
+  onCharts?: () => void
+  /** Another mode picked from Charts: the section moves back to /mlb/standings. */
+  onLeaveCharts?: () => void
 }) {
   // Seeded from the last bracket read on this device (see seededBracket), so in October the tab
   // opens on the bracket instead of drawing the divisions and swapping them out a moment later,
@@ -453,16 +461,23 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
       <PageTabs
         options={[
           ...(hasBracket || !bracketChecked ? [{ value: 'bracket', label: 'Bracket' }] : []),
-          { value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }, { value: 'odds', label: 'Odds' },
+          // "Wild Card", not "Playoff Picture": it is the wild card race, and with Charts joining the
+          // row the longer name pushed the last mode off a 375px screen.
+          { value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Wild Card' }, { value: 'odds', label: 'Odds' },
+          ...(onCharts ? [{ value: 'charts', label: 'Charts', href: chartsHref }] : []),
         ]}
-        value={bracketChecked ? mode : 'bracket'}
-        onChange={v => setMode(v as Mode)}
+        value={charts ? 'charts' : bracketChecked ? mode : 'bracket'}
+        onChange={v => {
+          if (v === 'charts') { onCharts?.(); return }
+          setMode(v as Mode)
+          if (charts) onLeaveCharts?.()
+        }}
         mb={3}
       />
 
       {/* Odds mode fetches its own precomputed data, so it renders independent of
           the live standings load/error above. */}
-      {!bracketChecked ? (
+      {charts ? charts : !bracketChecked ? (
         <BracketSkeleton compact={false} />
       ) : mode === 'bracket' ? (
         <PlayoffBracketCard heading="Bracket" onTeamClick={onTeamClick} />

@@ -114,7 +114,7 @@ export async function fetchAllTeams(): Promise<Team[]> {
 const allTeamStatsCache = new Map<string, Promise<Map<number, any>>>()
 
 /** `gameType` 'P' is the postseason, which answers with only the clubs that played in it. */
-export function fetchAllTeamStats(group: 'hitting' | 'pitching', season: number, gameType: 'R' | 'P' = 'R'): Promise<Map<number, any>> {
+export function fetchAllTeamStats(group: 'hitting' | 'pitching' | 'fielding', season: number, gameType: 'R' | 'P' = 'R'): Promise<Map<number, any>> {
   const key = `${group}-${season}-${gameType}`
   let p = allTeamStatsCache.get(key)
   if (!p) {

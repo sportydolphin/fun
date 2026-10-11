@@ -23,7 +23,7 @@ import { fetchSeasonSabermetrics, fetchParkFactors } from '../apiSeasonStats'
 import { withAdvanced, advancedLeague, HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS, ADVANCED_ORDER, SABERMETRIC_KEYS, PARK_ADJUSTED_KEYS } from '../lib/advanced'
 import type { Sabermetric, StatsView as TableView } from '../lib/advanced'
 import { LogoBubble } from '../components/boxScore'
-import { StatsRankedList, StatsSortSheet, StatsFilterSheet, readFullTable, writeFullTable, controlPill } from './StatsRankedList'
+import { StatsRankedList, StatsSortFilterSheet, SortBody, FilterBody, SortFilterPill, readFullTable, writeFullTable } from './StatsRankedList'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
 import { TABLE_FRAME_SX, TABLE_MAX_H, NAME_W, NAME_INNER_MAX, ROW_TINT_VAR, ROW_TINT, TABLE_FOOT_SX, FOOT_TEXT_SX, RankMarkText, frozenSx, FROZEN_EDGE } from './statsTable'
 
@@ -31,7 +31,9 @@ export interface StatsViewProps {
   /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
   boardTabs: React.ReactNode
   lbGroup: 'hitting' | 'pitching'
-  setLbGroup: (g: 'hitting' | 'pitching') => void
+  /** The Stats tab's Hitting / Pitching / Fielding switch, built once by the section (MlbStats) so
+   *  every board draws the same control in the same place. */
+  sideSwitch: React.ReactNode
   vizSeason: number
   setVizSeason: (s: number) => void
   allTime: boolean
@@ -55,7 +57,7 @@ export interface StatsViewProps {
 }
 
 export function StatsView({
-  boardTabs, lbGroup, setLbGroup, vizSeason, setVizSeason, allTime, setAllTime, gameScope, setGameScope,
+  boardTabs, lbGroup, sideSwitch, vizSeason, setVizSeason, allTime, setAllTime, gameScope, setGameScope,
   lbData, lbFullscreen, setLbFullscreen,
   setLbStatsLimit,
   lbQualified, setLbQualified,
@@ -221,8 +223,8 @@ export function StatsView({
   // The grid is a spreadsheet in a nested scroller at 375px, ranked by a column that is off the
   // screen. See StatsRankedList. `fullTable` is the reader's way back to it.
   const [fullTable, setFullTable] = useState(readFullTable)
-  const [sortOpen, setSortOpen] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  // The phone's one sheet, open on its Sort or its Filter tab.
+  const [sheetTab, setSheetTab] = useState<null | 'sort' | 'filter'>(null)
   const listView = !isDesktop && !fullTable
   // THE PHONE'S FULL TABLE, WPBL's (pinActive in src/wpbl/StatsView.tsx) in every respect that a
   // reader feels: the sorted column frozen beside the name so the number the board is ranked on
@@ -353,38 +355,19 @@ export function StatsView({
   )
   const filtersSet = allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
 
-  const pill = controlPill
 
   return (
     <Box sx={STATS_BOARD_ROOT_SX}>
       <StatsBar tabs={boardTabs} isDesktop={isDesktop} onHeld={setBoardHeld}>
-      {/* Phone controls: the two that do the work, stating what they are set to. The grid's
-          chips stay on desktop, where there is room for all of them and the headers already sort. */}
+      {/* Phone controls: the side, and one pill for the sort and the filters together, which opens
+          a sheet with a tab for each. The grid's chips stay on desktop, where there is room for all
+          of them and the headers already sort. */}
       {!isDesktop && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          <PillGroup
-            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-            value={lbGroup}
-            onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
-          />
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            {!isDesktop && (
-              <Box {...pressable(() => setSortOpen(true))} aria-haspopup="dialog" aria-expanded={sortOpen} sx={pill(true)}>
-                {/* Reversed is the state a reader forgets they set, and the pill is the only control
-                    they look at again. It replaces "Sort" rather than adding a word: at 375px this row
-                    has no room for one, and a wider pill wraps the whole row onto two lines. */}
-                <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>{isBestFirst(activeDef, effectiveAsc) ? 'Sort' : 'Worst'}</Box>
-                {activeDef.label}
-                <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
-              </Box>
-            )}
-            {/* One pill for season, games and the qualifying bar. The dot says only that
-                something is off its default, so a filter can never be silently on. */}
-            <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={pill(filtersSet)}>
-              Filters
-              {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
-              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
-            </Box>
+          {sideSwitch}
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+            <SortFilterPill label={activeDef.label} bestFirst={isBestFirst(activeDef, effectiveAsc)} filtersSet={filtersSet}
+              open={sheetTab != null} onOpen={() => setSheetTab('sort')} />
           </Box>
         </Box>
       )}
@@ -392,11 +375,7 @@ export function StatsView({
       {/* Controls row */}
       {isDesktop && <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <PillGroup
-            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-            value={lbGroup}
-            onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
-          />
+          {sideSwitch}
           {/* Which columns, beside which side, where WPBL's table has it. */}
           <PillGroup options={VIEW_OPTIONS} value={shownView} onChange={v => switchView(v as TableView)} />
           {/* Filters, so chips (src/ui/FilterChip), as WPBL's season / playoffs choice is, and in
@@ -714,23 +693,21 @@ export function StatsView({
         </Box>
       )}
 
-      {sortOpen && !isDesktop && (
-        <StatsSortSheet statDefs={allDefs} group={lbGroup} sortKey={sortKey} asc={effectiveAsc}
-          reversible={reversible} onPick={pickSort} onDirection={setDirection}
-          onClose={() => setSortOpen(false)} />
-      )}
-      {filtersOpen && !isDesktop && (
-        <StatsFilterSheet
-          seasonValue={allTime ? 'all' : String(vizSeason)}
-          onSeason={v => {
-            if (v === 'all') setAllTime(true)
-            else { setAllTime(false); setVizSeason(Number(v)) }
-            setLbStatsLimit(50); setLbFullscreen(null)
-          }}
-          scope={shownScope} scopes={scopes} onScope={s => { setGameScope(s); setLbStatsLimit(50) }}
-          canQualify={activeDef.isRate && !allTime} qualified={lbQualified}
-          onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
-          onClose={() => setFiltersOpen(false)} />
+      {sheetTab && !isDesktop && (
+        <StatsSortFilterSheet tab={sheetTab} onTab={setSheetTab} group={lbGroup} filtersSet={filtersSet}
+          onClose={() => setSheetTab(null)}
+          sort={<SortBody statDefs={allDefs} sortKey={sortKey} asc={effectiveAsc}
+            reversible={reversible} onPick={d => { pickSort(d); setSheetTab(null) }} onDirection={setDirection} />}
+          filter={<FilterBody
+            seasonValue={allTime ? 'all' : String(vizSeason)}
+            onSeason={v => {
+              if (v === 'all') setAllTime(true)
+              else { setAllTime(false); setVizSeason(Number(v)) }
+              setLbStatsLimit(50); setLbFullscreen(null)
+            }}
+            scope={shownScope} scopes={scopes} onScope={sc => { setGameScope(sc); setLbStatsLimit(50) }}
+            canQualify={activeDef.isRate && !allTime} qualified={lbQualified}
+            onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }} />} />
       )}
     </Box>
   )

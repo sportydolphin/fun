@@ -17,7 +17,11 @@ import { chromePx, typePx } from './scale'
 // WPBL_ACCENT. White on #60a5fa measures 2.37:1, and colour contrast is absolute, so the raw
 // accent fails in dark mode too.
 export function PillGroup({ options, value, onChange, mb }: {
-  options: { value: string; label: string }[]
+  /** `disabled` keeps an option DRAWN and unpressable, for a choice the page in front of the reader
+   *  cannot answer (Fielding on a board with no fielding): hiding it instead resizes the switch and
+   *  slides everything after it, which is how one control came to sit in a different place on
+   *  every board. `hint` says why, on hover and to a screen reader. */
+  options: { value: string; label: string; disabled?: boolean; hint?: string }[]
   value: string
   onChange: (v: string) => void
   mb?: number
@@ -26,14 +30,18 @@ export function PillGroup({ options, value, onChange, mb }: {
     <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb }}>
       {options.map(opt => {
         const on = opt.value === value
+        const off = !!opt.disabled && !on
         return (
           <Box
             key={opt.value}
-            {...pressable(() => onChange(opt.value))}
+            {...(off ? { role: 'button', tabIndex: -1 } : pressable(() => onChange(opt.value)))}
             aria-pressed={on}
+            aria-disabled={off || undefined}
+            title={opt.hint}
             sx={{
               ...FOCUS_RING,
-              px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
+              px: 1.5, py: 0.4, borderRadius: 999, cursor: off ? 'default' : 'pointer',
+              opacity: off ? 0.4 : 1,
               // A FLOOR UNDER THE TAP TARGET. At their natural height these are one pixel under WCAG 2.2's
               // 24px minimum, and they sit shoulder to shoulder inside one pill, so the spacing exception
               // that forgives a small target does not apply. `minHeight` rather than more padding: the
@@ -50,7 +58,7 @@ export function PillGroup({ options, value, onChange, mb }: {
               whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
               bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',
               color: on ? '#fff' : 'text.secondary',
-              '&:hover': on ? {} : { color: 'text.primary' },
+              '&:hover': on || off ? {} : { color: 'text.primary' },
             }}
           >
             {opt.label}

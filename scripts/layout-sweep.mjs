@@ -123,9 +123,12 @@ function samplePages() {
 
 const DEFAULT_ROUTES = [
   '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=fielding', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
+  // Fielding as a side of Leaders and Teams, and an Analysis board other than Run value (Oct 2026).
+  '/wpbl/stats?side=fielding', '/wpbl/stats?board=teams&side=fielding', '/wpbl/stats?board=pitches',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
   '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/team-stats', '/mlb/fielding', '/mlb/bests', '/mlb/find', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare',
+  '/mlb/charts', '/mlb/leaders?lb=fielding', '/mlb/team-stats?lb=fielding',
   // One slot filled, and a pair: two hitters, the shape the pair's skeleton reserves.
   '/mlb/compare/zack-wheeler-554430', '/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594',
 ]
@@ -180,7 +183,12 @@ function probeOverflow(includeEllipsis) {
       }
       continue
     }
-    const over = el.scrollWidth - el.clientWidth
+    // SVG TEXT HAS NO BOX TO SPILL. A chart's <text> reports a scrollWidth and a clientWidth that
+    // are the same meaningless number, and the label lies wherever the drawing puts it, so the box
+    // checks below read every axis label on /mlb/charts as spilling (636 findings, none of them
+    // real). Off the screen is still worth knowing, so that check alone runs for them.
+    const svgText = el instanceof SVGElement
+    const over = svgText ? 0 : el.scrollWidth - el.clientWidth
     // A single glyph (▸, a medal emoji) is often set in a box deliberately narrower than it, with
     // negative margins, so it can hang into the gutter. Words and numbers are what clip.
     // Counted as the reader sees it, by grapheme: ⚔️ and 🏖️ are two code points each (the emoji and a

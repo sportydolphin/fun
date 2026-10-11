@@ -6,7 +6,6 @@ import {
   type FinderCondition, type FinderOp, type FinderQuery, type FinderVenue,
 } from '../../league/finder'
 import { SectionCard, TYPE_SCALE, CARD_BORDER } from '../../ui/card'
-import { PillGroup } from '../../ui/PillGroup'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { ExpandRow } from '../../ui/ExpandRow'
 import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX } from '../../ui/leaders'
@@ -17,11 +16,10 @@ import GameLineRow from '../components/GameLineRow'
 import { PlayerHeadshot } from '../components/leaderboards'
 import { LogoBubble } from '../components/boxScore'
 import { playerLink } from '../lib/links'
-import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
 import { TEAM_ABBR, TEAM_NICKNAME } from '../constants'
 import { MLB_CLUBS } from '../routes'
 import { seasonScopeOf, MLB_LINES_SEASONS } from '../seasonLines'
-import { useMlbSeasonLines, LinesSeasonSelect, NotMirrored, type MlbLinesBoardProps } from './BestsView'
+import { useMlbSeasonLines, LinesBoardControls, NotMirrored, type MlbLinesBoardProps } from './BestsView'
 
 // THE FIND BOARD: every MLB game line that matches what you asked for. WPBL's board
 // (src/wpbl/FindView.tsx) on WPBL's engine (src/league/finder.ts), over MLB's mirrored box scores:
@@ -38,7 +36,6 @@ import { useMlbSeasonLines, LinesSeasonSelect, NotMirrored, type MlbLinesBoardPr
 const RESULT_CAP = 10
 /** The tally's rows. */
 const TALLY_SHOWN = 10
-const SIDE_OPTIONS = [{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]
 const BOARD_W = chromePx(1150)
 const CLUBS = [...MLB_CLUBS].sort((a, b) => (TEAM_NICKNAME[a.id] ?? a.name).localeCompare(TEAM_NICKNAME[b.id] ?? b.name))
 const clubOptions = (blank: string) => [
@@ -95,7 +92,7 @@ function ConditionRow({ side, n, condition, onChange, onRemove }: {
 }
 
 export function MlbFindView({
-  boardTabs, isDesktop, lbGroup, setLbGroup, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenGame,
+  boardTabs, isDesktop, lbGroup, sideSwitch, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenGame,
   query, onQuery,
 }: MlbLinesBoardProps & {
   /** Owned by the section, which mirrors it into the address. Its `scope` is ignored here: the
@@ -138,19 +135,10 @@ export function MlbFindView({
   return (
     <Box sx={STATS_BOARD_ROOT_SX}>
       <StatsBar tabs={boardTabs} isDesktop={isDesktop}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-          {/* A new side asks a new question: the old conditions name fields the other side may
-              not have (a hitter's TB, a pitcher's IP), so the switch clears them. */}
-          <PillGroup options={SIDE_OPTIONS} value={side}
-            onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); onQuery({ ...query, conditions: [] }) }} />
-          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
-            {GAME_SCOPES.map(sc => (
-              <FilterChip key={sc} active={gameScope === sc} onClick={() => setGameScope(sc)}>{GAME_SCOPE_LABEL[sc]}</FilterChip>
-            ))}
-            <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
-            <LinesSeasonSelect season={vizSeason} setSeason={setVizSeason} />
-          </Box>
-        </Box>
+        {/* A new side asks a new question: the old conditions name fields the other side may not
+            have (a hitter's TB, a pitcher's IP), so the switch clears them (pickSide in MlbStats). */}
+        <LinesBoardControls isDesktop={isDesktop} sideSwitch={sideSwitch} gameScope={gameScope} setGameScope={setGameScope}
+          season={vizSeason} setSeason={setVizSeason} />
       </StatsBar>
 
       {!mirrored ? <NotMirrored season={vizSeason} /> : failed ? (

@@ -17,19 +17,28 @@
 // that never reach the edge: a notification in the bell, an old history entry.
 
 /** Every screen the section can show. 'search' is a player or team page; the views in
- *  MLB_STATS_BOARDS are the boards of the Stats tab. */
+ *  MLB_STATS_BOARDS are the boards of the Stats tab, and 'viz' is Standings' Charts. */
 export type MlbView = 'home' | 'scores' | 'standings' | 'stats' | 'leaderboard' | 'teamStats' | 'fielding' | 'bests' | 'find' | 'viz' | 'teams' | 'search'
 const MLB_VIEWS: readonly MlbView[] = ['home', 'scores', 'standings', 'stats', 'leaderboard', 'teamStats', 'fielding', 'bests', 'find', 'viz', 'teams', 'search']
 export const isMlbView = (v: unknown): v is MlbView => typeof v === 'string' && (MLB_VIEWS as readonly string[]).includes(v)
 
-/** The Stats tab's boards, in WPBL's order (Leaders, Players, Teams, Fielding), with MLB's Charts
- *  after them. ONE LIST because "is this a Stats board" was spelled out by hand all over the
- *  section, and a board missing from one of those tests loses its season on Back, or its column
- *  width, with no error. */
-export const MLB_STATS_BOARDS = ['leaderboard', 'stats', 'teamStats', 'fielding', 'bests', 'find', 'viz'] as const
+/** The Stats tab's views. ONE LIST because "is this a Stats board" was spelled out by hand all over
+ *  the section, and a board missing from one of those tests loses its season on Back, or its column
+ *  width, with no error. 'fielding' is Players on its Fielding side: its own view and address
+ *  (/mlb/fielding), because the table under it is a different read with its own columns. */
+export const MLB_STATS_BOARDS = ['leaderboard', 'stats', 'teamStats', 'fielding', 'bests', 'find'] as const
 export type MlbStatsBoard = (typeof MLB_STATS_BOARDS)[number]
 export const isMlbStatsBoard = (v: unknown): v is MlbStatsBoard =>
   typeof v === 'string' && (MLB_STATS_BOARDS as readonly string[]).includes(v)
+
+/** The Stats tab's row, WPBL's first five in WPBL's order. Fielding is not in it: it is a side, the
+ *  third option of the switch every board draws, so /mlb/fielding lights Players. */
+export const MLB_STATS_TABS = ['leaderboard', 'stats', 'teamStats', 'bests', 'find'] as const
+export type MlbStatsTab = (typeof MLB_STATS_TABS)[number]
+
+/** The views whose address carries a season and the board's filters: the Stats boards, and Charts,
+ *  which left the Stats row for Standings in Oct 2026 but kept its season on the address. */
+export const isMlbSeasonView = (v: unknown): v is MlbStatsBoard | 'viz' => v === 'viz' || isMlbStatsBoard(v)
 
 export const MLB_BASE = '/mlb'
 export const MLB_TEAMS_BASE = '/mlb/teams'
@@ -73,7 +82,9 @@ export function mlbNavKeyFromPath(pathname: string): MlbNavKey | null {
   const p = pathname.replace(/\/+$/, '') || '/'
   if (p === MLB_BASE) return 'home'
   if (p === MLB_VIEW_PATHS.scores) return 'scores'
-  if (p === MLB_VIEW_PATHS.standings) return 'standings'
+  // Charts is a mode of Standings: run differential and payroll against wins are questions about
+  // how the clubs stand, and it was the one Stats board with no Hitting / Pitching / Fielding side.
+  if (p === MLB_VIEW_PATHS.standings || p === MLB_VIEW_PATHS.viz) return 'standings'
   if (MLB_STATS_BOARDS.some(b => MLB_VIEW_PATHS[b] === p)) return 'stats'
   if (p === MLB_TEAMS_BASE || p.startsWith(`${MLB_TEAMS_BASE}/`)) return 'teams'
   return null
@@ -382,6 +393,9 @@ export interface MlbSnapshot {
   playerName?: string | null
   teamId?: number
   lb?: 'hitting' | 'pitching'
+  /** Leaders or Teams on the Fielding side, which the address spells `lb=fielding`. Players on
+   *  Fielding is the 'fielding' view, with an address of its own. */
+  fielding?: boolean
   allTime?: boolean
   season?: number | null
   /** Regular season (the default, left off the address), postseason, or both. */
@@ -422,9 +436,10 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
   else if (s.teamId) path = mlbTeamPath(s.teamId)
   else path = s.view === 'search' ? MLB_BASE : MLB_VIEW_PATHS[s.view]
   const params = new URLSearchParams()
-  if (!s.playerId && !s.teamId && isMlbStatsBoard(s.view)) {
-    // Fielding has no side: it is the side.
-    if (s.lb === 'pitching' && s.view !== 'fielding') params.set('lb', 'pitching')
+  if (!s.playerId && !s.teamId && isMlbSeasonView(s.view)) {
+    // The side. The 'fielding' view is the side already, so it says nothing more.
+    if (s.fielding && (s.view === 'leaderboard' || s.view === 'teamStats')) params.set('lb', 'fielding')
+    else if (s.lb === 'pitching' && s.view !== 'fielding' && s.view !== 'viz') params.set('lb', 'pitching')
     if (s.view === 'stats' && s.allTime) params.set('season', 'all')
     else if (s.season != null && currentSeason != null && s.season !== currentSeason) params.set('season', String(s.season))
     if (s.view !== 'viz' && s.games && s.games !== 'regular') params.set('games', s.games)
@@ -463,9 +478,12 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
   if (target.teamId) return { view: 'search', teamId: target.teamId }
   const snap: MlbSnapshot = { view: target.view }
   const v = target.view
-  if (!isMlbStatsBoard(v)) return snap
+  if (!isMlbSeasonView(v)) return snap
   const q = new URLSearchParams(search)
   snap.lb = q.get('lb') === 'pitching' && v !== 'fielding' ? 'pitching' : 'hitting'
+  // Only the two boards that answer Fielding from this param; anywhere else it is a hand-edited
+  // link, read as the default side.
+  if (q.get('lb') === 'fielding' && (v === 'leaderboard' || v === 'teamStats')) snap.fielding = true
   const season = q.get('season')
   const n = Number(season)
   snap.allTime = v === 'stats' && season === 'all'
