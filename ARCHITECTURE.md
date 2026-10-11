@@ -301,6 +301,10 @@ flowchart LR
   load-bearing. The route gate is cosmetic; the RPC guards are the boundary. Rows with
   `path = '/'` are test-run writes and a trigger diverts them to `events_test` (owner-only,
   no policies), so no RPC has to filter them.
+  **Raw rows are kept 90 days** (Oct 11, 2026): `events_maintain()` rolls each UTC day into
+  `events_daily` (events, browsers and users per event per league, with the `'all'` rollups)
+  before deleting anything, so past 90 days the daily counts survive and the per-row detail
+  does not. /admin's widest range is 90 days, so no card reads past the line.
 - **Client libs** ([`src/lib/`](src/lib)): `supabase` (anon client), `analytics`
   (→ `events` table), `analyticsAdmin` (owner-only reads of it), `push`, `notifications`,
   `adminUsers`, `feedback`, `userActive`, `usernames`, `units`.
@@ -379,7 +383,8 @@ flowchart TB
     subgraph APP["App / users / notifications"]
         a_users["usernames"]
         a_feed["feedback"]
-        a_events["events (analytics)"]
+        a_events["events (analytics, 90 days raw)"]
+        a_daily["events_daily<br/>(the record past 90 days)"]
         a_push["push_subscriptions"]
         a_sent["game_start_sent"]
         a_prefs["user_preferences<br/>(notification + section prefs)"]
@@ -651,6 +656,8 @@ would stop updating all winter. Every one of them has `workflow_dispatch` for an
 | `admin-health-nudge` | `*/15 * * * *` | `wpbl_nudge_admin_health()` → `{event_type:"admin-health"}`, gated to when a game falls in a `[-2, +3]`-day window around today. This is the workflow that pages the owner about a broken pipeline, so leaving it to GitHub's throttled scheduler would make the alarm itself unreliable. **The season gate is why it is date-based, not status-based**: in-season the ingest runs every 2 min so a 15-min staleness is a real stall, but off-season the feed is legitimately quiet and an ungated check would read that quiet as a stall and page a false alarm |
 | `wpbl-bluesky-nudge` | `*/5 * * * *` | `wpbl_bluesky_nudge()`: when a WPBL final has been settled 45 min, `pg_net` POST → GitHub `repository_dispatch` `{event_type:"wpbl-final"}` (fine-grained PAT from Vault), so the Bluesky recap does not wait on GitHub's schedule. **Exists because GitHub does not honour `schedule` in this repo**: the 30 scheduled runs before Sep 3, 2026 came 130 to 452 min apart against a `*/15` cron, and the daily workflows ran 4 to 11 hours late, all of them green. Returns 0 and warns (never errors) when no token is in Vault, and the workflow's own `schedule:` line stays as the late-but-not-broken backstop |
 | `wpbl-bluesky-start-nudge` | `*/5 * * * *` | `wpbl_nudge_bluesky_game_start()` → `{event_type:"wpbl-bluesky-game-start"}`, when a scheduled game's first pitch (site-calendar start over the feed's) is between 12 min ago and 40 min away and it has not been posted. Coarse on purpose; the poster re-checks with the full start-time correction and is the only decider. A distinct event type from the push reminder's `wpbl-game-start`, so the two fire independently. **A late reminder is a wrong one**, so the window errs wide: a missed nudge falls to the schedule backstop, a wrongly-timed permanent post cannot be taken back |
+| `events-maintain` | `23 9 * * *` | `events_maintain()`: roll every complete UTC day of `events` into `events_daily`, then delete raw rows older than 90 days. Never deletes a day it has not rolled up. In [`20261011034522_events_rollup_and_retention.sql`](scripts/migrations/20261011034522_events_rollup_and_retention.sql), not `wpbl_cron.sql`, as is the next one |
+| `cron-history-prune` | `41 9 * * *` | Delete `cron.job_run_details` older than 7 days. pg_cron logs every run of every job and never forgets one; it reached 49 MB by Oct 2026 |
 
 
 **All five of these nudges share `wpbl_dispatch_workflow(event, key, gap)`**, which holds the Vault

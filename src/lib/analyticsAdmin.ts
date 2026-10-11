@@ -502,7 +502,17 @@ export interface WebVitalsRow {
   lcp_p75: number | null; inp_p75: number | null; cls_p75: number | null; fcp_p75: number | null; ttfb_p75: number | null
   lcp_good: number | null; inp_good: number | null; cls_good: number | null; fcp_good: number | null; ttfb_good: number | null
 }
-export interface WebVitals { rows: WebVitalsRow[] }
+/** One element that was the largest layout shift of loads over CLS 0.1, on one route. `route` is
+ *  where the reader was when it moved, not where they landed; `after_load` is the share of those
+ *  shifts that came once the page had finished loading, which the layout sweep cannot see. */
+export interface LayoutShiftRow {
+  section: string; device: string; route: string; target: string; label: string | null
+  loads: number; shift_p50: number | null; after_load: number | null
+}
+/** `over` counts every load past 0.1, `named` the ones that carry an element (none before
+ *  Oct 11, 2026). */
+export interface LayoutShifts { over: number; named: number; rows: LayoutShiftRow[] }
+export interface WebVitals { rows: WebVitalsRow[]; shifts?: LayoutShifts }
 export const EMPTY_WEB_VITALS: WebVitals = { rows: [] }
 
 /** Google's own lines: at or under the first is "good", over the second is "poor". The same ones

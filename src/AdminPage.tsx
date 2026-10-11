@@ -16,7 +16,7 @@ import {
   EMPTY_PAGE_USAGE, groupActions, buildFunnels, eventInfo, PAGE_LABELS, prettyId,
   EMPTY_WEB_VITALS, vitalRating, formatVital, EMPTY_MLB_USAGE, mlbCardLabel,
 } from './lib/analyticsAdmin'
-import type { VitalKey, VitalRating, WebVitalsRow } from './lib/analyticsAdmin'
+import type { LayoutShifts, VitalKey, VitalRating, WebVitalsRow } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
 import { typePx } from './ui/scale'
 
@@ -361,7 +361,31 @@ function vitalsLine(r: WebVitalsRow) {
   )
 }
 
-function PageSpeedCard({ rows }: { rows: WebVitalsRow[] }) {
+// The elements behind the CLS figures above, so a poor score names what to fix. Ranked by how
+// many loads past 0.1 each was the worst shift of, since the p75 moves with that count.
+function ShiftRows({ shifts }: { shifts: LayoutShifts }) {
+  if (shifts.over === 0) return null
+  return (
+    <>
+      <GroupLabel>Largest layout shifts</GroupLabel>
+      <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1.45 }}>
+        {plural(shifts.over, 'load')} over CLS 0.1; {shifts.named} name the element that moved most.
+      </Typography>
+      {shifts.rows.map(r => (
+        <MetricRow key={`${r.section}|${r.device}|${r.route}|${r.target}`}
+          label={`${r.label ?? r.target} · ${prettyId(r.device)}, ${r.route}`}
+          value={plural(r.loads, 'load')}
+          sub={<>
+            <Box component="span" sx={{ fontFamily: 'monospace' }}>{r.target}</Box>
+            {r.shift_p50 != null && <> · typical shift {r.shift_p50.toFixed(2)}</>}
+            {r.after_load != null && <> · {Math.round(r.after_load * 100)}% after load</>}
+          </>} />
+      ))}
+    </>
+  )
+}
+
+function PageSpeedCard({ rows, shifts }: { rows: WebVitalsRow[]; shifts?: LayoutShifts }) {
   const all = rows.find(r => r.device == null && r.section == null)
   const devices = rows.filter(r => r.device != null && r.section == null)
     .sort((a, b) => DEVICE_ORDER.indexOf(a.device ?? '') - DEVICE_ORDER.indexOf(b.device ?? ''))
@@ -394,6 +418,7 @@ function PageSpeedCard({ rows }: { rows: WebVitalsRow[] }) {
               <MetricRow key={`s${r.device}|${r.section}`} label={`${prettyId(r.device ?? '')}, ${(r.section ?? '').toUpperCase()}`}
                 value={<VitalValue k="lcp" v={r.lcp_p75} />} sub={vitalsLine(r)} />
             ))}
+            {shifts && <ShiftRows shifts={shifts} />}
           </>
         )}
       </Box>
@@ -680,7 +705,7 @@ export default function AdminPage() {
       </Fold>
 
       {/* ── page speed ──────────────────────────────────────────────────── */}
-      <PageSpeedCard rows={vitals.rows} />
+      <PageSpeedCard rows={vitals.rows} shifts={vitals.shifts} />
 
       {/* ── what people do ───────────────────────────────────────────────── */}
       <Fold title="What people do" defaultOpen

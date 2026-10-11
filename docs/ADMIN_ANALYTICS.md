@@ -175,7 +175,7 @@ last two rows, which say what they take instead.
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
 | `admin_mlb_usage(days_back, tz)` | MLB Home cards (`props->>'card'`, seen and used in browsers), tabs (`view` × `via`), and player / team opens by `from` |
-| `admin_web_vitals(days_back, tz)` | real page loads: p75 LCP / INP / CLS / FCP / TTFB and the share under Google's "good" line, by device and section with rollups (null = all) |
+| `admin_web_vitals(days_back, tz)` | real page loads: p75 LCP / INP / CLS / FCP / TTFB and the share under Google's "good" line, by device and section with rollups (null = all); and `shifts`, the elements that were the largest layout shift of loads over CLS 0.1, by route, ranked by how many such loads each one was |
 | `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favourite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
 | `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
 | `admin_wpbl_award_votes()` | one row per fan-award and pick'em vote: category, choice, a stable HASH of the voter key, and when it was cast. **Takes no arguments and returns rows rather than `jsonb`**, unlike everything above it: it is a poll, not a window, and the table is one row per person per question. **It never returns the voter key.** Since Sep 10, 2026 a key is a user id, and knowing one is the whole of what lets a caller rewrite that person's ballot through `wpbl_cast_award_vote`, so a panel holding them would make every screenshot a set of credentials |
@@ -216,6 +216,13 @@ it is one card and one question.
   `admin_web_vitals`, never counted as activity (`EVENT_INFO` files it as an impression). A load
   that never painted (opened in a background tab) sends nothing, and INP is absent from a load
   nobody interacted with, which is why each `*_good` share is over the loads that reported it.
+  **Since Oct 11, 2026 it also names the load's largest layout shift**: `cls_target` (the element,
+  as a selector without Emotion's per-build classes), `cls_label` (the heading of the box it sits
+  in), `cls_shift`, `cls_state` (the load state then) and `cls_route`, the route the reader was ON
+  WHEN IT MOVED, stamped by a `PerformanceObserver` running from the first moment. That is not the
+  event's `path`, which is wherever the page was left, nor the landing page: field CLS is the worst
+  burst across the visit and in a single-page app that is usually a later page. Detail routes
+  collapse to `:id` so a player page is one row rather than one per player.
 
 Break one of these and the dashboard keeps rendering. It just lies.
 
@@ -374,8 +381,13 @@ line stopping an unauthenticated caller from reaching the guard.
   deltas read "—" for anything longer than the data. The chart trims the leading blank days
   (`trimLeadingEmpty`) and the page says so above the tiles. Both stop mattering on their
   own as the table fills.
-- **No retention policy.** `events` grows ~2k rows/day (~700k/year). Fine for Postgres for
-  now; a monthly prune of rows older than ~400 days will eventually want writing.
+- **Raw rows are kept 90 days** (Oct 11, 2026; the first delete is due Nov 3, 2026).
+  `events_maintain()`, daily on pg_cron, rolls each complete UTC day into `events_daily` before it
+  deletes anything, so the long-run daily counts survive and the per-row detail does not. Two
+  consequences: the 90d range's previous-window deltas read "—" for good, since they would need
+  180 days, and a person's "first seen" and lifetime total on the Users panel stop at the line.
+  Nothing on the page reads `events_daily` yet; it is the record for whoever wants a trend longer
+  than the range chips allow.
 - **Load-on-mount only**, with a manual refresh control. No polling, no realtime.
 - **Every window ends mid-day.** The current window is *n-1* complete days plus today so far;
   the previous window is *n* complete days. So every delta on the page is biased slightly
