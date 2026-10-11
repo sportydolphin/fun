@@ -294,7 +294,19 @@ will actually see all winter. The functional items do not wait.
       of the four computes; it joins `League` with the first engine that does. MLB's pitch codes are
       unchecked against our own data until step 4, and the unknown count on the coverage line is
       what will show a missing letter.
-   3. *The MLB lines mirror* (migration plus nightly job), then Bests and Find on it.
+   3. ✅ *The MLB lines mirror, then Bests and Find on it (Oct 10).* `mlb_games`,
+      `mlb_batting_lines`, `mlb_pitching_lines` and `mlb_players`, in the neutral columns, written by
+      `scripts/sync-mlb-lines.mjs` (workflow `mlb-lines`, nightly in the `games` window). 2026 is
+      backfilled: 2,453 finals, 50,440 batting and 21,041 pitching lines, 8 MB. The browser reads a
+      season as one row of the `mlb_season_lines` view, column names beside arrays, about 600 KB
+      gzipped and edge-cached, and runs WPBL's engines over it with no further request
+      (`seasonLines.ts` is the adapter: ids to strings, a line id from game and player). Boards at
+      `/mlb/bests` and `/mlb/find`, between Fielding and Charts, in MLB's own row parts
+      (`components/GameLineRow.tsx`). Find's question is on the address (`q`, `team`, `opp`,
+      `venue`). **One change the engine needed at this size**: a tie at the cut is two rows in WPBL
+      and sixty in MLB (every three-homer game), so `bestGames` takes a `cap` and counts the rows
+      past it (`more`, printed as "And 14 more with 3 HR") instead of dropping them; WPBL passes
+      none. Seasons before 2026 are not mirrored and say so; adding one is a `--season` backfill.
    4. *Plays and pitches in the mirror,* then Pitch by pitch and Run value. MLB's run-expectancy
       table built from our own plays is a free check against published RE24.
    5. *Draft,* then Tracked last, if at all.

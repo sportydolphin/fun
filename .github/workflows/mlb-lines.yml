@@ -1,0 +1,60 @@
+name: MLB Lines Mirror
+
+# Reads every finished MLB game's box score into mlb_games and its line tables, which the MLB
+# Bests and Find boards read (scripts/sync-mlb-lines.mjs). Each pass reads the games not yet
+# stored plus the last three days again, so the scorer's changes land; on a normal night that is
+# about 45 box scores.
+on:
+  schedule:
+    # 10:00 UTC / 6am ET: every west-coast final, extras included, is long over.
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+    inputs:
+      all:
+        description: 'Re-read every final of the season, not just new and recent ones.'
+        required: true
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+
+# Two passes writing the same games would race each other's transactions.
+concurrency:
+  group: mlb-lines
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Regular season and postseason, so the 'games' window: see scripts/mlb-job-due.mjs.
+      # Before any install, so a winter day costs one request. A manual run always goes through.
+      - name: Check the MLB calendar
+        id: due
+        if: github.event_name != 'workflow_dispatch'
+        run: node scripts/mlb-job-due.mjs games
+
+      - name: Install script dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'pg'
+
+      - name: Mirror the box scores
+        if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          ALL:             ${{ inputs.all }}
+        # A scheduled run has no `inputs`, so ALL is empty there and the nightly pass runs.
+        run: |
+          if [ "$ALL" = "true" ]; then
+            node scripts/sync-mlb-lines.mjs --all
+          else
+            node scripts/sync-mlb-lines.mjs
+          fi

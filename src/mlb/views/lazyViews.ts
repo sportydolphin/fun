@@ -18,6 +18,8 @@ const loaders = {
   stats:       () => import('./StatsView'),
   teamStats:   () => import('./SeasonGridView'),
   fielding:    () => import('./SeasonGridView'),
+  bests:       () => import('./BestsView'),
+  find:        () => import('./FindView'),
   viz:         () => import('./VizView'),
   search:      () => import('./SearchView'),
 } satisfies Record<Exclude<MlbView, 'scores'>, () => Promise<unknown>>
@@ -28,6 +30,8 @@ export const TeamsView       = lazy(() => loaders.teams().then(m => ({ default: 
 export const LeaderboardView = lazy(() => loaders.leaderboard().then(m => ({ default: m.LeaderboardView })))
 export const StatsView       = lazy(() => loaders.stats().then(m => ({ default: m.StatsView })))
 export const SeasonGridView  = lazy(() => loaders.teamStats().then(m => ({ default: m.SeasonGridView })))
+export const MlbBestsView    = lazy(() => loaders.bests().then(m => ({ default: m.MlbBestsView })))
+export const MlbFindView     = lazy(() => loaders.find().then(m => ({ default: m.MlbFindView })))
 export const VizView         = lazy(() => loaders.viz().then(m => ({ default: m.VizView })))
 export const SearchView      = lazy(() => loaders.search().then(m => ({ default: m.SearchView })))
 

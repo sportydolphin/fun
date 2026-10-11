@@ -71,6 +71,9 @@ export interface BestBoard<P extends LeaguePlayer = LeaguePlayer, G extends Leag
   /** The unit drawn beside the number: "TB", "K", "IP". */
   unit: string
   rows: BestRow<P, G>[]
+  /** Rows left off by `cap`, every one of them tied with the last row shown. Zero unless a cap
+   *  was passed and a tie ran past it. */
+  more: number
 }
 
 /** How many rows a board draws before ties extend it. See `rankRows`. */
@@ -188,10 +191,15 @@ interface RankableLine { id: string; player_id: string; team_id: string | null; 
  * dropping somebody who did exactly what the fifth-placed player did, which on a records board
  * is the one error that matters. So the slice runs to `limit` and then keeps going while the
  * value has not changed.
+ *
+ * AND STOPS AT `cap`, WHICH SAYS SO. In WPBL a tie at the cut is two or three rows. In an MLB
+ * season it is every three-homer game, sixty-odd rows on a card meant to hold five. So a league
+ * of that size passes a cap, and the rows past it are COUNTED rather than dropped: `more` is how
+ * many share the last value shown, and the board prints it. WPBL passes none.
  */
 function rankRows<L extends RankableLine, P extends LeaguePlayer, G extends LeagueGame>(
-  cat: Category<L>, lines: L[], players: Map<string, P>, games: Map<string, G>, limit: number,
-): BestRow<P, G>[] {
+  cat: Category<L>, lines: L[], players: Map<string, P>, games: Map<string, G>, limit: number, cap: number,
+): { rows: BestRow<P, G>[]; more: number } {
   const scored: { line: L; value: number }[] = []
   for (const line of lines) {
     const value = cat.value(line)
@@ -210,12 +218,14 @@ function rankRows<L extends RankableLine, P extends LeaguePlayer, G extends Leag
   })
 
   const out: BestRow<P, G>[] = []
+  let more = 0
   let rank = 0
   let prev: number | null = null
   for (let i = 0; i < scored.length; i++) {
     const { line, value } = scored[i]
     if (value !== prev) { rank = i + 1; prev = value }
     if (out.length >= limit && value !== out[out.length - 1].value) break
+    if (out.length >= cap) { more++; continue }
     const player = players.get(line.player_id) ?? null
     out.push({
       rank,
@@ -231,7 +241,7 @@ function rankRows<L extends RankableLine, P extends LeaguePlayer, G extends Leag
       key: line.id,
     })
   }
-  return out
+  return { rows: out, more }
 }
 
 /**
@@ -255,6 +265,8 @@ export function bestGames<P extends LeaguePlayer, G extends LeagueGame>(
   games: G[],
   scope: SeasonScope = 'regular',
   limit = BEST_ROWS,
+  /** The most rows a board draws, ties included; see `rankRows`. */
+  cap = Infinity,
 ): BestBoard<P, G>[] {
   // `scopedLines` reads only the three fields it decides on, and it is handed the FINALS rather
   // than the whole schedule so an unfinished game's lines are dropped by the same pass that
@@ -264,10 +276,7 @@ export function bestGames<P extends LeaguePlayer, G extends LeagueGame>(
   const playerById = new Map(players.map(p => [p.id, p]))
 
   const assemble = <L extends RankableLine>(cats: Category<L>[], lines: L[]): BestBoard<P, G>[] =>
-    cats.map(c => ({
-      key: c.key, label: c.label, unit: c.unit,
-      rows: rankRows(c, lines, playerById, gameById, limit),
-    }))
+    cats.map(c => ({ key: c.key, label: c.label, unit: c.unit, ...rankRows(c, lines, playerById, gameById, limit, cap) }))
 
   if (side === 'pitching') {
     return assemble(PIT_CATS, scopedLines(pitching.filter(l => gameById.has(l.game_id)), finals, scope))

@@ -36,6 +36,8 @@ export const MLB_VIEWS = {
   // Teams and Fielding are one component, so one chunk under two addresses.
   teamStats: 'src/mlb/views/SeasonGridView.tsx',
   fielding: 'src/mlb/views/SeasonGridView.tsx',
+  bests: 'src/mlb/views/BestsView.tsx',
+  find: 'src/mlb/views/FindView.tsx',
   viz: 'src/mlb/views/VizView.tsx',
   search: 'src/mlb/views/SearchView.tsx',
   player: 'src/mlb/views/MlbPlayerDetail.tsx',

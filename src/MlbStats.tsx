@@ -18,7 +18,7 @@ import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './m
 let arrivedViaShort = new URLSearchParams(window.location.search).get(MLB_SHORT_REF_PARAM) === MLB_SHORT_REF_VALUE
 const arrivedAt = window.location.pathname
 import { PageTabs } from './ui/PageTabs'
-import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SeasonGridView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
+import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SeasonGridView, MlbBestsView, MlbFindView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
@@ -55,14 +55,17 @@ import { publishSectionNav, clearSectionNav } from './sectionNav'
 
 type NavKey = MlbNavKey
 const NAV = MLB_NAV
-// WPBL's first four boards in WPBL's order, so the row reads the same in both sections, and MLB's
-// Charts after them. The rest of WPBL's row needs every game line or play stored on our side, which
-// MLB does not have yet: see "WPBL's Stats boards on MLB" in ROADMAP.md.
+// WPBL's boards in WPBL's order, so the row reads the same in both sections, and MLB's Charts after
+// them. Bests and Find read the mirrored box scores (seasonLines.ts); the rest of WPBL's row needs
+// every play stored on our side, which MLB does not have yet: see "WPBL's Stats boards on MLB" in
+// ROADMAP.md.
 const STATS_BOARD_LABEL: Record<MlbStatsBoard, string> = {
   leaderboard: 'Leaders',
   stats:       'Players',
   teamStats:   'Teams',
   fielding:    'Fielding',
+  bests:       'Bests',
+  find:        'Find',
   viz:         'Charts',
 }
 const STATS_BOARDS = MLB_STATS_BOARDS.map(view => ({ view, label: STATS_BOARD_LABEL[view] }))
@@ -517,6 +520,19 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 setHighlightId={state.setGridHighlightId}
               />
             )}
+            {(board === 'bests' || board === 'find') && (() => {
+              const lines = {
+                boardTabs, isDesktop,
+                lbGroup: state.lbGroup, setLbGroup: state.setLbGroup,
+                vizSeason: state.vizSeason, setVizSeason: state.setVizSeason,
+                gameScope: state.lbGameScope, setGameScope: state.setLbGameScope,
+                onOpenPlayer: state.handleLbPlayerClick,
+                onOpenGame: (pk: number) => requestDeepLink({ kind: 'game', gamePk: pk }),
+              }
+              return board === 'bests'
+                ? <MlbBestsView {...lines} />
+                : <MlbFindView {...lines} query={state.findQuery} onQuery={state.setFindQuery} />
+            })()}
             {board === 'leaderboard' && (
               <LeaderboardView
                 boardTabs={boardTabs}

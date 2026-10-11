@@ -248,6 +248,16 @@ const ROUTES: Record<string, Seo> = {
     description:
       'Every MLB club’s batting and pitching, side by side and sortable by any stat, for this season or any past one.',
   },
+  [MLB_VIEW_PATHS.bests]: {
+    title: 'MLB Single-Game Bests: the best games of the season | sportydolphin.fun',
+    description:
+      'The best single games of the MLB season: most total bases, hits, home runs and RBI in a game, most strikeouts, longest scoreless outings.',
+  },
+  [MLB_VIEW_PATHS.find]: {
+    title: 'MLB Game Finder: search every box score | sportydolphin.fun',
+    description:
+      'Search every MLB box-score line of the season: every game with ten strikeouts and no walks, every four-hit night, and who did it most.',
+  },
   [MLB_VIEW_PATHS.fielding]: {
     title: 'MLB Fielding Stats: by player and position | sportydolphin.fun',
     description:
