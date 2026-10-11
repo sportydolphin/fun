@@ -27,9 +27,9 @@ import type { WpblSeasonGame } from '../../src/wpbl/season'
 import {
   wpblPlayerSlug, wpblPlayerSlugFromPath, findWpblPlayerBySlug, type WpblSluggable,
   wpblGameSlug, wpblGameSlugFromPath, findWpblGameBySlug,
-  wpblCompareSlugFromPath, findWpblComparePair, WPBL_COMPARE_BASE,
+  wpblCompareSlugFromPath, findWpblComparePair, WPBL_COMPARE_BASE, wpblCompareCanonicalPath,
 } from '../../src/wpbl/routes'
-import { wpblGameCard, type WpblCardGame, type WpblCardTeam } from '../../src/wpbl/ogCard'
+import { wpblGameCard, wpblCompareCard, type WpblCardGame, type WpblCardTeam, type WpblCompareSide } from '../../src/wpbl/ogCard'
 // The roster/schedule reads, SITE and Env live in shareEdge so this handler and the short-link
 // resolvers (functions/p, functions/g) cannot drift on how they read the same two tables.
 // The tag rewrite is shared with the MLB section's function (src/lib/ogTags.ts).
@@ -156,7 +156,7 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
       if (!findWpblPlayerBySlug(compareSlug, roster)) return notFound(context)
       return next()
     }
-    return next()
+    return withCompareCard(context, pair, roster)
   }
 
   // ── Player pages ────────────────────────────────────────────────────────────
@@ -258,6 +258,33 @@ async function withGameCard(
   })
 }
 
+/** Fetch the page, then rewrite its Open Graph tags to describe this pair. Any failure in the
+ *  reads leaves the page exactly as it was, like every other card in this file. */
+async function withCompareCard(context: Ctx, pair: [WpblSluggable, WpblSluggable], roster: WpblSluggable[]): Promise<Response> {
+  const page = await context.next()
+  if (!(page.headers.get('content-type') || '').includes('text/html')) return page
+  let sides: [WpblCompareSide, WpblCompareSide] | null = null
+  let games: WpblSeasonGame[] = []
+  try {
+    ({ sides, games } = await resolveCompare(pair, context.env))
+  } catch {
+    sides = null
+  }
+  if (!sides) return page
+  const card = wpblCompareCard(sides[0], sides[1], games)
+  const url = new URL(context.request.url)
+  return rewriteOgTags(page, {
+    ...card,
+    // The alphabetical spelling, which both orders declare as their rel=canonical.
+    url: `${SITE}${wpblCompareCanonicalPath(pair[0], pair[1], roster)}`,
+    // The club-pair art, checked present first like a player's card; without it the site's
+    // default cover stays, which is still a correct 1200x630 image.
+    image: card.cardPath ? await cardUrl(card.cardPath, context.env, url) : null,
+    imageAlt: `${sides[0].player.name} vs ${sides[1].player.name}`,
+    ogType: 'article',
+  })
+}
+
 /** Fetch the page, then rewrite its Open Graph tags to describe this player. */
 async function withCard(context: Ctx, playerId: string, url: URL): Promise<Response> {
   const page = await context.next()
@@ -293,6 +320,58 @@ interface PlayerRow { id: string; name: string; position: string | null; team_id
 interface TeamRow { id: string; city: string; name: string }
 interface Resolved extends WpblPlayerCard { url: string; image: string | null; imageAlt: string }
 
+
+/** The two players' rows, clubs and lines in one round of parallel reads: a pair costs the same
+ *  number of requests as one player, the lines filtered with `in.(a,b)` and split here. */
+async function resolveCompare(
+  pair: [WpblSluggable, WpblSluggable],
+  env: Env,
+): Promise<{ sides: [WpblCompareSide, WpblCompareSide] | null; games: WpblSeasonGame[] }> {
+  const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
+  const key = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY
+  if (!base || !key) return { sides: null, games: [] }
+  const ids = pair.map(p => p.id)
+  if (!ids.every(id => UUID_RE.test(id))) return { sides: null, games: [] }
+
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), DATA_TIMEOUT_MS)
+  const read = async <T>(query: string): Promise<T[]> => {
+    const res = await fetch(`${base.replace(/\/+$/, '')}/rest/v1/${query}`, {
+      headers: { apikey: key, authorization: `Bearer ${key}`, accept: 'application/json' },
+      signal: abort.signal,
+    })
+    if (!res.ok) throw new Error(`postgrest ${res.status}`)
+    return (await res.json()) as T[]
+  }
+  const inIds = `in.(${ids.join(',')})`
+  type Line<T> = T & { player_id: string }
+  let players: PlayerRow[], teams: TeamRow[], games: WpblSeasonGame[]
+  let batting: Line<WpblCardBatting>[], pitching: Line<WpblCardPitching>[]
+  try {
+    [players, teams, batting, pitching, games] = await Promise.all([
+      read<PlayerRow>(`wpbl_players?select=id,name,position,team_id&id=${inIds}`),
+      read<TeamRow>('wpbl_teams?select=id,city,name'),
+      read<Line<WpblCardBatting>>(`wpbl_batting_lines?select=player_id,game_id,position,ab,r,h,doubles,triples,hr,rbi,bb,so,hbp,sb,cs,sf,sh&player_id=${inIds}`),
+      read<Line<WpblCardPitching>>(`wpbl_pitching_lines?select=player_id,game_id,outs,h,r,er,bb,so,hr,decision,bf,gs&player_id=${inIds}`),
+      read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+  const side = (id: string): WpblCompareSide | null => {
+    const player = players.find(p => p.id === id)
+    if (!player) return null
+    return {
+      player,
+      team: teams.find(t => t.id === player.team_id)?.city ?? null,
+      teamId: player.team_id,
+      batting: batting.filter(l => l.player_id === id),
+      pitching: pitching.filter(l => l.player_id === id),
+    }
+  }
+  const a = side(ids[0]), b = side(ids[1])
+  return { sides: a && b ? [a, b] : null, games }
+}
 
 async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Resolved | null> {
   const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL

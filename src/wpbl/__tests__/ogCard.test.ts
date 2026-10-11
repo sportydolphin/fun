@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import {
-  wpblPlayerCard, wpblGameCard, wpblCardDate,
+  wpblPlayerCard, wpblGameCard, wpblCardDate, wpblCompareCard, compareCardPath,
   type WpblCardBatting, type WpblCardPitching, type WpblCardGame,
 } from '../ogCard'
 
@@ -115,20 +115,65 @@ describe('the generated share cards', () => {
   const dir = (name: string) => readdirSync(join(process.cwd(), 'src/wpbl', name))
     .filter(f => f.endsWith('.webp')).sort()
 
+  const isPair = (f: string) => f.startsWith('compare-')
+
   it('covers every bundled headshot', () => {
-    expect(dir('cards')).toEqual(dir('portraits'))
+    expect(dir('cards').filter(f => !isPair(f))).toEqual(dir('portraits'))
   })
 
-  it('is 1200x630, which is the whole point of them', () => {
-    // Read out of the WebP itself so the check cannot pass on a stale expectation. A lossy
-    // VP8 frame states its size right after the 0x9d012a start code, 14 bits each, which is
-    // cheaper than pulling an image library in for two numbers. One file rather than all
-    // 118: they come out of one script in one pass, so they are all wrong or all right.
-    const buf = readFileSync(join(process.cwd(), 'src/wpbl/cards/maika-dumais.webp'))
+  // The compare unfurl names its art from two club ids (compareCardPath); a pair the script did
+  // not draw is a shared link with the default cover instead, silently.
+  it('draws the compare art for every ordered pair of clubs', () => {
+    const clubs = ['bos', 'la', 'ny', 'sf']
+    const want = clubs.flatMap(a => clubs.map(b => `compare-${a}-${b}.webp`)).sort()
+    expect(dir('cards').filter(isPair)).toEqual(want)
+  })
+
+  // Read out of the WebP itself so the check cannot pass on a stale expectation. A lossy VP8
+  // frame states its size right after the 0x9d012a start code, 14 bits each, which is cheaper
+  // than pulling an image library in for two numbers. One file of each kind rather than all of
+  // them: each kind comes out of one script in one pass, so they are all wrong or all right.
+  it.each(['maika-dumais.webp', 'compare-ny-sf.webp'])('%s is 1200x630, which is the whole point', file => {
+    const buf = readFileSync(join(process.cwd(), 'src/wpbl/cards', file))
     const start = buf.indexOf(Buffer.from([0x9d, 0x01, 0x2a]))
     expect(start).toBeGreaterThan(0)
     expect(buf.readUInt16LE(start + 3) & 0x3fff).toBe(1200)
     expect(buf.readUInt16LE(start + 5) & 0x3fff).toBe(630)
+  })
+})
+
+// The link-preview card for /wpbl/compare/<a>-vs-<b>: both names, a line each by the player
+// card's role rule, and the club-pair art in the link's order.
+describe('wpblCompareCard', () => {
+  const side = (player: typeof hitter, team: string | null, teamId: string | null, b: WpblCardBatting[], p: WpblCardPitching[]) =>
+    ({ player, team, teamId, batting: b, pitching: p })
+
+  it('names both and gives each the line their role leads with', () => {
+    const card = wpblCompareCard(
+      side(hitter, 'New York', 'NY', [bat({ ab: 10, h: 4, hr: 1, bb: 2 })], []),
+      side(pitcher, 'San Francisco', 'SF', [], [pit({ outs: 21, er: 2, so: 9, decision: 'W', bf: 26, gs: 1 })]),
+      GAMES,
+    )
+    expect(card.ogTitle).toBe('Denae Benites vs Jill Albayati')
+    expect(card.title).toBe('Denae Benites vs Jill Albayati: 2026 WPBL stats compared | sportydolphin.fun')
+    expect(card.description).toMatch(/^Denae Benites \(New York\): \.400\/\.500\/\.700, 1 HR\. Jill Albayati \(San Francisco\): 1-0, /)
+    expect(card.description).toContain(' ERA, 9 K. ')
+    expect(card.cardPath).toBe('/cards/compare-ny-sf.webp')
+  })
+
+  it('keeps the regular season only, and names a player with no line without numbers', () => {
+    const card = wpblCompareCard(
+      side(hitter, 'New York', 'NY', [bat({ game_id: 'g-post', ab: 4, h: 4 })], []),
+      side(pitcher, null, null, [], []),
+      GAMES,
+    )
+    expect(card.description).toBe('Denae Benites (New York). Jill Albayati. Their 2026 seasons side by side.')
+    expect(card.cardPath).toBeNull()
+  })
+
+  it('builds the art path only from plain club ids', () => {
+    expect(compareCardPath('LA', 'BOS')).toBe('/cards/compare-la-bos.webp')
+    expect(compareCardPath('LA', '../x')).toBeNull()
   })
 })
 

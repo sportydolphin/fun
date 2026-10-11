@@ -190,8 +190,9 @@ October is over; it is the first real measurement of which Home cards are used.
 
 - **Layout shift is worst here.** The field p75 is 0.270 on an MLB desktop and 0.182 on a phone,
   against WPBL's 0.15; Google calls anything over 0.25 poor. The sweep passes because it measures
-  the load, so the shifts come after it. The audit's ops item 3 adds attribution; MLB's elements
-  are likely the first fixes.
+  the load, so the shifts come after it. The attribution shipped Oct 11 (the audit's ops item 3):
+  Page speed on `/admin` now ranks the elements that moved. Read it around Oct 18, once a week of
+  reports has landed; MLB's elements are likely the first fixes.
 - ✅ **A winter Home needs something that changes** (shipped Oct 11 as the Hot Stove). From Nov 1
   the bracket and live cards retire, and nothing else on Home moves until spring training. Rather
   than a new card, Roster Moves becomes "Hot Stove" from the end of the World Series to opening day
@@ -204,9 +205,11 @@ October is over; it is the first real measurement of which Home cards are used.
   in `__tests__/rosterMoves.test.ts`. *Not built:* a page of its own, and tracking the free-agent
   class to where each player signs. Read "MLB: what gets used" on `/admin` in December before
   building either.
-- **The plays mirror (second pass, item 6, step 4) waits on database headroom.** The database is
-  at 254 MB, 62 MB of it the two line tables from one backfilled season; plays and pitches are
-  roughly 1M rows more. Ops item 4 clears room first.
+- **The plays mirror (second pass, item 6, step 4) is unblocked, with a budget.** Ops item 4
+  shipped Oct 11 and took the database to 305 MB, but the 2000 to 2025 backfill means the MLB line
+  tables are now most of it (about 137 MB of the two). Plays and pitches are roughly 1M rows a
+  season, so mirror 2026 alone first and measure it before any backfill. If the plan is the free
+  tier's 500 MB, that measurement decides how many seasons of plays fit.
 
 **Tests**: 19 files and about 180 cases under `src/mlb/__tests__/` (Oct 9), against 130 files in WPBL. Each item
 above should leave a test behind, as items 0, 4 and 5b did.
@@ -339,7 +342,8 @@ will actually see all winter. The functional items do not wait.
       the old schedules (1920 lists more finals than its clubs could have played).
    4. *Plays and pitches in the mirror,* then Pitch by pitch and Run value. MLB's run-expectancy
       table built from our own plays is a free check against published RE24. *Gated Oct 10* on
-      database headroom: see the audit's ops item 4 in ROADMAP-WPBL.md.
+      database headroom; *cleared Oct 11* by the audit's ops item 4 in ROADMAP-WPBL.md. One season
+      first, measured, before any backfill (see "From the Oct 10 audit" above).
    5. *Tracked* last, if at all.
 
    **Later, not in this pass: Draft.** Deferred Oct 10; nothing in the order above waits on it. It
