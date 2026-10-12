@@ -20,7 +20,7 @@ import { resolve } from 'node:path'
 import {
   WPBL_VIEW_PATHS, WPBL_PLAYERS_BASE, wpblPlayerSlug, type WpblSluggable,
   wpblGameSlug, type WpblSluggableGame, type WpblSluggableTeam,
-  WPBL_TEAMS_BASE, teamSlug,
+  WPBL_TEAMS_BASE, teamSlug, wpblSeriesPaths,
 } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
 import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, MLB_SERIES_SLUGS, MLB_FIRST_BRACKET_SEASON, MLB_POSTSEASON_BASE, mlbSeriesPath, type MlbSeriesId } from '../src/mlb/routes'
@@ -181,6 +181,14 @@ const teamEntries: Entry[] = (schedule.teams as WpblSluggableTeam[]).map(t => ({
   priority: '0.8',
 }))
 
+// The six season series, one per pairing of clubs, from the same club list. Weekly, like a club
+// page in season: each one's record moves with every meeting.
+const wpblSeriesEntries: Entry[] = wpblSeriesPaths(schedule.teams as WpblSluggableTeam[]).map(loc => ({
+  loc,
+  changefreq: 'weekly',
+  priority: '0.7',
+}))
+
 const played = (schedule.games as (WpblSluggableGame & { status: string | null })[])
   .filter(g => g.status === 'final')
 const gameEntries: Entry[] = played.map(g => ({
@@ -252,7 +260,7 @@ async function readMlbSeries(existingXml: string): Promise<Entry[]> {
 const existingXml = existsSync(OUT) ? readFileSync(OUT, 'utf8') : ''
 const seriesEntries = await readMlbSeries(existingXml)
 
-const entries = [...STATIC, ...teamEntries, ...players, ...gameEntries, ...mlbEntries, ...seriesEntries]
+const entries = [...STATIC, ...teamEntries, ...wpblSeriesEntries, ...players, ...gameEntries, ...mlbEntries, ...seriesEntries]
 
 // Rewrite ONLY when the set of URLs actually changed.
 //
@@ -272,5 +280,5 @@ if (existing && locsIn(existing) === wanted) {
 } else {
   const lastmod = new Date().toISOString().slice(0, 10)
   writeFileSync(OUT, xml(entries, lastmod), 'utf8')
-  console.log(`sitemap: ${entries.length} URLs (${teamEntries.length} clubs, ${players.length} players, ${gameEntries.length} games, ${seriesEntries.length} MLB series) -> public/sitemap.xml`)
+  console.log(`sitemap: ${entries.length} URLs (${teamEntries.length} clubs, ${wpblSeriesEntries.length} club series, ${players.length} players, ${gameEntries.length} games, ${seriesEntries.length} MLB series) -> public/sitemap.xml`)
 }

@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.156.0',
+    date:    '2026-10-11',
+    changes: [
+      {
+        short: 'WPBL: a page for every season series',
+        full:  "Each pair of WPBL clubs has its own page: the season series record, every game they played with a link to it, how the playoffs went if they met there, the best hitters and pitchers in those games, and the batters who had the better of a pitcher (or the other way round). Tap any record in the standings head-to-head grid, or on a team page, to open it.",
+      },
+    ],
+  },
+  {
     version: '1.155.0',
     date:    '2026-10-11',
     changes: [

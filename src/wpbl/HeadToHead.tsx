@@ -3,6 +3,8 @@ import { Box, Typography } from '@mui/material'
 import { SectionCard, TeamBadge, FOCUS_RING, TAPPABLE } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { headToHead } from './derive/matchups'
+import { wpblSeriesPath } from './routes'
+import { linkTo, UNSTYLED_LINK } from '../nav'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
 import { typePx } from '../ui/scale'
 
@@ -133,18 +135,28 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
                     component="td"
                     key={colTeam.id}
                     sx={{
-                      textAlign: 'center', py: { xs: 0.75, md: 1.25 }, borderRadius: 1,
+                      textAlign: 'center', p: 0, borderRadius: 1,
                       bgcolor: ahead ? CELL_WIN : behind ? CELL_LOSS : met ? 'action.hover' : 'transparent',
                     }}
                   >
-                    <Typography sx={{
-                      fontSize: '0.82rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                      color: met ? 'text.primary' : 'text.disabled',
-                    }}>
-                      {/* An unplayed pairing is a dot, not "0–0": the two look identical at a
-                          glance and mean opposite things (nobody has won vs they split). */}
-                      {met ? `${c!.wins}–${c!.losses}` : '·'}
-                    </Typography>
+                    {/* The cell is the way into the pair's season series page, which is what a
+                        reader who has just spotted a 0-3 wants next. A real <a href>, so the six
+                        series pages have a crawl path from the standings. The padding is the
+                        anchor's rather than the cell's, so the whole cell is the target. */}
+                    <Box
+                      {...linkTo(wpblSeriesPath(rowTeam, colTeam, teams))}
+                      aria-label={`${rowTeam.name} vs ${colTeam.name}: the season series`}
+                      sx={{ ...UNSTYLED_LINK, display: 'block', py: { xs: 0.75, md: 1.25 }, borderRadius: 1, ...FOCUS_RING, ...TAPPABLE }}
+                    >
+                      <Typography sx={{
+                        fontSize: '0.82rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                        color: met ? 'text.primary' : 'text.disabled',
+                      }}>
+                        {/* An unplayed pairing is a dot, not "0–0": the two look identical at a
+                            glance and mean opposite things (nobody has won vs they split). */}
+                        {met ? `${c!.wins}–${c!.losses}` : '·'}
+                      </Typography>
+                    </Box>
                   </Box>
                 )
               })}

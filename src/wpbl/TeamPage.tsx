@@ -17,6 +17,8 @@ import { teamSpecs, specLeagueGames, formatSpecStat, TEAM_SPEC_AXES, type TeamSp
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { headToHead as headToHeadGrid } from './derive/matchups'
 import { useWpblHeadingTag } from './PageHeading'
+import { wpblSeriesPath } from './routes'
+import { linkTo, UNSTYLED_LINK } from '../nav'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow, WpblPitchPlay } from './types'
@@ -650,13 +652,19 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
             const better = h.w > h.l
             const worse = h.w < h.l
             return (
+              // Each chip opens the pair's season series page: a real link, so the club page is a
+              // crawl path to its three series as well as the way a reader gets there.
               <Box
                 key={h.opp.id}
+                {...linkTo(wpblSeriesPath(team, h.opp, teams))}
+                aria-label={`${team.name} vs ${h.opp.name}: the season series`}
                 sx={{
+                  ...UNSTYLED_LINK,
                   display: 'flex', alignItems: 'center', gap: 0.6,
                   px: 0.9, py: 0.4, borderRadius: 999,
                   border: '1px solid', borderColor: CARD_BORDER,
                   bgcolor: CARD_FILL,
+                  ...FOCUS_RING, ...hoverOnly({ borderColor: 'text.secondary' }),
                 }}
               >
                 <TeamBadge team={h.opp} size={16} />
