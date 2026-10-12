@@ -52,7 +52,7 @@ export function SegControl({ options, value, onChange }: {
               whiteSpace: 'nowrap',
               transition: 'all 0.15s',
               userSelect: 'none',
-              bgcolor: on ? 'background.paper' : 'transparent',
+              bgcolor: on ? 'background.raised' : 'transparent',
               color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
               fontWeight: on ? 700 : 600,
               boxShadow: on ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',

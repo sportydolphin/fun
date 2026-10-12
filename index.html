@@ -7,9 +7,8 @@
     <script>
       // Stamp the theme onto <html> BEFORE first paint, so a dark-mode user never
       // sees a flash of the light palette while React boots. Mirrors ThemeContext:
-      // an explicitly saved 'theme' wins, otherwise follow the OS preference; the
-      // saved skin (dev A/B picker) else the shipped default. Kept tiny and
-      // dependency-free so it runs synchronously here in <head>.
+      // an explicitly saved 'theme' wins, otherwise follow the OS preference. Kept
+      // tiny and dependency-free so it runs synchronously here in <head>.
       (function () {
         try {
           var t = localStorage.getItem('theme');
@@ -18,7 +17,6 @@
           }
           var r = document.documentElement;
           r.setAttribute('data-theme', t);
-          r.setAttribute('data-skin', localStorage.getItem('themeSkin') || 'charcoal');
           r.style.colorScheme = t; // native form controls + scrollbars match too
         } catch (e) { /* storage off — fall through to CSS defaults */ }
         // The section's desktop scale, for the same reason: App.tsx sets this attribute in a layout

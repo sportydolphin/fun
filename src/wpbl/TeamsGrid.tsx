@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { computeStandings, fetchWpblAllLines, fetchWpblAllPitchPlays } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
-import { TeamBadge, FOCUS_RING, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
+import { TeamBadge, FOCUS_RING, CARD_BORDER, CARD_FILL, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
@@ -252,9 +252,7 @@ export default function TeamsGrid({ teams, games, onSelect }: {
   const chartPending = chartComing && (lines == null || pitchPlays == null)
 
   return (
-    // Flat cards in dark mode, Home's surface (see FLAT_CARDS_DARK), so the tab a reader reaches
-    // from Home's club chips does not switch back to grey panels.
-    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 2 }, FLAT_CARDS_DARK]}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* The page's one <h1>: /wpbl/teams. A selected team renders TeamPage instead, which
           carries the club name as its own heading. */}
       <TabTitle>WPBL Teams</TabTitle>

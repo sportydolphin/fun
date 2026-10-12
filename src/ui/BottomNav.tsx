@@ -186,7 +186,8 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
         width: '100%', maxWidth: 460,
         borderRadius: 999,
         border: '1px solid', borderColor: 'divider',
-        bgcolor: 'background.paper',
+        // Floats over the page, so it takes the raised tone (see Surfaces in ThemeContext).
+        bgcolor: 'background.raised',
         // A real shadow is what separates the bar from the page: it does the job a blur would
         // otherwise do, at no runtime cost.
         boxShadow: '0 6px 24px rgba(0,0,0,0.38), 0 2px 6px rgba(0,0,0,0.28)',
@@ -273,7 +274,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                     bgcolor: badgeColor,
                     // A ring in the bar's own colour, so the dot stays legible where it
                     // would otherwise sit directly on a stroke of the icon.
-                    boxShadow: theme => `0 0 0 1.5px ${theme.palette.background.paper}`,
+                    boxShadow: theme => `0 0 0 1.5px ${theme.palette.background.raised}`,
                   }} />
                 )}
                 {set && (

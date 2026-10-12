@@ -10,7 +10,7 @@ import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFi
 import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SectionLabel, TYPE_SCALE, TeamBadge, useWpblDark, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
+import { SectionLabel, TYPE_SCALE, TeamBadge, useWpblDark, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
 import { panelShiftSx, useSidePanelOpen, usePhoneLayout } from '../ui/ModalShell'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { PHONE_COLUMN_W } from '../ui/layoutWidths'
@@ -212,7 +212,7 @@ function ScoresSkeleton() {
   // final's footer, and on a phone the first is the final, whose line names the champion and is
   // the long one. In season the page opens on the last game day's finals and then games to come.
   return (
-    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 1.25 }, grid ? SCORES_WIDE_SX : {}, FLAT_CARDS_DARK]}>
+    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 1.25 }, grid ? SCORES_WIDE_SX : {}]}>
       <TabTitle sx={{ mb: 0.25 }}>WPBL Scores</TabTitle>
       {grid ? (
         <Box sx={SCORES_GRID_SX}>
@@ -551,8 +551,8 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
         // The matchup and the status keep their own row inside it and are unchanged.
         display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25, cursor: 'pointer',
         // In light mode a final gets a muted fill, so the past reads as settled against crisp
-        // upcoming cards. In dark mode every card is flat, as on Home and the season recap (see
-        // FLAT_CARDS_DARK): the grey fill this used to carry was the one lifted card on a flat page.
+        // upcoming cards. In dark mode every card is flat (see Surfaces in ThemeContext), and a final
+        // keeps that: a grey fill here was the one lifted card on a flat page.
         borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
         bgcolor: final && !isDark ? 'action.hover' : CARD_FILL,
         transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
@@ -669,8 +669,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
   ]
 
   return (
-    // Flat cards in dark mode, as on Home and the season recap: see FLAT_CARDS_DARK.
-    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 1.25 }, grid ? SCORES_WIDE_SX : {}, FLAT_CARDS_DARK]}>
+    <Box sx={[{ display: 'flex', flexDirection: 'column', gap: 1.25 }, grid ? SCORES_WIDE_SX : {}]}>
       {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. Demoted to
           a plain div while a game or player modal is the page; see PageHeading.tsx. */}
       <TabTitle sx={{ mb: 0.25 }}>WPBL Scores</TabTitle>
@@ -1063,7 +1062,7 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
       PaperProps={{ sx: {
         maxWidth: 460, mx: 'auto', left: 0, right: 0,
         borderTopLeftRadius: 16, borderTopRightRadius: 16,
-        bgcolor: 'background.paper',
+        bgcolor: 'background.raised',
         pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
       } }}
     >

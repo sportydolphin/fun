@@ -9,56 +9,26 @@ import type { Theme } from '@mui/material'
 import { TAPPABLE, FOCUS_RING, pressable, linkPress } from './interaction'
 import { typePx } from './scale'
 
-// Card outline color: noticeably stronger than MUI's faint `divider` so the WPBL
-// cards (and the sub-cards nested inside them) read as crisply outlined in both light
-// and dark mode. Use for card container borders; keep `divider` for thin inner row rules.
-//
-// A FLAT CARD TAKES A STRONGER OUTLINE IN DARK MODE, through `--wpbl-card-border`. With no fill the
-// border is the only thing drawing the card, and 0.30 was tuned against a lifted paper grey that
-// did half that job; on the bare page it reads faint. Set by `FLAT_CARDS_DARK` on a flat page, and
-// by a `bare` card on itself, so the paper cards elsewhere keep the weight they were tuned at.
+// A card's outline, which in dark mode is the whole of the card: cards there are the page colour
+// (see Surfaces in src/ThemeContext.tsx), so this edge is the only thing drawing one. The weight
+// is a setting, published by ThemeContext as `--sd-card-border`, so DevSettings can move every card
+// on the site at once. Keep `divider` for the thin rules inside a card.
 export const CARD_BORDER = (t: Theme) => t.palette.mode === 'dark'
-  ? 'var(--wpbl-card-border, rgba(255,255,255,0.30))'
-  : 'rgba(0,0,0,0.34)'
+  ? 'var(--sd-card-border, rgba(255,255,255,0.28))'
+  : 'var(--sd-card-border, rgba(0,0,0,0.34))'
 
-/** The dark-mode outline of a card with no fill. */
-const FLAT_BORDER_DARK = 'rgba(255,255,255,0.46)'
+/** The outline of a box nested INSIDE a card (a bracket series, a game chip): the row-rule weight,
+ *  a clear step below the card's own outline so the nesting still reads. */
+export const INNER_BORDER = (t: Theme) => t.palette.divider
 
-/** The outline of a box nested INSIDE a card (a bracket series, a game chip): `divider` on paper,
- *  where the fill around it gives it its edge, and a step up on a flat card, where `divider` alone
- *  left it barely there. Kept a clear step below the card's own outline so the nesting still reads. */
-export const INNER_BORDER = (t: Theme) => `var(--wpbl-inner-border, ${t.palette.divider})`
-const FLAT_INNER_BORDER_DARK = 'rgba(255,255,255,0.24)'
-
-/** What a `bare` card sets on itself in dark mode: the flat outline, and the flat inner outline for
- *  anything nested in it. The fill is already off, so only the borders need saying. */
-export const BARE_CARD_DARK = (t: Theme) => t.palette.mode === 'dark'
-  ? { '--wpbl-card-border': FLAT_BORDER_DARK, '--wpbl-inner-border': FLAT_INNER_BORDER_DARK }
-  : {}
-
-/** A raised card's fill: `background.paper`, unless a page has asked for flat cards (see
- *  `FLAT_CARDS_DARK`). A variable rather than a prop because a page is more than its
- *  `SectionCard`s: Home also hand-rolls chips, a league row and skeletons on the same surface,
- *  and a prop would have to reach every one of them or leave the page half converted. */
-export const CARD_FILL = (t: Theme) => `var(--wpbl-card-fill, ${t.palette.background.paper})`
+/** A card's fill: `background.paper`, which is the page colour on a dark page and the raised tone
+ *  inside anything floating (ModalShell re-points it), so a card always sits flush on whatever it
+ *  is drawn on. A function rather than the bare token so call sites read as "the card's fill". */
+export const CARD_FILL = (t: Theme) => t.palette.background.paper
 
 /** The solid colour directly behind a card's content, for the things that must PAINT it rather
- *  than show through: the 2px ring that separates overlapping portraits. On a flat card that is
- *  the page, and a ring left in the paper grey reads as a halo around every face. */
-export const CARD_INK = (t: Theme) => `var(--wpbl-card-ink, ${t.palette.background.paper})`
-
-/** Flat cards in dark mode, set on a page's root: the fill goes and the border alone holds the
- *  card, the way the season recap draws. Dark only for now. In dark mode `background.paper` is a
- *  lifted grey, so a page of paper cards reads as grey boxes holding grey boxes (bracket rows,
- *  game chips), and the recap one click away already sits flat on the page. Light mode keeps its
- *  paper until it is decided separately. Scoped by inheritance, so it stops at the page: a
- *  `ModalShell` portals to the body and keeps its paper. */
-export const FLAT_CARDS_DARK = (t: Theme) => t.palette.mode === 'dark'
-  ? {
-    '--wpbl-card-fill': 'transparent', '--wpbl-card-ink': t.palette.background.default,
-    '--wpbl-card-border': FLAT_BORDER_DARK, '--wpbl-inner-border': FLAT_INNER_BORDER_DARK,
-  }
-  : {}
+ *  than show through: the 2px ring that separates overlapping portraits. Same as the fill. */
+export const CARD_INK = (t: Theme) => t.palette.background.paper
 
 /**
  * The floor for the smallest labels: eyebrows, chart axes, footnotes.
@@ -220,7 +190,7 @@ export function SectionCard({ icon, title, titleAdornment, subtitle, action, act
       // column, a percentage height resolves against the column's own height and makes every
       // card in it the same size, squashing the shorter ones on a phone.
       ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
-    }, bare ? BARE_CARD_DARK : {}]}>
+    }]}>
       {/* The whole header toggles: a thumb-sized target rather than a small chevron hitbox.
           `action` keeps its own click (e.g. "View all"), so it stops the event bubbling. */}
       <Box

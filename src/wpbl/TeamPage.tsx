@@ -4,7 +4,7 @@ import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
-import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, CARD_FILL, INNER_BORDER, FLAT_CARDS_DARK, TAPPABLE, hoverOnly } from './ui'
+import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   wpblQualifiers, plateAppearances,
@@ -590,8 +590,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     : 'Inaugural season'
 
   return (
-    // Flat cards in dark mode, the same surface as the Teams grid it opens from; see FLAT_CARDS_DARK.
-    <Box sx={FLAT_CARDS_DARK}>
+    <Box>
       {/* Header row. It says whose page this is, carries the record, and switches clubs in one
           tap. It scrolls away with the page rather than pinning to the top.
 
