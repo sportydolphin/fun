@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
 import { AuthorByline, ReadingCard, ReadingLead, GHOST_ARTICLE } from './Reading'
-import { FLAT_CARDS_DARK, TextGhost } from './ui'
+import { TextGhost } from './ui'
 import { WPBL_TEAMS } from './constants'
 import { fetchWpblArticles, fetchWpblTeams, getCachedWpblArticles, getCachedWpblTeams } from './api'
 import { SOURCES, sourceOf } from './derive/articles'
@@ -111,7 +111,7 @@ export default function ReadingPage() {
         <span key={src.key}>{i > 0 && ' and '}{src.authorName}&rsquo;s <em>{src.publicationName}</em></span>
       ))}. Each post opens on the writer&rsquo;s own Substack.
     </>}>
-      <Box sx={FLAT_CARDS_DARK}>
+      <Box>
         {articles == null ? (
           <ReadingSkeleton />
         ) : articles.length === 0 ? (

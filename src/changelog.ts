@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.157.0',
+    date:    '2026-10-11',
+    changes: [
+      {
+        short: 'Dark mode: one calmer surface everywhere',
+        full:  "In dark mode every card now sits flush on the page with an outline, on WPBL and MLB alike, instead of some pages using grey panels. The lighter grey is kept for things that float over the page: player and game sheets, menus and the bottom bar.",
+      },
+    ],
+  },
+  {
     version: '1.156.0',
     date:    '2026-10-11',
     changes: [

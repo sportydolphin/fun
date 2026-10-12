@@ -19,8 +19,7 @@ import React, { lazy, Suspense, useSyncExternalStore } from 'react'
 import { Box, Typography, Popover, Tooltip, Divider, Button } from '@mui/material'
 import { Settings } from '@mui/icons-material'
 import { useAuth, simulateDevLogin } from '../AuthContext'
-import { useTheme, SKIN_OPTIONS } from '../ThemeContext'
-import { ACCENT } from '../mlb/constants'
+import { useTheme, DARK_PAGES, SURFACE_CHOICES, DEFAULT_SURFACES, type DarkPage, type SurfacePrefs } from '../ThemeContext'
 import { SegControl } from '../mlb/components/ui'
 import { useDevSim, setDevSimEnabled, regenerateDevSim, decideDevSimWinners, reopenDevSim, devSimActive } from '../mlb/dev/devSim'
 import { useDevDrama, setDevDramaEnabled, regenerateDevDrama, devDramaActive } from '../mlb/dev/devDrama'
@@ -82,6 +81,7 @@ function activeOverrides(): Override[] {
   if (devFanPhotosOn()) out.push({ label: 'WPBL mock fan photos', reset: () => setDevFanPhotos(false) })
   if (devLiveSnapshot().enabled) out.push({ label: 'WPBL live replay', reset: () => setDevLiveEnabled(false) })
   if (readFlag(FORCE_TESTER_KEY) === '1') out.push({ label: 'Tester role', reset: () => writeFlag(FORCE_TESTER_KEY, null), reload: true })
+  if (readFlag('sdSurfaces') != null) out.push({ label: 'Surface settings', reset: () => writeFlag('sdSurfaces', null), reload: true })
   if (Number(readFlag(FAKE_USERS_KEY) ?? 0) > 0) out.push({ label: 'Fake /admin roster', reset: () => writeFlag(FAKE_USERS_KEY, null), reload: true })
   return out
 }
@@ -164,7 +164,7 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
         <ActiveOverrides active={active} refresh={refresh} />
 
         <Typography sx={group}>Look</Typography>
-        <SkinControls />
+        <SurfaceControls />
         <Divider sx={{ my: 1.75 }} />
         <DeviceModeControls />
 
@@ -470,34 +470,57 @@ function LiveGameSimControls() {
 
 // ─── Look ──────────────────────────────────────────────────────────────────────
 
-function SkinControls() {
-  const { skin, setSkin } = useTheme()
+/**
+ * The surface settings from ThemeContext: the page, the cards on it and what floats over it. Every
+ * choice persists in this browser and moves the whole site at once, so try one on a page with a
+ * lot of cards (Standings, Stats) and then open a player sheet to see the floating tone.
+ */
+function SurfaceControls() {
+  const { mode, surfacePrefs: p, setSurfacePrefs } = useTheme()
+  const pct = (n: number) => `${Math.round(n * 1000) / 10}%`
+  // Wrapping chips rather than a segmented control: five choices do not fit the popover's width.
+  const pick = <K extends keyof SurfacePrefs>(key: K, values: readonly SurfacePrefs[K][], label: (v: SurfacePrefs[K]) => string) => (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+      {values.map(v => {
+        const on = p[key] === v
+        return (
+          <Box key={String(v)} component="button" type="button" onClick={() => setSurfacePrefs({ [key]: v } as Partial<SurfacePrefs>)} sx={{
+            font: 'inherit', fontSize: '0.72rem', fontWeight: on ? 800 : 600, cursor: 'pointer',
+            px: 1, py: 0.35, borderRadius: 999, border: '1px solid',
+            borderColor: on ? 'primary.main' : 'divider',
+            color: on ? 'primary.main' : 'text.secondary', bgcolor: 'transparent',
+          }}>{label(v)}</Box>
+        )
+      })}
+    </Box>
+  )
+  const changed = (Object.keys(DEFAULT_SURFACES) as (keyof SurfacePrefs)[]).some(k => p[k] !== DEFAULT_SURFACES[k])
+  const row = (title: string, control: React.ReactNode, hint?: string) => (
+    <Box sx={{ mb: 1.25 }}>
+      <Typography sx={heading}>{title}</Typography>
+      {control}
+      {hint && <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.5 }}>{hint}</Typography>}
+    </Box>
+  )
   return (
     <>
-      <Typography sx={heading}>Skin (palette)</Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {SKIN_OPTIONS.map(o => {
-          const active = skin === o.key
-          return (
-            <Box
-              key={o.key}
-              onClick={() => setSkin(o.key)}
-              sx={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
-                px: 1.25, py: 0.6, borderRadius: 1.5, cursor: 'pointer',
-                fontSize: '0.78rem', fontWeight: 700,
-                color: active ? ACCENT : 'text.primary',
-                bgcolor: active ? `${ACCENT}14` : 'transparent',
-                border: '1px solid', borderColor: active ? `${ACCENT}55` : 'divider',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              {o.label}
-              {active && <Box component="span" sx={{ fontSize: '0.7rem' }}>✓</Box>}
-            </Box>
-          )
-        })}
-      </Box>
+      {mode === 'dark' ? (
+        <>
+          {row('Page', pick('darkPage', Object.keys(DARK_PAGES) as DarkPage[], v => DARK_PAGES[v].label))}
+          {row('Cards', pick('darkCards', ['flat', 'raised'] as const, v => (v === 'flat' ? 'Flat' : 'Raised')),
+            'Flat: the page colour and an outline. Raised: the floating tone.')}
+          {row('Card outline', pick('darkOutline', SURFACE_CHOICES.darkOutline, pct), 'Row rules stay at 22%.')}
+          {row('Floating lift', pick('darkLift', SURFACE_CHOICES.darkLift, pct), 'Sheets, menus, the bottom bar.')}
+          {row('Hover and stripes', pick('darkFill', SURFACE_CHOICES.darkFill, pct))}
+        </>
+      ) : (
+        row('Card outline', pick('lightOutline', SURFACE_CHOICES.lightOutline, pct), 'Switch to dark mode for the rest.')
+      )}
+      {changed && (
+        <Button fullWidth size="small" variant="outlined" onClick={() => setSurfacePrefs(null)} sx={{ mt: 0.5, textTransform: 'none' }}>
+          Back to the shipped settings
+        </Button>
+      )}
     </>
   )
 }

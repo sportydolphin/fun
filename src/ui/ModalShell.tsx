@@ -2,6 +2,7 @@ import React, { createContext, startTransition, useContext, useEffect, useId, us
 import { Close } from '@mui/icons-material'
 import { HeaderBack, HEADER_EYEBROW_SX, HEADER_ICON_SX, headerChipSx } from './headerBar'
 import { createPortal } from 'react-dom'
+import { raisedTheme } from '../ThemeContext'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { ThemeProvider, createTheme, useTheme, type Theme } from '@mui/material/styles'
 import { useSwipeNav } from '../AccessibilityContext'
@@ -847,7 +848,10 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
     }
   }, [])
 
+  // The raised theme for the whole shell: it floats, so its surface and every `background.paper`
+  // inside it (cards, sticky headers) are the lifted tone. See Surfaces in src/ThemeContext.tsx.
   return createPortal((
+    <ThemeProvider theme={raisedTheme}>
     <Box
       ref={panelRef}
       role="dialog"
@@ -897,6 +901,7 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
         </Box>
       )}
     </Box>
+    </ThemeProvider>
   ), document.body)
 }
 
@@ -976,7 +981,10 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
    * transformed. React keeps the tree intact through it, so context, events and the refs below
    * all behave exactly as they did.
    */
+  // The raised theme for the whole shell: it floats, so its surface and every `background.paper`
+  // inside it (cards, sticky headers) are the lifted tone. See Surfaces in src/ThemeContext.tsx.
   return createPortal((
+    <ThemeProvider theme={raisedTheme}>
     <Box
       ref={overlayRef}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -1130,6 +1138,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
         )}
       </Box>
     </Box>
+    </ThemeProvider>
   ), document.body)
 }
 

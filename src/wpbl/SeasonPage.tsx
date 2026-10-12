@@ -50,7 +50,7 @@ import { winProbModel, gameWinProb, swingOfGame, fmtWinPct, wildestGames, type W
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath, wpblComparePath, WPBL_MATCHUPS_PAGE } from './routes'
 import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './derive/matchups'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, CARD_BORDER, FLAT_CARDS_DARK, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, TextGhost, chromePx } from './ui'
+import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, TextGhost, chromePx } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
 import { track, EVENTS } from '../lib/analytics'
@@ -516,7 +516,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
           with no fill (see the note above StatTile), and this is what gives those outlines the
           flat surface's stronger weight. */}
       {hasData && (
-        <Box sx={FLAT_CARDS_DARK}>
+        <Box>
           {/* ── Champion ─────────────────────────────────────────────────────────
               The one postseason fact on an otherwise regular-season page, and it leads because in
               the offseason the champion IS the top of the story. Absent until the title is
@@ -1075,7 +1075,7 @@ function FinalGameHead({ n, date }: { n: number; date: React.ReactNode }) {
  */
 function SeasonSkeleton({ isPhone }: { isPhone: boolean }) {
   return (
-    <Box aria-hidden sx={FLAT_CARDS_DARK}>
+    <Box aria-hidden>
       <Box sx={{ mb: 2.5 }}>
         <SeasonChampionBlock champ={null} />
         <Box sx={{ display: 'grid', gap: 1, mt: 1.25, gridTemplateColumns: 'repeat(auto-fit, minmax(7.5rem, 1fr))' }}>

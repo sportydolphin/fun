@@ -17,7 +17,7 @@ import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
-import { SectionCard, TeamBadge, PlayerPortrait, useWpblDark, chromePx, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, useWpblDark, chromePx, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import PlayoffBracket from './PlayoffBracket'
@@ -2566,7 +2566,7 @@ export function WpblHomeSkeleton() {
     // during the read otherwise finds a page with no heading, no landmark and nothing to say
     // for itself, which is indistinguishable from a page that failed. `role="status"` and a
     // label give it one line to read, and `aria-busy` tells AT the subtree is mid-update.
-    <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={[homeWideSx, FLAT_CARDS_DARK]}>
+    <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
       {/* The h1 row, and the club chips that sit beside it from sm up. Same flex, same gaps,
           so the heading lands on the pixel it is about to occupy. */}
       {/* No margin under it on a phone, where the loaded row has 12px: the scoreboard block below
@@ -2675,18 +2675,18 @@ const WATCH_CARD_SKELETON_H = { xs: '13.8rem', md: '22rem' }
 // width, so the card grows with the window; lg is where it reaches the column's cap.
 const READING_CARD_SKELETON_H = { xs: '25rem', sm: '21.3rem', md: '19.8rem', lg: '22.2rem' }
 
+const EMPTY_TEAMS = new Map<string, WpblTeam>()
+const NO_OPEN = () => {}
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see the
  *  render below): the header, Player of the day beside the season card, the award results while
  *  they are up, the gallery, the star sign card, Reading beside Watch, the Discord invite on a
  *  phone, and the league line. Heights measured off the real page. */
-const EMPTY_TEAMS = new Map<string, WpblTeam>()
-const NO_OPEN = () => {}
 function OffseasonHomeSkeleton() {
   let discordDismissed = false
   try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
   const awards = awardsResultsShowOnHome()
   return (
-    <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={[homeWideSx, FLAT_CARDS_DARK]}>
+    <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
@@ -3065,9 +3065,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     .filter(c => !seasonDone || (c !== compareCard && c.key !== 'mvp-empty'))
 
   return (
-    // Flat cards in dark mode, the recap's treatment; see FLAT_CARDS_DARK. On the skeleton too, so
-    // the page does not swap surfaces when the data lands.
-    <Box sx={[homeWideSx, FLAT_CARDS_DARK]}>
+    <Box sx={homeWideSx}>
       {/* THE FAN AWARDS INVITATION, PHONES ONLY AND FIRST ON THE PAGE. See FanAwardsCta: the
           ballot card itself sits in Home's second column, which on a phone is two screens
           down, and it is the one card here that asks the reader for something rather than

@@ -450,8 +450,7 @@ function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
 }
 
 function AppInner() {
-  const { mode, toggleTheme, skinConfig } = useTheme()
-  const integratedHeader = skinConfig.integratedHeader
+  const { mode, toggleTheme, surfaces } = useTheme()
   const { user, loading: authLoading, signOut, openAuthDialog } = useAuth()
   // Root redirects straight to the reader's default section (WPBL unless they chose MLB in
   // Settings). MLB is the only other place to go, and the MLB | WPBL toggle is how you get there.
@@ -651,7 +650,7 @@ function AppInner() {
     if (el) ro.observe(el)
     window.addEventListener('resize', publish)
     return () => { ro.disconnect(); window.removeEventListener('resize', publish) }
-  }, [isDesktop, integratedHeader])
+  }, [isDesktop])
 
   // ── Toolbar search bridge ─────────────────────────────────────────────────
   const bridge = useSearchBridge()
@@ -922,31 +921,29 @@ function AppInner() {
         // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
         // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
         // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
-        position={!isDesktop ? 'static' : integratedHeader ? 'sticky' : 'static'}
+        position={!isDesktop ? 'static' : 'sticky'}
         color="default"
-        elevation={integratedHeader ? 0 : 1}
+        elevation={0}
         sx={{
-          ...(integratedHeader ? {
-            // Integrated header: same tint as the page, separated by a hairline + blur
-            // instead of sitting as a lighter-gray slab on near-black.
-            top: 0,
-            bgcolor: skinConfig.headerBg,
-            backgroundImage: 'none',
-            // Blur only on desktop, where the header is sticky and content actually passes
-            // under it. On mobile the bar scrolls away with the page, so the blur is purely
-            // decorative — and backdrop-filter makes the AppBar a stacking context that traps
-            // the account dropdown (z-index 1400) below page content like the sticky tab bar
-            // (z-index 3). Dropping it on mobile lets the dropdown render in front of the page.
-            ...(isDesktop && { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }),
-            // AND NOT WHILE A MODAL IS OPEN. A full-viewport backdrop filter is expensive to
-            // invalidate, and under a modal's 60% dim this one cannot be seen at all: it is pure
-            // cost, paid on every repaint anywhere in the dialog above it. ModalShell publishes
-            // the attribute (see its effect, which counts nesting). CSS rather than JS state so
-            // the bar never re-renders for it.
-            'html[data-modal-open] &': { backdropFilter: 'none', WebkitBackdropFilter: 'none' },
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          } : {}),
+          // Same tint as the page, separated by a hairline and a blur rather than sitting as a
+          // lighter slab over it: the header is chrome, not something floating.
+          top: 0,
+          bgcolor: surfaces.headerBg,
+          backgroundImage: 'none',
+          // Blur only on desktop, where the header is sticky and content actually passes
+          // under it. On mobile the bar scrolls away with the page, so the blur is purely
+          // decorative — and backdrop-filter makes the AppBar a stacking context that traps
+          // the account dropdown (z-index 1400) below page content like the sticky tab bar
+          // (z-index 3). Dropping it on mobile lets the dropdown render in front of the page.
+          ...(isDesktop && { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }),
+          // AND NOT WHILE A MODAL IS OPEN. A full-viewport backdrop filter is expensive to
+          // invalidate, and under a modal's 60% dim this one cannot be seen at all: it is pure
+          // cost, paid on every repaint anywhere in the dialog above it. ModalShell publishes
+          // the attribute (see its effect, which counts nesting). CSS rather than JS state so
+          // the bar never re-renders for it.
+          'html[data-modal-open] &': { backdropFilter: 'none', WebkitBackdropFilter: 'none' },
+          borderBottom: '1px solid',
+          borderColor: 'divider',
           // A SHORT viewport scrolls the bar away too, whatever its width. The rule above is
           // width-only, so a phone turned sideways lands in the desktop branch and pins 44px
           // of a 375px screen for a toggle and a search box, on top of whatever the page

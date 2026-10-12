@@ -843,7 +843,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           PaperProps={{ sx: {
             maxWidth: chromePx(460), mx: 'auto', left: 0, right: 0,
             borderTopLeftRadius: 16, borderTopRightRadius: 16,
-            bgcolor: 'background.paper',
+            bgcolor: 'background.raised',
             pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
           } }}
         >

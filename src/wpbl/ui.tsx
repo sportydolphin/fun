@@ -19,7 +19,7 @@ import { nameStages } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
 import { TYPE_SCALE, CARD_BORDER } from '../ui/card'
-export { TYPE_SCALE, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, BARE_CARD_DARK, FLAT_CARDS_DARK, SectionCard, Chevron } from '../ui/card'
+export { TYPE_SCALE, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, SectionCard, Chevron } from '../ui/card'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
 export { ModalShell, usePhoneLayout, AfterShellEnters } from '../ui/ModalShell'
 import { usePhoneLayout } from '../ui/ModalShell'
@@ -567,7 +567,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
               // a soft shadow and accent-colored text, rather than a solid accent fill. Reads as
               // part of the page in both themes (the chip follows the surface color) and sits
               // more quietly next to the rest of the UI than a bold color block.
-              bgcolor: value === opt.value ? 'background.paper' : 'transparent',
+              bgcolor: value === opt.value ? 'background.raised' : 'transparent',
               color: value === opt.value ? accentFg : 'text.secondary',
               fontWeight: value === opt.value ? 700 : 600,
               boxShadow: value === opt.value ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
@@ -656,7 +656,7 @@ export function RailArrow({ dir, show, onClick, label }: {
         position: 'absolute', top: '34%', [dir]: -4, transform: 'translateY(-50%)', zIndex: 2,
         width: 34, height: 34, borderRadius: '50%',
         display: 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
+        bgcolor: 'background.raised', border: '1px solid', borderColor: CARD_BORDER,
         boxShadow: '0 2px 8px rgba(0,0,0,0.28)', color: 'text.primary',
         opacity: show ? 1 : 0, pointerEvents: show ? 'auto' : 'none',
         transition: 'opacity 0.15s, background 0.15s',
