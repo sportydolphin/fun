@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WpblPlayer } from '../types'
-import { playerOfTheDay, upcomingBirthdays, sunSign, signSeason, hometownOfTheDay, regionOf } from '../derive/homePlayers'
+import { playerOfTheDay, sunSign, signSeason } from '../derive/homePlayers'
 
 function player(id: string, over: Partial<WpblPlayer> = {}): WpblPlayer {
   return {
@@ -37,28 +37,6 @@ describe('playerOfTheDay', () => {
   })
 })
 
-describe('upcomingBirthdays', () => {
-  it('keeps one just past, then today and the next ones in order, across New Year', () => {
-    const roster = [
-      player('a', { birth_date: '2000-12-29' }),
-      player('b', { birth_date: '2000-12-30' }),
-      player('c', { birth_date: '2000-12-31' }),
-      player('d', { birth_date: '2000-01-02' }),
-      player('e', { birth_date: '2000-06-01' }),
-    ]
-    const got = upcomingBirthdays(roster, '2026-12-31', { limit: 3 })
-    expect(got.map(b => [b.player.id, b.offset])).toEqual([['b', -1], ['c', 0], ['d', 2]])
-    expect(got[2].date).toBe('2027-01-02')
-  })
-
-  it('states an age only when the feed agrees with the year', () => {
-    const [ok] = upcomingBirthdays([player('a', { birth_date: '2002-11-10', age: 23 })], '2026-11-09')
-    expect(ok.age).toBe(24)
-    const [off] = upcomingBirthdays([player('a', { birth_date: '2002-11-10', age: 30 })], '2026-11-09')
-    expect(off.age).toBeNull()
-  })
-})
-
 describe('sunSign', () => {
   it('places the cusps and the sign that wraps the year', () => {
     expect(sunSign('2026-10-10').name).toBe('Libra')
@@ -68,32 +46,25 @@ describe('sunSign', () => {
     expect(sunSign('2027-01-20').name).toBe('Aquarius')
   })
 
-  it('lists that sign\'s players with the ones who played first', () => {
-    const roster = [
-      player('z', { name: 'Ada', zodiac_sign: 'Libra', api_ids: [] }),
-      player('y', { name: 'Bea', zodiac_sign: 'Libra' }),
-      player('x', { name: 'Cy', zodiac_sign: 'Leo' }),
-    ]
-    expect(signSeason(roster, '2026-10-10').players.map(p => p.name)).toEqual(['Bea', 'Ada'])
-  })
-})
 
-describe('hometownOfTheDay', () => {
-  it('groups by state and country, needs three players, and skips a bare country', () => {
-    expect(regionOf('Gatineau, Quebec, Canada')).toBe('Quebec, Canada')
-    expect(regionOf('Perth, Australia')).toBe('Perth, Australia')
+  it('lists that sign\'s players in birthday order, dated only where the date is settled', () => {
     const roster = [
-      player('a', { hometown: 'Gatineau, Quebec, Canada' }),
-      player('b', { hometown: 'Montreal, Quebec, Canada' }),
-      player('f', { hometown: 'Laval, Quebec, Canada' }),
-      player('c', { hometown: 'Osaka, Japan' }),
-      player('g', { hometown: 'Sakai, Osaka, Japan' }),
-      player('d', { hometown: 'USA' }),
-      player('e', { hometown: 'USA' }),
-      player('h', { hometown: 'USA' }),
+      player('a', { name: 'Ada', zodiac_sign: 'Libra', birth_date: '2001-10-16', age: 24 }),
+      player('b', { name: 'Bea', zodiac_sign: 'Libra', birth_date: '2003-09-25' }),
+      player('c', { name: 'Cy', zodiac_sign: 'Libra', birth_date: '2002-10-01', birth_date_source: 'doc-unsettled' }),
+      player('d', { name: 'Di', zodiac_sign: 'Leo', birth_date: '2002-08-01' }),
     ]
-    const got = hometownOfTheDay(roster, '2026-10-10')
-    expect(got?.region).toBe('Quebec, Canada')
-    expect(got?.players.map(p => p.id)).toEqual(['a', 'b', 'f'])
+    const got = signSeason(roster, '2026-10-10').players
+    expect(got.map(b => [b.player.name, b.date, b.offset])).toEqual([
+      ['Bea', '2026-09-25', -15],
+      ['Ada', '2026-10-16', 6],
+      ['Cy', null, null],
+    ])
+    expect(got[1].age).toBe(25)
+  })
+
+  it('dates a January Capricorn as next year when the season starts in December', () => {
+    const roster = [player('a', { zodiac_sign: 'Capricorn', birth_date: '2001-01-05' })]
+    expect(signSeason(roster, '2026-12-28').players[0]).toMatchObject({ date: '2027-01-05', offset: 8 })
   })
 })

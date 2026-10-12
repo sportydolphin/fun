@@ -685,10 +685,10 @@ describe('/wpbl/awards, the fan ballot', () => {
     expect(fanVoteSource).not.toContain('useHasRole')
   })
 
-  // Home's one reader-dependent switch is the new offseason layout (useNewOffseasonHome), and it
-  // must carry the ballot too, or turning it on for everyone would drop the ballot in silence.
-  it('is drawn by the new offseason Home as well as the old one', () => {
-    expect(homeSource).toMatch(/\{newHome && \(\s*<>[\s\S]*?\{seasonCards\.length > 0 &&/)
+  // The offseason Home draws its own rows (Player of the day, the season card, the gallery...), so
+  // the ballot has to be among them too, or the season ending would drop it in silence.
+  it('is drawn by the offseason Home as well as the in-season one', () => {
+    expect(homeSource).toMatch(/\{seasonDone && \(\s*<>[\s\S]*?\{seasonCards\.length > 0 &&/)
   })
 })
 
