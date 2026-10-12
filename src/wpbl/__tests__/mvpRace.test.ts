@@ -207,7 +207,7 @@ describe('the two-way flag', () => {
 describe('formatting', () => {
   it('signs a run figure the way the Run value board does', () => {
     expect(fmtMvpRuns(18.46)).toBe('+18.5')
-    expect(fmtMvpRuns(-3.2)).toBe('-3.2')
+    expect(fmtMvpRuns(-3.2)).toBe('−3.2')
     expect(fmtMvpRuns(0)).toBe('0.0')
   })
 

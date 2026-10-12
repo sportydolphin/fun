@@ -362,7 +362,7 @@ describe('formatting', () => {
   it('always signs a run value, and never shows a negative zero', () => {
     expect(fmtRunValue(1.24)).toBe('+1.2')
     expect(fmtRunValue(-0.04)).toBe('0.0')
-    expect(fmtRunValue(-2.5)).toBe('-2.5')
+    expect(fmtRunValue(-2.5)).toBe('−2.5')
     expect(fmtRunValue(null)).toBe('—')
   })
 })

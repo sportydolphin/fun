@@ -371,12 +371,12 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
   )
 }
 
-/** "8 SB, 1 caught · 7 of 12 extra". A pickoff is folded into "caught": to a reader both are a
+/** "8 SB, 1 caught · 7 of 12 extra bases". A pickoff is folded into "caught": to a reader both are a
  *  runner out on the bases without a ball in play, and two words for it would not fit a phone. */
 function basesLine(r: BaserunningLine<unknown>): string {
   const caught = r.cs + r.pickoffs
   const steals = caught ? `${r.sb} SB, ${caught} caught` : `${r.sb} SB`
-  return r.chances ? `${steals} · ${r.extra} of ${r.chances} extra` : steals
+  return r.chances ? `${steals} · ${r.extra} of ${r.chances} extra bases` : steals
 }
 
 /** "6th", for an inning in a sentence. Innings only, so the teens never come up. */
@@ -597,13 +597,16 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
         alignItems: 'start',
         gap: { xs: 1.5, sm: 2 },
       }}>
-      {/* THE LEFT COLUMN IS THE SEASON TOTALS: runs and wins at the plate, runs on the bases. */}
+      {/* THE LEFT COLUMN IS THE SEASON TOTALS: runs and wins at the plate, runs on the bases.
+          Every row takes the ROSTER's spelling of a name once the player resolves: the play log
+          carries whatever the scorer typed ("Andreanne Leblanc", "Isabella Villareal"), and the
+          Pitch by pitch tab next door, which reads the roster, spelled the same people correctly. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
       <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}>
         {leaders.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownLeaders.map((r, i) => (
-              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.name}
+              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.value)} unit="runs" accent={accent}
                 onOpen={onOpenPlayer}
                 sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
@@ -621,7 +624,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
         {wpa.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownWpa.map((r, i) => (
-              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.name}
+              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.wpa, 2)} unit="wins" accent={accent}
                 onOpen={onOpenPlayer}
                 sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
@@ -636,11 +639,11 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           is a row with no pitch sequence. See derive/baserunning.ts for how a runner is read
           off the play and what each decision is priced against. */}
       {!pitching && (
-        <SectionCard title="Best on the bases" subtitle="Steals and extra bases, against the average">
+        <SectionCard title="Best on the bases" subtitle="Steals and extra bases taken, against the average">
           {bases.length === 0
             ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
             : shownBases.map((r, i) => (
-                <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.name}
+                <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
                   teamId={r.teamId} value={fmtRunValue(r.total)} unit="runs" accent={accent}
                   onOpen={onOpenPlayer} sub={basesLine(r)} />
               ))}

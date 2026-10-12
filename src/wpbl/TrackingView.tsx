@@ -161,7 +161,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
           </SectionCard>
 
           {board.spinLeaders.length > 0 && (
-            <SectionCard bare title="Spin leaders" subtitle="Ranked by average spin rate">
+            <SectionCard bare title="Most spin" subtitle="Ranked by average spin rate">
               {board.spinLeaders.slice(0, 8).map((l: SpinLeader, i) => (
                 <LeaderRow key={l.player?.id ?? l.name} rank={i + 1} player={l.player} name={l.name} teamId={l.teamId}
                   value={String(Math.round(l.avgSpin))} unit="rpm" sub={`max ${Math.round(l.maxSpin)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
@@ -184,7 +184,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
               </SectionCard>
 
               {board.longestHits.length > 0 && (
-                <SectionCard bare title="Longest tracked hits" subtitle="By radar-measured distance">
+                <SectionCard bare title="Longest tracked hits" subtitle="Ranked by distance">
                   {board.longestHits.slice(0, 10).map((b: BattedBall, i) => (
                     <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
                       value={fmtDistance(b.distance!, units)} unit={distanceUnit(units)} accent={accent} onOpen={onOpenPlayer}

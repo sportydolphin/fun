@@ -655,7 +655,7 @@ const EVENT_LABELS: readonly (readonly [string, string])[] = [
   ['walk', 'Walk'], ['hit_by_pitch', 'Hit by pitch'], ['wild_pitch', 'Wild pitch'],
   ['stolen_base', 'Stolen base'], ['sacrifice', 'Sacrifice'],
   ['fielders_choice', "Fielder's choice"], ['groundout', 'Groundout'], ['flyout', 'Flyout'],
-  ['popup', 'Pop up'], ['lineout', 'Lineout'], ['strikeout', 'Strikeout'],
+  ['popup', 'Popout'], ['lineout', 'Lineout'], ['strikeout', 'Strikeout'],
   ['caught_stealing', 'Caught stealing'],
 ]
 
@@ -833,7 +833,9 @@ export function fmtRunValue(v: number | null | undefined, digits: 1 | 2 = 1): st
   const r = Math.round(v * scale) / scale
   // Keeps "-0.0" off the board, which reads as a measurement of nothing.
   const z = Object.is(r, -0) ? 0 : r
-  return `${z > 0 ? '+' : ''}${z.toFixed(digits)}`
+  // A true minus, not a hyphen: the worked example on the Run value board and the draft chart
+  // already print one, and a hyphen beside them reads a size smaller and as a different sign.
+  return `${z > 0 ? '+' : z < 0 ? '−' : ''}${Math.abs(z).toFixed(digits)}`
 }
 
 /** Two decimals, no sign: the table's own cells are expectations, not changes. */

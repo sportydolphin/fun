@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
-import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo, scaleToBasis } from './stats'
+import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo, plateAppearances, scaleToBasis } from './stats'
 import { useEraBasis } from './EraBasisContext'
 import { CARD_BORDER } from './ui'
+import { FilterChip } from '../ui/FilterChip'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 import { regularSeasonLines, type WpblSeasonGame } from './season'
 
@@ -76,6 +77,12 @@ interface PanelSpec {
   minLabel: string
 }
 
+/** 1, 2, 2.5 or 5 times a power of ten, the smallest at least `raw`. */
+function niceStep(raw: number): number {
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  return [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) ?? 10 * mag
+}
+
 // ─── One panel ────────────────────────────────────────────────────────────────
 
 const PAD = { l: 46, r: 14, t: 14, b: 34 }
@@ -124,8 +131,14 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
       }))
       .sort((a, b) => a.meanX - b.meanX)
 
-    // Ticks: five across the y range, and one per round on x.
-    const yTicks = Array.from({ length: 5 }, (_, i) => yLo + ((yHi - yLo) * i) / 4)
+    // Ticks on round numbers, about five of them. Five even fifths of a padded range put
+    // ".491" and "1.472" down the axis, which reads as data rather than as a scale; the range
+    // is widened to the ticks so the top and bottom gridlines still close the plot.
+    const step = niceStep((yHi - yLo) / 4)
+    yLo = Math.max(0, Math.floor(yLo / step) * step)
+    yHi = Math.ceil(yHi / step) * step
+    const yTicks: number[] = []
+    for (let t = yLo; t <= yHi + step / 2; t += step) yTicks.push(t)
     const maxWeight = Math.max(...points.map(p => p.weight), 1)
     return { px, py, rounds, yTicks, xMax, maxWeight }
   }, [points, plotW, plotH])
@@ -243,10 +256,10 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
 
       {/* legend: two series, so it is always present */}
       <Box sx={{ display: 'flex', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
-        <LegendKey color={DOT} label="one player, sized by playing time" />
-        <LegendKey color={LINE} label="round average" />
+        <LegendKey color={DOT} label="One player, sized by playing time" />
+        <LegendKey color={LINE} label="Round average" />
         <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
-          hollow = fewer than {MIN_SOLID_N} players
+          Hollow: fewer than {MIN_SOLID_N} players
         </Typography>
       </Box>
 
@@ -322,7 +335,7 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
     const bat: Pt[] = []
     for (const { player, totals } of aggregateBatting(players, batting, schedule)) {
       const x = overallPickOf(player, size)
-      const pa = totals.ab + totals.bb + totals.hbp + totals.sf
+      const pa = plateAppearances(totals)
       if (x == null || totals.ops == null || pa === 0) continue
       if (cut === 'sample' && pa < MIN_PA) continue
       bat.push({
@@ -370,16 +383,16 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
 
   return (
     <Box>
-      <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
         Did the players taken early in the draft turn out better? Each dot is one of the {drafted}
         {' '}drafted players ({roundCount} rounds of {roundSize}), placed by where they were picked and
-        how they {side === 'pitching' ? 'pitched' : side === 'hitting' ? 'hit' : 'played'}, and bigger
-        the more they played. The line is each round's average.
+        how they {side === 'pitching' ? 'pitched' : side === 'hitting' ? 'hit' : 'played'}, and sized
+        by how much they played. The line is each round's average.
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-        <Chip active={cut === 'all'} onClick={() => setCut('all')}>Everyone who played</Chip>
-        <Chip active={cut === 'sample'} onClick={() => setCut('sample')}>Regulars only ({floor})</Chip>
+        <FilterChip active={cut === 'all'} onClick={() => setCut('all')}>Everyone who played</FilterChip>
+        <FilterChip active={cut === 'sample'} onClick={() => setCut('sample')}>Regulars only ({floor})</FilterChip>
       </Box>
 
       {side ? (side === 'hitting' ? hitterPanel : pitcherPanel) : (
@@ -389,26 +402,10 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
         </Box>
       )}
 
-      <Typography sx={{ fontSize: '0.74rem', color: 'text.disabled', mt: 2, lineHeight: 1.5 }}>
-        Across {gamesPlayed} regular-season games. A hollow round marker stands on one or two players,
-        so one good night moves it a long way: read it as noise, not a trend.
+      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 2, lineHeight: 1.5 }}>
+        Across {gamesPlayed} regular-season games. A hollow round marker stands on fewer than{' '}
+        {MIN_SOLID_N} players, so one good night moves it a long way: read it as noise, not a trend.
       </Typography>
-    </Box>
-  )
-}
-
-// Matches the chip in StatsView: same shape, same states.
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <Box onClick={onClick} sx={{
-      px: 1.25, py: 0.4, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-      border: '1px solid', borderColor: active ? 'transparent' : CARD_BORDER,
-      bgcolor: active ? 'action.selected' : 'transparent',
-      color: active ? 'text.primary' : 'text.secondary',
-      fontSize: '0.78rem', fontWeight: active ? 800 : 600,
-      '&:hover': { color: 'text.primary' },
-    }}>
-      {children}
     </Box>
   )
 }
