@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { FOCUS_RING, hoverOnly, pressable } from './interaction'
 import { chromePx, typePx } from './scale'
+import { nameAtStage, useLineNameFit } from './names'
 
 // GAME CENTER'S DRAWING, SHARED (Oct 2026). Both sections already shared the panel and page frames,
 // but the box score and the play log inside them were two products: MLB's tables right-aligned in
@@ -94,6 +95,38 @@ function StatCell({ children, bold = false, dense = false }: { children: React.R
 /** A position after a batter's name, or a decision after a pitcher's. */
 export const BOX_POS_SX = { fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1, flexShrink: 0, textTransform: 'uppercase' } as const
 
+/** The name cell, a component of its own so each row measures its own name: "F. Last" before an
+ *  ellipsis, by the room the column actually has (CLAUDE.md). At 960px the 10rem cap cut
+ *  "Alyssa Zettlemoyer" mid-surname, which no character count picked for a phone could foresee. */
+function BoxNameCell({ r, dense, hoverColor }: { r: BoxRow; dense: boolean; hoverColor?: string }) {
+  const clickable = !!r.nameProps && 'href' in r.nameProps
+  const fit = useLineNameFit<HTMLElement>([r.name])
+  return (
+    <Box component="td" sx={{ ...nameCellSx, ...(dense ? denseNameSx : {}), pl: r.isSub ? (dense ? 1.1 : 1.75) : (dense ? 0.3 : 0.4) }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
+        {/* The ↳ marker is desktop-only. On a phone it and its gap cost about fourteen pixels of
+            a hundred-pixel column, which is the difference between reading "S. Robinson" and
+            "S. Robi…". The indent alone still reads as a substitute, as a printed box does. */}
+        {r.isSub && !dense && <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0, lineHeight: 1 }}>↳</Box>}
+        <Typography
+          ref={fit.ref}
+          component="span"
+          {...(r.nameProps ?? {})}
+          sx={{
+            fontSize: dense ? '0.74rem' : '0.86rem', fontWeight: 600, lineHeight: 1.2,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            textDecoration: 'none', color: 'inherit',
+            ...(clickable ? { ...FOCUS_RING, cursor: 'pointer', ...hoverOnly({ color: hoverColor ?? 'primary.main' }) } : {}),
+          }}
+        >
+          {nameAtStage(r.name, fit.stage)}
+        </Typography>
+        {r.suffix}
+      </Box>
+    </Box>
+  )
+}
+
 /**
  * One table of a box score: a club's batters or its pitchers, with a totals row under a rule in
  * the club's colour. Every column is the caller's; this only draws them.
@@ -111,32 +144,7 @@ export function BoxTable({ head, cols, rows, totals, rule, dense, hoverColor }: 
   dense: boolean
   hoverColor?: string
 }) {
-  const nameCell = (r: BoxRow) => {
-    const clickable = !!r.nameProps && 'href' in r.nameProps
-    return (
-      <Box component="td" sx={{ ...nameCellSx, ...(dense ? denseNameSx : {}), pl: r.isSub ? (dense ? 1.1 : 1.75) : (dense ? 0.3 : 0.4) }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
-          {/* The ↳ marker is desktop-only. On a phone it and its gap cost about fourteen pixels of
-              a hundred-pixel column, which is the difference between reading "S. Robinson" and
-              "S. Robi…". The indent alone still reads as a substitute, as a printed box does. */}
-          {r.isSub && !dense && <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0, lineHeight: 1 }}>↳</Box>}
-          <Typography
-            component="span"
-            {...(r.nameProps ?? {})}
-            sx={{
-              fontSize: dense ? '0.74rem' : '0.86rem', fontWeight: 600, lineHeight: 1.2,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              textDecoration: 'none', color: 'inherit',
-              ...(clickable ? { ...FOCUS_RING, cursor: 'pointer', ...hoverOnly({ color: hoverColor ?? 'primary.main' }) } : {}),
-            }}
-          >
-            {r.name}
-          </Typography>
-          {r.suffix}
-        </Box>
-      </Box>
-    )
-  }
+  const nameCell = (r: BoxRow) => <BoxNameCell r={r} dense={dense} hoverColor={hoverColor} />
   return (
     <Box sx={{ overflowX: 'auto' }}>
       <Box component="table" sx={dense ? denseTableSx : tableSx}>

@@ -50,9 +50,10 @@ import { winProbModel, gameWinProb, swingOfGame, fmtWinPct, wildestGames, type W
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath, wpblComparePath, WPBL_MATCHUPS_PAGE } from './routes'
 import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './derive/matchups'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, TextGhost, chromePx } from './ui'
+import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TeamBadge, PlayerPortrait, useWpblDark, TextGhost, chromePx } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { ChipRow, FilterChip } from '../ui/FilterChip'
+import { NameText } from '../ui/NameText'
 import { track, EVENTS } from '../lib/analytics'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
@@ -1444,9 +1445,7 @@ function LeaderRow({ rank, name, teamId, value, href, onNavigate }: {
           falls back to initials on the team colour with a team-secondary ring) while turning an
           anonymous leaderboard into a row of people, which is what a season recap is about. */}
       <PlayerPortrait name={name} teamId={teamId} size={28} />
-      <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {name}
-      </Typography>
+      <NameText name={name} sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600 }} />
       <Typography sx={{ flexShrink: 0, fontSize: '0.88rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
         {value}
       </Typography>
@@ -1464,8 +1463,6 @@ function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen, wrapC
    *  there to state (ERA vs FIP's "10 of 17 runs unearned"), not a pointer to where it happened. */
   wrapContext?: boolean
 }) {
-  // "A. Lansdell" on a phone, the section's answer everywhere a name shares a row with a stat.
-  const shortName = useWpblName()
   return (
     <Box
       component="a"
@@ -1487,9 +1484,7 @@ function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen, wrapC
           Here the name gives way to the stat, and the game underneath gets the whole row. */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
-          <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {shortName(name)}
-          </Typography>
+          <NameText name={name} sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600 }} />
           <Typography sx={{ flexShrink: 0, fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
             {stat}
           </Typography>

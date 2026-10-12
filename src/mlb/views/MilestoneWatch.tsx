@@ -9,6 +9,7 @@ import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from '../components/TeamLogo'
 import { SectionCard, CardLink, TYPE_SCALE, edge, ACCENT_EDGE } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
+import { NameText } from '../../ui/NameText'
 import { playerLink, LINK_SX } from '../lib/links'
 
 const FEATURED = 3          // hero chases shown on the card; the rest live in the modal
@@ -126,9 +127,7 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
       <TeamLogo teamId={item.teamId} abbr={item.teamAbbr} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {item.playerName}
-          </Typography>
+          <NameText name={item.playerName} sx={{ minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2 }} />
           {isLive && <LiveBadge />}
           {!isLive && achieved && <Tag color={ACHIEVED_GREEN}>✓ Reached</Tag>}
           {!isLive && !achieved && isRecord && <Tag color={RECORD_GOLD}>Record</Tag>}
@@ -187,9 +186,7 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
       <TeamLogo teamId={item.teamId} abbr={item.teamAbbr} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {item.playerName}
-          </Typography>
+          <NameText name={item.playerName} sx={{ minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2 }} />
           {isLive && <LiveBadge />}
           {!isLive && achieved && <Tag color={ACHIEVED_GREEN}>✓ Reached</Tag>}
           {!isLive && !achieved && isRecord && <Tag color={RECORD_GOLD}>Record</Tag>}

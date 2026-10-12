@@ -7,6 +7,7 @@ import { GAME_SCOPES, GAME_SCOPE_LABEL, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP }
 import type { GameScope } from '../lib/gameScope'
 import { scrollBehavior } from '../../lib/motion'
 import { typePx } from '../../ui/scale'
+import { NameText } from '../../ui/NameText'
 import { PillGroup } from '../../ui/PillGroup'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { CARD_BORDER } from '../../ui/card'
@@ -618,9 +619,9 @@ export function StatsView({
                               card behind the tap already has the face. */}
                           {e.teamId > 0 && <LogoBubble teamId={e.teamId} abbr={e.teamAbbr} size={20} ring={1} />}
                           <Box sx={{ minWidth: 0, maxWidth: phoneTable ? NAME_INNER_MAX : undefined }}>
-                            <Typography {...playerLink(e.playerId, e.playerName, handleLbPlayerClick)} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {isDesktop ? e.playerName : abbrevName(e.playerName)}
-                            </Typography>
+                            <NameText name={isDesktop ? e.playerName : abbrevName(e.playerName)}
+                              linkProps={playerLink(e.playerId, e.playerName, handleLbPlayerClick)}
+                              sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15 }} />
                             {/* The position, as WPBL's row says it: the club is already the mark beside it.
                                 StatsAPI calls every pitcher "P", so the pitching table says which kind. */}
                             {/* Not on a phone, where the board is capped to the screen and the line

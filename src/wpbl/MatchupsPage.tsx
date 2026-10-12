@@ -27,6 +27,7 @@ import { scopedGames, type SeasonScope } from './season'
 import { fmtRate } from './stats'
 import { wpblComparePath, isWpblMatchupsPage } from './routes'
 import { SegNav, TeamBadge, TYPE_SCALE, hoverOnly, FOCUS_RING, TextGhost } from './ui'
+import { NameText } from '../ui/NameText'
 import { WPBL_TEAMS } from './constants'
 import { ShowMoreButton, SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import WpblPage from './WpblPage'
@@ -185,16 +186,22 @@ export default function WpblMatchupsPage({ onNavigate }: {
   const blurb = VIEWS.find(v => v.value === view)!.blurb
   const pitcherFirst = view === 'pitcher'
 
-  /** A name in the matchup cell. Plain text: the whole cell is the link (see the row). */
-  const name = (text: React.ReactNode, strong: boolean) => (
-    <Typography component="span" className={strong ? LEAD_NAME : undefined} sx={{
-      // On desktop the second name has a column of its own and reads at full size beside the first.
-      fontSize: strong ? TYPE_SCALE.body : { xs: TYPE_SCALE.meta, md: TYPE_SCALE.body },
-      fontWeight: strong ? 700 : 600,
-      color: strong ? 'text.primary' : 'text.secondary',
-      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-    }}>{text}</Typography>
-  )
+  /** A name in the matchup cell. Plain text: the whole cell is the link (see the row). A real name
+   *  is fitted, "F. Last" before an ellipsis (CLAUDE.md); the skeleton's ghost is drawn as it is. */
+  const nameSx = (strong: boolean) => ({
+    // On desktop the second name has a column of its own and reads at full size beside the first.
+    fontSize: strong ? TYPE_SCALE.body : { xs: TYPE_SCALE.meta, md: TYPE_SCALE.body },
+    fontWeight: strong ? 700 : 600,
+    color: strong ? 'text.primary' : 'text.secondary',
+    minWidth: 0,
+  })
+  const name = (text: React.ReactNode, strong: boolean) => typeof text === 'string'
+    ? <NameText component="span" name={text} className={strong ? LEAD_NAME : undefined} sx={nameSx(strong)} />
+    : (
+      <Typography component="span" className={strong ? LEAD_NAME : undefined} sx={{
+        ...nameSx(strong), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{text}</Typography>
+    )
 
   const badge = (ids: string[]) => {
     const t = teamById.get(ids[ids.length - 1] ?? '')
