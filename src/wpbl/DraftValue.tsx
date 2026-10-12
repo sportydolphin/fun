@@ -4,6 +4,7 @@ import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo, plateAppearances,
 import { useEraBasis } from './EraBasisContext'
 import { CARD_BORDER } from './ui'
 import { FilterChip } from '../ui/FilterChip'
+import { InfoDot } from '../ui/InfoDot'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 import { regularSeasonLines, type WpblSeasonGame } from './season'
 
@@ -70,6 +71,8 @@ interface PanelSpec {
   /** What the players on this panel do, for the verdict: "hit", "pitched". */
   verb: string
   yLabel: string
+  /** The stat in words, for the info dot: "OPS (on-base plus slugging)". */
+  yName: string
   better: 'higher' | 'lower'
   fmt: (v: number) => string
   points: Pt[]
@@ -159,20 +162,21 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
 
   return (
     <Box sx={{ position: 'relative' }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
+      {/* The stat's definition and the coefficient behind the headline live in the info dot.
+          Both were caption lines here, and "r = −0.31" under the verdict was the most
+          expert-looking thing on a page read by people who came for the players. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
         <Typography sx={{ fontSize: '0.9rem', fontWeight: 800 }}>{spec.title}</Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
-          {spec.yLabel} · {spec.better} is better
-        </Typography>
+        <InfoDot text={[
+          `Each dot is a drafted player's ${spec.yName} this regular season, placed at the pick they were taken with, and sized by how much they played. ${spec.better === 'higher' ? 'Higher' : 'Lower'} is better. The orange line joins each round's average.`,
+          r == null
+            ? 'The headline needs at least three players to compare.'
+            : `The headline comes from the correlation between pick number and ${spec.yLabel}, r = ${r >= 0 ? '+' : '−'}${Math.abs(r).toFixed(2)}. It runs from −1 to +1, and the further from 0, the stronger the pattern; under 0.2 either way is called no pattern. Because ${spec.better} ${spec.yLabel} is better, ${spec.better === 'higher' ? 'a minus' : 'a plus'} means earlier picks did better.`,
+        ]} />
       </Box>
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.35, mt: 0.25 }}>
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.35, mt: 0.25, mb: 0.75 }}>
         {r == null ? `Only ${points.length} players here, too few to tell.` : verdict(r, spec)}
       </Typography>
-      {r != null && (
-        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mb: 0.75 }}>
-          Correlation between draft slot and {spec.yLabel}: r = {r >= 0 ? '+' : '−'}{Math.abs(r).toFixed(2)}
-        </Typography>
-      )}
 
       <Box
         component="svg"
@@ -367,14 +371,14 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
 
   const hitterPanel = (
     <Panel onOpenPlayer={onOpenPlayer} spec={{
-      title: 'Hitters', verb: 'hit', yLabel: 'OPS', better: 'higher',
+      title: 'Hitters', verb: 'hit', yLabel: 'OPS', yName: 'OPS (on-base percentage plus slugging)', better: 'higher',
       fmt: fmtRate, points: hitters,
       minLabel: `${MIN_PA} PA`,
     }} />
   )
   const pitcherPanel = (
     <Panel onOpenPlayer={onOpenPlayer} spec={{
-      title: 'Pitchers', verb: 'pitched', yLabel: 'ERA', better: 'lower',
+      title: 'Pitchers', verb: 'pitched', yLabel: 'ERA', yName: `ERA (earned runs allowed per ${eraBasis === 7 ? 'seven' : 'nine'} innings)`, better: 'lower',
       fmt: fmtTwo, points: pitchers,
       minLabel: `${MIN_IP} IP`,
     }} />

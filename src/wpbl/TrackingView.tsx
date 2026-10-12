@@ -19,6 +19,7 @@ import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
 import { typePx } from '../ui/scale'
+import { InfoDot } from '../ui/InfoDot'
 
 // The section's TrackMan showcase: season-wide velocity, spin, and batted-ball leaderboards
 // derived from the feed's pitch tracking (the distinctive data the WPBL feed carries that
@@ -125,7 +126,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* Coverage disclaimer — pinned to the top, restated whenever the tracked-game count changes */}
+      {/* Coverage disclaimer: pinned to the top, restated whenever the tracked-game count changes */}
       <Box sx={{
         display: 'flex', alignItems: 'flex-start', gap: 1.25, p: 1.5, borderRadius: 2,
         border: '1px solid', borderColor: `${accent}80`,
@@ -151,7 +152,10 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
 
       {side === 'pitching' ? (
         <>
-          <SectionCard bare title="Fastest pitchers" subtitle="Each pitcher's hardest pitch, with their season average">
+          <SectionCard bare title="Fastest pitchers" titleAdornment={<InfoDot text={[
+            "Each pitcher's single fastest pitch, as measured by the league's in-park radar. Underneath: the average of all their tracked pitches, and how many there were.",
+            'Only the games the league has published radar readings for are counted.',
+          ]} />}>
             {board.veloLeaders.length === 0
               ? <EmptyState title="No velocity data yet" />
               : board.veloLeaders.slice(0, 10).map((l: VeloLeader, i) => (
@@ -161,7 +165,10 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
           </SectionCard>
 
           {board.spinLeaders.length > 0 && (
-            <SectionCard bare title="Most spin" subtitle="Ranked by average spin rate">
+            <SectionCard bare title="Most spin" titleAdornment={<InfoDot text={[
+              "The average spin rate of each pitcher's tracked pitches, in revolutions per minute. Underneath: their highest, and how many pitches were tracked.",
+              'Only the games the league has published radar readings for are counted.',
+            ]} />}>
               {board.spinLeaders.slice(0, 8).map((l: SpinLeader, i) => (
                 <LeaderRow key={l.player?.id ?? l.name} rank={i + 1} player={l.player} name={l.name} teamId={l.teamId}
                   value={String(Math.round(l.avgSpin))} unit="rpm" sub={`max ${Math.round(l.maxSpin)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
@@ -175,7 +182,10 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
             <EmptyState title="No batted-ball data yet" hint="Exit velocity and distance leaders appear once balls are put in play." />
           ) : (
             <>
-              <SectionCard bare title="Hardest-hit balls" subtitle="Ranked by exit velocity">
+              <SectionCard bare title="Hardest-hit balls" titleAdornment={<InfoDot text={[
+                'Every tracked ball in play, ranked by exit velocity: how fast it was going as it left the bat.',
+                'Only the games the league has published radar readings for are counted.',
+              ]} />}>
                 {board.hardestHits.slice(0, 10).map((b: BattedBall, i) => (
                   <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
                     value={fmtSpeed(b.exit ?? 0, units)} unit={speedUnit(units)} accent={accent} onOpen={onOpenPlayer}
@@ -184,15 +194,15 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
               </SectionCard>
 
               {board.longestHits.length > 0 && (
-                <SectionCard bare title="Longest tracked hits" subtitle="Ranked by distance">
+                <SectionCard bare title="Longest tracked hits" titleAdornment={<InfoDot text={[
+                  'Every tracked ball in play, ranked by how far the radar measured it traveling.',
+                  "The radar can't follow a ball once it leaves the field, so home runs, usually the longest hits, often have no distance and won't appear here.",
+                ]} />}>
                   {board.longestHits.slice(0, 10).map((b: BattedBall, i) => (
                     <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
                       value={fmtDistance(b.distance!, units)} unit={distanceUnit(units)} accent={accent} onOpen={onOpenPlayer}
                       sub={[b.hitType, b.exit != null ? `${fmtSpeed(b.exit, units)} ${speedUnit(units)} EV` : null].filter(Boolean).join(' · ') || undefined} />
                   ))}
-                  <Typography sx={{ mt: 1, px: 0.5, fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4 }}>
-                    Distances come from in-park radar, which can't follow balls once they leave the field. Home runs, usually the longest hits, often have no measured distance and won't appear here.
-                  </Typography>
                 </SectionCard>
               )}
             </>

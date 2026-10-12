@@ -4,6 +4,7 @@ import { fmtRunValue } from './derive/runExpectancy'
 import { pitchSwing, countKey } from './derive/countValue'
 import type { CountValue } from './derive/countValue'
 import { typePx } from '../ui/scale'
+import { InfoDot } from '../ui/InfoDot'
 
 // The axis labels, spelled the way the situations grid's "0 outs" header on the same board is,
 // so the two grids a reader meets one card apart do not label their axes in two styles.
@@ -47,13 +48,17 @@ export default function CountBoard({ counts, fullCount, accent }: {
   // leaderboard beside it did not.
   return (
     <Box sx={{ minWidth: 0 }}>
-      <SectionCard title="What every count is worth">
+      <SectionCard title="What every count is worth"
+        titleAdornment={<InfoDot text={[
+          "Every plate appearance passes through a run of counts on its way to an outcome, starting at 0-0. A count's number is the average run value of every plate appearance that reached it, however it ended.",
+          "So 0-0 is this league's average plate appearance, and every other count reads against it.",
+          'The small number is how many plate appearances reached that count. Counts reached fewer than 25 times are left blank.',
+        ]} />}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.6 }}>
-          The average run value of a plate appearance that reached each count.
           {/* A GAP, SO NO SIGN. These two used to print "+0.13" and "+1.05" beside a grid whose
               3-2 cell reads +0.14, and a signed number in that sentence reads as another cell. */}
           {first != null && (
-            <> Ball or strike on the first pitch is a swing of <strong>{Math.abs(first).toFixed(2)}</strong>{' '}
+            <>Ball or strike on the first pitch is a swing of <strong>{Math.abs(first).toFixed(2)}</strong>{' '}
               runs, the gap between 1-0 and 0-1.</>
           )}
           {/* THE RANGE, WHICH IS THE POINT OF THE CARD. One pitch being worth a tenth of a run
@@ -124,12 +129,6 @@ export default function CountBoard({ counts, fullCount, accent }: {
           Best count for a hitter: <strong>{best.key}</strong> ({fmtRunValue(best.per, 2)}
           {', '}{Math.round(best.walk * 100)}% walked). Worst: <strong>{worst.key}</strong>
           {' '}({fmtRunValue(worst.per, 2)}, {Math.round(worst.strikeout * 100)}% struck out).
-        </Typography>
-
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1, lineHeight: 1.5 }}>
-          Every plate appearance passes through 0-0, so 0-0 is this league's average plate
-          appearance and every other count reads against it. Counts under 25 plate appearances
-          are not shown.
         </Typography>
       </SectionCard>
     </Box>

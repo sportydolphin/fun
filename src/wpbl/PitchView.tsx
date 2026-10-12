@@ -13,6 +13,7 @@ import { SectionCard, LeaderRow, CARD_BORDER, useWpblDark } from './ui'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { wpblQualifiers } from './stats'
 import { typePx } from '../ui/scale'
+import { InfoDot } from '../ui/InfoDot'
 
 // The Pitches board: plate discipline and pitch mix for the whole league, from the one code
 // letter per pitch that the feed puts on every plate appearance (see derive/pitches.ts).
@@ -195,9 +196,12 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
  *  and the honest way to say that out loud is "how often X happens", not "X per Y" (which
  *  means a different thing) or "X as a share of Y" (which is right and reads like a
  *  statistics textbook). Anyone who wants the formula can read the number. */
-function RateBoard({ title, explain, rows, valueOf, subOf, league, accent, onOpenPlayer }: {
+function RateBoard({ title, explain, qualifier, rows, valueOf, subOf, league, accent, onOpenPlayer }: {
   title: string
+  /** How the number is worked out, as a division in words. Behind the info dot, not a subtitle. */
   explain: string
+  /** Who is ranked: the sample bar, said once per board. */
+  qualifier: string
   rows: PitchProfile[]
   valueOf: (p: PitchProfile) => string
   subOf: (p: PitchProfile) => string
@@ -206,7 +210,8 @@ function RateBoard({ title, explain, rows, valueOf, subOf, league, accent, onOpe
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
   return (
-    <SectionCard bare title={title} subtitle={`${explain} · League ${league}`}>
+    <SectionCard bare title={title}
+      titleAdornment={<InfoDot text={[explain, `League average: ${league}.`, qualifier]} />}>
       {rows.length === 0
         ? <EmptyState title="Not enough pitches yet" />
         : rows.slice(0, 10).map((p, i) => (
@@ -265,6 +270,9 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
   const min = pitching ? mins.minPitcher : mins.minBatter
   const pool = pitching ? board?.pitchers ?? [] : board?.batters ?? []
   const league = board?.league
+  const qualifier = pitching
+    ? `Ranked among pitchers with at least ${min} pitches thrown.`
+    : `Ranked among hitters with at least ${min} pitches seen.`
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -320,15 +328,15 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
       {pitching ? (
         <>
           <RateBoard
-            title="Whiff rate" explain="How often a pitch draws a swing and a miss"
-            league={fmtPct(league.swStrPct)} accent={accent} onOpenPlayer={onOpenPlayer}
+            title="Whiff rate" explain="Swinging strikes divided by every pitch thrown, so it counts misses against all batters, whether they swung or not. The line underneath is the share of swings that missed."
+            qualifier={qualifier} league={fmtPct(league.swStrPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'swStrPct', min, false, league)}
             valueOf={p => fmtPct(p.swStrPct)}
             subOf={p => `${fmtPct(p.whiffPct)} of ${p.swings} swings missed`}
           />
           <RateBoard
-            title="Strike rate" explain="How often a pitch is a strike"
-            league={fmtPct(league.strikePct)} accent={accent} onOpenPlayer={onOpenPlayer}
+            title="Strike rate" explain="Every pitch that was not a ball or a hit by pitch, divided by all pitches thrown. Called strikes, swinging strikes, fouls and balls in play all count."
+            qualifier={qualifier} league={fmtPct(league.strikePct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'strikePct', min, false, league)}
             valueOf={p => fmtPct(p.strikePct)}
             subOf={p => narrow
@@ -336,8 +344,8 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
               : `${fmtPct(p.firstStrikePct)} first-pitch strikes · ${(p.pitchesPerPa ?? 0).toFixed(2)} per PA`}
           />
           <RateBoard
-            title="Putaway rate" explain="How often a two-strike count ends in a strikeout"
-            league={fmtPct(league.putawayPct)} accent={accent} onOpenPlayer={onOpenPlayer}
+            title="Putaway rate" explain="Strikeouts divided by plate appearances that reached two strikes."
+            qualifier={qualifier} league={fmtPct(league.putawayPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'putawayPct', min, false, league)}
             valueOf={p => fmtPct(p.putawayPct)}
             subOf={p => `${p.strikeouts} of ${p.twoStrikePa} two-strike PA`}
@@ -346,22 +354,22 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
       ) : (
         <>
           <RateBoard
-            title="Contact rate" explain="How often a swing makes contact"
-            league={fmtPct(league.contactPct)} accent={accent} onOpenPlayer={onOpenPlayer}
+            title="Contact rate" explain="Swings that hit the ball, fair or foul, divided by all swings."
+            qualifier={qualifier} league={fmtPct(league.contactPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'contactPct', min, false, league)}
             valueOf={p => fmtPct(p.contactPct)}
             subOf={p => `${fmtPct(p.swingPct)} swing rate · ${p.swings} swings`}
           />
           <RateBoard
-            title="Pitches seen" explain="Pitches in an average plate appearance"
-            league={(league.pitchesPerPa ?? 0).toFixed(2)} accent={accent} onOpenPlayer={onOpenPlayer}
+            title="Pitches seen" explain="Pitches seen divided by plate appearances."
+            qualifier={qualifier} league={(league.pitchesPerPa ?? 0).toFixed(2)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'pitchesPerPa', min, false, league)}
             valueOf={p => (p.pitchesPerPa ?? 0).toFixed(2)}
             subOf={p => `${fmtPct(p.swingPct)} swing rate · ${p.pa} PA`}
           />
           <RateBoard
-            title="Hardest to strike out" explain="How often a two-strike count ends in a strikeout, lowest first"
-            league={fmtPct(league.putawayPct)} accent={accent} onOpenPlayer={onOpenPlayer}
+            title="Hardest to strike out" explain="Strikeouts divided by plate appearances that reached two strikes. Lowest first."
+            qualifier={qualifier} league={fmtPct(league.putawayPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'putawayPct', min, true, league)}
             valueOf={p => fmtPct(p.putawayPct)}
             subOf={p => narrow
@@ -374,7 +382,6 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
       <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1.5 }}>
         Counted from the play-by-play, one code per pitch: what each pitch did, not how fast it
         was.{trackedVisible ? ' Velocity and spin are on Tracked.' : ''}
-        {' '}{pitching ? `Pitchers with at least ${min} pitches thrown.` : `Hitters with at least ${min} pitches seen.`}
         {' '}Postseason games are left out, like every other season number here.
         {league.counts.unknown > 0 && ` ${league.counts.unknown} pitches carried a code we don't recognise and are left out of the rates.`}
       </Typography>
