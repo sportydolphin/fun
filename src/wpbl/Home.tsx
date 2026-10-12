@@ -44,7 +44,7 @@ import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
 import { WatchCard } from './Watch'
-import { PlayerOfTheDayCard, BirthdaysCard, StarSignCard, HometownCard, useNewOffseasonHome } from './HomePlayers'
+import { PlayerOfTheDayCard, StarSignCard } from './HomePlayers'
 import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
 import { HOME_WIDE_W } from './layoutWidths'
@@ -2001,12 +2001,7 @@ export function readingHomePicks(articles: WpblArticle[], n = READING_HOME_COUNT
  * this site (docs/READING.md §1), so the footer names each writer with their publication, and every
  * card names its writer too (ReadingCard). Renders nothing until there is a post.
  */
-function ReadingHomeCard({ teamById, rows }: {
-  teamById: Map<string, WpblTeam>
-  /** Posts as rows at every width, stretched to the grid cell: the admin preview of the new
-   *  offseason Home draws this card in half a row beside Watch. */
-  rows?: boolean
-}) {
+function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
   // Null until the read answers, which is not the same as no posts: see the placeholder below.
   const [loaded, setLoaded] = useState<WpblArticle[] | null>(() => getCachedWpblArticles())
   useEffect(() => {
@@ -2039,8 +2034,7 @@ function ReadingHomeCard({ teamById, rows }: {
   return (
     <Box sx={{
       border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,
-      px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1,
-      ...(rows ? { height: '100%', boxSizing: 'border-box' } : null),
+      px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1, height: '100%', boxSizing: 'border-box',
     }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
         <Typography sx={{
@@ -2053,14 +2047,13 @@ function ReadingHomeCard({ teamById, rows }: {
             textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
           }}>All {articles.length} posts ›</Box>
       </Box>
-      {/* Rows on a phone and cards from `sm` up, which is ReadingCard's own switch: three
-          cover-on-top cards stacked in one column would fill a tablet screen. In `rows` mode the
-          card shares its row with Watch, where three covers on top would be stamps. */}
-      <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: rows ? '1fr' : { xs: '1fr', sm: `repeat(${READING_HOME_COUNT}, minmax(0, 1fr))` } }}>
-        {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home" rows={rows}
+      {/* Rows at every width: the card shares its row with Watch, and three covers on top in half a
+          row would be stamps. */}
+      <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: '1fr' }}>
+        {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home" rows
           isNew={isNew(String(a.post_id), a.published_at)} onOpen={() => markOpened(String(a.post_id))} />)}
       </Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: rows ? 'auto' : undefined }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 'auto' }}>
         Written by {writers.map((w, i) => (
           <Fragment key={w.key}>
             {i > 0 && (i === writers.length - 1 ? ' and ' : ', ')}
@@ -2683,71 +2676,12 @@ const WATCH_CARD_SKELETON_H = { xs: '13.8rem', md: '22rem' }
 const READING_CARD_SKELETON_H = { xs: '25rem', sm: '21.3rem', md: '19.8rem', lg: '22.2rem' }
 
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see the
- *  render below): the header, the gallery in the scoreboard's slot, the Reading and Watch cards, the Discord
- *  invite on a phone, one row of the season card and the award results (the season card alone once
- *  the results come off), then the bracket and the two single-line cards. Heights measured off the
- *  real page. */
-function OffseasonHomeSkeleton() {
-  // Whoever sees the new layout (see `newHome` in WpblHome) needs its placeholder instead.
-  if (useNewOffseasonHome()) return <NewOffseasonHomeSkeleton />
-  let discordDismissed = false
-  try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
-  const awards = awardsResultsShowOnHome()
-  return (
-    <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={[homeWideSx, FLAT_CARDS_DARK]}>
-      <Box sx={{
-        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
-        mb: { xs: 0, sm: HEADER_GAP },
-      }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
-        </Box>
-        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
-          {SKELETON_CLUB_CHIPS.map(i => (
-            <Skeleton key={i} variant="rounded" sx={{
-              borderRadius: 999, width: chromePx(58), height: `calc(24px * var(--app-chrome, 1) + 8px)`,
-            }} />
-          ))}
-        </Box>
-      </Box>
-
-      <FanPhotoHomeCardSkeleton />
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
-      </Box>
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
-      </Box>
-
-      {!discordDismissed && (
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
-          <CardSkeleton minHeight="3.55rem" titleWidth="6rem" lines={0} />
-        </Box>
-      )}
-
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: awards ? '1fr 1fr' : '1fr' }, mt: 1.5, gap: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '26.5rem', md: '21.6rem' }} titleWidth="6rem" lines={5} />
-        {awards && <CardSkeleton minHeight={{ xs: '16.7rem', md: '21.6rem' }} titleWidth="5.5rem" lines={4} />}
-      </Box>
-
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '3.45rem', md: '19.45rem' }} titleWidth="8rem" lines={0} />
-      </Box>
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
-      </Box>
-    </Box>
-  )
-}
-
-/** The admin preview of the new offseason Home with nothing in it, mirroring that render block for
- *  block (see `newHome` below): the header, Player of the day beside the season card, the award results while
- *  they are up, the gallery, the three player cards, Reading beside Watch, the Discord invite on a
+ *  render below): the header, Player of the day beside the season card, the award results while
+ *  they are up, the gallery, the star sign card, Reading beside Watch, the Discord invite on a
  *  phone, and the league line. Heights measured off the real page. */
 const EMPTY_TEAMS = new Map<string, WpblTeam>()
 const NO_OPEN = () => {}
-function NewOffseasonHomeSkeleton() {
+function OffseasonHomeSkeleton() {
   let discordDismissed = false
   try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
   const awards = awardsResultsShowOnHome()
@@ -2784,10 +2718,8 @@ function NewOffseasonHomeSkeleton() {
 
       <FanPhotoHomeCardSkeleton />
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr)' }, gap: 1.5, mt: 1.5 }}>
-        <BirthdaysCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} />
+      <Box sx={{ mt: 1.5 }}>
         <StarSignCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} />
-        <HometownCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} />
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
@@ -2980,11 +2912,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // dev-simulated champion counts, so the offseason preview shows the offseason Home.
   const realChampion = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
   const seasonDone = !!realChampion || !!devChampTeam
-  // THE NEW OFFSEASON HOME, ADMIN ONLY FOR NOW: Player of the day, birthdays, the star sign and a
-  // hometown, so the page carries player links. Everyone else keeps the layout below until it has
-  // been looked at for a while; drop this and every `!newHome` branch to ship it.
-  const previewNewHome = useNewOffseasonHome()
-  const newHome = seasonDone && previewNewHome
 
   // Whether anything on this render reads the box-score lines. Off only on the offseason Home once
   // the award results have come down: Compare and the ballot are filtered out of `seasonCards`
@@ -3136,9 +3063,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       // reserving a slot for a card that is never coming.
       : [compareCard, <Box key="mvp-empty" />])
     .filter(c => !seasonDone || (c !== compareCard && c.key !== 'mvp-empty'))
-  // Once the awards results come off too (AWARDS_RESULTS_UNTIL), the right column is empty and the
-  // season card takes the full width rather than sitting in half a grid beside nothing.
-  const soloSeasonCard = seasonDone && seasonCards.length === 0
 
   return (
     // Flat cards in dark mode, the recap's treatment; see FLAT_CARDS_DARK. On the skeleton too, so
@@ -3239,34 +3163,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} onOpenMatchup={setMatchup} />
       )}
 
-      {/* Fan photos lead the page in the offseason, in the slot the scoreboard gives up. With no
-          games left, nothing above the fold changes from one visit to the next except this, and
-          the rail reshuffles every load. During a season it sits lower (below), out of the way of
-          the cards about games that just happened or are about to. */}
-      {seasonDone && !newHome && <FanPhotoHomeCard reserve />}
-
-      {/* Watch follows the gallery in the offseason rather than closing the page: the two are the
-          only parts of an offseason Home with something new in them, and the videos were sitting
-          under a finished bracket that no longer changes. During a season it stays below (see
-          the stack at the bottom), behind the cards about games. */}
-      {/* Reading leads Watch in the offseason: of the three things still changing on an offseason
-          Home, the writing is the one still being written, and it stood as a single line at the
-          foot of the page. LatestReadingCard keeps that slot during a season. */}
-      {seasonDone && !newHome && <Box sx={{ mt: 1.5 }}><ReadingHomeCard teamById={teamMap} /></Box>}
-      {seasonDone && !newHome && (
-        <Box sx={{ mt: 1.5 }}>
-          <WatchCard from="home" placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
-        </Box>
-      )}
-
       {/* THE OFFSEASON HOME LEADS WITH A PLAYER. A player page is what readers open most, and until
           Oct 2026 this page had no link to one: the gallery, Reading and Watch each point at a hub,
           the season card at the recap and its games. Player of the day sits beside the season card
-          so a player is above the fold at every width, and the three cards under the gallery
-          (birthdays, the star sign whose season it is, a hometown) put fifteen more names on the
-          page, every one a real link. None of them costs a box-score read: they select from the
+          so a player is above the fold at every width, and the star sign card under the gallery
+          (the players whose sign's season it is, with their birthdays) puts a dozen more names on
+          the page, every one a real link. None of them costs a box-score read: they select from the
           roster the page already holds, and Player of the day reads its one player's lines. */}
-      {newHome && (
+      {seasonDone && (
         <>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
             <PlayerOfTheDayCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
@@ -3280,19 +3184,17 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               from one visit to the next, and the rail reshuffles every load. */}
           <FanPhotoHomeCard reserve />
 
-          {/* Three columns, the middle one wider: the star sign card holds its names two abreast,
-              so at an even third "Bella Espinoza-Molina" ran out of room even as "B. Espinoza-Molina".
-              FittedName shortens a name to "F. Last" where it still does not fit. */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr)' }, gap: 1.5, mt: 1.5 }}>
-            <BirthdaysCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} />
+          {/* The players born under the sign whose season it is, each with their birthday: one card
+              that does what a birthdays card and a star sign card did apart. Full width, so the
+              names sit four abreast on a desktop rather than in a narrow column. */}
+          <Box sx={{ mt: 1.5 }}>
             <StarSignCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} />
-            <HometownCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} />
           </Box>
 
           {/* Reading and Watch share a row: each was a full-width block for three posts or six
               posters, about a screen of desktop between them for nine links to two hub pages. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
-            <ReadingHomeCard teamById={teamMap} rows />
+            <ReadingHomeCard teamById={teamMap} />
             <WatchCard from="home" compact placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
           </Box>
         </>
@@ -3307,7 +3209,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         </Box>
       )}
 
-      {!newHome && bracketLeads && bracketCard}
+      {!seasonDone && bracketLeads && bracketCard}
 
       {/* THE BRACKET LEADS THE PAGE UNTIL THE POSTSEASON HAS A GAME IN IT.
           Full width and outside the grid below on purpose either way: three series boxes side
@@ -3349,13 +3251,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           Subgrid is Chrome 117 / Safari 16 / Firefox 71. Where it is missing the declaration
           is dropped and each column falls back to its own two auto rows: degraded, not broken.
 
-          Not drawn on the new offseason Home, which has its own rows above. */}
-      {!newHome && <Box sx={{
+          In-season only: the offseason Home draws its own rows above. */}
+      {!seasonDone && <Box sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: soloSeasonCard ? '1fr' : '1fr 1fr' },
-        // One row once the season is done: each column holds a single card, and a second auto row
-        // would still charge its 12px gap under them.
-        gridTemplateRows: { md: seasonDone ? 'auto' : 'auto auto' },
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        gridTemplateRows: { md: 'auto auto' },
         // Its OWN top margin, rather than living off the scoreboard's bottom one. Every block in this
         // stack brings its own margin, and a block that depends on its neighbour for its spacing breaks
         // the next time something (the Discord invite) is inserted between them. Margins collapse, so a
@@ -3371,13 +3271,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         <Box sx={{
           minWidth: 0, gap: 1.5,
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: seasonDone ? 'span 1' : 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
           <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame}
             devForceRecap={devForceRecap} devChampion={devChampTeam} />
-          {!seasonDone && (
-            <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
-          )}
+          <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
         </Box>
 
         {/* The season's cards.
@@ -3386,10 +3284,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             entire time, and a miniature copy spends a phone's screen on the one card every reader
             already knows where to find. Home still computes `computeStandings` for the bracket
             below. */}
-        {!soloSeasonCard && <Box sx={{
+        <Box sx={{
           minWidth: 0, gap: 1.5,
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: seasonDone ? 'span 1' : 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
           {/* THE BALLOT LEADS THIS COLUMN, SO IT IS THE ONE SEASON CARD ABOVE THE FOLD on a
               desktop. Row 1 pairs it with Next game and row 2 pairs Compare with Last game.
@@ -3399,11 +3297,13 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               Without stable keys React reconciles by position and remounts the compare card, which
               holds a per-mount seed and would re-deal its pair mid-visit. */}
           {seasonCards}
-        </Box>}
+        </Box>
       </Box>}
 
       {/* Its ordinary home, under the season's numbers. See bracketLeads. */}
-      {!newHome && !bracketLeads && bracketCard}
+      {/* Not in the offseason: the season card carries the final's games and the recap carries the
+          whole bracket, and here it was 400px of a picture that will not change until spring. */}
+      {!seasonDone && !bracketLeads && bracketCard}
 
       {/* The latest post, then About the league: two single lines, last on the page at both
           breakpoints, since everything above is about games. Both carry their own impression

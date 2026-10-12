@@ -1469,6 +1469,16 @@ is retired.
 
 ## Shipped log
 
+### Oct 12, 2026: the offseason Home with players, for everyone
+
+The owner preview below, after a look on real data, ships to every reader with two cuts. The
+Birthdays and Hometowns cards are gone, and the birthdays move into **the star sign card**: the
+players born under the sign whose season it is, in the order their birthdays fall through it, each
+with the date ("Oct 16", "🎂 Today"); a player whose date is not settled is listed without one.
+Full width, four abreast on a desktop, and always twelve slots so the card is one height whichever
+sign it is (signs run from 5 players to 15; Leo and Cancer show their first twelve and say so).
+The old offseason layout and the `useNewOffseasonHome` gate are deleted.
+
 ### Oct 12, 2026: the offseason Home leads with players (owner preview)
 
 The offseason Home had no link to a player page, the thing readers open most: the gallery, Reading

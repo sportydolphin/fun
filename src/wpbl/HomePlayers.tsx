@@ -9,38 +9,23 @@ import { useEraBasis } from './EraBasisContext'
 import { outsToIp } from './innings'
 import { displayPosition, leadsWithPitching } from './positions'
 import { wpblFullName } from './constants'
-import { WPBL_LEAGUE_PAGE } from './routes'
-import { linkTo, UNSTYLED_LINK } from '../nav'
+import { UNSTYLED_LINK } from '../nav'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { typePx } from '../ui/scale'
-import { useIsAdmin } from '../lib/admin'
 import { birthDateSettled } from './derive/discordBirthdays'
-import {
-  localIsoDate, playerOfTheDay, upcomingBirthdays, signSeason, signGlyph, hometownOfTheDay,
-  type UpcomingBirthday,
-} from './derive/homePlayers'
+import { localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from './derive/homePlayers'
 
-// The offseason Home's player cards. See derive/homePlayers.ts for why these four and how each
-// picks; this file only draws them. Every player in them is a real <a href> to the player page
+// The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
 // (useWpblPlayerLink), which is both the point of the cards and what lets a crawler follow them.
 
 type OpenPlayer = (p: WpblPlayer) => void
 
-/**
- * Whether this reader gets the new offseason Home with these cards on it. The site owner only, for
- * now, while it is looked at on real data; everyone else keeps the old layout. A LAYOUT PREVIEW,
- * NOT A GATE ON ANY ONE CARD: both layouts draw the fan ballot (routes.test.ts pins that), so
- * deleting this to ship the new Home is a one-line change in Home.tsx.
- */
-export function useNewOffseasonHome(): boolean {
-  return useIsAdmin()
-}
-
-/** How many rows each list card holds. One number for the three so they are about the same
- *  height side by side, and so the skeleton can reserve exactly that. */
-export const HOME_PLAYER_ROWS = 5
-/** The star-sign card's cap: two columns of HOME_PLAYER_ROWS. */
-const SIGN_CAP = HOME_PLAYER_ROWS * 2
+/** The star sign card's most names. Fixed, and the card always reserves this many slots, so it is
+ *  the same height before the roster lands as after whatever sign's season it is: they run from 5
+ *  players to 15. */
+const SIGN_CAP = 12
+/** Its columns, which with SIGN_CAP set its rows: six on a phone, three on a desktop. */
+const SIGN_COLUMNS = { xs: 2, sm: 3, md: 4 } as const
 
 /** The player-link props for a row, with the card's own tap recorded first. */
 function useTrackedPlayerLink(card: string, onOpenPlayer: OpenPlayer) {
@@ -286,45 +271,15 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
   )
 }
 
-// ─── Birthdays ──────────────────────────────────────────────────────────────────
+// ─── Star sign, with birthdays ──────────────────────────────────────────────────
 
-function birthdayWhen(b: UpcomingBirthday): string {
-  if (b.offset === 0) return 'Today 🎂'
-  if (b.offset === -1) return 'Yesterday'
+/** "Oct 16", or how near it is when that says more. */
+function birthdayLabel(b: SignBirthday): string {
+  if (b.offset === 0) return '🎂 Today'
   if (b.offset === 1) return 'Tomorrow'
-  return shortDate(b.date)
+  if (b.offset === -1) return 'Yesterday'
+  return b.date ? shortMonthDay(b.date.slice(5)) : ''
 }
-
-export function BirthdaysCard({ players, teams, onOpenPlayer }: {
-  players: WpblPlayer[]; teams: Map<string, WpblTeam>; onOpenPlayer: OpenPlayer
-}) {
-  const today = localIsoDate()
-  const list = useMemo(() => upcomingBirthdays(players, today, { limit: HOME_PLAYER_ROWS }), [players, today])
-  const link = useTrackedPlayerLink('birthdays', onOpenPlayer)
-  useShown('birthdays', list.length > 0)
-  return (
-    <SectionCard title="Birthdays" fill>
-      <Box>
-        {players.length === 0
-          ? Array.from({ length: HOME_PLAYER_ROWS }, (_, i) => <RowSkeleton key={i} />)
-          : list.map(b => (
-            <PlayerRow key={b.player.id + b.date} player={b.player} link={link(b.player)}
-              meta={clubMeta(b.player, teams)}
-              end={<>
-                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: b.offset === 0 ? 800 : 600, lineHeight: 1.3, color: b.offset === 0 ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>
-                  {birthdayWhen(b)}
-                </Typography>
-                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
-                  {b.age == null ? ' ' : b.offset < 0 ? `turned ${b.age}` : `turns ${b.age}`}
-                </Typography>
-              </>} />
-          ))}
-      </Box>
-    </SectionCard>
-  )
-}
-
-// ─── Star sign ──────────────────────────────────────────────────────────────────
 
 export function StarSignCard({ players, teams, onOpenPlayer }: {
   players: WpblPlayer[]; teams: Map<string, WpblTeam>; onOpenPlayer: OpenPlayer
@@ -335,24 +290,36 @@ export function StarSignCard({ players, teams, onOpenPlayer }: {
   useShown('sign', born.length > 0)
   const shown = born.slice(0, SIGN_CAP)
   const range = `${shortMonthDay(sign.from)} – ${shortMonthDay(sign.to)}`
+  const columns = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${n}, minmax(0, 1fr))`]))
   return (
-    <SectionCard title={`${sign.name} season`} fill action={
+    <SectionCard title={`${sign.name} season`} action={
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{range}</Typography>
     }>
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1 }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 1.5 }}>
-          {players.length === 0
-            ? Array.from({ length: SIGN_CAP }, (_, i) => <RowSkeleton key={i} size={28} />)
-            : shown.map(p => (
-              <PlayerRow key={p.id} player={p} link={link(p)} size={28}
-                meta={clubMeta(p, teams)} />
-            ))}
-        </Box>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minHeight: '1.4em' }}>
-          {players.length === 0 ? ' '
-            : `${sign.glyph} ${born.length} ${born.length === 1 ? sign.name : `${sign.name}s`} on the roster.`}
-        </Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1.5 }}>
+        {Array.from({ length: SIGN_CAP }, (_, i) => {
+          if (players.length === 0) return <RowSkeleton key={i} size={28} />
+          const b = shown[i]
+          // An empty slot keeps the row a sign with few players would otherwise give back, so
+          // the card is one height whichever sign's season it is.
+          if (!b) return <Box key={i} aria-hidden />
+          const club = clubMeta(b.player, teams)
+          return (
+            <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={28}
+              meta={<>
+                {b.date && (
+                  <Box component="span" sx={{ fontWeight: b.offset === 0 ? 800 : 600, color: b.offset === 0 ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>
+                    {birthdayLabel(b)}
+                  </Box>
+                )}
+                {b.date && club ? ' · ' : ''}{club}
+              </>} />
+          )
+        })}
       </Box>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1, minHeight: '1.4em' }}>
+        {players.length === 0 ? ' '
+          : `${sign.glyph} ${born.length} ${born.length === 1 ? sign.name : `${sign.name}s`} on the roster${born.length > shown.length ? `, the first ${shown.length} shown` : ''}.`}
+      </Typography>
     </SectionCard>
   )
 }
@@ -360,67 +327,4 @@ export function StarSignCard({ players, teams, onOpenPlayer }: {
 /** 'MM-DD' as "Sep 23". */
 function shortMonthDay(md: string): string {
   return new Date(`2026-${md}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-// ─── Hometowns ──────────────────────────────────────────────────────────────────
-
-/** The town in "Town, State, Country", or null when the hometown is no more than its region. */
-function townOf(hometown: string | null): string | null {
-  const parts = (hometown ?? '').split(',').map(s => s.trim()).filter(Boolean)
-  return parts.length > 2 ? parts.slice(0, -2).join(', ') : null
-}
-
-export function HometownCard({ players, teams, onOpenPlayer }: {
-  players: WpblPlayer[]; teams: Map<string, WpblTeam>; onOpenPlayer: OpenPlayer
-}) {
-  const today = localIsoDate()
-  const spot = useMemo(() => hometownOfTheDay(players, today), [players, today])
-  const link = useTrackedPlayerLink('hometown', onOpenPlayer)
-  useShown('hometown', !!spot)
-  const league = linkTo(WPBL_LEAGUE_PAGE)
-  const rows = spot?.players.slice(0, HOME_PLAYER_ROWS - 1) ?? []
-  const more = spot ? spot.players.length - rows.length : 0
-  return (
-    <SectionCard title="Hometowns" fill action={
-      <Box {...league} sx={{
-        ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-        ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-      }}>All ›</Box>
-    }>
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1 }}>
-        <Box>
-          {/* The place, a row tall, so the list under it lines up with the birthdays beside it. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, minHeight: `calc(32px * var(--app-chrome, 1) + 8px)` }}>
-            {spot ? (
-              <>
-                {/* A pin, not the country's flag: Windows has no flag emoji and draws the two
-                    letters of the code instead, which read as a stray "CA" at this size. */}
-                <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1 }}>📍</Typography>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography noWrap sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.3 }}>{spot.region}</Typography>
-                  <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
-                    {spot.players.length} players call it home
-                  </Typography>
-                </Box>
-              </>
-            ) : <Skeleton variant="text" width="60%" sx={{ fontSize: TYPE_SCALE.body }} />}
-          </Box>
-          {players.length === 0
-            ? Array.from({ length: HOME_PLAYER_ROWS - 1 }, (_, i) => <RowSkeleton key={i} />)
-            : rows.map(p => {
-              // The town alone: the region is the heading. A hometown that IS the region ("Perth,
-              // Australia") has nothing left to say, so that row shows the club alone.
-              const town = townOf(p.hometown)
-              return (
-                <PlayerRow key={p.id} player={p} link={link(p)}
-                  meta={[town, clubMeta(p, teams)].filter(Boolean).join(' · ')} />
-              )
-            })}
-        </Box>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minHeight: '1.4em' }}>
-          {more > 0 ? `And ${more} more from ${spot?.region.split(',')[0]}.` : ' '}
-        </Typography>
-      </Box>
-    </SectionCard>
-  )
 }
