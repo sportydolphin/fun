@@ -9,8 +9,8 @@ import {
   fetchWpblSchedule, getCachedWpblSchedule, fetchWpblTeams, getCachedWpblTeams,
 } from './api'
 import { WPBL_WATCH_PAGE } from './routes'
-import { watchShelves } from './videoChannels'
-import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
+import { watchShelves, videoCredit, videoKindName } from './videoChannels'
+import { HighlightLightbox, VideoThumb, VideoCreditLine, PLAYABLE_HOVER } from './Highlights'
 import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
 import { useNewSince } from './newSince'
 import { typePx } from '../ui/scale'
@@ -50,6 +50,11 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   }, [])
   const videos = useMemo(() => loaded ?? [], [loaded])
   const { clips, gameIds } = useMemo(() => watchShelves(videos), [videos])
+  // WPBL from Day 1 posts no Shorts (condensed games and compilations, 44 uploads by Oct 12, 2026),
+  // so a card built from clips alone never showed one of theirs. Their newest two get a row of
+  // their own, credited, rather than being cropped into the 9:16 posters.
+  const fanVideos = useMemo(() => videos.filter(v => v.is_short !== true && videoCredit(v)).slice(0, 2), [videos])
+  const [fanActive, setFanActive] = useState<WpblVideo | null>(null)
   // Only where the reader can play one: the broadcasts are blocked in the US, and the list here
   // has already had what this reader cannot play taken out (fetchWpblVideos).
   const hasBroadcasts = useMemo(() => videos.some(v => v.kind === 'full_game'), [videos])
@@ -116,6 +121,18 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
           </Box>
         ))}
       </Box>
+      {fanVideos.length > 0 && (
+        <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: compact ? undefined : 'repeat(2, minmax(0, 1fr))' } }}>
+          {fanVideos.map(v => (
+            <FanVideoRow key={v.video_id} video={v} isNew={isNew(v.video_id, v.published_at)} onPlay={() => {
+              track(EVENTS.WPBL_WATCH_OPEN, { from, action: 'play' })
+              track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from })
+              markOpened(v.video_id)
+              setFanActive(v)
+            }} />
+          ))}
+        </Box>
+      )}
       {eyebrow && (
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: compact ? 'auto' : undefined }}>
           {hasBroadcasts ? 'Highlights, condensed games and full broadcasts' : 'Highlights and condensed games'} of {gameIds.length} games, and {clips.length} clips.
@@ -129,6 +146,35 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
           onNext={active < clips.length - 1 ? () => setActive(active + 1) : undefined}
         />
       )}
+      {fanActive && <HighlightLightbox video={fanActive} onClose={() => setFanActive(null)} />}
+    </Box>
+  )
+}
+
+/** One of a credited channel's videos as a line: a small 16:9 poster, the title and the credit.
+ *  The credit is on the card, not behind the click, the same rule as the Watch page. */
+function FanVideoRow({ video, isNew, onPlay }: { video: WpblVideo; isNew: boolean; onPlay: () => void }) {
+  const credit = videoCredit(video)!
+  return (
+    <Box
+      onClick={onPlay}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay() } }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Play${isNew ? ' new' : ''} ${videoKindName(video).toLowerCase()}: ${video.title}`}
+      sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0, cursor: 'pointer', borderRadius: 2, ...PLAYABLE_HOVER, ...FOCUS_RING }}
+    >
+      <Box sx={{ width: chromePx(104), flexShrink: 0, borderRadius: 1.5, overflow: 'hidden', position: 'relative' }}>
+        <VideoThumb video={video} badge={24} />
+        {isNew && <NewTag />}
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography sx={{
+          fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.25,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>{video.title}</Typography>
+        <VideoCreditLine credit={credit} what={videoKindName(video)} />
+      </Box>
     </Box>
   )
 }
