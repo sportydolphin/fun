@@ -59,35 +59,41 @@ export function VizView({
   const [vizSearch, setVizSearch]     = useState('')
   const [vizSearchOpen, setVizSearchOpen] = useState(false)
 
+  // Only load SOS / payrolls for the current season (past seasons have no data)
+  const showSos = vizSeason === CURRENT_SEASON
+
+  // Each `loading` below starts as "will this read run", never a bare false. The effects that set
+  // it can run after the first paint (they do when the view mounts out of a cold lazy chunk, as on
+  // CI's runner), and a false there draws every card's empty state, "No active streaks" a third the
+  // height of the skeleton, for a frame before growing it: the layout sweep's 141px jump of the
+  // whole second row of cards on /mlb/charts.
+
   // ─── SOS state ────────────────────────────────────────────────────────────
   const [sosData, setSosData]       = useState<SosEntry[]>([])
-  const [loadingSos, setLoadingSos] = useState(false)
+  const [loadingSos, setLoadingSos] = useState(showSos)
 
   // ─── Report Card fullscreen state: one board open at a time ─────────────
   const [expandedBoard, setExpandedBoard] = useState<string | null>(null)
 
   // ─── Team age state ───────────────────────────────────────────────────────
   const [ageEntries, setAgeEntries]   = useState<AgeEntry[]>([])
-  const [loadingAges, setLoadingAges] = useState(false)
+  const [loadingAges, setLoadingAges] = useState(showSos)
 
   // ─── Payroll state: live from Supabase, falls back to hardcoded constant ─
   const [payrolls, setPayrolls] = useState<Record<number, number>>(TEAM_PAYROLLS_2026)
 
   // ─── Active-streak state: the player report cards (computed from game logs) ─
   const [streaks, setStreaks]             = useState<StreakLeaders | null>(null)
-  const [loadingStreaks, setLoadingStreaks] = useState(false)
+  const [loadingStreaks, setLoadingStreaks] = useState(showSos)
   const [expandedPlayerBoard, setExpandedPlayerBoard] = useState<string | null>(null)
 
   // ─── Pitches per PA: a season rate, so it loads for any season ────────────
   const [pitchPa, setPitchPa]             = useState<PitchPaLeaders | null>(null)
-  const [loadingPitchPa, setLoadingPitchPa] = useState(false)
+  const [loadingPitchPa, setLoadingPitchPa] = useState(true)
 
   // ─── Top salaries: from player_contracts, so current season only ──────────
   const [salaries, setSalaries]             = useState<SalaryRow[]>([])
-  const [loadingSalaries, setLoadingSalaries] = useState(false)
-
-  // Only load SOS / payrolls for the current season (past seasons have no data)
-  const showSos = vizSeason === CURRENT_SEASON
+  const [loadingSalaries, setLoadingSalaries] = useState(showSos)
 
   useEffect(() => {
     if (!showSos) { setPayrolls(TEAM_PAYROLLS_2026); return }
