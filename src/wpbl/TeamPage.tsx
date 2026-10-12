@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { edge } from '../ui/card'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
@@ -236,7 +237,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
               <Box key={t.id} aria-current="page" sx={{
                 display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
                 pl: 0.5, pr: 1, py: 0.4, borderRadius: 999,
-                border: '1px solid', borderColor: accent,
+                border: '1px solid', borderColor: edge(accent),
                 // A wash of the club's colour rather than the colour itself: a solid fill
                 // needs a per-team contrast check for the text on top of it (seven of the
                 // eight team/theme pairs fail AA against white), and the border already

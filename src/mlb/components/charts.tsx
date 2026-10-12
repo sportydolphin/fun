@@ -27,7 +27,7 @@ export function ChartTooltip({ tipPos, children }: { tipPos: { x: number; y: num
       right: tipPos.flip ? `calc(100% - ${tipPos.x}px + 14px)` : undefined,
       top: tipPos.y - 36,
       bgcolor: 'background.paper',
-      border: '1px solid', borderColor: 'divider',
+      border: '1px solid', borderColor: 'outline',
       borderRadius: 2, px: 1.5, py: 1,
       pointerEvents: 'none',
       boxShadow: '0 4px 20px rgba(0,0,0,0.18)',

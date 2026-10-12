@@ -7,6 +7,7 @@
 //
 // Lazy-loaded and gated behind import.meta.env.DEV; see devDevice.ts.
 
+import { pressable } from '../../ui/interaction'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Box, Typography, Tooltip } from '@mui/material'
@@ -128,7 +129,7 @@ function ChromeButton({ children, onClick, active = false, accent = false }: {
 }) {
   return (
     <Box
-      onClick={onClick}
+      {...pressable(onClick)}
       sx={{
         px: 1.1, py: 0.5, borderRadius: 1.5, cursor: 'pointer', userSelect: 'none',
         fontSize: '0.68rem', fontWeight: 700, lineHeight: 1,

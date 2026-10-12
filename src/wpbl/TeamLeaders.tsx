@@ -248,7 +248,7 @@ function RichLeaders({ away, home, A, H, onOpenPlayer }: {
         ) : (
           <Box aria-hidden sx={{
             width: 40, height: 40, flexShrink: 0, borderRadius: '50%',
-            border: '1px dashed', borderColor: 'divider',
+            border: '1px dashed', borderColor: 'outline',
           }} />
         )}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: outer, textAlign: dir === 'away' ? 'left' : 'right' }}>

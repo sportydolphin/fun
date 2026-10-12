@@ -1,4 +1,5 @@
 import type { MlbOpenSource } from '../state/useMlbState'
+import { ACCENT_EDGE } from '../../ui/card'
 import React, { useRef, useEffect, lazy, Suspense } from 'react'
 import {
   Box, Typography, Paper, CircularProgress, Divider,
@@ -17,7 +18,7 @@ import { TeamRoster } from '../components/TeamRoster'
 import { chromePx, typePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { MlbPageH1 } from '../components/PageHeading'
-import { linkPress } from '../../ui/interaction'
+import { linkPress, pressable } from '../../ui/interaction'
 import { mlbUrlFor } from '../routes'
 
 // THE TEAM PAGE. It was the player page too until Oct 2026, when the player moved to its own
@@ -182,6 +183,9 @@ export function SearchView({
       {/* Fullscreen overlay */}
       {fullscreen && hasStats && <FullscreenEntry onClose={() => setFullscreen(false)} exitRef={exitFullscreen} />}
       {fullscreen && hasStats && (
+        // The fullscreen card dismisses on a tap anywhere, like a scrim; Escape leaves fullscreen
+        // from a keyboard (FullscreenEntry), so this is not the only way out.
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <Box onClick={() => (exitFullscreen.current ?? (() => setFullscreen(false)))()} sx={{
           position: 'fixed', inset: 0, zIndex: 9999, bgcolor: palette.bg,
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
@@ -213,11 +217,12 @@ export function SearchView({
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 1.5, alignItems: 'center' }}>
             <Box sx={{
               display: 'inline-flex', alignItems: 'center', borderRadius: 999,
-              border: '1.5px solid', borderColor: 'divider',
+              border: '1.5px solid', borderColor: 'outline',
               transition: 'border-color 0.15s',
-              '&:focus-within': { borderColor: ACCENT },
+              '&:focus-within': { borderColor: ACCENT_EDGE },
             }}>
               <select
+                aria-label="Season"
                 value={String(season)}
                 onChange={e => handleSeasonChange(Number(e.target.value))}
                 style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(14)}`, borderRadius: 999, fontFamily: 'inherit' }}
@@ -250,7 +255,7 @@ export function SearchView({
               <Box sx={{ position: 'absolute', top: chromePx(8), right: chromePx(8), display: 'flex', gap: 0.5 }}>
                 <Tooltip title={downloading ? 'Saving…' : 'Card options'}>
                   <Box
-                    onClick={e => setCardMenuAnchor(e.currentTarget as HTMLElement)}
+                    {...pressable(e => setCardMenuAnchor(e.currentTarget as HTMLElement))}
                     sx={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       p: 0.5, borderRadius: 1.5,
@@ -305,13 +310,13 @@ export function SearchView({
                     Colors
                   </Typography>
                   <Box
-                    onClick={() => setPalette(randomPalette())}
+                    {...pressable(() => setPalette(randomPalette()))}
                     sx={{
                       display: 'inline-flex', alignItems: 'center', gap: 0.5,
                       cursor: 'pointer', px: 1.5, py: 0.5, borderRadius: 999,
-                      border: '1.5px solid', borderColor: 'divider',
+                      border: '1.5px solid', borderColor: 'outline',
                       fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary',
-                      '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
+                      '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT },
                       transition: 'border-color 0.15s, color 0.15s',
                     }}
                   >
@@ -332,7 +337,7 @@ export function SearchView({
                         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Batting stats
                         </Typography>
-                        <Box onClick={() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
+                        <Box {...pressable(() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key)))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
                           {allHit ? 'Reset' : 'All'}
                         </Box>
                       </Box>
@@ -358,7 +363,7 @@ export function SearchView({
                         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Pitching stats
                         </Typography>
-                        <Box onClick={() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
+                        <Box {...pressable(() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key)))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
                           {allPit ? 'Reset' : 'All'}
                         </Box>
                       </Box>
@@ -449,7 +454,7 @@ export function SearchView({
       {hasStats && !!team && (
         <Box sx={{ mb: 2 }}>
           <Box
-            onClick={() => setScheduleOpen(o => !o)}
+            {...pressable(() => setScheduleOpen(o => !o))}
             sx={{
               mb: scheduleOpen ? 1.25 : 0,
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -460,7 +465,7 @@ export function SearchView({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <SectionLabel strong>Schedule</SectionLabel>
               <Box
-                onClick={e => { e.stopPropagation(); setShowFullSchedule(true) }}
+                {...pressable(e => { e.stopPropagation(); setShowFullSchedule(true) })}
                 sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
               >
                 Full schedule →
@@ -473,7 +478,7 @@ export function SearchView({
             }}>▾</Box>
           </Box>
           {scheduleOpen && (
-            <Box sx={{ borderRadius: { xs: 0, sm: 3 }, border: '1px solid', borderColor: 'divider', overflow: 'hidden', mx: { xs: -2, sm: 0 } }}>
+            <Box sx={{ borderRadius: { xs: 0, sm: 3 }, border: '1px solid', borderColor: 'outline', overflow: 'hidden', mx: { xs: -2, sm: 0 } }}>
               <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
                 <TeamScheduleStrip
                   teamId={team.id}
@@ -493,7 +498,7 @@ export function SearchView({
       {hasStats && !!team && teamRoster.length > 0 && (
         <Box sx={{ mb: 2 }}>
           <Box
-            onClick={() => setRosterOpen(o => !o)}
+            {...pressable(() => setRosterOpen(o => !o))}
             sx={{
               mb: rosterOpen ? 1.25 : 0,
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',

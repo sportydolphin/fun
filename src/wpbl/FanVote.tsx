@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { edge } from '../ui/card'
 import { Box, Typography, Menu, MenuItem, ListItemIcon, Skeleton, useMediaQuery, type Theme } from '@mui/material'
 import { EmojiEvents, IosShare, ContentCopy, Download } from '@mui/icons-material'
 import {
@@ -254,7 +255,7 @@ function ShareBadge({ share, on, accent, dark }: {
       // the card's own surface with a hairline, so four tiles do not read as four selections.
       color: on ? '#fff' : 'text.secondary',
       bgcolor: on ? accent : (dark ? '#161a20' : '#fff'),
-      border: '1px solid', borderColor: on ? accent : 'divider',
+      border: '1px solid', borderColor: on ? edge(accent) : 'outline',
     }}>
       {on && <Box component="span" aria-hidden sx={{ fontWeight: 900 }}>✓</Box>}
       {Math.round(share * 100)}%
@@ -328,7 +329,7 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
         alignItems: 'center',
         borderRadius: 2, border: '1px solid',
         px: { xs: 0.75, sm: 1.25 }, py: 1.1, cursor: 'pointer',
-        borderColor: on ? accent : 'divider',
+        borderColor: on ? edge(accent) : 'outline',
         bgcolor: on ? `${accent}2e` : 'transparent',
         // The same ring and tick the pick'em uses, for the same reason it needed them: the share
         // behind the card is drawn in this club's accent too, so a selection made only of that
@@ -399,11 +400,11 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             borderRadius: '50%', cursor: 'pointer', zIndex: 1,
             color: 'text.secondary',
-            border: '1px solid', borderColor: 'divider',
+            border: '1px solid', borderColor: 'outline',
             bgcolor: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
             ...TAPPABLE, ...FOCUS_RING,
             '@media (hover: hover)': {
-              '&:hover': { color: accent, borderColor: accent },
+              '&:hover': { color: accent, borderColor: edge(accent) },
             },
           }}
         >
@@ -668,10 +669,10 @@ function AwardQuestion({ entry, players, teams, state, closed, onOpenPlayer, onO
             sx={{
               width: '100%', boxSizing: 'border-box',
               fontSize: TYPE_SCALE.body, fontFamily: 'inherit',
-              borderRadius: 2, border: '1px solid', borderColor: 'divider',
+              borderRadius: 2, border: '1px solid', borderColor: 'outline',
               bgcolor: 'transparent', color: 'text.primary',
               px: 1.25, py: 0.85, outline: 'none',
-              '&:focus': { borderColor: 'var(--wpbl-accent-solid)' },
+              '&:focus': { borderColor: 'var(--wpbl-accent-fg)' },
               '&::placeholder': { color: 'text.disabled' },
             }}
           />
@@ -1046,8 +1047,8 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
               ...TAPPABLE, ...FOCUS_RING, flexShrink: 0, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: chromePx(4),
               borderRadius: 999, px: chromePx(8), py: chromePx(4),
-              border: '1px solid', borderColor: 'divider', color: 'text.secondary',
-              ...hoverOnly({ borderColor: 'var(--wpbl-accent-solid)', color: 'var(--wpbl-accent-solid)' }),
+              border: '1px solid', borderColor: 'outline', color: 'text.secondary',
+              ...hoverOnly({ borderColor: 'var(--wpbl-accent-fg)', color: 'var(--wpbl-accent-fg)' }),
             }}
           >
             <IosShare sx={{ fontSize: TYPE_SCALE.body }} />
@@ -1097,7 +1098,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
         // runner's inset under its name), so two lengths a reader is meant to compare could not be.
         // Now 41% and 38% are 41% and 38% of the same line, and the winner is set apart by size,
         // weight and a colour wash instead of by a bar that did not line up.
-        <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
           {[winner, ...runnersUp].map((c, idx) => {
             const isWinner = idx === 0
             const rowAccent = wpblAccent(c.teamId, dark)
@@ -1331,7 +1332,7 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
             {...pressable(state.signIn)}
             sx={{
               ...TAPPABLE, ...FOCUS_RING, borderRadius: 2, px: 1.5, py: 1.1, cursor: 'pointer',
-              border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
+              border: '1px solid', borderColor: 'var(--wpbl-accent-fg)',
               display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, alignSelf: 'flex-start',
               mt: -1.75,
             }}
@@ -1401,7 +1402,7 @@ function FanVoteSheet({ entries, players, teams, state, closed, testerPreview = 
               colouring the name is how the rest of the section marks somewhere to go, and it is
               the half a reader would actually be looking for. */}
           <Box component="span" sx={{
-            fontWeight: 800, color: 'var(--wpbl-accent-solid)',
+            fontWeight: 800, color: 'var(--wpbl-accent-fg)',
             '@media (hover: hover)': { 'a:hover &': { textDecoration: 'underline' } },
           }}>{WPBL_AWARDS_CREDIT.name}</Box>
         </Typography>
@@ -1697,8 +1698,8 @@ export default function FanVoteCard({
             '&:active': { transform: 'scale(0.97)' },
             ...(answered > 0
               ? {
-                border: '1px solid', borderColor: 'divider', color: 'text.secondary',
-                ...hoverOnly({ borderColor: 'var(--wpbl-accent-solid)', color: 'var(--wpbl-accent-solid)' }),
+                border: '1px solid', borderColor: 'outline', color: 'text.secondary',
+                ...hoverOnly({ borderColor: 'var(--wpbl-accent-fg)', color: 'var(--wpbl-accent-fg)' }),
               }
               : {
                 bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',

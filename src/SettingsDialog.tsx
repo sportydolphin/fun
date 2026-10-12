@@ -87,7 +87,7 @@ function SettingsCard({ children, danger, sx }: { children: React.ReactNode; dan
   return (
     <Box sx={{
       borderRadius: 2, border: '1px solid',
-      borderColor: danger ? 'error.main' : 'divider',
+      borderColor: danger ? 'error.main' : 'outline',
       overflow: 'hidden', ...sx,
     }}>
       {children}
@@ -165,7 +165,7 @@ function PillGroup<T extends string | number>({ options, value, onChange, accent
 }) {
   return (
     <Box sx={{
-      display: 'flex', borderRadius: 999, border: '1px solid', borderColor: 'divider',
+      display: 'flex', borderRadius: 999, border: '1px solid', borderColor: 'outline',
       overflow: 'hidden', ...(fullWidth ? { width: '100%' } : { flexShrink: 0 }),
     }}>
       {options.map(o => {

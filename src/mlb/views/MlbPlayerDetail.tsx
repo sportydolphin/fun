@@ -938,7 +938,7 @@ function TrendSection({ career, log, roles, season, mode, official, onYear }: {
   return (
     <>
       <SectionHead title="Trend" />
-      <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', p: { xs: 0.75, sm: 1.5 } }}>
+      <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'outline', p: { xs: 0.75, sm: 1.5 } }}>
         <Suspense fallback={<Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>}>
           <PlayerTrendsChart
             key={shown}

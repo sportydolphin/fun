@@ -185,7 +185,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
         display: 'flex', alignItems: 'stretch',
         width: '100%', maxWidth: 460,
         borderRadius: 999,
-        border: '1px solid', borderColor: 'divider',
+        border: '1px solid', borderColor: 'outline',
         // Floats over the page, so it takes the raised tone (see Surfaces in ThemeContext).
         bgcolor: 'background.raised',
         // A real shadow is what separates the bar from the page: it does the job a blur would
@@ -226,6 +226,9 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
           const active = isMore ? moreOpen : item.key === shown
           const set = ICONS[item.key]
           return (
+            // Every item is a tab that is an anchor, or More, a button with its own key handling;
+            // both come in through a conditional spread and a conditional role the lint cannot read.
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
             <Box
               key={item.key}
               {...(item.href && !isMore ? { component: 'a' as const, href: item.href } : {})}
@@ -238,6 +241,12 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                 if (isMore) onMore?.()
                 else select(item.key)
               }}
+              // More is the one item that is not a link, so it needs its own way in from a keyboard:
+              // a tab stop and Enter or Space. The others are anchors and have both natively.
+              onKeyDown={isMore ? (e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMore?.() }
+              } : undefined}
+              tabIndex={isMore ? 0 : undefined}
               role={isMore ? 'button' : 'tab'}
               aria-selected={isMore ? undefined : active}
               aria-haspopup={isMore ? 'menu' : undefined}

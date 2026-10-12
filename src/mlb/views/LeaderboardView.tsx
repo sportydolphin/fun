@@ -156,7 +156,7 @@ export function LeaderboardView({
                 Leaderboard stats
               </Typography>
               <Box
-                onClick={() => setLbSelectedKeys(allLbSelected ? [...lbFeatured] : allLbKeys)}
+                {...pressable(() => setLbSelectedKeys(allLbSelected ? [...lbFeatured] : allLbKeys))}
                 sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}
               >
                 {allLbSelected ? 'Reset' : 'All'}
@@ -188,7 +188,7 @@ export function LeaderboardView({
         </Box>
         {!lbIsDefault && (
           <Box
-            onClick={() => setLbSelectedKeys([...lbFeatured])}
+            {...pressable(() => setLbSelectedKeys([...lbFeatured]))}
             sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.7rem', color: 'text.disabled', cursor: 'pointer', fontWeight: 600, '&:hover': { color: ACCENT_TEXT } }}
           >
             ↩ Reset to featured

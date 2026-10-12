@@ -71,8 +71,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   if (loaded === null && placeholder) return <>{placeholder}</>
   if (clips.length === 0) return null
 
-  const all = linkTo(WPBL_WATCH_PAGE)
-  const openPage = (e: React.MouseEvent) => { track(EVENTS.WPBL_WATCH_OPEN, { from, action: 'page' }); all.onClick(e) }
+  const all = linkTo(WPBL_WATCH_PAGE, () => track(EVENTS.WPBL_WATCH_OPEN, { from, action: 'page' }))
   const play = (i: number) => {
     track(EVENTS.WPBL_WATCH_OPEN, { from, action: 'play' })
     track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: clips[i].video_id, kind: 'clip', from })
@@ -82,7 +81,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   // Six posters on a desktop, four on a phone: at 375px six would be a row of stamps.
   const row = clips.slice(0, 6)
   const summary = `${gameIds.length} games, ${clips.length} clips`
-  const link = <Box {...all} onClick={openPage} sx={CARD_LINK_SX}>All videos ›</Box>
+  const link = <Box {...all} sx={CARD_LINK_SX}>All videos ›</Box>
   const body = (
     <>
       <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(4, minmax(0, 1fr))', md: compact ? undefined : 'repeat(6, minmax(0, 1fr))' } }}>

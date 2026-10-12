@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { pressable } from '../ui/interaction'
+import { edge } from '../ui/card'
 import { Box, Typography } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
@@ -219,7 +221,7 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
   return (
     <Box sx={{
       mb: 2, borderRadius: 3, overflow: 'hidden', position: 'relative',
-      border: '1.5px solid', borderColor: `${LIVE_RED}66`, bgcolor: 'background.paper',
+      border: '1.5px solid', borderColor: edge(LIVE_RED), bgcolor: 'background.paper',
       boxShadow: `0 0 0 1px ${LIVE_RED}18`,
       '@keyframes wpblpulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.3 }, '100%': { opacity: 1 } },
     }}>
@@ -227,7 +229,7 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
         <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: LIVE_RED, animation: 'wpblpulse 1.5s ease-in-out infinite' }} />
         <Typography sx={{ fontSize: '0.66rem', fontWeight: 900, letterSpacing: typePx(1), color: LIVE_RED, textTransform: 'uppercase' }}>Live Now</Typography>
         <Box sx={{ flex: 1 }} />
-        <Box onClick={onOpen} sx={{
+        <Box {...pressable(onOpen)} sx={{
           display: 'inline-flex', alignItems: 'center', gap: 0.4, cursor: 'pointer',
           fontSize: '0.66rem', fontWeight: 800, color: '#fff', px: 1.1, py: 0.35, borderRadius: 999, bgcolor: LIVE_RED,
           ...hoverOnly({ bgcolor: '#dc2626' }),

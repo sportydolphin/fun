@@ -19,7 +19,7 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
       sx={{
         m: 0, mt: 1, mb: 0.5, p: 1.5, borderRadius: 2,
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-        border: '1px solid', borderColor: 'divider',
+        border: '1px solid', borderColor: 'outline',
         overflowX: 'auto', fontSize: '0.78rem', lineHeight: 1.6,
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
         color: 'text.primary', whiteSpace: 'pre',
@@ -57,7 +57,7 @@ function P({ children }: { children: React.ReactNode }) {
 // One documented endpoint: method + path + what it returns.
 function EndpointCard({ path, purpose, returns }: { path: string; purpose: string; returns: string }) {
   return (
-    <Box sx={{ mb: 1.25, p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+    <Box sx={{ mb: 1.25, p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper' }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
         <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 800, color: '#16a34a', letterSpacing: typePx(0.5) }}>GET</Box>
         <Box component="span" sx={{ fontSize: '0.88rem', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', color: 'var(--wpbl-accent-fg)', wordBreak: 'break-all' }}>
@@ -73,7 +73,7 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
         sx={{
           m: 0, p: 1.25, borderRadius: 1.5,
           bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-          border: '1px solid', borderColor: 'divider',
+          border: '1px solid', borderColor: 'outline',
           overflowX: 'auto', fontSize: '0.72rem', lineHeight: 1.6,
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
           color: 'text.secondary', whiteSpace: 'pre',
@@ -110,7 +110,7 @@ export default function WpblApiDocs() {
         used to be in that list and closed on Sep 1, 2026; the endpoint is still documented below,
         with what it now answers.
       </Typography>
-      <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed', borderColor: 'divider', bgcolor: 'action.hover', mb: 1 }}>
+      <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed', borderColor: 'outline', bgcolor: 'action.hover', mb: 1 }}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.55 }}>
           This is a fan project and is not affiliated with or endorsed by the WPBL. The feed is the
           league's, not ours, so treat it as theirs: it can change or go away at any time, and there

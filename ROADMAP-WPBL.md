@@ -1469,6 +1469,20 @@ is retired.
 
 ## Shipped log
 
+### Oct 12, 2026: borders, keyboard and contrast, checked site-wide
+
+Both sections, enforced by CI rather than remembered (CLAUDE.md, "Borders" and "Accessibility").
+Every outline is 3:1 against what is behind it, in both themes: one theme token (`'outline'`), one
+helper for a club or status colour (`edge()`), one for the accent (`ACCENT_EDGE`); the card outline
+went from 28% to 36% white in dark mode and 34% to 44% black in light. 117 mouse-only controls are
+now real buttons through `pressable()`, caught from here on by `eslint-plugin-jsx-a11y`. The layout
+sweep runs axe-core on every page in both themes for text contrast and names, and measures every
+outline itself. Along the way: the MLB bracket's series cards open their series on any click, the
+count grid's figures no longer fade with their cells, light-mode success and error are MUI's light
+tones, the four club accents clear 4.6:1 on their own tints, and an eliminated club reads in the
+secondary ink rather than at half opacity. Still open from axe, not yet enforced: label and name
+mismatches, tabs outside a tablist, a handful of tap targets under 24px.
+
 ### Oct 12, 2026: the offseason Home with players, for everyone
 
 The owner preview below, after a look on real data, ships to every reader with two cuts. The

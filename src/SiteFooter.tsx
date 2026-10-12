@@ -1,4 +1,5 @@
 import React from 'react'
+import { pressable } from './ui/interaction'
 import { Box } from '@mui/material'
 import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
@@ -145,7 +146,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
             </>
           )}
           <Dot />
-          <Box component="span" onClick={onOpenFeedback} sx={linkSx}>Feedback</Box>
+          <Box component="span" {...pressable(onOpenFeedback)} sx={linkSx}>Feedback</Box>
           <Dot />
           {/* "SUPPORT" STAYS, and trimming it to "Ko-fi ♥" to save a line was the wrong trade. A
               heading is a label and an action link is not: here the verb IS the information, and
@@ -160,7 +161,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         <FooterRow>
           <Box component="span" sx={{ fontWeight: 700 }}>sportydolphin.fun</Box>
           <Dot />
-          <Box component="span" onClick={onOpenChangelog} sx={linkSx}>v{APP_VERSION} &middot; What's new</Box>
+          <Box component="span" {...pressable(onOpenChangelog)} sx={linkSx}>v{APP_VERSION} &middot; What's new</Box>
           <Dot />
           <Box component="a" href="/privacy" onClick={e => { e.preventDefault(); onNavigate('/privacy') }} sx={linkSx}>Privacy</Box>
           <Dot />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { pressable } from '../../ui/interaction'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, isRealClub, CURRENT_SEASON, TONE } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
@@ -13,7 +14,7 @@ import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 import { chromePx, typePx } from '../../ui/scale'
-import { SectionCard, CardLink, TYPE_SCALE, ICON_SIZE } from '../../ui/card'
+import { SectionCard, CardLink, TYPE_SCALE, ICON_SIZE, edge } from '../../ui/card'
 
 // Both open on a tap from the widget, so neither rides in the Home landing (see PredictorModal.tsx).
 const PredictorModal = lazy(() => import('./PredictorModal').then(m => ({ default: m.PredictorModal })))
@@ -280,16 +281,16 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
     // Hug content (no flex:1) so the row is a tight, centred matchup cluster
     // rather than two half-width halves with empty outer margins.
     <Box
-      onClick={onPick}
+      {...pressable(onPick)}
       sx={{
         flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.7,
         justifyContent: away ? 'flex-end' : 'flex-start',
         px: 0.85, py: 0.55, borderRadius: 1.5, cursor: 'pointer',
-        border: '1.5px solid', borderColor: picked ? `${col}70` : 'transparent',
+        border: '1.5px solid', borderColor: picked ? edge(col) : 'transparent',
         bgcolor: picked ? `${col}14` : 'transparent',
         opacity: dimmed ? 0.45 : 1,
         transition: 'all 0.15s',
-        '&:hover': { bgcolor: `${col}0e`, borderColor: `${col}40` },
+        '&:hover': { bgcolor: `${col}0e`, borderColor: edge(col) },
       }}
     >
       {away ? <>{name}{logo}</> : <>{logo}{name}</>}
@@ -615,7 +616,7 @@ export function PredictorWidget({ onPicksSettled }: {
               }} />
             )}
             {(isTomorrow || isLater) && !idle && (
-              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
                 {isTomorrow ? 'Tomorrow' : shortDay(slateDate)}
               </Typography>
             )}
@@ -652,7 +653,7 @@ export function PredictorWidget({ onPicksSettled }: {
 
         {/* Summary line. A click opens the modal */}
         <Box
-          onClick={() => canOpen && setModalOpen(true)}
+          {...pressable(() => canOpen && setModalOpen(true))}
           sx={{
             px: 2, pt: heaterStreak >= PREDICTION_HEATER_MIN ? 1.25 : 0.5, pb: 1.5,
             cursor: canOpen ? 'pointer' : 'default',
@@ -747,7 +748,7 @@ export function PredictorWidget({ onPicksSettled }: {
             ))}
             {games.length > quickPicks.length && (
               <Box
-                onClick={() => canOpen && setModalOpen(true)}
+                {...pressable(() => canOpen && setModalOpen(true))}
                 sx={{
                   alignSelf: 'center', mt: 0.4, px: 1, py: 0.3,
                   fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT_TEXT,

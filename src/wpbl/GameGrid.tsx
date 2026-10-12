@@ -30,7 +30,7 @@ export function useGridGames(): number {
 /** The one colour either grid uses to flag something the reader should not skim past: a
  *  left-handed start in the lineup grid, an outing on short rest in the pitching grid.
  *  Shared so a flag always looks like a flag, and so nothing else in these cards is orange. */
-export const GRID_FLAG = '#c2410c'
+export const GRID_FLAG = 'var(--wpbl-flag)'
 
 export interface GameGridColumn {
   id: string

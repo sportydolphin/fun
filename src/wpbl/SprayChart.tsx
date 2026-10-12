@@ -224,7 +224,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMode(m) } }}
             sx={{
               px: 1.1, py: 0.35, borderRadius: 999, cursor: 'pointer',
-              border: '1px solid', borderColor: mode === m ? 'transparent' : 'divider',
+              border: '1px solid', borderColor: mode === m ? 'transparent' : 'outline',
               bgcolor: mode === m ? 'text.primary' : 'transparent',
             }}>
             <Typography sx={{

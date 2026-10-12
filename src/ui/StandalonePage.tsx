@@ -64,7 +64,7 @@ export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem
         sx={{
           textDecoration: 'none', display: { xs: 'inline-flex', sm: 'none' }, alignItems: 'center', gap: 0.5, mb: 2,
           color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 700,
-          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
+          px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline',
           bgcolor: 'background.paper',
           ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }), ...FOCUS_RING,
         }}

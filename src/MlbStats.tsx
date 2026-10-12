@@ -1,4 +1,5 @@
 import React, { memo, Suspense, useEffect, useCallback, useRef, useState } from 'react'
+import { pressable } from './ui/interaction'
 import type { ReactNode } from 'react'
 import { Box, Typography, useMediaQuery, SwipeableDrawer } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
@@ -850,7 +851,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           <Box sx={{ px: 2, pt: 1 }}>
             <Box aria-hidden sx={{ width: chromePx(36), height: chromePx(4), borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
             {MORE.map(m => (
-              <Box key={m.key} role="button" onClick={() => openMore(m)} sx={moreRowSx}>
+              <Box key={m.key} {...pressable(() => openMore(m))} sx={moreRowSx}>
                 <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{m.label}</Typography>
                 <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{m.hint}</Typography>
               </Box>

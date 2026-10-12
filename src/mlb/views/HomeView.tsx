@@ -1,4 +1,5 @@
 import React, { memo, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, TAB_TITLE_SX } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { Team, TeamSummary, SosEntry } from '../types'
@@ -13,7 +14,7 @@ import {
 // ~1,400-line schedule module, lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
-import { useIsDark, borderAlpha, cardGradient135, fmtGB } from '../lib/colorUtils'
+import { useIsDark, edgeTone, cardGradient135, fmtGB } from '../lib/colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { RosterMovesCard } from './RosterMoves'
 import { LiveDramaCard } from './LiveDrama'
@@ -500,7 +501,7 @@ function HomeViewInner({
               <TrackedCard card="team_card" sx={{ order: teamQuiet ? ORDER.teamCardQuiet : ORDER.teamCard, minWidth: 0 }}>
                 <Box sx={{
                   borderRadius: 3, overflow: 'hidden',
-                  border: '1px solid', borderColor: borderAlpha(bg, isDark),
+                  border: '1px solid', borderColor: edgeTone(bg, isDark),
                   borderLeft: `4px solid ${bg}`,
                   bgcolor: 'background.paper',
                   background: cardGradient135(bg, isDark),
@@ -546,11 +547,11 @@ function HomeViewInner({
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
                         <Box
-                          onClick={() => setShowTeamSchedule(true)}
+                          {...pressable(() => setShowTeamSchedule(true))}
                           sx={{
                             fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
                             cursor: 'pointer', px: 0.9, py: 0.3,
-                            borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                            borderRadius: 999, border: '1px solid', borderColor: 'outline',
                             whiteSpace: 'nowrap',
                             transition: 'color 0.12s, border-color 0.12s',
                             '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
@@ -559,11 +560,11 @@ function HomeViewInner({
                           Schedule →
                         </Box>
                         <Box
-                          onClick={onUnfollowTeam}
+                          {...pressable(onUnfollowTeam)}
                           sx={{
                             fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
                             cursor: 'pointer', px: 0.9, py: 0.3,
-                            borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                            borderRadius: 999, border: '1px solid', borderColor: 'outline',
                             whiteSpace: 'nowrap',
                             transition: 'color 0.12s, border-color 0.12s',
                             '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },

@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { edge, ACCENT_EDGE } from '../ui/card'
 import { Box, Typography, Skeleton, Switch, alpha } from '@mui/material'
 import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined, EmojiEventsOutlined } from '@mui/icons-material'
 import { useAuth } from '../AuthContext'
@@ -509,6 +510,9 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
         ...HIDE_ON_PHONE,
       }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>
+        {/* Not a control: the key, wheel and pointer listeners only notice the reader taking over the
+            scroll, so the strip stops scrolling itself. The chips inside are the links. */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <Box ref={scrollRef} onScroll={syncEdges}
           onPointerDown={takeOver} onWheel={takeOver} onKeyDown={takeOver} sx={{
           display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
@@ -691,7 +695,7 @@ function GameReminderRow({ game, away, home, startMs }: {
     const title = `${away ? wpblFullName(away) : 'Away'} @ ${home ? wpblFullName(home) : 'Home'} · WPBL`
     return (
       <Box
-        onClick={() => { track(EVENTS.WPBL_GAME_CALENDAR, { gameId: game.id }); downloadIcs(`wpbl-${game.id}.ics`, makeGameIcs(game, title, startMs)) }}
+        {...pressable(() => { track(EVENTS.WPBL_GAME_CALENDAR, { gameId: game.id }); downloadIcs(`wpbl-${game.id}.ics`, makeGameIcs(game, title, startMs)) })}
         sx={{ ...cardFooterBand(isDark), cursor: 'pointer', ...TAPPABLE }}
       >
         <EventAvailableOutlined sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
@@ -733,7 +737,7 @@ function GameReminderRow({ game, away, home, startMs }: {
 
   return (
     <Box
-      onClick={!user ? () => openAuthDialog('signin') : undefined}
+      {...pressable(!user ? () => openAuthDialog('signin') : undefined)}
       sx={{ ...cardFooterBand(isDark), ...(!user ? { cursor: 'pointer', ...TAPPABLE } : {}) }}
     >
       <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: on ? 'var(--wpbl-accent-fg)' : 'text.disabled' }} />
@@ -1778,11 +1782,10 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
   const view = () => { track(EVENTS.NEW_BADGE_CLICKED, { badge: 'tracking', count }); onView() }
   return (
     <Box
-      onClick={view}
-      role="button"
+      {...pressable(view)}
       sx={{
         mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
-        borderRadius: 2, border: '1.5px solid', borderColor: WPBL_ACCENT,
+        borderRadius: 2, border: '1.5px solid', borderColor: ACCENT_EDGE,
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.015)',
         transition: 'background-color 0.15s',
         ...hoverOnly({ bgcolor: 'action.hover' }),
@@ -1801,8 +1804,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
         View →
       </Typography>
       <Box
-        onClick={e => { e.stopPropagation(); onDismiss() }}
-        role="button"
+        {...pressable(e => { e.stopPropagation(); onDismiss() })}
         aria-label="Dismiss"
         sx={{
           flexShrink: 0, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1854,7 +1856,7 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
         // only add empty space to a card that is one line tall.
         display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25,
         textDecoration: 'none', cursor: 'pointer',
-        borderRadius: 3, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
+        borderRadius: 3, border: '1.5px solid', borderColor: edge(DISCORD_BLURPLE),
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.09)' : 'rgba(88,101,242,0.06)',
         transition: 'background-color 0.15s, border-color 0.15s',
         ...hoverOnly({
@@ -1883,8 +1885,7 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
         Join
       </Box>
       <Box
-        onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss() }}
-        role="button"
+        {...pressable(e => { e.preventDefault(); e.stopPropagation(); dismiss() })}
         aria-label="Dismiss Discord invite"
         sx={{
           // 28px, not 22: WCAG 2.2 wants 24 as a floor and this is the one control on the card whose only
@@ -1939,7 +1940,7 @@ function LatestReadingCard() {
   }, [latest, articles.length])
   if (!latest) return null
 
-  const all = linkTo(WPBL_READING_PAGE)
+  const all = linkTo(WPBL_READING_PAGE, () => track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }))
   const date = new Date(latest.published_at)
   const when = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString([], { month: 'short', day: 'numeric' })
   return (
@@ -1952,9 +1953,9 @@ function LatestReadingCard() {
           flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
           textTransform: 'uppercase', color: 'text.secondary',
         }}>Latest from {sourceOf(latest.source).authorName}</Typography>
-        <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
+        <Box {...all}
           sx={{
-            flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-solid)',
+            flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
             textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
           }}>All {articles.length} posts ›</Box>
       </Box>
@@ -2030,10 +2031,10 @@ function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
   if (loaded === null) return <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
   if (picks.length === 0) return null
 
-  const all = linkTo(WPBL_READING_PAGE)
+  const all = linkTo(WPBL_READING_PAGE, () => track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }))
   return (
     <SectionCard title="Reading" fill action={
-      <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
+      <Box {...all}
         sx={CARD_LINK_SX}>All {articles.length} posts ›</Box>
     }>
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -2094,7 +2095,7 @@ function LeagueCard() {
         display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
         border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3,
         bgcolor: CARD_FILL, px: 2, py: 1.75,
-        ...hoverOnly({ borderColor: 'var(--wpbl-accent-solid)' }),
+        ...hoverOnly({ borderColor: 'var(--wpbl-accent-fg)' }),
       }}
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -3099,14 +3100,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {teams.map(t => (
             <Box
               key={t.id}
-              onClick={() => onOpenTeam(t)}
+              {...pressable(() => onOpenTeam(t))}
               sx={{
                 display: 'flex', alignItems: 'center', gap: 0.6,
                 pl: '3px', pr: 0.9, py: '3px', borderRadius: 999,
                 cursor: 'pointer', userSelect: 'none',
                 border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
                 transition: 'border-color 0.15s, transform 0.1s',
-                ...hoverOnly({ borderColor: wpblColor(t.id) }),
+                ...hoverOnly({ borderColor: edge(wpblColor(t.id)) }),
                 '&:active': { transform: 'scale(0.94)' },
               }}
             >

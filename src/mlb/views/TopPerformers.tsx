@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { useIsDark, accentColor, edgeTone, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers, fetchPostseasonGamePerformers } from './Spotlight'
@@ -236,7 +237,7 @@ export function TopPerformers({
         <Box sx={{
           flexShrink: 0, width: chromePx(58), minHeight: chromePx(70),
           borderRadius: 2, overflow: 'hidden',
-          border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`,
+          border: `2px solid ${edgeTone(teamColor, isDark)}`,
           bgcolor: 'action.hover',
         }}>
           <Box
@@ -271,7 +272,7 @@ export function TopPerformers({
               overflow: 'hidden', flexShrink: 0,
             }}>
               <Box
-                component="img"
+                component="img" alt=""
                 src={teamLogoSrc(entry.teamId, isDark)}
                 sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(entry.teamId, isDark), transformOrigin: 'center' }}
               />
@@ -306,12 +307,12 @@ export function TopPerformers({
 
             {/* Box score: resolves this performance's game and opens the existing recap viewer */}
             <Box
-              onClick={(e) => { e.stopPropagation(); viewBoxScore(entry) }}
+              {...pressable((e) => { e.stopPropagation(); viewBoxScore(entry) })}
               sx={{
                 flexShrink: 0,
                 fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
                 cursor: 'pointer', px: 0.9, py: 0.3,
-                borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                borderRadius: 999, border: '1px solid', borderColor: 'outline',
                 whiteSpace: 'nowrap',
                 transition: 'color 0.12s, border-color 0.12s',
                 '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
@@ -377,7 +378,7 @@ export function TopPerformers({
         // Border color crossfades between team colors over the slide, gated on
         // `sliding` (same phase as the content slide) so it plants at the
         // outgoing color, then eases to the incoming one instead of snapping.
-        borderColor: borderAlpha(sliding ? toColor : fromColor, isDark),
+        borderColor: edgeTone(sliding ? toColor : fromColor, isDark),
         transition: sliding ? `border-color ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
         bgcolor: 'background.paper',
       }}>
@@ -424,7 +425,7 @@ export function TopPerformers({
           </Box>
           {/* Left/right indicator */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-            <Box onClick={() => go(-1)} sx={stepBtnSx}>
+            <Box {...pressable(() => go(-1))} aria-label="Previous" sx={stepBtnSx}>
               <ChevronLeft sx={{ fontSize: ICON_SIZE.md }} />
             </Box>
             <Typography sx={{
@@ -433,7 +434,7 @@ export function TopPerformers({
             }}>
               {headerIdx + 1} / {performers.length}
             </Typography>
-            <Box onClick={() => go(1)} sx={stepBtnSx}>
+            <Box {...pressable(() => go(1))} aria-label="Next" sx={stepBtnSx}>
               <ChevronRight sx={{ fontSize: ICON_SIZE.md }} />
             </Box>
           </Box>

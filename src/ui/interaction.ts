@@ -46,16 +46,19 @@ export const tappableIf = (on: unknown) => (on ? TAPPABLE : {})
  * Pass an undefined handler and you get nothing back: a row that isn't clickable shouldn't
  * land in the tab order announcing itself as a button.
  */
-export function pressable(onClick: (() => void) | undefined) {
+export function pressable(onClick: ((e: React.SyntheticEvent<HTMLElement>) => void) | undefined) {
   if (!onClick) return {}
   return {
-    onClick,
+    onClick: (e: React.MouseEvent<HTMLElement>) => onClick(e),
     role: 'button',
     tabIndex: 0,
-    onKeyDown: (e: React.KeyboardEvent) => {
+    // THE EVENT IS PASSED ON, for the two kinds of handler that need it: a menu anchored to the
+    // control (`e.currentTarget`) and a control inside a clickable card (`e.stopPropagation()`),
+    // which on a key press must stop the card's own Enter just as the click stops its click.
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
       // Space scrolls the page by default, so it has to be swallowed; Enter does not, but is
       // handled here too so both keys behave the same as a real button.
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e) }
     },
   } as const
 }

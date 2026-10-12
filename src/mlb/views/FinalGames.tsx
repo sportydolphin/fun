@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
-import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
+import { pressable } from '../../ui/interaction'
+import { TYPE_SCALE, ICON_SIZE, edge } from '../../ui/card'
 import { Box, Typography, Skeleton, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TONE } from '../constants'
@@ -383,7 +384,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         // wrapped under Large text. 7.75rem is the old 124px at both root sizes.
         flexShrink: 0, width: wide ? '100%' : CHIP_W, minWidth: 0,
         borderRadius: 2, border: '1px solid',
-        borderColor: accent ? `${accent}70` : defaultBorder(isDark),
+        borderColor: accent ? edge(accent) : defaultBorder(isDark),
         boxShadow: accent ? `0 0 0 1.5px ${accent}40` : 'none',
         bgcolor: 'background.paper', overflow: 'hidden',
         userSelect: 'none',
@@ -468,7 +469,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <Box onClick={() => shift(-1)} sx={arrowSx}>
+      <Box {...pressable(() => shift(-1))} sx={arrowSx}>
         <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>‹</Typography>
       </Box>
 
@@ -483,6 +484,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
         <Box
           component="input"
           type="date"
+          aria-label="Pick a date"
           value={dateISO}
           min={bounds?.start}
           max={bounds?.end}
@@ -494,18 +496,18 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
         />
       </Box>
 
-      <Box onClick={() => shift(1)} sx={arrowSx}>
+      <Box {...pressable(() => shift(1))} sx={arrowSx}>
         <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>›</Typography>
       </Box>
 
       {/* Only shown when not already viewing today. Jumps straight back. */}
       {dateISO !== toISO(new Date()) && (
         <Box
-          onClick={() => onChange(toISO(new Date()))}
+          {...pressable(() => onChange(toISO(new Date())))}
           sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
             cursor: 'pointer', px: 0.9, py: 0.3, ml: 0.25,
-            borderRadius: 999, border: '1px solid', borderColor: 'divider',
+            borderRadius: 999, border: '1px solid', borderColor: 'outline',
             whiteSpace: 'nowrap',
             transition: 'color 0.12s, border-color 0.12s',
             '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
@@ -796,7 +798,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <DateNav dateISO={dateISO} onChange={setDateISO} />
             <Box
-              onClick={() => setExpanded(true)}
+              {...pressable(() => setExpanded(true))}
               title="View all scores"
               sx={{
                 width: chromePx(26), height: chromePx(26), borderRadius: '50%', flexShrink: 0,
@@ -831,7 +833,8 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                 Desktop: hovering glides the strip continuously (see startAutoScroll).
                 Mobile: no hover to speak of, so a tap just jumps one page. */}
             <Box
-              onClick={() => scrollStrip('left')}
+              {...pressable(() => scrollStrip('left'))}
+              aria-label="Earlier games"
               onMouseEnter={() => startAutoScroll('left')}
               onMouseLeave={stopAutoScroll}
               sx={{
@@ -852,7 +855,8 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
               </Box>
             </Box>
             <Box
-              onClick={() => scrollStrip('right')}
+              {...pressable(() => scrollStrip('right'))}
+              aria-label="Later games"
               onMouseEnter={() => startAutoScroll('right')}
               onMouseLeave={stopAutoScroll}
               sx={{

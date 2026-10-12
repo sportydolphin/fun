@@ -99,7 +99,7 @@ export default function LineupHistory({
               color: c.started ? 'text.primary' : 'text.secondary',
             }}>
               {(c.position ?? '?').toUpperCase()}
-              <Box component="span" sx={{ fontWeight: 500, opacity: 0.75 }}>{` (${c.spot})`}</Box>
+              <Box component="span" sx={{ fontWeight: 500, color: 'text.secondary' }}>{` (${c.spot})`}</Box>
             </Typography>
           )
         }}

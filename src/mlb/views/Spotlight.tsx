@@ -3,7 +3,7 @@ import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { postseasonGameLabel } from '../postseason'
-import { useIsDark, accentColor, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
+import { useIsDark, accentColor, edgeTone, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 
@@ -591,14 +591,13 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       sx={{
       flex: 1, minWidth: 0, borderRadius: 2.5, overflow: 'hidden',
       // Outline follows labelColor so the "On Fire" card reads orange in dark mode.
-      // Darker/more opaque than the shared borderAlpha() default so the card reads more defined.
-      border: '1px solid', borderColor: `${labelColor}${isDark ? 'ff' : '80'}`,
+      border: '1px solid', borderColor: edgeTone(labelColor, isDark),
       bgcolor: 'background.paper',
       background: cardGradient(accent, isDark),
       display: 'flex', flexDirection: 'column',
       ...(onPlayerClick ? {
         cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
-        '&:hover': { borderColor: `${labelColor}80`, boxShadow: `0 4px 16px ${accent}25` },
+        '&:hover': { borderColor: edgeTone(labelColor, isDark), boxShadow: `0 4px 16px ${accent}25` },
       } : {}),
     }}>
       <Box sx={{
@@ -614,7 +613,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
         </Typography>
         <Box sx={{
           px: 1, py: chromePx(3), borderRadius: 999,
-          bgcolor: `${labelColor}20`, border: `1px solid ${labelColor}40`, flexShrink: 0,
+          bgcolor: `${labelColor}20`, border: `1px solid ${edgeTone(labelColor, isDark)}`, flexShrink: 0,
         }}>
           <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: (labelColor && tone(labelColor)), letterSpacing: typePx(0.5), lineHeight: 1 }}>
             {data.period}
@@ -626,7 +625,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
         <Box sx={{
           flexShrink: 0, width: chromePx(58), minHeight: chromePx(70),
           borderRadius: 2, overflow: 'hidden',
-          border: `2px solid ${photoBorderAlpha(accent, isDark)}`,
+          border: `2px solid ${edgeTone(accent, isDark)}`,
           bgcolor: 'action.hover',
         }}>
           <Box
@@ -657,7 +656,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden', flexShrink: 0,
             }}>
-              <Box component="img"
+              <Box component="img" alt=""
                 src={teamLogoSrc(data.teamId, isDark)}
                 sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(data.teamId, isDark), transformOrigin: 'center' }}
               />

@@ -75,7 +75,7 @@ describe('AdminPhotos curation', () => {
     const picker = await screen.findByPlaceholderText('Tag who is in it…')
     fireEvent.change(picker, { target: { value: 'kelsie' } })
     const option = await screen.findByText('Kelsie Whitmore')
-    fireEvent.mouseDown(option)
+    fireEvent.click(option)
     await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph1', { playerId: 'plW' }))
   })
 
@@ -118,7 +118,7 @@ describe('AdminPhotos curation', () => {
     const dialog = await screen.findByRole('dialog')
     const picker = within(dialog).getByPlaceholderText('Tag who is in it…')
     fireEvent.change(picker, { target: { value: 'kelsie' } })
-    fireEvent.mouseDown(await within(dialog).findByText('Kelsie Whitmore'))
+    fireEvent.click(await within(dialog).findByText('Kelsie Whitmore'))
     await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalledWith('ph1', { playerId: 'plW' }))
     fireEvent.click(within(dialog).getByLabelText('Next photo'))
     fireEvent.click(await within(dialog).findByText('+ Kelsie Whitmore'))

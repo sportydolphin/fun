@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
+import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { ACCENT, HEADSHOT, TEAM_BG, TONE } from '../constants'
+import { HEADSHOT, TEAM_BG, TONE } from '../constants'
 import { RosterEntry } from '../types'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, LINK_SX } from '../lib/links'
@@ -61,11 +62,11 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
       sx={{
         ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1,
         px: 1, py: 0.75, borderRadius: 1.5,
-        border: '1px solid', borderColor: 'divider',
+        border: '1px solid', borderColor: 'outline',
         bgcolor: 'background.paper',
         cursor: clickable ? 'pointer' : 'default',
         transition: 'border-color 0.12s, background 0.12s',
-        '&:hover': clickable ? { borderColor: ACCENT, bgcolor: 'action.hover' } : {},
+        '&:hover': clickable ? { borderColor: ACCENT_EDGE, bgcolor: 'action.hover' } : {},
       }}
     >
       {/* Jersey number */}

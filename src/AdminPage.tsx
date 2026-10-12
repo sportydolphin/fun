@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { pressable } from './ui/interaction'
 import { Box, Typography, CircularProgress, IconButton } from '@mui/material'
 import { Refresh, ExpandMore } from '@mui/icons-material'
 import { StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
@@ -116,11 +117,11 @@ const prettyBoard = (b: string) =>
 function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <Box
-      onClick={onClick}
+      {...pressable(onClick)}
       sx={{
         px: 1.4, py: 0.5, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
         fontSize: '0.75rem', fontWeight: 700, lineHeight: 1.5,
-        border: '1px solid', borderColor: active ? 'primary.main' : 'divider',
+        border: '1px solid', borderColor: active ? 'primary.main' : 'outline',
         bgcolor: active ? 'primary.main' : 'background.paper',
         color: active ? 'primary.contrastText' : 'text.secondary',
         transition: 'background-color .15s, border-color .15s, color .15s',
@@ -147,7 +148,7 @@ function Tile({ label, value, delta, sub }: {
 }) {
   return (
     <Box sx={{
-      p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'divider',
+      p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'outline',
       bgcolor: 'background.paper', minWidth: 0,
     }}>
       <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase', color: 'text.disabled' }}>
@@ -441,7 +442,7 @@ function Fold({ title, summary, defaultOpen = false, children }: {
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <Box sx={{ mb: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+    <Box sx={{ mb: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
       <Box
         component="button" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
         sx={{

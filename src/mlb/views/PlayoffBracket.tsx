@@ -1,9 +1,9 @@
 import React, { useEffect, useState, lazy, Suspense } from 'react'
-import { TYPE_SCALE } from '../../ui/card'
+import { TYPE_SCALE, CARD_BORDER } from '../../ui/card'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { CURRENT_SEASON, TEAM_BG, TEAM_NICKNAME, TONE } from '../constants'
 import { LogoBubble, LiveDot } from '../components/boxScore'
-import { useIsDark, borderAlpha } from '../lib/colorUtils'
+import { useTextTone } from '../lib/colorUtils'
 import { hoverOnly, linkPress, FOCUS_RING } from '../../ui/interaction'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { fetchBracket, seededBracket, bracketLikely, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
@@ -11,7 +11,7 @@ import type { Bracket, PsSeries, PsTeam, Round, SeriesId } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
 import { SCORES_HEADER_H, STRIP_PY } from './FinalGames'
 import { PillGroup } from '../../ui/PillGroup'
-import { teamLink, rowClick, LINK_SX } from '../lib/links'
+import { LINK_SX } from '../lib/links'
 import { mlbSeriesPath } from '../routes'
 
 // The sheet is a few kB that only a tap needs, so it is not part of Home's first load; it is fetched
@@ -84,36 +84,24 @@ function WinPips({ wins, need }: { wins: number; need: number }) {
   )
 }
 
-function TeamRow({ t, wins, need, won, lost, onTeamClick, compact = false }: {
-  t: PsTeam; wins: number; need: number; won: boolean; lost: boolean; onTeamClick?: (id: number) => void; compact?: boolean
+function TeamRow({ t, wins, need, won, lost, compact = false }: {
+  t: PsTeam; wins: number; need: number; won: boolean; lost: boolean; compact?: boolean
 }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, opacity: lost ? 0.5 : 1 }}>
+    // An eliminated club is recessive in the secondary ink and a faded logo, not a faded row: at
+    // 50% the seed and name fell to 3.2:1 on white.
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, ...(lost ? { '& .MuiTypography-root': { color: 'text.secondary' } } : null) }}>
       <Typography sx={{ width: '1rem', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.disabled', textAlign: 'right' }}>
         {t.seed ?? ''}
       </Typography>
       {t.real
-        ? <LogoBubble teamId={t.id} abbr={t.abbr} size={26} />
-        : <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', border: '1.5px dashed', borderColor: 'divider', flexShrink: 0 }} />}
+        ? <Box sx={{ display: 'flex', opacity: lost ? 0.5 : 1 }}><LogoBubble teamId={t.id} abbr={t.abbr} size={26} /></Box>
+        : <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', border: '1.5px dashed', borderColor: 'outline', flexShrink: 0 }} />}
       <Typography
-        // A link to the club, inside a card that is a button: both handlers stop here, so a tap or
-        // an Enter on the club opens the club and not the series too. The keydown stop matters as
-        // much as the click's: the card's Enter handler would otherwise preventDefault the link's
-        // own activation and open the series instead.
-        {...(t.real && onTeamClick ? (() => {
-          const link = teamLink(t.id, onTeamClick) as { onClick?: (e: React.MouseEvent) => void }
-          return {
-            ...link,
-            onClick: (e: React.MouseEvent) => { e.stopPropagation(); link.onClick?.(e) },
-            onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') e.stopPropagation() },
-          }
-        })() : {})}
         sx={{
-          ...LINK_SX, display: 'block',
           flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600,
           color: t.real ? 'text.primary' : 'text.secondary',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          ...(t.real && onTeamClick ? { cursor: 'pointer', ...FOCUS_RING } : {}),
         }}
       >
         {t.real && !compact ? (TEAM_NICKNAME[t.id] ?? t.abbr) : t.abbr}
@@ -123,41 +111,40 @@ function TeamRow({ t, wins, need, won, lost, onTeamClick, compact = false }: {
   )
 }
 
-function SeriesCard({ s, season, onOpen, onTeamClick, compact = false }: {
-  s: PsSeries; season: number; onOpen: () => void; onTeamClick?: (id: number) => void; compact?: boolean
+function SeriesCard({ s, season, onOpen, compact = false }: {
+  s: PsSeries; season: number; onOpen: () => void; compact?: boolean
 }) {
-  const isDark = useIsDark()
+  const tone = useTextTone()
   const status = seriesStatus(s, compact)
   const winnerCol = s.winnerId != null ? TEAM_BG[s.winnerId] : undefined
   const need = winsNeeded(s)
-  // Home's compact card opens the series and nothing else. Its club names fill the card's width,
-  // so as links they took nearly every tap and the series sheet was all but unreachable; the
-  // sheet carries the same club links one tap later. Standings' full card keeps them.
-  const teamClick = compact ? undefined : onTeamClick
-  // A real link to the series' address. The whole card when it holds no other link; otherwise the
-  // series label carries the href and the card keeps the click (rowClick), since an anchor around
-  // the club links would swallow them.
+  // THE WHOLE CARD OPENS THE SERIES, and nothing on it is another link. The club names fill the
+  // card's width, so as team links they took nearly every tap and the series sheet was all but
+  // unreachable, on Home first and then on Standings; the sheet carries the same club links one
+  // tap later. A real link to the series' address, so it also opens in a new tab.
   const href = mlbSeriesPath(season, s.id)
-  const whole = !teamClick
   return (
-    <Box {...(whole ? linkPress(href, onOpen) : rowClick(onOpen))} sx={{
+    <Box {...linkPress(href, onOpen)} sx={{
       ...LINK_SX, display: 'block',
       borderRadius: 2.5, border: '1px solid',
-      borderColor: winnerCol ? borderAlpha(winnerCol, isDark) : 'divider',
+      // The site's card outline, not `divider`, which left an undecided series barely separated
+      // from the page. A winner's colour goes through the theme's readable tone first: most clubs'
+      // primaries are navy or brown, and drawn raw on the dark page a decided series had no edge.
+      borderColor: winnerCol ? tone(winnerCol) : CARD_BORDER,
       bgcolor: 'background.paper', px: 1.5, py: 1, cursor: 'pointer',
       ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
     }}>
       {/* The length stays on Home's compact card too: it is the one word on the card that says series. */}
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
-        <Typography {...(whole ? {} : linkPress(href, onOpen))} sx={{ ...LINK_SX, display: 'block', flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...FOCUS_RING }}>
+        <Typography sx={{ display: 'block', flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', }}>
           {s.label}
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap', flexShrink: 0 }}>
           Best of {s.bestOf}
         </Typography>
       </Box>
-      <TeamRow compact={compact} t={s.top} wins={s.winsTop} need={need} won={s.winnerId === s.top.id} lost={s.winnerId != null && s.winnerId !== s.top.id} onTeamClick={teamClick} />
-      <TeamRow compact={compact} t={s.bottom} wins={s.winsBottom} need={need} won={s.winnerId === s.bottom.id} lost={s.winnerId != null && s.winnerId !== s.bottom.id} onTeamClick={teamClick} />
+      <TeamRow compact={compact} t={s.top} wins={s.winsTop} need={need} won={s.winnerId === s.top.id} lost={s.winnerId != null && s.winnerId !== s.top.id} />
+      <TeamRow compact={compact} t={s.bottom} wins={s.winsBottom} need={need} won={s.winnerId === s.bottom.id} lost={s.winnerId != null && s.winnerId !== s.bottom.id} />
       {status.text && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5, pt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
           {status.live && <LiveDot size={6} />}
@@ -243,7 +230,8 @@ const TREE_ONLY = { display: { xs: 'none', lg: 'block' } } as const
 const TREE_ROWS: [SeriesId, SeriesId][] = [['F_2', 'D_1'], ['F_1', 'D_2'], ['F_4', 'D_3'], ['F_3', 'D_4']]
 const TREE_COLS = `minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr)`
 const ROW_GAP = chromePx(10)
-const LINE = { position: 'absolute', borderColor: 'divider', borderStyle: 'solid', borderWidth: 0 } as const
+// The connectors take the cards' outline colour, so the tree reads as one drawing.
+const LINE = { position: 'absolute', borderColor: CARD_BORDER, borderStyle: 'solid', borderWidth: 0 } as const
 
 /** Two cards joining into one, as an elbow from the middle of each to the middle of the next.
  *  The rows are equal (gridAutoRows 1fr), so for both joins, the Division Series pair over two
@@ -384,12 +372,12 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
         )}
         <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(inRound.length, compact), gap: 1 }}>
           {inRound.map(s => (
-            <SeriesCard key={s.id} s={s} season={bracket.season} compact={compact} onOpen={() => setOpenId(s.id)} onTeamClick={onTeamClick} />
+            <SeriesCard key={s.id} s={s} season={bracket.season} compact={compact} onOpen={() => setOpenId(s.id)} />
           ))}
         </Box>
       </Box>
       {!compact && (
-        <BracketTree cell={id => <SeriesCard s={bracket.series[id]} season={bracket.season} onOpen={() => setOpenId(id)} onTeamClick={onTeamClick} />} />
+        <BracketTree cell={id => <SeriesCard s={bracket.series[id]} season={bracket.season} onOpen={() => setOpenId(id)} />} />
       )}
       {openSeries && (
         <Suspense fallback={null}>

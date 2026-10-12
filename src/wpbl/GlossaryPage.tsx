@@ -22,7 +22,6 @@ import { Box, Typography } from '@mui/material'
 import { STAT_TERMS, WPBL_RULES, statFull, type RuleSource } from './glossary'
 import { useEraBasis } from './EraBasisContext'
 import { TYPE_SCALE } from './ui'
-import { WPBL_ACCENT } from './constants'
 import WpblPage from './WpblPage'
 import { GlossaryRules, GlossaryTerms } from '../ui/Glossary'
 
@@ -74,7 +73,7 @@ export default function WpblGlossaryPage() {
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <GlossaryRules title="How the league works" rules={WPBL_RULES} badge={s => SOURCE_BADGE[s as RuleSource]} />
-        <GlossaryTerms groups={GROUPS} term={term} accent={WPBL_ACCENT} />
+        <GlossaryTerms groups={GROUPS} term={term} accent="var(--wpbl-accent-fg)" />
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.5 }}>
           Not affiliated with the WPBL. Where a rule is not published by the league, this page says
           so and shows how it was worked out.

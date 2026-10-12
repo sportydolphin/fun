@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { edge } from '../ui/card'
 import { Box, Typography } from '@mui/material'
 import { computeStandings, fetchWpblAllLines, fetchWpblAllPitchPlays } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
@@ -142,7 +143,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
       transition: 'border-color 0.15s',
       // On a phone a bare :hover latches on tap, so the card a reader opened stayed ringed in
       // its club colour behind them, reading as selected rather than as opened.
-      ...hoverOnly({ borderColor: accent }),
+      ...hoverOnly({ borderColor: edge(accent) }),
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
         {ranked && (

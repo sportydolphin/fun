@@ -18,7 +18,7 @@ import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 import { nameStages } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
-import { TYPE_SCALE, CARD_BORDER } from '../ui/card'
+import { TYPE_SCALE, CARD_BORDER, edge } from '../ui/card'
 export { TYPE_SCALE, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, SectionCard, Chevron } from '../ui/card'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
 export { ModalShell, usePhoneLayout, AfterShellEnters } from '../ui/ModalShell'
@@ -353,7 +353,9 @@ export function TeamBadge({ team, size = 34, ring }: {
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
       borderRadius: '50%', flexShrink: 0,
       bgcolor: wpblColor(team.id),
-      border: `2px solid ${ring ?? wpblSecondary(team.id)}`,
+      // Through edge(): a club's secondary can sit close to the page (Firebells red on the dark
+      // page measured 1.8:1), and the ring is the badge's edge. CLAUDE.md, "Borders".
+      border: '2px solid', borderColor: edge(ring ?? wpblSecondary(team.id)),
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
       {logo
@@ -415,7 +417,7 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
       borderRadius: square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
       bgcolor: wpblColor(teamId),
       ...(placeholder ? { backgroundImage: `url(${placeholder})`, backgroundSize: 'cover' } : {}),
-      border: `2px solid ${ring ?? wpblSecondary(teamId)}`,
+      border: '2px solid', borderColor: edge(ring ?? wpblSecondary(teamId)),
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
       {art
@@ -657,9 +659,8 @@ export function RailArrow({ dir, show, onClick, label }: {
 }) {
   return (
     <Box
-      onClick={onClick}
+      {...pressable(onClick)}
       aria-label={`${dir === 'left' ? 'Previous' : 'More'} ${label}`}
-      role="button"
       tabIndex={-1}
       sx={{
         position: 'absolute', top: '34%', [dir]: -4, transform: 'translateY(-50%)', zIndex: 2,
@@ -846,7 +847,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
   const [open, setOpen] = useState(defaultOpen)
   const canOpen = children != null
   return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', ...sx }}>
+    <Box sx={{ border: '1px solid', borderColor: 'outline', borderRadius: 2, overflow: 'hidden', ...sx }}>
       <Box
         {...(canOpen ? {
           onClick: () => setOpen(o => !o),

@@ -2,6 +2,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Box, Typography, Divider, CircularProgress,
 } from '@mui/material'
+import { pressable } from './ui/interaction'
 import { CheckCircle, Cancel } from '@mui/icons-material'
 import { usernameValidationMsg } from './lib/usernames'
 import { PasswordChecklist } from './PasswordChecklist'
@@ -87,7 +88,7 @@ export default function AuthDialogs({
           <DialogContent sx={{ pt: '8px !important' }}>
 
             {mode === 'reset' && !successMsg && (
-              <Box sx={{ mb: 2, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ mb: 2, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'outline' }}>
                 <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.5 }}>
                   Enter the email you sign in with and we'll send a link that lets you choose a new password.
                 </Typography>
@@ -96,7 +97,7 @@ export default function AuthDialogs({
 
             {/* Context blurb for sign-up prompt */}
             {mode === 'signup' && !successMsg && (
-              <Box sx={{ mb: 2, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ mb: 2, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'outline' }}>
                 <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.5 }}>
                   Save your followed team and players so they sync across all your devices.
                 </Typography>
@@ -184,7 +185,7 @@ export default function AuthDialogs({
                   <Box sx={{ mt: 0.75, textAlign: 'right' }}>
                     <Typography
                       component="span"
-                      onClick={() => goToMode('reset')}
+                      {...pressable(() => goToMode('reset'))}
                       sx={{ fontSize: '0.78rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { color: 'text.primary' } }}
                     >
                       Forgot password?
@@ -235,7 +236,7 @@ export default function AuthDialogs({
                 <Box sx={{ mt: 1.5, textAlign: 'center' }}>
                   <Typography
                     component="span"
-                    onClick={mode === 'reset' ? () => goToMode('signin') : switchMode}
+                    {...pressable(mode === 'reset' ? () => goToMode('signin') : switchMode)}
                     sx={{ fontSize: '0.8rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { color: 'text.primary' } }}
                   >
                     {mode === 'reset' ? 'Back to sign in'

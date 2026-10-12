@@ -15,6 +15,7 @@
 // pull that section's chunk into the main bundle for every visitor, in production, to serve a
 // control that only exists in dev.
 
+import { pressable } from '../ui/interaction'
 import React, { lazy, Suspense, useSyncExternalStore } from 'react'
 import { Box, Typography, Popover, Tooltip, Divider, Button } from '@mui/material'
 import { Settings } from '@mui/icons-material'
@@ -129,13 +130,13 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
     <>
       <Tooltip title={on ? `Dev settings: ${active.length} override${active.length === 1 ? '' : 's'} on` : 'Dev settings (local only)'}>
         <Box
-          onClick={e => setAnchor(e.currentTarget)}
+          {...pressable(e => setAnchor(e.currentTarget))}
           sx={{
             position: 'relative', flexShrink: 0, mr: 0.25,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, borderRadius: '50%', cursor: 'pointer',
             color: anchor || on ? 'warning.main' : 'text.disabled',
-            border: '1px solid', borderColor: anchor || on ? 'warning.main' : 'divider',
+            border: '1px solid', borderColor: anchor || on ? 'warning.main' : 'outline',
             '&:hover': { color: 'warning.main', borderColor: 'warning.main' },
             transition: 'color 0.15s, border-color 0.15s',
           }}
@@ -401,7 +402,7 @@ function LiveGameSimControls() {
               width: '100%', mb: 0.75, px: 1, py: 0.6, borderRadius: 1.5,
               fontSize: '0.72rem', fontWeight: 600,
               color: 'text.primary', bgcolor: 'background.paper',
-              border: '1px solid', borderColor: 'divider',
+              border: '1px solid', borderColor: 'outline',
             }}
           >
             {games.map(g => (
@@ -487,7 +488,7 @@ function SurfaceControls() {
           <Box key={String(v)} component="button" type="button" onClick={() => setSurfacePrefs({ [key]: v } as Partial<SurfacePrefs>)} sx={{
             font: 'inherit', fontSize: '0.72rem', fontWeight: on ? 800 : 600, cursor: 'pointer',
             px: 1, py: 0.35, borderRadius: 999, border: '1px solid',
-            borderColor: on ? 'primary.main' : 'divider',
+            borderColor: on ? 'primary.main' : 'outline',
             color: on ? 'primary.main' : 'text.secondary', bgcolor: 'transparent',
           }}>{label(v)}</Box>
         )

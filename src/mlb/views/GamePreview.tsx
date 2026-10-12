@@ -2,12 +2,14 @@
 // season-stat comparison bars) shown from the Scores scoreboard and the team
 // ScheduleStrip. Extracted from FinalGames.tsx.
 
+import { pressable } from '../../ui/interaction'
+import { edge } from '../../ui/card'
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, textTone } from '../lib/colorUtils'
+import { useIsDark, accentColor, textTone } from '../lib/colorUtils'
 import { ModalShell, useOpensAsPanel } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
@@ -354,21 +356,21 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
     const clickable  = !loading && !!pitcher && !!onPlayerClick
     return (
       <Box
-        onClick={clickable ? () => { onPlayerClick!(pitcher!.id); onClose() } : undefined}
+        {...pressable(clickable ? () => { onPlayerClick!(pitcher!.id); onClose() } : undefined)}
         sx={{
           flex: 1, p: 1.5, borderRadius: 2,
           bgcolor: `${teamColor}10`,
-          border: '1px solid', borderColor: borderAlpha(teamColor, isDark),
+          border: '1px solid', borderColor: edge(teamColor),
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
           cursor: clickable ? 'pointer' : 'default',
           transition: 'border-color 0.15s',
-          ...(clickable ? { '&:hover': { borderColor: `${teamColor}60` } } : {}),
+          ...(clickable ? { '&:hover': { borderColor: edge(teamColor) } } : {}),
         }}
       >
         {/* Headshot (or its shimmer while loading) */}
         <Box sx={{
           width: chromePx(58), height: chromePx(70), borderRadius: 1.5, overflow: 'hidden',
-          border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`, bgcolor: 'action.hover', flexShrink: 0,
+          border: '2px solid', borderColor: edge(teamColor), bgcolor: 'action.hover', flexShrink: 0,
           ...(loading ? shimmerSx : {}),
         }}>
           {!loading && (pitcher ? (
@@ -441,7 +443,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
 
   const teamSide = (t: { teamId: number; abbr: string }) => (
     <Box
-      onClick={onTeamClick ? () => { onTeamClick(t.teamId); onClose() } : undefined}
+      {...pressable(onTeamClick ? () => { onTeamClick(t.teamId); onClose() } : undefined)}
       sx={{
         flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6,
         cursor: onTeamClick ? 'pointer' : 'default',
@@ -476,11 +478,11 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
           <MlbCopyLink target={{ kind: 'game', gamePk: game.gamePk }} title="Copy a link to this game" />
           {(onPrev || onNext) && <>
-            <Box onClick={onPrev} aria-label="Previous game" role="button"
+            <Box {...pressable(onPrev)} aria-label="Previous game"
               sx={{ ...navArrowSx, visibility: onPrev ? 'visible' : 'hidden' }}>
               <ChevronLeft sx={{ fontSize: '1.2rem' }} />
             </Box>
-            <Box onClick={onNext} aria-label="Next game" role="button"
+            <Box {...pressable(onNext)} aria-label="Next game"
               sx={{ ...navArrowSx, visibility: onNext ? 'visible' : 'hidden' }}>
               <ChevronRight sx={{ fontSize: '1.2rem' }} />
             </Box>

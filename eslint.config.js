@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 import unusedImports from 'eslint-plugin-unused-imports'
 import globals from 'globals'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
 
 // THE LINT, run in CI beside tsc, the tests and the build (.github/workflows/ci.yml).
 //
@@ -25,6 +26,31 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  // ACCESSIBILITY, the static half. The layout sweep runs axe on the rendered pages for what only a
+  // browser can see (contrast, names, labels); this catches what is wrong in the source before it
+  // renders, chiefly a click handler on something a keyboard cannot reach. 130 of those had built
+  // up by Oct 2026: the account menu, the footer's Feedback and What's new, every carousel arrow.
+  // MUI's Box is read as the element its `component` prop names, so `<Box onClick>` is a div.
+  {
+    files: ['src/**/*.tsx'],
+    plugins: { 'jsx-a11y': jsxA11y },
+    settings: { 'jsx-a11y': { polymorphicPropName: 'component', components: { Box: 'div', Typography: 'p', Stack: 'div' } } },
+    rules: {
+      ...jsxA11y.configs.recommended.rules,
+      // A control is something you click or press. Pointer hover, an image's onError and a scroll
+      // listener are not, and the stock list counts them.
+      ...Object.fromEntries(['no-static-element-interactions', 'no-noninteractive-element-interactions'].map(r => [`jsx-a11y/${r}`, ['error', {
+        handlers: ['onClick', 'onMouseDown', 'onMouseUp', 'onKeyPress', 'onKeyDown', 'onKeyUp'],
+      }]])),
+      // OFF: every autoFocus here is a dialog putting the cursor in its first field, which is the
+      // behaviour a dialog is expected to have.
+      'jsx-a11y/no-autofocus': 'off',
+      // OFF: deprecated by the plugin itself in favour of label-has-associated-control.
+      'jsx-a11y/label-has-for': 'off',
+      // A `tabIndex={collapsible ? 0 : undefined}` beside a role that is set on the same condition.
+      'jsx-a11y/no-noninteractive-tabindex': ['error', { allowExpressionValues: true }],
+    },
+  },
   {
     files: ['**/*.{js,mjs,ts,tsx}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },

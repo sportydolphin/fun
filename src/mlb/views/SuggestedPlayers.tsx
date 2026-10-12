@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { pressable } from '../../ui/interaction'
+import { edge } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT_TEXT, CURRENT_SEASON, TONE } from '../constants'
 import { chromePx, typePx } from '../../ui/scale'
@@ -91,24 +93,24 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, large }: {
 
   return (
     <Box
-      onClick={alreadyFollowed ? undefined : onFollow}
+      {...pressable(alreadyFollowed ? undefined : onFollow)}
       sx={{
       flexShrink: 0,
       display: 'flex', alignItems: 'center', gap: 0.75,
       px: 1, py: large ? 0.9 : 0.75, borderRadius: 2,
       border: '1px solid',
-      borderColor: player.isTeamPlayer ? `${col}40` : 'divider',
+      borderColor: player.isTeamPlayer ? edge(col) : 'outline',
       bgcolor:     player.isTeamPlayer ? `${col}08` : 'transparent',
       minWidth: large ? 0 : chromePx(138),
       cursor: alreadyFollowed ? 'default' : 'pointer',
       transition: 'border-color 0.15s, background-color 0.15s',
-      '&:hover': alreadyFollowed ? {} : { borderColor: `${col}60`, bgcolor: `${col}10` },
+      '&:hover': alreadyFollowed ? {} : { borderColor: edge(col), bgcolor: `${col}10` },
     }}>
       {/* Headshot */}
       <Box sx={{
         width: large ? chromePx(32) : chromePx(28), height: large ? chromePx(32) : chromePx(28), borderRadius: '50%',
         overflow: 'hidden', bgcolor: 'action.hover',
-        flexShrink: 0, border: `1.5px solid ${col}40`,
+        flexShrink: 0, border: '1.5px solid', borderColor: edge(col),
       }}>
         <Box component="img" src={HEADSHOT(player.id)} alt={player.fullName}
           sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
@@ -170,7 +172,7 @@ export function SuggestedPlayersSection({ teamId, followedPlayerIds, onFollow }:
 
   return (
     <Box sx={{
-      borderRadius: 3, border: '1px solid', borderColor: 'divider',
+      borderRadius: 3, border: '1px solid', borderColor: 'outline',
       bgcolor: 'background.paper', overflow: 'hidden',
     }}>
       {/* Header */}

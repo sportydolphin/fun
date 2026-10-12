@@ -166,7 +166,7 @@ export default function AwardsWinnersExport({ winners }: { winners: ShareCardDat
           ...TAPPABLE, ...FOCUS_RING, alignSelf: 'flex-start', cursor: 'pointer',
           display: 'inline-flex', alignItems: 'center', gap: chromePx(6),
           borderRadius: 999, px: chromePx(12), py: chromePx(6),
-          border: '1px dashed', borderColor: 'var(--wpbl-accent-solid)', color: 'var(--wpbl-accent-solid)',
+          border: '1px dashed', borderColor: 'var(--wpbl-accent-fg)', color: 'var(--wpbl-accent-fg)',
           ...hoverOnly({ bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', borderStyle: 'solid' }),
         }}
       >

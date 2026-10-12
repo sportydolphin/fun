@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { pressable } from '../../ui/interaction'
+import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME, TONE } from '../constants'
 import { fmtGB, useIsDark, highlightColor } from '../lib/colorUtils'
@@ -101,7 +103,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
   const showSeparator = lastPlayoffIdx >= 0 && lastPlayoffIdx < teams.length - 1
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* Division header, a prominent label */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>
@@ -281,7 +283,7 @@ function PlayoffTeamRow({ team, gbText, isLast, showSep, onTeamClick, highlightT
           {team.streakCode || '—'}
         </Typography>
       </Box>
-      {showSep && <Box sx={{ borderBottom: '2px solid', borderColor: ACCENT }} />}
+      {showSep && <Box sx={{ borderBottom: '2px solid', borderColor: ACCENT_EDGE }} />}
     </>
   )
 }
@@ -322,7 +324,7 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick, highlightT
     cutoff ? ((t.wins - cutoff.wins) + (cutoff.losses - t.losses)) / 2 : 0
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* League header */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
@@ -435,12 +437,12 @@ export function Standings({ season, onTeamClick, highlightTeamId, charts, charts
       {/* Dev-only: open the icon-styling tuner */}
       {import.meta.env.DEV && (
         <Box
-          onClick={() => setStudioOpen(true)}
+          {...pressable(() => setStudioOpen(true))}
           sx={{
             position: 'absolute', top: chromePx(-4), right: 0, zIndex: 3,
             px: 1.1, py: 0.4, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
             fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
-            border: '1px solid', borderColor: 'divider',
+            border: '1px solid', borderColor: 'outline',
             '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
           }}
         >

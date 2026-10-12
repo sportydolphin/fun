@@ -95,9 +95,15 @@ dependency list at all, the directive goes above the hook call, not above its cl
 
 ## The layout sweep
 
-`scripts/layout-sweep.mjs` drives Chrome against the dev server and checks two things at four
-widths (375, 760, 960, 1440) and both text sizes: text that overflows its box, and anything that
-moves when a page's skeleton is replaced by its content (the loading-states rule in CLAUDE.md).
+`scripts/layout-sweep.mjs` drives Chrome against the dev server and checks four things at four
+widths (375, 760, 960, 1440) and both text sizes: text that overflows its box, anything that
+moves when a page's skeleton is replaced by its content (the loading-states rule in CLAUDE.md),
+every outline under 3:1 against what is behind it (the borders rule), and the axe-core rules in
+`AXE_RULES`: text contrast, and a name on every control, link, image and input (the
+accessibility rule). The last two run in the light theme and then the dark one on the same load.
+A border finding prints its ratio, the colour and the start of the box's text; an axe finding
+prints the rule, the element's HTML and axe's own explanation, which is usually enough to find
+the component. A rule goes into `AXE_RULES` only once it reads clean on every page.
 
 In CI it runs in **replay** mode: every response comes from
 `scripts/fixtures/layout-sweep.json.gz`, recorded from real data, with the clock frozen at the

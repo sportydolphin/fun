@@ -205,7 +205,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           sx={{
             flex: 1, minWidth: 0, font: 'inherit', fontSize: '0.9rem',
             color: 'text.primary', bgcolor: 'background.paper',
-            border: '1px solid', borderColor: 'divider', borderRadius: 999,
+            border: '1px solid', borderColor: 'outline', borderRadius: 999,
             px: 1.75, py: 0.9, outline: 'none',
             '&::placeholder': { color: 'text.disabled' },
             '&:focus': { borderColor: 'text.secondary' },

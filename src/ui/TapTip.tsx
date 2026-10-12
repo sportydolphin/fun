@@ -121,6 +121,9 @@ export function TapTip({ title, children, sx, component, popperZIndex, ariaLabel
       disableHoverListener={!canHover}
       disableFocusListener={!canHover}
     >
+      {/* The tap is the touch stand-in for hover, on a device with no keyboard; with a pointer the
+          tooltip opens on hover and focus, and an `ariaLabel` anchor is a focusable button. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
       <Box
         ref={anchorRef}
         component={component}

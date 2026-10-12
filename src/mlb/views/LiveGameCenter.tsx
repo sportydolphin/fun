@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { edge } from '../../ui/card'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, HEADSHOT, TONE } from '../constants'
-import { useIsDark, accentColor, chartPairColors, inkOn, textTone, borderAlpha, photoBorderAlpha, useTextTone } from '../lib/colorUtils'
+import { useIsDark, accentColor, chartPairColors, inkOn, textTone, useTextTone } from '../lib/colorUtils'
 import { ModalShell, useOpensAsPanel, usePhoneLayout } from '../../ui/ModalShell'
 import { BoxTeamHeading, BoxTeamSwitch, HalfHeading, PlayRow, RUN_GREEN, PLAY_TEXT_SX, PLAY_DETAIL_SX, PLAY_COUNT_SX, PLAY_STATE_SX } from '../../ui/gameCenter'
 import { BaseDiamond, OutDots } from '../../ui/BaseDiamond'
@@ -331,20 +332,20 @@ function MatchupCard({ label, player, teamId, onSelect }: {
   const accent = accentColor(col, isDark)
   return (
     <Box
-      onClick={player && onSelect ? () => onSelect(player.id) : undefined}
+      {...pressable(player && onSelect ? () => onSelect(player.id) : undefined)}
       sx={{
         flex: 1, minWidth: 0, p: 1.25, borderRadius: 2,
         bgcolor: `${col}10`,
-        border: '1px solid', borderColor: borderAlpha(col, isDark),
+        border: '1px solid', borderColor: edge(col),
         display: 'flex', alignItems: 'center', gap: 1,
         cursor: player && onSelect ? 'pointer' : 'default',
         transition: 'border-color 0.15s',
-        ...(player && onSelect ? { '&:hover': { borderColor: `${col}60` } } : {}),
+        ...(player && onSelect ? { '&:hover': { borderColor: edge(col) } } : {}),
       }}
     >
       <Box sx={{
         width: chromePx(40), height: chromePx(50), borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
-        border: `2px solid ${photoBorderAlpha(col, isDark)}`, bgcolor: 'action.hover',
+        border: '2px solid', borderColor: edge(col), bgcolor: 'action.hover',
       }}>
         {player && (
           <Box component="img"
@@ -494,7 +495,7 @@ function WinProbChart({ pts, plays, away, home, live, marks = [] }: {
   const now = live ? `${last >= 50 ? home.abbr : away.abbr} ${Math.round(last >= 50 ? last : 100 - last)}%` : null
 
   return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+    <Box sx={{ border: '1px solid', borderColor: 'outline', borderRadius: 2, overflow: 'hidden' }}>
       <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>Win probability</Typography>
         {now && (
@@ -1070,7 +1071,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
         px: 1.25, py: 0.6, borderRadius: 99, cursor: 'pointer', userSelect: 'none',
         fontSize: GC_CAPS, fontWeight: 800, lineHeight: 1,
         color: scoringOnly === value ? 'text.primary' : 'text.secondary',
-        border: '1px solid', borderColor: scoringOnly === value ? 'text.secondary' : 'divider',
+        border: '1px solid', borderColor: scoringOnly === value ? 'text.secondary' : 'outline',
         transition: 'all 0.15s',
       }}
     >
@@ -1340,7 +1341,7 @@ function GamePageLayout({ gamePk, heading, eyebrow, actions, onBack, header, awa
   }
 
   const cardSx = {
-    bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden',
+    bgcolor: 'background.paper', border: '1px solid', borderColor: 'outline', borderRadius: 3, overflow: 'hidden',
   } as const
   // Clear of the toolbar and the jump bar when a link lands a section at the top.
   const scrollMarginTop = `calc(var(--app-header-h, 0px) + ${chromePx(56)})`

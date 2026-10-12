@@ -90,7 +90,7 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
         <Box sx={{ width: '0.875rem', flexShrink: 0 }} />
         <Box sx={{
           width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-          border: '1px dashed', borderColor: 'divider',
+          border: '1px dashed', borderColor: 'outline',
         }} />
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', flex: 1, minWidth: 0 }}>
           {placeholder ?? 'Semifinal winner'}
@@ -111,8 +111,10 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
         position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 1.1, minWidth: 0,
         // The club that is through, or ahead, carries the only weight in the box. Everything
-        // else stays flat so the eye lands on it without reading the numbers.
-        opacity: beaten ? 0.45 : 1,
+        // else stays flat so the eye lands on it without reading the numbers. A BEATEN CLUB IS
+        // SET IN THE SECONDARY INK, NOT FADED: the whole row at 45% took its seed and name down to
+        // 2.75:1, unreadable rather than recessive. Only the badge fades.
+        ...(beaten ? { '& .MuiTypography-root': { color: 'text.secondary' } } : null),
       }}
     >
       {/* The fill. Behind everything, so the name is read against it rather than beside it, and
@@ -128,7 +130,7 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
         fontSize: TYPE_SCALE.caption, fontWeight: 800,
         color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
       }}>{seed ?? ''}</Typography>
-      <Box sx={{ position: 'relative', flexShrink: 0, display: 'flex' }}><TeamBadge team={team} size={26} /></Box>
+      <Box sx={{ position: 'relative', flexShrink: 0, display: 'flex', opacity: beaten ? 0.45 : 1 }}><TeamBadge team={team} size={26} /></Box>
       <Typography sx={{
         position: 'relative', flex: 1, minWidth: 0, fontSize: TYPE_SCALE.heading, lineHeight: 1.15,
         fontWeight: leading ? 900 : 700,

@@ -8,6 +8,7 @@
 // This module is lazy-loaded and gated behind import.meta.env.DEV, so it is
 // stripped from production builds entirely.
 
+import { pressable } from '../../ui/interaction'
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
@@ -101,7 +102,7 @@ function SwatchRow({ label, colors, value, onPick }: {
           return (
             <Box
               key={c}
-              onClick={() => onPick(c)}
+              {...pressable(() => onPick(c))}
               title={c}
               sx={{
                 width: 22, height: 22, borderRadius: '50%', cursor: 'pointer',
@@ -132,7 +133,7 @@ function LogoPicker({ id, style, onPick }: {
         {LOGO_VARIANTS.map(v => {
           const active = v.key === style.logo
           return (
-            <Box key={v.key} onClick={() => onPick(v.key)} title={v.label} sx={{ cursor: 'pointer', textAlign: 'center' }}>
+            <Box key={v.key} {...pressable(() => onPick(v.key))} title={v.label} sx={{ cursor: 'pointer', textAlign: 'center' }}>
               <Box sx={{
                 width: 34, height: 34, borderRadius: '50%',
                 bgcolor: style.bg,
@@ -193,7 +194,7 @@ function RowPreview({ id, style, dark }: { id: number; style: IconStyle; dark: b
 
 function ArrowBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <Box onClick={onClick} sx={{
+    <Box {...pressable(onClick)} sx={{
       width: 38, height: 38, borderRadius: 1.5, cursor: 'pointer', userSelect: 'none',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: '1.1rem', fontWeight: 800, lineHeight: 1,
@@ -231,10 +232,13 @@ function CropOverlay({ id, style, onChange, onClose }: {
   const lineSx = { position: 'absolute' as const, bgcolor: 'transparent', pointerEvents: 'none' as const, zIndex: 2 }
 
   return (
+    // Dev-only dialog: the scrim closes it on a click, and the panel inside stops that click.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <Box onClick={onClose} sx={{
       position: 'fixed', inset: 0, zIndex: 2700, bgcolor: 'rgba(0,0,0,0.78)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2,
     }}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <Box onClick={e => e.stopPropagation()} sx={{
         bgcolor: '#1b1b1f', color: '#eee', borderRadius: 2, border: '1px solid rgba(255,255,255,0.14)',
         p: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, maxWidth: '94vw',
@@ -306,7 +310,7 @@ function TeamCard({ id, style, dark, onChange }: {
         <Typography sx={{ fontSize: '0.9rem', fontWeight: 800 }}>{TEAM_NICKNAME[id] ?? TEAM_ABBR[id]}</Typography>
         <Typography sx={{ fontSize: '0.62rem', opacity: 0.5, fontWeight: 700 }}>{TEAM_ABBR[id]} · {id}</Typography>
         <Box sx={{ flex: 1 }} />
-        <Box onClick={() => setCropping(true)} sx={{
+        <Box {...pressable(() => setCropping(true))} sx={{
           fontSize: '0.62rem', fontWeight: 700, cursor: 'pointer', userSelect: 'none',
           px: 0.9, py: 0.35, borderRadius: 999,
           border: '1px solid', borderColor: cropped ? '#4ea1ff' : 'rgba(128,128,128,0.4)',
@@ -352,10 +356,13 @@ function ExportOverlay({ text, onClose }: { text: string; onClose: () => void })
     navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
   }, [text])
   return (
+    // Dev-only dialog: the scrim closes it on a click, and the panel inside stops that click.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <Box onClick={onClose} sx={{
       position: 'fixed', inset: 0, zIndex: 2600, bgcolor: 'rgba(0,0,0,0.7)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2,
     }}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <Box onClick={e => e.stopPropagation()} sx={{
         width: 'min(720px, 94vw)', maxHeight: '86vh', display: 'flex', flexDirection: 'column',
         bgcolor: '#1b1b1f', color: '#eee', borderRadius: 2, border: '1px solid rgba(255,255,255,0.14)', overflow: 'hidden',
@@ -381,7 +388,7 @@ function ExportOverlay({ text, onClose }: { text: string; onClose: () => void })
 
 function StudioButton({ children, onClick, accent }: { children: React.ReactNode; onClick: () => void; accent?: boolean }) {
   return (
-    <Box onClick={onClick} sx={{
+    <Box {...pressable(onClick)} sx={{
       px: 1.5, py: 0.6, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
       fontSize: '0.72rem', fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap',
       bgcolor: accent ? '#2f6df6' : 'rgba(255,255,255,0.1)',

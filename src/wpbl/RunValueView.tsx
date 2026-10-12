@@ -240,7 +240,7 @@ function Formula() {
   const term = (t: string) => (
     <Box component="span" sx={{
       px: 0.9, py: 0.4, borderRadius: 1.5, bgcolor: 'background.paper',
-      border: '1px solid', borderColor: 'divider',
+      border: '1px solid', borderColor: 'outline',
       fontSize: '0.76rem', fontWeight: 700, color: 'text.primary',
     }}>{t}</Box>
   )
@@ -316,7 +316,7 @@ function WorkedPlay({ worked, date, accent }: {
 
   return (
     <Box sx={{
-      border: '1px solid', borderColor: 'divider', borderRadius: 2,
+      border: '1px solid', borderColor: 'outline', borderRadius: 2,
       bgcolor: 'background.paper', px: 1.5, py: 1.25, mt: 1,
     }}>
       <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mb: 0.25 }}>

@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material'
-import { SectionCard } from './ui'
+import { SectionCard, useWpblDark } from './ui'
+import { mixHex, heatCell } from '../lib/contrast'
 import { fmtRunValue } from './derive/runExpectancy'
 import { pitchSwing, countKey } from './derive/countValue'
 import type { CountValue } from './derive/countValue'
@@ -34,6 +35,10 @@ export default function CountBoard({ counts, fullCount, accent }: {
   fullCount: number | null
   accent: string
 }) {
+  const dark = useWpblDark()
+  // The card the grid sits on, and the theme's error red, as hex: the cells are mixed from them.
+  const card = dark ? '#0f1115' : '#ffffff'
+  const neg = dark ? '#f44336' : '#d32f2f'
   const byKey = new Map(counts.map(c => [c.key, c]))
   // Scaled to the widest cell rather than to a fixed range: this league's runs are roughly
   // double a major-league one, so any hardcoded span would wash the whole grid out.
@@ -90,30 +95,33 @@ export default function CountBoard({ counts, fullCount, accent }: {
                 if (!c) {
                   return (
                     <Box key={st} sx={{
-                      borderRadius: 1.5, border: '1px dashed', borderColor: 'divider',
+                      borderRadius: 1.5, border: '1px dashed', borderColor: 'outline',
                       py: 1.4, textAlign: 'center',
                     }}>
                       <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled' }}>—</Typography>
                     </Box>
                   )
                 }
+                // THE FILL FADES, NOT THE CELL. This was `opacity` on the whole cell, which faded the
+                // white figures with it: the palest cells measured 1.4:1. Mixed into the card's own
+                // colour instead, and inked white or near-black by what that fill actually is.
+                const { fill, ink } = heatCell(mixHex(c.per >= 0 ? accent : neg, card, 0.25 + 0.75 * (Math.abs(c.per) / span)))
                 return (
                   <Box key={st} sx={{
                     borderRadius: 1.5, py: 0.9, px: 0.5, textAlign: 'center',
-                    bgcolor: c.per >= 0 ? accent : 'error.main',
-                    opacity: 0.25 + 0.75 * (Math.abs(c.per) / span),
+                    bgcolor: fill, color: ink,
                   }}>
-                    <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: '#fff', opacity: 0.9 }}>
+                    <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: 'inherit' }}>
                       {c.key}
                     </Typography>
                     {/* TWO DECIMALS, not the one place the rest of this board uses. The whole
                         grid lives inside about half a run, so a tenth collapses it: 0-2 and
                         1-2 printed the same figure while one is materially worse than the
                         other, and comparing two cells got no answer from the number. */}
-                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>
+                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 900, color: 'inherit', fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>
                       {fmtRunValue(c.per, 2)}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.5rem', fontWeight: 700, color: '#fff', opacity: 0.85 }}>
+                    <Typography sx={{ fontSize: '0.5rem', fontWeight: 700, color: 'inherit' }}>
                       {c.n.toLocaleString()} PA
                     </Typography>
                   </Box>

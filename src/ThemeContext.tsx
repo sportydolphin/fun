@@ -56,19 +56,22 @@ export const DEFAULT_SURFACES: SurfacePrefs = {
   darkCards: 'flat',
   // 4% white over charcoal lands on about the grey cards used to be, so a sheet looks as it did.
   darkLift: 0.04,
-  // Above the 0.22 divider, so a card's edge still outranks the rules inside it. The flat pages
-  // used 0.46 and the grey ones 0.30.
-  darkOutline: 0.28,
+  // THE OUTLINES ARE HELD TO 3:1 AGAINST THE PAGE, WCAG's floor for the edge of a component
+  // (CLAUDE.md, "Borders"). 0.28 and 0.34 measured 2.49:1 and 2.36:1, so an outline was the faintest
+  // thing a reader had to see to tell where one card ended; 0.34 and 0.42 are where 3:1 lands on
+  // these pages, and these sit a step above so rounding cannot drop them under it. The layout
+  // sweep checks every drawn border against this floor in both themes.
+  darkOutline: 0.36,
   darkFill: 0.08,
-  lightOutline: 0.34,
+  lightOutline: 0.44,
 };
 
 /** What DevSettings offers for each number. */
 export const SURFACE_CHOICES = {
   darkLift: [0.025, 0.04, 0.06, 0.08],
-  darkOutline: [0.16, 0.22, 0.28, 0.34, 0.46],
+  darkOutline: [0.22, 0.28, 0.36, 0.46],
   darkFill: [0.04, 0.06, 0.08],
-  lightOutline: [0.14, 0.2, 0.26, 0.34],
+  lightOutline: [0.26, 0.34, 0.44, 0.52],
 } as const;
 
 const LIGHT_PAGE = '#f6f7f9';
@@ -134,6 +137,15 @@ function readSurfaces(): SurfacePrefs {
 }
 
 declare module '@mui/material/styles' {
+  interface Palette {
+    /** THE EDGE OF A THING: a card, a chip, a button, a box nested in a card. Held to 3:1 against
+     *  the page (CLAUDE.md, "Borders"), where `divider` is the lighter rule BETWEEN rows. Usable in
+     *  any sx as `borderColor: 'outline'`, the same way `'divider'` is. */
+    outline: string;
+  }
+  interface PaletteOptions {
+    outline?: string;
+  }
   interface TypeBackground {
     /** What floats over the page: sheets, panels, menus, the bottom bar. See Surfaces above. */
     raised: string;
@@ -190,11 +202,14 @@ const createAppTheme = (mode: ThemeMode, prefs: SurfacePrefs): Theme => {
       secondary: {
         main: '#dc004e',
       },
+      // The light values are MUI's own light-theme defaults. #4caf50 and #f44336 are its DARK-theme
+      // tones, and as text on white (a W, a loss, a validation message) they measured 2.77:1 and
+      // 3.68:1; these clear 4.5:1 on the page and on a card.
       success: {
-        main: mode === 'dark' ? '#81c784' : '#4caf50',
+        main: mode === 'dark' ? '#81c784' : '#2e7d32',
       },
       error: {
-        main: '#f44336',
+        main: mode === 'dark' ? '#f44336' : '#d32f2f',
       },
       background: {
         default: p.page,
@@ -264,8 +279,28 @@ const createAppTheme = (mode: ThemeMode, prefs: SurfacePrefs): Theme => {
       // selected state, a control whose only boundary is its outline), it should say so at
       // its own call site rather than by dragging this token up under all 257.
       ...(mode === 'dark' ? { divider: 'rgba(255,255,255,0.22)' } : {}),
+
+      // THE OUTLINE IS THAT SEPARATE TOKEN. Everything with an edge on all four sides draws it in
+      // this, held to 3:1, while `divider` above stays the quieter rule between rows. Read through
+      // the CSS variable so the surface settings in DevSettings move it live, like CARD_BORDER.
+      outline: `var(--sd-card-border, ${p.cardBorder})`,
     },
     components: {
+      // MUI's outlined controls draw their own edge at a stock weight (an input's at 23%, a chip's
+      // and a toggle's at `divider`), all under 3:1. Pointed at the outline here, once, rather
+      // than at every call site.
+      MuiOutlinedInput: {
+        styleOverrides: { notchedOutline: { borderColor: `var(--sd-card-border, ${p.cardBorder})` } },
+      },
+      MuiChip: {
+        styleOverrides: { outlined: { borderColor: `var(--sd-card-border, ${p.cardBorder})` } },
+      },
+      MuiToggleButton: {
+        styleOverrides: { root: { borderColor: `var(--sd-card-border, ${p.cardBorder})` } },
+      },
+      MuiButton: {
+        styleOverrides: { outlined: { borderColor: `var(--sd-card-border, ${p.cardBorder})` } },
+      },
       // EVERY MUI PAPER FLOATS: menus, popovers, dialogs, drawers and the toolbar's dropdowns. None
       // of the app's cards is an MUI Paper (they are Boxes on `background.paper`), so this gives
       // the raised tone to exactly the floating layer. `backgroundImage: none` drops MUI's dark

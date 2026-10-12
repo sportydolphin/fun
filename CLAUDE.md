@@ -68,6 +68,28 @@ Violating these creates real problems. Treat them as hard constraints.
   The accepted-findings baseline is empty: fix a finding, don't baseline it. A failure CI sees and
   your machine doesn't is CI's slower runner catching a real loading phase; reproduce it with
   `--cpu 4` and the job's `sweep-shots` artifact ([docs/CI.md](docs/CI.md)).
+- **Borders: every outline is at least 3:1 against what is behind it, in both themes.** WCAG's
+  floor for the edge of a component, and it covers anything bordered on all four sides: a card, a
+  chip, a button, a box nested in a card, a club's ring. Three tokens, in
+  [`src/ui/card.tsx`](src/ui/card.tsx): `borderColor: 'outline'` (the theme's `palette.outline`,
+  which `CARD_BORDER` and `INNER_BORDER` also return) for a plain box, `edge(colour)` for a club's
+  or a status's own colour, which lifts it just far enough, and `ACCENT_EDGE` for the site blue.
+  **Never fade a colour with an alpha suffix to make a border** (`${teamColor}55`): fading can only
+  lower contrast, and most clubs' primaries are navy or brown, which is how the MLB bracket's
+  decided series came out at 1.2:1 on the dark page. `divider` is for the rule BETWEEN rows, one
+  side only, and stays lighter on purpose. The layout sweep measures every outline on every page
+  and fails the `layout` check under 3:1; exempt are row rules, anything disabled or deliberately
+  faded (an eliminated club at 50%), and anything sitting on a photo.
+- **Accessibility is checked twice, and both must stay clean.** The lint runs `eslint-plugin-jsx-a11y`:
+  a click handler on something that is not a link or a button needs `pressable(fn)` from
+  [`src/ui/interaction.ts`](src/ui/interaction.ts) (role, tab stop, Enter and Space), and a link that
+  must also record its open passes the callback to `linkTo(to, onOpen)` rather than adding an
+  `onClick` beside the spread. A scrim or an event barrier is not a control and says so in a
+  disable comment with the reason. The layout sweep runs axe-core on every page in both themes for
+  text contrast and names: an icon-only control needs an `aria-label`, a decorative image `alt=""`.
+  **Never fade text with `opacity`** to make something recessive (an eliminated club, a heatmap
+  cell): it takes the text under 4.5:1 along with everything else. Use the secondary ink, and fade
+  only the logo or the fill (`heatCell` in [`src/lib/contrast.ts`](src/lib/contrast.ts)).
 - **Never commit secrets.** Client build vars live in Cloudflare Pages env plus `.env`;
   edge-function and cron secrets live in Supabase and GitHub Actions (table in
   ARCHITECTURE §9).
