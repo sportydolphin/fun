@@ -174,6 +174,11 @@ export const EVENTS = {
   // exact silence every other card here carries an impression to avoid. SHOWN is the
   // denominator; the click-throughs go through WPBL_COMPARE_OPENED with `from: 'home'`.
   WPBL_COMPARE_SHOWN:  'wpbl_compare_shown',  // Home compare card rendered, props {hasPair}
+  // The offseason Home's player cards (player of the day, birthdays, star sign, hometown), which
+  // replaced a page with no player link on it. SHOWN once per card per visit, props {card}; OPEN
+  // is a tap on any player in them, props {card, playerId}.
+  WPBL_HOME_PLAYERS_SHOWN: 'wpbl_home_players_shown',
+  WPBL_HOME_PLAYER_OPEN:   'wpbl_home_player_open',
   // The .ics calendar reminder on Next game. This is the ONLY reminder path most mobile readers
   // have (Web Push is unsupported on most mobile browsers, which is when this row is shown at
   // all), so without it the reminder feature's real usage is invisible: wpbl_game_reminder_on

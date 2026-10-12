@@ -28,7 +28,7 @@ import { typePx } from '../ui/scale'
  * through a page to keep it would be the four-steps-to-the-fourteenth-post problem Reading was
  * built to fix. Renders nothing until there is a clip.
  */
-export function WatchCard({ from, eyebrow = true, placeholder }: {
+export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   /** Which surface drew it, for the WATCH events: 'home' or 'recap'. */
   from: string
   /** Its own "Watch" label. Off where a section heading above it already says so. */
@@ -37,6 +37,9 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
    *  Home): there, nothing and then a row of posters pushes the page down by the card's height.
    *  Lower down it can keep rendering nothing, since nothing under it is on screen yet. */
   placeholder?: React.ReactNode
+  /** The phone's four posters at every width, stretched to its grid cell: the offseason Home
+   *  draws it in half a row beside Reading, where six would be stamps. */
+  compact?: boolean
 }) {
   // Null until the read answers, which is not the same as no videos.
   const [loaded, setLoaded] = useState<WpblVideo[] | null>(() => getCachedWpblVideos())
@@ -79,6 +82,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
     <Box sx={{
       border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,
       px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1,
+      ...(compact ? { height: '100%', boxSizing: 'border-box' } : null),
     }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
         <Typography sx={{
@@ -91,7 +95,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
           textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
         }}>All videos ›</Box>
       </Box>
-      <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(4, minmax(0, 1fr))', md: 'repeat(6, minmax(0, 1fr))' } }}>
+      <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(4, minmax(0, 1fr))', md: compact ? undefined : 'repeat(6, minmax(0, 1fr))' } }}>
         {row.map((v, i) => (
           <Box
             key={v.video_id}
@@ -101,7 +105,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
             tabIndex={0}
             aria-label={`Play${isNew(v.video_id, v.published_at) ? ' new' : ''} clip: ${v.title}`}
             sx={{
-              display: { xs: i < 4 ? 'block' : 'none', md: 'block' },
+              display: { xs: i < 4 ? 'block' : 'none', md: compact && i >= 4 ? 'none' : 'block' },
               borderRadius: 2, overflow: 'hidden', cursor: 'pointer', position: 'relative',
               ...PLAYABLE_HOVER, ...FOCUS_RING,
             }}
@@ -113,7 +117,7 @@ export function WatchCard({ from, eyebrow = true, placeholder }: {
         ))}
       </Box>
       {eyebrow && (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: compact ? 'auto' : undefined }}>
           {hasBroadcasts ? 'Highlights, condensed games and full broadcasts' : 'Highlights and condensed games'} of {gameIds.length} games, and {clips.length} clips.
         </Typography>
       )}

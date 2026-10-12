@@ -1469,6 +1469,28 @@ is retired.
 
 ## Shipped log
 
+### Oct 12, 2026: the offseason Home leads with players (owner preview)
+
+The offseason Home had no link to a player page, the thing readers open most: the gallery, Reading
+and Watch each point at a hub, and the season card at the recap. Behind `useNewOffseasonHome` in
+`HomePlayers.tsx` (the site owner only, for now), the page becomes:
+
+- **Player of the day** beside the season card: club, position, hometown, birth date, star sign,
+  age, bats and throws, draft slot, and the 2026 line (pitching for a pitcher). One player a day
+  for everyone, walking a fixed shuffle of the 69 who played so nobody repeats until all have had
+  a day; a settled birthday today outranks it. Reads that one player's lines, the read the player
+  page opens with, so a tap through is warm.
+- **Birthdays**, **the star sign whose season it is**, and **a hometown a day** (a region with at
+  least three players), three columns under the gallery, all selected from the roster Home already
+  holds. Birthdays use the Discord channel's settled-dates rule (`birthDateSettled`).
+- **Reading and Watch share a row**, Reading as rows. **The bracket comes off**: the season card
+  carries the final and the recap the whole bracket.
+
+About 20 player links where there were none, and the desktop page 20% shorter. Impressions and
+taps go to `wpbl_home_players_shown` / `wpbl_home_player_open` ("Player cards" on /admin). The
+fan ballot is drawn by both layouts, pinned in `routes.test.ts`. To ship it to everyone, make
+`useNewOffseasonHome` return true, then delete it and the old offseason branches in Home.tsx.
+
 ### Oct 11, 2026: six season series, one page per pairing (v1.156.0)
 
 Winter order item 3. `/wpbl/series/<a>-vs-<b>`, the two club slugs in alphabetical order, one page
