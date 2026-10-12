@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { CARD_BORDER, CARD_FILL, TYPE_SCALE, hoverOnly, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller, NewTag } from './ui'
+import { CARD_BORDER, CARD_FILL, TYPE_SCALE, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller, NewTag, SectionCard, CARD_LINK_SX } from './ui'
 import { SectionHead } from './cardParts'
 import { linkTo } from '../nav'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
@@ -13,7 +13,6 @@ import { watchShelves, videoCredit, videoKindName } from './videoChannels'
 import { HighlightLightbox, VideoThumb, VideoCreditLine, PLAYABLE_HOVER } from './Highlights'
 import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
 import { useNewSince } from './newSince'
-import { typePx } from '../ui/scale'
 
 /**
  * The door to /wpbl/watch: the newest clips as a row of posters, and a link to everything.
@@ -83,23 +82,9 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   // Six posters on a desktop, four on a phone: at 375px six would be a row of stamps.
   const row = clips.slice(0, 6)
   const summary = `${gameIds.length} games, ${clips.length} clips`
-  return (
-    <Box sx={{
-      border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,
-      px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1,
-      ...(compact ? { height: '100%', boxSizing: 'border-box' } : null),
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-        <Typography sx={{
-          flex: 1, minWidth: 0, fontSize: eyebrow ? TYPE_SCALE.micro : TYPE_SCALE.meta,
-          fontWeight: eyebrow ? 800 : 600, letterSpacing: eyebrow ? typePx(0.6) : 0,
-          textTransform: eyebrow ? 'uppercase' : 'none', color: 'text.secondary',
-        }}>{eyebrow ? 'Watch' : summary}</Typography>
-        <Box {...all} onClick={openPage} sx={{
-          flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-solid)',
-          textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-        }}>All videos ›</Box>
-      </Box>
+  const link = <Box {...all} onClick={openPage} sx={CARD_LINK_SX}>All videos ›</Box>
+  const body = (
+    <>
       <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(4, minmax(0, 1fr))', md: compact ? undefined : 'repeat(6, minmax(0, 1fr))' } }}>
         {row.map((v, i) => (
           <Box
@@ -147,6 +132,29 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
         />
       )}
       {fanActive && <HighlightLightbox video={fanActive} onClose={() => setFanActive(null)} />}
+    </>
+  )
+  // Titled like every other card on Home (SectionCard), which is where the labelled card is drawn.
+  // Unlabelled, under a section heading that already says Watch, it keeps a one-line summary
+  // header of its own, since a second "Watch" title there would only repeat the heading.
+  if (eyebrow) {
+    return (
+      <SectionCard title="Watch" fill={compact} action={link}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, ...(compact ? { flex: 1 } : null) }}>{body}</Box>
+      </SectionCard>
+    )
+  }
+  return (
+    <Box sx={{
+      border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,
+      px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1,
+      ...(compact ? { height: '100%', boxSizing: 'border-box' } : null),
+    }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>{summary}</Typography>
+        {link}
+      </Box>
+      {body}
     </Box>
   )
 }

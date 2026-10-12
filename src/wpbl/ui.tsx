@@ -12,7 +12,7 @@ import { wpblPortraitSet, type WpblPortraitSet } from './portraits'
 import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
 import { useWpblPlayerLink } from './LinkContext'
-import { TAPPABLE, tappableIf, pressable, FOCUS_RING } from '../ui/interaction'
+import { TAPPABLE, tappableIf, pressable, FOCUS_RING, hoverOnly } from '../ui/interaction'
 import { chromePx, typePx } from '../ui/scale'
 import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 import { nameStages } from '../ui/names'
@@ -322,6 +322,15 @@ export const cardFooterBand = (isDark: boolean) => ({
   bgcolor: isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.022)',
   display: 'flex', alignItems: 'center', gap: 1,
 } as const)
+
+/** A card header's "All 41 posts ›" link, in SectionCard's `action`. One style for every Home card
+ *  that points at a hub, because the offseason page stacks five of them and each drew its own:
+ *  grey with an arrow on the gallery, accent with a chevron on Reading, in two accent tokens.
+ *  `--wpbl-accent-fg` rather than `-solid`, which is a fill colour and fails as text in dark mode. */
+export const CARD_LINK_SX = {
+  flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+  textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+} as const
 
 // Team badge: the one logo/color chip used across the section (schedule, standings,
 // team grid, box scores). A team-color circle ringed in the team's secondary hue (so

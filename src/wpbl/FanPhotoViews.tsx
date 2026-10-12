@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
-import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx, TextGhost } from './ui'
+import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx, TextGhost, CARD_LINK_SX } from './ui'
 import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
 import { SectionHead } from './cardParts'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
@@ -692,11 +692,7 @@ export function FanPhotoHomeCard({ reserve = false }: {
       <SectionCard
         title="2026 Gallery"
         action={
-          <Box {...seeAll} sx={{
-            textDecoration: 'none', fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
-            '&:hover': { color: 'text.primary' },
-            '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 1 },
-          }}>See all {photos.length} →</Box>
+          <Box {...seeAll} sx={CARD_LINK_SX}>All {photos.length} photos ›</Box>
         }
       >
         {/* Edge to edge on a phone: the card's side padding is 2 of a ~340px body, and the rail
