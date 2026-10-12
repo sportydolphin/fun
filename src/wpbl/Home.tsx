@@ -17,7 +17,7 @@ import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
-import { SectionCard, TeamBadge, PlayerPortrait, useWpblDark, chromePx, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, useWpblDark, chromePx, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand, CARD_LINK_SX } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import PlayoffBracket from './PlayoffBracket'
@@ -2032,21 +2032,11 @@ function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
 
   const all = linkTo(WPBL_READING_PAGE)
   return (
-    <Box sx={{
-      border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,
-      px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1, height: '100%', boxSizing: 'border-box',
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-        <Typography sx={{
-          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-          textTransform: 'uppercase', color: 'text.secondary',
-        }}>Reading</Typography>
-        <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
-          sx={{
-            flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-solid)',
-            textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-          }}>All {articles.length} posts ›</Box>
-      </Box>
+    <SectionCard title="Reading" fill action={
+      <Box {...all} onClick={(e: React.MouseEvent) => { track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }); all.onClick(e) }}
+        sx={CARD_LINK_SX}>All {articles.length} posts ›</Box>
+    }>
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
       {/* Rows at every width: the card shares its row with Watch, and three covers on top in half a
           row would be stamps. */}
       <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: '1fr' }}>
@@ -2062,6 +2052,7 @@ function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> }) {
         ))}, featured with permission.
       </Typography>
     </Box>
+    </SectionCard>
   )
 }
 
@@ -2348,7 +2339,7 @@ const SKELETON_GAME_CHIPS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
  * collapse to the same value wherever a card's height is set purely by its own text.
  */
 function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
-  minHeight: string | { xs: string; md: string }
+  minHeight: string | { xs: string; sm?: string; md: string; lg?: string }
   titleWidth?: string
   /** Faint body rows. A card outline with nothing but a title bar in it reads as a card that
    *  failed rather than one that is loading. */
@@ -2667,14 +2658,12 @@ export function WpblHomeSkeleton() {
   )
 }
 
-// The Watch card's height, for both skeletons: a row of 9:16 posters, so it grows with the width,
-// and WPBL from Day 1's two newest under it. Measured at 375px and at 1440px (Oct 12, 2026); a
-// desktop narrower than that is a little shorter.
-const WATCH_CARD_SKELETON_H = { xs: '22rem', md: '26.2rem' }
-// The offseason Reading card's: three rows on a phone, one row of 16:9 cover cards from `sm` up.
-// Measured at 375px, 700px, 1024px and 1400px (Oct 6, 2026). The covers are 16:9 of a third of the
-// width, so the card grows with the window; lg is where it reaches the column's cap.
-const READING_CARD_SKELETON_H = { xs: '25rem', sm: '21.3rem', md: '19.8rem', lg: '22.2rem' }
+// The Reading and Watch cards' heights, which share a row from `md` up and stretch to the taller.
+// Below `md` each is full width: Reading as three rows, Watch as four 9:16 posters, which is why
+// Watch is tallest at `sm`, where those posters are widest. Measured at 375px, 760px, 960px and
+// 1440px (Oct 12, 2026, with their SectionCard titles).
+const WATCH_CARD_SKELETON_H = { xs: '22rem', sm: '31.4rem', md: '26.1rem', lg: '25.2rem' }
+const READING_CARD_SKELETON_H = { xs: '26.1rem', sm: '23.7rem', md: '26.1rem', lg: '25.2rem' }
 
 const EMPTY_TEAMS = new Map<string, WpblTeam>()
 const NO_OPEN = () => {}

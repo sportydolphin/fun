@@ -695,23 +695,12 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
   const showAsterisk = [...bracket.semifinals, bracket.championship]
     .some(s => s.status !== 'done' && (seriesDateLine(s.round, s.key) ?? '').includes('*'))
 
-  // Three states, one card. The subtitle is the only part that changes, because it is the only
-  // part whose meaning does: the same boxes are a projection, then a scoreboard, then a record.
-  // Kept to one line on a phone: the format (best-of-N) shows in each series box, and the
-  // seeding mechanic in the footnote below, so the subtitle need not carry either.
-  const subtitle =
-    bracket.champion ? `${bracket.champion.name} are the inaugural champions.`
-    : bracket.started ? 'Series odds, updated after every game.'
-    : bracket.settled ? 'Seeds are set. Semifinals begin Sep 9.'
-    : 'The bracket and title odds as they stand today.'
-
-  // The one line the card is worth while it is shut: who is favourite, and by how much. It
-  // replaces the subtitle rather than joining it, because the subtitle above describes the
-  // PICTURE ("the bracket and title odds as they stand today"), and a description of a picture
-  // nobody can see is the least useful line available. A crowned champion already IS the
-  // headline, so that one stands.
+  // NO SUBTITLE, like every other card on Home: a line describing the picture under the title made
+  // this the one card on the page with a two-line header. The exception is a shut phone card while
+  // a title is still open, where the favourite and its number are the whole of what the card says
+  // until someone opens it. A crowned champion is in the championship box, so nothing replaces it.
   const favourite = odds?.title[0]
-  const shutSubtitle = bracket.champion || !favourite ? subtitle
+  const shutSubtitle = bracket.champion || !favourite ? undefined
     : `${favourite.team.name} ${fmtOdds(favourite.p)} to win it all`
 
   const collapsed = isPhone && !open
@@ -719,7 +708,7 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
   return (
     <SectionCard
       title={bracket.started ? 'Postseason' : 'Road to the title'}
-      subtitle={collapsed ? shutSubtitle : subtitle}
+      subtitle={collapsed ? shutSubtitle : undefined}
       collapsed={isPhone ? collapsed : undefined}
       onToggleCollapse={isPhone ? toggle : undefined}
       // THE HEADER CARRIES IT EVERYWHERE EXCEPT AN OPEN PHONE CARD, and the two reasons are

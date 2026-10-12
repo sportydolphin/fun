@@ -103,13 +103,12 @@ describe('PlayoffBracket', () => {
     expect(screen.getAllByText('Best of 3')).toHaveLength(2)
   })
 
-  // The card is one card for all of September and only the subtitle changes, because it is the
-  // only part whose meaning does: the same boxes are a projection, then a scoreboard, then a
-  // record. Each of the three is worth pinning.
-  it('calls the pairings provisional while games remain', () => {
+  // No subtitle in any state, like every other card on Home: the open card's header is its title.
+  it('draws no subtitle under the title', () => {
     const scheduled = game({ game_date: '2026-09-05', status: 'scheduled', home_score: null, away_score: null })
     const { container } = draw([...season(), scheduled], vi.fn())
-    expect(container.textContent).toContain('as they stand today')
+    expect(container.textContent).not.toContain('as they stand today')
+    expect(container.textContent).not.toContain('Seeds are set')
   })
 
   it('carries the published dates for each series', () => {
@@ -140,12 +139,6 @@ describe('PlayoffBracket', () => {
     expect(container.textContent).toContain('Sep 9, 11, 13*')
   })
 
-  it('calls the order final once every seed is locked', () => {
-    const { container } = draw(season(), vi.fn())
-    expect(container.textContent).toContain('Seeds are set')
-    expect(container.textContent).not.toContain('as they stand today')
-  })
-
   it('shows the running series score once a game has been played', () => {
     draw([...season(), post('SF', 'BOS', '2026-09-09')], vi.fn())
     expect(rowsOf('Semifinal A')).toEqual(['1SF1', '4BOS0'])
@@ -170,15 +163,6 @@ describe('PlayoffBracket', () => {
     expect(screen.queryByText('Semifinal B winner')).toBeNull()
     const final = screen.getByText('Championship').closest('div')!.parentElement!
     expect(within(final).getByText('Best of 5')).toBeTruthy()
-  })
-
-  it('names the champion in the subtitle', () => {
-    const { container } = draw([...season(),
-      post('SF', 'BOS', '2026-09-09'), post('SF', 'BOS', '2026-09-10'),
-      post('LA', 'NY', '2026-09-09'), post('LA', 'NY', '2026-09-10'),
-      post('SF', 'LA', '2026-09-14'), post('SF', 'LA', '2026-09-15'), post('SF', 'LA', '2026-09-16'),
-    ])
-    expect(container.textContent).toContain('SF are the inaugural champions')
   })
 
   // Opening a team or player page is the section's retention event, and Home is the surface the
