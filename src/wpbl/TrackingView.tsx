@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { edge } from '../ui/card'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import {
   fetchWpblAllTracking, fetchWpblAllPlayers, fetchWpblAllLines,
@@ -129,7 +130,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
       {/* Coverage disclaimer: pinned to the top, restated whenever the tracked-game count changes */}
       <Box sx={{
         display: 'flex', alignItems: 'flex-start', gap: 1.25, p: 1.5, borderRadius: 2,
-        border: '1px solid', borderColor: `${accent}80`,
+        border: '1px solid', borderColor: edge(accent),
         background: `linear-gradient(135deg, ${accent}26 0%, ${accent}0d 70%)`,
       }}>
         <Box sx={{ fontSize: '1.2rem', lineHeight: 1, flexShrink: 0, mt: '1px' }}>⚠️</Box>

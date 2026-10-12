@@ -139,7 +139,7 @@ export function StealCard({ econ, runners, accent, onOpenPlayer }: {
             {runners.map(r => (
               <Box key={r.name} {...(r.player ? pressable(() => onOpenPlayer(r.player!)) : {})} sx={{
                 ...(r.player ? FOCUS_RING : null),
-                px: 1.25, py: 0.5, borderRadius: 2, border: '1px solid', borderColor: 'divider',
+                px: 1.25, py: 0.5, borderRadius: 2, border: '1px solid', borderColor: 'outline',
                 fontSize: '0.8rem', cursor: r.player ? 'pointer' : 'default',
                 ...(r.player ? hoverOnly({ borderColor: accent }) : {}),
               }}>

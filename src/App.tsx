@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
+import { ACCENT_EDGE } from './ui/card'
 import { createPortal } from 'react-dom'
 import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
@@ -311,7 +312,7 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
           Recent
         </Typography>
         <Box
-          onClick={onClearRecents}
+          {...pressable(onClearRecents)}
           sx={{ cursor: 'pointer', fontSize: '0.62rem', fontWeight: 600, color: 'text.disabled', userSelect: 'none', '&:hover': { color: 'error.main' } }}
         >
           Clear
@@ -430,7 +431,7 @@ function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
           Recent
         </Typography>
         <Box
-          onClick={onClear}
+          {...pressable(onClear)}
           sx={{ cursor: 'pointer', fontSize: '0.62rem', fontWeight: 600, color: 'text.disabled', userSelect: 'none', '&:hover': { color: 'error.main' } }}
         >
           Clear
@@ -1055,7 +1056,7 @@ function AppInner() {
               onMouseEnter={() => preloadSection(path)}
               onFocus={() => preloadSection(path)}
               onPointerDown={() => preloadSection(path)}
-              onClick={() => {
+              {...pressable(() => {
                 // Every WPBL tab and /wpbl/api count as the WPBL side, so flipping from any
                 // of them goes to MLB: to the same page there where it has one (sectionSwitch.ts).
                 const toWpbl = !isWpblSection(path)
@@ -1072,7 +1073,7 @@ function AppInner() {
                   }
                 }
                 navigate(target)
-              }}
+              })}
               sx={{
               // Equal-width columns (grid, not flex) so both segments are the same
               // width regardless of label length — otherwise MLB would be narrower
@@ -1082,7 +1083,7 @@ function AppInner() {
               // spacing it read as part of the name. See TOOLBAR SPACING below.
               ml: 0.75,
               p: '2px', borderRadius: 999, cursor: 'pointer',
-              border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
+              border: '1px solid', borderColor: ACCENT_EDGE, bgcolor: `${ACCENT}14`,
             }}>
               {(isMlbSection(path) || isWpblSection(path)) && (() => {
                 const wpblActive = isWpblSection(path)
@@ -1192,7 +1193,7 @@ function AppInner() {
                   px: 1.5, py: 0.55,
                   borderRadius: 999,
                   border: '1.5px solid',
-                  borderColor: toolbarDropdownOpen ? ACCENT : 'divider',
+                  borderColor: toolbarDropdownOpen ? ACCENT_EDGE : 'outline',
                   bgcolor: 'background.paper',
                   transition: 'border-color 0.2s',
                 }}>
@@ -1229,7 +1230,7 @@ function AppInner() {
                   />
                   {bridge.query && (
                     <Box
-                      onClick={() => setSearchQuery('')}
+                      {...pressable(() => setSearchQuery(''))}
                       sx={{ cursor: 'pointer', color: 'text.disabled', display: 'flex', flexShrink: 0, '&:hover': { color: 'text.primary' } }}
                     >
                       <Close sx={{ fontSize: '0.85rem' }} />
@@ -1410,7 +1411,7 @@ function AppInner() {
                   <Paper elevation={8} sx={{
                     position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
                     borderRadius: 2.5, minWidth: 220, overflow: 'hidden',
-                    border: '1px solid', borderColor: 'divider',
+                    border: '1px solid', borderColor: 'outline',
                   }}>
                     {/* User info */}
                     <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -1436,7 +1437,7 @@ function AppInner() {
 
                     {/* Settings */}
                     <Box
-                      onClick={() => { setAccountOpen(false); setSettingsOpen(true) }}
+                      {...pressable(() => { setAccountOpen(false); setSettingsOpen(true) })}
                       sx={{
                         px: 2, py: 1.1, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 1,
@@ -1450,7 +1451,7 @@ function AppInner() {
                     {/* Admin — only shown to the site owner */}
                     {isAdmin && (
                       <Box
-                        onClick={() => { setAccountOpen(false); navigate('/admin') }}
+                        {...pressable(() => { setAccountOpen(false); navigate('/admin') })}
                         sx={{
                           px: 2, py: 1.1, cursor: 'pointer',
                           display: 'flex', alignItems: 'center', gap: 1,
@@ -1464,7 +1465,7 @@ function AppInner() {
 
                     {/* Sign out */}
                     <Box
-                      onClick={async () => { setAccountOpen(false); await signOut() }}
+                      {...pressable(async () => { setAccountOpen(false); await signOut() })}
                       sx={{
                         px: 2, py: 1.25, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 1,
@@ -1497,11 +1498,11 @@ function AppInner() {
                   <Paper elevation={8} sx={{
                     position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
                     borderRadius: 2.5, minWidth: 220, overflow: 'hidden',
-                    border: '1px solid', borderColor: 'divider',
+                    border: '1px solid', borderColor: 'outline',
                   }}>
                     {/* Sign in */}
                     <Box
-                      onClick={() => { setAccountOpen(false); openAuthDialog('signin') }}
+                      {...pressable(() => { setAccountOpen(false); openAuthDialog('signin') })}
                       sx={{
                         px: 2, py: 1.25, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 1,
@@ -1514,7 +1515,7 @@ function AppInner() {
 
                     {/* Create an account */}
                     <Box
-                      onClick={() => { setAccountOpen(false); openAuthDialog('signup') }}
+                      {...pressable(() => { setAccountOpen(false); openAuthDialog('signup') })}
                       sx={{
                         px: 2, py: 1.25, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 1,
@@ -1527,7 +1528,7 @@ function AppInner() {
 
                     {/* Settings — available without an account */}
                     <Box
-                      onClick={() => { setAccountOpen(false); setSettingsOpen(true) }}
+                      {...pressable(() => { setAccountOpen(false); setSettingsOpen(true) })}
                       sx={{
                         px: 2, py: 1.1, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 1,
@@ -1686,7 +1687,7 @@ function AppInner() {
                   the other standalone WPBL pages (see WpblPage): above 600px the toolbar's tabs
                   are the way back. */}
               <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2, display: { xs: 'block', sm: 'none' } }}>
-                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
                 <WpblApiDocs />
@@ -1699,7 +1700,7 @@ function AppInner() {
           {path === '/admin' && !authLoading && isAdmin && (
             <Box>
               <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
-                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
                 <AdminPage />

@@ -258,7 +258,7 @@ const GAME_LINK = {
 const GAME_ACTIONS = { gridArea: 'actions', px: { xs: 1, sm: 1.25 }, pb: 1.25, pt: { xs: 0.75, sm: 0.5 }, display: 'flex', flexDirection: 'column', gap: 0.75 } as const
 const GAME_PILL = {
   display: 'inline-flex', alignItems: 'center', gap: 0.5,
-  px: 1.1, py: 0.45, borderRadius: 999, border: '1px solid', borderColor: 'divider',
+  px: 1.1, py: 0.45, borderRadius: 999, border: '1px solid', borderColor: 'outline',
   bgcolor: 'background.paper', color: 'text.primary', font: 'inherit',
   fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.4,
   '@media (pointer: coarse)': { minHeight: 38, px: 1.4 },
@@ -403,7 +403,7 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh }:
             if (!isModified(e)) { e.preventDefault(); onOpenGame() }
           }}
           sx={{
-            ...GAME_LINK, color: 'var(--wpbl-accent-solid)', textDecoration: 'none',
+            ...GAME_LINK, color: 'var(--wpbl-accent-fg)', textDecoration: 'none',
             ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
           }}>Box score ›</Box>
       </Box>
@@ -527,7 +527,7 @@ function ClipsShelf({ clips, games, teams, onOpenGame, fresh }: {
       {list.length > limit && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
           <Box component="button" type="button" onClick={() => setLimit(l => l + CLIPS_PAGE)} sx={{
-            px: 2, py: 0.75, borderRadius: 999, border: '1px solid', borderColor: 'divider', cursor: 'pointer',
+            px: 2, py: 0.75, borderRadius: 999, border: '1px solid', borderColor: 'outline', cursor: 'pointer',
             bgcolor: 'background.paper', color: 'text.primary', font: 'inherit', fontSize: TYPE_SCALE.body, fontWeight: 700,
             ...hoverOnly({ borderColor: 'text.secondary' }), ...FOCUS_RING,
           }}>Show more ({list.length - limit} left)</Box>
@@ -553,7 +553,7 @@ function ClipsShelf({ clips, games, teams, onOpenGame, fresh }: {
                   onOpenGame(currentGame, { teams, games })
                 }}
                 sx={{
-                  fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-solid)',
+                  fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
                   textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
                 }}>Box score ›</Box>
             )}

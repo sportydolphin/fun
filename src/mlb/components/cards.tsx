@@ -1,10 +1,12 @@
 // ─── Card components ──────────────────────────────────────────────────────────
 
+import { pressable } from '../../ui/interaction'
+import { edge, ACCENT_EDGE } from '../../ui/card'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
-import { useIsDark, accentColor, borderAlpha, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone, textTone } from '../lib/colorUtils'
+import { useIsDark, accentColor, edgeTone, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone, textTone } from '../lib/colorUtils'
 import { StatGrid } from './ui'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
@@ -210,12 +212,12 @@ export function FeaturedMiniCard({
 
   return (
     <Box
-      onClick={onClick}
+      {...pressable(onClick)}
       sx={{
-        borderRadius: 2.5, border: '1px solid', borderColor: 'divider',
+        borderRadius: 2.5, border: '1px solid', borderColor: 'outline',
         bgcolor: 'background.paper', overflow: 'hidden',
         cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
-        '&:hover': { borderColor: ACCENT, boxShadow: `0 0 0 1px ${ACCENT}50` },
+        '&:hover': { borderColor: ACCENT_EDGE, boxShadow: `0 0 0 1px ${ACCENT}50` },
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         minWidth: 0,
       }}
@@ -223,7 +225,7 @@ export function FeaturedMiniCard({
       {/* Award label banner */}
       <Box sx={{
         width: '100%', bgcolor: `${teamColor}22`,
-        borderBottom: `1px solid ${borderAlpha(teamColor, isDark)}`,
+        borderBottom: `1px solid ${edgeTone(teamColor, isDark)}`,
         px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Typography sx={{
@@ -238,7 +240,7 @@ export function FeaturedMiniCard({
         {/* Headshot */}
         <Box sx={{
           width: chromePx(56), height: chromePx(68), borderRadius: 2, overflow: 'hidden',
-          border: `2px solid ${teamColor}`, bgcolor: 'action.hover',
+          border: '2px solid', borderColor: edge(teamColor), bgcolor: 'action.hover',
           flexShrink: 0, mb: 0.75, mx: 'auto',
         }}>
           <Box
@@ -337,7 +339,7 @@ export function DivisionStandingsCard({
   const cellSx = { fontSize: '0.75rem', fontWeight: 600, lineHeight: 1 }
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* Header */}
       <Box sx={{
         px: 1.5, py: 0.85,

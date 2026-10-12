@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect, lazy, Suspense } from 'react'
-import { TYPE_SCALE } from '../../ui/card'
+import { pressable } from '../../ui/interaction'
+import { TYPE_SCALE, edge } from '../../ui/card'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
@@ -49,7 +50,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         ...LINK_SX, flexShrink: 0, width: chromePx(70),
         borderRadius: 2,
         border: `1.5px solid`,
-        borderColor: highlight ? `${teamColor}90` : `${teamColor}22`,
+        borderColor: highlight ? edge(teamColor) : 'outline',
         bgcolor: highlight ? `${teamColor}14` : `${teamColor}06`,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         py: 1.25, px: 0.75, gap: 0.5,
@@ -57,7 +58,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         cursor: onClick ? 'pointer' : 'default',
         transition: 'border-color 0.12s, background-color 0.12s',
         '&:hover': onClick ? {
-          borderColor: `${teamColor}70`,
+          borderColor: edge(teamColor),
           bgcolor: highlight ? `${teamColor}22` : `${teamColor}12`,
         } : {},
       }}
@@ -179,7 +180,7 @@ function GameCountdown({ iso }: { iso: string }) {
       display: 'inline-flex', alignItems: 'center', gap: 0.4,
       px: 0.6, py: chromePx(2), borderRadius: 999, lineHeight: 1,
       bgcolor: tint ? `${tint}18` : 'action.hover',
-      border: '1px solid', borderColor: tint ? `${tint}45` : 'divider',
+      border: '1px solid', borderColor: tint ? edge(tint) : 'outline',
     }}>
       {urgency === 'imminent' && (
         <Box sx={{
@@ -233,10 +234,11 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   // Small clickable logo circle. ringCol overrides border for W/L ring on the followed team
   const logoCircle = (teamId: number, col: string, size: number, ringCol?: string) => (
     <Box
-      onClick={e => { e.stopPropagation(); onTeamClick?.(teamId) }}
+      {...pressable(e => { e.stopPropagation(); onTeamClick?.(teamId) })}
       sx={{
         width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
-        border: ringCol ? `2.5px solid ${ringCol}` : `1.5px solid ${col}`,
+        // The W/L ring through edge(): raw #22c55e measured 2.13:1 on the light page.
+        border: ringCol ? '2.5px solid' : '1.5px solid', borderColor: ringCol ? edge(ringCol) : col,
         display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         boxShadow: ringCol ? `0 0 0 1px ${ringCol}50` : `0 0 0 1px ${col}30`,
@@ -265,7 +267,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
           {gmLabel && (
             <Box component="span" sx={{
               fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), color: 'text.secondary',
-              px: 0.55, py: 0.2, borderRadius: 999, border: '1px solid', borderColor: 'divider',
+              px: 0.55, py: 0.2, borderRadius: 999, border: '1px solid', borderColor: 'outline',
               whiteSpace: 'nowrap', flexShrink: 0,
             }}>
               {gmLabel}
@@ -274,12 +276,12 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         </Typography>
         {actionLabel && onAction && (
           <Box
-            onClick={e => { e.stopPropagation(); onAction() }}
+            {...pressable(e => { e.stopPropagation(); onAction() })}
             sx={{
               flexShrink: 0,
               fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
               cursor: 'pointer', px: 0.9, py: 0.3,
-              borderRadius: 999, border: '1px solid', borderColor: 'divider',
+              borderRadius: 999, border: '1px solid', borderColor: 'outline',
               whiteSpace: 'nowrap',
               transition: 'color 0.12s, border-color 0.12s',
               '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
@@ -430,7 +432,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   const arrowBtn = (visible: boolean) => ({
     position: 'absolute' as const, top: '50%', transform: 'translateY(-50%)',
     zIndex: 3, width: chromePx(30), height: chromePx(30), borderRadius: '50%',
-    bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+    bgcolor: 'background.paper', border: '1px solid', borderColor: 'outline',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
     opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none',
@@ -456,11 +458,11 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
             }} />
 
             {/* ◀ scroll button */}
-            <Box onClick={() => scrollStrip('left')} sx={{ ...arrowBtn(canScrollLeft), left: chromePx(6) }}>
+            <Box {...pressable(() => scrollStrip('left'))} aria-label="Earlier games" sx={{ ...arrowBtn(canScrollLeft), left: chromePx(6) }}>
               <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>◀</Typography>
             </Box>
             {/* ▶ scroll button */}
-            <Box onClick={() => scrollStrip('right')} sx={{ ...arrowBtn(canScrollRight), right: chromePx(6) }}>
+            <Box {...pressable(() => scrollStrip('right'))} aria-label="Later games" sx={{ ...arrowBtn(canScrollRight), right: chromePx(6) }}>
               <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>▶</Typography>
             </Box>
 
@@ -540,7 +542,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
     const col = ringColor(teamId, isDark)
     return (
       <Box
-        onClick={e => { e.stopPropagation(); if (pitcher) onPlayerClick?.(pitcher.id) }}
+        {...pressable(e => { e.stopPropagation(); if (pitcher) onPlayerClick?.(pitcher.id) })}
         sx={{
           minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
@@ -552,7 +554,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
           border: `1.5px solid ${col}`, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
           justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         }}>
-          <Box component="img"
+          <Box component="img" alt=""
             src={teamLogoSrc(teamId, isDark)}
             sx={{ width: chromePx(15), height: chromePx(15), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
           />
@@ -609,7 +611,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
     const col = ringColor(player.teamId, isDark)
     return (
       <Box
-        onClick={e => { e.stopPropagation(); onPlayerClick?.(player.id) }}
+        {...pressable(e => { e.stopPropagation(); onPlayerClick?.(player.id) })}
         sx={{
           minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: onPlayerClick ? 'pointer' : 'default',
@@ -626,7 +628,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
             border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
             justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
           }}>
-            <Box component="img"
+            <Box component="img" alt=""
               src={teamLogoSrc(player.teamId, isDark)}
               sx={{ width: chromePx(15), height: chromePx(15), objectFit: 'contain', transform: teamLogoCrop(player.teamId, isDark), transformOrigin: 'center' }}
             />
@@ -900,7 +902,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
     return (
       <Box
         key={g.gamePk}
-        onClick={open}
+        {...pressable(open)}
         sx={{
           cursor: open ? 'pointer' : 'default',
           // Hairline between the two halves of a doubleheader.
@@ -961,7 +963,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           {slots.primary.filter(g => g.state === 'final').map(g => (
             <Box
               key={g.gamePk}
-              onClick={() => setBoxScoreGame(gameToFinalSummary(g, teamId))}
+              {...pressable(() => setBoxScoreGame(gameToFinalSummary(g, teamId)))}
               sx={{ cursor: 'pointer', mb: 1.25, pb: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}
             >
               <CompactGameCard

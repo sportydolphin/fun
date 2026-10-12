@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { pressable } from '../../ui/interaction'
 import { Box, Typography } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
 import { useIsDark, highlightColor, useTextTone } from '../lib/colorUtils'
@@ -6,7 +7,7 @@ import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from '../components/TeamLogo'
-import { SectionCard, CardLink, TYPE_SCALE } from '../../ui/card'
+import { SectionCard, CardLink, TYPE_SCALE, edge, ACCENT_EDGE } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, LINK_SX } from '../lib/links'
 
@@ -75,7 +76,7 @@ function LiveBadge() {
 function Tag({ color, children }: { color: string; children: React.ReactNode }) {
   const tone = useTextTone()
   return (
-    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: tone(color), border: `1px solid ${color}55`, borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: tone(color), border: '1px solid', borderColor: edge(color), borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
       {children}
     </Typography>
   )
@@ -245,7 +246,7 @@ function TabButton({ active, label, count, color, onClick }: {
   const tone = useTextTone()
   return (
     <Box
-      onClick={onClick}
+      {...pressable(onClick)}
       sx={{
         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5,
         py: chromePx(5), borderRadius: 2, cursor: 'pointer', userSelect: 'none', transition: 'all 0.12s',
@@ -295,12 +296,12 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
               {GROUP_FILTERS.map(f => (
                 <Box
                   key={f.key}
-                  onClick={() => setGroupFilter(f.key)}
+                  {...pressable(() => setGroupFilter(f.key))}
                   sx={{
                     px: 1.25, py: chromePx(3), borderRadius: 999, cursor: 'pointer',
                     fontSize: TYPE_SCALE.meta, fontWeight: 700, userSelect: 'none',
                     border: '1px solid',
-                    borderColor: groupFilter === f.key ? ACCENT : 'divider',
+                    borderColor: groupFilter === f.key ? ACCENT_EDGE : 'outline',
                     bgcolor: groupFilter === f.key ? `${ACCENT}18` : 'transparent',
                     color: groupFilter === f.key ? ACCENT_TEXT : 'text.secondary',
                     transition: 'all 0.12s',

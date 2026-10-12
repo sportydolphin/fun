@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME, TEAM_BG } from '../constants'
 import { LogoBubble } from '../components/boxScore'
 import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
-import { useIsDark, borderAlpha } from '../lib/colorUtils'
+import { useIsDark, edgeTone } from '../lib/colorUtils'
 import { mlbTeamPath } from '../routes'
 import { chromePx, typePx } from '../../ui/scale'
 import { MlbTabTitle } from '../components/PageHeading'
@@ -49,7 +49,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
                       px: 1.25, py: 1, minHeight: chromePx(48), borderRadius: 2,
                       textDecoration: 'none', color: 'text.primary',
                       bgcolor: 'background.paper',
-                      border: '1px solid', borderColor: mine ? borderAlpha(col, isDark) : 'divider',
+                      border: '1px solid', borderColor: mine ? edgeTone(col, isDark) : 'outline',
                       borderLeft: `3px solid ${col}`,
                       ...hoverOnly({ bgcolor: 'action.hover' }),
                       ...FOCUS_RING,

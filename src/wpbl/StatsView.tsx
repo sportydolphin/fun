@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ACCENT_EDGE } from '../ui/card'
 import { Box, Typography, CircularProgress, Skeleton, useMediaQuery } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
@@ -2164,7 +2165,7 @@ export default function WpblStatsView({
                 cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                 minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
                 border: '1px solid', transition: 'all 0.15s',
-                borderColor: source === 'season' || filtersSet ? WPBL_ACCENT : CARD_BORDER,
+                borderColor: source === 'season' || filtersSet ? ACCENT_EDGE : CARD_BORDER,
                 bgcolor: source === 'season' || filtersSet ? `${WPBL_ACCENT}12` : 'transparent',
                 color: source === 'season' || filtersSet ? 'var(--wpbl-accent-fg)' : 'text.secondary',
               }}>
@@ -2795,9 +2796,9 @@ function OptionTile({ label, hint, on, onClick }: {
       minHeight: 52, display: 'flex', flexDirection: 'column', justifyContent: 'center',
       px: 1.25, py: 0.85, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
       border: '1px solid', transition: 'all 0.15s',
-      borderColor: on ? WPBL_ACCENT : CARD_BORDER,
+      borderColor: on ? ACCENT_EDGE : CARD_BORDER,
       bgcolor: on ? `${WPBL_ACCENT}14` : 'transparent',
-      ...hoverOnly({ borderColor: WPBL_ACCENT }),
+      ...hoverOnly({ borderColor: ACCENT_EDGE }),
     }}>
       <Typography sx={{
         fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2,
@@ -2830,9 +2831,9 @@ function OptionRow({ label, hint, icon, on, onClick }: {
       minHeight: 52, display: 'flex', alignItems: 'center', gap: 1.25,
       px: 1.25, py: 0.85, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
       border: '1px solid', transition: 'all 0.15s',
-      borderColor: on ? WPBL_ACCENT : CARD_BORDER,
+      borderColor: on ? ACCENT_EDGE : CARD_BORDER,
       bgcolor: on ? `${WPBL_ACCENT}14` : 'transparent',
-      ...hoverOnly({ borderColor: WPBL_ACCENT }),
+      ...hoverOnly({ borderColor: ACCENT_EDGE }),
     }}>
       {icon}
       <Box sx={{ minWidth: 0, flex: 1 }}>

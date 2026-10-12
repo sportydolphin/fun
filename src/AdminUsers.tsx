@@ -480,7 +480,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
       // nobody could see. They stay a wrapping grid on a desktop, where there is room.
       flex: { xs: '0 0 auto', md: '1 1 120px' }, minWidth: { xs: 96, md: 110 },
       px: { xs: 1.25, md: 1.5 }, py: 1,
-      border: '1px solid', borderColor: 'divider', borderRadius: 2,
+      border: '1px solid', borderColor: 'outline', borderRadius: 2,
     }}>
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
         {label}
@@ -499,7 +499,7 @@ function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () 
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       sx={{
         px: 1.1, py: 0.4, borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap',
-        border: '1px solid', borderColor: on ? 'transparent' : 'divider',
+        border: '1px solid', borderColor: on ? 'transparent' : 'outline',
         bgcolor: on ? 'text.primary' : 'transparent',
       }}>
       <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, color: on ? 'background.paper' : 'text.secondary' }}>
@@ -710,7 +710,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                 sx={{
                   flex: '1 1 220px', minWidth: 180, boxSizing: 'border-box', px: 1.25, py: 0.8,
                   fontSize: '0.82rem', color: 'text.primary', font: 'inherit',
-                  bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
+                  bgcolor: 'action.hover', border: '1px solid', borderColor: 'outline',
                   borderRadius: 1.5, outline: 'none', '&:focus': { borderColor: 'primary.main' },
                 }}
               />
@@ -732,7 +732,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                   sx={{
                     px: 1, py: 0.7, fontSize: '0.78rem', font: 'inherit', fontWeight: 600,
                     color: 'text.primary', bgcolor: 'action.hover',
-                    border: '1px solid', borderColor: 'divider', borderRadius: 1.5,
+                    border: '1px solid', borderColor: 'outline', borderRadius: 1.5,
                     outline: 'none', cursor: 'pointer',
                     '&:focus': { borderColor: 'primary.main' },
                   }}

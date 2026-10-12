@@ -439,7 +439,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
               position: 'absolute',
               ...tooltipAnchorSx(tipPos, canHover),
               pointerEvents: 'none',
-              bgcolor: 'background.paper', border: '1.5px solid', borderColor: 'divider',
+              bgcolor: 'background.paper', border: '1.5px solid', borderColor: 'outline',
               borderRadius: 2, px: 1.5, py: 1, boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
               minWidth: chromePx(90), zIndex: 10,
             }}>

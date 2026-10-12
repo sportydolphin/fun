@@ -67,7 +67,7 @@ function ClubChip({ team, seed, record, winP, wins, won, onOpenTeam }: {
       aria-label={onOpenTeam ? `${team.city} ${team.name} team page` : undefined}
       sx={{
         position: 'relative', overflow: 'hidden', flex: 1, minWidth: 0,
-        borderRadius: 2, border: '1px solid', borderColor: 'divider', px: 1.5, py: 1.25,
+        borderRadius: 2, border: '1px solid', borderColor: 'outline', px: 1.5, py: 1.25,
         display: 'flex', alignItems: 'center', gap: 1.25,
         cursor: onOpenTeam ? 'pointer' : 'default',
         ...(onOpenTeam ? TAPPABLE : null), ...FOCUS_RING,
@@ -194,7 +194,7 @@ function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
       aria-label={onOpen ? ariaLabel : undefined}
       sx={{
         minWidth: 0, borderRadius: 2, p: 1.25, display: 'flex', flexDirection: 'column', gap: 1,
-        border: '1px solid', borderColor: 'divider',
+        border: '1px solid', borderColor: 'outline',
         // Hidden on a phone, where the grid is two across and a swept best-of-3's third tile
         // would take a row of its own to say nothing was played.
         ...(state === 'unneeded' ? { borderStyle: 'dashed', opacity: 0.55, display: { xs: 'none', sm: 'flex' } } : null),

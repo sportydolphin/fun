@@ -340,7 +340,7 @@ export default function WpblScorigami({ onOpenGame }: {
                     return (
                       <Box key={`c${w}-${l}`} sx={{
                         width: 'var(--cell)', height: 'var(--cell)', borderRadius: 0.75,
-                        border: '1px solid', borderColor: 'divider', bgcolor: 'transparent',
+                        border: '1px solid', borderColor: 'outline', bgcolor: 'transparent',
                       }} />
                     )
                   }

@@ -97,7 +97,7 @@ function LeagueOddsCard({ label, leagueId, rows, onTeamClick, highlightTeamId }:
   if (!teams.length) return null
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* League header + column labels */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>{label}</Typography>

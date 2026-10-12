@@ -37,7 +37,7 @@ export function FilterChip({ label, active, onClick, dot }: { label: React.React
       sx={{
         px: 1.3, py: 0.5, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
         fontSize: '0.76rem', fontWeight: 700, lineHeight: 1.5, border: '1px solid',
-        borderColor: active ? 'primary.main' : 'divider',
+        borderColor: active ? 'primary.main' : 'outline',
         bgcolor: active ? 'primary.main' : 'background.paper',
         color: active ? 'primary.contrastText' : 'text.secondary',
         '&:hover': { borderColor: active ? 'primary.main' : 'text.secondary' },

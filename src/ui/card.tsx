@@ -8,18 +8,31 @@ import { Box, Typography } from '@mui/material'
 import type { Theme } from '@mui/material'
 import { TAPPABLE, FOCUS_RING, pressable, linkPress } from './interaction'
 import { typePx } from './scale'
+import { edgeTone } from '../lib/contrast'
 
 // A card's outline, which in dark mode is the whole of the card: cards there are the page colour
 // (see Surfaces in src/ThemeContext.tsx), so this edge is the only thing drawing one. The weight
 // is a setting, published by ThemeContext as `--sd-card-border`, so DevSettings can move every card
-// on the site at once. Keep `divider` for the thin rules inside a card.
-export const CARD_BORDER = (t: Theme) => t.palette.mode === 'dark'
-  ? 'var(--sd-card-border, rgba(255,255,255,0.28))'
-  : 'var(--sd-card-border, rgba(0,0,0,0.34))'
+// on the site at once. Keep `divider` for the thin rules inside a card. It is the theme's
+// `palette.outline`, so a plain sx can also write `borderColor: 'outline'`.
+export const CARD_BORDER = (t: Theme) => t.palette.outline
+  ?? (t.palette.mode === 'dark' ? 'rgba(255,255,255,0.36)' : 'rgba(0,0,0,0.44)')
 
-/** The outline of a box nested INSIDE a card (a bracket series, a game chip): the row-rule weight,
- *  a clear step below the card's own outline so the nesting still reads. */
-export const INNER_BORDER = (t: Theme) => t.palette.divider
+/** A colour as an outline, in any sx: `borderColor: edge(teamColor)`. The colour lifted toward white
+ *  on the dark theme or black on the light one by the least that reaches 3:1 (edgeTone), read off
+ *  the theme so a call site needs no `isDark`. For a club's or a status's own colour; a plain box
+ *  takes `'outline'`. CLAUDE.md, "Borders". */
+export const edge = (hex: string) => (t: Theme) => edgeTone(hex, t.palette.mode === 'dark')
+
+/** The site accent as an outline: a selected chip, a lit tab, a hovered control. The text-safe
+ *  accent rather than the raw #60a5fa, which measured 2.37:1 on the light page; in dark mode the
+ *  two are the same blue. */
+export const ACCENT_EDGE = 'var(--wpbl-accent-fg)'
+
+/** The outline of a box nested INSIDE a card (a bracket series, a game chip). The card's own
+ *  weight, not the row rule's: it is still the edge of a thing, and at `divider` it measured under
+ *  2:1 (CLAUDE.md, "Borders"). The nesting reads from the inset and the padding instead. */
+export const INNER_BORDER = (t: Theme) => CARD_BORDER(t)
 
 /** A card's fill: `background.paper`, which is the page colour on a dark page and the raised tone
  *  inside anything floating (ModalShell re-points it), so a card always sits flush on whatever it
@@ -194,13 +207,8 @@ export function SectionCard({ icon, title, titleAdornment, subtitle, action, act
       {/* The whole header toggles: a thumb-sized target rather than a small chevron hitbox.
           `action` keeps its own click (e.g. "View all"), so it stops the event bubbling. */}
       <Box
-        onClick={collapsible ? onToggleCollapse : undefined}
-        role={collapsible ? 'button' : undefined}
-        tabIndex={collapsible ? 0 : undefined}
+        {...pressable(collapsible ? onToggleCollapse : undefined)}
         aria-expanded={collapsible ? !collapsed : undefined}
-        onKeyDown={collapsible ? (e => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleCollapse!() }
-        }) : undefined}
         sx={{
           px: frameless ? { xs: 0, sm: 2 } : 2, pt: 1.25, pb: collapsed ? 1.25 : 1,
           display: 'flex', alignItems: 'center', gap: 1,
@@ -233,8 +241,12 @@ export function SectionCard({ icon, title, titleAdornment, subtitle, action, act
           {subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
         {action != null && (
+          // A BARRIER, NOT A CONTROL: the header toggles the card, and a click or an Enter on the
+          // action inside it (a "View all" link) must not reach the header and toggle it as well.
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <Box
             onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
             sx={{ display: 'flex', ...(actionWraps ? { flex: 1, minWidth: 0, justifyContent: 'flex-end' } : { flexShrink: 0 }) }}
           >
             {action}

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { pressable } from '../ui/interaction'
 import { Box, Typography, TextField, CircularProgress, MenuItem, Select, IconButton, Dialog } from '@mui/material'
 import { Close, Refresh, ChevronLeft, ChevronRight, Crop } from '@mui/icons-material'
 import { Section } from '../AdminPanel'
@@ -35,10 +36,10 @@ const FILTERS: Array<{ value: Filter; label: string }> = [
 
 function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <Box onClick={onClick} sx={{
+    <Box {...pressable(onClick)} sx={{
       px: 1.4, py: 0.5, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
       fontSize: '0.75rem', fontWeight: 700, lineHeight: 1.5, border: '1px solid',
-      borderColor: active ? 'primary.main' : 'divider',
+      borderColor: active ? 'primary.main' : 'outline',
       bgcolor: active ? 'primary.main' : 'background.paper',
       color: active ? 'primary.contrastText' : 'text.secondary',
     }}>{label}</Box>
@@ -89,11 +90,16 @@ function SubjectPicker({ candidates, onPick }: {
       {matches.length > 0 && (
         <Box sx={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5, mt: 0.5,
-          borderRadius: 1.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+          borderRadius: 1.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper',
           boxShadow: 3, overflow: 'hidden',
         }}>
           {matches.map(c => (
-            <Box key={c.label + c.sub} onMouseDown={e => { e.preventDefault(); onPick(c); setQ('') }} sx={{
+            // A button (the pressable spread), which the lint cannot see through.
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+            <Box key={c.label + c.sub}
+              // Mouse down is held so the input keeps focus and its list stays open under the
+              // pointer; the pick itself is a button, so a keyboard can reach it too.
+              onMouseDown={e => e.preventDefault()} {...pressable(() => { onPick(c); setQ('') })} sx={{
               px: 1.2, py: 0.7, cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 0.8,
               '&:hover': { bgcolor: 'action.hover' },
             }}>
@@ -199,10 +205,10 @@ function ContributorForm({ initial, editing, submitLabel, onSubmit, onCancel }: 
             display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, px: 2.5,
             borderRadius: 999, userSelect: 'none', fontSize: '0.8rem', fontWeight: 800, border: '1px solid',
             cursor: ok ? 'pointer' : 'default',
-            borderColor: ok ? 'primary.main' : 'divider', color: ok ? 'primary.main' : 'text.disabled',
+            borderColor: ok ? 'primary.main' : 'outline', color: ok ? 'primary.main' : 'text.disabled',
           }}>{saving ? 'Saving…' : submitLabel}</Box>
         {onCancel && (
-          <Box onClick={onCancel} role="button" tabIndex={0} sx={{
+          <Box {...pressable(onCancel)} sx={{
             display: 'flex', alignItems: 'center', minHeight: 44, px: 1.5, cursor: 'pointer', userSelect: 'none',
             fontSize: '0.8rem', fontWeight: 700, color: 'text.secondary',
           }}>Cancel</Box>
@@ -505,7 +511,7 @@ function PhotoCard({ photo, subjects, lookups, onChange, onOpen }: {
           sx={{ p: 0, border: 0, bgcolor: 'transparent', cursor: 'zoom-in', display: 'block', width: '100%' }}>
           <Box component="img" src={photo.card_url} alt={photo.caption ?? 'Fan photo'} loading="lazy"
             sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', borderRadius: 1.5, bgcolor: 'action.hover',
-                  display: 'block', border: '1px solid', borderColor: 'divider' }} />
+                  display: 'block', border: '1px solid', borderColor: 'outline' }} />
         </Box>
         {photo.taken_on && (
           <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.5 }}>shot {photo.taken_on}</Typography>
@@ -641,15 +647,15 @@ function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClo
               </Box>
               <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
               {photo.approved && (
-                <Box onClick={() => { if (!busy) run(() => setFanPhotoApproved(photo.id, false)) }} role="button" tabIndex={0}
+                <Box {...pressable(() => { if (!busy) run(() => setFanPhotoApproved(photo.id, false)) })}
                   sx={{ fontSize: '0.74rem', fontWeight: 700, color: 'text.secondary', cursor: 'pointer', px: 1, userSelect: 'none' }}>
                   Unpublish
                 </Box>
               )}
               {!last && !photo.approved && (
-                <Box onClick={() => go(1)} role="button" tabIndex={0} sx={{
+                <Box {...pressable(() => go(1))} sx={{
                   display: 'flex', alignItems: 'center', minHeight: { xs: 44, sm: 0 }, px: 2, py: 0.6,
-                  borderRadius: 999, border: '1px solid', borderColor: 'divider', cursor: 'pointer', userSelect: 'none',
+                  borderRadius: 999, border: '1px solid', borderColor: 'outline', cursor: 'pointer', userSelect: 'none',
                   fontSize: '0.8rem', fontWeight: 800, color: 'text.secondary',
                 }}>Skip</Box>
               )}
@@ -686,10 +692,10 @@ function FigureAdder({ onAdded }: { onAdded: () => void }) {
         sx={{ fontSize: '0.8rem', minWidth: 130 }}>
         {KINDS.map(k => <MenuItem key={k} value={k} sx={{ fontSize: '0.8rem' }}>{k}</MenuItem>)}
       </Select>
-      <Box onClick={() => !busy && add()} role="button" tabIndex={0} sx={{
+      <Box {...pressable(() => !busy && add())} sx={{
         px: 1.5, py: 0.6, borderRadius: 999, cursor: slug ? 'pointer' : 'default', userSelect: 'none',
         fontSize: '0.74rem', fontWeight: 800, border: '1px solid',
-        borderColor: slug ? 'primary.main' : 'divider', color: slug ? 'primary.main' : 'text.disabled',
+        borderColor: slug ? 'primary.main' : 'outline', color: slug ? 'primary.main' : 'text.disabled',
       }}>Add figure</Box>
     </Box>
   )
@@ -715,10 +721,10 @@ function CategoryAdder({ count, onAdded }: { count: number; onAdded: () => void 
         size="small" InputProps={{ sx: { fontSize: '0.8rem' } }} sx={{ flex: 1, minWidth: 180 }} />
       <TextField value={blurb} onChange={e => setBlurb(e.target.value)} placeholder="One-line description (optional)"
         size="small" InputProps={{ sx: { fontSize: '0.8rem' } }} sx={{ flex: 2, minWidth: 180 }} />
-      <Box onClick={add} role="button" tabIndex={0} sx={{
+      <Box {...pressable(add)} sx={{
         px: 1.5, py: 0.6, borderRadius: 999, cursor: slug ? 'pointer' : 'default', userSelect: 'none',
         fontSize: '0.74rem', fontWeight: 800, border: '1px solid',
-        borderColor: slug ? 'primary.main' : 'divider', color: slug ? 'primary.main' : 'text.disabled',
+        borderColor: slug ? 'primary.main' : 'outline', color: slug ? 'primary.main' : 'text.disabled',
       }}>Add category</Box>
     </Box>
   )
@@ -798,7 +804,7 @@ function UploadPanel({ categories, contributors, onContributorsChanged, onUpload
     minHeight: 44, px: 2, borderRadius: 999, userSelect: 'none' as const,
     fontSize: '0.8rem', fontWeight: 800, border: '1px solid',
     cursor: active ? 'pointer' : 'default',
-    borderColor: accent && active ? 'primary.main' : 'divider',
+    borderColor: accent && active ? 'primary.main' : 'outline',
     color: accent && active ? 'primary.main' : active ? 'text.secondary' : 'text.disabled',
   })
 
@@ -813,7 +819,7 @@ function UploadPanel({ categories, contributors, onContributorsChanged, onUpload
             <MenuItem value="" disabled sx={{ fontSize: '0.85rem' }}>Photographer…</MenuItem>
             {contributors.map(c => <MenuItem key={c.id} value={c.id} sx={{ fontSize: '0.85rem' }}>{c.display_name}</MenuItem>)}
           </Select>
-          <Box onClick={() => setAdding(a => !a)} role="button" tabIndex={0} sx={{ ...tap(true), flexShrink: 0 }}>
+          <Box {...pressable(() => setAdding(a => !a))} sx={{ ...tap(true), flexShrink: 0 }}>
             {adding ? 'Cancel' : '+ New'}
           </Box>
         </Box>
@@ -831,7 +837,7 @@ function UploadPanel({ categories, contributors, onContributorsChanged, onUpload
         <Box component="label" sx={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.4,
           minHeight: 88, px: 2, py: 2, textAlign: 'center',
-          borderRadius: 2, border: '2px dashed', borderColor: selected && !busy ? 'primary.main' : 'divider',
+          borderRadius: 2, border: '2px dashed', borderColor: selected && !busy ? 'primary.main' : 'outline',
           color: selected && !busy ? 'primary.main' : 'text.disabled',
           cursor: selected && !busy ? 'pointer' : 'default',
         }}>

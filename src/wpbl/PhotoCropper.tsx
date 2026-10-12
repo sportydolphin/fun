@@ -34,7 +34,7 @@ function Pill({ label, active = false, primary = false, disabled = false, onClic
         minHeight: { xs: 40, sm: 0 }, px: 1.6, py: 0.5, borderRadius: 999, userSelect: 'none',
         fontSize: '0.78rem', fontWeight: 800, border: '1px solid',
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
-        borderColor: primary || active ? 'primary.main' : 'divider',
+        borderColor: primary || active ? 'primary.main' : 'outline',
         bgcolor: primary ? 'primary.main' : active ? 'action.selected' : 'background.paper',
         color: primary ? '#fff' : active ? 'text.primary' : 'text.secondary',
       }}>{label}</Box>

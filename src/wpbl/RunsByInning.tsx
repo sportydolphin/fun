@@ -57,7 +57,7 @@ function Pill({ on, label, onClick }: { on: boolean; label: string; onClick: () 
     <Box {...pressable(onClick)} aria-pressed={on} sx={{
       ...FOCUS_RING,
       px: 1.5, py: 0.5, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-      border: '1px solid', borderColor: on ? 'transparent' : 'divider',
+      border: '1px solid', borderColor: on ? 'transparent' : 'outline',
       bgcolor: on ? 'text.primary' : 'transparent',
     }}>
       <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: on ? 'background.paper' : 'text.secondary' }}>
@@ -89,10 +89,16 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
     // -1 is the club square furthest below the league average, +1 the furthest above; extras can
     // sit outside that range and are clamped to the pole.
     const t = grid.spread > 0 ? Math.max(-1, Math.min(1, (v - grid.mean) / grid.spread)) : 0
-    const bg = mix(NEUTRAL[mode], t >= 0 ? MORE[mode] : FEWER[mode], Math.abs(t))
+    let bg = mix(NEUTRAL[mode], t >= 0 ? MORE[mode] : FEWER[mode], Math.abs(t))
     // Whichever ink reads better on this exact square, so the numbers clear on both themes and at
     // both poles without a hand-tuned threshold.
-    return { fill: css(bg), ink: css(contrast(bg, INK_LIGHT) >= contrast(bg, INK_DARK) ? INK_LIGHT : INK_DARK) }
+    const ink = contrast(bg, INK_LIGHT) >= contrast(bg, INK_DARK) ? INK_LIGHT : INK_DARK
+    // AND THEN THE SQUARE GIVES WAY. A ramp through a mid tone has a band where neither ink reaches
+    // 4.5:1 (a 1.9-run first inning came out at 4.43), so the fill steps away from its ink, toward
+    // black under white figures or white under dark ones, by the least that clears it.
+    const away: Rgb = ink === INK_LIGHT ? [0, 0, 0] : [255, 255, 255]
+    for (let k = 0; k < 20 && contrast(bg, ink) < 4.6; k++) bg = mix(bg, away, 0.03)
+    return { fill: css(bg), ink: css(ink) }
   }
 
   const ext = leagueExtremes(grid)

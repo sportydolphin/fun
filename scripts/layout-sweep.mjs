@@ -10,6 +10,9 @@
  *    - text pushed off the right edge of the screen with nothing that scrolls to reach it.
  *    The rem/px rules can only be checked this way: tsc and lint see none of it.
  *
+ *    And every outline (a box bordered on all four sides) at under 3:1 against what is behind it,
+ *    in both themes (probeBorders, CLAUDE.md "Borders").
+ *
  * 2. LOADING SHIFT (--shift). Loads each page with ?devSlow, records where every piece of text
  *    sits while the skeleton is up, then again once the content lands, and reports what moved.
  *    The house rule is that a skeleton is the loaded page drawn empty, with the real titles in
@@ -60,6 +63,7 @@
  */
 
 import { chromium } from 'playwright-core'
+import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import zlib from 'node:zlib'
 
@@ -147,6 +151,19 @@ if (!SHARD || +SHARD[1] < 1 || +SHARD[1] > +SHARD[2]) {
   console.error('--shard takes i/n, with 1 <= i <= n')
   process.exit(2)
 }
+// WCAG 1.4.11's floor for the edge of a component, and CLAUDE.md's "Borders" rule.
+const BORDER_FLOOR = 3
+// axe-core, the accessibility engine behind Lighthouse and most browser audits, injected into each
+// page after it settles. Its rules cover what only a rendered page can show: text
+// contrast against what is really behind it, a control with no name, an image with no alt, an
+// input with no label. axe has no rule for the contrast of a BORDER (1.4.11), which is why
+// probeBorders above exists beside it.
+const AXE_SOURCE = fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8')
+// The rules enforced, by name rather than by WCAG tag, so turning one on is a decision: each of
+// these read clean on every page the day it was added. Text contrast, and every control, link,
+// image and input carrying a name a screen reader can say.
+const AXE_RULES = ['color-contrast', 'link-in-text-block', 'button-name', 'aria-command-name', 'link-name', 'image-alt', 'input-button-name', 'label', 'select-name']
+
 const ROUTES = ALL_ROUTES.filter((_, k) => k % +SHARD[2] === +SHARD[1] - 1)
 
 // ─── In-page probes (run inside the browser, so plain DOM only) ──────────────
@@ -206,6 +223,88 @@ function probeOverflow(includeEllipsis) {
       for (; n && n !== document.body; n = n.parentElement) if (containsX(n)) { scrolled = true; break }
       if (!scrolled) out.issues.push({ kind: 'offscreen', px: Math.round(r.right - vw), ...describe(el) })
     }
+  }
+  return out
+}
+
+/**
+ * Every drawn outline that is too faint to see: a box bordered on all four sides (a card, a chip,
+ * a button, a series box) whose edge comes out under `floor` against what is behind it.
+ * CLAUDE.md's "Borders" rule, at WCAG's 3:1 for the edge of a component.
+ *
+ * WHAT COUNTS AS THE EDGE. The border against the first opaque colour behind the box, after
+ * compositing every translucent layer between them, with the box's own opacity (and its
+ * ancestors') applied. If the box's FILL already stands out from what is behind it, the fill is
+ * the edge and the border is decoration, so the better of the two is what is measured: a team-
+ * coloured chip needs no outline. A row rule (one side only) is not an outline and is not checked,
+ * nor is anything disabled, which WCAG exempts. Anything over a background image or gradient is
+ * skipped, since there is no single colour to measure against.
+ */
+function probeBorders(floor) {
+  const parse = c => {
+    const m = c.match(/rgba?\(([^)]+)\)/)
+    if (!m) return null
+    const [r, g, b, a = 1] = m[1].split(/[ ,/]+/).filter(Boolean).map(Number)
+    return [r, g, b, a]
+  }
+  const over = (fg, bg) => fg.slice(0, 3).map((c, i) => c * fg[3] + bg[i] * (1 - fg[3]))
+  const lum = rgb => {
+    const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+    return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2])
+  }
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+  const pageBg = parse(getComputedStyle(document.body).backgroundColor) ?? [255, 255, 255, 1]
+  /** The solid colour behind `el`, or null over an image or a gradient. */
+  const behind = el => {
+    const layers = []
+    for (let n = el.parentElement; n; n = n.parentElement) {
+      const cs = getComputedStyle(n)
+      if (cs.backgroundImage !== 'none') return null
+      const c = parse(cs.backgroundColor)
+      if (c && c[3] > 0) { layers.push(c); if (c[3] >= 1) break }
+    }
+    let base = pageBg.slice(0, 3)
+    for (const l of layers.reverse()) base = over(l, base)
+    return base
+  }
+  const out = []
+  const seen = new Set()
+  for (const el of document.body.querySelectorAll('*')) {
+    const cs = getComputedStyle(el)
+    const w = ['Top', 'Right', 'Bottom', 'Left'].map(sd => parseFloat(cs[`border${sd}Width`]))
+    if (w.some(v => !(v >= 1)) || cs.borderTopStyle === 'none' || cs.borderTopStyle === 'hidden') continue
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue
+    const r = el.getBoundingClientRect()
+    if (r.width < 12 || r.height < 12) continue
+    if (el.matches(':disabled, [aria-disabled="true"]') || el.closest('[aria-hidden="true"]')) continue
+    const border = parse(cs.borderTopColor)
+    if (!border || border[3] === 0) continue
+    const bg = behind(el)
+    if (!bg) continue
+    // OVER A PICTURE, NOT A PAGE: a rail's arrow or a play badge sits on a photo, which the
+    // ancestors' backgrounds know nothing about, so there is no one colour to measure against.
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+    if (document.elementsFromPoint(cx, cy).some(n => !el.contains(n) && !n.contains(el) && /^(IMG|VIDEO|CANVAS|PICTURE)$/.test(n.tagName))) continue
+    let opacity = 1
+    for (let n = el; n; n = n.parentElement) opacity *= parseFloat(getComputedStyle(n).opacity)
+    // Faded on purpose (an eliminated club's row in the bracket, at 50%), which is the same signal
+    // as a disabled control and is exempt for the same reason; or faded out entirely (a rail arrow
+    // with nothing to scroll to), which is not on screen at all.
+    if (opacity < 0.75) continue
+    const edge = ratio(over([...border.slice(0, 3), border[3] * opacity], bg), bg)
+    const fill = parse(cs.backgroundColor)
+    const fillEdge = fill && fill[3] > 0 ? ratio(over([...fill.slice(0, 3), fill[3] * opacity], bg), bg) : 1
+    const best = Math.max(edge, fillEdge)
+    if (best >= floor) continue
+    const text = el.textContent.trim().replace(/\s+/g, ' ').slice(0, 40)
+    const key = `${cs.borderTopColor}|${text}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const chain = []
+    for (let n = el; n && n !== document.body && chain.length < 3; n = n.parentElement) {
+      chain.unshift(n.tagName.toLowerCase() + (n.getAttribute('aria-label') ? `[${n.getAttribute('aria-label')}]` : ''))
+    }
+    out.push({ kind: 'border', px: Number(best.toFixed(2)), text: `${cs.borderTopColor} ${text}`.trim(), where: chain.join(' > ') })
   }
   return out
 }
@@ -451,6 +550,29 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     const o = await page.evaluate(probeOverflow, ELLIPSIS)
     result.pageOverflow = o.pageOverflow
     result.issues = o.issues
+    // Both themes, on the same load: the theme follows the device until a reader picks one, so
+    // flipping the emulated scheme re-renders the page in the other one without a second visit.
+    // ON THE DEFAULT TEXT SIZE ONLY. A colour, a contrast ratio or a control's name is the same at
+    // Large text, and these two passes are the slowest part of a case, so running them at both
+    // sizes doubled their cost in every CI slice and could never find anything new.
+    if (text === 'default') {
+      // Transitions off first: a border-color easing toward the new theme measures as a colour that
+      // is neither, and a probe that runs mid-fade reports outlines that do not exist.
+      await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' })
+      for (const scheme of ['light', 'dark']) {
+        await page.emulateMedia({ colorScheme: scheme })
+        await page.waitForTimeout(300)
+        for (const i of await page.evaluate(probeBorders, BORDER_FLOOR)) result.issues.push({ ...i, text: `${scheme}: ${i.text}` })
+        if (scheme === 'light') await page.addScriptTag({ content: AXE_SOURCE })
+        const violations = await page.evaluate(async tags => {
+          const r = await window.axe.run(document, { runOnly: { type: 'rule', values: tags }, resultTypes: ['violations'] })
+          return r.violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target.join(' '), html: n.html.slice(0, 80), summary: n.failureSummary?.split(String.fromCharCode(10)).slice(1).join(' ').slice(0, 120) })) }))
+        }, AXE_RULES)
+        for (const v of violations) for (const n of v.nodes) {
+          result.issues.push({ kind: 'a11y', px: 0, text: `${scheme}: ${v.id} ${n.html}`, where: n.summary ?? n.target })
+        }
+      }
+    }
   } catch (err) {
     result.error = String(err?.message ?? err).split('\n')[0]
   } finally {
@@ -520,7 +642,8 @@ async function main() {
       const k = `${i.kind}|${i.text}`
       if (seen.has(k)) continue
       seen.add(k)
-      lines.push([`${caseKey}|${k}`, `  ${i.kind.padEnd(9)} ${String(i.px).padStart(4)}px  "${i.text}"  (${i.where})`])
+      const measure = i.kind === 'border' ? `${i.px.toFixed(2)}:1` : i.kind === 'a11y' ? '' : `${String(i.px).padStart(4)}px`
+      lines.push([`${caseKey}|${k}`, `  ${i.kind.padEnd(9)} ${measure}  "${i.text}"  (${i.where})`])
     }
     if (r.shifts.length) {
       // The topmost thing that moved is where to look; everything under it usually moved with it.

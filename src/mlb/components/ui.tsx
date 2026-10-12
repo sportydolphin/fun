@@ -1,5 +1,6 @@
 // ─── UI primitives ────────────────────────────────────────────────────────────
 
+import { ACCENT_EDGE } from '../../ui/card'
 import React, { useState } from 'react'
 import { Box, Typography, Popover, Tooltip, ClickAwayListener } from '@mui/material'
 import { KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
@@ -72,12 +73,12 @@ export function PillChip({ label, selected, onChange }: {
 }) {
   return (
     <Box
-      onClick={onChange}
+      {...pressable(onChange)}
       sx={{
         px: 1.75, py: 0.45,
         borderRadius: 999,
         border: '1.5px solid',
-        borderColor: selected ? ACCENT : 'divider',
+        borderColor: selected ? ACCENT_EDGE : 'outline',
         bgcolor: selected ? `${ACCENT}20` : 'transparent',
         color: selected ? ACCENT_TEXT : 'text.secondary',
         fontSize: '0.75rem',
@@ -85,7 +86,7 @@ export function PillChip({ label, selected, onChange }: {
         cursor: 'pointer',
         transition: 'all 0.15s',
         userSelect: 'none',
-        '&:hover': !selected ? { borderColor: ACCENT, color: ACCENT_TEXT } : {},
+        '&:hover': !selected ? { borderColor: ACCENT_EDGE, color: ACCENT_TEXT } : {},
       }}
     >
       {label}
@@ -99,14 +100,14 @@ export const pillActionSx = {
   px: 2, py: 0.75,
   borderRadius: 999,
   border: '1.5px solid',
-  borderColor: 'divider',
+  borderColor: 'outline',
   cursor: 'pointer',
   fontSize: '0.8rem',
   fontWeight: 600,
   color: 'text.secondary',
   transition: 'all 0.15s',
   userSelect: 'none' as const,
-  '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
+  '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT },
 }
 
 // Shared style for external link pills in the options bar
@@ -115,13 +116,13 @@ export const linkPillSx = {
   px: 1.75, py: 0.45,
   borderRadius: 999,
   border: '1.5px solid',
-  borderColor: 'divider',
+  borderColor: 'outline',
   color: 'text.secondary',
   fontSize: '0.75rem',
   fontWeight: 600,
   textDecoration: 'none',
   transition: 'all 0.15s',
-  '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
+  '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT },
 }
 
 // WPBL's eyebrow and card header link, from src/ui/card.tsx (Oct 9, 2026).
@@ -215,20 +216,20 @@ export function StatPicker({ defs, selected, onToggle, label }: StatPickerProps)
   return (
     <>
       <Box
-        onClick={e => setAnchor(e.currentTarget as HTMLElement)}
+        {...pressable(e => setAnchor(e.currentTarget as HTMLElement))}
         sx={{
           display: 'inline-flex', alignItems: 'center', gap: 0.4,
           px: 1.75, py: 0.5,
           borderRadius: 999,
           border: '1.5px solid',
-          borderColor: anchor ? ACCENT : 'divider',
+          borderColor: anchor ? ACCENT_EDGE : 'outline',
           cursor: 'pointer',
           fontSize: '0.75rem',
           fontWeight: 600,
           color: anchor ? ACCENT_TEXT : 'text.secondary',
           transition: 'all 0.15s',
           userSelect: 'none',
-          '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT },
+          '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT },
         }}
       >
         {label}
@@ -303,7 +304,7 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
         {visible.map(def => (
           <Box
             key={def.key}
-            onClick={() => onToggle?.(def.key)}
+            {...pressable(() => onToggle?.(def.key))}
             sx={{
               width: `${100 / cols}%`, pb: 2,
               cursor: onToggle ? 'pointer' : 'default',
@@ -357,7 +358,8 @@ export function InfoTip({ text, size = 0.88 }: { text: React.ReactNode; size?: n
       >
         <Box
           component="span"
-          onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+          {...pressable(e => { e.stopPropagation(); setOpen(o => !o) })}
+          aria-label="What this shows"
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => setOpen(false)}
           sx={{

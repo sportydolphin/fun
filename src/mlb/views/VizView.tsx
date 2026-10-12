@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { pressable } from '../../ui/interaction'
+import { ACCENT_EDGE } from '../../ui/card'
 import {
   Box, Typography, Paper, List, ListItemButton, Divider,
   ClickAwayListener, Skeleton,
 } from '@mui/material'
 import { Search } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
-import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
 import { InfoTip } from '../components/ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/charts'
 import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboardCard, PlayerLeaderboardModal } from '../components/leaderboards'
@@ -311,7 +313,7 @@ export function VizView({
               <Typography sx={{ color: '#fff', fontSize: '0.78rem', fontWeight: 700, lineHeight: 1 }}>
                 {nameMap.get(vizHighlightId) ?? teamSummaries.find(t => t.id === vizHighlightId)?.abbr}
               </Typography>
-              <Box onClick={() => { setVizHighlightId(null); setVizSearch('') }}
+              <Box {...pressable(() => { setVizHighlightId(null); setVizSearch('') })}
                 sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '1rem', lineHeight: 1, cursor: 'pointer', ml: 0.25, '&:hover': { color: '#fff' } }}>×</Box>
             </Box>
           ) : (
@@ -319,8 +321,8 @@ export function VizView({
               <Box sx={{ position: 'relative', minWidth: { xs: 0, sm: chromePx(180) }, flex: { xs: 1, sm: 'none' } }}>
                 <Box sx={{
                   display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.6, borderRadius: 999,
-                  border: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper',
-                  transition: 'border-color 0.15s', '&:focus-within': { borderColor: ACCENT },
+                  border: '1.5px solid', borderColor: 'outline', bgcolor: 'background.paper',
+                  transition: 'border-color 0.15s', '&:focus-within': { borderColor: ACCENT_EDGE },
                 }}>
                   <Search sx={{ fontSize: '0.85rem', color: 'text.disabled', flexShrink: 0 }} />
                   <Box component="input" value={vizSearch}

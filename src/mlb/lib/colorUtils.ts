@@ -19,8 +19,8 @@ export function brightColor(hex: string): string {
   return `#${br.toString(16).padStart(2, '0')}${bg.toString(16).padStart(2, '0')}${bb.toString(16).padStart(2, '0')}`
 }
 
-export { textTone, contrastRatio, whiteAlphaOn } from './contrast'
-import { textTone, contrastRatio } from './contrast'
+export { textTone, contrastRatio, whiteAlphaOn, edgeTone } from './contrast'
+import { textTone, contrastRatio, edgeTone } from './contrast'
 
 /** textTone bound to the current theme and its card surface. */
 /** `target` above 4.5 for text on a tint of its own colour (a "Signed" chip on 11% green), which
@@ -49,8 +49,10 @@ export function accentColor(hex: string, isDark: boolean): string {
 // back to the team's primary color.
 export function ringColor(teamId: number, isDark: boolean): string {
   const base = TEAM_BG[teamId] ?? '#888'
-  if (isDark) return TEAM_ICON_STYLE[teamId]?.ring ?? brightColor(base)
-  return TEAM_ICON_STYLE_LIGHT[teamId]?.ring ?? base
+  // Through edgeTone: a studio ring is kept as designed wherever it already reads, and lifted only
+  // as far as 3:1 where it does not (a navy ring on the dark page).
+  if (isDark) return edgeTone(TEAM_ICON_STYLE[teamId]?.ring ?? brightColor(base), true)
+  return edgeTone(TEAM_ICON_STYLE_LIGHT[teamId]?.ring ?? base, false)
 }
 
 // Team logo-bubble center from the per-team locked-in icon style. Dark falls back
@@ -81,21 +83,12 @@ export function teamLogoCrop(teamId: number, isDark: boolean): string {
   return teamLogoTransform(isDark ? TEAM_ICON_STYLE[teamId] : TEAM_ICON_STYLE_LIGHT[teamId])
 }
 
-// Opacity-suffixed hex for card borders.
-export function borderAlpha(hex: string, isDark: boolean): string {
-  return `${hex}${isDark ? 'cc' : '45'}`
-}
-
 // Default (non-team-colored) card border. The values of `CARD_BORDER` in src/ui/card.tsx, so the
 // MLB cards not yet on `SectionCard` draw the same outline as the ones that are, on one page.
 export function defaultBorder(isDark: boolean): string {
-  return isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.34)'
+  return isDark ? 'rgba(255,255,255,0.36)' : 'rgba(0,0,0,0.44)'
 }
 
-// Opacity-suffixed hex for photo/avatar ring borders.
-export function photoBorderAlpha(hex: string, isDark: boolean): string {
-  return `${hex}${isDark ? '99' : '40'}`
-}
 
 // Background gradient string for team-colored cards.
 export function cardGradient(hex: string, isDark: boolean): string {

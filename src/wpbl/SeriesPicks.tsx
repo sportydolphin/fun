@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { edge } from '../ui/card'
 import { Box, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
@@ -359,7 +360,7 @@ export function PickemButton({ bracket, state, from, compact }: {
             cursor: 'pointer', userSelect: 'none',
             whiteSpace: 'nowrap', flexShrink: 0,
             ...(done
-              ? { border: '1px solid', borderColor: 'divider', color: 'text.secondary' }
+              ? { border: '1px solid', borderColor: 'outline', color: 'text.secondary' }
               : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),
           }}
         >
@@ -402,7 +403,7 @@ export function PickemButton({ bracket, state, from, compact }: {
           maxWidth: { xs: '100%', sm: chromePx(400) },
           mb: 1.25,
           ...(done
-            ? { border: '1px solid', borderColor: 'divider', color: 'text.secondary' }
+            ? { border: '1px solid', borderColor: 'outline', color: 'text.secondary' }
             : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),
         }}
       >
@@ -479,7 +480,7 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
         // other half of what stops it reading as an answer about whatever sits above it. `59` is
         // roughly a third alpha: enough to bind the row together, weak enough that the selected
         // tile still wins the row.
-        borderColor: on ? accent : follows ? `${accent}59` : 'divider',
+        borderColor: on || follows ? edge(accent) : 'outline',
         bgcolor: on ? `${accent}38` : 'transparent',
         // THE SELECTION HAS TO DIFFER IN KIND, NOT IN INTENSITY, and that is the whole problem
         // this ring and the tick below are solving. A 1px accent border and a 12%-alpha wash are the
@@ -700,7 +701,7 @@ function ClearPicks({ categories, onClear }: { categories: string[]; onClear: ()
       sx={{
         ...TAPPABLE, ...FOCUS_RING,
         alignSelf: 'flex-start', borderRadius: 2, px: 1.25, py: 0.6, cursor: 'pointer',
-        border: '1px solid', borderColor: armed ? 'error.main' : 'divider',
+        border: '1px solid', borderColor: armed ? 'error.main' : 'outline',
         color: armed ? 'error.main' : 'text.disabled',
       }}
     >
@@ -801,7 +802,7 @@ function PickemSheet({ bracket, state, onClose }: {
             {...pressable(state.signIn)}
             sx={{
               ...TAPPABLE, ...FOCUS_RING, borderRadius: 2, px: 1.5, py: 1.1, cursor: 'pointer',
-              border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
+              border: '1px solid', borderColor: 'var(--wpbl-accent-fg)',
               display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
               // Spans the columns so it is never one of them, but sized to its own label rather
               // than to the span: a four-word ask stretched across an 800px dialog is a band,

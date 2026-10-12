@@ -155,7 +155,7 @@ function MethodBadge({ method }: { method: string }) {
     <Box component="span" sx={{
       px: 0.6, py: '1px', borderRadius: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
       textTransform: 'uppercase', border: '1px solid',
-      color: manual ? 'primary.main' : 'text.secondary', borderColor: manual ? 'primary.main' : 'divider',
+      color: manual ? 'primary.main' : 'text.secondary', borderColor: manual ? 'primary.main' : 'outline',
     }}>{METHOD_LABEL[method] ?? method}</Box>
   )
 }
@@ -167,7 +167,7 @@ function SmallButton({ onClick, children, disabled, tone }: {
     <Box component="button" type="button" onClick={onClick} disabled={disabled} sx={{
       px: 1.25, py: 0.5, borderRadius: 999, font: 'inherit', fontSize: TYPE_SCALE.meta, fontWeight: 800,
       cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, border: '1px solid',
-      borderColor: tone === 'primary' ? 'primary.main' : tone === 'danger' ? 'error.main' : 'divider',
+      borderColor: tone === 'primary' ? 'primary.main' : tone === 'danger' ? 'error.main' : 'outline',
       bgcolor: tone === 'primary' ? 'primary.main' : 'background.paper',
       color: tone === 'primary' ? 'primary.contrastText' : tone === 'danger' ? 'error.main' : 'text.primary',
       '@media (pointer: coarse)': { minHeight: 38 },

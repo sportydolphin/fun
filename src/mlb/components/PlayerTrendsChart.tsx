@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { pressable } from '../../ui/interaction'
+import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { CareerStatSplit, RecentGameEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, CURRENT_SEASON, TEAM_BG } from '../constants'
@@ -340,8 +342,8 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       {/* Controls row: stat picker + season range on one line */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75, flexWrap: 'wrap' }}>
         {/* Stat dropdown */}
-        <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, flexShrink: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
-          <select value={statKey} onChange={e => setStatKey(e.target.value)} style={trendSelSx}>
+        <Box sx={{ border: '1.5px solid', borderColor: 'outline', borderRadius: 999, flexShrink: 0, '&:hover': { borderColor: ACCENT_EDGE }, '&:focus-within': { borderColor: ACCENT_EDGE } }}>
+          <select aria-label="Stat" value={statKey} onChange={e => setStatKey(e.target.value)} style={trendSelSx}>
             {availableDefs.map(def => <option key={def.key} value={def.key}>{def.label}</option>)}
           </select>
         </Box>
@@ -350,20 +352,20 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
         {pts.length >= 3 && (<>
           <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', fontWeight: 600 }}>·</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
-              <select value={effStart} onChange={e => { setRangeStart(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
+            <Box sx={{ border: '1.5px solid', borderColor: 'outline', borderRadius: 999, '&:hover': { borderColor: ACCENT_EDGE } }}>
+              <select aria-label="From season" value={effStart} onChange={e => { setRangeStart(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y <= effEnd).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </Box>
             <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>–</Typography>
-            <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
-              <select value={effEnd} onChange={e => { setRangeEnd(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
+            <Box sx={{ border: '1.5px solid', borderColor: 'outline', borderRadius: 999, '&:hover': { borderColor: ACCENT_EDGE } }}>
+              <select aria-label="To season" value={effEnd} onChange={e => { setRangeEnd(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y >= effStart).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </Box>
           </Box>
           {isRangeModified && (
-            <Box onClick={() => { setRangeStart(null); setRangeEnd(null); setHovIdx(null) }}
+            <Box {...pressable(() => { setRangeStart(null); setRangeEnd(null); setHovIdx(null) })}
               sx={{ fontSize: '0.72rem', color: ACCENT_TEXT, fontWeight: 600, cursor: 'pointer', '&:hover': { opacity: 0.7 } }}>
               Reset
             </Box>
@@ -375,10 +377,10 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}
           onClick={() => isFullscreen ? (exitFullscreen.current ?? (() => setIsFullscreen(false)))() : setIsFullscreen(true)}
           sx={{
-            ml: 'auto', flexShrink: 0, border: '1.5px solid', borderColor: 'divider',
+            ml: 'auto', flexShrink: 0, border: '1.5px solid', borderColor: 'outline',
             borderRadius: 999, background: 'transparent', cursor: 'pointer', color: 'inherit',
             px: 1.25, py: 0.4, display: 'flex', alignItems: 'center',
-            '&:hover': { borderColor: ACCENT },
+            '&:hover': { borderColor: ACCENT_EDGE },
           }}>
           {isFullscreen ? (
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
@@ -564,7 +566,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               pointerEvents: 'none',
               bgcolor: 'background.paper',
               border: '1.5px solid',
-              borderColor: 'divider',
+              borderColor: 'outline',
               borderRadius: 2,
               px: 1.5, py: 1,
               boxShadow: '0 4px 18px rgba(0,0,0,0.13)',

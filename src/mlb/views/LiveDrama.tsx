@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { TYPE_SCALE } from '../../ui/card'
+import { pressable } from '../../ui/interaction'
+import { TYPE_SCALE, edge } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { DramaEvent, DramaKind, fetchLiveDrama, ord } from '../lib/liveDrama'
 import { useDevDrama } from '../dev/devDrama'
@@ -45,7 +46,7 @@ function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void })
   const accent = KIND_ACCENT[event.kind]
   return (
     <Box
-      onClick={onOpen}
+      {...pressable(onOpen)}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25,
         px: 1.5, py: 1,
@@ -67,7 +68,7 @@ function DramaRow({ event, onOpen }: { event: DramaEvent; onOpen?: () => void })
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
           <Box component="span" sx={{
             px: 0.55, py: '1px', borderRadius: 999, flexShrink: 0,
-            bgcolor: `${accent}1c`, border: `1px solid ${accent}55`,
+            bgcolor: `${accent}1c`, border: '1px solid', borderColor: edge(accent),
             fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent),
             letterSpacing: typePx(0.5), lineHeight: 1.4, whiteSpace: 'nowrap',
           }}>

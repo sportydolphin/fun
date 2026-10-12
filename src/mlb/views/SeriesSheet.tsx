@@ -8,7 +8,7 @@ import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { useSheetHistory } from '../state/sheetHistory'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, playerLink, gameLink, LINK_SX } from '../lib/links'
-import { useIsDark, photoBorderAlpha } from '../lib/colorUtils'
+import { useIsDark, edgeTone } from '../lib/colorUtils'
 import { winsNeeded, seriesName, liveGameScore } from '../postseason'
 import type { Bracket, PsSeries, PsGame, PsTeam } from '../postseason'
 import {
@@ -104,7 +104,7 @@ function Club({ t, wins, need, won, lost, record, align, toTeam }: {
     }}>
       {t.real
         ? <LogoBubble teamId={t.id} abbr={t.abbr} size={48} ring={2} />
-        : <Box sx={{ width: chromePx(48), height: chromePx(48), borderRadius: '50%', border: '1.5px dashed', borderColor: 'divider', flexShrink: 0 }} />}
+        : <Box sx={{ width: chromePx(48), height: chromePx(48), borderRadius: '50%', border: '1.5px dashed', borderColor: 'outline', flexShrink: 0 }} />}
       <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
         <Typography {...(t.real ? teamLink(t.id, toTeam) : {})} sx={{
           ...LINK_SX, display: 'block', fontSize: '1.05rem', fontWeight: won ? 900 : 800, lineHeight: 1.15,
@@ -192,7 +192,7 @@ function GameSide({ team, score, won, dim, starter }: {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
       {isRealClub(team.id)
         ? <LogoBubble teamId={team.id} abbr={team.abbr} size={20} ring={1} />
-        : <Box sx={{ width: chromePx(20), height: chromePx(20), borderRadius: '50%', border: '1px dashed', borderColor: 'divider', flexShrink: 0 }} />}
+        : <Box sx={{ width: chromePx(20), height: chromePx(20), borderRadius: '50%', border: '1px dashed', borderColor: 'outline', flexShrink: 0 }} />}
       <Typography sx={{ width: '2.4rem', flexShrink: 0, fontSize: BODY, fontWeight: won ? 900 : 700, color: dim ? 'text.secondary' : 'text.primary' }}>
         {team.abbr}
       </Typography>
@@ -272,7 +272,7 @@ function Starter({ p, line, teamId, teamAbbr, align, toPlayer }: {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexDirection: align === 'left' ? 'row' : 'row-reverse', textAlign: align }}>
       <Box sx={{
         width: chromePx(40), height: chromePx(40), borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-        bgcolor: 'action.hover', border: '1.5px solid', borderColor: photoBorderAlpha(TEAM_BG[teamId] ?? '#888888', isDark),
+        bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[teamId] ?? '#888888', isDark),
       }}>
         {p && <Box component="img" src={HEADSHOT(p.id)} alt="" loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
       </Box>
@@ -324,7 +324,7 @@ function NextGame({ g, d, lines, onOpen, toPlayer }: {
       <Box {...pressable(onOpen)} sx={{
         mt: 1.5, display: 'inline-flex', alignItems: 'center', gap: 0.25, cursor: 'pointer',
         fontSize: META, fontWeight: 800, color: 'text.secondary', px: 1.25, py: 0.5, borderRadius: 999,
-        border: '1px solid', borderColor: 'divider', ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }), ...FOCUS_RING,
+        border: '1px solid', borderColor: 'outline', ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }), ...FOCUS_RING,
       }}>
         {live ? 'Game Center' : 'Full preview'} <ChevronRight sx={{ fontSize: '0.95rem' }} />
       </Box>
@@ -355,7 +355,7 @@ function LeaderRow({ id, name, teamId, abbr, line, toPlayer }: {
       <Box sx={{ position: 'relative', flexShrink: 0 }}>
         <Box component="img" src={HEADSHOT(id)} alt="" loading="lazy" sx={{
           width: chromePx(34), height: chromePx(34), borderRadius: '50%', objectFit: 'cover', display: 'block',
-          bgcolor: 'action.hover', border: '1.5px solid', borderColor: photoBorderAlpha(TEAM_BG[teamId] ?? '#888888', isDark),
+          bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[teamId] ?? '#888888', isDark),
         }} />
         <Box sx={{ position: 'absolute', right: chromePx(-4), bottom: chromePx(-3) }}>
           <LogoBubble teamId={teamId} abbr={abbr} size={16} ring={1} />

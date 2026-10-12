@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography, Skeleton } from '@mui/material'
 import type { StatDef } from '../types'
 import { ACCENT, TEAM_SEASONS } from '../constants'
@@ -25,7 +26,6 @@ import { PlayerHeadshot } from '../components/leaderboards'
 // other. The grid stays on desktop, where comparing across columns is what a grid is for, and
 // behind "Full table" on a phone for the reader who wants it anyway.
 
-const CARD_BORDER = 'divider'
 
 /** The preference a phone reader sets once: "I want the grid". Remembered because it says how
  *  someone reads, not what page they are on. Off by default; see the list above for why. */
@@ -185,7 +185,7 @@ export function StatsRankedList({
   }, [hlIdx])
 
   return (
-    <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
+    <Box sx={{ border: '1px solid', borderColor: 'outline', borderRadius: 2, overflow: 'hidden' }}>
       {/* WPBL's header: "Player", the league's figure, the ranked stat with its direction arrow. On
           the ERA board the numbers ascend and nothing else says so. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.7, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -240,7 +240,7 @@ export const controlPill = (on: boolean) => ({
   cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
   minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
   border: '1px solid', transition: 'all 0.15s',
-  borderColor: on ? ACCENT : 'divider',
+  borderColor: on ? ACCENT_EDGE : 'outline',
   bgcolor: on ? `${ACCENT}12` : 'transparent',
   color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
 } as const)
@@ -261,9 +261,9 @@ function OptionTile({ label, hint, on, onClick, disabled }: {
       minHeight: 52, display: 'flex', flexDirection: 'column', justifyContent: 'center',
       px: 1.25, py: 0.85, borderRadius: 2, cursor: disabled ? 'default' : 'pointer', userSelect: 'none',
       border: '1px solid', transition: 'all 0.15s', opacity: disabled ? 0.45 : 1,
-      borderColor: on ? ACCENT : CARD_BORDER,
+      borderColor: on ? ACCENT_EDGE : 'outline',
       bgcolor: on ? `${ACCENT}14` : 'transparent',
-      ...(disabled ? {} : hoverOnly({ borderColor: ACCENT })),
+      ...(disabled ? {} : hoverOnly({ borderColor: ACCENT_EDGE })),
     }}>
       <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2, color: on ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>{label}</Typography>
       {hint && (
@@ -383,7 +383,7 @@ export function FilterBody({
         <Box component="select" aria-label="Season" value={seasonValue} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onSeason(e.target.value)}
           sx={{
             ...FOCUS_RING, width: '100%', minHeight: 52, px: 1.25, borderRadius: 2, fontSize: '0.9rem', fontWeight: 700,
-            fontFamily: 'inherit', color: 'text.primary', bgcolor: 'transparent', border: '1px solid', borderColor: CARD_BORDER,
+            fontFamily: 'inherit', color: 'text.primary', bgcolor: 'transparent', border: '1px solid', borderColor: 'outline',
           }}>
           {allTime && <option value="all">All-Time</option>}
           {seasons.map(y => <option key={y} value={String(y)}>{y}</option>)}
@@ -403,7 +403,7 @@ export function FilterBody({
             <Box component="select" aria-label={c.title} value={c.value} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => c.onChange(e.target.value)}
               sx={{
                 ...FOCUS_RING, width: '100%', minHeight: 52, px: 1.25, borderRadius: 2, fontSize: '0.9rem', fontWeight: 700,
-                fontFamily: 'inherit', color: 'text.primary', bgcolor: 'transparent', border: '1px solid', borderColor: CARD_BORDER,
+                fontFamily: 'inherit', color: 'text.primary', bgcolor: 'transparent', border: '1px solid', borderColor: 'outline',
               }}>
               {c.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </Box>

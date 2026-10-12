@@ -176,7 +176,7 @@ function PagerButton({ label, glyph, onClick }: { label: string; glyph: string; 
         // A thumb needs more than a cursor: 44px is the smallest target a finger hits reliably, and
         // these are the only way to the next clip on a phone, where the embed swallows every swipe.
         '@media (pointer: coarse)': { width: 44, height: 44 },
-        border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary',
+        border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', color: 'text.primary',
         fontSize: '1.2rem', fontWeight: 700, lineHeight: 1, opacity: onClick ? 1 : 0.35,
         display: 'flex', alignItems: 'center', justifyContent: 'center', p: 0,
         ...(onClick ? hoverOnly({ borderColor: 'text.secondary' }) : {}), ...FOCUS_RING,

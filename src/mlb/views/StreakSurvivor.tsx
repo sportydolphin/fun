@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { pressable } from '../../ui/interaction'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { SectionCard, TYPE_SCALE } from '../../ui/card'
+import { SectionCard, TYPE_SCALE, ACCENT_EDGE } from '../../ui/card'
 import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_NICKNAME, TONE } from '../constants'
 import { useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
@@ -70,12 +71,12 @@ function HitterRow({ name, teamId, subtitle, disabled, onPick }: {
   const abbr = TEAM_ABBR[teamId] ?? '—'
   return (
     <Box
-      onClick={() => !disabled && onPick()}
+      {...pressable(() => !disabled && onPick())}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: chromePx(7), borderRadius: 2,
-        border: '1px solid', borderColor: 'divider',
+        border: '1px solid', borderColor: 'outline',
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
-        '&:hover': { bgcolor: disabled ? undefined : 'action.hover', borderColor: disabled ? 'divider' : ACCENT },
+        '&:hover': { bgcolor: disabled ? undefined : 'action.hover', borderColor: disabled ? 'divider' : ACCENT_EDGE },
         transition: 'background 0.12s, border-color 0.12s',
       }}
     >
@@ -254,7 +255,7 @@ export function StreakSurvivorWidget() {
       title="Streak Survivor"
       subtitle="Pick a hitter. Keep the streak alive."
       titleAdornment={isTomorrow ? (
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
           Tomorrow
         </Typography>
       ) : undefined}
@@ -279,7 +280,7 @@ export function StreakSurvivorWidget() {
       )}
       {/* Footer */}
       <Box
-        onClick={() => setLbOpen(true)}
+        {...pressable(() => setLbOpen(true))}
         sx={{ px: 2, py: chromePx(9), borderTop: '1px solid', borderColor: 'divider', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75, '&:hover': { bgcolor: 'action.hover' } }}
       >
         <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT_TEXT }}>View leaderboard</Typography>
@@ -298,8 +299,8 @@ export function StreakSurvivorWidget() {
         placeholder="Search any hitter…"
         sx={{
           width: '100%', px: 1.25, py: chromePx(8), borderRadius: 2, fontSize: TYPE_SCALE.body,
-          border: '1px solid', borderColor: 'divider', bgcolor: 'background.default',
-          color: 'text.primary', outline: 'none', '&:focus': { borderColor: ACCENT },
+          border: '1px solid', borderColor: 'outline', bgcolor: 'background.default',
+          color: 'text.primary', outline: 'none', '&:focus': { borderColor: ACCENT_EDGE },
           '&::placeholder': { color: 'text.disabled' },
         }}
       />
@@ -339,7 +340,7 @@ export function StreakSurvivorWidget() {
           Pick one hitter a day. A hit keeps your streak going, an 0-fer starts you over. How long can you last?
         </Typography>
         <Box
-          onClick={() => openAuthDialog('signin')}
+          {...pressable(() => openAuthDialog('signin'))}
           sx={{ px: 1.5, py: chromePx(9), borderRadius: 2, bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: TYPE_SCALE.body, '&:hover': { opacity: 0.9 } }}
         >
           Sign in to play
@@ -369,8 +370,8 @@ export function StreakSurvivorWidget() {
         </Typography>
         {!pickLocked && myPick.result === 'pending' && (
           <Box
-            onClick={() => setChanging(true)}
-            sx={{ mt: 1, px: 1.25, py: chromePx(7), borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center', cursor: 'pointer', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', '&:hover': { borderColor: ACCENT, color: ACCENT_TEXT } }}
+            {...pressable(() => setChanging(true))}
+            sx={{ mt: 1, px: 1.25, py: chromePx(7), borderRadius: 2, border: '1px solid', borderColor: 'outline', textAlign: 'center', cursor: 'pointer', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT } }}
           >
             Change pick
           </Box>
@@ -385,7 +386,7 @@ export function StreakSurvivorWidget() {
         </Typography>
         {suggestions}
         {changing && (
-          <Box onClick={() => { setChanging(false); setQuery(''); setResults([]) }} sx={{ mt: 1, textAlign: 'center', cursor: 'pointer', fontSize: TYPE_SCALE.meta, color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}>
+          <Box {...pressable(() => { setChanging(false); setQuery(''); setResults([]) })} sx={{ mt: 1, textAlign: 'center', cursor: 'pointer', fontSize: TYPE_SCALE.meta, color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}>
             Cancel
           </Box>
         )}

@@ -510,7 +510,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
           pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
         }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: WPBL_ACCENT }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
             {r.label} · Game {r.gameNumber}
           </Typography>
           {/* Spelled out rather than left as the bracket's asterisk: there is no key beside a
@@ -608,7 +608,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
             display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
             pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: WPBL_ACCENT }}>
+            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
               {ser.label} · Game {ser.gameNumber}
             </Typography>
             {ser.line && (
@@ -1072,20 +1072,18 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
             name saying what is there. */}
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           {pages.map(l => {
-            const props = linkTo(l.href)
+            // linkTo navigates and lets a modified click through to the browser; the sheet only has
+            // to close itself once a plain click has been taken, and a tracked item records the open
+            // through the same funnel its other entry points use.
+            const props = linkTo(l.href, plain => {
+              if (!plain) return
+              if (l.event) track(l.event, l.eventProps ?? {})
+              onClose()
+            })
             return (
               <Box
                 key={l.href}
                 {...props}
-                // linkTo navigates and lets a modified click through to the browser; the sheet
-                // only has to close itself once a plain click has been taken, and a tracked item
-                // records the open through the same funnel its other entry points use.
-                onClick={e => {
-                  const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-                  if (l.event && !modified) track(l.event, l.eventProps ?? {})
-                  props.onClick(e)
-                  if (e.defaultPrevented) onClose()
-                }}
                 sx={{
                   display: 'flex', flexDirection: 'column', gap: 0.1,
                   textDecoration: 'none', color: 'text.primary',

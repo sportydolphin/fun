@@ -214,7 +214,7 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
       <Box sx={{
         display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', alignItems: 'center',
         columnGap: { xs: 1, sm: 2 }, rowGap: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2,
-        border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+        border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper',
       }}>
         {/* Two columns and nothing between them. A middle column holding the verdict changed width
             as it landed and moved both sides; a label there left a phone 57px for "Firebells". The
@@ -317,7 +317,11 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
       <SectionHeading seen="series">Batter vs pitcher</SectionHeading>
       <Typography sx={{ ...SECTION_CAPTION_SX, mb: 1 }}>
         The most lopsided matchups between these clubs in {scopeNote}, three plate appearances or more.{' '}
-        <Box component="a" {...linkTo(WPBL_MATCHUPS_PAGE)} sx={{ ...UNSTYLED_LINK, color: ink, fontWeight: 700, ...FOCUS_RING }}>
+        <Box component="a" {...linkTo(WPBL_MATCHUPS_PAGE)} sx={{
+          // UNDERLINED: it is the colour of the sentence it ends, so the line is the only thing
+          // that says it is a link (1.02:1 against the text around it in light mode).
+          ...UNSTYLED_LINK, color: ink, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: '2px', ...FOCUS_RING,
+        }}>
           Every matchup in the league
         </Box>
       </Typography>
@@ -343,7 +347,7 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
         {others.map(o => (
           <Box key={o.href} {...linkTo(o.href)} sx={{
             ...UNSTYLED_LINK, fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.secondary',
-            px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
+            px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline',
             ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }), ...FOCUS_RING,
           }}>{o.label}</Box>
         ))}

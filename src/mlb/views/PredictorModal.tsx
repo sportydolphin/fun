@@ -1,6 +1,8 @@
 // The Predictor's full board: every game of the slate as a card, opened from the Home widget.
 // Its own module so it loads on that tap. It was half of Predictor.tsx, and Home renders only
 // the widget, so every Home landing carried the board for a reader who may never open it.
+import { pressable } from '../../ui/interaction'
+import { edge } from '../../ui/card'
 import React, { useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TONE, FILL } from '../constants'
@@ -30,18 +32,18 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
 
   return (
     <Box
-      onClick={() => !locked && onPick(team.teamId)}
+      {...pressable(() => !locked && onPick(team.teamId))}
       sx={{
         flex: 1, minWidth: 0,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
         py: 1.25, px: 0.5, borderRadius: 2,
         border: '1.5px solid',
-        borderColor: picked ? `${col}70` : 'transparent',
+        borderColor: picked ? edge(col) : 'transparent',
         bgcolor: picked ? `${col}12` : 'transparent',
         cursor: locked ? 'default' : 'pointer',
         transition: 'all 0.15s',
         position: 'relative',
-        '&:hover': locked ? {} : { bgcolor: `${col}0e`, borderColor: `${col}40` },
+        '&:hover': locked ? {} : { bgcolor: `${col}0e`, borderColor: edge(col) },
       }}
     >
       {(correct || wrong) && (
@@ -124,7 +126,7 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
   const homeCol   = TEAM_BG[game.home.teamId] ?? '#888'
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flexShrink: 0 }}>
+    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden', flexShrink: 0 }}>
       <Box sx={{
         px: 2, py: chromePx(5), borderBottom: '1px solid', borderColor: 'divider',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,

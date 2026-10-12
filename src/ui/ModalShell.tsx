@@ -985,6 +985,9 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
   // inside it (cards, sticky headers) are the lifted tone. See Surfaces in src/ThemeContext.tsx.
   return createPortal((
     <ThemeProvider theme={raisedTheme}>
+    {/* The scrim: a click on it closes the sheet. Not a control in its own right, since the keyboard
+        closes the sheet with Escape and the close button, which is the reach a scrim is for. */}
+    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
     <Box
       ref={overlayRef}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -1013,6 +1016,8 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
 
           The fade runs over the same beat the sheet takes to travel, on phones and `sheet` only, as
           an `animation` so styles.css's reduced-motion collapse covers it. */}
+      {/* The scrim, not a button: the keyboard closes the dialog with Escape and its close button. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <Box ref={backdropRef} onClick={onClose} sx={{
         position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.6)',
         ...(sheet ? {
@@ -1028,7 +1033,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
         width: '100%', maxWidth,
         bgcolor: 'background.paper',
         borderRadius: sheet ? { xs: '18px 18px 0 0', sm: 3 } : 3,
-        border: '1px solid', borderColor: 'divider',
+        border: '1px solid', borderColor: 'outline',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
         // wrapper viewport units don't shrink, so `92vh` overflows the screen.

@@ -1057,7 +1057,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                 ml: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 0.6, flexShrink: 0,
               }}>
                 {g.runs > 0 && (
-                  <Box component="span" sx={{ fontSize: '0.62rem', fontWeight: 800, color: '#16a34a' }}>
+                  <Box component="span" sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--wpbl-pos)' }}>
                     +{g.runs}
                   </Box>
                 )}
@@ -1184,7 +1184,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                           {parsed.what}
                           {p.corrected_source && <SourceMark source={p.corrected_source} />}
                           {runsOnPlay(p) > 0 && (
-                            <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: '#16a34a' }}>
+                            <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: 'var(--wpbl-pos)' }}>
                               +{runsOnPlay(p)}
                             </Box>
                           )}
@@ -1218,8 +1218,8 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                                 ml: 0.6, px: 0.6, py: '1px', borderRadius: 0.75, cursor: 'pointer', font: 'inherit',
                                 fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
                                 whiteSpace: 'nowrap', verticalAlign: 'baseline',
-                                color: 'var(--wpbl-accent-solid)', bgcolor: 'transparent',
-                                border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
+                                color: 'var(--wpbl-accent-fg)', bgcolor: 'transparent',
+                                border: '1px solid', borderColor: 'var(--wpbl-accent-fg)',
                                 ...FOCUS_RING, ...hoverOnly({ bgcolor: 'action.hover' }),
                               }}>▶ Clip</Box>
                           )}
@@ -1605,7 +1605,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
     <Box sx={{ p: 2 }}>
       {/* Standout game highlights: the marquee of this game's TrackMan moments. */}
       {highlights.length > 0 && (
-        <Box sx={{ display: 'flex', alignItems: 'stretch', mb: 2, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+        <Box sx={{ display: 'flex', alignItems: 'stretch', mb: 2, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover' }}>
           {highlights.map((h, i) => hl(h.e, h.l, h.v, h.s, i === 0))}
         </Box>
       )}
@@ -2440,7 +2440,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
       {scoreboard}
       {series && (
         <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: WPBL_ACCENT }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
             {series.label} · Game {series.gameNumber} of {series.bestOf}
           </Typography>
           {series.line && <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{series.line}</Typography>}
@@ -2701,7 +2701,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
               here. */}
           {series && (
             <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-              <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: WPBL_ACCENT }}>
+              <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
                 {series.label} · Game {series.gameNumber} of {series.bestOf}
               </Typography>
               {series.line && (

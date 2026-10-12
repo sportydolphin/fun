@@ -685,7 +685,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
               {parsed.who && ' '}
               {parsed.what}
               {runs > 0 && (
-                <Box component="span" sx={{ ml: 0.5, fontSize: '0.7rem', fontWeight: 800, color: '#16a34a' }}>
+                <Box component="span" sx={{ ml: 0.5, fontSize: '0.7rem', fontWeight: 800, color: 'var(--wpbl-pos)' }}>
                   +{runs}
                 </Box>
               )}

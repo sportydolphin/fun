@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { pressable } from '../../ui/interaction'
+import { edge, ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
@@ -22,7 +24,7 @@ function BaseDiamond({ onFirst, onSecond, onThird, size = 9 }: {
       transform: 'rotate(45deg)',
       bgcolor: occupied ? ACCENT : 'transparent',
       border: `${size >= 12 ? 2 : 1.5}px solid`,
-      borderColor: occupied ? ACCENT : 'text.disabled',
+      borderColor: occupied ? ACCENT_EDGE : 'text.disabled',
       borderRadius: '1px',
       transition: 'background-color 0.2s, border-color 0.2s',
     }} />
@@ -106,7 +108,7 @@ function LiveCelebration({ type, teamColor }: { type: 'hit' | 'run'; teamColor: 
         px: isRun ? 2 : 1.4, py: isRun ? 0.9 : 0.6,
         borderRadius: 999,
         bgcolor: isRun ? teamColor : 'rgba(0,0,0,0.72)',
-        border: isRun ? '2px solid #fff' : `1.5px solid ${teamColor}`,
+        border: isRun ? '2px solid #fff' : '1.5px solid', borderColor: isRun ? '#fff' : edge(teamColor),
         boxShadow: isRun ? `0 4px 22px ${teamColor}bb` : `0 2px 12px ${teamColor}88`,
         animation: `celebPop ${isRun ? 2.4 : 1.5}s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
       }}>
@@ -216,7 +218,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
         {logo(homeTeamId, homeCol)}
         {onOpenCenter && (
           <Box
-            onClick={onOpenCenter}
+            {...pressable(onOpenCenter)}
             sx={{
               ml: 'auto', flexShrink: 0,
               display: 'inline-flex', alignItems: 'center', gap: 0.5,

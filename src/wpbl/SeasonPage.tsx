@@ -182,7 +182,7 @@ function StatTile({ value, label, sub, highlight, href, onNavigate }: {
       } : {})}
       sx={{
         borderRadius: 2, p: { xs: 1.5, sm: 2 },
-        border: '1px solid', borderColor: highlight ? 'var(--wpbl-accent-solid)' : CARD_BORDER,
+        border: '1px solid', borderColor: highlight ? 'var(--wpbl-accent-fg)' : CARD_BORDER,
         display: 'flex', flexDirection: 'column', gap: 0.25,
         ...(href ? { textDecoration: 'none', color: 'inherit', ...FOCUS_RING, ...TAPPABLE } : {}),
       }}
@@ -719,7 +719,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                   <Box key={h} {...pressable(() => { setHand(h); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'season', control: 'spray_hand', value: h }) })} sx={{
                     ...FOCUS_RING,
                     px: 1.5, py: 0.5, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-                    border: '1px solid', borderColor: hand === h ? 'transparent' : 'divider',
+                    border: '1px solid', borderColor: hand === h ? 'transparent' : 'outline',
                     bgcolor: hand === h ? 'text.primary' : 'transparent',
                   }}>
                     <Typography sx={{
@@ -867,7 +867,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                 onClick={e => { opened('improbable_win', 'game'); if (!isModified(e)) { e.preventDefault(); onOpenGame(comeback.game, { teams, games }) } }}
                 sx={{
                   display: 'block', textDecoration: 'none', color: 'inherit',
-                  borderRadius: 2, p: 2, border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
+                  borderRadius: 2, p: 2, border: '1px solid', borderColor: 'var(--wpbl-accent-fg)',
                   ...TAPPABLE,
                 }}
               >
@@ -1390,7 +1390,7 @@ function JumpRow({ links }: { links: ([string, string] | null)[] }) {
           sx={{
             ...FOCUS_RING, px: 1.3, py: 0.5, borderRadius: 999, textDecoration: 'none',
             fontSize: '0.76rem', fontWeight: 700, lineHeight: 1.5, border: '1px solid',
-            borderColor: 'divider', bgcolor: 'background.paper', color: 'text.secondary',
+            borderColor: 'outline', bgcolor: 'background.paper', color: 'text.secondary',
           }}>
           {label}
         </Box>

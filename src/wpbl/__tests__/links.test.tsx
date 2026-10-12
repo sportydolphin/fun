@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { pressable } from '../../ui/interaction'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Box } from '@mui/material'
 import { WpblLinkProvider, useWpblPlayerLink, useWpblGameLink } from '../LinkContext'
@@ -81,7 +82,7 @@ describe('player links', () => {
     const rowClick = vi.fn()
     const onOpen = vi.fn()
     render(
-      <Box onClick={rowClick}>
+      <Box {...pressable(rowClick)}>
         <Row player={ROSTER[0]} onOpen={onOpen} />
       </Box>,
     )

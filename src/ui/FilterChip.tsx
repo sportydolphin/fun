@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box } from '@mui/material'
 import { pressable, hoverOnly, FOCUS_RING } from './interaction'
-import { CARD_BORDER } from './card'
+import { CARD_BORDER, ACCENT_EDGE } from './card'
 import { chromePx } from './scale'
 
 // A FILTER on the board in front of the reader: a club, a slice of the season, the qualifying
@@ -9,8 +9,9 @@ import { chromePx } from './scale'
 // bar as a "✓ Qual" pill of its own. The third of the boards' three visual languages: PageTabs
 // for pages, PillGroup for a switch, this for a filter.
 
-/** Both sections' accent, raw: a border and a 7% tint, neither of them text. The text takes the
- *  foreground-safe var. */
+/** Both sections' accent, raw, for the 7% tint. The EDGE takes the foreground-safe var with the
+ *  text: raw #60a5fa measured 2.37:1 on the light page, under the 3:1 an outline needs (CLAUDE.md,
+ *  "Borders"), and the var is the same blue in dark mode, where it already passed. */
 const ACCENT = '#60a5fa'
 
 /** The chip's look, for the two controls in the same row that are not toggles: a select (the
@@ -22,10 +23,10 @@ export const filterChipSx = (active: boolean) => ({
   flexShrink: 0, whiteSpace: 'nowrap',
   px: 1, py: 0.4, borderRadius: 999, fontSize: '0.74rem', fontWeight: 700,
   border: '1px solid', transition: 'all 0.15s',
-  borderColor: active ? ACCENT : CARD_BORDER,
+  borderColor: active ? ACCENT_EDGE : CARD_BORDER,
   color: active ? 'var(--wpbl-accent-fg)' : 'text.secondary',
   bgcolor: active ? `${ACCENT}12` : 'transparent',
-  ...hoverOnly({ borderColor: ACCENT }),
+  ...hoverOnly({ borderColor: ACCENT_EDGE }),
 }) as const
 
 export function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -46,7 +47,7 @@ export function FilterSelect({ value, options, onChange, active, ariaLabel }: {
   ariaLabel: string
 }) {
   return (
-    <Box sx={{ ...filterChipSx(active), position: 'relative', p: 0, '&:focus-within': { borderColor: ACCENT } }}>
+    <Box sx={{ ...filterChipSx(active), position: 'relative', p: 0, '&:focus-within': { borderColor: ACCENT_EDGE } }}>
       <Box component="select" value={value} aria-label={ariaLabel} onChange={e => onChange((e.target as HTMLSelectElement).value)}
         sx={{
           appearance: 'none', border: 'none', outline: 'none', bgcolor: 'transparent', color: 'inherit',

@@ -71,7 +71,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
   return (
     <Box sx={{
       flex: { xs: '0 0 auto', sm: '1 1 110px' }, minWidth: 100,
-      px: 1.5, py: 1, border: '1px solid', borderColor: 'divider', borderRadius: 2,
+      px: 1.5, py: 1, border: '1px solid', borderColor: 'outline', borderRadius: 2,
     }}>
       <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
         {label}
@@ -144,7 +144,7 @@ function Panel({ title, note, children, when = true }: {
           {note}
         </Typography>
       )}
-      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+      <Box sx={{ border: '1px solid', borderColor: 'outline', borderRadius: 2, overflow: 'hidden' }}>
         {children}
       </Box>
     </Box>
@@ -377,7 +377,7 @@ export function UserDetailDialog({ user, days, onClose }: {
                 <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled', mb: 0.6 }}>
                   What they wrote
                 </Typography>
-                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+                <Box sx={{ border: '1px solid', borderColor: 'outline', borderRadius: 2, overflow: 'hidden' }}>
                   {detail.feedback.map((f, i) => (
                     <Box key={f.created_at} sx={{ px: 1.5, py: 1, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.3 }}>

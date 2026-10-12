@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { edge } from './ui/card'
 import {
   Dialog, DialogTitle, DialogContent, IconButton,
   Box, Typography, Divider, CircularProgress, Button,
@@ -61,7 +62,7 @@ export function StatusPill({ tone, label, title }: Status & { title?: string }) 
     <Box title={title} sx={{
       display: 'inline-flex', alignItems: 'center', gap: 0.5,
       px: 1, py: 0.25, borderRadius: 999,
-      bgcolor: `${color}18`, border: '1px solid', borderColor: `${color}40`,
+      bgcolor: `${color}18`, border: '1px solid', borderColor: edge(color),
     }}>
       <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
       <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{label}</Typography>
@@ -173,7 +174,7 @@ export function Section({ title, children }: { title: string; children: React.Re
       <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase', color: 'text.disabled', mb: 1 }}>
         {title}
       </Typography>
-      <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+      <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
         {children}
       </Box>
     </Box>

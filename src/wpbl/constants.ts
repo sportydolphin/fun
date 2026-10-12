@@ -78,16 +78,18 @@ export function wpblSecondary(teamId: string | null | undefined): string {
 // green / gold / blue / red. Each has a light- and dark-mode variant tuned to read as
 // both text and a bar fill on that background.
 //
-// The light variants are all >= 4.5:1 on both light surfaces, measured, because they are used
-// as small TEXT (the leader triangles, rank numbers, card links), where a value that is fine as a
-// badge fill can still fail AA. When one needs adjusting, take it down a step of the same hue
+// The light variants are all >= 4.6:1 on every light surface they are drawn on, measured: white,
+// the page, the grey of a selected row, and the club's own 12% tint behind its name. They are
+// small TEXT (the leader triangles, rank numbers, card links), where a value that is fine as a
+// badge fill can still fail AA, and axe in the layout sweep checks them on every page. Until Oct
+// 2026 they were tuned on white alone and came out at 3.97 to 4.4:1 on the tints. When one needs adjusting, take it down a step of the same hue
 // rather than re-picking, so the four still read as green / gold / blue / red at a glance. Dark
 // variants sit on a near-black page and measure well clear there.
 const WPBL_ACCENTS: Record<string, { light: string; dark: string }> = {
-  BOS: { light: '#1c7d45', dark: '#37b06d' }, // Hunters green,  5.16:1 on white
-  LA:  { light: '#9c6d1b', dark: '#d9ad4a' }, // Queens gold,    4.55:1
-  NY:  { light: '#1c73ae', dark: '#5bb2ec' }, // Heights blue,   5.11:1
-  SF:  { light: '#d1332f', dark: '#f05a5a' }, // Firebells red,  4.97:1
+  BOS: { light: '#19723f', dark: '#3bb270' }, // Hunters green
+  LA:  { light: '#835c17', dark: '#d9ad4a' }, // Queens gold
+  NY:  { light: '#19699e', dark: '#5bb2ec' }, // Heights blue
+  SF:  { light: '#ba2d2a', dark: '#f26f6f' }, // Firebells red
 }
 const NEUTRAL_ACCENT = { light: '#6b7280', dark: '#9ca3af' }
 

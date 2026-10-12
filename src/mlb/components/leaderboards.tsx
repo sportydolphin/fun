@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { InfoTip } from './ui'
-import { SectionCard, CardLink, TextGhost, TYPE_SCALE } from '../../ui/card'
+import { SectionCard, CardLink, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
 import { ACCENT, TEAM_BG, TEAM_SECONDARY, HEADSHOT, HEADSHOT_THUMB, TEAM_NICKNAME } from '../constants'
-import { useIsDark, useTextTone, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, photoBorderAlpha } from '../lib/colorUtils'
+import { useIsDark, useTextTone, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, edgeTone } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, LINK_SX } from '../lib/links'
@@ -291,7 +291,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
         sx={{
           width: chromePx(size), height: chromePx(size), borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
           bgcolor: 'action.hover',
-          border: `2px solid ${(teamId && TEAM_SECONDARY[teamId]) || 'rgba(128,128,128,0.3)'}`,
+          border: '2px solid', borderColor: teamId && TEAM_SECONDARY[teamId] ? edge(TEAM_SECONDARY[teamId]) : 'outline',
         }}
       />
     )
@@ -301,7 +301,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
   // (TopPerformers / Spotlight): the face framed near the top rather than a tight
   // circle that clips the head, inside a team-colored border.
   if (variant === 'portrait') {
-    const border = teamId ? photoBorderAlpha(TEAM_BG[teamId] ?? '#888', isDark) : 'rgba(128,128,128,0.3)'
+    const border = teamId ? edgeTone(TEAM_BG[teamId] ?? '#888', isDark) : 'rgba(128,128,128,0.3)'
     return (
       <Box sx={{
         flexShrink: 0, width: chromePx(size), height: chromePx(Math.round(size * 70 / 58)),

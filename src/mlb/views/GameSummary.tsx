@@ -7,7 +7,7 @@ import { Box, Typography } from '@mui/material'
 import { ChevronRight } from '@mui/icons-material'
 import { HEADSHOT, TEAM_BG, TEAM_NICKNAME } from '../constants'
 import { LogoBubble, SectionLabel } from '../components/boxScore'
-import { useIsDark, photoBorderAlpha, chartPairColors, inkOn, textTone } from '../lib/colorUtils'
+import { useIsDark, edgeTone, chartPairColors, inkOn, textTone } from '../lib/colorUtils'
 import { playerLink, LINK_SX } from '../lib/links'
 import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { chromePx, typePx } from '../../ui/scale'
@@ -74,7 +74,7 @@ export function SeriesBand({ s, gamePk, season, onOpen }: {
       <Box {...linkPress(mlbSeriesPath(season, s.id), onOpen)} sx={{
         ...LINK_SX, display: 'inline-flex', alignItems: 'center', gap: 0.25, flexShrink: 0, cursor: 'pointer',
         fontSize: GC_META, fontWeight: 800, color: 'text.secondary', px: 1.4, py: 0.6, borderRadius: 999,
-        border: '1px solid', borderColor: 'divider', ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }), ...FOCUS_RING,
+        border: '1px solid', borderColor: 'outline', ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }), ...FOCUS_RING,
       }}>
         View series <ChevronRight sx={{ fontSize: '0.95rem' }} />
       </Box>
@@ -118,7 +118,7 @@ export function TopPerformers({ performers, onPlayerClick }: {
             <Box sx={{ position: 'relative', flexShrink: 0 }}>
               <Box component="img" src={HEADSHOT(p.id)} alt="" loading="lazy" sx={{
                 width: chromePx(42), height: chromePx(42), borderRadius: '50%', objectFit: 'cover', display: 'block',
-                bgcolor: 'action.hover', border: '1.5px solid', borderColor: photoBorderAlpha(TEAM_BG[p.teamId] ?? '#888888', isDark),
+                bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[p.teamId] ?? '#888888', isDark),
               }} />
               <Box sx={{ position: 'absolute', right: chromePx(-4), bottom: chromePx(-3) }}>
                 <LogoBubble teamId={p.teamId} abbr={p.abbr} size={18} ring={1} />

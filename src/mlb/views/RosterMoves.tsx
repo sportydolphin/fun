@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { pressable } from '../../ui/interaction'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, CardLink, TextGhost, TYPE_SCALE } from '../../ui/card'
+import { SectionCard, CardLink, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
 import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
 import { cardMoves, moveWindowDays } from '../lib/rosterMoves'
@@ -126,7 +127,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
   const tone = useTextTone()
   const g = (text: React.ReactNode) => ghost ? <TextGhost>{text}</TextGhost> : text
   const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: '#94a3b8' }
-  const teamClick = (id: number) => (e: React.MouseEvent) => {
+  const teamClick = (id: number) => (e: React.SyntheticEvent) => {
     if (!onTeamClick) return
     e.stopPropagation()
     onTeamClick(id)
@@ -153,7 +154,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.2 }}>
           <Box component="span" sx={{
             px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
-            bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
+            bgcolor: `${style.color}1c`, border: '1px solid', borderColor: edge(style.color),
             fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
             letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
             ...(ghost ? { bgcolor: 'action.hover', borderColor: 'transparent', color: 'transparent' } : {}),
@@ -177,7 +178,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
       {/* Team(s): from → to for trades/claims, single club otherwise */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
         {move.fromTeamId != null && (
-          <Box onClick={teamClick(move.fromTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
+          <Box {...pressable(onTeamClick ? teamClick(move.fromTeamId) : undefined)} aria-label={onTeamClick ? TEAM_ABBR[move.fromTeamId] : undefined} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
             {ghost ? <GhostLogo /> : <TeamLogo teamId={move.fromTeamId} abbr="" size={24} />}
           </Box>
         )}
@@ -185,7 +186,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>→</Typography>
         )}
         {move.toTeamId != null && (
-          <Box onClick={teamClick(move.toTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
+          <Box {...pressable(onTeamClick ? teamClick(move.toTeamId) : undefined)} aria-label={onTeamClick ? TEAM_ABBR[move.toTeamId] : undefined} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
             {ghost ? <GhostLogo /> : <TeamLogo teamId={move.toTeamId} abbr="" size={24} />}
           </Box>
         )}
@@ -209,7 +210,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
 }) {
   const tone = useTextTone()
   const style = MOVE_STYLE.TR
-  const teamClick = (id: number) => (e: React.MouseEvent) => {
+  const teamClick = (id: number) => (e: React.SyntheticEvent) => {
     if (!onTeamClick) return
     e.stopPropagation()
     onTeamClick(id)
@@ -229,7 +230,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.7 }}>
         <Box component="span" sx={{
           px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
-          bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
+          bgcolor: `${style.color}1c`, border: '1px solid', borderColor: edge(style.color),
           fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
           letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
         }}>
@@ -241,7 +242,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.4 }}>
           {teamIds.map((id, i) => (
             <React.Fragment key={id}>
-              <Box onClick={teamClick(id)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
+              <Box {...pressable(onTeamClick ? teamClick(id) : undefined)} aria-label={onTeamClick ? TEAM_ABBR[id] : undefined} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
                 <TeamLogo teamId={id} abbr="" size={22} />
               </Box>
               {i < teamIds.length - 1 && (
@@ -271,7 +272,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
             {p.toTeamId != null && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexShrink: 0 }}>
                 <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>→</Typography>
-                <Box onClick={teamClick(p.toTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
+                <Box {...pressable(onTeamClick ? teamClick(p.toTeamId) : undefined)} aria-label={onTeamClick ? TEAM_ABBR[p.toTeamId] : undefined} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
                   <TeamLogo teamId={p.toTeamId} abbr="" size={20} />
                 </Box>
               </Box>
@@ -360,11 +361,11 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
             scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
           }}>
             <Box
-              onClick={() => setFilterTeam(null)}
+              {...pressable(() => setFilterTeam(null))}
               sx={{
                 px: 1, py: chromePx(5), borderRadius: 999, flexShrink: 0, cursor: 'pointer',
                 border: '1px solid',
-                borderColor: filterTeam == null ? 'text.secondary' : 'divider',
+                borderColor: filterTeam == null ? 'text.secondary' : 'outline',
                 bgcolor: filterTeam == null ? 'action.selected' : 'transparent',
                 transition: 'border-color 0.12s, background-color 0.12s',
               }}
@@ -376,7 +377,7 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
             {filterTeams.map(id => (
               <Box
                 key={id}
-                onClick={() => setFilterTeam(filterTeam === id ? null : id)}
+                {...pressable(() => setFilterTeam(filterTeam === id ? null : id))}
                 sx={{
                   flexShrink: 0, cursor: 'pointer', borderRadius: '50%',
                   opacity: filterTeam == null || filterTeam === id ? 1 : 0.35,
@@ -396,7 +397,7 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
             return (
               <Box key={group.day} sx={{ mb: 1 }}>
                 <Box
-                  onClick={() => toggleDay(group.day)}
+                  {...pressable(() => toggleDay(group.day))}
                   sx={{
                     display: 'flex', alignItems: 'center', gap: 0.4,
                     px: 0.75, pt: 0.75, pb: 0.25,
@@ -483,7 +484,7 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
         <Box sx={{
           px: 0.75, py: chromePx(2), borderRadius: 999, flexShrink: 0,
           bgcolor: deadline.hot ? '#ef44441c' : '#f973161c',
-          border: `1px solid ${deadline.hot ? '#ef4444' : '#f97316'}55`,
+          border: '1px solid', borderColor: edge(deadline.hot ? '#ef4444' : '#f97316'),
         }}>
           <Typography sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), lineHeight: 1.3,

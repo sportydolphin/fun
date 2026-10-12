@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { pressable } from '../../ui/interaction'
+import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, TONE } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
@@ -310,7 +312,7 @@ function StatPill({ label, value, accent }: { label: string; value: string | num
       flex: 1, textAlign: 'center',
       px: 1, py: 1.25, borderRadius: 2,
       border: '1px solid',
-      borderColor: accent ? `${ACCENT}40` : 'divider',
+      borderColor: accent ? ACCENT_EDGE : 'outline',
       bgcolor:     accent ? `${ACCENT}08` : 'action.hover',
     }}>
       <Typography sx={{
@@ -549,7 +551,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
             display: 'flex', alignItems: 'center', gap: 1,
             py: 0.8, px: entry.isMe ? 0.75 : 0, borderRadius: 1.5,
             border: '1px solid',
-            borderColor: entry.isMe ? `${ACCENT}35` : 'transparent',
+            borderColor: entry.isMe ? ACCENT_EDGE : 'transparent',
             bgcolor:     entry.isMe ? `${ACCENT}0d` : 'transparent',
             mb: 0.25,
           }}
@@ -661,16 +663,16 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
             {(['my', 'board'] as const).map(t => (
               <Box
                 key={t}
-                onClick={() => setTab(t)}
+                {...pressable(() => setTab(t))}
                 sx={{
                   px: 1.5, py: 0.6, borderRadius: 999, cursor: 'pointer',
                   fontSize: '0.72rem', fontWeight: 700,
                   bgcolor: tab === t ? ACCENT     : 'transparent',
                   color:   tab === t ? '#fff'     : 'text.secondary',
                   border: '1px solid',
-                  borderColor: tab === t ? ACCENT : 'divider',
+                  borderColor: tab === t ? ACCENT_EDGE : 'outline',
                   transition: 'all 0.15s',
-                  '&:hover': tab === t ? {} : { borderColor: `${ACCENT}60`, color: 'text.primary' },
+                  '&:hover': tab === t ? {} : { borderColor: ACCENT_EDGE, color: 'text.primary' },
                 }}
               >
                 {t === 'my' ? '📈 My Stats' : '🏆 Leaderboard'}
@@ -707,12 +709,12 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
                 {([['all', 'All-time'], ['month', '30 days'], ['week', '7 days']] as const).map(([w, label]) => (
                   <Box
                     key={w}
-                    onClick={() => setBoardWindow(w)}
+                    {...pressable(() => setBoardWindow(w))}
                     sx={{
                       flex: 1, textAlign: 'center', px: 1, py: 0.5, borderRadius: 999,
                       cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, userSelect: 'none',
                       border: '1px solid',
-                      borderColor: boardWindow === w ? ACCENT : 'divider',
+                      borderColor: boardWindow === w ? ACCENT_EDGE : 'outline',
                       bgcolor:     boardWindow === w ? `${ACCENT}14` : 'transparent',
                       color:       boardWindow === w ? ACCENT_TEXT : 'text.secondary',
                       transition: 'all 0.12s',

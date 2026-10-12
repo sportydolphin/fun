@@ -79,12 +79,20 @@ export function navBack(fallback: string) {
 //
 // Modified clicks (cmd/ctrl/shift/alt, middle button) fall through to the browser
 // untouched, so open-in-new-tab works the way it does on every other site.
-export function linkTo(to: string) {
+//
+// `onOpen` runs on every activation, before anything else, told whether it was a plain click (the
+// app navigates) or a modified one (the browser opens a tab). It is how a link records its own open
+// or closes the sheet it sits in, and it keeps the element a bare `{...linkTo()}`: a second
+// `onClick` beside the spread is invisible as a link to the accessibility lint, which cannot see
+// the `component: 'a'` and `href` inside the spread and reads a click handler on a div.
+export function linkTo(to: string, onOpen?: (plain: boolean) => void) {
   return {
     component: 'a' as const,
     href: to,
     onClick: (e: React.MouseEvent) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+      const plain = !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
+      onOpen?.(plain)
+      if (!plain) return
       e.preventDefault()
       navigate(to)
     },

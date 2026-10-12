@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
-import { TYPE_SCALE } from '../../ui/card'
+import { pressable } from '../../ui/interaction'
+import { TYPE_SCALE, edge, ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography, Tooltip, ClickAwayListener, Popper } from '@mui/material'
 import { Player, RecentGameEntry } from '../types'
 import {
@@ -92,7 +93,7 @@ const pillSx = (color = ACCENT, compact = false) => ({
   // The raw hex frames and tints the pill; the label takes its text-safe twin (TONE, ACCENT_TEXT).
   fontWeight: 700, color: color === ACCENT ? ACCENT_TEXT : color === '#ef4444' ? TONE.red : color,
   px: compact ? 1 : 1.25, py: 0.5,
-  borderRadius: 999, border: `1px solid ${color}40`,
+  borderRadius: 999, border: '1px solid', borderColor: edge(color),
   transition: 'background 0.12s',
   '&:hover': { bgcolor: `${color}15` },
   whiteSpace: 'nowrap',
@@ -269,7 +270,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
         <Box
           onMouseEnter={() => setTipOpen(true)}
           onMouseLeave={() => setTipOpen(false)}
-          onClick={e => { e.stopPropagation(); setTipOpen(o => !o) }}
+          {...pressable(e => { e.stopPropagation(); setTipOpen(o => !o) })}
           sx={{ width: '100%', display: 'flex', alignItems: 'center', cursor: 'help' }}
         >
           {svg}
@@ -383,7 +384,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
 
   return (
     <Box
-      onClick={editMode ? onToggleSelect : onClick}
+      {...pressable(editMode ? onToggleSelect : onClick)}
       sx={{
         display: 'flex', alignItems: 'center',
         gap: { xs: 1, sm: 1.5 },
@@ -398,7 +399,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
       {editMode && (
         <Box sx={{
           flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
-          border: '2px solid', borderColor: isSelected ? ACCENT : 'text.disabled',
+          border: '2px solid', borderColor: isSelected ? ACCENT_EDGE : 'text.disabled',
           bgcolor: isSelected ? 'var(--wpbl-accent-solid)' : 'transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.15s',
@@ -413,7 +414,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
         position: 'relative', flexShrink: 0,
         width: chromePx(30), height: chromePx(38), borderRadius: 1,
         overflow: 'hidden', bgcolor: 'action.hover',
-        border: `2px solid ${teamColor}50`,
+        border: '2px solid', borderColor: edge(teamColor),
       }}>
         <Box
           component="img"
@@ -461,7 +462,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
             {playedToday && (
               <Box component="span" sx={{
                 px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
-                bgcolor: `${ACCENT}1c`, border: `1px solid ${ACCENT}55`,
+                bgcolor: `${ACCENT}1c`, border: '1px solid', borderColor: ACCENT_EDGE,
                 fontSize: TYPE_SCALE.caption, fontWeight: 800, color: ACCENT_TEXT,
                 letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
                 whiteSpace: 'nowrap',
@@ -477,7 +478,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
                 <Tooltip arrow placement="top" title={move.description || move.typeDesc}>
                   <Box component="span" sx={{
                     px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
-                    bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
+                    bgcolor: `${style.color}1c`, border: '1px solid', borderColor: edge(style.color),
                     fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
                     letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
                     whiteSpace: 'nowrap',
@@ -716,18 +717,18 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           {editMode ? (
             <>
               {selected.size > 0 && (
-                <Box onClick={handleDeleteSelected} sx={pillSx('#ef4444', compact)}>
+                <Box {...pressable(handleDeleteSelected)} sx={pillSx('#ef4444', compact)}>
                   Remove {selected.size}
                 </Box>
               )}
-              <Box onClick={exitEditMode} sx={pillSx(ACCENT, compact)}>
+              <Box {...pressable(exitEditMode)} sx={pillSx(ACCENT, compact)}>
                 Done
               </Box>
             </>
           ) : (
             <>
               {!adding && followedPlayerIds.length > 0 && (
-                <Box onClick={() => { setEditMode(true); setAdding(false); setAddQuery(''); setAddResults([]) }}
+                <Box {...pressable(() => { setEditMode(true); setAdding(false); setAddQuery(''); setAddResults([]) })}
                   sx={pillSx(ACCENT, compact)}>
                   ✎ Edit
                 </Box>
@@ -745,9 +746,12 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                   </Box>
                 </Tooltip>
               ) : (
+                // A button (the pressable spread); the mouse-down only keeps the search panel's
+                // outside-click handler from treating this press as a click away from it.
+                // eslint-disable-next-line jsx-a11y/no-static-element-interactions
                 <Box
                   onMouseDown={e => e.stopPropagation()}
-                  onClick={() => { setAdding(a => !a); setAddQuery(''); setAddResults([]) }}
+                  {...pressable(() => { setAdding(a => !a); setAddQuery(''); setAddResults([]) })}
                   sx={pillSx(ACCENT, compact)}
                 >
                   {adding ? '✕' : '+ Add'}
@@ -781,7 +785,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             {/* Search results */}
             {(addResults.length > 0 || addSearching) && (
               <Box sx={{
-                bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+                bgcolor: 'background.paper', border: '1px solid', borderColor: 'outline',
                 borderRadius: 2, overflow: 'hidden',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
               }}>
@@ -793,7 +797,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 {addResults.map((p, i) => (
                   <Box
                     key={p.id}
-                    onClick={() => handleAdd(p)}
+                    {...pressable(() => handleAdd(p))}
                     sx={{
                       px: 1.5, py: 0.9, cursor: 'pointer',
                       borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
@@ -802,7 +806,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     }}
                   >
                     <Box sx={{ width: chromePx(32), height: chromePx(32), borderRadius: '50%', overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
-                      <Box component="img" src={HEADSHOT(p.id)}
+                      <Box component="img" alt="" src={HEADSHOT(p.id)}
                         sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
@@ -826,7 +830,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             {/* Suggestions (empty query) */}
             {addQuery.length < 2 && suggestions.length > 0 && (
               <Box sx={{
-                bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+                bgcolor: 'background.paper', border: '1px solid', borderColor: 'outline',
                 borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
                 p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
               }}>
@@ -901,7 +905,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             and while editing (edit mode already shows the full list). */}
         {!editMode && overflowsXs && (
           <Box
-            onClick={() => setExpanded(e => !e)}
+            {...pressable(() => setExpanded(e => !e))}
             sx={{
               display: { xs: 'flex', sm: overflowsSm ? 'flex' : 'none' },
               alignItems: 'center', justifyContent: 'center', gap: 0.5,
