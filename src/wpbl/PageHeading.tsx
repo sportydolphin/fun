@@ -1,7 +1,6 @@
 import React, { createContext, useContext } from 'react'
-import { Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
-import { TAB_TITLE_SX } from './ui'
+import { TabTitleText, VISUALLY_HIDDEN } from '../ui/heading'
 import { usePanelActive } from '../lib/panelActive'
 
 // Which element on screen is the PAGE's heading, when the section is a tab with a modal
@@ -40,33 +39,10 @@ export function useWpblHeadingTag(): 'h1' | 'div' {
   return owned && onScreen ? 'h1' : 'div'
 }
 
-/**
- * The page heading for a surface whose real heading is a graphic rather than a line of text.
- *
- * Game Center deliberately draws no headline: the line score sits at the top of the sheet
- * with the winner in bold, and a written "Hunters beat Queens" above it would spend 87px of
- * a phone restating what the reader can already see (the reasoning is in RecapCard, next to
- * the omission). That decision is right for the design and leaves the page with no heading
- * at all for a screen reader or a crawler, so this supplies one that matches the <title>
- * exactly and is not drawn.
- */
-export function WpblVisuallyHiddenH1({ children }: { children: React.ReactNode }) {
-  return <h1 style={{ ...VISUALLY_HIDDEN, font: 'inherit' }}>{children}</h1>
-}
-
-/**
- * Read but not drawn. `clipPath` rather than `display: none`, which would take the element out
- * of the accessibility tree and leave the page with no heading at all, which is the failure
- * this whole module exists to prevent.
- *
- * Every unit is a STRING, because MUI's `sx` reads a bare `width: 1` as 100%. That makes this
- * safe to spread into an `sx` (HIDE_ON_PHONE below) as well as into a `style`.
- */
-export const VISUALLY_HIDDEN = {
-  position: 'absolute', width: '1px', height: '1px',
-  overflow: 'hidden', clipPath: 'inset(50%)',
-  padding: 0, margin: '-1px', border: 0, whiteSpace: 'nowrap',
-} as const
+// The hidden style and the hidden h1 live in src/ui/heading.tsx (shared with MLB since Oct 2026).
+// Game Center deliberately draws no headline (the reasoning is in RecapCard), so it, like the player
+// card, supplies one that matches the <title> and is not drawn.
+export { VisuallyHiddenH1 as WpblVisuallyHiddenH1, VISUALLY_HIDDEN } from '../ui/heading'
 
 /**
  * Spread into a heading's `sx` to keep it for machines and drop it for a phone.
@@ -90,10 +66,5 @@ export const HIDE_ON_PHONE = { '@media (max-width:599.95px)': VISUALLY_HIDDEN } 
  * tab's own spacing. Drawn at every width; see HIDE_ON_PHONE for why it once was not.
  */
 export function TabTitle({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
-  const headingTag = useWpblHeadingTag()
-  return (
-    <Typography component={headingTag} sx={[TAB_TITLE_SX, ...(Array.isArray(sx) ? sx : [sx])]}>
-      {children}
-    </Typography>
-  )
+  return <TabTitleText tag={useWpblHeadingTag()} sx={sx}>{children}</TabTitleText>
 }

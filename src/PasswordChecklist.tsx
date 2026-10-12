@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material'
 import { passwordChecklist, type PasswordContext } from './lib/passwordPolicy'
+import { VISUALLY_HIDDEN } from './ui/heading'
 
 /**
  * The password requirements, under the field, updating as it is typed.
@@ -43,14 +44,7 @@ export function PasswordChecklist({ password, context, sx }: {
             fontSize: '0.72rem', lineHeight: 1.6,
             color: item.ok ? 'success.main' : 'text.secondary',
           }}>
-            {/* Every unit is a STRING. MUI's sx reads a bare `width: 1` as 100%, not one pixel,
-                which left this "hidden" span the full width of the card and relying entirely on
-                the clip to disappear. */}
-            <Box component="span" className="sr-only" sx={{
-              position: 'absolute', width: '1px', height: '1px',
-              overflow: 'hidden', clipPath: 'inset(50%)',
-              padding: 0, margin: '-1px', border: 0, whiteSpace: 'nowrap',
-            }}>
+            <Box component="span" className="sr-only" sx={VISUALLY_HIDDEN}>
               {item.ok ? 'Met: ' : 'Not met: '}
             </Box>
             {item.label}

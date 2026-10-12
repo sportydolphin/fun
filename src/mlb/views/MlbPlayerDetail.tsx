@@ -32,7 +32,8 @@ import SwipeableViews from '../../ui/SwipeableViews'
 import { hoverOnly, linkPress, pressable } from '../../ui/interaction'
 import { chromePx } from '../../ui/scale'
 import { CopyLinkButton } from '../../ui/CopyLinkButton'
-import { SegControl, linkPillSx } from '../components/ui'
+import { linkPillSx } from '../components/ui'
+import { SegNav } from '../../ui/SegNav'
 import { ContractPanel } from '../components/ContractPanel'
 import { MlbPageH1, MlbHiddenH1 } from '../components/PageHeading'
 import { mlbShareUrl, trackMlbShare } from '../components/CopyLink'
@@ -812,10 +813,11 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
               bgcolor: 'background.paper', mx: -2, mt: -2, mb: 1, px: 2, pt: 0.75, pb: 1,
               display: 'flex', justifyContent: 'center',
             }}>
-              <SegControl
+              <SegNav
                 options={plan.roles.map(r => ({ value: r, label: r === 'pitching' ? 'Pitching' : 'Batting' }))}
                 value={activeRole}
                 onChange={v => setRoleTab(v as Role)}
+                mb={0}
               />
             </Box>
           )}

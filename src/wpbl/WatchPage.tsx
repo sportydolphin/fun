@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import WpblPage from './WpblPage'
-import { ChipRow, FilterChip } from './FilterChips'
+import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { CARD_BORDER, CARD_FILL, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly, NewTag, TextGhost, chromePx } from './ui'
 import { WPBL_TEAMS } from './constants'
 import { fetchWpblSchedule, fetchWpblTeams, fetchWpblVideos, getCachedWpblSchedule, getCachedWpblTeams, getCachedWpblVideos } from './api'
@@ -123,9 +123,9 @@ export default function WatchPage({ onOpenGame }: {
                 whatever chrome is pinned above it, which on a phone is none (see PINNED_CHROME). */}
             <Box ref={shelfBar} sx={SHELF_BAR}>
               <ChipRow mb={0}>
-                <FilterChip label={`Games (${shelves.gameIds.length})`} active={shelf === 'games'} onClick={() => pickShelf('games')} dot={gamesNew} />
-                <FilterChip label={`Clips (${shelves.clips.length})`} active={shelf === 'clips'} onClick={() => pickShelf('clips')} dot={shelves.clips.some(fresh.isNew)} />
-                {moreCount > 0 && <FilterChip label={`More (${moreCount})`} active={shelf === 'more'} onClick={() => pickShelf('more')} dot={shelves.more.some(fresh.isNew)} />}
+                <FilterChip active={shelf === 'games'} onClick={() => pickShelf('games')} dot={gamesNew}>{`Games (${shelves.gameIds.length})`}</FilterChip>
+                <FilterChip active={shelf === 'clips'} onClick={() => pickShelf('clips')} dot={shelves.clips.some(fresh.isNew)}>{`Clips (${shelves.clips.length})`}</FilterChip>
+                {moreCount > 0 && <FilterChip active={shelf === 'more'} onClick={() => pickShelf('more')} dot={shelves.more.some(fresh.isNew)}>{`More (${moreCount})`}</FilterChip>}
               </ChipRow>
             </Box>
             {shelf === 'games' && <GamesShelf videos={videos} gameIds={shelves.gameIds} games={games} teams={teams} onOpenGame={onOpenGame} fresh={fresh} />}
@@ -187,10 +187,10 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
     <>
       {clubChips.length > 1 && (
         <ChipRow mb={1.75}>
-          <FilterChip label={`All clubs (${entries.length})`} active={club === 'all'} onClick={() => setClub('all')} />
+          <FilterChip active={club === 'all'} onClick={() => setClub('all')}>{`All clubs (${entries.length})`}</FilterChip>
           {clubChips.map(c => (
-            <FilterChip key={c.team.id} label={`${c.team.name} (${c.count})`} active={club === c.team.id}
-              onClick={() => { setClub(c.team.id); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'club', value: c.team.id }) }} />
+            <FilterChip key={c.team.id} active={club === c.team.id}
+              onClick={() => { setClub(c.team.id); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'club', value: c.team.id }) }}>{`${c.team.name} (${c.count})`}</FilterChip>
           ))}
         </ChipRow>
       )}
@@ -284,14 +284,14 @@ function WatchSkeleton({ shelf }: { shelf: Shelf }) {
     <Box aria-hidden>
       <Box sx={SHELF_BAR}>
         <ChipRow mb={0}>
-          <FilterChip label={<>Games {count}</>} active={shelf === 'games'} onClick={() => {}} />
-          <FilterChip label={<>Clips {count}</>} active={shelf === 'clips'} onClick={() => {}} />
-          <FilterChip label={<>More {count}</>} active={shelf === 'more'} onClick={() => {}} />
+          <FilterChip active={shelf === 'games'} onClick={() => {}}>Games {count}</FilterChip>
+          <FilterChip active={shelf === 'clips'} onClick={() => {}}>Clips {count}</FilterChip>
+          <FilterChip active={shelf === 'more'} onClick={() => {}}>More {count}</FilterChip>
         </ChipRow>
       </Box>
       <ChipRow mb={1.75}>
-        <FilterChip label={<>All clubs {count}</>} active onClick={() => {}} />
-        {Object.values(WPBL_TEAMS).map(t => <FilterChip key={t.id} label={<>{t.name} {count}</>} active={false} onClick={() => {}} />)}
+        <FilterChip active onClick={() => {}}>All clubs {count}</FilterChip>
+        {Object.values(WPBL_TEAMS).map(t => <FilterChip key={t.id} active={false} onClick={() => {}}>{t.name} {count}</FilterChip>)}
       </ChipRow>
       <GroupHeading><TextGhost>Postseason</TextGhost></GroupHeading>
       <Box sx={GAME_GRID}>
@@ -479,16 +479,16 @@ function ClipsShelf({ clips, games, teams, onOpenGame, fresh }: {
     <>
       {before.length > 0 && season.length > 0 && (
         <ChipRow mb={1}>
-          <FilterChip label={`All clips (${clips.length})`} active={phase === 'all'} onClick={() => pick('all')} />
-          <FilterChip label={`${year} season (${season.length})`} active={phase === 'season'} onClick={() => pick('season')} />
-          <FilterChip label={`Before the season (${before.length})`} active={phase === 'before'} onClick={() => pick('before')} />
+          <FilterChip active={phase === 'all'} onClick={() => pick('all')}>{`All clips (${clips.length})`}</FilterChip>
+          <FilterChip active={phase === 'season'} onClick={() => pick('season')}>{`${year} season (${season.length})`}</FilterChip>
+          <FilterChip active={phase === 'before'} onClick={() => pick('before')}>{`Before the season (${before.length})`}</FilterChip>
         </ChipRow>
       )}
       {clubChips.length > 1 && (
         <ChipRow mb={1.75}>
-          <FilterChip label="All clubs" active={activeClub === 'all'} onClick={() => pickClub('all')} />
+          <FilterChip active={activeClub === 'all'} onClick={() => pickClub('all')}>All clubs</FilterChip>
           {clubChips.map(c => (
-            <FilterChip key={c.team.id} label={`${c.team.name} (${c.count})`} active={activeClub === c.team.id} onClick={() => pickClub(c.team.id)} />
+            <FilterChip key={c.team.id} active={activeClub === c.team.id} onClick={() => pickClub(c.team.id)}>{`${c.team.name} (${c.count})`}</FilterChip>
           ))}
         </ChipRow>
       )}

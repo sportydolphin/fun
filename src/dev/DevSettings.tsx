@@ -21,7 +21,7 @@ import { Box, Typography, Popover, Tooltip, Divider, Button } from '@mui/materia
 import { Settings } from '@mui/icons-material'
 import { useAuth, simulateDevLogin } from '../AuthContext'
 import { useTheme, DARK_PAGES, SURFACE_CHOICES, DEFAULT_SURFACES, type DarkPage, type SurfacePrefs } from '../ThemeContext'
-import { SegControl } from '../mlb/components/ui'
+import { PillGroup } from '../ui/PillGroup'
 import { useDevSim, setDevSimEnabled, regenerateDevSim, decideDevSimWinners, reopenDevSim, devSimActive } from '../mlb/dev/devSim'
 import { useDevDrama, setDevDramaEnabled, regenerateDevDrama, devDramaActive } from '../mlb/dev/devDrama'
 import { useDevDevice, setDeviceMode, currentPreset, isInsideDeviceFrame } from '../mlb/dev/devDevice'
@@ -309,7 +309,7 @@ function ChampionBannerControls() {
   return (
     <>
       <Typography sx={heading}>Season finale (simulate)</Typography>
-      <SegControl
+      <PillGroup
         options={[{ value: 'off', label: 'Off' }, { value: 'started', label: 'Started' }, { value: 'finished', label: 'Finished' }]}
         value={phase}
         onChange={v => set(v as DevChampionPhase)}
@@ -541,7 +541,7 @@ function DeviceModeControls() {
         </Typography>
       ) : (
         <>
-          <SegControl
+          <PillGroup
             options={[{ value: 'desktop', label: 'Desktop' }, { value: 'mobile', label: 'Mobile' }]}
             value={device.mode}
             onChange={v => setDeviceMode(v as 'desktop' | 'mobile')}
@@ -566,14 +566,14 @@ function SeasonPhaseControls() {
   const noTeam = useDevNoTeam()
   return (
     <>
-      <SegControl
+      <PillGroup
         options={[{ value: 'auto', label: 'Auto' }, { value: 'regular', label: 'Season' }, { value: 'over', label: 'October' }, { value: 'offseason', label: 'Winter' }]}
         value={phase}
         onChange={v => setDevSeasonPhase(v as DevSeasonPhase)}
       />
       {/* Home as a reader who follows no team sees it, without touching the synced pref. */}
       <Box sx={{ mt: 1 }}>
-        <SegControl
+        <PillGroup
           options={[{ value: 'mine', label: 'My team' }, { value: 'none', label: 'No team' }]}
           value={noTeam ? 'none' : 'mine'}
           onChange={v => setDevNoTeam(v === 'none')}
@@ -590,7 +590,7 @@ function DramaSimControls() {
   return (
     <>
       <Typography sx={heading}>Live drama simulator</Typography>
-      <SegControl
+      <PillGroup
         options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
         value={drama.enabled ? 'on' : 'off'}
         onChange={v => setDevDramaEnabled(v === 'on')}
@@ -618,7 +618,7 @@ function PredSimControls() {
   return (
     <>
       <Typography sx={heading}>Prediction simulator</Typography>
-      <SegControl
+      <PillGroup
         options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
         value={sim.enabled ? 'on' : 'off'}
         onChange={v => setDevSimEnabled(v === 'on')}
@@ -660,7 +660,7 @@ function AccessControls() {
   return (
     <>
       <Typography sx={heading}>Tester role</Typography>
-      <SegControl
+      <PillGroup
         options={[{ value: 'real', label: 'From account' }, { value: 'on', label: 'Force on' }]}
         value={tester ? 'on' : 'real'}
         onChange={v => { writeFlag(FORCE_TESTER_KEY, v === 'on' ? '1' : null); window.location.reload() }}
@@ -668,7 +668,7 @@ function AccessControls() {
       <Typography sx={note}>Shows tester-gated work in progress without a role row. Reloads.</Typography>
 
       <Typography sx={{ ...heading, mt: 1.5 }}>/admin users roster</Typography>
-      <SegControl
+      <PillGroup
         options={[{ value: 'real', label: 'Real' }, { value: 'fake', label: '150 fake' }]}
         value={fake ? 'fake' : 'real'}
         onChange={v => { writeFlag(FAKE_USERS_KEY, v === 'fake' ? '150' : null); window.location.reload() }}

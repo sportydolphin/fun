@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import WpblPage from './WpblPage'
-import { ChipRow, FilterChip } from './FilterChips'
+import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { AuthorByline, ReadingCard, ReadingLead, GHOST_ARTICLE } from './Reading'
 import { TextGhost } from './ui'
 import { WPBL_TEAMS } from './constants'
@@ -125,19 +125,19 @@ export default function ReadingPage() {
             </Box>
             {writers.length > 1 && (
               <ChipRow mb={1}>
-                <FilterChip label={`Both writers (${articles.length})`} active={writer === 'all'} onClick={() => pickWriter('all')} />
+                <FilterChip active={writer === 'all'} onClick={() => pickWriter('all')}>{`Both writers (${articles.length})`}</FilterChip>
                 {writers.map(w => (
-                  <FilterChip key={w.src.key} label={`${w.src.authorName} (${w.count})`}
-                    active={writer === w.src.key} onClick={() => pickWriter(w.src.key)} />
+                  <FilterChip key={w.src.key}
+                    active={writer === w.src.key} onClick={() => pickWriter(w.src.key)}>{`${w.src.authorName} (${w.count})`}</FilterChip>
                 ))}
               </ChipRow>
             )}
             {clubChips.length > 1 && (
               <ChipRow mb={1.75}>
-                <FilterChip label={`All clubs (${byWriter.length})`} active={activeClub === 'all'} onClick={() => pickClub('all')} />
+                <FilterChip active={activeClub === 'all'} onClick={() => pickClub('all')}>{`All clubs (${byWriter.length})`}</FilterChip>
                 {clubChips.map(c => (
-                  <FilterChip key={c.team.id} label={`${c.team.name} (${c.count})`}
-                    active={activeClub === c.team.id} onClick={() => pickClub(c.team.id)} />
+                  <FilterChip key={c.team.id}
+                    active={activeClub === c.team.id} onClick={() => pickClub(c.team.id)}>{`${c.team.name} (${c.count})`}</FilterChip>
                 ))}
               </ChipRow>
             )}
@@ -185,12 +185,12 @@ function ReadingSkeleton() {
       </Box>
       <Box aria-hidden>
         <ChipRow mb={1}>
-          <FilterChip label={<>Both writers {count}</>} active onClick={() => {}} />
-          {SOURCES.map(src => <FilterChip key={src.key} label={<>{src.authorName} {count}</>} active={false} onClick={() => {}} />)}
+          <FilterChip active onClick={() => {}}>Both writers {count}</FilterChip>
+          {SOURCES.map(src => <FilterChip key={src.key} active={false} onClick={() => {}}>{src.authorName} {count}</FilterChip>)}
         </ChipRow>
         <ChipRow mb={1.75}>
-          <FilterChip label={<>All clubs {count}</>} active onClick={() => {}} />
-          {Object.values(WPBL_TEAMS).map(t => <FilterChip key={t.id} label={<>{t.name} {count}</>} active={false} onClick={() => {}} />)}
+          <FilterChip active onClick={() => {}}>All clubs {count}</FilterChip>
+          {Object.values(WPBL_TEAMS).map(t => <FilterChip key={t.id} active={false} onClick={() => {}}>{t.name} {count}</FilterChip>)}
         </ChipRow>
       </Box>
       {/* The lead's own lengths: it is one post, and the typical one is longer than a card's. */}

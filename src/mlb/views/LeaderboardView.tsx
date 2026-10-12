@@ -4,7 +4,6 @@ import {
 } from '@mui/material'
 import { LeaderboardEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
-import { PillChip } from '../components/ui'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
@@ -173,15 +172,14 @@ export function LeaderboardView({
                 {!isFeatured && prevFeatured && (
                   <Box sx={{ width: '100%', borderTop: '1px solid', borderColor: 'divider', my: 0.5 }} />
                 )}
-                <PillChip
-                  label={def.leaderLabel ?? def.label}
-                  selected={lbSelectedKeys.includes(def.key)}
-                  onChange={() => setLbSelectedKeys(prev =>
+                <FilterChip
+                  active={lbSelectedKeys.includes(def.key)}
+                  onClick={() => setLbSelectedKeys(prev =>
                     prev.includes(def.key)
                       ? prev.filter(k => k !== def.key)
                       : [...prev, def.key]
                   )}
-                />
+                >{def.leaderLabel ?? def.label}</FilterChip>
               </React.Fragment>
             )
           })}

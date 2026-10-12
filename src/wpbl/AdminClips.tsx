@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, TextField, CircularProgress, MenuItem, Select } from '@mui/material'
-import { ChipRow, FilterChip } from './FilterChips'
+import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { ModalShell, CARD_BORDER, CARD_FILL, TYPE_SCALE, TeamBadge, FOCUS_RING, hoverOnly } from './ui'
 import {
   fetchWpblVideos, fetchWpblVideoTags, fetchWpblSchedule, fetchWpblTeams, fetchWpblAllPlayers,
@@ -97,8 +97,7 @@ export default function AdminClips() {
       </Typography>
       <ChipRow mb={1.5}>
         {(['needs', 'auto', 'manual', 'all'] as Filter[]).map(f => (
-          <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)}
-            label={`${{ needs: 'Needs a game', auto: 'Matched', manual: 'Set by hand', all: 'All Shorts' }[f]} (${shorts.filter(test[f]).length})`} />
+          <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)}>{`${{ needs: 'Needs a game', auto: 'Matched', manual: 'Set by hand', all: 'All Shorts' }[f]} (${shorts.filter(test[f]).length})`}</FilterChip>
         ))}
       </ChipRow>
       {list.length === 0 ? (
@@ -330,15 +329,14 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
             {game && gamePlayers.length > 0 && (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.75 }}>
                 {gamePlayers.map(({ player, club }) => (
-                  <FilterChip key={player.id} active={playerIds.includes(player.id)} onClick={() => togglePlayer(player.id)}
-                    label={`${player.name} (${teamById.get(club)?.abbr ?? club})`} />
+                  <FilterChip key={player.id} active={playerIds.includes(player.id)} onClick={() => togglePlayer(player.id)}>{`${player.name} (${teamById.get(club)?.abbr ?? club})`}</FilterChip>
                 ))}
               </Box>
             )}
             {playerIds.filter(id => !inGame.has(id)).length > 0 && (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.75 }}>
                 {playerIds.filter(id => !inGame.has(id)).map(id => (
-                  <FilterChip key={id} active onClick={() => togglePlayer(id)} label={`${playerById.get(id)?.name ?? id} ✕`} />
+                  <FilterChip key={id} active onClick={() => togglePlayer(id)}>{`${playerById.get(id)?.name ?? id} ✕`}</FilterChip>
                 ))}
               </Box>
             )}
@@ -346,7 +344,7 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
               sx={{ '& .MuiInputBase-input': { py: 0.75, fontSize: '0.8rem' } }} />
             {matches.length > 0 && (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
-                {matches.map(p => <FilterChip key={p.id} active={false} onClick={() => { togglePlayer(p.id); setSearch('') }} label={`+ ${p.name}`} />)}
+                {matches.map(p => <FilterChip key={p.id} active={false} onClick={() => { togglePlayer(p.id); setSearch('') }}>{`+ ${p.name}`}</FilterChip>)}
               </Box>
             )}
           </Field>

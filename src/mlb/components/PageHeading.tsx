@@ -1,7 +1,6 @@
 import React, { useSyncExternalStore } from 'react'
-import { Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
-import { TAB_TITLE_SX } from '../../ui/card'
+import { TabTitleText, VisuallyHiddenH1 } from '../../ui/heading'
 import { isMlbSheetPath, MLB_PATH_EVENT } from '../routes'
 import { sheetEntryUrl } from '../state/sheetHistory'
 import { usePanelActive } from '../../lib/panelActive'
@@ -11,21 +10,14 @@ import { usePanelActive } from '../../lib/panelActive'
 // Until Oct 2026 only Scores and Teams had a heading. Standings, the three Stats boards, Charts,
 // Home and every player and club page had none, so a crawler asking "what is this page" got the
 // toolbar, and a screen reader's heading list was empty. The same problem WPBL solved in
-// src/wpbl/PageHeading.tsx, restated here because neither section imports the other.
+// src/wpbl/PageHeading.tsx; the drawing is shared (src/ui/heading.tsx), the ownership is not, since
+// neither section imports the other and their overlays are built differently.
 //
 // A game is a SHEET over a page (routes.ts), but its address is the game's while it is up, so the
 // game is the page then: the heading under it steps aside (becomes a div, or is not rendered) and
 // the sheet supplies the h1. Ownership is read from the address rather than threaded as a prop
 // because the sheets open from a dozen places and the address is already the one record of which
 // is on top: useSheetHistory and the section's URL sync both announce it with MLB_PATH_EVENT.
-
-/** Read but not drawn. clip-path, not display:none, which would drop it from the accessibility
- *  tree. String units so it is safe in a `style`. */
-const VISUALLY_HIDDEN = {
-  position: 'absolute', width: '1px', height: '1px',
-  overflow: 'hidden', clipPath: 'inset(50%)',
-  padding: 0, margin: '-1px', border: 0, whiteSpace: 'nowrap',
-} as const
 
 function subscribe(cb: () => void) {
   window.addEventListener('popstate', cb)
@@ -58,9 +50,7 @@ export function useMlbHeadingTag(): 'h1' | 'div' {
  *  data. `sx` is the tab's own spacing. */
 export function MlbTabTitle({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {
   return (
-    <Typography component={useMlbHeadingTag()} sx={[TAB_TITLE_SX, ...(Array.isArray(sx) ? sx : [sx])]}>
-      {children}
-    </Typography>
+    <TabTitleText tag={useMlbHeadingTag()} sx={sx}>{children}</TabTitleText>
   )
 }
 
@@ -78,6 +68,4 @@ export function MlbAddressH1({ path, children }: { path: string; children: React
 }
 
 /** The game sheet's heading: always rendered, since while the sheet is up it is the page. */
-export function MlbHiddenH1({ children }: { children: React.ReactNode }) {
-  return <h1 style={{ ...VISUALLY_HIDDEN, font: 'inherit' }}>{children}</h1>
-}
+export const MlbHiddenH1 = VisuallyHiddenH1

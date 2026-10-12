@@ -8,7 +8,8 @@ import {
 import { Search, Shuffle, FileDownload, OpenInFull, Tune, MoreVert } from '@mui/icons-material'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, RosterEntry, StandingsDivision } from '../types'
 import { ACCENT, ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, TEAM_BG, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
-import { PillChip, linkPillSx, SectionLabel } from '../components/ui'
+import { linkPillSx, SectionLabel } from '../components/ui'
+import { FilterChip } from '../../ui/FilterChip'
 import { FullscreenEntry } from '../components/MlbSheet'
 import { TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
 // Team schedule (live/next game cards + full-schedule modal, today highlighted). Lazy so
@@ -343,7 +344,7 @@ export function SearchView({
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
                         {hitDefs.map(def => (
-                          <PillChip key={def.key} label={def.label} selected={hitSel.includes(def.key)} onChange={() => toggleTeamHitStat(def.key)} />
+                          <FilterChip key={def.key} active={hitSel.includes(def.key)} onClick={() => toggleTeamHitStat(def.key)}>{def.label}</FilterChip>
                         ))}
                       </Box>
                     </Box>
@@ -369,7 +370,7 @@ export function SearchView({
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
                         {pitDefs.map(def => (
-                          <PillChip key={def.key} label={def.label} selected={pitSel.includes(def.key)} onChange={() => toggleTeamPitStat(def.key)} />
+                          <FilterChip key={def.key} active={pitSel.includes(def.key)} onClick={() => toggleTeamPitStat(def.key)}>{def.label}</FilterChip>
                         ))}
                       </Box>
                     </Box>

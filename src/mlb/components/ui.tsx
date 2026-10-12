@@ -2,113 +2,14 @@
 
 import { ACCENT_EDGE } from '../../ui/card'
 import React, { useState } from 'react'
-import { Box, Typography, Popover, Tooltip, ClickAwayListener } from '@mui/material'
-import { KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
+import { Box, Typography, Popover } from '@mui/material'
+import { KeyboardArrowDown } from '@mui/icons-material'
 import { RankMode, Palette, StatDef } from '../types'
-import { ACCENT, ACCENT_TEXT } from '../constants'
+import { ACCENT_TEXT } from '../constants'
 import { statCols } from '../lib/utils'
-import { linkPress, pressable, hoverOnly, FOCUS_RING } from '../../ui/interaction'
+import { pressable } from '../../ui/interaction'
 import { chromePx, typePx } from '../../ui/scale'
-
-// The section's segmented control: the tab bar, the Stats boards, Hitting / Pitching and the rest.
-//
-// WPBL'S SegNav LOOK, AND FOR TWO REASONS RATHER THAN FOR MATCHING (Oct 2026). The active option was
-// white on a #60a5fa fill, which measures about 2.5:1, under AA in both themes since contrast is
-// absolute. It is now WPBL's raised surface chip with the foreground-safe accent as its text, which
-// clears AA in either theme. And the options were click-only boxes a keyboard could not reach; they
-// are now buttons (or links, with `href`) with WPBL's focus ring. Same geometry as before, so nothing
-// around a control moves. The tab bar is the one a reader sees in both sections, so it now reads the
-// same on both sides of the switch.
-export function SegControl({ options, value, onChange }: {
-  /** `href` makes the option a real link (linkPress): a tab that is a page must be one a crawler
-   *  can follow and a reader can open in a new tab. Options that only switch a mode leave it off. */
-  options: { value: string; label: string; href?: string }[]
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <Box sx={{
-      display: 'inline-flex',
-      bgcolor: 'action.hover',
-      borderRadius: 999,
-      p: chromePx(3),
-      gap: 0,
-    }}>
-      {options.map(opt => {
-        const on = value === opt.value
-        return (
-          <Box
-            key={opt.value}
-            {...(opt.href
-              ? { ...linkPress(opt.href, () => onChange(opt.value)), 'aria-current': on ? ('page' as const) : undefined }
-              : { ...pressable(() => onChange(opt.value)), 'aria-pressed': on })}
-            sx={{
-              ...FOCUS_RING,
-              display: 'block', textDecoration: 'none',
-              px: 1.75, py: 0.5,
-              borderRadius: 999,
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              lineHeight: 1.4,
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s',
-              userSelect: 'none',
-              bgcolor: on ? 'background.raised' : 'transparent',
-              color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
-              fontWeight: on ? 700 : 600,
-              boxShadow: on ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
-              ...hoverOnly(on ? {} : { color: 'text.primary' }),
-            }}
-          >
-            {opt.label}
-          </Box>
-        )
-      })}
-    </Box>
-  )
-}
-
-export function PillChip({ label, selected, onChange }: {
-  label: string; selected: boolean; onChange: () => void
-}) {
-  return (
-    <Box
-      {...pressable(onChange)}
-      sx={{
-        px: 1.75, py: 0.45,
-        borderRadius: 999,
-        border: '1.5px solid',
-        borderColor: selected ? ACCENT_EDGE : 'outline',
-        bgcolor: selected ? `${ACCENT}20` : 'transparent',
-        color: selected ? ACCENT_TEXT : 'text.secondary',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-        userSelect: 'none',
-        '&:hover': !selected ? { borderColor: ACCENT_EDGE, color: ACCENT_TEXT } : {},
-      }}
-    >
-      {label}
-    </Box>
-  )
-}
-
-// Shared pill button style for action row
-export const pillActionSx = {
-  display: 'inline-flex', alignItems: 'center', gap: 0.6,
-  px: 2, py: 0.75,
-  borderRadius: 999,
-  border: '1.5px solid',
-  borderColor: 'outline',
-  cursor: 'pointer',
-  fontSize: '0.8rem',
-  fontWeight: 600,
-  color: 'text.secondary',
-  transition: 'all 0.15s',
-  userSelect: 'none' as const,
-  '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT },
-}
+import { FilterChip } from '../../ui/FilterChip'
 
 // Shared style for external link pills in the options bar
 export const linkPillSx = {
@@ -245,12 +146,9 @@ export function StatPicker({ defs, selected, onToggle, label }: StatPickerProps)
       >
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
           {defs.map(def => (
-            <PillChip
-              key={def.key}
-              label={def.label}
-              selected={selected.includes(def.key)}
-              onChange={() => onToggle(def.key)}
-            />
+            <FilterChip key={def.key} active={selected.includes(def.key)} onClick={() => onToggle(def.key)}>
+              {def.label}
+            </FilterChip>
           ))}
         </Box>
       </Popover>
@@ -330,47 +228,5 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
         ))}
       </Box>
     </Box>
-  )
-}
-
-// Info icon whose tooltip works on touch too. A bare <Tooltip><InfoOutlined/></Tooltip>
-// only opens on desktop hover or a 700ms long-press; inside a clickable card a mobile
-// tap just bubbles up to the card. This toggles on tap, stops that bubble, and keeps
-// hover behaviour on desktop. Padded hit area (m offsets it back) makes it thumb-sized.
-export function InfoTip({ text, size = 0.88 }: { text: React.ReactNode; size?: number }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <ClickAwayListener onClickAway={() => setOpen(false)}>
-      <Tooltip
-        arrow
-        placement="top"
-        open={open}
-        disableFocusListener
-        disableHoverListener
-        disableTouchListener
-        title={
-          <Box sx={{ maxWidth: chromePx(240), py: 0.5 }}>
-            {typeof text === 'string'
-              ? <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>{text}</Typography>
-              : text}
-          </Box>
-        }
-      >
-        <Box
-          component="span"
-          {...pressable(e => { e.stopPropagation(); setOpen(o => !o) })}
-          aria-label="What this shows"
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
-          sx={{
-            display: 'inline-flex', alignItems: 'center',
-            p: 0.75, m: -0.75, cursor: 'pointer', color: 'text.disabled',
-            '&:hover': { color: 'text.secondary' },
-          }}
-        >
-          <InfoOutlined sx={{ fontSize: `${size}rem`, color: 'inherit' }} />
-        </Box>
-      </Tooltip>
-    </ClickAwayListener>
   )
 }

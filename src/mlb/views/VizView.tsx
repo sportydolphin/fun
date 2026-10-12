@@ -8,7 +8,7 @@ import {
 import { Search } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
-import { InfoTip } from '../components/ui'
+import { InfoDot } from '../../ui/InfoDot'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/charts'
 import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboardCard, PlayerLeaderboardModal } from '../components/leaderboards'
 import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
@@ -400,12 +400,7 @@ export function VizView({
                 <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                     <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Pitching vs Hitting</Typography>
-                    <InfoTip size={0.95} text={
-                      <>
-                        <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
-                        <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style, so top-right teams have both elite pitching and elite hitting.</Typography>
-                      </>
-                    } />
+                    <InfoDot label="What this shows" text="Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style, so top-right teams have both elite pitching and elite hitting." />
                   </Box>
                   <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>How good a team's pitching and hitting are · top-right = best of both</Typography>
                   {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
@@ -415,12 +410,7 @@ export function VizView({
                 <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                     <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Wins vs Run Margin</Typography>
-                    <InfoTip size={0.95} text={
-                      <>
-                        <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
-                        <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>Each bubble is a team's actual win% plotted against their run margin (runs scored minus runs allowed). The blue dashed curve is the expected win rate. Teams above the curve are winning more than their scoring predicts. Teams below are underperforming. Hover a team to see their actual record vs expected W-L.</Typography>
-                      </>
-                    } />
+                    <InfoDot label="What this shows" text="Each bubble is a team's actual win% plotted against their run margin (runs scored minus runs allowed). The blue dashed curve is the expected win rate. Teams above the curve are winning more than their scoring predicts. Teams below are underperforming. Hover a team to see their actual record vs expected W-L." />
                   </Box>
                   <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>Actual record vs expected W-L based on scoring · above the curve = outperforming</Typography>
                   {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
@@ -431,12 +421,7 @@ export function VizView({
                   <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                         <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Payroll vs Performance</Typography>
-                        <InfoTip size={0.95} text={
-                          <>
-                            <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
-                            <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>Each bubble is a team's estimated payroll plotted against their current win percentage. The purple dashed line is the league's average efficiency. Teams above the line are outperforming their payroll. The quadrants show Moneyball (low spend, winning), All-In (high spend, winning), Rebuilding (low spend, losing), and Burning $$$ (high spend, losing).</Typography>
-                          </>
-                        } />
+                        <InfoDot label="What this shows" text="Each bubble is a team's estimated payroll plotted against their current win percentage. The purple dashed line is the league's average efficiency. Teams above the line are outperforming their payroll. The quadrants show Moneyball (low spend, winning), All-In (high spend, winning), Rebuilding (low spend, losing), and Burning $$$ (high spend, losing)." />
                       </Box>
                       <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
                       {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
