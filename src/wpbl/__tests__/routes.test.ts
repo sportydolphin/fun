@@ -637,6 +637,12 @@ describe('/wpbl/awards, the fan ballot', () => {
     expect(fanVoteSource).not.toContain('useIsAdmin')
     expect(fanVoteSource).not.toContain('useHasRole')
   })
+
+  // Home's one reader-dependent switch is the new offseason layout (useNewOffseasonHome), and it
+  // must carry the ballot too, or turning it on for everyone would drop the ballot in silence.
+  it('is drawn by the new offseason Home as well as the old one', () => {
+    expect(homeSource).toMatch(/\{newHome && \(\s*<>[\s\S]*?\{seasonCards\.length > 0 &&/)
+  })
 })
 
 describe('/wpbl/glossary, the rules page', () => {
