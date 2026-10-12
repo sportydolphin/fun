@@ -3,8 +3,8 @@
   "league": "Women's Pro Baseball League",
   "source": "https://sportydolphin.fun — mirrored from stats.womensprobaseballleague.com",
   "note": "The public record of the WPBL inaugural season. Plain JSON arrays of rows, one file per table, keys sorted. NOT a database backup: it is what the anonymous client can read, which is what the website serves. See scripts/export-wpbl-archive.ts.",
-  "exported_at": "2026-10-05T00:42:45.077Z",
-  "total_rows": 7241,
+  "exported_at": "2026-10-12T01:10:08.329Z",
+  "total_rows": 7246,
   "tables": [
     {
       "table": "wpbl_teams",
@@ -21,8 +21,8 @@
     {
       "table": "wpbl_games",
       "rows": 40,
-      "sha256": "32785af5615bb6bb",
-      "bytes": 68692
+      "sha256": "26b6728e23792532",
+      "bytes": 68696
     },
     {
       "table": "wpbl_batting_lines",
@@ -68,27 +68,27 @@
     },
     {
       "table": "wpbl_videos",
-      "rows": 455,
-      "sha256": "a4655a0d8b40bb10",
-      "bytes": 271614
+      "rows": 458,
+      "sha256": "c4b38bd6c5b3ba8b",
+      "bytes": 273378
     },
     {
       "table": "wpbl_articles",
-      "rows": 61,
-      "sha256": "ff65c5bc10f70836",
-      "bytes": 73058
+      "rows": 63,
+      "sha256": "77bf858dd3cc2d4e",
+      "bytes": 75511
     },
     {
       "table": "wpbl_game_details",
       "rows": 30,
-      "sha256": "2c761028c8db3060",
-      "bytes": 19215
+      "sha256": "63fe2587badc8ce5",
+      "bytes": 19206
     },
     {
       "table": "wpbl_photos",
       "rows": 16,
-      "sha256": "4fc6f91131082f3d",
-      "bytes": 27961
+      "sha256": "fe7c989a69639e8a",
+      "bytes": 27956
     }
   ]
 }
