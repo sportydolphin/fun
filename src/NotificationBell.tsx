@@ -155,7 +155,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
             <Box sx={{
               px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1,
               borderBottom: '1px solid', borderColor: 'divider',
-              position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
+              position: 'sticky', top: 0, bgcolor: 'background.raised', zIndex: 1,
             }}>
               <Typography id="notification-panel-title" sx={{
                 flex: 1, fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary',

@@ -6,103 +6,149 @@ type ThemeMode = 'light' | 'dark';
 // from; this is the preference behind it, where 'system' means "follow the device".
 export type ThemePref = 'light' | 'dark' | 'system';
 
-// A "skin" is a full surface + accent treatment, flippable so several dark-mode
-// directions can be A/B'd side by side before committing to one. Every non-classic
-// skin follows the same rules the research settled on: no pure-neutral #121212, a
-// hue-tinted near-black background with a clearly lifted surface above it, an
-// integrated (not lighter-slab) header, and an accent tuned so it doesn't bloom on
-// the darker canvas. Backgrounds stay fairly desaturated on purpose — every card can
-// carry one of 30 saturated team colors, so the canvas behind them has to stay calm.
-//   classic  — the original stock-MUI palette (baseline reference, unchanged)
-//   charcoal — neutral cool near-black, the safe premium default
-//   slate    — GitHub-style blue-slate, most obvious elevation ramp
-//   oled     — true black (#000) for OLED phones; surfaces lift just off black
-//   midnight — richer deep-navy, most "brand"/night-ballpark character
-//   dim      — soft, lifted, lower-contrast; the easy-on-the-eyes option
-export type ThemeSkin = 'classic' | 'charcoal' | 'slate' | 'oled' | 'midnight' | 'dim';
+// ─── Surfaces ──────────────────────────────────────────────────────────────────
+//
+// The page, the cards on it, and what floats over it. Settled Oct 11, 2026 after a look at Material 3,
+// Apple's HIG, GitHub Primer, Radix, Vercel's Geist and Linear, which agree on the shape of it:
+//
+//   - A LIGHTER DARK SURFACE MEANS "CLOSER". Apple calls it elevated and gives it to sheets and
+//     popovers; Material 3 lifts a surface to say it overlaps. A page whose every card is lifted says
+//     nothing with it, and reads as grey boxes holding grey boxes. So in dark mode a card is the page
+//     colour and its outline alone draws it (`flat`), and the lifted tone is spent only on what
+//     actually floats: sheets, the side panel, menus, popovers, the bottom bar. That is `raised`,
+//     reached as `background.raised`, and every ModalShell re-points `background.paper` at it for
+//     everything inside, so a sticky header in a sheet still matches the sheet.
+//   - NEAR-BLACK, NOT BLACK: pure black costs readability (halation on white text) for a battery
+//     saving of a fraction of a percent, and leaves no room under a lifted surface.
+//   - FILLS AS WHITE AT LOW ALPHA (`action.hover`), so a stripe or a hover works on any surface.
+//
+// Light mode keeps white cards on an off-white page, which is the standard light pattern and has
+// none of the dark problem. The six skins this replaced were a dev A/B picker; the knobs below are
+// the same idea at the level the research actually argued about, and DevSettings drives them.
 
-// Order for the dev skin control.
-export const SKIN_ORDER: ThemeSkin[] = ['classic', 'charcoal', 'slate', 'oled', 'midnight', 'dim'];
+export type DarkPage = 'charcoal' | 'neutral' | 'deep' | 'slate' | 'dim';
 
-interface SkinModeColors {
-  default: string;   // page background
-  paper: string;     // card / surface
-  primary: string;   // accent
-  headerBg: string;  // translucent header fill (used when integratedHeader)
-}
-interface SkinDef {
-  label: string;
-  // classic keeps the flat gray AppBar slab; the rest use an integrated, blurred,
-  // sticky header that matches the page tint.
-  integratedHeader: boolean;
-  dark: SkinModeColors;
-  light: SkinModeColors;
-}
-
-const SKINS: Record<ThemeSkin, SkinDef> = {
-  classic: {
-    label: 'Classic',
-    integratedHeader: false,
-    dark:  { default: '#121212', paper: '#1e1e1e', primary: '#90caf9', headerBg: 'rgba(30,30,30,0.8)' },
-    light: { default: '#fafafa', paper: '#ffffff', primary: '#1976d2', headerBg: 'rgba(255,255,255,0.8)' },
-  },
-  charcoal: {
-    label: '🌑 Charcoal',
-    integratedHeader: true,
-    // Neutral cool near-black with a faint blue tint, and a surface lifted a clear
-    // step above it. The safe, premium default: calm enough behind any team color.
-    dark:  { default: '#0f1115', paper: '#181b22', primary: '#60a5fa', headerBg: 'rgba(15,17,21,0.72)' },
-    light: { default: '#f6f7f9', paper: '#ffffff', primary: '#2563eb', headerBg: 'rgba(246,247,249,0.8)' },
-  },
-  slate: {
-    label: '🪨 Slate',
-    integratedHeader: true,
-    // GitHub-style blue-slate: more blue in the grays, biggest background↔surface
-    // delta, so the elevation ramp reads most clearly.
-    dark:  { default: '#0d1117', paper: '#161b22', primary: '#58a6ff', headerBg: 'rgba(13,17,23,0.72)' },
-    light: { default: '#f6f8fa', paper: '#ffffff', primary: '#0969da', headerBg: 'rgba(246,248,250,0.8)' },
-  },
-  oled: {
-    label: '⬛ OLED',
-    integratedHeader: true,
-    // True black for OLED phones (pixels off = battery + infinite contrast). The
-    // surface lifts just off black and the accent is nudged softer so it doesn't
-    // halate against pure black.
-    dark:  { default: '#000000', paper: '#0c0d10', primary: '#5aa9ff', headerBg: 'rgba(0,0,0,0.72)' },
-    light: { default: '#f4f4f5', paper: '#ffffff', primary: '#2563eb', headerBg: 'rgba(244,244,245,0.82)' },
-  },
-  midnight: {
-    label: '🌌 Midnight',
-    integratedHeader: true,
-    // Richer deep navy — the most "brand"/night-ballpark character. Kept in check so
-    // navy team cards still separate from it.
-    dark:  { default: '#0a1020', paper: '#121a2e', primary: '#6ba5ff', headerBg: 'rgba(10,16,32,0.74)' },
-    light: { default: '#f5f7fb', paper: '#ffffff', primary: '#2557d6', headerBg: 'rgba(245,247,251,0.82)' },
-  },
-  dim: {
-    label: '🌙 Dim',
-    integratedHeader: true,
-    // Soft and lifted, lower overall contrast — text sits on a lighter base than the
-    // other darks. The "easy on the eyes for a long session" option.
-    dark:  { default: '#14181f', paper: '#1d222c', primary: '#7cc4ff', headerBg: 'rgba(20,24,31,0.78)' },
-    light: { default: '#f5f6f8', paper: '#ffffff', primary: '#2563eb', headerBg: 'rgba(245,246,248,0.82)' },
-  },
+/** The dark page candidates. Charcoal is the shipped one; the rest bracket it. */
+export const DARK_PAGES: Record<DarkPage, { label: string; hex: string }> = {
+  charcoal: { label: 'Charcoal', hex: '#0f1115' },
+  neutral:  { label: 'Neutral',  hex: '#111214' },
+  deep:     { label: 'Deep',     hex: '#0a0b0d' },
+  slate:    { label: 'Slate',    hex: '#0d1117' },
+  dim:      { label: 'Dim',      hex: '#14181f' },
 };
 
-// Resolve a skin's colors + header behavior for the active mode. Exposed so App.tsx
-// can style the header to match the chosen skin.
-export interface SkinConfig extends SkinModeColors {
-  integratedHeader: boolean;
-  label: string;
-}
-function resolveSkin(skin: ThemeSkin, mode: ThemeMode): SkinConfig {
-  const def = SKINS[skin];
-  return { ...def[mode], integratedHeader: def.integratedHeader, label: def.label };
+export interface SurfacePrefs {
+  darkPage: DarkPage;
+  /** `flat`: a card is the page colour and its outline. `raised`: a card is the lifted tone. */
+  darkCards: 'flat' | 'raised';
+  /** How far a floating surface lifts off the dark page, as white mixed into it. */
+  darkLift: number;
+  /** A card's outline in dark mode, as white alpha. Row rules (`divider`) stay at 0.22. */
+  darkOutline: number;
+  /** Hover, stripes and other subtle fills in dark mode (`action.hover`), as white alpha. */
+  darkFill: number;
+  /** A card's outline in light mode, as black alpha. */
+  lightOutline: number;
 }
 
-// Skin key + label pairs, in order — for the dev dropdown.
-export const SKIN_OPTIONS: { key: ThemeSkin; label: string }[] =
-  SKIN_ORDER.map(k => ({ key: k, label: SKINS[k].label }));
+export const DEFAULT_SURFACES: SurfacePrefs = {
+  darkPage: 'charcoal',
+  darkCards: 'flat',
+  // 4% white over charcoal lands on about the grey cards used to be, so a sheet looks as it did.
+  darkLift: 0.04,
+  // Above the 0.22 divider, so a card's edge still outranks the rules inside it. The flat pages
+  // used 0.46 and the grey ones 0.30.
+  darkOutline: 0.28,
+  darkFill: 0.08,
+  lightOutline: 0.34,
+};
+
+/** What DevSettings offers for each number. */
+export const SURFACE_CHOICES = {
+  darkLift: [0.025, 0.04, 0.06, 0.08],
+  darkOutline: [0.16, 0.22, 0.28, 0.34, 0.46],
+  darkFill: [0.04, 0.06, 0.08],
+  lightOutline: [0.14, 0.2, 0.26, 0.34],
+} as const;
+
+const LIGHT_PAGE = '#f6f7f9';
+const PRIMARY = { dark: '#60a5fa', light: '#2563eb' };
+
+/** `hex` with `a` of white mixed in, as a hex: an opaque lifted tone, so it can sit under text,
+ *  be a sticky header's fill and be spread into a gradient. */
+function mixWhite(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (shift: number) => {
+    const c = (n >> shift) & 255;
+    return Math.round(c + (255 - c) * a).toString(16).padStart(2, '0');
+  };
+  return `#${ch(16)}${ch(8)}${ch(0)}`;
+}
+
+function rgba(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/** The resolved colours for one mode. Exposed so App.tsx can tint the header to the page. */
+export interface Surfaces {
+  page: string;
+  card: string;
+  raised: string;
+  headerBg: string;
+  cardBorder: string;
+  fill: string;
+}
+
+export function resolveSurfaces(p: SurfacePrefs, mode: ThemeMode): Surfaces {
+  if (mode === 'light') {
+    return {
+      page: LIGHT_PAGE, card: '#ffffff', raised: '#ffffff',
+      headerBg: rgba(LIGHT_PAGE, 0.8),
+      cardBorder: `rgba(0,0,0,${p.lightOutline})`,
+      fill: 'rgba(0,0,0,0.04)',
+    };
+  }
+  const page = DARK_PAGES[p.darkPage]?.hex ?? DARK_PAGES.charcoal.hex;
+  const raised = mixWhite(page, p.darkLift);
+  return {
+    page, raised,
+    card: p.darkCards === 'flat' ? page : raised,
+    headerBg: rgba(page, 0.72),
+    cardBorder: `rgba(255,255,255,${p.darkOutline})`,
+    fill: `rgba(255,255,255,${p.darkFill})`,
+  };
+}
+
+const SURFACES_KEY = 'sdSurfaces';
+
+function readSurfaces(): SurfacePrefs {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SURFACES_KEY) ?? 'null') as Partial<SurfacePrefs> | null;
+    const merged = { ...DEFAULT_SURFACES, ...(saved ?? {}) };
+    if (!(merged.darkPage in DARK_PAGES)) merged.darkPage = DEFAULT_SURFACES.darkPage;
+    return merged;
+  } catch {
+    return DEFAULT_SURFACES;
+  }
+}
+
+declare module '@mui/material/styles' {
+  interface TypeBackground {
+    /** What floats over the page: sheets, panels, menus, the bottom bar. See Surfaces above. */
+    raised: string;
+  }
+}
+
+/** The theme for everything inside a floating surface: `background.paper` there IS the raised
+ *  tone, so a card, a sticky table header or a pinned bar inside a sheet matches the sheet. */
+export const raisedTheme = (outer: Theme): Theme => {
+  // No app theme above (a test, or a component rendered on its own): nothing to re-point, and
+  // MUI's default theme has no `raised` at all.
+  const raised = outer?.palette?.background?.raised;
+  if (!raised) return outer;
+  return { ...outer, palette: { ...outer.palette, background: { ...outer.palette.background, paper: raised } } };
+};
 
 interface ThemeContextType {
   mode: ThemeMode;
@@ -110,10 +156,10 @@ interface ThemeContextType {
   themePref: ThemePref;
   setThemePref: (p: ThemePref) => void;
   toggleTheme: () => void;
-  skin: ThemeSkin;
-  setSkin: (s: ThemeSkin) => void;
-  cycleSkin: () => void;
-  skinConfig: SkinConfig;
+  surfacePrefs: SurfacePrefs;
+  /** Dev only (DevSettings): try a surface setting. Persists in this browser. */
+  setSurfacePrefs: (next: Partial<SurfacePrefs> | null) => void;
+  surfaces: Surfaces;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -126,8 +172,8 @@ export const useTheme = () => {
   return context;
 };
 
-const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
-  const p = SKINS[skin][mode];
+const createAppTheme = (mode: ThemeMode, prefs: SurfacePrefs): Theme => {
+  const p = resolveSurfaces(prefs, mode);
   return createTheme({
     // Every `p`, `m` and `gap` in the app, times the desktop chrome scale. This is what used to
     // come free with `zoom`, and it has to be here rather than at 500 call sites: padding that
@@ -139,7 +185,7 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
     palette: {
       mode,
       primary: {
-        main: p.primary,
+        main: PRIMARY[mode],
       },
       secondary: {
         main: '#dc004e',
@@ -151,9 +197,11 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
         main: '#f44336',
       },
       background: {
-        default: p.default,
-        paper: p.paper,
+        default: p.page,
+        paper: p.card,
+        raised: p.raised,
       },
+      action: { hover: p.fill },
       // MUI's stock `text.disabled` is rgba(0,0,0,0.38) in light mode, which measures 2.65:1
       // against this app's page background, well under the 4.5:1 AA needs. It would be
       // exempt if it were only doing what its name says (a disabled control is exempt from
@@ -171,7 +219,7 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
       // the one-line version of it that fixes every call site at once.
       // LIGHT'S DIVIDER IS THE SAME OMISSION AND IS MEASURABLY WORSE: MUI's stock
       // rgba(0,0,0,0.12) comes out at 1.32:1 on white paper and 1.31:1 on the page behind it,
-      // against dark's 1.43:1, identical on all six skins because every light `paper` is
+      // against dark's 1.43:1, identical on every palette this app has tried because every light card is
       // #ffffff.
       //
       // 0.20 measures 1.61:1 (RGB 204 on white, a luminance delta of 31 levels up to 51).
@@ -193,8 +241,8 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
 
       // MUI'S STOCK DARK DIVIDER IS rgba(255,255,255,0.12), AND IT MEASURES 1.43:1 AGAINST
       // THIS APP'S CARD SURFACE. That is the line 257 borders in the app are drawn in: every
-      // card outline, every row rule, every chip and input edge, on all six skins (measured
-      // 1.35:1 to 1.46:1 over `paper`, worst on `midnight`). It was never set here, so the app
+      // card outline, every row rule, every chip and input edge, on every palette tried
+      // (measured 1.35:1 to 1.46:1 over the old grey cards). It was never set here, so the app
       // had simply inherited it.
       //
       // 1.43:1 is marginal on any screen and fails on some. Reported from a Pixel, where the
@@ -218,6 +266,15 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
       ...(mode === 'dark' ? { divider: 'rgba(255,255,255,0.22)' } : {}),
     },
     components: {
+      // EVERY MUI PAPER FLOATS: menus, popovers, dialogs, drawers and the toolbar's dropdowns. None
+      // of the app's cards is an MUI Paper (they are Boxes on `background.paper`), so this gives
+      // the raised tone to exactly the floating layer. `backgroundImage: none` drops MUI's dark
+      // elevation overlay, which would lift each one a different amount by its `elevation` prop.
+      MuiPaper: {
+        styleOverrides: {
+          root: { backgroundColor: p.raised, backgroundImage: 'none' },
+        },
+      },
       // MUI'S OWN HOVER LATCHES ON TOUCH, exactly like the app's did. IconButton paints
       // `--IconButton-hoverBg` on `:hover`, a phone applies that state on TAP, and the
       // toolbar's search, bell, theme and account buttons then sat lit until you touched
@@ -257,14 +314,6 @@ function prefersDark(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-function isSkin(v: string | null): v is ThemeSkin {
-  return !!v && (SKIN_ORDER as string[]).includes(v);
-}
-
-// The shipped default skin (both modes). `classic` is kept only as a reference in the
-// dev picker. Change this one value to re-default the whole site.
-export const DEFAULT_SKIN: ThemeSkin = 'charcoal';
-
 export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) => {
   // The reader's CHOICE. 'system' (the default, and what a never-toggled reader has always had)
   // follows the device; an explicit light/dark overrides it. `mode` below is the resolved value
@@ -287,12 +336,8 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) 
 
   const mode: ThemeMode = themePref === 'system' ? (systemDark ? 'dark' : 'light') : themePref;
 
-  // Which visual skin to render. Defaults to DEFAULT_SKIN (charcoal); a saved choice
-  // from the dev picker overrides it and persists for future A/B testing.
-  const [skin, setSkinState] = useState<ThemeSkin>(() => {
-    const saved = localStorage.getItem('themeSkin');
-    return isSkin(saved) ? saved : DEFAULT_SKIN;
-  });
+  // The surface settings. Shipped as DEFAULT_SURFACES; DevSettings can try others in this browser.
+  const [surfacePrefs, setSurfacePrefsState] = useState<SurfacePrefs>(readSurfaces);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', mode);
@@ -301,20 +346,17 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) 
     document.documentElement.style.colorScheme = mode;
   }, [mode]);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-skin', skin);
-  }, [skin]);
+  const surfaces = resolveSurfaces(surfacePrefs, mode);
 
-  // The <body> background is painted by styles.css via --bg-color, which is keyed on
-  // [data-theme] alone and hardcoded to the classic palette. Push the active skin's
-  // surfaces into those vars so the page (and the shared launcher chrome) tracks the
-  // skin instead of showing #121212 behind everything on non-classic skins.
+  // The <body> background and the pre-hydration chrome are painted by styles.css from these vars,
+  // and every card outline reads `--sd-card-border` (CARD_BORDER in src/ui/card.tsx), so a setting
+  // moves the whole site without re-rendering a single card.
   useEffect(() => {
-    const c = resolveSkin(skin, mode);
     const root = document.documentElement;
-    root.style.setProperty('--bg-color', c.default);
-    root.style.setProperty('--card-bg', c.paper);
-  }, [skin, mode]);
+    root.style.setProperty('--bg-color', surfaces.page);
+    root.style.setProperty('--card-bg', surfaces.card);
+    root.style.setProperty('--sd-card-border', surfaces.cardBorder);
+  }, [surfaces.page, surfaces.card, surfaces.cardBorder]);
 
   const setThemePref = (p: ThemePref) => {
     localStorage.setItem('theme', p);
@@ -325,20 +367,19 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) 
   // From 'system' this lands on a concrete choice, which is what a reader tapping it wants.
   const toggleTheme = () => setThemePref(mode === 'light' ? 'dark' : 'light');
 
-  const setSkin = (s: ThemeSkin) => {
-    localStorage.setItem('themeSkin', s);
-    setSkinState(s);
-  };
-  const cycleSkin = () => {
-    const i = SKIN_ORDER.indexOf(skin);
-    setSkin(SKIN_ORDER[(i + 1) % SKIN_ORDER.length]);
+  const setSurfacePrefs = (next: Partial<SurfacePrefs> | null) => {
+    const merged = next ? { ...surfacePrefs, ...next } : DEFAULT_SURFACES;
+    try {
+      if (next) localStorage.setItem(SURFACES_KEY, JSON.stringify(merged));
+      else localStorage.removeItem(SURFACES_KEY);
+    } catch { /* private mode: the setting lasts this visit */ }
+    setSurfacePrefsState(merged);
   };
 
-  const theme = createAppTheme(mode, skin);
-  const skinConfig = resolveSkin(skin, mode);
+  const theme = createAppTheme(mode, surfacePrefs);
 
   return (
-    <ThemeContext.Provider value={{ mode, themePref, setThemePref, toggleTheme, skin, setSkin, cycleSkin, skinConfig }}>
+    <ThemeContext.Provider value={{ mode, themePref, setThemePref, toggleTheme, surfacePrefs, setSurfacePrefs, surfaces }}>
       <MuiThemeProvider theme={theme}>
         {children}
       </MuiThemeProvider>

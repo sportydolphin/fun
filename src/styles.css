@@ -64,15 +64,17 @@
 }
 
 /* These defaults are what the page shows BEFORE React mounts and pushes the active
-   skin's colors into --bg-color/--card-bg. Kept in sync with the shipped default skin
-   (charcoal, see ThemeContext SKINS) so a hard refresh doesn't flash a different shade
-   before hydration. The index.html head script sets [data-theme] pre-paint. */
+   surfaces into --bg-color/--card-bg/--sd-card-border. Kept in sync with DEFAULT_SURFACES in
+   ThemeContext so a hard refresh doesn't flash a different shade before hydration. In dark mode a
+   card is the page colour (flat), so --card-bg matches --bg-color there. The index.html head
+   script sets [data-theme] pre-paint. */
 :root {
   color-scheme: light;
   --bg-color: #f6f7f9;
   --text-color: #111;
   --link-color: #0066cc;
   --card-bg: #fff;
+  --sd-card-border: rgba(0,0,0,0.34);
   --card-bg-gradient: linear-gradient(180deg,#fff,#f1f5f9);
   --border-color: #cbd5e1;
   --crit-color-1: #dc2626;
@@ -163,7 +165,8 @@
   --bg-color: #0f1115;
   --text-color: #ffffff;
   --link-color: #90caf9;
-  --card-bg: #181b22;
+  --card-bg: #0f1115;
+  --sd-card-border: rgba(255,255,255,0.28);
   --card-bg-gradient: linear-gradient(180deg,#1e1e1e,#2a2a2a);
   --border-color: #424242;
   --crit-color-1: #ff6b6b;

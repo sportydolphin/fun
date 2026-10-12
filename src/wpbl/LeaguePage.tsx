@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, computeStandings, countsInStandings } from './api'
-import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, hoverOnly, pressable, useWpblDark, TextGhost, chromePx } from './ui'
+import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, hoverOnly, pressable, useWpblDark, TextGhost, chromePx } from './ui'
 import { wpblAccent, wpblFullName } from './constants'
 import { byCountry, placeOf } from './derive/hometowns'
 import { buildBracket, championResult } from './derive/bracket'
@@ -119,7 +119,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
         {countries.length > 1 && ` from ${countries.length} countries`}.
       </>}
     >
-      <Box sx={FLAT_CARDS_DARK}>
+      <Box>
         <SectionHeading seen="league">How it works</SectionHeading>
         <Box component="ul" sx={{ m: 0, pl: 2.25, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           {facts.map((f, i) => (

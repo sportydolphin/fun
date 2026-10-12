@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from './FilterChips'
-import { CARD_BORDER, CARD_FILL, FLAT_CARDS_DARK, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly, NewTag, TextGhost, chromePx } from './ui'
+import { CARD_BORDER, CARD_FILL, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly, NewTag, TextGhost, chromePx } from './ui'
 import { WPBL_TEAMS } from './constants'
 import { fetchWpblSchedule, fetchWpblTeams, fetchWpblVideos, getCachedWpblSchedule, getCachedWpblTeams, getCachedWpblVideos } from './api'
 import { countsInStandings } from './season'
@@ -109,7 +109,7 @@ export default function WatchPage({ onOpenGame }: {
       <Box component="a" href="https://www.youtube.com/@wpblfanrecaps" target="_blank" rel="noopener noreferrer"
         sx={{ color: 'inherit', fontWeight: 700 }}>WPBL from Day 1</Box>, with permission.
     </>}>
-      <Box sx={FLAT_CARDS_DARK}>
+      <Box>
         {videos == null ? (
           <WatchSkeleton shelf={shelf} />
         ) : videos.length === 0 ? (
