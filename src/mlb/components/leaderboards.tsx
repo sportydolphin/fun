@@ -6,6 +6,7 @@ import { ACCENT, TEAM_BG, TEAM_SECONDARY, HEADSHOT, HEADSHOT_THUMB, TEAM_NICKNAM
 import { useIsDark, useTextTone, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, edgeTone } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
 import { chromePx, typePx } from '../../ui/scale'
+import { nameAtStage, useLineNameFit } from '../../ui/names'
 import { playerLink, teamLink, LINK_SX } from '../lib/links'
 
 // ─── Leaderboard row model, shared by every Report Card board ───────────────
@@ -335,6 +336,9 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
   const isDark = useIsDark()
   const tone = useTextTone()
   const g = (text: React.ReactNode) => ghost ? <TextGhost>{text}</TextGhost> : text
+  // "F. Last" before an ellipsis, measured against the room the verdict column leaves (CLAUDE.md):
+  // at 375px the card cut "Nolan Aren…" and "Yordan Alva…".
+  const fit = useLineNameFit<HTMLElement>([row.playerName])
   return (
     <Box
       {...(ghost ? {} : playerLink(row.playerId, row.playerName, onSelect))}
@@ -356,8 +360,8 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
         : <PlayerHeadshot playerId={row.playerId} name={row.playerName} variant="portrait" teamId={row.teamId} />}
 
       <Box sx={{ flex: 1, minWidth: '4rem' }}>
-        <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {g(row.playerName)}
+        <Typography ref={fit.ref} sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {g(nameAtStage(row.playerName, fit.stage))}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.15 }}>
           {ghost && <Box sx={{ width: chromePx(14), height: chromePx(14), borderRadius: '50%', bgcolor: 'action.hover', flexShrink: 0 }} />}

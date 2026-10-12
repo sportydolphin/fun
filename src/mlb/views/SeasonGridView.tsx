@@ -3,6 +3,7 @@ import { Box, Typography, Skeleton } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR, TEAM_NICKNAME, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
 import type { StatDef } from '../types'
 import { typePx } from '../../ui/scale'
+import { NameText } from '../../ui/NameText'
 import { CARD_BORDER } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
@@ -484,11 +485,14 @@ export function SeasonGridView({
                           </Typography>
                           {r.teamId > 0 && <LogoBubble teamId={r.teamId} abbr={TEAM_ABBR[r.teamId] ?? ''} size={20} ring={1} />}
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography {...link} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {r.playerId
-                                ? (frozenOn ? abbrevName(r.name) : r.name)
-                                : <ClubName teamId={r.teamId} name={r.name} sx={{ font: 'inherit', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />}
-                            </Typography>
+                            {r.playerId
+                              ? <NameText name={frozenOn ? abbrevName(r.name) : r.name} linkProps={link}
+                                  sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15 }} />
+                              : (
+                                <Typography {...link} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <ClubName teamId={r.teamId} name={r.name} sx={{ font: 'inherit', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
+                                </Typography>
+                              )}
                             {r.position && (
                               <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.position}</Typography>
                             )}

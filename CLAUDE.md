@@ -28,8 +28,12 @@ Violating these creates real problems. Treat them as hard constraints.
   a full pro league. No gender stereotypes, no softball framing, anywhere.
 - **A name that does not fit shortens to "F. Last"; it is never cut off mid-name.** "K. Whitmore",
   not "Kelsie Whit…", anywhere on the site. The stages and the measured fits live in
-  [`src/ui/names.ts`](src/ui/names.ts) (`nameStages`, `useLineNameFit` for a line of several names)
-  and WPBL's `FittedName`; a CSS ellipsis is only the net under the last stage.
+  [`src/ui/names.ts`](src/ui/names.ts) (`nameStages`, `useLineNameFit` for a line of several names),
+  [`src/ui/NameText.tsx`](src/ui/NameText.tsx) for one name in a list row (it measures, so it works
+  inside a `.map()`) and WPBL's `FittedName`; a CSS ellipsis is only the net under the last stage.
+  **Never shorten by character count** (`useWpblName`): a count cannot know the room, so it leaves a
+  name whole on a phone that then gets cut, and abbreviates one that fits on a desktop.
+  `npm run sweep -- --ellipsis` lists every truncation on every page; a full name in that list is a bug.
 - **Never use the Yankees or their players as examples.** Not in comments, sample data,
   docs, or explanations. Pick any other club.
 - **`main` is the deploy branch, and it only takes pull requests.** Cloudflare Pages deploys

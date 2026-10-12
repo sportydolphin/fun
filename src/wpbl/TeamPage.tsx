@@ -5,7 +5,7 @@ import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
-import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly } from './ui'
+import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, FittedName, ModalShell, pressable, FOCUS_RING, useWpblDark, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   wpblQualifiers, plateAppearances,
@@ -159,7 +159,6 @@ function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
   accent: string
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
-  const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
   if (rows.length === 0) return null
   return (
@@ -175,7 +174,7 @@ function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
         }}>
           <Typography sx={{ width: '0.875rem', fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
           <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={20} />
-          <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(r.player.name)}</Typography>
+          <FittedName name={r.player.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600 }} />
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right' }}>{r.value}</Typography>
         </Box>
       ))}
@@ -305,7 +304,6 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 }) {
   const isDark = useWpblDark()
   const accent = wpblAccent(team.id, isDark)
-  const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
   const headingTag = useWpblHeadingTag()
   const { fmtEra, fmtK, kLabel, scale: scaleK } = useEraBasis()
@@ -934,7 +932,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                         {displayPositionFromIndex(p, positionIndex).label || '—'}
                       </Typography>
                       <PlayerPortrait name={p.name} teamId={p.team_id} size={34} />
-                      <Typography sx={{ flex: 1, fontSize: '0.88rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(p.name)}</Typography>
+                      <FittedName name={p.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: '0.88rem', fontWeight: 600 }} />
                       <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
                         {stats.map(s => (
                           <Box key={s.label} sx={{ textAlign: 'right', minWidth: '2.125rem' }}>

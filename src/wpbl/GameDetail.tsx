@@ -500,11 +500,11 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   const isDark = useWpblDark()
   const isMobile = usePhoneLayout()
   const color = wpblAccent(team.id, isDark)
-  const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
   const batCols = BAT_COLS
-  // Desktop keeps the shared viewport cap; the phone uses the tighter box budget.
-  const boxName = (n: string) => (isMobile ? wpblFeatureName(n, BOX_NAME_MAX) : shortName(n))
+  // The phone keeps the tighter box budget; elsewhere the full name, which BoxTable fits to the
+  // column it is given rather than to a character count.
+  const boxName = (n: string) => (isMobile ? wpblFeatureName(n, BOX_NAME_MAX) : n)
   // Non-hitting pitchers dropped, subs ordered under their starter (see buildBattingRows).
   const battingRows = buildBattingRows(batting)
   const batTotals = battingRows.reduce((t, { b }) => {

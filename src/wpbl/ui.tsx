@@ -15,7 +15,7 @@ import { useWpblPlayerLink } from './LinkContext'
 import { TAPPABLE, tappableIf, pressable, FOCUS_RING, hoverOnly } from '../ui/interaction'
 import { typePx } from '../ui/scale'
 import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
-import { nameStages } from '../ui/names'
+import { nameStages, nameAtStage, useLineNameFit } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
 import { TYPE_SCALE, CARD_BORDER, edge } from '../ui/card'
@@ -591,12 +591,10 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
   onOpen?: (p: WpblPlayer) => void
 }) {
   const clickable = !!player && !!onOpen
-  // 18, not the 12 the hook defaults to, which is sized for a narrow stats-table name column. A
-  // leader row gives the name about 135px after the badge, where the longest name on the roster
-  // ("Samantha Gutierrez") draws in 130; at 12 a board would show three initials and two whole
-  // names in five consecutive rows for no reason a reader could see. The mechanism stays for a
-  // name genuinely too long to fit, since a cut-off name reads worse than an abbreviated one.
-  const shortName = useWpblName(18)
+  // MEASURED, not counted. A character count cannot know the room: at 18 it left "Andréanne
+  // Leblanc" whole on a 375px phone and the ellipsis cut it mid-name, and any lower count
+  // abbreviates names that fit on a desktop. The fit steps to "F. Last" only when the row overflows.
+  const fit = useLineNameFit<HTMLElement>([name])
   const playerLink = useWpblPlayerLink()
   return (
     <Box
@@ -619,7 +617,7 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
       <PlayerPortrait name={name} teamId={teamId} size={32} />
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(name)}</Typography>
+          <Typography ref={fit.ref} sx={{ minWidth: 0, fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameAtStage(name, fit.stage)}</Typography>
           {teamId && <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} />}
         </Box>
         {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}

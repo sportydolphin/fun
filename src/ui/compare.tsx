@@ -13,6 +13,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import { CARD_BORDER, MICRO_TEXT, TextGhost } from './card'
 import { hoverOnly, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
+import { NameText } from './NameText'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link. */
 const isModified = (e: React.MouseEvent) =>
@@ -460,9 +461,7 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
             }}
           >
             {c.badge}
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, minWidth: 0, flex: 1 }} noWrap>
-              {c.name}
-            </Typography>
+            <NameText name={c.name} sx={{ fontSize: '0.82rem', fontWeight: 600, minWidth: 0, flex: 1 }} />
             {c.position && (
               <Typography noWrap sx={{ fontSize: MICRO_TEXT, color: 'text.disabled', flexShrink: 1, minWidth: 0 }}>
                 {c.position}
