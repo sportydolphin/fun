@@ -5,6 +5,7 @@ import { fmtRunValue } from './derive/runExpectancy'
 import type { TakeSwingLine } from './derive/pitchValue'
 import type { WpblPlayer } from './types'
 import { typePx } from '../ui/scale'
+import { InfoDot } from '../ui/InfoDot'
 
 // ─── Taking and swinging ──────────────────────────────────────────────────────
 //
@@ -113,15 +114,16 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
 
   return (
     <Box sx={{ minWidth: 0 }}>
-      <SectionCard title="Taking and swinging">
-        <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1, lineHeight: 1.6 }}>
-          {pitching
-            ? 'Every pitch of the season, split by whether the batter swung. Runs saved, so bigger is better in both, and the two add up to the season total.'
-            : 'Every pitch of the season, split by whether the hitter swung. The two add up to the season run value.'}
-        </Typography>
-
+      <SectionCard title="Taking and swinging"
+        titleAdornment={<InfoDot text={[
+          'Every pitch is worth what it did to the count: a ball that turns 1-1 into 2-1 is worth the 2-1 value minus the 1-1 value, from What every count is worth. The last pitch is worth however the plate appearance ended, minus the count it was thrown in.',
+          pitching
+            ? 'Took adds up every pitch the batter did not swing at, hit by pitch included, and Swung adds up the rest. The signs are flipped for a pitcher, so bigger is better in both, and the two add up to the season total on Most runs saved.'
+            : 'Took adds up every pitch the hitter did not swing at, hit by pitch included, and Swung adds up the rest. The two add up to the season total on Most runs created.',
+          'Sorted by Took. Only players with enough pitches to qualify are listed.',
+        ]} />}>
         {/* The column heads are the only thing telling these two numbers apart, so they are on
-            the row rather than in the sentence above it. */}
+            the row rather than behind the info dot. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, pb: 0.4 }}>
           <Box sx={{ flex: 1, minWidth: 0 }} />
           {['TOOK', 'SWUNG'].map(h => (
@@ -140,10 +142,6 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
           <ExpandRow flush expanded={expanded} moreLabel={`Show all ${top.length}`} onToggle={onToggle} />
         )}
 
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1, lineHeight: 1.5 }}>
-          A pitch is worth what it did to the count, and the last one is worth however the plate
-          appearance came out. A hit by pitch counts as taken.
-        </Typography>
       </SectionCard>
     </Box>
   )

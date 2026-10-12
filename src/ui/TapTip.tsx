@@ -27,7 +27,7 @@ import { useShellZ } from './ModalShell'
  * Renders its own element rather than wrapping a child, because the touch path needs a ref to
  * know what "outside" means, and because every call site was passing a styled Box anyway.
  */
-export function TapTip({ title, children, sx, component, popperZIndex }: {
+export function TapTip({ title, children, sx, component, popperZIndex, ariaLabel, closeAfterMs = 4000, tipSx }: {
   title: React.ReactNode
   children: React.ReactNode
   sx?: SxProps<Theme>
@@ -36,6 +36,15 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
   /** The player modal sits at zIndex 1600 and MUI's popper defaults to 1500, so a tooltip
    *  inside it renders behind it unless lifted. */
   popperZIndex?: number
+  /** For an anchor that is only a glyph (InfoDot's "i"): makes it a focusable button with this
+   *  name, so a keyboard can reach the tooltip and a screen reader hears what it is for rather
+   *  than a lone letter. */
+  ariaLabel?: string
+  /** How long a tapped tip stays open untouched. Four seconds suits a stat name; a paragraph
+   *  (InfoDot) was gone before anyone could finish reading it. */
+  closeAfterMs?: number
+  /** Styles for the tooltip box itself, rather than the anchor. */
+  tipSx?: SxProps<Theme>
 }) {
   const canHover = useMediaQuery('(hover: hover)')
   const [open, setOpen] = useState(false)
@@ -49,7 +58,15 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
   // whatever dialog it was opened from, so its height is only known at run time (see ModalShell).
   const shellZ = useShellZ()
   const tipZ = Math.max(popperZIndex ?? 0, shellZ != null ? shellZ + 1 : 0)
-  const slotProps = tipZ ? { popper: { sx: { zIndex: tipZ } } } : undefined
+  // Eight pixels off the screen's edge: a tip opened near the side of a phone otherwise lands
+  // flush against it, which reads as clipped even when it is not.
+  const slotProps = {
+    popper: {
+      ...(tipZ ? { sx: { zIndex: tipZ } } : {}),
+      modifiers: [{ name: 'preventOverflow', options: { padding: 8 } }],
+    },
+    ...(tipSx ? { tooltip: { sx: tipSx } } : {}),
+  }
 
   // Everything that should dismiss a tapped tooltip, registered only while one is open.
   useEffect(() => {
@@ -76,14 +93,14 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
     window.addEventListener('scroll', close, { capture: true, passive: true })
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKey, { capture: true })
-    const timer = window.setTimeout(close, 4000)
+    const timer = window.setTimeout(close, closeAfterMs)
     return () => {
       window.removeEventListener('scroll', close, { capture: true })
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKey, { capture: true })
       window.clearTimeout(timer)
     }
-  }, [canHover, open])
+  }, [canHover, open, closeAfterMs])
 
   return (
     <Tooltip
@@ -109,6 +126,7 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
         component={component}
         onPointerDown={canHover ? undefined : () => { openAtPress.current = open }}
         onClick={canHover ? undefined : () => setOpen(!openAtPress.current)}
+        {...(ariaLabel ? { role: 'button', tabIndex: 0, 'aria-label': ariaLabel } : {})}
         sx={{ cursor: 'help', ...sx }}
       >
         {children}

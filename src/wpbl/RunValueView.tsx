@@ -24,6 +24,7 @@ import { pitchQualifiers } from './derive/pitches'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
+import { InfoDot } from '../ui/InfoDot'
 
 // The run-value board: what each situation in a game is worth, and who has added the most runs
 // moving between them.
@@ -358,6 +359,10 @@ function WorkedPlay({ worked, date, accent }: {
   )
 }
 
+/** The first sentence of every "how this is worked out" bubble on this board that rests on the
+ *  situations table, so the definition is written once. */
+const SITUATION_VALUE = "Every situation in an inning, meaning where the runners are and how many are out, has a value: the runs teams in this league go on to score from there to the end of the inning, on average."
+
 /** Rows a phone shows before it offers the rest. Both boards hold ten; five is the half that
  *  fits beside everything else on the screen. */
 const LIST_CAP = 5
@@ -602,7 +607,14 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           carries whatever the scorer typed ("Andreanne Leblanc", "Isabella Villareal"), and the
           Pitch by pitch tab next door, which reads the roster, spelled the same people correctly. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
-      <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}>
+      <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}
+        titleAdornment={<InfoDot text={[
+          SITUATION_VALUE,
+          'A plate appearance is worth the runs that scored on it, plus the value of the situation it left, minus the value of the one it started in.',
+          pitching
+            ? 'This adds up every plate appearance against a pitcher and flips the sign, so keeping runs off the board ranks higher.'
+            : 'This adds up every plate appearance a hitter has had this season. Steals and wild pitches are not counted here; steals are on Best on the bases.',
+        ]} />}>
         {leaders.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownLeaders.map((r, i) => (
@@ -620,7 +632,14 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       {/* WINS, BESIDE RUNS, because the difference between the two lists is the point: the
           same plays, priced by the score as well as the situation, so a hit in a tie game
           outranks the same hit in a rout. See `wpaLeaders`. */}
-      <SectionCard title="Most wins added" subtitle="Priced by the score, not only the situation">
+      <SectionCard title="Most wins added"
+        titleAdornment={<InfoDot text={[
+          "Before and after every plate appearance, the batting team's chance of winning is estimated from the inning, the score, the outs and the runners, using this league's own games.",
+          pitching
+            ? 'A pitcher gets the change on every plate appearance against them, with the sign flipped. One whole win is 1.00.'
+            : 'A hitter gets the change, and a steal, caught stealing or pickoff goes to the runner. One whole win is +1.00.',
+          'Unlike runs created, a hit in a tie game in the 7th is worth far more here than the same hit in a rout.',
+        ]} />}>
         {wpa.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownWpa.map((r, i) => (
@@ -639,7 +658,12 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           is a row with no pitch sequence. See derive/baserunning.ts for how a runner is read
           off the play and what each decision is priced against. */}
       {!pitching && (
-        <SectionCard title="Best on the bases" subtitle="Steals and extra bases taken, against the average">
+        <SectionCard title="Best on the bases"
+          titleAdornment={<InfoDot text={[
+            'Steals, caught stealing and pickoffs are worth the change in the value of the situation, plus a run if the runner scored.',
+            'Extra bases are the chances to go first to third or second to home on a single, first to home on a double, or tag up on a fly ball with fewer than two out. Each is measured against what runners in this league usually do in the same spot, so taking the base adds and being thrown out subtracts.',
+            'Under each name: steals, and how many of those chances the runner took the extra base.',
+          ]} />}>
           {bases.length === 0
             ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
             : shownBases.map((r, i) => (
