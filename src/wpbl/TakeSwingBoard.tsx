@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material'
-import { SectionCard, PlayerPortrait, TeamBadge, ExpandRow, useWpblName, tappableIf } from './ui'
+import { SectionCard, PlayerPortrait, TeamBadge, ExpandRow, FittedName, tappableIf } from './ui'
 import { useWpblPlayerLink } from './LinkContext'
 import { fmtRunValue } from './derive/runExpectancy'
 import type { TakeSwingLine } from './derive/pitchValue'
@@ -35,12 +35,13 @@ import { typePx } from '../ui/scale'
  *  three kinds of fixed size in this section. */
 const VALUE_COL = '3.4rem'
 
-function Row({ row, accent, onOpen, first }: {
-  row: TakeSwingLine; accent: string; onOpen: (p: WpblPlayer) => void; first: boolean
+function Row({ row, rank, accent, onOpen }: {
+  row: TakeSwingLine; rank: number; accent: string; onOpen: (p: WpblPlayer) => void
 }) {
-  const shortName = useWpblName(18)
   const playerLink = useWpblPlayerLink()
   const clickable = !!row.player
+  // The roster's spelling over the play log's; see the note in RunValueView.
+  const name = row.player?.name ?? row.name
 
   // THE ROW HAS TO ADD UP TO THE LEADERBOARD, so the swing column is printed as the REMAINDER
   // rather than as its own rounding. The two columns are exact and the figures beside them are
@@ -70,18 +71,21 @@ function Row({ row, accent, onOpen, first }: {
     <Box
       {...(clickable ? playerLink(row.player!, onOpen) : {})}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.7,
-        borderTop: first ? 'none' : '1px solid', borderColor: 'divider',
+        display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
+        borderTop: rank === 1 ? 'none' : '1px solid', borderColor: 'divider',
         borderRadius: 1, cursor: clickable ? 'pointer' : 'default',
         WebkitTapHighlightColor: 'transparent',
         '@media (hover: hover)': { ...tappableIf(clickable) },
       }}
     >
-      <PlayerPortrait name={row.name} teamId={row.teamId} size={28} />
+      {/* Rank and portrait as LeaderRow draws them, so this list lines up with the leaderboards
+          above and beside it rather than reading as a different kind of list. */}
+      <Box sx={{ width: '1.125rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
+      <PlayerPortrait name={name} teamId={row.teamId} size={32} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-        <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {shortName(row.name)}
-        </Typography>
+        {/* MEASURED, not budgeted by length: two value columns leave a phone about 120px for
+            the name, and a character budget let "Ashton Lansdell" through to be cut off. */}
+        <FittedName name={name} wrapperSx={{ minWidth: 0 }} sx={{ fontSize: '0.85rem', fontWeight: 600 }} />
         {row.teamId && <TeamBadge team={{ id: row.teamId, abbr: row.teamId }} size={16} />}
       </Box>
       {num(took)}
@@ -110,10 +114,10 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
   return (
     <Box sx={{ minWidth: 0 }}>
       <SectionCard title="Taking and swinging">
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 1, lineHeight: 1.5 }}>
+        <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1, lineHeight: 1.6 }}>
           {pitching
-            ? 'Every pitch of the season, split by whether the batter offered at it. Runs saved, so bigger is better in both, and the two add up to the season total.'
-            : 'Every pitch of the season, split by whether the hitter offered at it. The two add up to the season run value.'}
+            ? 'Every pitch of the season, split by whether the batter swung. Runs saved, so bigger is better in both, and the two add up to the season total.'
+            : 'Every pitch of the season, split by whether the hitter swung. The two add up to the season run value.'}
         </Typography>
 
         {/* The column heads are the only thing telling these two numbers apart, so they are on
@@ -129,14 +133,14 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
         </Box>
 
         {shown.map((r, i) => (
-          <Row key={r.player?.id ?? r.name} row={r} accent={accent} onOpen={onOpenPlayer} first={i === 0} />
+          <Row key={r.player?.id ?? r.name} row={r} rank={i + 1} accent={accent} onOpen={onOpenPlayer} />
         ))}
 
         {isNarrow && top.length > LIST_CAP && (
           <ExpandRow flush expanded={expanded} moreLabel={`Show all ${top.length}`} onToggle={onToggle} />
         )}
 
-        <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', mt: 1, lineHeight: 1.5 }}>
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1, lineHeight: 1.5 }}>
           A pitch is worth what it did to the count, and the last one is worth however the plate
           appearance came out. A hit by pitch counts as taken.
         </Typography>

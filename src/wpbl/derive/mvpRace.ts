@@ -191,5 +191,5 @@ export function mvpRace(
 export function fmtMvpRuns(v: number): string {
   const r = Math.round(v * 10) / 10
   const z = Object.is(r, -0) ? 0 : r
-  return `${z > 0 ? '+' : ''}${z.toFixed(1)}`
+  return `${z > 0 ? '+' : z < 0 ? '−' : ''}${Math.abs(z).toFixed(1)}`
 }

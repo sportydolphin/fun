@@ -184,10 +184,10 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
 
   return (
     <SectionCard title="What every kind of play is worth">
-      <Typography sx={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'text.secondary' }}>
+      <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.6, color: 'text.secondary' }}>
         Every play leaves a team a little better or worse off.
         {k && g && k.per < g.per && ` A strikeout costs ${(g.per - k.per).toFixed(2)} of a run
-          more than a groundout does, which is the case for putting the ball in play, in runs.`}
+          more than a groundout does, which is the case for putting the ball in play.`}
         {sac && Math.abs(sac.total) < 1 && ` The sacrifice, across ${sac.n} of them, has been
           worth almost exactly nothing: ${fmtRunValue(sac.total)} runs all season.`}
       </Typography>

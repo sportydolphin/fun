@@ -353,14 +353,14 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
             subOf={p => `${fmtPct(p.swingPct)} swing rate · ${p.swings} swings`}
           />
           <RateBoard
-            title="Pitches per PA" explain="Pitches seen in an average plate appearance"
+            title="Pitches seen" explain="Pitches in an average plate appearance"
             league={(league.pitchesPerPa ?? 0).toFixed(2)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'pitchesPerPa', min, false, league)}
             valueOf={p => (p.pitchesPerPa ?? 0).toFixed(2)}
             subOf={p => `${fmtPct(p.swingPct)} swing rate · ${p.pa} PA`}
           />
           <RateBoard
-            title="Two-strike survival" explain="How rarely two strikes turns into a strikeout"
+            title="Hardest to strike out" explain="How often a two-strike count ends in a strikeout, lowest first"
             league={fmtPct(league.putawayPct)} accent={accent} onOpenPlayer={onOpenPlayer}
             rows={rankBy(pool, 'putawayPct', min, true, league)}
             valueOf={p => fmtPct(p.putawayPct)}
@@ -371,7 +371,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
         </>
       )}
 
-      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'center', px: 1, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1.5 }}>
         Counted from the play-by-play, one code per pitch: what each pitch did, not how fast it
         was.{trackedVisible ? ' Velocity and spin are on Tracked.' : ''}
         {' '}{pitching ? `Pitchers with at least ${min} pitches thrown.` : `Hitters with at least ${min} pitches seen.`}

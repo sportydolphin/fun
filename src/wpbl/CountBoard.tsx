@@ -3,6 +3,14 @@ import { SectionCard } from './ui'
 import { fmtRunValue } from './derive/runExpectancy'
 import { pitchSwing, countKey } from './derive/countValue'
 import type { CountValue } from './derive/countValue'
+import { typePx } from '../ui/scale'
+
+// The axis labels, spelled the way the situations grid's "0 outs" header on the same board is,
+// so the two grids a reader meets one card apart do not label their axes in two styles.
+const AXIS_SX = {
+  fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+  color: 'text.secondary',
+} as const
 
 // ─── What every count is worth ────────────────────────────────────────────────
 //
@@ -40,12 +48,13 @@ export default function CountBoard({ counts, fullCount, accent }: {
   return (
     <Box sx={{ minWidth: 0 }}>
       <SectionCard title="What every count is worth">
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.5 }}>
-          The average run value of a plate appearance that reached each count, in this league's
-          own runs.
+        <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.6 }}>
+          The average run value of a plate appearance that reached each count.
+          {/* A GAP, SO NO SIGN. These two used to print "+0.13" and "+1.05" beside a grid whose
+              3-2 cell reads +0.14, and a signed number in that sentence reads as another cell. */}
           {first != null && (
-            <> The first pitch is worth <strong>{fmtRunValue(first, 2)}</strong> either way: that is
-              the whole gap between 1-0 and 0-1.</>
+            <> Ball or strike on the first pitch is a swing of <strong>{Math.abs(first).toFixed(2)}</strong>{' '}
+              runs, the gap between 1-0 and 0-1.</>
           )}
           {/* THE RANGE, WHICH IS THE POINT OF THE CARD. One pitch being worth a tenth of a run
               reads as small until it is set beside the same pitch on 3-2, where the two
@@ -53,22 +62,23 @@ export default function CountBoard({ counts, fullCount, accent }: {
               cell cannot say so itself: 4-2 and 3-3 are not counts, so the grid stops one
               pitch short of its own most interesting number. */}
           {fullCount != null && (
-            <> The 3-2 pitch is worth <strong>{fmtRunValue(fullCount, 2)}</strong>.</>
+            <> On 3-2, where it is ball four or strike three, the swing is{' '}
+              <strong>{Math.abs(fullCount).toFixed(2)}</strong>.</>
           )}
         </Typography>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: 'auto repeat(3, 1fr)', gap: 0.5 }}>
           <Box />
           {[0, 1, 2].map(s => (
-            <Typography key={s} sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled', textAlign: 'center' }}>
-              {s} {s === 1 ? 'STRIKE' : 'STRIKES'}
+            <Typography key={s} sx={{ ...AXIS_SX, textAlign: 'center' }}>
+              {s} {s === 1 ? 'strike' : 'strikes'}
             </Typography>
           ))}
 
           {[0, 1, 2, 3].map(b => (
             <Box key={b} sx={{ display: 'contents' }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled', alignSelf: 'center', pr: 0.75, whiteSpace: 'nowrap' }}>
-                {b} {b === 1 ? 'BALL' : 'BALLS'}
+              <Typography sx={{ ...AXIS_SX, alignSelf: 'center', pr: 0.75, whiteSpace: 'nowrap' }}>
+                {b} {b === 1 ? 'ball' : 'balls'}
               </Typography>
               {[0, 1, 2].map(st => {
                 const c = byKey.get(countKey({ balls: b, strikes: st }))
@@ -99,7 +109,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
                       {fmtRunValue(c.per, 2)}
                     </Typography>
                     <Typography sx={{ fontSize: '0.5rem', fontWeight: 700, color: '#fff', opacity: 0.85 }}>
-                      {c.n} PA
+                      {c.n.toLocaleString()} PA
                     </Typography>
                   </Box>
                 )
@@ -116,7 +126,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
           {' '}({fmtRunValue(worst.per, 2)}, {Math.round(worst.strikeout * 100)}% struck out).
         </Typography>
 
-        <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', mt: 1, lineHeight: 1.5 }}>
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1, lineHeight: 1.5 }}>
           Every plate appearance passes through 0-0, so 0-0 is this league's average plate
           appearance and every other count reads against it. Counts under 25 plate appearances
           are not shown.
