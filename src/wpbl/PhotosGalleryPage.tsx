@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import WpblPage from './WpblPage'
-import { ChipRow, FilterChip } from './FilterChips'
+import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { FanPhotoGrid, FanPhotoGridSkeleton, FanPhotoSubmitNote, useFanPhotosVersion } from './FanPhotoViews'
 import { TextGhost } from './ui'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, fetchWpblPhotos, getCachedWpblPhotos } from './api'
@@ -131,14 +131,14 @@ export default function PhotosGalleryPage() {
               is every photo from 2026, which is what the gallery opens on. */}
           {(categoryChips.length > 0 || archive.length > 0) && (
             <ChipRow mb={1}>
-              <FilterChip label={`This season (${total})`} active={category === '*'} onClick={() => pickCategory('*')} />
+              <FilterChip active={category === '*'} onClick={() => pickCategory('*')}>{`This season (${total})`}</FilterChip>
               {categoryChips.map(c => (
-                <FilterChip key={c.key} label={`${c.label} (${c.count})`}
-                  active={category === c.key} onClick={() => pickCategory(c.key)} />
+                <FilterChip key={c.key}
+                  active={category === c.key} onClick={() => pickCategory(c.key)}>{`${c.label} (${c.count})`}</FilterChip>
               ))}
               {archive.length > 0 && (
-                <FilterChip label={`From the archive (${archive.length})`} active={showingArchive}
-                  onClick={() => pickCategory(ARCHIVE)} />
+                <FilterChip active={showingArchive}
+                  onClick={() => pickCategory(ARCHIVE)}>{`From the archive (${archive.length})`}</FilterChip>
               )}
             </ChipRow>
           )}
@@ -146,10 +146,10 @@ export default function PhotosGalleryPage() {
               count rides on each so the reader can see who has the most before tapping. */}
           {!showingArchive && subjects.length > 1 && (
             <ChipRow mb={2}>
-              <FilterChip label={`Everyone (${inCategory.length})`} active={selected === 'all'} onClick={() => pickSubject('all')} />
+              <FilterChip active={selected === 'all'} onClick={() => pickSubject('all')}>{`Everyone (${inCategory.length})`}</FilterChip>
               {subjects.map(s => (
-                <FilterChip key={s.key} label={`${s.label} (${s.photos.length})`}
-                  active={selected === s.key} onClick={() => pickSubject(s.key)} />
+                <FilterChip key={s.key}
+                  active={selected === s.key} onClick={() => pickSubject(s.key)}>{`${s.label} (${s.photos.length})`}</FilterChip>
               ))}
             </ChipRow>
           )}
@@ -175,7 +175,7 @@ const FILLER = 'Firstname Lastname Middleton Surname'
 
 function GallerySkeleton() {
   const chip = (label: string, active = false) => (
-    <FilterChip key={label} label={<TextGhost>{label}</TextGhost>} active={active} onClick={() => {}} />
+    <FilterChip key={label} active={active} onClick={() => {}}><TextGhost>{label}</TextGhost></FilterChip>
   )
   return (
     <Box aria-hidden>
@@ -185,7 +185,7 @@ function GallerySkeleton() {
       <ChipRow mb={2}>
         {chip('Everyone (000)', true)}
         {SUBJECT_LABEL_LENGTHS.map((n, i) => (
-          <FilterChip key={i} label={<TextGhost>{`${FILLER.slice(0, n - 4).trimEnd()} (0)`}</TextGhost>} active={false} onClick={() => {}} />
+          <FilterChip key={i} active={false} onClick={() => {}}><TextGhost>{`${FILLER.slice(0, n - 4).trimEnd()} (0)`}</TextGhost></FilterChip>
         ))}
       </ChipRow>
       <FanPhotoGridSkeleton />

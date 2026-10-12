@@ -111,7 +111,7 @@ describe('no tab hardcodes its heading level', () => {
   it('TabTitle asks the context too', () => {
     const src = readFileSync('src/wpbl/PageHeading.tsx', 'utf8')
     const body = src.slice(src.indexOf('export function TabTitle'))
-    expect(body).toContain('useWpblHeadingTag()')
-    expect(body).toContain('component={headingTag}')
+    // The drawing is shared with MLB (src/ui/heading.tsx), so the tag is handed to it.
+    expect(body).toContain('tag={useWpblHeadingTag()}')
   })
 })

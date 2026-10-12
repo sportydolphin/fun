@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 import { TYPE_SCALE, ICON_SIZE, MICRO_TEXT } from '../ui'
+import { TYPE_SCALE_LEGACY } from './typeScaleLegacy'
 
 // The type scale, and the thing that makes it a RULE rather than a tidy-up somebody did once.
 //
@@ -95,6 +96,29 @@ describe('the WPBL type scale', () => {
       .filter(f => /^\d+(\.\d+)?$/.test(f.value))
       .map(f => `${rel}:${f.line}  fontSize: ${f.value}`)
     expect(offenders).toEqual([])
+  })
+
+  // THE RATCHET (Oct 12, 2026). ADOPTED above is opt-in, so a new file escaped it unless somebody
+  // remembered to enrol it, and MLB alone had grown 45 distinct sizes that way. Every source file
+  // under src/ is now held to the looser of the rules (no typed-in rem, no bare px) unless it is on
+  // the frozen legacy list, and that list can only get shorter.
+  const sources = (dir: string): string[] => readdirSync(join(process.cwd(), dir), { withFileTypes: true })
+    .flatMap(e => e.isDirectory()
+      ? (e.name === '__tests__' ? [] : sources(join(dir, e.name)))
+      : /\.tsx?$/.test(e.name) && !/\.test\./.test(e.name) ? [relative(process.cwd(), join(process.cwd(), dir, e.name)).split(sep).join('/')] : [])
+  const typedIn = (rel: string) => fontSizes(read(rel))
+    .filter(f => /\d\s*rem/.test(f.value) || /^\d+(\.\d+)?$/.test(f.value))
+  const legacy = new Set(TYPE_SCALE_LEGACY)
+
+  it('holds every file off the legacy list to the scale', () => {
+    const offenders = sources('src')
+      .filter(rel => !legacy.has(rel))
+      .flatMap(rel => typedIn(rel).map(f => `${rel}:${f.line}  fontSize: ${f.value}`))
+    expect(offenders).toEqual([])
+  })
+
+  it.each([...TYPE_SCALE_LEGACY])('%s is still legacy (take it off the list once converted)', rel => {
+    expect(typedIn(rel).length).toBeGreaterThan(0)
   })
 
   // MUI sizes an icon with `fontSize`, so an icon and a paragraph reach for the same CSS

@@ -524,6 +524,18 @@ will actually see all winter. The functional items do not wait.
      of 60 rows without a `limit`; a year that comes back short is dropped. A traded player takes
      the club StatsAPI files the season under; a career board stays unadjusted.
 
+7. ✅ **One copy of each shared control and board** (Oct 12). What each section still drew for
+   itself moved to `src/ui/`: the filter chip (WPBL's browse pages and MLB's `PillChip` onto
+   `FilterChip`, with `ChipRow` and the new-item dot), the navigation pill (`SegNav`, which replaced
+   MLB's `SegControl`), the info dot (MLB's `InfoTip` onto `InfoDot`), the heading drawing
+   (`heading.tsx`; who owns the h1 stays per section), the game-line row (`gameLine.tsx`), and the
+   Bests and Find boards (`bestsBoards.tsx`, `finderBoard.tsx`), so each section's view now only
+   feeds its own data, controls and row parts. Filter chips and nav pills are taller on a touch
+   screen only. Two guards keep it that way: `src/__tests__/sectionParity.test.ts` fails on a
+   component file name in both `wpbl/` and `mlb/` without a written reason, and the type-scale test
+   now holds every file to the scale except a frozen legacy list (`typeScaleLegacy.ts`) that can
+   only shrink. Still two drawings: the game preview, and the bracket (MLB's retires Nov 1).
+
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each
 league keeps its own colour on the section switch.

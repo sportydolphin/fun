@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { InfoTip } from './ui'
+import { InfoDot } from '../../ui/InfoDot'
 import { SectionCard, CardLink, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
 import { ACCENT, TEAM_BG, TEAM_SECONDARY, HEADSHOT, HEADSHOT_THUMB, TEAM_NICKNAME } from '../constants'
 import { useIsDark, useTextTone, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, edgeTone } from '../lib/colorUtils'
@@ -169,12 +169,7 @@ function BoardCard({ icon, title, subtitle, tooltipText, actionLabel, actionHref
       title={title}
       subtitle={subtitle}
       titleAdornment={tooltipText ? (
-        <InfoTip text={
-          <>
-            <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, mb: 0.5 }}>What this shows</Typography>
-            <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.5 }}>{tooltipText}</Typography>
-          </>
-        } />
+        <InfoDot text={tooltipText} label="What this shows" />
       ) : undefined}
       action={<CardLink label={actionLabel} href={actionHref} onClick={onExpand} />}
     >

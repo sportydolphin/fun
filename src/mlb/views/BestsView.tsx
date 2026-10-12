@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Box, Skeleton, Typography, useMediaQuery, useTheme } from '@mui/material'
+import { Box, Skeleton, Typography } from '@mui/material'
 import { bestGames, BEST_ROWS, type BestBoard } from '../../league/bests'
 import { scopedGames } from '../../league/season'
 import { SectionCard, TYPE_SCALE } from '../../ui/card'
+import { BestsBoards } from '../../ui/bestsBoards'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { PORTRAIT_PX } from '../../ui/leaders'
 import { chromePx } from '../../ui/scale'
@@ -17,8 +18,8 @@ import {
   fetchMlbSeasonLines, seasonScopeOf, MLB_LINES_SEASONS, type MlbLineGame, type MlbLinePlayer, type MlbSeasonLines,
 } from '../seasonLines'
 
-// THE BESTS BOARD: the best single game anyone had, by each of a handful of measures. WPBL's board
-// (src/wpbl/BestsView.tsx), on WPBL's engine (src/league/bests.ts), over MLB's mirrored box scores.
+// THE BESTS BOARD: the best single game anyone had, by each of a handful of measures. WPBL's layout
+// (src/ui/bestsBoards.tsx), on WPBL's engine (src/league/bests.ts), over MLB's mirrored box scores.
 // Nothing StatsAPI serves can answer "the most strikeouts anyone threw in a game this year": it
 // keeps season totals and one box score per game, so the question needed every line on our side.
 // ROADMAP.md item 6, step 3.
@@ -30,8 +31,6 @@ type Board = BestBoard<MlbLinePlayer, MlbLineGame>
 
 /** A card's rows, ties included. Past it the card counts the rest; see `rankRows`. */
 const BEST_CAP = 10
-/** WPBL's wide board column, in chrome px: two columns of cards on a large desktop. */
-const BOARD_W = chromePx(1150)
 
 export interface MlbLinesBoardProps {
   boardTabs: React.ReactNode
@@ -165,24 +164,15 @@ function BoardSkeleton({ label }: { label: string }) {
 export function MlbBestsView({
   boardTabs, isDesktop, lbGroup, sideSwitch, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenGame,
 }: MlbLinesBoardProps) {
-  const theme = useTheme()
-  const twoCol = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true })
   const { data, loading, failed } = useMlbSeasonLines(vizSeason)
   const scope = seasonScopeOf(gameScope)
   const boards: Board[] = useMemo(
     () => bestGames(lbGroup, data?.batting ?? [], data?.pitching ?? [], data?.players ?? [], data?.games ?? [], scope, BEST_ROWS, BEST_CAP),
     [lbGroup, data, scope])
-  // Even boards down the left, odd down the right, each column stacking on its own so a short card
-  // does not grow a gap to match a tall one beside it (as WPBL's).
-  const columns = useMemo(() => {
-    if (!twoCol) return [boards]
-    return [boards.filter((_, i) => i % 2 === 0), boards.filter((_, i) => i % 2 === 1)]
-  }, [boards, twoCol])
   // The count is the SCOPED one: a playoff record book under a line claiming the whole season
   // would be the page contradicting itself.
   const finals = useMemo(() => scopedGames((data?.games ?? []).filter(g => g.status === 'final'), scope).length, [data, scope])
   const gamesWord = gameScope === 'regular' ? 'regular-season games' : gameScope === 'post' ? 'playoff games' : 'games'
-  const anyRows = boards.some(b => b.rows.length > 0)
   const mirrored = MLB_LINES_SEASONS.includes(vizSeason)
 
   return (
@@ -197,46 +187,14 @@ export function MlbBestsView({
           Couldn’t load the {vizSeason} box scores. Try again in a moment.
         </Typography>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, maxWidth: BOARD_W, mx: 'auto', width: '100%', pt: { xs: 1.5, sm: 2 } }}>
-          {/* One sentence, as WPBL's: the cards say what each measures, and the one thing none of
-              them carries is that these are single GAMES on a tab of season totals. */}
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5, maxWidth: '70ch' }}>
-            {/* The count is reserved, invisibly, while the lines load: on a phone it is what wraps
-                the sentence to a second line, and the cards would drop by that line when it landed. */}
-            Single-game totals, not season totals
-            {loading
-              ? <Box component="span" sx={{ visibility: 'hidden' }}>, from 2,430 {gamesWord}</Box>
-              : finals > 0 ? `, from ${finals.toLocaleString()} ${gamesWord}` : ''}.
-          </Typography>
-          {!loading && !anyRows ? (
-            <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No games in this slice yet</Typography>
-              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Records fill in as games go final.</Typography>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: { xs: 1.5, sm: 2 } }}>
-              {columns.map((col, ci) => (
-                <Box key={ci} sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
-                  {col.map(b => loading ? <BoardSkeleton key={b.key} label={b.label} /> : (
-                    <SectionCard key={b.key} title={b.label}>
-                      {b.rows.length === 0
-                        ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Nothing here yet.</Typography>
-                        : b.rows.map((r, i) => (
-                          <GameLineRow key={r.key} rank={r.rank} name={r.name} player={r.player} teamId={r.teamId}
-                            game={r.game} detail={r.detail} value={r.display} unit={b.unit} divider={i > 0}
-                            compactDate onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
-                        ))}
-                      {b.more > 0 && (
-                        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-                          And {b.more} more with {b.rows[b.rows.length - 1].display} {b.unit}
-                        </Typography>
-                      )}
-                    </SectionCard>
-                  ))}
-                </Box>
-              ))}
-            </Box>
-          )}
+        <Box sx={{ pt: { xs: 1.5, sm: 2 } }}>
+          <BestsBoards boards={boards} finals={finals} gamesWord={gamesWord} loading={loading}
+            skeleton={b => <BoardSkeleton key={b.key} label={b.label} />}
+            renderRow={(r, i, b) => (
+              <GameLineRow key={r.key} rank={r.rank} name={r.name} player={r.player} teamId={r.teamId}
+                game={r.game} detail={r.detail} value={r.display} unit={b.unit} divider={i > 0}
+                compactDate onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+            )} />
         </Box>
       )}
     </Box>

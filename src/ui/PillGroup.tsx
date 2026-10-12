@@ -3,7 +3,7 @@ import { pressable, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
 
 // Moved out of src/wpbl/ui.tsx in Oct 2026, when MLB took the same split WPBL draws between its two
-// segmented controls: a raised chip for NAVIGATION (WPBL's SegNav, MLB's SegControl) and this solid
+// segmented controls: a raised chip for NAVIGATION (SegNav, shared since MLB's SegControl folded into it) and this solid
 // fill for a SETTING on the data in front of the reader (Hitting / Pitching, a category, a round).
 // The two looked identical on MLB's Stats page, three rows of the same pill for two different jobs.
 //

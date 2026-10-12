@@ -1,3 +1,5 @@
+import { chromePx } from './scale'
+
 // The Home page's column, shared by both sections so a section switch on the toolbar lands on a
 // page with the same edges. Until Oct 2026 MLB's Home was 1372px (980 drawn under the old
 // `zoom: 1.4`) and WPBL's 1260, so the cards jumped 56px each side on every switch, and on a tablet
@@ -19,3 +21,18 @@ export const PHONE_COLUMN_W = 720
  *  is in view. WPBL's since the table needed it; MLB's three boards since Oct 9, 2026, when the two
  *  tabs were 1416 and 1385 wide at 1440 and the title, tabs and cards moved 15px on a switch. */
 export const STATS_W = 'min(1540px, calc(100vw - 24px))'
+
+/**
+ * The page column the Stats boards that are prose and lists sit in, and the wider measure the
+ * ones that can use a second column take on a large desktop.
+ *
+ * NARROW IS NOT A DEFAULT TO BE ESCAPED, it is the right answer for one column of anything: a
+ * list stretched across 1,400px puts a name at one edge and its number at the other and stops
+ * being a row. What a wide screen buys is a SECOND column, not a longer one, so the wide value
+ * is two list measures and the gap between them rather than one long one.
+ *
+ * An over-generous cap is harmless: `max-width` cannot make an element wider than the box it
+ * is in, so on a viewport smaller than the cap this simply means "all of it".
+ */
+export const BOARD_COLUMN = chromePx(720)
+export const BOARD_COLUMN_WIDE = chromePx(1150)

@@ -52,7 +52,7 @@ import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './der
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
 import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, TextGhost, chromePx } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
-import { ChipRow, FilterChip } from './FilterChips'
+import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { track, EVENTS } from '../lib/analytics'
 import type {
   WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay,
@@ -1366,7 +1366,7 @@ function BoardSet({ boards, phone, columns }: {
     <>
       <ChipRow mb={1}>
         {shown.map(b => (
-          <FilterChip key={b.key} label={b.chip} active={b.key === current.key} onClick={() => setPicked(b.key)} />
+          <FilterChip key={b.key} active={b.key === current.key} onClick={() => setPicked(b.key)}>{b.chip}</FilterChip>
         ))}
       </ChipRow>
       {current.node}

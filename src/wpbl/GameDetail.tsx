@@ -19,7 +19,7 @@ import { GameStoryCard, GameRecapLinkCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
 import LiveGameView from './LiveGameView'
 import { useWpblPlayerLink } from './LinkContext'
-import { WpblVisuallyHiddenH1 } from './PageHeading'
+import { WpblVisuallyHiddenH1, VISUALLY_HIDDEN } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { BoxTable, BoxTeamHeading, BoxTeamSwitch, BOX_POS_SX } from '../ui/gameCenter'
 import { OutDots } from '../ui/BaseDiamond'
@@ -1357,11 +1357,6 @@ const SOURCE_WORDS: Readonly<Record<WpblCorrectionSource, string>> = {
 const SOURCE_WHY: Readonly<Partial<Record<WpblCorrectionSource, (n: number) => string>>> = {
   external: n => `, which the league published with no account of ${n === 1 ? 'it' : 'them'}`,
 }
-
-const VISUALLY_HIDDEN = {
-  position: 'absolute', width: '1px', height: '1px', overflow: 'hidden',
-  clip: 'rect(0 0 0 0)', clipPath: 'inset(50%)', whiteSpace: 'nowrap',
-} as const
 
 /**
  * What the daggers mean, once, at the foot of the play-by-play.

@@ -10,7 +10,7 @@ import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
 import { MlbCopyLink } from '../components/CopyLink'
-import { SegControl } from '../components/ui'
+import { SegNav } from '../../ui/SegNav'
 import { teamLink, playerLink, LINK_SX } from '../lib/links'
 import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { FinalGameSummary } from './FinalGames'
@@ -1243,7 +1243,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
             display: 'flex', justifyContent: 'center',
             position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
           }}>
-            <SegControl
+            <SegNav
               options={[
                 { value: 'summary', label: isLive ? 'Live' : 'Summary' },
                 { value: 'box', label: 'Box Score' },
@@ -1251,6 +1251,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
               ]}
               value={tab}
               onChange={v => setTab(v as typeof tab)}
+              mb={0}
             />
           </Box>
 
