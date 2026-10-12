@@ -41,6 +41,12 @@ export interface DiscordBirthdayMessage {
  */
 const SETTLED_SOURCES = new Set(['doc', 'sheet'])
 
+/** Whether a birth date is good enough to greet someone on. Exported so Home's birthday card
+ *  and this channel cannot disagree about who is having one. */
+export function birthDateSettled(p: Pick<WpblPlayer, 'birth_date' | 'birth_date_source'>): boolean {
+  return !!p.birth_date && SETTLED_SOURCES.has(p.birth_date_source ?? '')
+}
+
 /** 'YYYY-MM-DD' (or a full timestamp from postgres) to its month and day. */
 function monthDay(iso: string): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
@@ -59,8 +65,8 @@ export function birthdaysOn(players: BirthdayPlayer[], today: string): BirthdayP
   if (!md) return []
   return players
     .filter(p => p.active)
-    .filter(p => SETTLED_SOURCES.has(p.birth_date_source ?? ''))
-    .filter(p => p.birth_date && monthDay(p.birth_date) === md)
+    .filter(birthDateSettled)
+    .filter(p => monthDay(p.birth_date!) === md)
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 

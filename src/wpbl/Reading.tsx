@@ -307,40 +307,45 @@ export function ReadingLead({ article, teamById, from, isNew, onOpen, ghost }: {
  *  The phone row stretches its cover to the row rather than fixing its height: the headlines are
  *  long and good and wrap to between two and four lines, and a fixed cover top-aligned in a row
  *  that tall leaves a different band of dead air under every picture. */
-export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost }: {
+export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost, rows }: {
   article: WpblArticle; teamById: Map<string, WpblTeam>; from: ReadingSource
   /** Published since the reader's last visit (newSince.ts). */
   isNew?: boolean; onOpen?: () => void
   /** Draw the card empty around GHOST_ARTICLE, for a loading state. */
   ghost?: boolean
+  /** The phone row at every width, for a column too narrow for covers on top: the offseason
+   *  Home's Reading card shares its row with Watch. */
+  rows?: boolean
 }) {
   const g = (text: React.ReactNode) => (ghost ? <TextGhost>{text}</TextGhost> : text)
+  // Each responsive value collapses to its phone half in row mode.
+  const r = <A, B>(xs: A, sm: B) => (rows ? xs : { xs, sm })
   return (
     <Box {...cardLink(article, from, isNew, onOpen, ghost)}
       sx={{
-        ...cardSx, display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, alignItems: 'stretch',
-        gap: { xs: 1.25, sm: 0 }, p: { xs: 1, sm: 0 }, height: '100%',
+        ...cardSx, display: 'flex', flexDirection: r('row', 'column'), alignItems: 'stretch',
+        gap: r(1.25, 0), p: r(1, 0), height: '100%',
       }}
     >
       <Cover article={article} teamById={teamById} badge={18} fresh={isNew}
-        widths={[240, 480, 720]} sizes="(max-width: 599px) 104px, (max-width: 1199px) 50vw, 400px"
+        widths={[240, 480, 720]} sizes={rows ? '104px' : '(max-width: 599px) 104px, (max-width: 1199px) 50vw, 400px'}
         sx={{
-          width: { xs: chromePx(104), sm: '100%' }, minHeight: { xs: chromePx(72), sm: 0 },
-          aspectRatio: { xs: 'auto', sm: '16 / 9' }, borderRadius: { xs: 1.5, sm: 0 },
+          width: r(chromePx(104), '100%'), minHeight: r(chromePx(72), 0),
+          aspectRatio: r('auto', '16 / 9'), borderRadius: r(1.5, 0),
         }} />
-      <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', p: { xs: 0, sm: 1.25 } }}>
-        <Typography sx={{ fontSize: { xs: '0.85rem', sm: '0.9rem' }, fontWeight: 700, lineHeight: 1.3 }}>{g(article.title)}</Typography>
+      <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', p: r(0, 1.25) }}>
+        <Typography sx={{ fontSize: r('0.85rem', '0.9rem'), fontWeight: 700, lineHeight: 1.3 }}>{g(article.title)}</Typography>
         {article.subtitle && (
           <Typography sx={{
             fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.4, mt: 0.35,
-            display: '-webkit-box', WebkitLineClamp: { xs: 2, sm: 3 }, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            display: '-webkit-box', WebkitLineClamp: r(2, 3), WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {g(article.subtitle)}
           </Typography>
         )}
         {/* Pinned to the foot of a grid card, so the meta lines along a row of cards line up
             whatever length each headline runs to. */}
-        <MetaLine article={article} ghost={ghost} sx={{ mt: { xs: 0.5, sm: 'auto' }, pt: { xs: 0, sm: 1 } }} />
+        <MetaLine article={article} ghost={ghost} sx={{ mt: r(0.5, 'auto'), pt: r(0, 1) }} />
       </Box>
     </Box>
   )
