@@ -2674,9 +2674,10 @@ export function WpblHomeSkeleton() {
   )
 }
 
-// The Watch card's height, for both skeletons: a row of 9:16 posters, so it grows with the width.
-// Measured at 375px and at 1400px (Sep 29, 2026); a desktop narrower than that is a little shorter.
-const WATCH_CARD_SKELETON_H = { xs: '13.8rem', md: '22rem' }
+// The Watch card's height, for both skeletons: a row of 9:16 posters, so it grows with the width,
+// and WPBL from Day 1's two newest under it. Measured at 375px and at 1440px (Oct 12, 2026); a
+// desktop narrower than that is a little shorter.
+const WATCH_CARD_SKELETON_H = { xs: '22rem', md: '26.2rem' }
 // The offseason Reading card's: three rows on a phone, one row of 16:9 cover cards from `sm` up.
 // Measured at 375px, 700px, 1024px and 1400px (Oct 6, 2026). The covers are 16:9 of a third of the
 // width, so the card grows with the window; lg is where it reaches the column's cap.
