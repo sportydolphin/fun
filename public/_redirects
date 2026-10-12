@@ -41,6 +41,20 @@
 /wpbl/reading/   /wpbl/reading    301
 /wpbl/watch/     /wpbl/watch      301
 /wpbl/compare/   /wpbl/compare    301
+/wpbl/series/firebells-vs-heights/ /wpbl/series/firebells-vs-heights 301
+/wpbl/series/firebells-vs-hunters/ /wpbl/series/firebells-vs-hunters 301
+/wpbl/series/firebells-vs-queens/  /wpbl/series/firebells-vs-queens 301
+/wpbl/series/heights-vs-hunters/   /wpbl/series/heights-vs-hunters 301
+/wpbl/series/heights-vs-queens/    /wpbl/series/heights-vs-queens 301
+/wpbl/series/hunters-vs-queens/    /wpbl/series/hunters-vs-queens 301
+# A season series is one URL per pair, the two club slugs in alphabetical order. The other order
+# is a permanent redirect rather than a second page. See WPBL_SERIES_BASE in src/wpbl/routes.ts.
+/wpbl/series/heights-vs-firebells  /wpbl/series/firebells-vs-heights 301
+/wpbl/series/hunters-vs-firebells  /wpbl/series/firebells-vs-hunters 301
+/wpbl/series/queens-vs-firebells   /wpbl/series/firebells-vs-queens 301
+/wpbl/series/hunters-vs-heights    /wpbl/series/heights-vs-hunters 301
+/wpbl/series/queens-vs-heights     /wpbl/series/heights-vs-queens 301
+/wpbl/series/queens-vs-hunters     /wpbl/series/hunters-vs-queens 301
 /mlb/          /mlb       301
 /mlb/scores/     /mlb/scores      301
 /mlb/standings/  /mlb/standings   301
@@ -132,6 +146,16 @@
 /wpbl/watch      /  200
 # Not a tab either: see the note on WPBL_COMPARE_BASE in src/wpbl/routes.ts.
 /wpbl/compare    /  200
+# The six season series, ONE LINE PER PAIR AND NOT A WILDCARD, for the reason the clubs above give:
+# four clubs make six pairings, so an unknown /wpbl/series/<anything> falls through to the real 404
+# with no Function standing behind it. A fifth club means four more lines, and routes.test.ts
+# fails until they exist. No /wpbl/series index either; the bare path 404s.
+/wpbl/series/firebells-vs-heights  /  200
+/wpbl/series/firebells-vs-hunters  /  200
+/wpbl/series/firebells-vs-queens   /  200
+/wpbl/series/heights-vs-hunters    /  200
+/wpbl/series/heights-vs-queens     /  200
+/wpbl/series/hunters-vs-queens     /  200
 # The one wildcard in this file, and the exception that proves the rule. A player URL is
 # /wpbl/players/<slug>, and the set of valid slugs lives in the database, so it cannot be
 # enumerated here. The soft-404 hole it would otherwise open is closed one layer up instead:

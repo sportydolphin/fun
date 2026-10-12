@@ -42,6 +42,7 @@ import {
   isWpblWatchPage,
   isWpblPhotosPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
+  wpblSeriesPath, wpblSeriesPaths, wpblSeriesSlugFromPath, findWpblSeriesPair, isWpblSeriesPage,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
   WPBL_COMPARE_BASE, wpblComparePath, wpblCompareCanonicalPath, isCanonicalComparePath,
   wpblCompareStartPath, wpblCompareSlugFromPath,
@@ -523,6 +524,52 @@ describe('team pages, one per club', () => {
     expect(wpblAppOwnsPath('/wpbl/teams/hunters')).toBe(true)
     expect(wpblViewFromPath('/wpbl/teams/hunters')).toBeNull()
     expect(wpblViewFromPath('/wpbl/teams')).toBe('teams')
+  })
+})
+
+// Six pages, one per pairing of clubs, and the same four files to keep in step as the club pages.
+// Written out in _redirects rather than a wildcard, so no Function has to stand behind them.
+describe('season series pages, one per pairing', () => {
+  const clubs = Object.values(WPBL_TEAMS)
+  const paths = wpblSeriesPaths(clubs)
+
+  it('is six pages, each slugged in alphabetical order whichever way round the clubs are passed', () => {
+    expect(paths).toHaveLength(6)
+    expect(wpblSeriesPath(WPBL_TEAMS.SF, WPBL_TEAMS.BOS, clubs)).toBe('/wpbl/series/firebells-vs-hunters')
+    expect(wpblSeriesPath(WPBL_TEAMS.BOS, WPBL_TEAMS.SF, clubs)).toBe('/wpbl/series/firebells-vs-hunters')
+  })
+
+  it('gives every pairing a 200 rewrite, a trailing-slash 301 and a 301 from the other order', () => {
+    for (const path of paths) {
+      const [a, b] = path.slice('/wpbl/series/'.length).split('-vs-')
+      expect(redirects).toMatch(new RegExp(`^${path}\\s+/\\s+200\\s*$`, 'm'))
+      expect(redirects).toMatch(new RegExp(`^${path}/\\s+${path}\\s+301\\s*$`, 'm'))
+      expect(redirects).toMatch(new RegExp(`^/wpbl/series/${b}-vs-${a}\\s+${path}\\s+301\\s*$`, 'm'))
+    }
+    expect(redirects).not.toMatch(/^\/wpbl\/series\/\*/m)
+  })
+
+  it('gives every pairing its own title and puts it in the sitemap', () => {
+    for (const path of paths) {
+      expect(seoSource).toMatch(new RegExp(`'${path}':\\s*\\{[^}]*title:`))
+      expect(sitemap).toContain(`<loc>https://sportydolphin.fun${path}</loc>`)
+    }
+  })
+
+  it('reads a pair back out of its path, in the order typed, and refuses what is not one', () => {
+    expect(wpblSeriesSlugFromPath('/wpbl/series/firebells-vs-hunters/')).toBe('firebells-vs-hunters')
+    expect(wpblSeriesSlugFromPath('/wpbl/series')).toBeNull()
+    expect(wpblSeriesSlugFromPath('/wpbl/series/a/b')).toBeNull()
+    expect(isWpblSeriesPage('/wpbl/series/hunters-vs-queens')).toBe(true)
+    expect(findWpblSeriesPair('hunters-vs-firebells', clubs)?.map(t => t.id)).toEqual(['BOS', 'SF'])
+    expect(findWpblSeriesPair('hunters-vs-hunters', clubs)).toBeNull()
+    expect(findWpblSeriesPair('hunters-vs-mets', clubs)).toBeNull()
+    expect(findWpblSeriesPair('hunters', clubs)).toBeNull()
+  })
+
+  // A standalone page, not one of WpblApp's: claimed by the section, the app would mount over it.
+  it('is not a path WpblApp owns', () => {
+    expect(wpblAppOwnsPath('/wpbl/series/firebells-vs-hunters')).toBe(false)
   })
 })
 

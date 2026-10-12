@@ -401,6 +401,55 @@ export function findWpblTeamBySlug<T extends WpblSluggableTeam>(
   return teams.find(t => teamSlug(t.id, teams) === want) ?? null
 }
 
+// ─── Season series pages ──────────────────────────────────────────────────────
+//
+// One page per pairing of clubs, at /wpbl/series/firebells-vs-hunters: the record, every meeting,
+// the leaders in those games and the batter-vs-pitcher matchups between the two. Four clubs make
+// six pairings, so unlike a player comparison these ARE in the sitemap: six durable pages a reader
+// can search for by name, not a doorway's worth of machine-made pairs.
+//
+// ONE URL PER PAIR, the two slugs in alphabetical order. The reversed spelling is a 301 in
+// _redirects rather than a second page, the same rule a comparison follows through its Function;
+// here the pairs can be written out, so no Function stands behind them, as with the club pages.
+
+export const WPBL_SERIES_BASE = `${WPBL_BASE}/series`
+
+/** The canonical path for a pairing, whichever order the clubs are passed in. */
+export function wpblSeriesPath(a: WpblSluggableTeam, b: WpblSluggableTeam, teams: readonly WpblSluggableTeam[]): string {
+  const slugs = [teamSlug(a.id, teams), teamSlug(b.id, teams)].sort()
+  return `${WPBL_SERIES_BASE}/${slugs[0]}${WPBL_COMPARE_JOIN}${slugs[1]}`
+}
+
+/** Every pairing's canonical path, for the sitemap, _redirects and the tests. */
+export function wpblSeriesPaths(teams: readonly WpblSluggableTeam[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < teams.length; i++) {
+    for (let j = i + 1; j < teams.length; j++) out.push(wpblSeriesPath(teams[i], teams[j], teams))
+  }
+  return out.sort()
+}
+
+/** The slug a pathname names, or null if it is not a series URL. One segment only, for the
+ *  reason `wpblTeamSlugFromPath` gives. */
+export function wpblSeriesSlugFromPath(pathname: string): string | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${WPBL_SERIES_BASE}/`)) return null
+  const rest = p.slice(WPBL_SERIES_BASE.length + 1)
+  return rest && !rest.includes('/') ? decodeURIComponent(rest) : null
+}
+
+export const isWpblSeriesPage = (pathname: string) => wpblSeriesSlugFromPath(pathname) !== null
+
+/** The two clubs a slug names, in the slug's order, or null unless it names two different clubs. */
+export function findWpblSeriesPair<T extends WpblSluggableTeam>(slug: string, teams: readonly T[]): [T, T] | null {
+  const want = slug.toLowerCase()
+  const i = want.indexOf(WPBL_COMPARE_JOIN)
+  if (i === -1) return null
+  const a = findWpblTeamBySlug(want.slice(0, i), teams)
+  const b = findWpblTeamBySlug(want.slice(i + WPBL_COMPARE_JOIN.length), teams)
+  return a && b && a.id !== b.id ? [a, b] : null
+}
+
 // ─── Comparison pages ─────────────────────────────────────────────────────────
 //
 // Two players side by side, at /wpbl/compare/denae-benites-vs-molly-paddison. The pair is in

@@ -225,8 +225,8 @@ item 2 describes, which is why that item comes first.
 
 **Nothing in progress (Oct 11, 2026).** The Oct 10 audit's ops items 1 to 5 have shipped. MLB's
 Hot Stove card shipped Oct 11 (ROADMAP.md), and so did the wildest games (item 2) and the Compare
-unfurl (item 6), and wins added and baserunning on Run value (item 7). Next here is the same two
-numbers on the player card and Compare (item 8), then the six season-series pages (item 3).
+unfurl (item 6), wins added and baserunning on Run value (item 7), and the six season-series pages
+(item 3). Next here is the same two numbers on the player card and Compare (item 8).
 Call the Play has been moved to the end of the list. The crash triage (ops item 2) and the
 layout-shift fixes (ops item 3) wait for about a week of reports, around Oct 18.
 
@@ -254,7 +254,7 @@ reason to come back more than once a month until spring. So the order is by that
    is computed on every game and read only by the awards shortlist. A ranked list, or the quilt, on
    `/wpbl/season`, every entry a link into Game Center, which is the other half of the retention
    gradient. Cheap, and it doubles as an Offseason Visual.
-3. **The six season-series pages** (data-mining list). Indexable pages from data already held, for
+3. ✅ **The six season-series pages** (shipped Oct 11, v1.156.0, see the log). The original item: (data-mining list). Indexable pages from data already held, for
    a section whose constraint is search. Who owns whom shipped Sep 28 as `/wpbl/matchups` (see the
    log).
 4. ~~**Decide Road to Springfield.**~~ ❌ *Dropped Sep 30: an AI-made hometown map and share
@@ -1490,6 +1490,31 @@ About 20 player links where there were none, and the desktop page 20% shorter. I
 taps go to `wpbl_home_players_shown` / `wpbl_home_player_open` ("Player cards" on /admin). The
 fan ballot is drawn by both layouts, pinned in `routes.test.ts`. To ship it to everyone, make
 `useNewOffseasonHome` return true, then delete it and the old offseason branches in Home.tsx.
+
+### Oct 11, 2026: six season series, one page per pairing (v1.156.0)
+
+Winter order item 3. `/wpbl/series/<a>-vs-<b>`, the two club slugs in alphabetical order, one page
+for each of the six pairings: the regular-season record and runs, every meeting with a link into
+Game Center and the running series after each, the postseason as one row that opens its games, the
+leaders in those games (OPS and ERA, on the league's own per-game bar counted over the meetings), and
+the most lopsided batter-vs-pitcher matchups between the two clubs. Regular / Playoffs / Both
+switches the leaders and matchups for the three pairs that met in the bracket.
+
+- **In the sitemap**, unlike a player comparison: six pages a reader searches for by name. Written
+  out in `_redirects` like the four club pages, so no Function stands behind them; the reversed
+  spelling 301s to the canonical one. Static tags in `seo.ts`, pinned with the rest in
+  `routes.test.ts`.
+- **The record reads `headToHead`**, the standings grid's own cell, rather than a loop of its own.
+  `derive/seasonSeries.ts`, tested against that cell from both sides.
+- **The crawl paths in**: every cell of the standings head-to-head grid and every chip on a club
+  page is now a link to the pair's page, and each series page links the other five.
+- **One shape for every pair.** Listed in full, the final made Firebells vs Queens five rows longer
+  than Heights vs Hunters, which nothing knows before the schedule lands, so the page jumped. The
+  postseason is one row for every pair now ("Did not meet in the postseason" for three of them),
+  and the scope control is drawn and hidden rather than absent. The verdict moved out of a middle
+  column whose width changed as it landed, which also gave a phone room for "Firebells".
+- **Not done:** an unfurl card. A shared series link previews as the site's general card, since
+  `functions/wpbl/` does not rewrite these yet.
 
 ### Oct 11, 2026: wins added, and the runs on the bases, on Run value (v1.155.0)
 

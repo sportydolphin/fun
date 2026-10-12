@@ -112,6 +112,7 @@ flowchart LR
         wseason["/wpbl/season<br/>SeasonPage.tsx (recap)"]
         wscori["/wpbl/scorigami<br/>Scorigami.tsx + derive/scorigami.ts"]
         wmatch["/wpbl/matchups<br/>MatchupsPage.tsx + derive/matchups.ts"]
+        wseries["/wpbl/series/&lt;a&gt;-vs-&lt;b&gt; (six)<br/>SeriesPage.tsx + derive/seasonSeries.ts"]
         wcmp["/wpbl/compare<br/>+ /wpbl/compare/&lt;a&gt;-vs-&lt;b&gt;"]
         wgames["/wpbl/games/&lt;date&gt;-&lt;away&gt;-at-&lt;home&gt;"]
         api["/wpbl/api<br/>wpbl/ApiDocs.tsx"]

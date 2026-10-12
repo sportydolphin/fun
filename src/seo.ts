@@ -94,6 +94,40 @@ const ROUTES: Record<string, Seo> = {
     description:
       "The Boston Hunters in the 2026 Women's Pro Baseball League: full roster, team batting and pitching, every result, and how they have fared against each rival.",
   },
+  // The six season series, one per pairing of clubs, written out for the reason the four club
+  // pages are: six fixed pages need no fetch to describe. Each targets "<club> vs <club>", the
+  // query a rivalry can win; the page registers the same tags again once the clubs are read, so
+  // the wording here and in SeriesPage.tsx should move together.
+  '/wpbl/series/firebells-vs-heights': {
+    title: "Firebells vs Heights: the 2026 WPBL season series | sportydolphin.fun",
+    description:
+      "The San Francisco Firebells against the New York Heights in the 2026 Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.",
+  },
+  '/wpbl/series/firebells-vs-hunters': {
+    title: "Firebells vs Hunters: the 2026 WPBL season series | sportydolphin.fun",
+    description:
+      "The San Francisco Firebells against the Boston Hunters in the 2026 Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.",
+  },
+  '/wpbl/series/firebells-vs-queens': {
+    title: "Firebells vs Queens: the 2026 WPBL season series | sportydolphin.fun",
+    description:
+      "The San Francisco Firebells against the Los Angeles Queens in the 2026 Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.",
+  },
+  '/wpbl/series/heights-vs-hunters': {
+    title: "Heights vs Hunters: the 2026 WPBL season series | sportydolphin.fun",
+    description:
+      "The New York Heights against the Boston Hunters in the 2026 Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.",
+  },
+  '/wpbl/series/heights-vs-queens': {
+    title: "Heights vs Queens: the 2026 WPBL season series | sportydolphin.fun",
+    description:
+      "The New York Heights against the Los Angeles Queens in the 2026 Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.",
+  },
+  '/wpbl/series/hunters-vs-queens': {
+    title: "Hunters vs Queens: the 2026 WPBL season series | sportydolphin.fun",
+    description:
+      "The Boston Hunters against the Los Angeles Queens in the 2026 Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.",
+  },
   // The flat roster. Its own page mostly so the 118 player pages have something linking to
   // them, but it is a real destination too, and "WPBL players" is a term people type.
   '/wpbl/players': {

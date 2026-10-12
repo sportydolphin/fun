@@ -126,6 +126,8 @@ const DEFAULT_ROUTES = [
   // Fielding as a side of Leaders and Teams, and an Analysis board other than Run value (Oct 2026).
   '/wpbl/stats?side=fielding', '/wpbl/stats?board=teams&side=fielding', '/wpbl/stats?board=pitches',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
+  // A season series that went on to meet in the final, the longest shape the page takes.
+  '/wpbl/series/firebells-vs-queens',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
   '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/team-stats', '/mlb/fielding', '/mlb/bests', '/mlb/find', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare',
   '/mlb/charts', '/mlb/leaders?lb=fielding', '/mlb/team-stats?lb=fielding',
