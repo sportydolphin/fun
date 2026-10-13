@@ -467,6 +467,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       case 'scores': return (
         <FinalGamesSection
           layout="page"
+          date={state.scoresDate}
+          onDateChange={state.setScoresDate}
           followedTeamId={state.followedTeamId}
           onPlayerClick={state.handleFollowedPlayerClick}
           onTeamClick={state.handleTeamSearchClick}

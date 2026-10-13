@@ -17,7 +17,7 @@ import { playerLink, teamLink, LINK_SX } from '../lib/links'
 
 // ─── BaseDiamond ──────────────────────────────────────────────────────────────
 
-function BaseDiamond({ onFirst, onSecond, onThird, size = 9 }: {
+export function BaseDiamond({ onFirst, onSecond, onThird, size = 9 }: {
   onFirst: boolean; onSecond: boolean; onThird: boolean; size?: number
 }) {
   const gap = Math.round(size * 0.08)

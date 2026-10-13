@@ -359,6 +359,10 @@ export function useMlbState() {
   // The question, held here because the address carries it and Back restores it. Its `scope` is
   // unused: the section's Regular season / Playoffs / Both stands in for it.
   const [findQuery, setFindQuery] = useState<FinderQuery>(() => findQueryOf(landing))
+  // ─── Scores ─────────────────────────────────────────────────────────────────
+  // The day on the Scores page, null for today. Here because the address carries it: a refresh or
+  // a shared link to Tuesday's scores used to land on today's.
+  const [scoresDate, setScoresDate] = useState<string | null>(landing?.view === 'scores' ? landing.date ?? null : null)
   // The row a link came to see: a club on Teams, a player on Fielding. Not on the address, as the
   // Table's picked-out player is not: it belongs to the trip, and a shared link has no trip.
   const [gridHighlightId, setGridHighlightId] = useState<number | null>(null)
@@ -609,6 +613,7 @@ export function useMlbState() {
     }
     if (view === 'search' && team)   return { view: 'search', teamId: team.id }
     const s: Record<string, any> = { view }
+    if (view === 'scores' && scoresDate) s.date = scoresDate
     if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime; s.games = lbGameScope }
     if (view === 'teamStats' || view === 'bests' || view === 'find') s.lb = lbGroup
     if ((view === 'leaderboard' || view === 'teamStats') && statsFielding) s.fielding = true
@@ -639,7 +644,7 @@ export function useMlbState() {
       s.findVenue = findQuery.venue === 'any' ? null : findQuery.venue
     }
     return s
-  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery])
+  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery, scoresDate])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -885,6 +890,7 @@ export function useMlbState() {
       setView(snap.view)
       setPlayer(null)
       setTeam(null)
+      if (snap.view === 'scores') setScoresDate(snap.date ?? null)
       if (!isMlbSeasonView(snap.view)) return
       const group = snap.lb ?? 'hitting'
       setStatsFielding(!!snap.fielding || snap.view === 'fielding')
@@ -1069,6 +1075,7 @@ export function useMlbState() {
 
     // Find
     findQuery, setFindQuery,
+    scoresDate, setScoresDate,
 
     // Stats-table highlight
     statsHighlightPlayerId, setStatsHighlightPlayerId,
