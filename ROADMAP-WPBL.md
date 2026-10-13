@@ -202,9 +202,9 @@ item 2 describes, which is why that item comes first.
    v4 to v7, their Node 24 majors, in all 38 workflows. `daily-bots.yml` also ran its own scripts on
    Node 20, past end of life since April; it is on 22 with everything else. The deploy-key pushes
    (sitemap, archive, feature requests) are the part CI cannot exercise: watch their next runs.
-6. **Dependencies.** Patch and minor first, as one pull request: supabase-js 2.106 to 2.117, MUI
-   7.3.7 to 7.3.11, Vite 6.4.4, Vitest 4.1, playwright-core 1.64 (the sweep's browser, so run it),
-   pg, ws, and the one moderate audit finding (`yaml` under cosmiconfig, dev only). Then the majors,
+6. **Dependencies.** ✅ Patch and minor shipped Oct 13 as one pull request: supabase-js 2.106 to
+   2.117, MUI 7.3.7 to 7.3.11, Vite 6.4.4, Vitest 4.1, playwright-core 1.64, pg, ws; `npm audit`
+   was already clean, so the `yaml` finding had gone with an earlier bump. Then the majors,
    one at a time, this winter while nothing is live: React 19 with its types, MUI 9, Vite 8 with
    plugin-react 6, ESLint 10 with react-hooks 7 (whose new rules will find things), TypeScript 7,
    jsdom 29. Spring is the wrong time for any of them.
