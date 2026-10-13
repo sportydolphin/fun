@@ -82,6 +82,7 @@ export const STAT_TERMS: GlossaryTerms = {
   XBH: { full: 'Extra-base hits', plain: 'Doubles, triples and home runs together.' },
   WPA: { full: 'Win probability added', plain: 'How much a player moved their team’s chance of winning, added up over the season: +1.00 is one whole win. The Run value board calls it wins added. Unlike run value it counts the score, so a hit in a tie game is worth more than the same hit in a rout.' },
   BsR: { full: 'Baserunning runs', plain: 'Runs a player gained or cost on the bases: steals, caught stealing and pickoffs priced on the situation they changed, plus extra bases taken on hits and tag-ups, measured against the league’s average runner in the same spot. Zero is an average runner.' },
+  'Arm R': { full: 'Catcher arm runs', plain: 'Runs a catcher saved, or cost, on steal attempts, against an average catcher facing the same runners: each steal and caught stealing priced on the situation it changed. Zero is an average arm, however often a catcher is run on. Pickoffs are the pitcher’s and are left out.' },
   FIP: { full: 'Fielding independent pitching', plain: 'An ERA rebuilt from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches, each weighted by what it is worth in this league. Scaled so the league average matches league ERA; a FIP well below a pitcher’s ERA suggests bad luck or poor defence behind them.' },
 }
 

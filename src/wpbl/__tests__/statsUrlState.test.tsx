@@ -98,7 +98,17 @@ describe('the stats view in the address bar', () => {
     at('/wpbl/stats?sort=wrcPlus')
     draw()
     await screen.findByText('Hitting')
-    expect(url()).toBe('/wpbl/stats?sort=wrcPlus&board=players')
+    // A link from before Overall named no side and meant Hitting; the column says so, and the
+    // address now spells it, since a Players link with no side is Overall.
+    expect(url()).toBe('/wpbl/stats?sort=wrcPlus&board=players&side=hitting')
+  })
+
+  it('opens Players on Overall when the address names no side and no column', async () => {
+    at('/wpbl/stats?board=players')
+    draw()
+    await screen.findByText('Hitting')
+    expect(screen.getByRole('button', { name: 'Overall' })).toHaveAttribute('aria-pressed', 'true')
+    expect(url()).toBe('/wpbl/stats?board=players')
   })
 
   it('keeps a lower-is-better render-time column ascending without saying so', async () => {
@@ -114,8 +124,8 @@ describe('the stats view in the address bar', () => {
     at('/wpbl/stats?sort=wrcPlus')
     draw()
     fireEvent.click(await screen.findByText('Standard'))
-    // OPS is the default, so the sort tidies away, and the board stays said.
-    expect(url()).toBe('/wpbl/stats?board=players')
+    // OPS is the default, so the sort tidies away, and the board and the side stay said.
+    expect(url()).toBe('/wpbl/stats?board=players&side=hitting')
   })
 
   // A hand-edited or stale link is the case that must not render a blank board. It names a sort,
