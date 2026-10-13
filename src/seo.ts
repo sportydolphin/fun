@@ -159,7 +159,17 @@ const ROUTES: Record<string, Seo> = {
   // The season as a finished thing: leaders, the numbers that make this league its own, and the
   // plays that turned its games. Written for the query it can win in November, which is "WPBL
   // 2026 season" rather than "WPBL stats", where /wpbl/stats and every club page already compete.
+  //
+  // One entry per finished season (WPBL_RECAP_YEARS). The bare /wpbl/season is the latest of them,
+  // so it declares that year's URL as canonical; the page itself re-declares it once the schedule
+  // says which year is the latest, which is what keeps this from going stale in a second season.
   '/wpbl/season': {
+    title: "The 2026 WPBL season in review | sportydolphin.fun",
+    description:
+      "The inaugural Women's Pro Baseball League season, in one page: batting and pitching leaders, the numbers that set this league apart, its biggest plays and its most improbable win.",
+    canonical: '/wpbl/season/2026',
+  },
+  '/wpbl/season/2026': {
     title: "The 2026 WPBL season in review | sportydolphin.fun",
     description:
       "The inaugural Women's Pro Baseball League season, in one page: batting and pitching leaders, the numbers that set this league apart, its biggest plays and its most improbable win.",
@@ -367,6 +377,29 @@ const ROUTES: Record<string, Seo> = {
     title: 'Delete your account and data | sportydolphin.fun',
     description: 'How to delete your sportydolphin.fun account, what deleting removes, and what is kept.',
   },
+}
+
+/** The year the WPBL entries above are written for. Their titles name a season ("WPBL Standings
+ *  2026") because that is what a reader searches for; `wpblSeasonSeo` swaps it for the year on
+ *  screen, so the table does not have to be rewritten each spring. */
+export const WPBL_ROUTES_SEASON = 2026
+
+/**
+ * A season-summing WPBL page's tags for the year on screen: the entry above with its year swapped,
+ * and, for a past year, `?season=` kept in the canonical. A past season is its own page (its own
+ * table, its own leaders), and canonicalised back to the bare tab it would be folded into the
+ * current year's and never found. Null for a path with no entry.
+ */
+export function wpblSeasonSeo(path: string, season: number, current: boolean): Seo | null {
+  const base = ROUTES[path]
+  if (!base) return null
+  const yr = (s: string) => s.split(String(WPBL_ROUTES_SEASON)).join(String(season))
+  return {
+    ...base,
+    title: yr(base.title),
+    description: yr(base.description),
+    ...(current ? {} : { canonical: `${path}?season=${season}` }),
+  }
 }
 
 // ─── Routes whose tags are not knowable from the path alone ───────────────────

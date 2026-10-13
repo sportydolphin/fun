@@ -33,7 +33,7 @@ import {
 } from '../../src/wpbl/predictStore'
 import { gameBoard, matchupLabel, refreshCard, settleGame } from '../../src/wpbl/predictEngine'
 import type { WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblPitchingLine } from '../../src/wpbl/types'
-import type { WpblSeasonGame } from '../../src/wpbl/season'
+import type { WpblDatedSeasonGame } from '../../src/wpbl/season'
 
 interface Env {
   // Optional override for the committed key below. Set it if the app is ever rotated or
@@ -237,7 +237,7 @@ interface Roster {
   teams: WpblTeam[]
   /** The schedule's three "does this game count" columns, so the /player card's season line
    *  can drop postseason games. Cached alongside the roster: both change once a game. */
-  games: WpblSeasonGame[]
+  games: WpblDatedSeasonGame[]
   /** Every box-score line's position, for working out where each player actually plays.
    *  Cached with the roster because it changes on the same timescale: once a game. */
   battingPositions: { player_id: string; game_id: string; position: string | null }[]
@@ -280,7 +280,7 @@ export async function loadRoster(
     // Two narrow columns over the whole season (a few hundred rows) so the suggestions
     // name the position a player actually plays, the same as every other surface.
     read<{ player_id: string; game_id: string; position: string | null }>('wpbl_batting_lines?select=player_id,game_id,position'),
-    read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),
+    read<WpblDatedSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings,game_date,status'),
   ])
   const data: Roster = { players, teams, battingPositions, games }
   memo = { at: now, data }
@@ -385,7 +385,7 @@ function errorReply(message: string): DiscordReply {
 // watching the game would notice at once, exactly as the /player box-score lines are.
 const LIVE_BOX_COLUMNS =
   'id,home_team_id,away_team_id,home_score,away_score,home_hits,away_hits,'
-  + 'home_errors,away_errors,home_line,away_line,live_state,live_inning,status,start_time'
+  + 'home_errors,away_errors,home_line,away_line,live_state,live_inning,status,start_time,game_date'
 
 /**
  * Reply with the current box score of a live game. Public, so it can be shared.

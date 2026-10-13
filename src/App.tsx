@@ -1628,7 +1628,7 @@ function AppInner() {
           )}
           {isWpblSeasonPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblSeasonPage onNavigate={navigateFromStandalone} onOpenGame={openOverlayGame} />
+              <WpblSeasonPage path={path} onNavigate={navigateFromStandalone} onOpenGame={openOverlayGame} />
             </Suspense>
           )}
           {isWpblScorigamiPage(path) && (

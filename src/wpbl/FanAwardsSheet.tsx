@@ -7,6 +7,8 @@ import {
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblRunValuePlay } from './types'
+import { gamesInSeason, inSeason } from './season'
+import { AWARDS_SEASON } from './awards'
 
 /**
  * /wpbl/awards once the ballot card has come off Home (AWARDS_RESULTS_UNTIL).
@@ -23,7 +25,7 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
  * Only mounted while the URL asks for it, which keeps the lines and the play log, the two
  * heaviest reads in the section, off every other offseason visit.
  */
-export default function FanAwardsSheet({ teams, games, scheduleSettled, onOpenPlayer, onOpenTeam, onOpen, onClose }: {
+export default function FanAwardsSheet({ teams, games: allGames, scheduleSettled, onOpenPlayer, onOpenTeam, onOpen, onClose }: {
   teams: WpblTeam[]
   games: WpblGame[]
   /** The section's teams and schedule have answered, whether or not they returned anything. */
@@ -36,9 +38,17 @@ export default function FanAwardsSheet({ teams, games, scheduleSettled, onOpenPl
   // Read here rather than taken from WpblApp, whose copy has no way to say it has answered: an
   // empty roster that is merely late would otherwise read as "nothing to draw" for a moment.
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
+  const [allLines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
-  const [plays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
+  const [allPlays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
+  // THE BALLOT'S OWN YEAR, not the one on screen: every read is every season, and the shortlists and
+  // the race behind them have to be the season the votes were cast about.
+  const games = useMemo(() => gamesInSeason(allGames, AWARDS_SEASON), [allGames])
+  const lines = useMemo(() => ({
+    batting: inSeason(allLines.batting, allGames, AWARDS_SEASON),
+    pitching: inSeason(allLines.pitching, allGames, AWARDS_SEASON),
+  }), [allLines, allGames])
+  const plays = useMemo(() => inSeason(allPlays, allGames, AWARDS_SEASON), [allPlays, allGames])
   const [readsSettled, setReadsSettled] = useState(false)
   useEffect(() => {
     let cancelled = false

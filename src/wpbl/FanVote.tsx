@@ -18,7 +18,7 @@ import { wpblManagerPortraitSet, wpblPortrait, wpblManagerPortrait } from './por
 import { wpblAccent, wpblLogo, wpblFullName } from './constants'
 import { useEraBasis } from './EraBasisContext'
 import { useReducedMotion } from '../AccessibilityContext'
-import { fanVoteAwards, FAN_VOTE_IDS, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
+import { fanVoteAwards, AWARDS_SEASON, FAN_VOTE_IDS, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
 import { WPBL_AWARDS_PATH } from './routes'
 import type { WpblAward } from './awards'
 import { buildAwardBallot, withWriteIns } from './derive/awards'
@@ -39,6 +39,8 @@ import type {
   WpblTeam,
 } from './types'
 import { typePx } from '../ui/scale'
+import { useWpblSeason } from './SeasonContext'
+import { inSeason } from './season'
 
 // One empty tally for every category nobody has voted in, so a memo keyed on it holds: a fresh
 // `{}` per render recomputed both lists on every render.
@@ -1559,16 +1561,20 @@ export default function FanVoteCard({
   // The section's short-name rule (12 chars on a phone, 20 on a desktop), so a long winner
   // shortens instead of pushing the QUESTION into an ellipsis. The question is what this row
   // exists to ask; which of your five picks it was is recoverable from the sheet.
-  const [fielding, setFielding] = useState<WpblFieldingLine[]>(() => getCachedWpblAllFielding() ?? [])
+  const [allFielding, setFielding] = useState<WpblFieldingLine[]>(() => getCachedWpblAllFielding() ?? [])
+  // Every season's fielding, cut to the ballot's year through the whole schedule (the `games` this
+  // card is handed are that one year's, which cannot place another year's lines).
+  const schedule = useWpblSeason(games).schedule
+  const fielding = useMemo(() => inSeason(allFielding, schedule, AWARDS_SEASON), [allFielding, schedule])
   // Whether that read has answered, empty or not: the sheet-only mount's `settled` covers the
   // caller's reads and cannot see this one.
   const [fieldingSettled, setFieldingSettled] = useState(() => getCachedWpblAllFielding() != null)
   useEffect(() => {
-    if (fielding.length > 0) return
+    if (allFielding.length > 0) return
     let cancelled = false
     fetchWpblAllFielding().then(rows => { if (!cancelled) { setFielding(rows); setFieldingSettled(true) } })
     return () => { cancelled = true }
-  }, [fielding.length])
+  }, [allFielding.length])
 
   const entries = useMemo(() => {
     const awards = fanVoteAwards()

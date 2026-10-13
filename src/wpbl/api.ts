@@ -165,7 +165,19 @@ export interface WpblReadOverlay {
   schedule(games: WpblGame[]): WpblGame[]
   live(gameId: string, delta: Partial<WpblGame> | null): Partial<WpblGame> | null
   plays(gameId: string, plays: WpblGamePlay[]): WpblGamePlay[]
+  /** Rows keyed to a game (lines, plays, pitches), for an overlay that adds games of its own:
+   *  dev/devSecondSeason.ts clones last season into a fake next one. */
+  keyed?<T extends { game_id: string }>(rows: T[]): T[]
+  /** The real game behind an id the overlay made up, so a per-game read can ask the database. */
+  sourceGameId?(gameId: string): string
 }
+
+/** `keyed` from the installed overlay, or the rows untouched. */
+const overlayKeyed = <T extends { game_id: string }>(rows: T[]): T[] => readOverlay?.keyed?.(rows) ?? rows
+/** A per-game read: ask for the real game, then hand the rows back under the id that was asked. */
+const overlayGameId = (gameId: string): string => readOverlay?.sourceGameId?.(gameId) ?? gameId
+const asGame = <T extends { game_id: string }>(rows: T[], gameId: string, asked: string): T[] =>
+  gameId === asked ? rows : rows.map(r => ({ ...r, game_id: asked }))
 
 let readOverlay: WpblReadOverlay | null = null
 
@@ -567,7 +579,7 @@ export function fetchWpblBattedBalls(): Promise<WpblSprayPlay[]> {
     }
     // Corrections carry the batter, and a play credited to the wrong hitter puts her ball on
     // somebody else's chart. Same overlay the firsts read applies, same reason.
-    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    const corrected = overlayKeyed(applyPlayCorrections(out, await fetchAllPlayCorrections()))
     if (corrected.length > 0 || sprayPlaysCache == null) sprayPlaysCache = { data: corrected, at: Date.now() }
     return corrected
   })
@@ -624,7 +636,7 @@ export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
     // just mislabel one row, it hands somebody else's milestone to them permanently. The
     // corrections table is tiny, so this is one extra request on a read that already made
     // several.
-    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    const corrected = overlayKeyed(applyPlayCorrections(out, await fetchAllPlayCorrections()))
     if (corrected.length > 0 || allPlaysCache == null) allPlaysCache = { data: corrected, at: Date.now() }
     return corrected
   })
@@ -895,7 +907,13 @@ async function fetchAllPaged<T>(
     // after the gap: a prefix is a known shape of wrong, rows with a hole in them are not.
     for (const rows of pages) {
       out.push(...rows)
-      if (rows.length < PAGE) return out
+      if (rows.length < PAGE) {
+        // Every game-keyed table in the section is read through here, so this is the one place a
+        // dev overlay's extra games join the bulk reads. Rows with no game_id pass untouched.
+        return readOverlay?.keyed && out.length > 0 && typeof (out[0] as { game_id?: unknown }).game_id === 'string'
+          ? overlayKeyed(out as unknown as { game_id: string }[]) as unknown as T[]
+          : out
+      }
     }
   }
 }
@@ -1122,8 +1140,9 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   // Cache last-good so the Tracking tab can repaint from it on a swipe-back without
   // re-running this paginated scan (see the cache block above). A transient empty
   // doesn't clobber a previously good result.
-  if (out.length > 0 || allTrackingCache == null) allTrackingCache = { data: out, at: Date.now() }
-  return out
+  const rows = overlayKeyed(out)
+  if (rows.length > 0 || allTrackingCache == null) allTrackingCache = { data: rows, at: Date.now() }
+  return rows
   })
 }
 
@@ -1692,18 +1711,19 @@ export async function updateFanPhotoContributor(
 
 // Existing box-score lines for one game (for editing / display).
 export async function fetchWpblGameLines(gameId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; fielding: WpblFieldingLine[] }> {
+  const id = overlayGameId(gameId)
   const [batting, pitching, fielding] = await Promise.all([
     safe('fetchWpblBatting', () =>
-      supabase.from('wpbl_batting_lines').select('*').eq('game_id', gameId).order('batting_order', { ascending: true }),
+      supabase.from('wpbl_batting_lines').select('*').eq('game_id', id).order('batting_order', { ascending: true }),
       [] as WpblBattingLine[]),
     safe('fetchWpblPitching', () =>
-      supabase.from('wpbl_pitching_lines').select('*').eq('game_id', gameId).order('created_at', { ascending: true }),
+      supabase.from('wpbl_pitching_lines').select('*').eq('game_id', id).order('created_at', { ascending: true }),
       [] as WpblPitchingLine[]),
     safe('fetchWpblFielding', () =>
-      supabase.from('wpbl_fielding_lines').select('*').eq('game_id', gameId),
+      supabase.from('wpbl_fielding_lines').select('*').eq('game_id', id),
       [] as WpblFieldingLine[]),
   ])
-  return { batting, pitching, fielding }
+  return { batting: asGame(batting, id, gameId), pitching: asGame(pitching, id, gameId), fielding: asGame(fielding, id, gameId) }
 }
 
 // Lineup history for one team: which slot and position each player filled, game by game.
@@ -1771,15 +1791,16 @@ function fetchAllPlayCorrections(): Promise<WpblPlayCorrection[]> {
 // Full rows, because the Game Center renders every pitch of every at-bat and so genuinely
 // needs `pitch_events`.
 export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]> {
+  const id = overlayGameId(gameId)
   // Both reads go out together: the corrections table is tiny and usually empty, so making it
   // wait on the plays would add a round trip to every game anyone opens.
   const [plays, corrections] = await Promise.all([
     safe('fetchWpblGamePlays', () =>
-      supabase.from('wpbl_game_plays').select('*').eq('game_id', gameId).order('sequence', { ascending: true }),
+      supabase.from('wpbl_game_plays').select('*').eq('game_id', id).order('sequence', { ascending: true }),
       [] as WpblGamePlay[]),
-    fetchPlayCorrections(gameId),
+    fetchPlayCorrections(id),
   ])
-  const corrected = applyPlayCorrections(plays, corrections)
+  const corrected = asGame(applyPlayCorrections(plays, corrections), id, gameId)
   return readOverlay ? readOverlay.plays(gameId, corrected) : corrected
 }
 
@@ -1844,7 +1865,7 @@ async function readWpblPlayerLines(playerId: string): Promise<{ batting: WpblBat
       supabase.from('wpbl_fielding_lines').select('*').eq('player_id', playerId),
       [] as WpblFieldingLine[]),
   ])
-  return { batting, pitching, fielding }
+  return { batting: overlayKeyed(batting), pitching: overlayKeyed(pitching), fielding: overlayKeyed(fielding) }
 }
 
 // One tracked pitch's plate location + label, for a pitcher's location map. Coordinates

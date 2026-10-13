@@ -19,7 +19,7 @@
 // player modal exactly as before either way — this only changes what a crawler reads.
 // The card's wording lives in src/wpbl/ogCard.ts, where it is unit-tested.
 import { wpblPlayerCard, type WpblCardBatting, type WpblCardPitching, type WpblPlayerCard } from '../../src/wpbl/ogCard'
-import type { WpblSeasonGame } from '../../src/wpbl/season'
+import type { WpblDatedSeasonGame } from '../../src/wpbl/season'
 // The slug rules come from the app's own module rather than being restated here. Two
 // implementations of "what is this player's URL" is precisely the drift that src/wpbl/slug.ts
 // was split out to prevent, and the failure mode is silent: the edge would 404 a player the
@@ -264,7 +264,7 @@ async function withCompareCard(context: Ctx, pair: [WpblSluggable, WpblSluggable
   const page = await context.next()
   if (!(page.headers.get('content-type') || '').includes('text/html')) return page
   let sides: [WpblCompareSide, WpblCompareSide] | null
-  let games: WpblSeasonGame[] = []
+  let games: WpblDatedSeasonGame[] = []
   try {
     ({ sides, games } = await resolveCompare(pair, context.env))
   } catch {
@@ -326,7 +326,7 @@ interface Resolved extends WpblPlayerCard { url: string; image: string | null; i
 async function resolveCompare(
   pair: [WpblSluggable, WpblSluggable],
   env: Env,
-): Promise<{ sides: [WpblCompareSide, WpblCompareSide] | null; games: WpblSeasonGame[] }> {
+): Promise<{ sides: [WpblCompareSide, WpblCompareSide] | null; games: WpblDatedSeasonGame[] }> {
   const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
   const key = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY
   if (!base || !key) return { sides: null, games: [] }
@@ -345,7 +345,7 @@ async function resolveCompare(
   }
   const inIds = `in.(${ids.join(',')})`
   type Line<T> = T & { player_id: string }
-  let players: PlayerRow[], teams: TeamRow[], games: WpblSeasonGame[]
+  let players: PlayerRow[], teams: TeamRow[], games: WpblDatedSeasonGame[]
   let batting: Line<WpblCardBatting>[], pitching: Line<WpblCardPitching>[]
   try {
     [players, teams, batting, pitching, games] = await Promise.all([
@@ -353,7 +353,7 @@ async function resolveCompare(
       read<TeamRow>('wpbl_teams?select=id,city,name'),
       read<Line<WpblCardBatting>>(`wpbl_batting_lines?select=player_id,game_id,position,ab,r,h,doubles,triples,hr,rbi,bb,so,hbp,sb,cs,sf,sh&player_id=${inIds}`),
       read<Line<WpblCardPitching>>(`wpbl_pitching_lines?select=player_id,game_id,outs,h,r,er,bb,so,hr,decision,bf,gs&player_id=${inIds}`),
-      read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),
+      read<WpblDatedSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings,game_date,status'),
     ])
   } finally {
     clearTimeout(timer)
@@ -390,7 +390,7 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
   }
 
   let players: PlayerRow[], teams: TeamRow[], batting: WpblCardBatting[], pitching: WpblCardPitching[]
-  let games: WpblSeasonGame[]
+  let games: WpblDatedSeasonGame[]
   try {
     [players, teams, batting, pitching, games] = await Promise.all([
       // The whole roster rather than this one player: og:url below needs to know whether
@@ -402,7 +402,7 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
       read<WpblCardPitching>(`wpbl_pitching_lines?select=game_id,outs,h,r,er,bb,so,hr,decision,bf,gs&player_id=eq.${playerId}`),
       // Three narrow columns over ~40 rows, so the card's season line can leave the
       // postseason out the same way every other surface does.
-      read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),
+      read<WpblDatedSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings,game_date,status'),
     ])
   } finally {
     clearTimeout(timer)

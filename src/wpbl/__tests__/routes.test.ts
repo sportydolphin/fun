@@ -35,7 +35,7 @@ import {
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
   isWpblGlossaryPage,
   isWpblSourcesPage,
-  isWpblSeasonPage,
+  isWpblSeasonPage, wpblSeasonYearFromPath, WPBL_RECAP_YEARS,
   isWpblScorigamiPage,
   isWpblMatchupsPage,
   isWpblReadingPage,
@@ -781,15 +781,31 @@ describe('/wpbl/season, the season recap', () => {
     expect(seoSource).toMatch(/'\/wpbl\/season':\s*\{[^}]*title:/)
   })
 
-  it('is in the sitemap', () => {
-    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/season</loc>')
+  // One page per finished season, each with its own lines: a year missing from any of the three
+  // works in dev and 404s in production, or has no title, or is never crawled.
+  it('has a page per finished season, in _redirects, seo.ts and the sitemap', () => {
+    expect(WPBL_RECAP_YEARS.length).toBeGreaterThan(0)
+    for (const y of WPBL_RECAP_YEARS) {
+      expect(redirects).toMatch(new RegExp(`^/wpbl/season/${y}\\s+/\\s+200\\s*$`, 'm'))
+      expect(redirects).toMatch(new RegExp(`^/wpbl/season/${y}/\\s+/wpbl/season/${y}\\s+301\\s*$`, 'm'))
+      expect(seoSource).toMatch(new RegExp(`'/wpbl/season/${y}':\\s*\\{[^}]*title:`))
+      expect(sitemap).toContain(`<loc>https://sportydolphin.fun/wpbl/season/${y}</loc>`)
+    }
+    // The bare URL is the latest year under another name, so it consolidates onto it and stays
+    // out of the sitemap.
+    expect(sitemap).not.toContain('<loc>https://sportydolphin.fun/wpbl/season</loc>')
+    expect(seoSource).toMatch(/'\/wpbl\/season':\s*\{[^}]*canonical: '\/wpbl\/season\/\d{4}'/)
   })
 
   it('is recognised as itself and not as a tab', () => {
     expect(isWpblSeasonPage('/wpbl/season')).toBe(true)
     expect(isWpblSeasonPage('/wpbl/season/')).toBe(true)
+    expect(isWpblSeasonPage('/wpbl/season/2026')).toBe(true)
+    expect(wpblSeasonYearFromPath('/wpbl/season/2026/')).toBe(2026)
+    expect(wpblSeasonYearFromPath('/wpbl/season')).toBeNull()
     expect(isWpblSeasonPage('/wpbl/seasons')).toBe(false)
     expect(isWpblSeasonPage('/wpbl/season/extra')).toBe(false)
+    expect(isWpblSeasonPage('/wpbl/season/2026/extra')).toBe(false)
     expect(wpblViewFromPath('/wpbl/season')).toBeNull()
     expect(wpblAppOwnsPath('/wpbl/season')).toBe(false)
   })

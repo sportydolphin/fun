@@ -25,6 +25,7 @@ import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
+import { useWpblSeason } from './SeasonContext'
 import { PillGroup } from '../ui/PillGroup'
 
 // The run-value board: what each situation in a game is worth, and who has added the most runs
@@ -433,7 +434,11 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   const [allBases, setAllBases] = useState(false)
   const [allTakeSwing, setAllTakeSwing] = useState(false)
 
-  const [plays, setPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  const [allPlays, setPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  // Every season's plays, cut to the year on screen: run expectancy is priced per season, and a
+  // table built over two would price this year's plays with last year's run environment.
+  const { cut } = useWpblSeason()
+  const plays = useMemo(() => (allPlays ? cut(allPlays) : null), [allPlays, cut])
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [loading, setLoading] = useState(() => getCachedWpblAllRunValuePlays() == null)
 

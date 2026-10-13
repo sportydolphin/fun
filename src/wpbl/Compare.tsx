@@ -45,6 +45,7 @@ import {
 import { setDynamicSeo } from '../seo'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
+import { useWpblSeason } from './SeasonContext'
 
 // The frame (heads, cards, rows, picker and their loading states) is src/ui/compare.tsx since
 // Oct 9, 2026, shared with /mlb/compare. What stays here is what is WPBL's: the portrait and club
@@ -150,8 +151,15 @@ export default function WpblComparePage({ path, onNavigate }: {
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [games, setGames] = useState<WpblGame[]>([])
-  const [lines, setLines] = useState(() => getCachedWpblAllLines())
+  const [allGames, setGames] = useState<WpblGame[]>([])
+  const [allLines, setLines] = useState(() => getCachedWpblAllLines())
+  // THE CURRENT SEASON: two players' seasons side by side, not two careers. This page sits outside
+  // the section's pager, so the schedule it hands in is its own read, and the whole of it.
+  const { season, cut, seasonGames: games } = useWpblSeason(allGames)
+  const lines = useMemo(
+    () => allLines && { batting: cut(allLines.batting), pitching: cut(allLines.pitching) }, [allLines, cut])
+  /** "2026 " for the copy, or nothing before the schedule has a year in it. */
+  const yr = season != null ? `${season} ` : ''
   const [loading, setLoading] = useState(players.length === 0)
   // The first player's own plays, for the head-to-head alone: they hold every plate appearance
   // she had against anybody, so every duel with the second player is in there, and they cost a
@@ -225,9 +233,9 @@ export default function WpblComparePage({ path, onNavigate }: {
     if (!pair || !lines) return null
     return buildWpblComparison(pair[0], pair[1], {
       teams, games, batting: lines.batting, pitching: lines.pitching,
-      plays: plays && plays.id === pair[0].id ? plays.data : undefined, basis,
+      plays: plays && plays.id === pair[0].id ? cut(plays.data) : undefined, basis,
     })
-  }, [pair, lines, teams, games, plays, basis])
+  }, [pair, lines, teams, games, plays, basis, cut])
 
   // The tags for a pair, which ROUTES cannot describe: the names arrive with the roster, a
   // beat after the route does. Cleared on the way out so the registration cannot leak onto
@@ -241,7 +249,7 @@ export default function WpblComparePage({ path, onNavigate }: {
           path: path.replace(/\/+$/, ''),
           seo: {
             title: 'Compare WPBL players | sportydolphin.fun',
-            description: 'Pick two Women\'s Pro Baseball League players and compare their 2026 seasons.',
+            description: `Pick two Women's Pro Baseball League players and compare their ${yr}seasons.`,
             noindex: true,
           },
         })
@@ -253,9 +261,9 @@ export default function WpblComparePage({ path, onNavigate }: {
     setDynamicSeo({
       path: path.replace(/\/+$/, ''),
       seo: {
-        title: `${a.name} vs ${b.name}: 2026 WPBL stats compared | sportydolphin.fun`,
+        title: `${a.name} vs ${b.name}: ${yr}WPBL stats compared | sportydolphin.fun`,
         description:
-          `${a.name} and ${b.name} side by side in the 2026 Women's Pro Baseball League: `
+          `${a.name} and ${b.name} side by side in the ${yr}Women's Pro Baseball League: `
           + 'batting, pitching, playing time, and what happened when they faced each other.',
         // The columns follow the URL's order (the reader's), but both orders declare the same
         // alphabetical canonical, so the two spellings are one page to a search engine. That is
@@ -264,7 +272,7 @@ export default function WpblComparePage({ path, onNavigate }: {
       },
     })
     return () => setDynamicSeo(null)
-  }, [pair, slug, path, players])
+  }, [pair, slug, path, players, yr])
 
   useEffect(() => {
     if (pair) track(EVENTS.WPBL_COMPARE_VIEWED, { a: pair[0].id, b: pair[1].id })
@@ -288,7 +296,7 @@ export default function WpblComparePage({ path, onNavigate }: {
         title={shape === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
         standfirst={shape === 'pair' ? undefined
           : shape === 'single' ? <>Pick somebody to put next to <TextGhost>{GHOST_HEAD_NAME}</TextGhost>.</>
-          : 'Pick two players to put their 2026 seasons side by side.'}
+          : 'Pick two players to put their seasons side by side.'}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           {shape !== 'none' && (
@@ -326,7 +334,7 @@ export default function WpblComparePage({ path, onNavigate }: {
       maxWidth={chromePx(560)}
       title={pair ? `${pair[0].name} vs ${pair[1].name}` : 'Compare players'}
       standfirst={!pair
-        ? (single ? `Pick somebody to put next to ${single.name}.` : 'Pick two players to put their 2026 seasons side by side.')
+        ? (single ? `Pick somebody to put next to ${single.name}.` : 'Pick two players to put their seasons side by side.')
         : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>

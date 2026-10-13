@@ -1,5 +1,5 @@
 import type { WpblGame, WpblSiteGame, WpblStandingRow, WpblTeam } from '../types'
-import { countsInStandings } from '../season'
+import { countsInStandings, latestSeason } from '../season'
 import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet, clinchedSeeds, type WpblSeedRow } from './seeding'
 // The format and the pairing key live in series.ts, which is the module every OTHER surface
 // reads (a schedule row, a Game Center header, a recap), and re-exported here so this file
@@ -96,8 +96,17 @@ export const POSTSEASON_SCHEDULE: Record<string, PostseasonGame[]> = {
   ],
 }
 
-/** The published dates for one series, or [] for a round we have no schedule for. */
-export function postseasonGames(round: BracketRound, key: string | null): PostseasonGame[] {
+/**
+ * The year POSTSEASON_SCHEDULE was published for. A bracket from any other year gets no dates
+ * from it: a 2027 bracket printing "Sep 9, 11, 13" would be last year's calendar under this year's
+ * clubs. Replace the schedule when the league publishes the next one and this follows.
+ */
+export const POSTSEASON_SCHEDULE_SEASON = Number(POSTSEASON_SCHEDULE.championship[0].date.slice(0, 4))
+
+/** The published dates for one series, or [] for a round, or a season, we have no schedule for.
+ *  `season` is the bracket's year; omitted, the schedule is taken as the one asked about. */
+export function postseasonGames(round: BracketRound, key: string | null, season?: number | null): PostseasonGame[] {
+  if (season != null && season !== POSTSEASON_SCHEDULE_SEASON) return []
   return POSTSEASON_SCHEDULE[round === 'championship' ? 'championship' : `${round}:${key}`] ?? []
 }
 
@@ -111,8 +120,8 @@ const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
  * a bare date parsed as a Date is midnight UTC printed in local time, which is the previous
  * evening in every American zone.
  */
-export function seriesDateLine(round: BracketRound, key: string | null): string | null {
-  const games = postseasonGames(round, key)
+export function seriesDateLine(round: BracketRound, key: string | null, season?: number | null): string | null {
+  const games = postseasonGames(round, key, season)
   if (!games.length) return null
   let lastMonth = ''
   return games.map(g => {
@@ -160,6 +169,9 @@ export interface WpblBracket {
    *  report. Deliberately not "has been played": the card stops projecting at first pitch. */
   started: boolean
   champion: WpblTeam | null
+  /** The year the bracket was built from (the newest in the games handed in), for the published
+   *  dates, which belong to one year (see POSTSEASON_SCHEDULE_SEASON). Optional for a hand-built one. */
+  season?: number | null
 }
 
 const isPlayed = (g: WpblGame): boolean =>
@@ -306,6 +318,7 @@ export function buildBracket(rows: WpblStandingRow[], games: WpblGame[]): WpblBr
     settled: bracketIsSet(seeds),
     started: [...series.values()].length > 0,
     champion: championship.winner,
+    season: latestSeason(games),
   }
 }
 
@@ -574,7 +587,7 @@ export function postseasonScheduleRows(
     seedOrderTbd = false,
   ) => {
     const decided = !!series?.winner
-    for (const g of postseasonGames(round, key)) {
+    for (const g of postseasonGames(round, key, bracket?.season)) {
       const site = siteByGame.get(`${round}:${key ?? '-'}:${g.game}`)
       // The league's calendar is live where this constant is a snapshot of it, so where the two
       // disagree about when a game starts, the calendar is right. A moved game is the one thing

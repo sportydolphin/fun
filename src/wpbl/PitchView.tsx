@@ -15,6 +15,7 @@ import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { wpblQualifiers } from './stats'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
+import { useWpblSeason } from './SeasonContext'
 
 // The Pitches board: plate discipline and pitch mix for the whole league, from the one code
 // letter per pitch that the feed puts on every plate appearance (see derive/pitches.ts).
@@ -237,7 +238,10 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
   trackedVisible?: boolean
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
-  const [plays, setPlays] = useState(() => getCachedWpblAllPitchPlays())
+  const [allPlays, setPlays] = useState(() => getCachedWpblAllPitchPlays())
+  // Every season's plays, cut to the year on screen before any board counts them.
+  const { cut } = useWpblSeason()
+  const plays = useMemo(() => (allPlays ? cut(allPlays) : null), [allPlays, cut])
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [loading, setLoading] = useState(() => getCachedWpblAllPitchPlays() == null)
 

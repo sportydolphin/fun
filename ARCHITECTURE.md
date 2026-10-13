@@ -109,7 +109,7 @@ flowchart LR
         mgloss["/mlb/glossary<br/>mlb/GlossaryPage.tsx + statGlossary.ts"]
         mcmp["/mlb/compare<br/>+ /mlb/compare/&lt;name&gt;-&lt;id&gt;-vs-&lt;name&gt;-&lt;id&gt;<br/>mlb/ComparePage.tsx + compare.ts"]
         wsrc["/wpbl/sources<br/>SourcesPage.tsx + sources.ts"]
-        wseason["/wpbl/season<br/>SeasonPage.tsx (recap)"]
+        wseason["/wpbl/season, /wpbl/season/2026<br/>SeasonPage.tsx (recap per year)"]
         wscori["/wpbl/scorigami<br/>Scorigami.tsx + derive/scorigami.ts"]
         wmatch["/wpbl/matchups<br/>MatchupsPage.tsx + derive/matchups.ts"]
         wseries["/wpbl/series/&lt;a&gt;-vs-&lt;b&gt; (six)<br/>SeriesPage.tsx + derive/seasonSeries.ts"]

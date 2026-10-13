@@ -61,6 +61,10 @@ import type {
   WpblSprayPlay, WpblStandingRow, WpblVideo,
 } from './types'
 import { typePx } from '../ui/scale'
+import { setDynamicSeo } from '../seo'
+import { wpblSeasonYearFromPath, wpblSeasonPath } from './routes'
+import { completedSeason, gamesInSeason, inSeason, seasonsOnRecord } from './season'
+import { localIsoDate } from './derive/homePlayers'
 
 /** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
  *  hitters ('S') and unknowns fall outside the two toggle states and simply are not counted in
@@ -200,7 +204,9 @@ function StatTile({ value, label, sub, highlight, href, onNavigate }: {
 }
 
 
-export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
+export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
+  /** `/wpbl/season/2026` names its year; the bare `/wpbl/season` is the latest finished one. */
+  path: string
   onNavigate: (to: string) => void
   // Opens a game as a modal hovering over this page, rather than navigating to it (which would
   // replace the page with WpblApp's Home). Supplied by the shell, which owns the overlay; see
@@ -209,11 +215,42 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
 }) {
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [teams, setTeams] = useState<WpblTeam[]>([])
-  const [games, setGames] = useState<WpblGame[]>([])
-  const [batting, setBatting] = useState<WpblBattingLine[]>([])
-  const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
-  const [plays, setPlays] = useState<WpblRunValuePlay[]>([])
-  const [battedBalls, setBattedBalls] = useState<WpblSprayPlay[]>([])
+  const [allGames, setGames] = useState<WpblGame[]>([])
+  const [allBatting, setBatting] = useState<WpblBattingLine[]>([])
+  const [allPitching, setPitching] = useState<WpblPitchingLine[]>([])
+  const [leaguePlays, setPlays] = useState<WpblRunValuePlay[]>([])
+  const [leagueBalls, setBattedBalls] = useState<WpblSprayPlay[]>([])
+  // ONE SEASON, the one the address names, or the latest that is over. Every read is every year the
+  // league has played, so each is cut here and everything below reads one season's worth, exactly as
+  // it did when there was only one. `allGames` stays whole for game links, whose slugs are proven
+  // unique against every game there is.
+  const pathYear = wpblSeasonYearFromPath(path)
+  const year = useMemo(
+    () => pathYear ?? completedSeason(allGames, localIsoDate()), [pathYear, allGames])
+  const games = useMemo(() => (year == null ? allGames : gamesInSeason(allGames, year)), [allGames, year])
+  const batting = useMemo(() => (year == null ? allBatting : inSeason(allBatting, allGames, year)), [allBatting, allGames, year])
+  const pitching = useMemo(() => (year == null ? allPitching : inSeason(allPitching, allGames, year)), [allPitching, allGames, year])
+  const plays = useMemo(() => (year == null ? leaguePlays : inSeason(leaguePlays, allGames, year)), [leaguePlays, allGames, year])
+  const battedBalls = useMemo(() => (year == null ? leagueBalls : inSeason(leagueBalls, allGames, year)), [leagueBalls, allGames, year])
+  // The first season the league played gets its own words; any later one is just its year.
+  const firstSeason = useMemo(() => { const s = seasonsOnRecord(allGames); return s.length ? s[s.length - 1] : null }, [allGames])
+  // Each year's recap is its own page with its own canonical; the bare URL is the latest of them
+  // and points there, which is the half seo.ts's static entry cannot know in a second season.
+  useEffect(() => {
+    if (year == null) return
+    const title = `The ${year} WPBL season in review | sportydolphin.fun`
+    setDynamicSeo({
+      path: path.replace(/\/+$/, ''),
+      seo: {
+        title,
+        description: year === firstSeason || firstSeason == null
+          ? "The inaugural Women's Pro Baseball League season, in one page: batting and pitching leaders, the numbers that set this league apart, its biggest plays and its most improbable win."
+          : `The ${year} Women's Pro Baseball League season, in one page: batting and pitching leaders, the numbers that set this league apart, its biggest plays and its most improbable win.`,
+        canonical: wpblSeasonPath(year),
+      },
+    })
+    return () => setDynamicSeo(null)
+  }, [year, firstSeason, path])
   // The league channel's highlight reels, which moved here off the league page's media shelf.
   const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
   const [hand, setHand] = useState<'R' | 'L'>('R')
@@ -491,15 +528,17 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
     const t = teamById.get(id)
     return t ? t.city : id
   }
-  const gameHref = (g: WpblGame) => wpblGamePath(g, teams, games)
+  const gameHref = (g: WpblGame) => wpblGamePath(g, teams, allGames)
   const playerHref = (p: WpblPlayer) => wpblPlayerPath(p, players)
   const teamHref = (t: WpblTeam) => wpblTeamPath(t, teams)
 
   return (
     <WpblPage
-      title="The 2026 season"
+      title={year != null ? `The ${year} season` : 'The season'}
       standfirst={<>
-        The Women&rsquo;s Pro Baseball League&rsquo;s first season, read back through its own
+        {year != null && firstSeason != null && year !== firstSeason
+          ? <>The Women&rsquo;s Pro Baseball League&rsquo;s {year} season</>
+          : <>The Women&rsquo;s Pro Baseball League&rsquo;s first season</>}, read back through its own
         numbers: the final table and the race to it, the leaders, the things that
         make it its own league, and the plays its games turned on.{loading
           ? <> <TextGhost>Regular season, 30 games.</TextGhost></>
@@ -529,7 +568,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               <SeasonChampionBlock champ={champion} />
               {finalGames.length > 0 && (
                 <FinalSeriesGames games={finalGames} teamById={teamById}
-                  href={gameHref} onOpen={g => { opened('final_games', 'game'); onOpenGame(g, { teams, games }) }} />
+                  href={gameHref} onOpen={g => { opened('final_games', 'game'); onOpenGame(g, { teams, games: allGames }) }} />
               )}
             </Box>
           )}
@@ -843,7 +882,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                   <WildGameRow
                     key={w.game.id} rank={i + 1} wild={w} teamName={teamName} phone={isPhone}
                     href={gameHref(w.game)}
-                    onOpen={() => { opened('wildest_games', 'game'); onOpenGame(w.game, { teams, games }) }}
+                    onOpen={() => { opened('wildest_games', 'game'); onOpenGame(w.game, { teams, games: allGames }) }}
                   />
                 ))}
                 {isPhone && wildest.length > PHONE_PLAYS && (
@@ -866,7 +905,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
               <Box
                 component="a"
                 href={gameHref(comeback.game)}
-                onClick={e => { opened('improbable_win', 'game'); if (!isModified(e)) { e.preventDefault(); onOpenGame(comeback.game, { teams, games }) } }}
+                onClick={e => { opened('improbable_win', 'game'); if (!isModified(e)) { e.preventDefault(); onOpenGame(comeback.game, { teams, games: allGames }) } }}
                 sx={{
                   display: 'block', textDecoration: 'none', color: 'inherit',
                   borderRadius: 2, p: 2, border: '1px solid', borderColor: 'var(--wpbl-accent-fg)',
@@ -896,7 +935,7 @@ export default function WpblSeasonPage({ onNavigate, onOpenGame }: {
                     key={bp.game.id}
                     component="a"
                     href={gameHref(bp.game)}
-                    onClick={e => { opened('turning_plays', 'game'); if (!isModified(e)) { e.preventDefault(); onOpenGame(bp.game, { teams, games }) } }}
+                    onClick={e => { opened('turning_plays', 'game'); if (!isModified(e)) { e.preventDefault(); onOpenGame(bp.game, { teams, games: allGames }) } }}
                     sx={{
                       display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
                       color: 'inherit', borderRadius: 2, p: 1.5,

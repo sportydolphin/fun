@@ -302,6 +302,21 @@ Each of these has already cost someone a debugging session, and none of them fai
   are runner NAMES**, not booleans: `first_base` is "Val Perez". `deriveSituation` exposes both
   the flag and the name because a surface can want either, and the 34px strip throws the name away.
 
+- **Every WPBL bulk read is every season, and every aggregate sums whatever it is handed.** Two
+  years of lines summed read as one long season, and nothing errors. Cut before summing: `cut` from
+  `useWpblSeason()` in [`SeasonContext.tsx`](src/wpbl/SeasonContext.tsx), or `inSeason` with the
+  WHOLE schedule. **Never cut against one season's games**: a line whose game the schedule lacks
+  counts in the newest year, so a cut made against `seasonGames` leaks every other year back in.
+  That is why the provider carries the whole schedule. The default year is the newest with a FINAL
+  (`currentSeason`), so a published 2027 schedule does not blank the boards before Opening Day.
+  Home, previews and the share and Discord cards pin to it; the tabs follow the reader's
+  `?season=`; the ballot pins to `AWARDS_SEASON`; batter vs pitcher and the win model use every
+  season on purpose. `__tests__/seasonOnScreen.test.tsx` fails any file that reads a league-wide
+  table without cutting it or saying why. **Each new year** needs its recap in `WPBL_RECAP_YEARS`
+  (plus `_redirects` and seo.ts, pinned by routes.test.ts), a new `POSTSEASON_SCHEDULE` (another
+  year's bracket shows no dates until then), and new award constants. `npm run dev` has a fake
+  2027 (dev settings, "Second WPBL season") for checking all of it.
+
 - **The live poll reads a hand-listed half of `wpbl_games`, and the two halves must
   partition the table.** `LIVE_GAME_COLUMNS` in [`src/wpbl/api.ts`](src/wpbl/api.ts) names
   every column that can change mid-game; the poll merges those over the row it already holds,

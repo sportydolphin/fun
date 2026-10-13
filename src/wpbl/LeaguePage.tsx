@@ -25,7 +25,7 @@ import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, ho
 import { wpblAccent, wpblFullName } from './constants'
 import { byCountry, placeOf } from './derive/hometowns'
 import { buildBracket, championResult } from './derive/bracket'
-import { wpblPlayerPath, wpblTeamPath, WPBL_GLOSSARY_PAGE, WPBL_SEASON_PAGE } from './routes'
+import { wpblPlayerPath, wpblTeamPath, WPBL_GLOSSARY_PAGE, wpblSeasonPath } from './routes'
 import WpblPage, { SectionHeading } from './WpblPage'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 import { track, EVENTS } from '../lib/analytics'
@@ -134,7 +134,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
           </Typography>
           {(champ || loading) && (
             <Typography sx={{ fontSize: TYPE_SCALE.body }}>
-              <Box {...link(WPBL_SEASON_PAGE)} sx={inlineLink}>The 2026 season recap ›</Box>
+              <Box {...link(wpblSeasonPath(2026))} sx={inlineLink}>The 2026 season recap ›</Box>
             </Typography>
           )}
         </Box>

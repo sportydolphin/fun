@@ -14,6 +14,7 @@ import { useWpblPlayerLink } from './LinkContext'
 import { teamLeaders, LeaderTable } from './TeamLeaders'
 import type { WpblTeam, WpblGame, WpblPlayer } from './types'
 import { typePx } from '../ui/scale'
+import { useWpblSeason } from './SeasonContext'
 
 // The WPBL game-preview matchup card — the analogue of the MLB app's GamePreview
 // TeamComparison, shown inside GameDetail for a game that hasn't been played yet. Each
@@ -22,7 +23,6 @@ import { typePx } from '../ui/scale'
 // including for ERA/WHIP where the lower number wins. Built from the same box-score lines the
 // leaders read (cached by Home), so it needs no extra fetch on a warm app.
 
-const CURRENT_SEASON = 2026
 
 /** The three rows the compact cut keeps: how many runs a club scores, how well it hits, how
  *  many runs it gives up. Score, hit, prevent: the shortest honest description of a baseball
@@ -40,7 +40,7 @@ function ordinal(n: number): string {
 // Bar colors come from the shared team accent palette (constants.ts `wpblAccent`), which
 // exists for exactly this reason: the raw primaries are all near-black and unusable as
 // foreground. Keeping one source means a palette tweak lands everywhere at once.
-export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPlayer, compact, bare, rosters, renderBoards }: {
+export function WpblGamePreview({ away, home, teams, games: allGames, onOpenTeam, onOpenPlayer, compact, bare, rosters, renderBoards }: {
   away: WpblTeam
   home: WpblTeam
   teams: WpblTeam[]
@@ -80,7 +80,12 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
   const isDark = useDark()
   const playerLink = useWpblPlayerLink()
   const { basis: eraBasis, kLabel } = useEraBasis()
-  const [lines, setLines] = useState(() => getCachedWpblAllLines())
+  // THE CURRENT SEASON, which is what a preview compares: the clubs as they stand. In the spring,
+  // before the new year has a result, that is still last season, which is the best evidence there is.
+  const { season, cut, seasonGames: games } = useWpblSeason(allGames, { current: true })
+  const [allLines, setLines] = useState(() => getCachedWpblAllLines())
+  const lines = useMemo(
+    () => allLines && { batting: cut(allLines.batting), pitching: cut(allLines.pitching) }, [allLines, cut])
   const [failed, setFailed] = useState(false)
   // The league roster, only when this cut shows it. App-wide cache, so on a warm page it costs
   // no request; the club rosters are read off it by `team_id`, which means "now" and is exactly
@@ -92,7 +97,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
   const [board, setBoard] = useState<'comparison' | 'leaders' | 'rosters'>('comparison')
 
   useEffect(() => {
-    if (lines) return              // warm cache — no fetch, no flash
+    if (allLines) return              // warm cache: no fetch, no flash
     let cancelled = false
     fetchWpblAllLines()
       .then(l => { if (!cancelled) setLines(l) })
@@ -404,7 +409,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
       {groupBlock('pitching', 'Pitching')}
 
       <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 1, textAlign: 'center', lineHeight: 1.5 }}>
-        {CURRENT_SEASON} season · bar length = rank in the league, longer is better
+        {season != null ? `${season} season` : 'Season'} · bar length = rank in the league, longer is better
       </Typography>
     </>
   )

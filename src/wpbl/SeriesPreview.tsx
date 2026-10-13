@@ -18,6 +18,8 @@ import type {
   WpblTeam, WpblGame, WpblPlayer, WpblStandingRow,
 } from './types'
 import { typePx } from '../ui/scale'
+import { useWpblSeason } from './SeasonContext'
+import { inSeason, latestSeason } from './season'
 
 /**
  * One series, opened.
@@ -259,8 +261,10 @@ function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
  *  THE TILE COUNT IS THE FORMAT, so the grid is always the shape of the series: a best-of-3 swept
  *  in two still draws three tiles, the third marked "Not needed". Dropping it left two tiles
  *  stranded at the left of a row built for five, and "won in two" is worth seeing anyway. */
-function SeriesGames({ series, played, teams, onOpenGame }: {
+function SeriesGames({ series, played, teams, onOpenGame, season }: {
   series: BracketSeries
+  /** The bracket's year, so another year's published calendar is not drawn under it. */
+  season: number | null
   /** This series' games that have started, in order (see `seriesGamesStarted`). */
   played: WpblGame[]
   teams: WpblTeam[]
@@ -268,7 +272,7 @@ function SeriesGames({ series, played, teams, onOpenGame }: {
 }) {
   // A played game takes its published slot's place, counted in order rather than matched on the
   // date, so a rain-out that moves game 2 by a day still lands on "Game 2".
-  const published = postseasonGames(series.round, series.key)
+  const published = postseasonGames(series.round, series.key, season)
   const higher = series.home.team
   const lower = series.away.team
   const slots = Math.max(series.bestOf, played.length)
@@ -331,12 +335,19 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
   onOpenGame?: (g: WpblGame) => void
 }) {
   const { basis: eraBasis } = useEraBasis()
-  const [lines, setLines] = useState(() => getCachedWpblAllLines())
+  const [allLines, setLines] = useState(() => getCachedWpblAllLines())
   const [players, setPlayers] = useState<WpblPlayer[]>([])
+  // The bracket's own year: `games` is the season the bracket was drawn from, and the leaders are
+  // that season's. Cut through the whole schedule, which is the only thing that can place a line.
+  const { schedule } = useWpblSeason(games)
+  const year = useMemo(() => latestSeason(games), [games])
+  const lines = useMemo(() => allLines && year != null
+    ? { batting: inSeason(allLines.batting, schedule, year), pitching: inSeason(allLines.pitching, schedule, year) }
+    : allLines, [allLines, schedule, year])
 
   useEffect(() => {
     let off = false
-    if (!lines) fetchWpblAllLines().then(l => { if (!off) setLines(l) })
+    if (!allLines) fetchWpblAllLines().then(l => { if (!off) setLines(l) })
     fetchWpblAllPlayers().then(p => { if (!off) setPlayers(p) })
     return () => { off = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -411,7 +422,7 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
             is the one block here that wants the full width rather than a column of it. */}
         <Box>
           <SectionHead label="Games" detail={stateLine} />
-          <SeriesGames series={series} played={played} teams={teams} onOpenGame={onOpenGame} />
+          <SeriesGames season={year} series={series} played={played} teams={teams} onOpenGame={onOpenGame} />
         </Box>
 
         {/* TWO COLUMNS FROM md UP: how the clubs measure up, and who to watch on each. Both are

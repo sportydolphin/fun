@@ -32,7 +32,7 @@ export interface MorePage {
 }
 
 export const WPBL_MORE_PAGES: MorePage[] = [
-  { group: 'Season',    href: WPBL_SEASON_PAGE,    label: '2026 season recap', hint: 'The season and the postseason, read back', footerLabel: '2026 season' },
+  { group: 'Season',    href: WPBL_SEASON_PAGE,    label: 'Season recap', hint: 'The latest season and its postseason, read back', footerLabel: 'Season recap' },
   { group: 'Season',    href: WPBL_WATCH_PAGE,     label: 'Watch',             hint: 'Highlights, condensed games and clips', footerLabel: 'WPBL video' },
   { group: 'Season',    href: WPBL_PHOTOS_PAGE,    label: 'Photos',            hint: "Fans' photos from 2026, and women's baseball history", footerLabel: 'WPBL photos' },
   { group: 'Season',    href: WPBL_READING_PAGE,   label: 'Reading',           hint: 'Two writers on the league: mary mustard and D.A. Espinoza', footerLabel: 'WPBL reading' },

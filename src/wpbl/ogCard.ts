@@ -8,7 +8,7 @@
 // aggregation it describes, so a change to how the player page reads (see PlayerDetail)
 // has an obvious second place to follow.
 import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo } from './stats'
-import type { WpblSeasonGame } from './season'
+import { currentSeasonOnly, cardSeason, type WpblDatedSeasonGame } from './season'
 import { slugifyName } from './slug'
 import { displayPosition, leadsWithPitching } from './positions'
 import type { WpblBattingLine, WpblPitchingLine, WpblLiveState } from './types'
@@ -41,7 +41,7 @@ export function wpblPlayerCard(
   teamName: string,
   batting: WpblCardBatting[],
   pitching: WpblCardPitching[],
-  games: WpblSeasonGame[],
+  games: WpblDatedSeasonGame[],
 ): WpblPlayerCard {
   // A middot, not a comma: position codes are themselves comma-joined for a two-way
   // player ("RHP, UTL"), and "RHP, UTL, San Francisco Firebells" reads as one long list.
@@ -61,10 +61,13 @@ export function wpblPlayerCard(
 function describeSeason(
   player: WpblCardPlayer,
   teamName: string,
-  batting: WpblCardBatting[],
-  pitching: WpblCardPitching[],
-  games: WpblSeasonGame[],
+  allBatting: WpblCardBatting[],
+  allPitching: WpblCardPitching[],
+  games: WpblDatedSeasonGame[],
 ): string {
+  // This season's lines only: the read is every game the player has played. See currentSeasonOnly.
+  const batting = currentSeasonOnly(allBatting, games)
+  const pitching = currentSeasonOnly(allPitching, games)
   // Zero-PA rows (a pinch-runner who scored, a defensive sub) would otherwise read as an
   // 0-for-0 game, the same reason the player page drops them.
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
@@ -140,10 +143,12 @@ export function compareCardPath(a: string | null, b: string | null): string | nu
  *  player with no regular-season line yet, who is then named without numbers. */
 export function seasonHeadline(
   player: WpblCardPlayer,
-  batting: WpblCardBatting[],
-  pitching: WpblCardPitching[],
-  games: WpblSeasonGame[],
+  allBatting: WpblCardBatting[],
+  allPitching: WpblCardPitching[],
+  games: WpblDatedSeasonGame[],
 ): string | null {
+  const batting = currentSeasonOnly(allBatting, games)
+  const pitching = currentSeasonOnly(allPitching, games)
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
   const bt = sumBatting(batted as WpblBattingLine[], games)
   const pt = sumPitching(pitching as WpblPitchingLine[], games)
@@ -161,7 +166,9 @@ export function seasonHeadline(
   return bt.hr ? `${slash}, ${bt.hr} HR` : slash
 }
 
-export function wpblCompareCard(a: WpblCompareSide, b: WpblCompareSide, games: WpblSeasonGame[]): WpblCompareCard {
+export function wpblCompareCard(a: WpblCompareSide, b: WpblCompareSide, games: WpblDatedSeasonGame[]): WpblCompareCard {
+  const season = cardSeason(games)
+  const yr = season != null ? `${season} ` : ''
   const side = (s: WpblCompareSide) => {
     const line = seasonHeadline(s.player, s.batting, s.pitching, games)
     const who = s.team ? `${s.player.name} (${s.team})` : s.player.name
@@ -169,9 +176,9 @@ export function wpblCompareCard(a: WpblCompareSide, b: WpblCompareSide, games: W
   }
   return {
     // The page's own title (Compare.tsx), so a search result and an unfurl agree.
-    title: `${a.player.name} vs ${b.player.name}: 2026 WPBL stats compared | sportydolphin.fun`,
+    title: `${a.player.name} vs ${b.player.name}: ${yr}WPBL stats compared | sportydolphin.fun`,
     ogTitle: `${a.player.name} vs ${b.player.name}`,
-    description: `${side(a)}. ${side(b)}. Their 2026 seasons side by side.`,
+    description: `${side(a)}. ${side(b)}. Their ${yr}seasons side by side.`,
     cardPath: compareCardPath(a.teamId, b.teamId),
   }
 }

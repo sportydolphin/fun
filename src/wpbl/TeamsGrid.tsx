@@ -13,6 +13,8 @@ import { TeamSpecRadar, TeamSpecPlaceholder, TeamSpecRadarSkeleton } from './Tea
 import { teamSpecs, specLeagueGames, TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES } from './derive/teamSpec'
 import { TabTitle } from './PageHeading'
 import { typePx } from '../ui/scale'
+import { useWpblSeason } from './SeasonContext'
+import { SeasonMenu } from './SeasonMenu'
 
 /**
  * The Teams tab's landing screen: one card per club, in standings order.
@@ -211,11 +213,13 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
   )
 }
 
-export default function TeamsGrid({ teams, games, onSelect }: {
+export default function TeamsGrid({ teams, games: allGames, onSelect }: {
   teams: WpblTeam[]
   games: WpblGame[]
   onSelect: (t: WpblTeam) => void
 }) {
+  // One year: the records, the fixtures, the spec chart and head to head all read that season.
+  const { cut, seasonGames: games } = useWpblSeason(allGames)
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const fixtures = useMemo(
@@ -242,8 +246,8 @@ export default function TeamsGrid({ teams, games, onSelect }: {
   }, [])
   const teamIds = useMemo(() => teams.map(t => t.id), [teams])
   const specs = useMemo(
-    () => lines && pitchPlays ? teamSpecs(teamIds, lines.batting, lines.pitching, games, pitchPlays) : null,
-    [lines, pitchPlays, teamIds, games])
+    () => lines && pitchPlays ? teamSpecs(teamIds, cut(lines.batting), cut(lines.pitching), games, cut(pitchPlays)) : null,
+    [lines, pitchPlays, teamIds, games, cut])
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
   // WHETHER THE CHART IS COMING, decided from the schedule alone, which is here before either
   // fetch. `teamSpecs` draws nothing until every club has TEAM_SPEC_MIN_GAMES, and that count is
@@ -258,6 +262,7 @@ export default function TeamsGrid({ teams, games, onSelect }: {
       {/* The page's one <h1>: /wpbl/teams. A selected team renders TeamPage instead, which
           carries the club name as its own heading. */}
       <TabTitle>WPBL Teams</TabTitle>
+      <SeasonMenu label="season" />
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
         {rows.map((r, i) => (
           <TeamCard

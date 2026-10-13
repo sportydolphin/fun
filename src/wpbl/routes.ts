@@ -630,13 +630,30 @@ export const isWpblSourcesPage = (pathname: string) =>
 // than a card on Home: once the feed stops it is the READ of the record the archive keeps, and a
 // reader arriving cold in the offseason wants "what happened", not a frozen scoreboard.
 //
-// `/wpbl/season` rather than `/wpbl/2026`: today there is one season and this is it. If the feed
-// ever returns for a second, this becomes the current-season page and the year-stamped ones hang
-// off it, which the year-first spelling could not do without a redirect.
+// ONE PAGE PER YEAR, `/wpbl/season/2026`, and that is the canonical URL of each recap. The bare
+// `/wpbl/season` draws the latest finished season and declares that year's URL as its canonical,
+// so the one link the footer and the More menu carry never has to change while each year keeps an
+// address of its own. No redirect: `_redirects` is static, and "the latest year" is not.
 export const WPBL_SEASON_PAGE = `${WPBL_BASE}/season`
 
+/**
+ * The years with a recap page. A year goes here when its season is over, with two lines in
+ * `_redirects` and an entry in seo.ts; routes.test.ts pins all three to this list. Listed rather than
+ * matched as a wildcard because a wildcard needs a Pages Function in front of it to 404 a year that
+ * names nothing (see CLAUDE.md), and a list of finished seasons grows once a year.
+ */
+export const WPBL_RECAP_YEARS: readonly number[] = [2026]
+
+export const wpblSeasonPath = (year: number) => `${WPBL_SEASON_PAGE}/${year}`
+
+/** The year a recap path names, or null for the bare `/wpbl/season` (and for anything else). */
+export function wpblSeasonYearFromPath(pathname: string): number | null {
+  const m = /^\/wpbl\/season\/(\d{4})$/.exec(pathname.replace(/\/+$/, ''))
+  return m ? Number(m[1]) : null
+}
+
 export const isWpblSeasonPage = (pathname: string) =>
-  pathname.replace(/\/+$/, '') === WPBL_SEASON_PAGE
+  pathname.replace(/\/+$/, '') === WPBL_SEASON_PAGE || wpblSeasonYearFromPath(pathname) != null
 
 // ─── The scorigami page ─────────────────────────────────────────────────────────
 //

@@ -14,6 +14,7 @@ import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { typePx } from '../ui/scale'
 import { birthDateSettled } from './derive/discordBirthdays'
 import { localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from './derive/homePlayers'
+import { useWpblSeason } from './SeasonContext'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
 // (useWpblPlayerLink), which is both the point of the cards and what lets a crawler follow them.
@@ -123,10 +124,13 @@ function StatCell({ label, value }: { label: string; value: React.ReactNode }) {
 
 function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Lines | null; games: WpblGame[] }) {
   const { fmtEra } = useEraBasis()
+  // The current season's line, on Home every day of the year: a player's lines are their career, so
+  // summed whole the strip would read two seasons under one year's label.
+  const { season, cut, seasonGames } = useWpblSeason(games, { current: true })
   const cells = useMemo((): [string, string][] | null => {
     if (!lines) return null
-    const bat = sumBatting(lines.batting, games)
-    const pit = sumPitching(lines.pitching, games)
+    const bat = sumBatting(cut(lines.batting), seasonGames)
+    const pit = sumPitching(cut(lines.pitching), seasonGames)
     const pa = plateAppearances(bat)
     const hasBatting = pa > 0
     const hasPitching = pit.outs > 0 || pit.bf > 0
@@ -141,16 +145,16 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
       ['G', String(bat.g)], ['AVG', fmtRate(bat.avg)], ['OBP', fmtRate(bat.obp)],
       ['SLG', fmtRate(bat.slg)], ['HR', String(bat.hr)], ['RBI', String(bat.rbi)],
     ]
-  }, [lines, games, player.position, fmtEra])
+  }, [lines, cut, seasonGames, player.position, fmtEra])
 
   return (
     <Box>
-      <Typography sx={{ ...LABEL_SX, mb: 0.5 }}>2026 regular season</Typography>
+      <Typography sx={{ ...LABEL_SX, mb: 0.5 }}>{season != null ? `${season} regular season` : 'Regular season'}</Typography>
       {cells && cells.length === 0 ? (
         // Two lines tall, the strip's own height, so a birthday pick who never played does not
         // shorten the card under the reader.
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.3, minHeight: '2.6em', display: 'flex', alignItems: 'center' }}>
-          Did not appear in a 2026 game.
+          {season != null ? `Did not appear in a ${season} game.` : 'Did not appear in a game.'}
         </Typography>
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 0.5 }}>

@@ -25,6 +25,8 @@ import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow, WpblPitchPlay } from './types'
 import { typePx } from '../ui/scale'
+import { useWpblSeason } from './SeasonContext'
+import { SeasonMenu } from './SeasonMenu'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
 // pitchers, and a roster with inline stats. Self-contained: fetches its own roster + box-score
@@ -285,7 +287,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
   )
 }
 
-export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSelectTeam, onOpenGame, onOpenPlayer, onOpenStats }: {
+export default function TeamPage({ team, teams, games: allGames, onBack, onAllTeams, onSelectTeam, onOpenGame, onOpenPlayer, onOpenStats }: {
   team: WpblTeam
   teams: WpblTeam[]
   games: WpblGame[]
@@ -309,6 +311,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const headingTag = useWpblHeadingTag()
   const { fmtEra, fmtK, kLabel, scale: scaleK } = useEraBasis()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  // ONE SEASON. The league reads below hold every year, so each is cut to the one on screen, and
+  // `games` from here down is that year's schedule: the record, the results, the leaders.
+  const { season, current, cut, seasonGames: games } = useWpblSeason(allGames)
+  const pastSeason = season != null && season !== current
 
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
@@ -323,10 +329,14 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // The same fetch, UNFILTERED. The spec chart is a comparison against the league average, so a
   // club's own lines cannot answer it: handed those, every axis reads 50 and the chart looks
   // finished. `fetchWpblAllLines` is league-wide and cached, so this costs nothing extra.
-  const [allLines, setAllLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  const [leagueLines, setAllLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  const allLines = useMemo(
+    () => leagueLines && { batting: cut(leagueLines.batting), pitching: cut(leagueLines.pitching) },
+    [leagueLines, cut])
   // League-wide too, and NOT cleared between clubs for the same reason `allLines` is not: see
   // the note in the effect below.
-  const [pitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
+  const [leaguePitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
+  const pitchPlays = useMemo(() => leaguePitchPlays && cut(leaguePitchPlays), [leaguePitchPlays, cut])
   // DERIVED, NOT FETCHED. This is `allLines` with one club picked out of it. As state written
   // inside the same `.then` as everything else, a club whose box scores were already in memory
   // would still wait on the slowest read in that batch before anything below could render.
@@ -341,12 +351,23 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const positionIndex = useMemo(() => buildPositionIndex(lines?.batting ?? [], games), [lines, games])
   // Sorted by the position we are going to SHOW, not the one on file, or the list reads as
   // unsorted the moment a label is overridden.
-  const sortedRoster = useMemo(() => roster && [...roster].sort((a, b) =>
+  // A PAST SEASON'S ROSTER IS WHO PLAYED, not who is signed now: the club's current roster under
+  // "2026" would list this year's signings beside last year's numbers. Taken from the lines, which
+  // carry the club each game was played for, so a player traded away since is still listed here.
+  const seasonRoster = useMemo(() => {
+    if (!pastSeason) return roster
+    if (!roster || !lines) return null
+    const ids = new Set([...lines.batting, ...lines.pitching].map(l => l.player_id))
+    return league.filter(p => ids.has(p.id))
+  }, [pastSeason, roster, lines, league])
+  const sortedRoster = useMemo(() => seasonRoster && [...seasonRoster].sort((a, b) =>
     positionRank(displayPositionFromIndex(a, positionIndex).label)
       - positionRank(displayPositionFromIndex(b, positionIndex).label)
-    || a.name.localeCompare(b.name)), [roster, positionIndex])
-  const [lineups, setLineups] = useState<WpblLineupHistoryRow[]>([])
-  const [usage, setUsage] = useState<WpblPitchingUsageRow[]>([])
+    || a.name.localeCompare(b.name)), [seasonRoster, positionIndex])
+  const [allLineups, setLineups] = useState<WpblLineupHistoryRow[]>([])
+  const [allUsage, setUsage] = useState<WpblPitchingUsageRow[]>([])
+  const lineups = useMemo(() => cut(allLineups), [allLineups, cut])
+  const usage = useMemo(() => cut(allUsage), [allUsage, cut])
   const [scheduleOpen, setScheduleOpen] = useState(false)
 
   // ─── Switching clubs, without the spinner ──────────────────────────────────
@@ -644,6 +665,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{recordText}</Typography>
         </Box>
         </Box>
+        <SeasonMenu label="season" sx={{ mt: 1.5 }} />
 
       {headToHead.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 2 }}>
@@ -655,7 +677,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
               // crawl path to its three series as well as the way a reader gets there.
               <Box
                 key={h.opp.id}
-                {...linkTo(wpblSeriesPath(team, h.opp, teams))}
+                {...linkTo(`${wpblSeriesPath(team, h.opp, teams)}${pastSeason ? `?season=${season}` : ''}`)}
                 aria-label={`${team.name} vs ${h.opp.name}: the season series`}
                 sx={{
                   ...UNSTYLED_LINK,

@@ -17,7 +17,7 @@ import { displayPosition, leadsWithPitching } from './positions'
 // to stay asset-free for the same reason.
 import { outsToIp } from './innings'
 import type { WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from './types'
-import type { WpblSeasonGame } from '../wpbl/season'
+import { currentSeasonOnly, cardSeason, type WpblDatedSeasonGame } from '../wpbl/season'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -58,12 +58,16 @@ export function buildPlayerReply(
   // (the bot selects id/name/position/jersey_number/team_id) doesn't need a cast to pass it.
   player: Pick<WpblPlayer, 'id' | 'name' | 'position' | 'jersey_number'>,
   team: WpblTeam | undefined,
-  batting: WpblBattingLine[],
-  pitching: WpblPitchingLine[],
+  allBatting: WpblBattingLine[],
+  allPitching: WpblPitchingLine[],
   // The schedule, so the season line stops where the regular season does. Same reason as
-  // every other aggregate on the site; see stats.ts.
-  games: WpblSeasonGame[],
+  // every other aggregate on the site; see stats.ts. With dates, it also says which season is
+  // the current one, and the card is that season's (see currentSeasonOnly).
+  games: WpblDatedSeasonGame[],
 ): DiscordReply {
+  const batting = currentSeasonOnly(allBatting, games)
+  const pitching = currentSeasonOnly(allPitching, games)
+  const season = cardSeason(games)
   // Zero-PA rows (a pinch-runner who scored, a defensive sub) would read as an 0-for-0
   // game, so they come out here exactly as they do on the player page.
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
@@ -155,7 +159,7 @@ export function buildPlayerReply(
       // A player on the roster who hasn't appeared yet is a real answer, not an error, so
       // say so plainly rather than returning an embed with nothing under the name.
       ...(fields.length ? { fields } : { fields: [{ name: 'Season', value: 'No games played yet.' }] }),
-      footer: { text: `WPBL 2026 · sportydolphin.fun` },
+      footer: { text: `${season != null ? `WPBL ${season}` : 'WPBL'} · sportydolphin.fun` },
     }],
   }
 }
