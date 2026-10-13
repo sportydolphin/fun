@@ -428,7 +428,12 @@ export interface MlbSnapshot {
   findTeam?: number | null
   findOpp?: number | null
   findVenue?: 'home' | 'away' | null
+  /** The Scores page's date (YYYY-MM-DD). Left off for today, so the plain address is always the
+   *  live slate and a shared or refreshed link to another day stays on that day. */
+  date?: string | null
 }
+
+const isIsoDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 
 /** The positions the Fielding board offers, in scorebook order with the pitcher last. Here rather
  *  than beside the board's arithmetic because the address names them, and this module imports
@@ -445,6 +450,7 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
   else if (s.teamId) path = mlbTeamPath(s.teamId)
   else path = s.view === 'search' ? MLB_BASE : MLB_VIEW_PATHS[s.view]
   const params = new URLSearchParams()
+  if (!s.playerId && !s.teamId && s.view === 'scores' && isIsoDate(s.date)) params.set('date', s.date)
   if (!s.playerId && !s.teamId && isMlbSeasonView(s.view)) {
     // The side. The 'fielding' view is the side already, so it says nothing more.
     if (s.fielding && (s.view === 'leaderboard' || s.view === 'teamStats')) params.set('lb', 'fielding')
@@ -487,8 +493,11 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
   if (target.teamId) return { view: 'search', teamId: target.teamId }
   const snap: MlbSnapshot = { view: target.view }
   const v = target.view
-  if (!isMlbSeasonView(v)) return snap
   const q = new URLSearchParams(search)
+  // Only when there is one, so today's address reads back exactly as it was written.
+  const date = q.get('date')
+  if (v === 'scores' && isIsoDate(date)) snap.date = date
+  if (!isMlbSeasonView(v)) return snap
   snap.lb = q.get('lb') === 'pitching' && v !== 'fielding' ? 'pitching' : 'hitting'
   // Only the two boards that answer Fielding from this param; anywhere else it is a hand-edited
   // link, read as the default side.

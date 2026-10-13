@@ -2,7 +2,8 @@ import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
-import { TYPE_SCALE, ICON_SIZE, edge } from '../../ui/card'
+import { TYPE_SCALE, ICON_SIZE, edge, SectionLabel, TextGhost } from '../../ui/card'
+import { ScoreCard, ScoreCardSkeleton } from './ScoreCard'
 import { Box, Typography, Skeleton, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TONE } from '../constants'
@@ -58,6 +59,34 @@ export interface FinalGameSummary {
    *  series. The score card printed "PHI 1-1, ATL 1-1" over a winner-take-all game and said nothing
    *  else; the series records were there, the stakes were not. */
   series?:     { label: string; decider: boolean }
+  /** "MIL leads 2-0", StatsAPI's own line for the series as it stands. Postseason only. */
+  seriesResult?: string
+  /** Runs per inning, away and home. Null is a half not batted (the home ninth of a home win, or
+   *  one a live game has not reached). The full Scores card's line score. */
+  innings?:    { num: number; away: number | null; home: number | null }[]
+  /** The three decisions with ids, for the full card. The name-only fields above are what the
+   *  game sheets read. */
+  decisions?:  { win: Person | null; loss: Person | null; save: Person | null }
+  /** A live game's situation, between the scores. Absent unless live. */
+  live?:       LiveSituation
+  /** Starters announced for a game not yet played, with their season W-L and ERA. */
+  probables?:  { away: Probable | null; home: Probable | null }
+  /** Where to watch: the national carrier when there is one, else each club's own channel. */
+  tv?:         string
+  venue?:      string
+  /** A postponed game's makeup date (YYYY-MM-DD), when one is set. */
+  makeup?:     string
+}
+
+export interface Person { id: number; name: string }
+export interface Probable extends Person { hand: string | null; wins: number | null; losses: number | null; era: string | null }
+export interface LiveSituation {
+  outs: number; balls: number; strikes: number
+  onFirst: boolean; onSecond: boolean; onThird: boolean
+  /** "Middle" or "End": the batter and count describe an at-bat that has not started. */
+  between: boolean
+  batter: Person | null
+  pitcher: Person | null
 }
 
 
@@ -87,6 +116,39 @@ function dateLabel(iso: string): string {
 }
 
 // ─── API ────────────────────────────────────────────────────────────────────
+
+/** Where to watch, as a scoreboard prints it: the national carrier when the game has one (every
+ *  postseason game, and the weekly national windows), else the two clubs' own channels, away first.
+ *  English TV only; radio and the Spanish feeds are on the game's own page. */
+function tvLine(broadcasts: any[] | undefined): string | undefined {
+  const tv = (broadcasts ?? []).filter(b => b?.type === 'TV' && (b.language ?? 'en') === 'en')
+  const national = [...new Set(tv.filter(b => b.isNational).map(b => b.callSign || b.name))]
+  if (national.length) return national.join(' · ')
+  const side = (s: string) => tv.find(b => b.homeAway === s)
+  const local = [side('away'), side('home')].filter(Boolean).map(b => b.callSign || b.name)
+  return local.length ? [...new Set(local)].join(' · ') : undefined
+}
+
+// Every scoreboard read is this one query, so the strip, the page and a game reached by its address
+// parse the same fields. The hydrations give the full card its probables (with season W-L and ERA,
+// through person(stats)), broadcasts and series line in the same request; `fields` trims what they
+// drag in (each person's whole biography, every broadcast's media metadata) back to what is read
+// here: a full regular-season day is 76KB with it and 464KB without. A key missing from FIELDS
+// arrives as undefined with no error, so a new read off `game` needs its name added.
+const HYDRATE = 'linescore,decisions,probablePitcher,person(stats(type=season,group=pitching)),broadcasts(all),seriesStatus,venue'
+const FIELDS = [
+  'dates', 'date', 'games', 'gamePk', 'gameType', 'gameDate', 'description', 'seriesGameNumber', 'gamesInSeries',
+  'status', 'abstractGameState', 'codedGameState', 'detailedState', 'startTimeTBD', 'reason',
+  'teams', 'away', 'home', 'team', 'id', 'name', 'abbreviation', 'score', 'isWinner', 'leagueRecord', 'wins', 'losses',
+  'linescore', 'currentInning', 'currentInningOrdinal', 'inningState', 'inningHalf', 'isTopInning', 'scheduledInnings',
+  'innings', 'num', 'runs', 'hits', 'errors', 'offense', 'defense', 'batter', 'pitcher', 'first', 'second', 'third',
+  'fullName', 'balls', 'strikes', 'outs',
+  'decisions', 'winner', 'loser', 'save', 'probablePitcher', 'stats', 'type', 'displayName', 'splits', 'stat', 'era',
+  'pitchHand', 'code', 'broadcasts', 'callSign', 'isNational', 'language', 'homeAway',
+  'seriesStatus', 'result', 'venue', 'rescheduleGameDate',
+].join(',')
+const scheduleQuery = (range: string) =>
+  `https://statsapi.mlb.com/api/v1/schedule?sportId=1&${range}&hydrate=${HYDRATE}&fields=${FIELDS}`
 
 // In-memory cache of resolved games per date. Past/future dates are static
 // (a Final result never changes, a Preview's start time rarely does) so once
@@ -171,6 +233,29 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       }
     }
 
+    const person = (raw: any): Person | null => raw?.id ? { id: Number(raw.id), name: raw.fullName ?? '' } : null
+    const probable = (raw: any): Probable | null => {
+      const p = person(raw)
+      if (!p) return null
+      // A pitcher traded in-season has a split per club; the one without a club is the season.
+      const splits: any[] = raw.stats?.find((x: any) => x.type?.displayName === 'season')?.splits ?? []
+      const st = (splits.find(x => !x.team) ?? splits[splits.length - 1])?.stat
+      return { ...p, hand: raw.pitchHand?.code ?? null, wins: st?.wins ?? null, losses: st?.losses ?? null, era: st?.era ?? null }
+    }
+    const off = ls.offense ?? {}
+    const def = ls.defense ?? {}
+    const live: LiveSituation | undefined = state === 'live' ? {
+      // Clamped: between at-bats the feed can hold the last strikeout's full count, as WPBL's does
+      // (CLAUDE.md, live_state), and a fourth ball drawn as a bulb is a count that cannot exist.
+      outs:    Math.min(3, Number(ls.outs ?? 0)),
+      balls:   Math.min(3, Number(ls.balls ?? 0)),
+      strikes: Math.min(2, Number(ls.strikes ?? 0)),
+      onFirst: !!off.first, onSecond: !!off.second, onThird: !!off.third,
+      between: ls.inningState === 'Middle' || ls.inningState === 'End',
+      batter:  person(off.batter),
+      pitcher: person(def.pitcher),
+    } : undefined
+
     out.push({
       gamePk:     game.gamePk,
       state,
@@ -188,6 +273,22 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
         // A decider is news before and during the game; once it is final the series line says it.
         return label ? { label, decider: state !== 'final' && isDecider(game) } : undefined
       })(),
+      seriesResult: postseasonGameLabel(game) ? game.seriesStatus?.result || undefined : undefined,
+      innings:     (ls.innings ?? []).map((i: any) => ({
+        num:  Number(i.num),
+        away: i.away?.runs ?? null,
+        home: i.home?.runs ?? null,
+      })),
+      decisions:   game.decisions ? {
+        win: person(game.decisions.winner), loss: person(game.decisions.loser), save: person(game.decisions.save),
+      } : undefined,
+      live,
+      probables:   state === 'preview' || state === 'postponed'
+        ? { away: probable(game.teams?.away?.probablePitcher), home: probable(game.teams?.home?.probablePitcher) }
+        : undefined,
+      tv:          tvLine(game.broadcasts),
+      venue:       game.venue?.name || undefined,
+      makeup:      state === 'postponed' ? game.rescheduleGameDate || undefined : undefined,
     })
   }
   return out
@@ -207,11 +308,7 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
   try {
     // Today is held for seconds only, under the 30s the scoreboard polls at, so every tick is
     // still a real read; it is there for the section remounting on a switch back from WPBL.
-    const d = await cachedJson<any>(
-      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${dateISO}` +
-      `&hydrate=linescore,decisions`,
-      FRESH_LIVE_MS,
-    )
+    const d = await cachedJson<any>(scheduleQuery(`date=${dateISO}`), FRESH_LIVE_MS)
     const out: FinalGameSummary[] = []
     for (const dateObj of d.dates ?? []) out.push(...parseScheduleDateGames(dateObj))
     if (cacheable && settled(out)) gamesCache.set(dateISO, out)
@@ -224,10 +321,7 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
  *  scoreboard would not show (spring training, an exhibition). Never cached: it may be live. */
 export async function fetchGameSummary(gamePk: number): Promise<FinalGameSummary | null> {
   try {
-    const r = await fetch(
-      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=${gamePk}` +
-      `&hydrate=linescore,decisions`
-    )
+    const r = await fetch(scheduleQuery(`gamePk=${gamePk}`))
     if (!r.ok) return null
     const d = await r.json()
     const dateObj = d.dates?.[0]
@@ -243,11 +337,7 @@ async function primeGamesCache(startISO: string, endISO: string): Promise<Map<st
   const map = new Map<string, FinalGameSummary[]>()
   try {
     // A month of finals, read on every mount to find the last game day: minutes are fine.
-    const d = await cachedJson<any>(
-      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${startISO}&endDate=${endISO}` +
-      `&hydrate=linescore,decisions`,
-      FRESH_LONG_MS,
-    )
+    const d = await cachedJson<any>(scheduleQuery(`startDate=${startISO}&endDate=${endISO}`), FRESH_LONG_MS)
     const today = toISO(new Date())
     for (const dateObj of d.dates ?? []) {
       const iso   = dateObj.date as string
@@ -551,11 +641,22 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
 
 
 
-// ─── ScoresGrid: every game on a date, as cards ───────────────────────────────
+// ─── ScoresGrid: every game on a date, as full cards ──────────────────────────
 // Shared by the fullscreen scoreboard on Home and the Scores tab, so the two cannot drift.
 
-const GRID_COLUMNS = `repeat(auto-fill, minmax(${chromePx(148)}, 1fr))`
-const GRID_GAP = 1.25
+/** One card on a phone, two at a tablet's width, three on a desktop. `min(100%, …)` lets the one
+ *  column shrink under a phone's width rather than overflow it. */
+const GRID_SX = {
+  display: 'grid', gap: 1.25,
+  gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${chromePx(330)}), 1fr))`,
+} as const
+
+const GROUPS: { state: GameState; label: string }[] = [
+  { state: 'live', label: 'Live' },
+  { state: 'final', label: 'Final' },
+  { state: 'preview', label: 'Upcoming' },
+  { state: 'postponed', label: 'Postponed' },
+]
 
 function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
   games:          FinalGameSummary[]   // pre-sorted: followed team first
@@ -565,34 +666,48 @@ function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
 }) {
   const isMine = (g: FinalGameSummary) =>
     followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
+  if (loading) {
+    // The page drawn empty. Which groups a day has is not known yet, so the heading's line is held
+    // without words; the cards are the real frame with nothing in it. A full regular-season slate
+    // is 15 games, October's the bracket's handful.
+    const post = bracketLikely()
+    return (
+      <Box aria-hidden>
+        <SectionLabel><TextGhost hidden>Final</TextGhost></SectionLabel>
+        <Box sx={GRID_SX}>
+          {Array.from({ length: post ? 4 : 15 }, (_, i) => <ScoreCardSkeleton key={i} postseason={post} />)}
+        </Box>
+      </Box>
+    )
+  }
+  if (games.length === 0) return (
+    <Box sx={{ py: 6, textAlign: 'center' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>No games scheduled on this date</Typography>
+    </Box>
+  )
+  // The followed club's game heads the page under its own name, then the rest by state. A day
+  // reads Live, then Final, then Upcoming, the way a scoreboard's reader scans it: what is
+  // happening, what happened, what is next.
+  const mine = games.filter(isMine)
+  const accent = followedTeamId != null ? TEAM_BG[followedTeamId] ?? undefined : undefined
+  const mineName = mine[0] ? (mine[0].home.teamId === followedTeamId ? mine[0].home : mine[0].away).name : ''
+  const groups = [
+    ...(mine.length ? [{ key: 'mine', label: mineName, games: mine }] : []),
+    ...GROUPS.map(g => ({ key: g.state, label: g.label, games: games.filter(x => !isMine(x) && x.state === g.state) })),
+  ].filter(g => g.games.length)
   return (
-    <>
-    {loading ? (
-      // The grid drawn empty, in the grid's own columns, so nothing moves when the cards land. A
-      // full regular-season slate is 15 games; October's is the bracket's handful.
-      <Box aria-hidden sx={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: GRID_GAP }}>
-        {Array.from({ length: bracketLikely() ? 4 : 15 }, (_, i) => (
-          <Skeleton key={i} variant="rounded" sx={{ height: cardSkeletonH(), borderRadius: 2 }} />
-        ))}
-      </Box>
-    ) : games.length === 0 ? (
-      <Box sx={{ py: 6, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>No games scheduled on this date</Typography>
-      </Box>
-    ) : (
-      <Box sx={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: GRID_GAP }}>
-        {games.map(game => (
-          <FinalGameMiniCard
-            key={game.gamePk}
-            game={game}
-            wide
-            accent={isMine(game) ? (TEAM_BG[followedTeamId!] ?? undefined) : undefined}
-            onClick={() => onGameClick(game)}
-          />
-        ))}
-      </Box>
-    )}
-    </>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      {groups.map(g => (
+        <Box key={g.key} component="section" aria-label={g.label}>
+          <SectionLabel>{g.label}</SectionLabel>
+          <Box sx={GRID_SX}>
+            {g.games.map(game => (
+              <ScoreCard key={game.gamePk} game={game} accent={g.key === 'mine' ? accent : undefined} onClick={() => onGameClick(game)} />
+            ))}
+          </Box>
+        </Box>
+      ))}
+    </Box>
   )
 }
 
@@ -619,7 +734,7 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
 
 // ─── FinalGamesSection ─────────────────────────────────────────────────────────
 
-export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, layout = 'strip' }: {
+export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, layout = 'strip', date, onDateChange }: {
   followedTeamId?: number | null
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
@@ -627,8 +742,24 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
    *  tab: the same day's games as the full grid, inline, with the same loading, date navigation
    *  and Game Center behind every card. One component so the two cannot disagree about a slate. */
   layout?:        'strip' | 'page'
+  /** The page's date from its address (null for today), and where a reader's pick of another day
+   *  goes so the address follows. Only the reader's own picks are reported: the first load's roll
+   *  forward over an off day is not a choice, and writing it would pin the page to that day. */
+  date?:          string | null
+  onDateChange?:  (date: string | null) => void
 }) {
-  const [dateISO,    setDateISO]    = useState(() => toISO(new Date()))
+  const [dateISO,    setDateISO]    = useState(() => date ?? toISO(new Date()))
+  const pickDate = useCallback((iso: string) => {
+    setDateISO(iso)
+    onDateChange?.(iso === toISO(new Date()) ? null : iso)
+  }, [onDateChange])
+  // Back and Forward move the address under the page; follow it. Skipped on mount, where the
+  // initial state already read it.
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return }
+    if (date !== undefined) setDateISO(date ?? toISO(new Date()))
+  }, [date])
   const [games,      setGames]      = useState<FinalGameSummary[]>([])
   const [loading,    setLoading]    = useState(true)
   const [openGame,   setOpenGame]   = useState<FinalGameSummary | null>(null)
@@ -817,7 +948,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <MlbTabTitle>MLB Scores</MlbTabTitle>
-            <Box sx={{ ml: 'auto' }}><DateNav dateISO={dateISO} onChange={setDateISO} /></Box>
+            <Box sx={{ ml: 'auto' }}><DateNav dateISO={dateISO} onChange={pickDate} /></Box>
           </Box>
           <ScoresGrid games={sortedGames} loading={loading} followedTeamId={followedTeamId} onGameClick={setOpenGame} />
         </Box>
@@ -836,7 +967,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
             Scores
           </Typography>
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <DateNav dateISO={dateISO} onChange={setDateISO} />
+            <DateNav dateISO={dateISO} onChange={pickDate} />
             <Box
               {...pressable(() => setExpanded(true))}
               title="View all scores"
@@ -963,7 +1094,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
       {expanded && (
         <ScoreboardModal
           dateISO={dateISO}
-          onDateChange={setDateISO}
+          onDateChange={pickDate}
           games={sortedGames}
           loading={loading}
           followedTeamId={followedTeamId}
