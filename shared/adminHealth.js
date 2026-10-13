@@ -79,6 +79,86 @@ export const WORKFLOW_JOB_PREFIX = 'workflow:'
  *  failure that does not recur pages exactly once. */
 export const WORKFLOW_FAILURE_WINDOW_MS = 6 * 60 * 60_000
 
+// ─── Game states: the failures a clean run cannot report ─────────────────────────
+//
+// Everything above watches the PIPELINE, and every one of the ingest's worst breaks so far
+// passed it: the 50-row cap, the unmapped postseason clubs and the status that walked backwards
+// all logged runs that looked healthy or close to it, while a game sat in the wrong state on the
+// site. These look at the games themselves, so they need nothing from the ingest to fire.
+//
+// Each threshold is far past anything a healthy game reaches, because a false page here is a
+// phone buzzing at midnight over a rain delay:
+//   * NEVER STARTED: still `scheduled` three hours after first pitch. This is what the Aug 30
+//     truncation and the Sep 9 unmapped clubs both looked like from the outside. A postponed,
+//     suspended or delayed game says so in status_detail and is left alone.
+//   * STUCK LIVE: still `live` five hours after first pitch. A seven-inning game runs well under
+//     three. This is the status-gone-backwards shape: a live dot on a game nobody is playing.
+//   * FINAL WITHOUT A BOX SCORE: stored final with no batting lines an hour after first pitch.
+//     The scoreboard reads right and Game Center is empty under it.
+
+export const NEVER_STARTED_MS = 3 * 60 * 60_000
+export const STUCK_LIVE_MS = 5 * 60 * 60_000
+export const FINAL_NO_BOX_MS = 60 * 60_000
+
+/** The feed's own words for a game that is late on purpose. */
+const EXCUSED = /postpon|cancel|suspend|delay|ppd|tba|rain/i
+
+/** ms to add to a UTC instant to read the given zone's wall clock. */
+function zoneOffsetMs(ms, timeZone) {
+  const d = new Date(ms)
+  return new Date(d.toLocaleString('en-US', { timeZone })).getTime()
+    - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
+}
+
+/**
+ * First pitch as a UTC instant, from the stored Central date and wall clock ("6:30 PM"). A game
+ * with no time counts from the end of its day, so it can only page late, never early.
+ */
+export function centralStartMs(gameDate, startTime) {
+  const [y, mo, d] = String(gameDate).split('-').map(Number)
+  const m = /^(\d{1,2}):(\d{2})\s*([AP])M$/i.exec(String(startTime ?? '').trim())
+  const h = m ? (Number(m[1]) % 12) + (m[3].toUpperCase() === 'P' ? 12 : 0) : 23
+  const min = m ? Number(m[2]) : 59
+  const naive = Date.UTC(y, mo - 1, d, h, min)
+  return naive - zoneOffsetMs(naive, 'America/Chicago')
+}
+
+const describeGame = g => `${g.away_team_id} at ${g.home_team_id} ${g.game_date}`
+
+/**
+ * @param {Array<{ id: string, game_date: string, start_time?: string | null, status: string,
+ *   status_detail?: string | null, home_team_id: string, away_team_id: string,
+ *   has_lines?: boolean }>} games  Recent wpbl_games rows; `has_lines` is whether any batting
+ *   line exists, and is only read on a final.
+ * @param {number} nowMs
+ * @returns {HealthAlert[]}
+ */
+export function gameAlerts(games, nowMs) {
+  const neverStarted = [], stuckLive = [], noBox = []
+  for (const g of games ?? []) {
+    const since = nowMs - centralStartMs(g.game_date, g.start_time)
+    if (g.status === 'scheduled' && since > NEVER_STARTED_MS && !EXCUSED.test(g.status_detail ?? '')) neverStarted.push(g)
+    else if (g.status === 'live' && since > STUCK_LIVE_MS) stuckLive.push(g)
+    else if (g.status === 'final' && g.has_lines === false && since > FINAL_NO_BOX_MS) noBox.push(g)
+  }
+  // The game ids are the signature, so a second game going wrong re-pages and the same one does
+  // not page every fifteen minutes.
+  const alert = (key, list, title, what) => list.length ? [{
+    key,
+    signature: list.map(g => g.id).sort().join(','),
+    title: `${title}${list.length > 1 ? ` (${list.length})` : ''}`,
+    body: `${list.map(describeGame).join('; ')} ${what}`,
+  }] : []
+  return [
+    ...alert('game-never-started', neverStarted, 'WPBL game never started',
+      'is still scheduled hours after first pitch. The feed may be hiding it from the ingest.'),
+    ...alert('game-stuck-live', stuckLive, 'WPBL game stuck live',
+      'still reads live hours after first pitch. The feed may have walked its status back.'),
+    ...alert('game-final-no-box', noBox, 'WPBL final has no box score',
+      'is final with no batting lines. Game Center is empty under the score.'),
+  ]
+}
+
 /**
  * @typedef {Object} HealthAlert
  * @property {string} key        Stable id for the kind of problem (dedupe scope).
@@ -200,6 +280,8 @@ export function healthAlerts(rows, nowMs = Date.now()) {
       body: `The scheduled run at ${b.ran_at} failed.${b.detail ? ` ${b.detail}` : ''}`,
     })
   }
+
+  out.push(...gameAlerts(rows?.games, nowMs))
 
   return out
 }
