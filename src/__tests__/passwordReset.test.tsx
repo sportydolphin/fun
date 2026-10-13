@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { AuthProvider, useAuth } from '../AuthContext'
@@ -89,7 +89,9 @@ function mountSignedIn(providers: string[], props: { current: string | null; nex
   const session = signedIn(providers)
   getSession.mockResolvedValue({ data: { session } })
   render(<AuthProvider><ChangePasswordHarness {...props} /></AuthProvider>)
-  emit('INITIAL_SESSION', session)
+  // Inside act: React 19 no longer applies an update fired outside one before the next event,
+  // so a click straight after would still see the provider signed out.
+  act(() => emit('INITIAL_SESSION', session))
 }
 
 // Explicit, because this file mounts a provider per test and the auto-cleanup that would

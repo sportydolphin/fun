@@ -1867,7 +1867,7 @@ function GameCenterPage({
   }, [loading, urlTab, landingTab, tabs])
   // On unmount only: `tabs` is a fresh array every render, so a cleanup on the effect above would
   // stop the pin at the very re-render (a video list landing) it exists to survive.
-  const stopPinning = useRef<() => void>()
+  const stopPinning = useRef<() => void>(undefined)
   useEffect(() => () => stopPinning.current?.(), [])
 
   const jump = (v: Tab) => (e: React.MouseEvent) => {

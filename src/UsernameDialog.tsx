@@ -23,7 +23,7 @@ export function UsernameDialog({ open, onClose, userId, currentUsername, onSaved
   const [status,  setStatus]  = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
   const [saving,  setSaving]  = useState(false)
   const [saveErr, setSaveErr] = useState('')
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Reset when dialog opens
   useEffect(() => {

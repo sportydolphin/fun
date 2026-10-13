@@ -222,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error,      setError]      = useState('')
   const [successMsg, setSuccessMsg] = useState('')  // shown after email sign-up
   const [busy,       setBusy]       = useState(false)
-  const usernameDebounceRef = React.useRef<ReturnType<typeof setTimeout>>()
+  const usernameDebounceRef = React.useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // ── Set-a-new-password dialog ──────────────────────────────────────────────
   // Its own dialog rather than a fourth mode of the one above, because it is reached from a
