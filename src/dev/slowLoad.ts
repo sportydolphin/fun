@@ -17,7 +17,8 @@
 const param = (name: string) =>
   import.meta.env.DEV ? Number(new URLSearchParams(window.location.search).get(name)) || 0 : 0
 const fetchDelay = param('devSlow')
-export const devMountDelay = param('devSlowMount')
+// Gated again here rather than relying on param() folding to 0: Rolldown leaves the call in place.
+export const devMountDelay = import.meta.env.DEV ? param('devSlowMount') : 0
 
 if (import.meta.env.DEV && fetchDelay > 0) {
   const realFetch = window.fetch.bind(window)

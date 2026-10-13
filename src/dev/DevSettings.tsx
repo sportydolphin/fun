@@ -118,8 +118,10 @@ export function MobilePreviewHost() {
 const heading = { fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 } as const
 const note = { fontSize: '0.68rem', color: 'text.disabled', mt: 0.5 } as const
 const btn = { textTransform: 'none', fontWeight: 600 } as const
-/** A group label, so a long menu can be scanned for the section you want. */
-const group = { fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 1 } as const
+/** A group label, so a long menu can be scanned for the section you want. Letter spacing is
+ *  typePx(0.8) written out: Rolldown keeps a module-level call it cannot prove pure, which left
+ *  this object in the production bundle after the menu itself was gone. */
+const group = { fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05rem', color: 'text.disabled', mb: 1 } as const
 
 export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boolean; showWpblTools: boolean }) {
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null)

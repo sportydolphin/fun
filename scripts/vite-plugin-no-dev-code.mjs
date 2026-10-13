@@ -6,11 +6,17 @@
 // on Oct 7, 2026 the MLB simulators were found shipping to every reader because one gate had gone
 // missing, and it was found only because someone happened to grep the built output.
 //
-// Rollup records how many bytes of each module it actually rendered, so a module that tree-shook
+// The bundler records how many bytes of each module it actually rendered, so a module that tree-shook
 // away reports zero. Anything above a small floor is real code: the floor allows what a gated
 // module unavoidably leaves behind (slowLoad.ts exports a constant 0 that main.tsx still reads).
 
 const FLOOR_BYTES = 64
+
+// Rolldown (Vite 8) wraps every module in `//#region` / `//#endregion` comments and counts them in
+// renderedLength, about 45 bytes of nothing per module, so measure the code without them.
+const codeLength = info => info.code == null
+  ? info.renderedLength
+  : info.code.replace(/^\/\/#(end)?region.*$/gm, '').trim().length
 
 export function noDevCode() {
   return {
@@ -22,7 +28,8 @@ export function noDevCode() {
         if (chunk.type !== 'chunk') continue
         for (const [id, info] of Object.entries(chunk.modules)) {
           if (!/[\\/]src[\\/]dev[\\/]/.test(id)) continue
-          if (info.renderedLength > FLOOR_BYTES) leaks.push(`${id.replace(/^.*[\\/]src[\\/]/, 'src/')} (${info.renderedLength} bytes in ${chunk.fileName})`)
+          const size = codeLength(info)
+          if (size > FLOOR_BYTES) leaks.push(`${id.replace(/^.*[\\/]src[\\/]/, 'src/')} (${size} bytes in ${chunk.fileName})`)
         }
       }
       if (leaks.length) {
