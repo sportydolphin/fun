@@ -1469,6 +1469,18 @@ is retired.
 
 ## Shipped log
 
+### Oct 12, 2026: the season-series pages, laid out for a desktop
+
+`/wpbl/series/<a>-vs-<b>` was the phone layout stretched across a 1100px column: the two clubs
+pinned to the record card's far edges around an empty band, and each meeting a full-width row with
+a date at one end, the standing at the other and a few words of score between. On a desktop the
+record is now a scoreboard (city, club, badge and wins gathered round a dash), and the meetings are
+box-score tiles, away over home, three across and six from 1200px, where the five meetings and the
+playoffs tile make one row. The leaders caption sits beside its Regular/Playoffs/Both toggle. Phones
+are unchanged, except that the playoffs toggle reads "5 ▾" there, so "Championship: Queens win 3-2"
+fits in Large text. Swept clean for shift on all six pairings at four widths and both text sizes.
+Still open: at 960px in Large text a long batting line on the leaders board ends in an ellipsis.
+
 ### Oct 12, 2026: borders, keyboard and contrast, checked site-wide
 
 Both sections, enforced by CI rather than remembered (CLAUDE.md, "Borders" and "Accessibility").

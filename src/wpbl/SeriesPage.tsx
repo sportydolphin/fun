@@ -17,7 +17,7 @@
 // can spell them before any read), the record box, five meetings, five leaders a side and five
 // matchups a side, each at its loaded size.
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, Skeleton } from '@mui/material'
+import { Box, Typography, Skeleton, useMediaQuery, useTheme } from '@mui/material'
 import {
   fetchWpblSchedule, getCachedWpblSchedule, fetchWpblTeams, getCachedWpblTeams,
   fetchWpblAllPlayers, getCachedWpblAllPlayers, fetchWpblAllLines, getCachedWpblAllLines,
@@ -33,7 +33,7 @@ import {
   WPBL_MATCHUPS_PAGE, findWpblSeriesPair, wpblSeriesSlugFromPath, wpblSeriesPath,
   wpblComparePath, wpblGamePath, wpblPlayerPath, wpblTeamPath,
 } from './routes'
-import { SegNav, TeamBadge, TYPE_SCALE, FOCUS_RING, TextGhost, LeaderRow, hoverOnly, pressable } from './ui'
+import { SegNav, TeamBadge, TYPE_SCALE, FOCUS_RING, TextGhost, LeaderRow, hoverOnly, pressable, chromePx } from './ui'
 import { SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import { WpblLinkProvider } from './LinkContext'
 import { useEraBasis } from './EraBasisContext'
@@ -179,6 +179,9 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
     return out.sort((p, q) => p.label.localeCompare(q.label))
   }, [clubs, A.id, B.id])
 
+  // `noSsr` so the first frame already draws the tiles: rows that became tiles after mount would
+  // reflow the whole page under them.
+  const tiles = useMediaQuery(useTheme().breakpoints.up('md'), { noSsr: true })
   const [postOpen, setPostOpen] = useState(false)
   const regularMeetings = series.meetings.filter(m => !m.postseason)
   const postMeetings = series.meetings.filter(m => m.postseason)
@@ -189,6 +192,7 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
       standing={standing}
       href={teams.length > 0 ? wpblGamePath(m.game, teams, games) : null}
       onOpen={() => onOpenGame(m.game, { teams, games })}
+      tile={tiles}
     />
   )
 
@@ -212,14 +216,19 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
     >
       {/* ── The record ─────────────────────────────────────────────────── */}
       <Box sx={{
-        display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', alignItems: 'center',
-        columnGap: { xs: 1, sm: 2 }, rowGap: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2,
+        display: 'grid', alignItems: 'center',
+        gridTemplateColumns: { xs: 'minmax(0, 1fr) minmax(0, 1fr)', md: 'minmax(0, 1fr) auto minmax(0, 1fr)' },
+        columnGap: { xs: 1, sm: 2, md: 3 }, rowGap: { xs: 1, md: 1.5 }, p: { xs: 1.5, sm: 2, md: 3 }, borderRadius: 2,
         border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper',
       }}>
-        {/* Two columns and nothing between them. A middle column holding the verdict changed width
-            as it landed and moved both sides; a label there left a phone 57px for "Firebells". The
-            verdict and the runs take their own full-width lines under the two clubs instead. */}
+        {/* Two columns and nothing between them on a phone. A middle column holding the verdict
+            changed width as it landed and moved both sides; a label there left a phone 57px for
+            "Firebells". The verdict and the runs take their own full-width lines under the clubs.
+            On a desktop the middle holds only a dash, whose width never changes, and each club
+            gathers toward it like a scoreboard: pinned to the card's far edges, the two win counts
+            sat 900px apart around an empty band. */}
         <ClubSide club={A} clubs={clubs} wins={regular.aWins} skeleton={skeleton} align="left" />
+        <Typography aria-hidden sx={{ display: { xs: 'none', md: 'block' }, fontSize: '2.5rem', fontWeight: 300, lineHeight: 1, color: 'text.secondary' }}>–</Typography>
         <ClubSide club={B} clubs={clubs} wins={regular.bWins} skeleton={skeleton} align="right" />
         <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', '& > *': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>
@@ -236,16 +245,16 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
           Listed in full, the final's five games made one page five rows longer than the next, a
           length nothing can know before the schedule lands, so the page jumped when it did. */}
       <SectionHeading seen="series">Every meeting</SectionHeading>
-      <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0 }} aria-hidden={skeleton || undefined}>
+      <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, ...(tiles ? MEETING_GRID_SX : {}) }} aria-hidden={skeleton || undefined}>
         {skeleton
-          ? Array.from({ length: ROWS + 1 }, (_, i) => <MeetingGhost key={i} />)
+          ? Array.from({ length: ROWS + 1 }, (_, i) => <MeetingGhost key={i} tile={tiles} />)
           : <>
             {regularMeetings.map(m => meetingRow(m))}
             <PostseasonRow
-              summary={postseason
-                ? (round ? `${round.label}: ${round.summary}` : `Postseason: ${standing(postseason.aWins, postseason.bWins)}`)
+              post={postseason
+                ? (round ? { title: round.label, result: round.summary } : { title: 'Postseason', result: standing(postseason.aWins, postseason.bWins) })
                 : null}
-              count={postMeetings.length} open={postOpen}
+              count={postMeetings.length} open={postOpen} tile={tiles}
               onToggle={() => {
                 setPostOpen(o => !o)
                 track(EVENTS.WPBL_PAGE_CONTROL, { page: 'series', control: 'postseason_games', value: postOpen ? 'close' : 'open' })
@@ -265,7 +274,13 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
       {/* Drawn for every pair and only hidden for one that never met in the postseason, so the
           leaders below sit at the same depth on all six pages and do not move when the
           schedule lands. */}
-      <Box sx={{ mb: 1.5, visibility: hasPostseason || skeleton ? 'visible' : 'hidden' }} aria-hidden={!hasPostseason || undefined}>
+      {/* A desktop puts the caption beside the toggle it describes, rather than a lone toggle at
+          the right edge over a caption at the left. */}
+      <Box sx={{
+        display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' }, alignItems: 'center',
+        columnGap: 3, mb: 1,
+      }}>
+      <Box sx={{ mb: { xs: 1.5, md: 0 }, gridRow: { md: 1 }, gridColumn: { md: 2 }, visibility: hasPostseason || skeleton ? 'visible' : 'hidden' }} aria-hidden={!hasPostseason || undefined}>
         <SegNav
           options={[
             { value: 'regular', label: 'Regular' },
@@ -281,11 +296,12 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
           size="sm"
         />
       </Box>
-      <Typography sx={{ ...SECTION_CAPTION_SX, mb: 1 }}>
+      <Typography sx={{ ...SECTION_CAPTION_SX, mb: 0, gridRow: { md: 1 }, gridColumn: { md: 1 } }}>
         {qual
           ? `In ${scopeNote} between these clubs. At least ${qual.minPa} plate appearances or ${outsToIp(qual.minOuts)} innings.`
           : <TextGhost>In the regular season between these clubs. At least 12 plate appearances or 4.0 innings.</TextGhost>}
       </Typography>
+      </Box>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 4, rowGap: 2 }}>
         <Board title="At the plate" empty="Nobody has enough plate appearances in these games yet." skeleton={!leaders}>
           {leaders?.batters.slice(0, ROWS).map((b, i) => {
@@ -367,21 +383,42 @@ function ClubSide({ club, clubs, wins, skeleton, align }: {
   club: Club; clubs: Club[]; wins: number; skeleton: boolean; align: 'left' | 'right'
 }) {
   const right = align === 'right'
+  // `noSsr` so the first frame already has the desktop badge: a 44px badge that grew to 64 after
+  // mount would move the whole page under it.
+  const wide = useMediaQuery(useTheme().breakpoints.up('md'), { noSsr: true })
+  // One set of elements, placed by grid areas: on a phone the wins sit over the name beside the
+  // badge; on a desktop all three run in a line with the wins on the inner side, next to the dash.
+  const areas = right
+    ? { xs: '"wins badge" "name badge"', md: '"wins name badge"' }
+    : { xs: '"badge wins" "badge name"', md: '"badge name wins"' }
   return (
     <Box
       {...linkTo(wpblTeamPath(club, clubs))}
       sx={{
-        ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 }, minWidth: 0,
-        flexDirection: right ? 'row-reverse' : 'row', textAlign: right ? 'right' : 'left',
+        ...UNSTYLED_LINK, display: 'grid', alignItems: 'center', minWidth: 0, maxWidth: '100%',
+        gridTemplateAreas: areas,
+        gridTemplateColumns: right
+          ? { xs: 'minmax(0, 1fr) auto', md: 'auto minmax(0, auto) auto' }
+          : { xs: 'auto minmax(0, 1fr)', md: 'auto minmax(0, auto) auto' },
+        columnGap: { xs: 1, sm: 1.5, md: 2 },
+        justifySelf: { md: right ? 'start' : 'end' },
+        textAlign: right ? 'right' : 'left',
         borderRadius: 1, ...FOCUS_RING,
       }}
     >
-      <TeamBadge team={club} size={44} />
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '2rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-          {skeleton ? <TextGhost>0</TextGhost> : wins}
+      <Box sx={{ gridArea: 'badge', display: 'flex' }}><TeamBadge team={club} size={wide ? 64 : 44} /></Box>
+      <Typography sx={{ gridArea: 'wins', fontSize: { xs: '2rem', md: '3rem' }, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+        {skeleton ? <TextGhost>0</TextGhost> : wins}
+      </Typography>
+      <Box sx={{ gridArea: 'name', minWidth: 0 }}>
+        <Typography sx={{ display: { xs: 'none', md: 'block' }, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {club.city}
         </Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={{
+          fontSize: { xs: TYPE_SCALE.meta, md: TYPE_SCALE.heading }, fontWeight: { xs: 700, md: 800 },
+          color: { xs: 'text.secondary', md: 'text.primary' }, lineHeight: { md: 1.2 },
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
           {club.name}
         </Typography>
       </Box>
@@ -389,47 +426,96 @@ function ClubSide({ club, clubs, wins, skeleton, align }: {
   )
 }
 
+/** The phone list's one row grid, shared by the meeting rows, the postseason row and their ghosts
+ *  so all of them are the same height and the columns line up down the list. */
+const MEETING_ROW_SX = {
+  display: 'grid', gridTemplateColumns: '3.5rem minmax(0, 1fr) auto', alignItems: 'center',
+  columnGap: 1, py: 1, px: 0.5, borderRadius: 1,
+} as const
+
+/** The meetings as tiles on a desktop: three across, six from lg, where five meetings and the
+ *  postseason tile make one row. As rows they ran the column's full 1100px with a date at one end,
+ *  a standing at the other and a few words of score between, which was mostly empty space. */
+const MEETING_GRID_SX = {
+  display: 'grid', gap: 1.5,
+  gridTemplateColumns: { md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' },
+} as const
+
+/** A tile's frame: a bordered card, the same for a meeting, the postseason and their ghosts, so
+ *  every tile in a row is one height. */
+const TILE_SX = {
+  display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0, height: '100%', boxSizing: 'border-box',
+  p: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper',
+} as const
+
+const LI_ROW_SX = { borderTop: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: '1px solid', borderBottomColor: 'divider' } } as const
+const ONE_LINE = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } as const
+
+/** A tile's top line: what it is on the left, the series or the round on the right. */
+function TileHead({ left, right, rightSx }: { left: React.ReactNode; right: React.ReactNode; rightSx?: object }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+      <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{left}</Typography>
+      <Typography component="span" sx={{ ...ONE_LINE, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', ...rightSx }}>{right}</Typography>
+    </Box>
+  )
+}
+
 /** One meeting: date, both clubs and their runs with the winner in full weight, and either the
- *  running series or the postseason round on the right. The whole row is the game's link. */
-function MeetingRow({ m, A, B, clubs, round, meetingNo, standing, href, onOpen }: {
+ *  running series or the postseason game on the right. The whole row, or tile, is the game's link.
+ *  A tile lists the clubs away over home, the way a box score does, so it needs no "at". */
+function MeetingRow({ m, A, B, clubs, round, meetingNo, standing, href, onOpen, tile }: {
   m: SeriesMeeting; A: Club; B: Club; clubs: Club[]; round: string | null; meetingNo: number
   standing: (a: number, b: number) => string
-  href: string | null; onOpen: () => void
+  href: string | null; onOpen: () => void; tile: boolean
 }) {
   const g = m.game
   const away = clubs.find(c => c.id === g.away_team_id) ?? (g.away_team_id === A.id ? A : B)
   const home = clubs.find(c => c.id === g.home_team_id) ?? (g.home_team_id === A.id ? A : B)
   const final = g.status === 'final'
+  const ink = (c: Club) => ({
+    fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums',
+    fontWeight: m.winnerId === c.id ? 800 : 600,
+    color: m.winnerId && m.winnerId !== c.id ? 'text.secondary' : 'text.primary',
+  }) as const
   const side = (c: Club, score: number | null) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
       <TeamBadge team={c} size={18} />
-      <Typography component="span" sx={{
-        fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums',
-        fontWeight: m.winnerId === c.id ? 800 : 600,
-        color: m.winnerId && m.winnerId !== c.id ? 'text.secondary' : 'text.primary',
-      }}>
+      <Typography component="span" sx={ink(c)}>
         {c.abbr}{final && score != null ? ` ${score}` : ''}
       </Typography>
     </Box>
   )
+  const line = (c: Club, score: number | null) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+      <TeamBadge team={c} size={20} />
+      <Typography component="span" sx={{ ...ink(c), ...ONE_LINE, flex: 1 }}>{c.name}</Typography>
+      {final && score != null && <Typography component="span" sx={ink(c)}>{score}</Typography>}
+    </Box>
+  )
   const right = m.postseason
-    ? `${round ?? 'Postseason'}, game ${meetingNo}`
+    ? (tile ? `Game ${meetingNo}` : `${round ?? 'Postseason'}, game ${meetingNo}`)
     : m.tally ? standing(m.tally.a, m.tally.b)
     : g.status === 'scheduled' ? 'Scheduled' : (g.status_detail ?? '')
+  const link = href ? {
+    href,
+    onClick: (e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); onOpen() } },
+  } : {}
+  const linkSx = href ? { cursor: 'pointer', ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING } : {}
+  if (tile) {
+    return (
+      <Box component="li" sx={{ minWidth: 0 }}>
+        <Box component={href ? 'a' : 'div'} {...link} sx={{ ...UNSTYLED_LINK, ...TILE_SX, ...linkSx }}>
+          <TileHead left={shortDate(g.game_date)} right={right} rightSx={m.postseason ? { color: 'text.primary' } : undefined} />
+          {line(away, g.away_score)}
+          {line(home, g.home_score)}
+        </Box>
+      </Box>
+    )
+  }
   return (
-    <Box component="li" sx={{ borderTop: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: '1px solid', borderBottomColor: 'divider' } }}>
-      <Box
-        component={href ? 'a' : 'div'}
-        {...(href ? {
-          href,
-          onClick: (e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); onOpen() } },
-        } : {})}
-        sx={{
-          ...UNSTYLED_LINK, display: 'grid', gridTemplateColumns: '3.5rem minmax(0, 1fr) auto',
-          alignItems: 'center', columnGap: 1, py: 1, px: 0.5, borderRadius: 1,
-          ...(href ? { cursor: 'pointer', ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING } : {}),
-        }}
-      >
+    <Box component="li" sx={LI_ROW_SX}>
+      <Box component={href ? 'a' : 'div'} {...link} sx={{ ...UNSTYLED_LINK, ...MEETING_ROW_SX, ...linkSx }}>
         <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
           {shortDate(g.game_date)}
         </Typography>
@@ -447,50 +533,84 @@ function MeetingRow({ m, A, B, clubs, round, meetingNo, standing, href, onOpen }
   )
 }
 
-/** The postseason, as one row in the meetings list: the series result and a toggle for its games,
- *  or a plain line when the pair did not meet there. Laid out on the meeting row's grid, so it is a
- *  meeting row's height whichever it is. */
-function PostseasonRow({ summary, count, open, onToggle }: {
-  summary: string | null; count: number; open: boolean; onToggle: () => void
+/** The postseason, as one row in the meetings list or one tile in the grid: the series result and
+ *  a toggle for its games, or a plain line when the pair did not meet there. Built on the meeting's
+ *  own row grid or tile frame, so it is a meeting's height whichever it is. */
+function PostseasonRow({ post, count, open, onToggle, tile }: {
+  /** The round and its result, or null when the pair did not meet in the postseason. */
+  post: { title: string; result: string } | null
+  count: number; open: boolean; onToggle: () => void; tile: boolean
 }) {
+  const toggles = post != null && count > 0
+  const toggleSx = toggles ? { cursor: 'pointer', userSelect: 'none', ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING } : {}
+  const toggleProps = toggles ? { ...pressable(onToggle), 'aria-expanded': open } : {}
+  const control = toggles && (
+    <>
+      {/* The noun goes on a phone, where "Championship: Queens win 3-2" needs its room in large
+          text; the count and the arrow still say what the control does. */}
+      {open ? 'Hide' : count}
+      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{open ? ' games' : ` ${count === 1 ? 'game' : 'games'}`}</Box>
+      {open ? ' ▴' : ' ▾'}
+    </>
+  )
+  if (tile) {
+    return (
+      <Box component="li" sx={{ minWidth: 0 }}>
+        {/* The round heads the tile where a meeting's date does, and the toggle takes a line of its
+            own: six across, a tile has no room for "Playoffs" and "5 games" side by side. */}
+        <Box {...toggleProps} sx={{ ...TILE_SX, ...toggleSx }}>
+          <TileHead left={post?.title ?? 'Playoffs'} right={null} />
+          <Typography sx={{ ...ONE_LINE, fontSize: TYPE_SCALE.body, fontWeight: 700, color: post ? 'text.primary' : 'text.secondary' }}>
+            {post?.result ?? 'Did not meet'}
+          </Typography>
+          <Typography sx={{ ...ONE_LINE, fontSize: TYPE_SCALE.body, ...(toggles ? { fontWeight: 800, color: 'var(--wpbl-accent-fg)' } : { color: 'text.secondary' }) }}>
+            {toggles ? control : post ? ' ' : 'in the postseason'}
+          </Typography>
+        </Box>
+      </Box>
+    )
+  }
   const label = (
     <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>Playoffs</Typography>
   )
-  const rowSx = {
-    display: 'grid', gridTemplateColumns: '3.5rem minmax(0, 1fr) auto', alignItems: 'center',
-    columnGap: 1, py: 1, px: 0.5, borderRadius: 1, width: '100%',
-  } as const
   return (
-    <Box component="li" sx={{ borderTop: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: '1px solid', borderBottomColor: 'divider' } }}>
-      {summary && count > 0 ? (
-        <Box {...pressable(onToggle)} aria-expanded={open} sx={{
-          ...rowSx, cursor: 'pointer', userSelect: 'none', ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
+    <Box component="li" sx={LI_ROW_SX}>
+      <Box {...toggleProps} sx={{ ...MEETING_ROW_SX, width: '100%', ...toggleSx }}>
+        {label}
+        <Typography component="span" sx={{
+          ...(toggles ? { ...ONE_LINE, fontWeight: 700 } : { color: 'text.secondary' }), fontSize: TYPE_SCALE.body,
         }}>
-          {label}
-          <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {summary}
-          </Typography>
-          <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)', whiteSpace: 'nowrap' }}>
-            {open ? 'Hide games' : `${count} ${count === 1 ? 'game' : 'games'}`} {open ? '▴' : '▾'}
-          </Typography>
-        </Box>
-      ) : (
-        <Box sx={rowSx}>
-          {label}
-          <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-            {summary ?? 'Did not meet in the postseason'}
-          </Typography>
-          <span />
-        </Box>
-      )}
+          {post ? `${post.title}: ${post.result}` : 'Did not meet in the postseason'}
+        </Typography>
+        {toggles
+          ? <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)', whiteSpace: 'nowrap' }}>{control}</Typography>
+          : <span />}
+      </Box>
     </Box>
   )
 }
 
-function MeetingGhost() {
+function MeetingGhost({ tile }: { tile: boolean }) {
+  if (tile) {
+    return (
+      <Box component="li" sx={{ minWidth: 0 }}>
+        <Box sx={TILE_SX}>
+          <TileHead left={<TextGhost>Aug 00</TextGhost>} right={<TextGhost>SF 0–0</TextGhost>} />
+          {[0, 1].map(i => (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              {/* chromePx, as TeamBadge sizes itself: a raw 20 is a smaller circle than the badge on a desktop. */}
+              <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, flex: 1 }}><TextGhost>Firebells</TextGhost></Typography>
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }}><TextGhost>0</TextGhost></Typography>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    )
+  }
   return (
-    <Box component="li" sx={{ borderTop: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: '1px solid', borderBottomColor: 'divider' } }}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: '3.5rem minmax(0, 1fr) auto', alignItems: 'center', columnGap: 1, py: 1, px: 0.5 }}>
+    <Box component="li" sx={LI_ROW_SX}>
+      <Box sx={MEETING_ROW_SX}>
         <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700 }}><TextGhost>Aug 00</TextGhost></Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {[0, 1].map(i => (
