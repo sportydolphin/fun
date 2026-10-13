@@ -67,7 +67,7 @@ const LINES = [
 
 // On the Players board, which is the one these rows are on: a bare /wpbl/stats opens Leaders.
 const draw = () => {
-  window.history.replaceState({}, '', '/wpbl/stats?board=players')
+  window.history.replaceState({}, '', '/wpbl/stats?board=players&side=hitting')
   return render(
     <StatsView teams={TEAMS} games={GAMES} focus={{ group: 'hitting', token: 0 }} onOpenPlayer={() => {}} />
   )

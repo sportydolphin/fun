@@ -51,7 +51,11 @@ function mlbStatsPath(search: string): string {
 /** MLB's Stats board and side as WPBL's address, the other half of `mlbStatsPath`. WPBL's Stats
  *  tab obeys the address when it is moved to it, not only when it first mounts (StatsView's
  *  popstate listener), which is what lets this name a board at all. Only what differs from WPBL's
- *  defaults is written, as WPBL's own writer does: Leaders, Hitting. */
+ *  defaults is written, as WPBL's own writer does: Leaders, Hitting.
+ *
+ *  MLB's Hitting comes over as no side at all, which on WPBL's Leaders and Players is Overall, a
+ *  side MLB does not have. Deliberate: MLB opens on Hitting, so a reader who never touched the
+ *  switch there lands on the board WPBL opens on, rather than one they did not choose. */
 function wpblStatsPath(pathname: string, search: string): string {
   const snap = mlbSnapshotFromUrl(pathname, search)
   const q = new URLSearchParams()

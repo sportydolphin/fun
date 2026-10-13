@@ -26,6 +26,7 @@ import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
+import { PillGroup } from '../ui/PillGroup'
 
 // The run-value board: what each situation in a game is worth, and who has added the most runs
 // moving between them.
@@ -427,6 +428,9 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   }, [])
   const [allLeaders, setAllLeaders] = useState(false)
   const [allWpa, setAllWpa] = useState(false)
+  // Wins added for the side, or both ways: a two-way player's season is half a row on each side,
+  // and this is the one board that adds them (the Overall side's WAR does the same for value).
+  const [wpaBoth, setWpaBoth] = useState(false)
   const [allBases, setAllBases] = useState(false)
   const [allTakeSwing, setAllTakeSwing] = useState(false)
 
@@ -465,11 +469,21 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   // Game Center's chart and this board build it once between them.
   // The runner's name off a base, resolved to the player who batted under it that game.
   const idOf = useMemo(() => (plays ? runnerIds(plays, players) : null), [plays, players])
-  const wpa = useMemo(
-    () => (plays && idOf
-      ? wpaLeaders(winProbModel(plays, games), plays, games, players, side, idOf).slice(0, 10)
-      : []),
-    [plays, games, players, side, idOf])
+  const wpa = useMemo(() => {
+    if (!plays || !idOf) return []
+    const model = winProbModel(plays, games)
+    const one = (s: 'hitting' | 'pitching') => wpaLeaders(model, plays, games, players, s, s === 'hitting' ? idOf : undefined)
+    if (!wpaBoth) return one(side).slice(0, 10).map(r => ({ ...r, faced: 0 }))
+    // Keyed as wpaLeaders keys them, so a player the log names but cannot resolve still adds up.
+    const rows = new Map<string, ReturnType<typeof one>[number] & { faced: number }>()
+    const key = (r: ReturnType<typeof one>[number]) => r.player?.id ?? `name:${r.name.toLowerCase()}`
+    for (const r of one('hitting')) rows.set(key(r), { ...r, faced: 0 })
+    for (const r of one('pitching')) {
+      const row = rows.get(key(r))
+      if (row) { row.wpa += r.wpa; row.faced += r.pa } else rows.set(key(r), { ...r, pa: 0, faced: r.pa })
+    }
+    return [...rows.values()].sort((a, b) => b.wpa - a.wpa).slice(0, 10)
+  }, [plays, games, players, side, idOf, wpaBoth])
   // Hitting only: a pitcher's side of a steal is shared with the catcher, and nothing on the
   // row says how.
   const bases = useMemo(
@@ -638,12 +652,15 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           same plays, priced by the score as well as the situation, so a hit in a tie game
           outranks the same hit in a rout. See `wpaLeaders`. */}
       <SectionCard title="Most wins added"
+        action={<PillGroup options={[{ value: 'side', label: pitching ? 'Pitching' : 'Hitting' }, { value: 'both', label: 'Both ways' }]}
+          value={wpaBoth ? 'both' : 'side'} onChange={v => setWpaBoth(v === 'both')} />}
         titleAdornment={<InfoDot text={[
           "Before and after every plate appearance, the batting team's chance of winning is estimated from the inning, the score, the outs and the runners, using this league's own games.",
           pitching
             ? 'A pitcher gets the change on every plate appearance against them, with the sign flipped. One whole win is 1.00.'
             : 'A hitter gets the change, and a steal, caught stealing or pickoff goes to the runner. One whole win is +1.00.',
           'Unlike runs created, a hit in a tie game in the 7th is worth far more here than the same hit in a rout.',
+          'Both ways adds a player’s batting and pitching together. It is not WAR: WAR, on the Stats tab’s Overall side, ignores the score, and this is the record of who swung close games.',
         ]} />}>
         {wpa.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
@@ -651,7 +668,9 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
               <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.wpa, 2)} unit="wins" accent={accent}
                 onOpen={onOpenPlayer}
-                sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
+                sub={wpaBoth
+                  ? [r.pa ? `${r.pa} times up` : null, r.faced ? `${r.faced} faced` : null].filter(Boolean).join(' · ')
+                  : pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
             ))}
         {isNarrow && wpa.length > LIST_CAP && (
           <ExpandRow flush expanded={allWpa} moreLabel={`Show all ${wpa.length}`}
