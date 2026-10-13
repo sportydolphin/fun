@@ -52,6 +52,8 @@ export interface FinalGameSummary {
   losePitcher: string | null
   savePitcher: string | null
   reason?:     string                // "Rain"/"Snow"/..., only set for postponed games
+  /** Held up by weather or the like, before first pitch or mid-game. */
+  delayed?:    boolean
   /** Postseason only: the game's place in the bracket ("NLWC Gm 3"), and whether it decides the
    *  series. The score card printed "PHI 1-1, ATL 1-1" over a winner-take-all game and said nothing
    *  else; the series records were there, the stakes were not. */
@@ -130,20 +132,31 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
     // Games without a usable start time sink to the bottom of their group.
     const startMs = Number.isNaN(parsedStart) ? Number.MAX_SAFE_INTEGER : parsedStart
 
+    // "Delayed: Rain" mid-game, "Delayed Start: Rain" before it. A delay printed only the inning
+    // before, so a score sitting still for an hour looked like a feed that had stopped.
+    const delayed = /^Delayed/.test(detState) && (state === 'live' || state === 'preview')
+
     let statusText: string
-    if (state === 'postponed') {
+    if (delayed) {
+      // The reason is on the game's own page; the chip has room for one word beside "Live →".
+      statusText = 'Delayed'
+    } else if (state === 'postponed') {
       statusText = unplayedLabel(game.status)
     } else if (state === 'final') {
-      // Extra innings → "Final/10". scheduledInnings defaults to 9.
+      // Extra innings → "Final/10", and a game called short → "Final/6": a rain-shortened score
+      // read as nine innings otherwise. scheduledInnings defaults to 9.
       const scheduled = ls.scheduledInnings ?? 9
       const played    = ls.currentInning ?? scheduled
-      statusText = played > scheduled ? `Final/${played}` : 'Final'
+      statusText = played !== scheduled ? `Final/${played}` : 'Final'
     } else if (state === 'live') {
-      const ord  = ls.currentInningOrdinal
-      const half = ls.inningHalf as string | undefined
+      // Between innings is `inningState` (Middle / End); `inningHalf` only ever says Top or
+      // Bottom, so reading it for "End" printed an arrow over a break. Same rule as Game Center.
+      const ord = ls.currentInningOrdinal
+      const st  = ls.inningState as string | undefined
       if (ord) {
-        const arrow = half === 'Bottom' || half === 'End' ? '▼' : '▲'
-        statusText = `${arrow} ${ord}`
+        statusText = st === 'Middle' ? `Mid ${ord}`
+          : st === 'End' ? `End ${ord}`
+          : `${ls.isTopInning === false || ls.inningHalf === 'Bottom' ? '▼' : '▲'} ${ord}`
       } else {
         statusText = game.status?.detailedState ?? 'Live'
       }
@@ -169,6 +182,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       losePitcher: game.decisions?.loser?.fullName  ?? null,
       savePitcher: game.decisions?.save?.fullName    ?? null,
       reason:      state === 'postponed' ? (game.status?.reason || undefined) : undefined,
+      delayed:     delayed || undefined,
       series:      (() => {
         const label = postseasonGameLabel(game)
         // A decider is news before and during the game; once it is final the series line says it.
@@ -178,6 +192,11 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
   }
   return out
 }
+
+/** A slate that can still change must not go in gamesCache. "Not today" was the whole test, so a
+ *  game still going at midnight was read once as yesterday's and then held: the page polled it
+ *  and was handed the same inning back until it was reloaded. */
+const settled = (games: FinalGameSummary[]) => !games.some(g => g.state === 'live' || g.delayed)
 
 export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary[]> {
   const cacheable = dateISO !== toISO(new Date())
@@ -195,7 +214,7 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
     )
     const out: FinalGameSummary[] = []
     for (const dateObj of d.dates ?? []) out.push(...parseScheduleDateGames(dateObj))
-    if (cacheable) gamesCache.set(dateISO, out)
+    if (cacheable && settled(out)) gamesCache.set(dateISO, out)
     return out
   } catch { return [] }
 }
@@ -234,7 +253,7 @@ async function primeGamesCache(startISO: string, endISO: string): Promise<Map<st
       const iso   = dateObj.date as string
       const games = parseScheduleDateGames(dateObj)
       map.set(iso, games)
-      if (games.length > 0 && iso !== today) gamesCache.set(iso, games)
+      if (games.length > 0 && iso !== today && settled(games)) gamesCache.set(iso, games)
     }
   } catch { /* best-effort: findAdjacentGameDate just sees an empty map */ }
   return map
@@ -310,6 +329,11 @@ const THIN_DAY = 4
 
 const CHIP_W = '7.75rem'
 
+/** A card's height before its game is known, for the strip's and the grid's skeletons alike.
+ *  The postseason card is part type and part structure (1.2rem and 64px, measured Oct 2026 at
+ *  both text sizes), so its reserve is too: all px, it came up 3px short at Large text. */
+const cardSkeletonH = () => bracketLikely() ? `calc(1.2rem + ${chromePx(64)})` : chromePx(71)
+
 /** The score strip's padding above and below its chips: room for the 2px hover lift, and no more.
  *  It was 1, which with the header's own bottom padding put 33px between "Scores" and the chips and
  *  10px of dead strip under them, on top of Home's gap. The skeleton uses it too, so it holds the
@@ -331,7 +355,10 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   const isPostponed = game.state === 'postponed'
   const isLive      = game.state === 'live'
   const noScore     = isPreview || isPostponed   // postponed games never happened → no score row
-  const statusColor = isLive ? '#ef4444' : isPostponed ? '#f59e0b' : 'text.disabled'
+  const statusColor = game.delayed ? '#f59e0b' : isLive ? '#ef4444' : isPostponed ? '#f59e0b' : 'text.disabled'
+  // In the postseason `record` is the SERIES record, which is the line a reader wants beside every
+  // score, not only before first pitch: a final read "SEA 5, TOR 3" with no word on who now leads.
+  const showRecord  = noScore || Boolean(game.series)
   const isDark = useDark()
 
   // Which team to emphasize: winner (final) or current leader (live)
@@ -354,7 +381,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
           }}>
             {t.abbr}
           </Typography>
-          {noScore && t.record && (
+          {showRecord && t.record && (
             <Typography sx={{
               fontSize: TYPE_SCALE.caption, fontWeight: 600, lineHeight: 1, color: 'text.secondary',
               fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
@@ -408,7 +435,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         </Typography>
         {onClick && (
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', ml: 'auto', lineHeight: 1, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-            {noScore ? 'Preview →' : 'Box →'}
+            {noScore ? 'Preview →' : isLive ? 'Live →' : 'Box →'}
           </Typography>
         )}
       </Box>
@@ -471,7 +498,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <Box {...pressable(() => shift(-1))} sx={arrowSx}>
+      <Box {...pressable(() => shift(-1))} aria-label="Previous game day" sx={arrowSx}>
         <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>‹</Typography>
       </Box>
 
@@ -498,7 +525,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
         />
       </Box>
 
-      <Box {...pressable(() => shift(1))} sx={arrowSx}>
+      <Box {...pressable(() => shift(1))} aria-label="Next game day" sx={arrowSx}>
         <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>›</Typography>
       </Box>
 
@@ -527,6 +554,9 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
 // ─── ScoresGrid: every game on a date, as cards ───────────────────────────────
 // Shared by the fullscreen scoreboard on Home and the Scores tab, so the two cannot drift.
 
+const GRID_COLUMNS = `repeat(auto-fill, minmax(${chromePx(148)}, 1fr))`
+const GRID_GAP = 1.25
+
 function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
   games:          FinalGameSummary[]   // pre-sorted: followed team first
   loading:        boolean
@@ -538,19 +568,19 @@ function ScoresGrid({ games, loading, followedTeamId, onGameClick }: {
   return (
     <>
     {loading ? (
-      <Box sx={{ py: 6, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Loading…</Typography>
+      // The grid drawn empty, in the grid's own columns, so nothing moves when the cards land. A
+      // full regular-season slate is 15 games; October's is the bracket's handful.
+      <Box aria-hidden sx={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: GRID_GAP }}>
+        {Array.from({ length: bracketLikely() ? 4 : 15 }, (_, i) => (
+          <Skeleton key={i} variant="rounded" sx={{ height: cardSkeletonH(), borderRadius: 2 }} />
+        ))}
       </Box>
     ) : games.length === 0 ? (
       <Box sx={{ py: 6, textAlign: 'center' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>No games scheduled on this date</Typography>
       </Box>
     ) : (
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(auto-fill, minmax(${chromePx(148)}, 1fr))`,
-        gap: 1.25,
-      }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: GRID_GAP }}>
         {games.map(game => (
           <FinalGameMiniCard
             key={game.gamePk}
@@ -679,6 +709,10 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
   const autoAdvancedRef = useRef(false)
 
   useEffect(() => {
+    // A date already read draws at once: going through the promise painted a frame of skeleton
+    // between every step of the date arrows, over cards that were already in hand.
+    const cached = gamesCache.get(dateISO)
+    if (cached && dateISO !== toISO(new Date())) { setGames(cached); setLoading(false); return }
     let cancelled = false
     setLoading(true)
     fetchFinalGames(dateISO)
@@ -720,17 +754,21 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
   }, [dateISO])
 
   // LIVE SCORES. Nothing refreshed this list once it loaded, so a score on the strip, and on the
-  // Scores tab built from the same list, stood still for as long as the page was open. Today only,
-  // and only while something on the slate is live or still to come: a finished day is final. The
-  // date is re-checked when the read lands, so stepping to another day mid-flight cannot paint
-  // today's games over it. `fetchFinalGames` holds today for seconds only, under this poll, so every tick is a real read.
+  // Scores tab built from the same list, stood still for as long as the page was open. Only while
+  // something on the slate is live, or still to come today: a finished day is final. The date is
+  // re-checked when the read lands, so stepping to another day mid-flight cannot paint one day's
+  // games over another. `fetchFinalGames` never caches a slate with a game in it still going, so
+  // every tick is a real read.
   const dateRef = useRef(dateISO)
   dateRef.current = dateISO
-  const pollToday = dateISO === toISO(new Date()) && games.some(g => g.state === 'live' || g.state === 'preview')
+  // A live game keeps the poll going whatever the date: one still running at midnight is now
+  // "yesterday", and a today-only test stopped updating it in the ninth.
+  const poll = games.some(g => g.state === 'live' || g.delayed)
+    || (dateISO === toISO(new Date()) && games.some(g => g.state === 'preview'))
   useForegroundInterval(() => {
     const asked = dateRef.current
     fetchFinalGames(asked).then(g => { if (dateRef.current === asked && g.length) setGames(g) }).catch(() => {})
-  }, pollToday ? 30_000 : null)
+  }, poll ? 30_000 : null)
 
   // A THIN DAY BORROWS THE LAST ONE. In October Home's strip is often one or two games, and a lone
   // card in a full-width row read as a page that had not finished loading, on a phone and much more
@@ -802,6 +840,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
             <Box
               {...pressable(() => setExpanded(true))}
               title="View all scores"
+              aria-label="View all scores"
               sx={{
                 width: chromePx(26), height: chromePx(26), borderRadius: '50%', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -818,11 +857,9 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
         {loading ? (
           // The strip's own shape while it loads: a short line of text here, then a row of cards a
           // third again as tall, moved everything under it on every visit.
-          // The postseason card is part type and part structure (1.2rem and 64px, measured Oct 2026 at
-          // both text sizes), so its reserve is too: all px, it came up 3px short at Large text.
           <Box aria-hidden sx={{ display: 'flex', gap: 1, px: 0.25, py: STRIP_PY, overflow: 'hidden' }}>
             {[0, 1, 2, 3].map(i => (
-              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: CHIP_W, height: bracketLikely() ? `calc(1.2rem + ${chromePx(64)})` : chromePx(71), borderRadius: 2 }} />
+              <Skeleton key={i} variant="rounded" sx={{ flexShrink: 0, width: CHIP_W, height: cardSkeletonH(), borderRadius: 2 }} />
             ))}
           </Box>
         ) : games.length === 0 ? (
