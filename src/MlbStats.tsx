@@ -1,17 +1,16 @@
 import React, { memo, Suspense, useEffect, useCallback, useRef, useState } from 'react'
-import { pressable } from './ui/interaction'
 import type { ReactNode } from 'react'
-import { Box, Typography, useMediaQuery, SwipeableDrawer } from '@mui/material'
+import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
 import { ACCENT_TEXT } from './mlb/constants'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
-import { requestDeepLink } from './mlb/state/deepLink'
-import type { DeepLink } from './mlb/state/deepLink'
+import { requestDeepLink, parseDeepLink } from './mlb/state/deepLink'
+import { MoreSheet } from './ui/MoreMenu'
 import { FinalGamesSection } from './mlb/views/FinalGames'
 import { GameRoute } from './mlb/views/GameRoute'
 import { SeriesRoute } from './mlb/views/SeriesRoute'
-import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE } from './mlb/routes'
+import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE, MLB_MORE, type MlbMoreRow } from './mlb/routes'
 
 // `?ref=short` means a short link (functions/m) sent this reader here. Read when the chunk loads,
 // before the section's first address rewrite drops the query, and counted once on mount. Only a
@@ -25,8 +24,8 @@ import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
-import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_TABS, isMlbStatsBoard, type MlbStatsBoard, type MlbStatsTab, MLB_MORE_PAGES, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
-import { linkTo } from './nav'
+import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_TABS, isMlbStatsBoard, type MlbStatsBoard, type MlbStatsTab, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
+import { navigate } from './nav'
 import { setDynamicSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx } from './ui/scale'
@@ -53,7 +52,8 @@ import { publishSectionNav, clearSectionNav } from './sectionNav'
 //     Hitting / Pitching / Fielding side, and run differential and payroll are standings questions.
 //   - Search is the toolbar's alone; the player and team pages it opens are the view 'search'.
 //   - Everything that is a board inside a Home card (Predictions, Survivor, Milestones, Roster
-//     moves) or a mode of another tab (Odds, Charts) is one tap away under More.
+//     moves) or a mode of another tab (Odds, Charts) is one tap away under More, and so is the one
+//     page that is no tab, the report cards (MLB_MORE in routes.ts).
 // On a phone the tabs are WPBL's floating bottom bar (src/ui/BottomNav); above that, pills.
 
 type NavKey = MlbNavKey
@@ -72,7 +72,7 @@ const STATS_BOARDS = MLB_STATS_TABS.map(view => ({ view, label: STATS_BOARD_LABE
 /** The row's tab for a Stats view: Players on its Fielding side is the 'fielding' view. */
 const statsTabFor = (v: MlbStatsBoard): MlbStatsTab => (v === 'fielding' ? 'stats' : v)
 const navKeyFor = (v: MlbView): NavKey | null =>
-  isMlbStatsBoard(v) ? 'stats' : v === 'viz' ? 'standings' : v === 'search' ? null : v
+  isMlbStatsBoard(v) ? 'stats' : v === 'viz' ? 'standings' : v === 'search' || v === 'reportCards' ? null : v
 
 /** The side of the game every Stats board switches between. */
 type StatsSide = 'hitting' | 'pitching' | 'fielding'
@@ -81,27 +81,6 @@ const FIELDING_VIEWS = new Set<MlbView>(['leaderboard', 'stats', 'teamStats', 'f
 
 /** A tab's address, for its href and for the history entry it pushes. */
 const viewHref = (v: MlbView): string => v === 'search' ? MLB_VIEW_PATHS.home : MLB_VIEW_PATHS[v]
-
-// Under More: each opens a board that lives inside another view, by a deep link that view's
-// owner already listens for (state/deepLink.ts), so nothing here reaches into a component.
-interface MoreItem { key: string; label: string; hint: string; view: MlbView; link?: DeepLink; charts?: boolean }
-const MORE: MoreItem[] = [
-  { key: 'predictions', label: 'Predictions',      hint: 'Pick the winners, against the bots',            view: 'home',      link: { kind: 'predictor' } },
-  { key: 'survivor',    label: 'Streak Survivor',  hint: 'One hitter a day: the leaderboard',              view: 'home',      link: { kind: 'survivor' } },
-  { key: 'milestones',  label: 'Milestone Watch',  hint: 'Who is closing in on a round number',            view: 'home',      link: { kind: 'milestones' } },
-  { key: 'moves',       label: 'Roster moves',     hint: 'Trades, signings, call-ups and DFAs',            view: 'home',      link: { kind: 'rosterMoves' } },
-  { key: 'bracket',     label: 'Postseason bracket', hint: 'Every series, game by game',                 view: 'standings', link: { kind: 'bracket' } },
-  { key: 'odds',        label: 'Playoff odds',     hint: 'Every club, simulated nightly',                  view: 'standings', link: { kind: 'odds' } },
-  { key: 'charts',      label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs wins',  view: 'viz',       charts: true },
-]
-
-const moreRowSx = {
-  display: 'flex', flexDirection: 'column', gap: 0.1, cursor: 'pointer',
-  py: 1, borderBottom: '1px solid', borderColor: 'divider',
-  // last-child, not last-of-type: the page rows after the boards are anchors, so of-type would
-  // drop the rule under the last board as well as under the last row.
-  '&:last-child': { borderBottom: 'none' },
-} as const
 
 /** A callback with one identity forever that always calls the latest `fn`. For props handed to a
  *  memoized child, where a fresh function each time would undo the memo. */
@@ -301,7 +280,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // On a phone the pager returns each tab to where the reader left it, so a move from one tab to
     // another leaves the scroll to it. Everything else (a desktop, a board within Stats, a page that
     // is no tab) starts the destination at its top.
-    const pagerScrolls = pagerOn && state.view !== 'search' && v !== 'search' && navKeyFor(v) !== navKeyFor(state.view)
+    const pagerScrolls = pagerOn && !!navKeyFor(state.view) && !!navKeyFor(v) && navKeyFor(v) !== navKeyFor(state.view)
     if (v !== 'search') state.clearSelection()
     state.setView(v)
     if (!pagerScrolls) requestAnimationFrame(() => window.scrollTo({ top: 0 }))
@@ -314,13 +293,17 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }
 
   const [moreOpen, setMoreOpen] = useState(false)
-  const openMore = (item: MoreItem) => {
+  // A More row, opened in place: the view its address names, then the board its `?open=` names,
+  // published after the view change so the board's owner takes it when it mounts, or at once if it
+  // already is (useDeepLink). A row that is no view of this section (Compare, the glossary) is a
+  // page the shell draws, so it is a navigation.
+  const openMore = (row: MlbMoreRow) => {
     setMoreOpen(false)
-    if (item.charts) state.setVizDefaultTab('graphs')
-    if (item.view !== state.view) go(item.view, 'link')
-    // Published after the view change: the board's owner takes it when it mounts, or at once if
-    // it already is. See useDeepLink.
-    if (item.link) requestDeepLink(item.link)
+    const target = mlbTargetFromPath(row.href.split('?')[0])
+    if (!target || target.view === 'search') { navigate(row.href); return }
+    if (target.view !== state.view) go(target.view, 'link')
+    const link = parseDeepLink(row.href)
+    if (link) requestDeepLink(link)
   }
 
   // THE TOOLBAR'S TABS ON A DESKTOP. The shell draws them (src/sectionNav.ts); this says which is
@@ -328,18 +311,20 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // and a player page closes the way a pill tap always closed it. Keyed on the two values that can
   // change, not on a fresh object per render, since every publish re-renders the shell.
   const selectNav = useLatest((k: string) => goTab(k as NavKey))
-  const selectMore = useLatest((key: string) => { const m = MORE.find(x => x.key === key); if (m) openMore(m) })
+  const selectMore = useLatest((key: string) => { const m = MLB_MORE.find(x => x.key === key); if (m) openMore(m) })
   const statsHref = viewHref(tabView('stats'))
+  const onReportCards = state.view === 'reportCards'
   useEffect(() => {
     if (!active) return
     publishSectionNav({
       section: 'mlb',
       tabs: NAV.map(n => ({ key: n.key, label: n.label, href: n.key === 'stats' ? statsHref : viewHref(n.key) })),
-      active: activeTab,
+      // The report cards are no tab, so none is lit and More is (ToolbarNav).
+      active: onReportCards ? null : activeTab,
       onSelect: selectNav,
-      more: MORE.map(m => ({ key: m.key, label: m.label, hint: m.hint, onSelect: () => selectMore(m.key) })),
+      more: MLB_MORE.map(m => ({ key: m.key, onSelect: () => selectMore(m.key) })),
     })
-  }, [activeTab, statsHref, selectNav, selectMore, active])
+  }, [activeTab, onReportCards, statsHref, selectNav, selectMore, active])
   useEffect(() => active ? () => clearSectionNav('mlb') : undefined, [active])
 
   // ONE IDENTITY FOR THE LIFE OF THE SECTION, calling whatever the handler is now. The real
@@ -353,16 +338,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const homeFollowPlayer  = useLatest(state.followPlayer)
   const homeUnfollowPlayer = useLatest(state.unfollowPlayer)
 
-  // The same footing as the handlers above: stampCurrentEntry is rebuilt with the view state.
-  const openReportCards = useLatest(() => {
-    state.stampCurrentEntry()
-    pushEntry({ view: 'viz' }, MLB_VIEW_PATHS.viz)
-    state.clearSelection()
-    state.setVizDefaultTab('report-card')
-    state.setView('viz')
-    // Land at the top of the report cards, not wherever the home page was scrolled.
-    requestAnimationFrame(() => window.scrollTo({ top: 0 }))
-  })
+  // Home's report card boards, "All boards": the report cards page.
+  const openReportCards = useLatest(() => go('reportCards', 'link'))
 
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
@@ -385,10 +362,12 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const panelOpen = useSidePanelOpen()
   const shift = panelShiftSx(panelOpen, gamePageOpen ? GAME_PAGE_W : onHome ? HOME_W : onStatsBoard ? STATS_W : `${PAGE_W}px`)
   const onSearch = state.view === 'search'
+  // A page that is no tab, drawn over the pager as a player page is.
+  const offPager = onSearch || onReportCards
   const tabIndex = NAV.findIndex(n => n.key === activeTab)
   // The pager mounts with the first tab the reader is shown, and stays mounted from then on.
   const pagerMounted = useRef(false)
-  if (!onSearch) pagerMounted.current = true
+  if (!offPager) pagerMounted.current = true
   // The player page's Back. Within the section it is the browser's, so it returns to the exact
   // board the player was opened from; landed on cold (a shared link, a search result) there is
   // nothing of ours behind it, so it goes to the tab the page lights instead of off the site.
@@ -504,6 +483,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             onLeaveCharts={() => { if (state.view === 'viz') go('standings') }}
             charts={state.view === 'viz' ? (
               <VizView
+                show="graphs"
                 boardTabs={null}
                 isDesktop={isDesktop}
                 vizSeason={state.vizSeason}
@@ -514,7 +494,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 handleVizNavigate={state.handleVizNavigate}
                 handleLbPlayerClick={state.handleLbPlayerClick}
                 canHover={canHover}
-                defaultTab={state.vizDefaultTab}
               />
             ) : null} />
         </>
@@ -686,7 +665,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       {pagerMounted.current && (
         // Full-bleed on a phone, with the 16px gutter handed back inside each pane (padX), so a
         // swiped pane slides all the way off the screen rather than vanishing at the gutter.
-        <Box sx={{ display: onSearch || gamePageOpen ? 'none' : 'block', mx: { xs: -2, sm: 0 } }}>
+        <Box sx={{ display: offPager || gamePageOpen ? 'none' : 'block', mx: { xs: -2, sm: 0 } }}>
           <SwipeableViews
             index={tabIndex}
             onIndexChange={i => goTab(NAV[i].key, 'swipe')}
@@ -694,7 +673,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             padX={isMobileView ? 16 : 0}
             keepAlive
             panels={NAV.map((n, i) => (
-              <PanelActiveContext.Provider key={n.key} value={!onSearch && i === tabIndex}>
+              <PanelActiveContext.Provider key={n.key} value={!offPager && i === tabIndex}>
                 {/* Its own boundary, so one tab crashing cannot take the bar and the other four with
                     it, and its own Suspense (in withFooter), so a chunk still loading for a tab
                     warmed behind the reader never blanks the one on screen. */}
@@ -705,6 +684,28 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             ))}
           />
         </Box>
+      )}
+
+      {/* THE REPORT CARDS, a page of their own under More (/mlb/report-cards). They were the first
+          half of Charts, behind a switch inside a mode of Standings, three levels down for the boards
+          Home links to most. */}
+      {onReportCards && !gamePageOpen && withFooter(
+        <AppErrorBoundary inline where="tab">
+          <MlbTabTitle sx={{ mb: 2 }}>MLB Report Cards</MlbTabTitle>
+          <VizView
+            show="report-card"
+            boardTabs={null}
+            isDesktop={isDesktop}
+            vizSeason={state.vizSeason}
+            setVizSeason={state.setVizSeason}
+            teamSummaries={state.teamSummaries}
+            loadingViz={state.loadingViz}
+            nameMap={state.nameMap}
+            handleVizNavigate={state.handleVizNavigate}
+            handleLbPlayerClick={state.handleLbPlayerClick}
+            canHover={canHover}
+          />
+        </AppErrorBoundary>,
       )}
 
       {/* A PLAYER'S PAGE: the card fetches its own data (views/MlbPlayerDetail), the section only
@@ -833,43 +834,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         />
       )}
       {bottomNav && (
-        <SwipeableDrawer
-          anchor="bottom"
-          open={moreOpen}
-          onClose={() => setMoreOpen(false)}
-          onOpen={() => {}}
-          disableSwipeToOpen
-          // The same sheet as WPBL's More: capped to the bar's width, rounded top corners, clear of
-          // the iOS home indicator, flicked down to dismiss.
-          PaperProps={{ sx: {
-            maxWidth: chromePx(460), mx: 'auto', left: 0, right: 0,
-            borderTopLeftRadius: 16, borderTopRightRadius: 16,
-            bgcolor: 'background.raised',
-            pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
-          } }}
-        >
-          <Box sx={{ px: 2, pt: 1 }}>
-            <Box aria-hidden sx={{ width: chromePx(36), height: chromePx(4), borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
-            {MORE.map(m => (
-              <Box key={m.key} {...pressable(() => openMore(m))} sx={moreRowSx}>
-                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{m.label}</Typography>
-                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{m.hint}</Typography>
-              </Box>
-            ))}
-            {/* The section's standalone pages, after its boards. Real links, since they are pages. */}
-            {MLB_MORE_PAGES.map(pg => {
-              const link = linkTo(pg.href)
-              return (
-                <Box key={pg.href} component="a" href={link.href}
-                  onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { link.onClick(e); if (e.defaultPrevented) setMoreOpen(false) }}
-                  sx={{ ...moreRowSx, textDecoration: 'none', color: 'inherit' }}>
-                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{pg.label}</Typography>
-                  <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{pg.hint}</Typography>
-                </Box>
-              )
-            })}
-          </Box>
-        </SwipeableDrawer>
+        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)}
+          rows={MLB_MORE.map(m => ({ ...m, onSelect: () => openMore(m) }))} />
       )}
     </Box>
   )

@@ -728,7 +728,7 @@ function HomeViewInner({
                     rows={rows as PlayerLbRow[]}
                     loading={loading}
                     onExpand={onViz ?? (() => {})}
-                    actionLabel="All boards" actionHref={MLB_VIEW_PATHS.viz}
+                    actionLabel="All boards" actionHref={MLB_VIEW_PATHS.reportCards}
                     onSelectPlayer={onPlayerClick}
                   />
                 ) : (
@@ -737,7 +737,7 @@ function HomeViewInner({
                     rows={rows as LbRow[]}
                     loading={loading}
                     onExpand={onViz ?? (() => {})}
-                    actionLabel="All boards" actionHref={MLB_VIEW_PATHS.viz}
+                    actionLabel="All boards" actionHref={MLB_VIEW_PATHS.reportCards}
                     onSelectTeam={onTeamClick}
                   />
                 )}

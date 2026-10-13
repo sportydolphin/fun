@@ -10,14 +10,15 @@
 // crawler does not fire click handlers, and these are how it finds the other four tabs.
 
 import { startTransition, useEffect, useState, type MouseEvent } from 'react'
-import { Box, Menu, MenuItem, Typography } from '@mui/material'
+import { Box } from '@mui/material'
 import { useSectionNav, type NavSection, type SectionNavTab } from './sectionNav'
-import { navigate, linkTo } from './nav'
+import { navigate } from './nav'
 import { WPBL_NAV, wpblPathFor, wpblViewFromPath } from './wpbl/routes'
 import { WPBL_MORE_PAGES } from './wpbl/morePages'
-import { MLB_NAV, MLB_VIEW_PATHS, MLB_MORE_PAGES, mlbNavKeyFromPath } from './mlb/routes'
-import { track } from './lib/analytics'
+import { MLB_NAV, MLB_VIEW_PATHS, MLB_MORE, mlbNavKeyFromPath } from './mlb/routes'
+import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 import { hoverOnly, FOCUS_RING } from './ui/interaction'
+import { MorePanel, type MoreRow } from './ui/MoreMenu'
 
 const STATIC_TABS: Record<NavSection, SectionNavTab[]> = {
   wpbl: WPBL_NAV.map(n => ({ key: n.key, label: n.label, href: wpblPathFor(n.key) })),
@@ -36,13 +37,18 @@ const modifiedClick = (e: MouseEvent) => e.metaKey || e.ctrlKey || e.shiftKey ||
 // decoration competing with the league switch beside it rather than as "you are here".
 const UNDERLINE = 'var(--wpbl-accent-solid)'
 
-interface MoreRow {
-  key: string
-  label: string
-  hint?: string
-  href?: string
-  current?: boolean
-  onClick: (e: MouseEvent<HTMLElement>) => void
+/** The row's page is the one on screen: its path, or a page under it. A row whose address opens a
+ *  board (`?open=`) is never current, since its path is the tab the board opens over. */
+const isCurrent = (href: string, path: string) =>
+  !href.includes('?') && (path === href || path.startsWith(`${href}/`))
+
+/** An MLB row's click when the section has published no handler for it (it is not mounted, as on
+ *  /mlb/glossary): the board's intent goes ahead of the navigation, so whichever component owns it
+ *  takes it when it mounts. The cold load needs none of this; deepLink.ts reads the address. */
+const mlbFallback = (href: string) => () => {
+  const link = parseDeepLink(href)
+  if (link) requestDeepLink(link)
+  navigate(href)
 }
 
 export function ToolbarNav({ section, path, sx }: { section: NavSection; path: string; sx?: object }) {
@@ -61,33 +67,16 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
   useEffect(() => { setPending(null) }, [active])
   const lit = pending ?? active
 
-  const pageRow = (p: { href: string; label: string; hint?: string; event?: string; eventProps?: Record<string, unknown> }): MoreRow => {
-    const link = linkTo(p.href)
-    return {
-      key: p.href, label: p.label, hint: section === 'mlb' ? p.hint : undefined, href: p.href,
-      current: path === p.href || path.startsWith(`${p.href}/`),
-      onClick: e => {
-        if (p.event && !modifiedClick(e)) track(p.event, p.eventProps ?? {})
-        link.onClick(e)
-        if (e.defaultPrevented) setAnchor(null)
-      },
-    }
-  }
   const more: MoreRow[] = section === 'wpbl'
-    ? WPBL_MORE_PAGES.map(pageRow)
-    // The section's own rows (boards inside its views) once it has published them, then its pages,
-    // which need nothing from it: on /mlb/glossary the section is not mounted at all, and More
-    // would otherwise be an empty, disabled button on the one page that belongs in it.
-    : [
-        ...(live?.more ?? []).map(m => ({
-          key: m.key, label: m.label, hint: m.hint,
-          onClick: () => { setAnchor(null); m.onSelect() },
-        })),
-        ...MLB_MORE_PAGES.map(pageRow),
-      ]
+    ? WPBL_MORE_PAGES.map(p => ({ ...p, key: p.href, current: isCurrent(p.href, path) }))
+    : MLB_MORE.map(r => ({
+        ...r,
+        current: isCurrent(r.href, path),
+        onSelect: live?.more?.find(m => m.key === r.key)?.onSelect ?? mlbFallback(r.href),
+      }))
   // On one of the More pages no tab is lit, so More is: the reader is somewhere, and the bar
-  // should say where.
-  const moreCurrent = more.some(m => m.current)
+  // should say where. Only when no tab is: /mlb/charts is a row here and a mode of Standings.
+  const moreCurrent = !lit && more.some(m => m.current)
 
   const tabSx = (on: boolean) => ({
     ...FOCUS_RING,
@@ -152,46 +141,17 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
       <Box
         component="button"
         type="button"
-        aria-haspopup="menu"
+        aria-haspopup="true"
         aria-expanded={!!anchor}
+        aria-controls={anchor ? `${section}-more` : undefined}
         aria-label={section === 'wpbl' ? 'More WPBL pages' : 'More MLB pages'}
-        // MLB's rows come from the section, so for the moment before its chunk lands there is
-        // nothing to open.
-        disabled={more.length === 0}
         onClick={(e: MouseEvent<HTMLButtonElement>) => setAnchor(e.currentTarget)}
-        sx={{ ...tabSx(moreCurrent || !!anchor), '&:disabled': { cursor: 'default' } }}
+        sx={tabSx(moreCurrent || !!anchor)}
       >
         More
         <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▾</Box>
       </Box>
-      <Menu
-        anchorEl={anchor}
-        open={!!anchor}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        MenuListProps={{ dense: true }}
-      >
-        {more.map(m => (
-          <MenuItem
-            key={m.key}
-            {...(m.href ? { component: 'a', href: m.href } : {})}
-            selected={m.current}
-            onClick={m.onClick}
-            sx={{
-              textDecoration: 'none', color: 'text.primary',
-              ...(m.hint ? { flexDirection: 'column', alignItems: 'flex-start' } : { fontSize: '0.82rem', fontWeight: 600 }),
-            }}
-          >
-            {m.hint ? (
-              <>
-                <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.35 }}>{m.label}</Typography>
-                <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1.35 }}>{m.hint}</Typography>
-              </>
-            ) : m.label}
-          </MenuItem>
-        ))}
-      </Menu>
+      <MorePanel id={`${section}-more`} anchor={anchor} onClose={() => setAnchor(null)} rows={more} />
     </Box>
   )
 }

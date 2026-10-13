@@ -1,6 +1,6 @@
 import { useDark } from '../ui/useDark'
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, SwipeableDrawer } from '@mui/material'
+import { Box, Typography, Skeleton, CircularProgress, useMediaQuery } from '@mui/material'
 import { useTheme as useMuiTheme } from '@mui/material/styles'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
@@ -48,12 +48,12 @@ import {
   WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
 } from './routes'
-import { linkTo } from '../nav'
 import { publishSectionNav, clearSectionNav } from '../sectionNav'
 import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
 import { useGameNotes, ScoreCardFooter, ScoreCardFooterSkeleton } from './ScoreCardNotes'
 import { WPBL_MORE_PAGES } from './morePages'
+import { MoreSheet as SharedMoreSheet } from '../ui/MoreMenu'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import { PanelActiveContext, useSectionActive } from '../lib/panelActive'
 import { WpblHeadingOwnerProvider, TabTitle } from './PageHeading'
@@ -1042,66 +1042,12 @@ function snapFromLocation(): WpblSnap {
 // about what a reader is offered.
 const useMorePages = () => WPBL_MORE_PAGES
 
-// The phone's counterpart to the toolbar's More menu (ToolbarNav): the same non-tab pages, reached
-// from the bottom bar's More slot as a bottom sheet instead of a dropdown. The toolbar carries no
-// tabs on a phone; this is how those pages stay reachable without a footer scroll. Every row is a real <a href> (linkTo), so it is crawlable and cmd/long-press opens
-// a new tab, the same rule the footer and the menu follow.
+// The phone's counterpart to the toolbar's More panel (ToolbarNav): the same grouped pages, from the
+// bottom bar's More slot as a bottom sheet (src/ui/MoreMenu). The toolbar carries no tabs on a phone;
+// this is how those pages stay reachable without a footer scroll.
 function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const pages = useMorePages()
-  return (
-    <SwipeableDrawer
-      anchor="bottom"
-      open={open}
-      onClose={onClose}
-      // SwipeableDrawer, not Drawer, so a phone can flick the sheet down to dismiss it (the grabber
-      // above is the affordance). onOpen is required by the type but never fires: the sheet is only
-      // ever opened by the bar's More slot, never by an edge swipe, so disableSwipeToOpen is on.
-      onOpen={() => {}}
-      disableSwipeToOpen
-      // Capped and centred to the bar's own width, with rounded top corners and clearance for the
-      // iOS home indicator, so it reads as a sheet the bar raised rather than a full-bleed slab.
-      PaperProps={{ sx: {
-        maxWidth: 460, mx: 'auto', left: 0, right: 0,
-        borderTopLeftRadius: 16, borderTopRightRadius: 16,
-        bgcolor: 'background.raised',
-        pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
-      } }}
-    >
-      <Box sx={{ px: 2, pt: 1 }}>
-        <Box aria-hidden sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />
-        {/* The same flat list as the desktop menu, from morePages.ts, with a line under each
-            name saying what is there. */}
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {pages.map(l => {
-            // linkTo navigates and lets a modified click through to the browser; the sheet only has
-            // to close itself once a plain click has been taken, and a tracked item records the open
-            // through the same funnel its other entry points use.
-            const props = linkTo(l.href, plain => {
-              if (!plain) return
-              if (l.event) track(l.event, l.eventProps ?? {})
-              onClose()
-            })
-            return (
-              <Box
-                key={l.href}
-                {...props}
-                sx={{
-                  display: 'flex', flexDirection: 'column', gap: 0.1,
-                  textDecoration: 'none', color: 'text.primary',
-                  py: 1, borderBottom: '1px solid', borderColor: 'divider',
-                  '&:last-of-type': { borderBottom: 'none' },
-                  ...hoverOnly({ color: 'text.primary' }),
-                }}
-              >
-                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{l.label}</Typography>
-                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.35 }}>{l.hint}</Typography>
-              </Box>
-            )
-          })}
-        </Box>
-      </Box>
-    </SwipeableDrawer>
-  )
+  const rows = useMorePages().map(p => ({ ...p, key: p.href }))
+  return <SharedMoreSheet open={open} onClose={onClose} rows={rows} />
 }
 
 function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {

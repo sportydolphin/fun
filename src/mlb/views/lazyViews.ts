@@ -21,6 +21,8 @@ const loaders = {
   bests:       () => import('./BestsView'),
   find:        () => import('./FindView'),
   viz:         () => import('./VizView'),
+  // The report cards are VizView's other half, so one chunk under two addresses.
+  reportCards: () => import('./VizView'),
   search:      () => import('./SearchView'),
 } satisfies Record<Exclude<MlbView, 'scores'>, () => Promise<unknown>>
 

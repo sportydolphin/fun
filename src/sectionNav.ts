@@ -24,9 +24,11 @@ export type NavSection = 'wpbl' | 'mlb'
 
 export interface SectionNavTab { key: string; label: string; href: string; badge?: boolean }
 
-/** A More menu row. MLB's open a board inside another view, so they carry a handler; WPBL's are
- *  pages with addresses, which the shell knows without the section (see ToolbarNav). */
-export interface SectionNavMoreItem { key: string; label: string; hint?: string; onSelect: () => void }
+/** What a More row does when the section is mounted, by the row's key. The rows themselves (names,
+ *  addresses, groups) are static lists the shell reads without the section (WPBL_MORE_PAGES,
+ *  MLB_MORE), so the menu is whole before the section's chunk lands; MLB publishes handlers so a
+ *  board opens inside the tab it lives on rather than by a navigation. */
+export interface SectionNavMoreItem { key: string; onSelect: () => void }
 
 export interface SectionNav {
   section: NavSection

@@ -30,7 +30,7 @@ import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } fr
 import { openPlayerPanel } from './playerPanel'
 import { useOpensAsPanel } from '../../ui/ModalShell'
 import { useSectionActive } from '../../lib/panelActive'
-import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbSeasonView, MLB_PATH_EVENT } from '../routes'
+import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbSeasonView, isMlbChartsView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot, MlbFieldingPosition } from '../routes'
 import { gridDefaultSort, type GridSort } from '../lib/seasonGrid'
 import { decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
@@ -320,7 +320,6 @@ export function useMlbState() {
   // and the team picker there.
   const [view, setView] = useState<MlbView>(landing?.view ?? 'home')
   const [vizSeason, setVizSeason] = useState(landing?.season ?? CURRENT_SEASON)
-  const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('report-card')
 
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
@@ -422,9 +421,9 @@ export function useMlbState() {
   const lbLoaded = useRef<{ key: string; at: number } | null>(null)
   const fresh = (r: { key: string; at: number } | null, key: string) => r?.key === key && Date.now() - r.at < BOARD_FRESH_MS
 
-  // Load visualization data when switching to viz tab or changing season
+  // Load the clubs' summaries for Charts and the report cards, on arrival or a change of season.
   useEffect(() => {
-    if (view !== 'viz') return
+    if (!isMlbChartsView(view)) return
     const key = String(vizSeason)
     if (fresh(vizLoaded.current, key)) return
     vizLoaded.current = null
@@ -1037,7 +1036,6 @@ export function useMlbState() {
     view, setView,
     stampCurrentEntry,
     vizSeason, setVizSeason,
-    vizDefaultTab, setVizDefaultTab,
     teamSummaries, loadingViz,
     handleVizNavigate,
 

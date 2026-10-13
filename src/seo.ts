@@ -298,9 +298,14 @@ const ROUTES: Record<string, Seo> = {
       'MLB fielding by player and position: fielding percentage, errors, assists, putouts, double plays and range factor, sortable.',
   },
   [MLB_VIEW_PATHS.viz]: {
-    title: 'MLB Charts: run differential, payroll and streak report cards | sportydolphin.fun',
+    title: 'MLB Charts: run differential, ERA vs OPS and payroll vs wins | sportydolphin.fun',
     description:
-      'MLB in charts: run differential, ERA against OPS, payroll against wins, and a report card for every club\'s recent form.',
+      'MLB in charts: every club\'s run differential against its record, ERA against OPS, and payroll against wins.',
+  },
+  [MLB_VIEW_PATHS.reportCards]: {
+    title: 'MLB Report Cards: hot streaks, frauds and the oldest rosters | sportydolphin.fun',
+    description:
+      'MLB report cards: the longest active hitting and scoreless streaks, the clubs winning more than their scoring says, the hardest schedules left, the oldest rosters and the biggest payrolls.',
   },
   [MLB_VIEW_PATHS.teams]: {
     title: 'MLB Teams: all 30 clubs, rosters and stats | sportydolphin.fun',

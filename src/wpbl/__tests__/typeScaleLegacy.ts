@@ -19,7 +19,6 @@ export const TYPE_SCALE_LEGACY: readonly string[] = [
   'src/ExperimentsContext.tsx',
   'src/FeedbackDialog.tsx',
   'src/LegalPages.tsx',
-  'src/MlbStats.tsx',
   'src/NotificationBell.tsx',
   'src/PasswordChecklist.tsx',
   'src/SettingsDialog.tsx',
