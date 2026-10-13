@@ -268,30 +268,43 @@ const FLD_COLS: Col<WpblFieldingTotals>[] = [
   { key: 'g',   label: 'G',   value: t => t.g },
 ]
 
-// The Overall side's columns, every one of them the Run value board's own figure (see
-// derive/playerValue.ts). Signed, because each is measured against an average player and below
-// average is a real answer, not a missing one. Wins to two places, as Run value prints them, and
-// runs to one.
+// The Overall side's columns: WAR and every part it is made of (derive/war.ts, docs/WAR.md), then
+// wins added. Runs are signed, because each is measured against an average player and below
+// average is a real answer; runs to one place, and wins to two. FanGraphs prints WAR to one, on a
+// scale where a season is worth 1,000 of them; this league's is worth about 12, so one place would
+// tie half the board.
 //
 // A half of the game a player never played reads as a dash, not a zero: "0.0" under Pitching Runs
-// for a hitter claims a measurement. Batting keeps a pinch runner's steals, which have no PA.
-const wins = (v: number | null) => fmtRunValue(v, 2)
+// for a hitter claims a measurement. The fielding columns are numbers for everyone who fielded.
+const wpaText = (v: number | null) => fmtRunValue(v, 2)
 const runs = (v: number | null) => fmtRunValue(v)
-const bat = (t: WpblValueTotals, v: number) => (t.pa || v ? v : null)
-const pit = (t: WpblValueTotals, v: number) => (t.bf ? v : null)
+const warText = (v: number | null) => (v == null ? '—' : (Math.round(v * 100) / 100 || 0).toFixed(2).replace('-', '\u2212'))
+const batting = (t: WpblValueTotals, v: number) => (t.pa ? v : null)
+const pitching = (t: WpblValueTotals, v: number) => (t.outs ? v : null)
+const catching = (t: WpblValueTotals, v: number) => (t.armAtt || t.cBlk ? v : null)
 const OVR_COLS: Col<WpblValueTotals>[] = [
-  { key: 'wpa',     label: 'WPA',    value: t => t.wpa,     display: t => wins(t.wpa) },
-  { key: 'batWpa',  label: 'Bat WPA', value: t => bat(t, t.batWpa),  display: t => wins(bat(t, t.batWpa)) },
-  { key: 'pitWpa',  label: 'Pit WPA', value: t => pit(t, t.pitWpa),  display: t => wins(pit(t, t.pitWpa)) },
-  { key: 'batRuns', label: 'Bat R',  value: t => bat(t, t.batRuns), display: t => runs(bat(t, t.batRuns)) },
-  { key: 'pitRuns', label: 'Pit R',  value: t => pit(t, t.pitRuns), display: t => runs(pit(t, t.pitRuns)) },
-  { key: 'bsr',     label: 'BsR',    value: t => bat(t, t.bsr),     display: t => runs(bat(t, t.bsr)) },
-  // A catcher's columns read a dash for everyone else: a zero would claim an arm nobody tested.
-  { key: 'armRuns', label: 'Arm R',  value: t => (t.armAtt ? t.armRuns : null), display: t => (t.armAtt ? runs(t.armRuns) : '—') },
-  { key: 'armCs',   label: 'CS',     value: t => (t.armAtt ? t.armCs : null),   display: t => (t.armAtt ? String(t.armCs) : '—') },
-  { key: 'armAtt',  label: 'Att',    value: t => (t.armAtt ? t.armAtt : null),  display: t => (t.armAtt ? String(t.armAtt) : '—') },
-  { key: 'pa',      label: 'PA',     value: t => t.pa },
-  { key: 'bf',      label: 'BF',     value: t => t.bf },
+  { key: 'war',    label: 'WAR',    value: t => t.war,    display: t => warText(t.war) },
+  // A pure pitcher has none: their fielding counts toward pitching WAR (war.ts, `fldP`).
+  { key: 'batWar', label: 'Pos WAR', value: t => (t.pa ? t.batWar : null), display: t => warText(t.pa ? t.batWar : null) },
+  { key: 'pitWar', label: 'Pit WAR', value: t => pitching(t, t.pitWar), display: t => warText(pitching(t, t.pitWar)) },
+  { key: 'bat',    label: 'Bat',    value: t => batting(t, t.bat), display: t => runs(batting(t, t.bat)) },
+  { key: 'bsr',    label: 'BsR',    value: t => batting(t, t.bsr), display: t => runs(batting(t, t.bsr)) },
+  { key: 'fld',    label: 'Fld',    value: t => t.fld,    display: t => runs(t.fld) },
+  { key: 'pos',    label: 'Pos',    value: t => t.pos,    display: t => runs(t.pos) },
+  { key: 'pit',    label: 'Pit',    value: t => pitching(t, t.pit), display: t => runs(pitching(t, t.pit)) },
+  { key: 'wpa',    label: 'WPA',    value: t => t.wpa,    display: t => wpaText(t.wpa) },
+  // The glove, part by part, for the Advanced view.
+  { key: 'rng',    label: 'Rng',    value: t => t.rng,    display: t => runs(t.rng) },
+  { key: 'err',    label: 'Err',    value: t => t.err,    display: t => runs(t.err) },
+  { key: 'dp',     label: 'DP',     value: t => t.dp,     display: t => runs(t.dp) },
+  { key: 'ofArm',  label: 'OF Arm', value: t => t.ofArm,  display: t => runs(t.ofArm) },
+  { key: 'cArm',   label: 'C Arm',  value: t => catching(t, t.cArm), display: t => runs(catching(t, t.cArm)) },
+  { key: 'cBlk',   label: 'C Blk',  value: t => catching(t, t.cBlk), display: t => runs(catching(t, t.cBlk)) },
+  { key: 'gdp',    label: 'GDP',    value: t => batting(t, t.gdp), display: t => runs(batting(t, t.gdp)) },
+  { key: 'lgAdj',  label: 'Lg',     value: t => batting(t, t.lgAdj), display: t => runs(batting(t, t.lgAdj)) },
+  { key: 'rep',    label: 'Rep',    value: t => t.rep,    display: t => runs(t.rep) },
+  { key: 'pa',     label: 'PA',     value: t => t.pa },
+  { key: 'ip',     label: 'IP',     value: t => t.outs,   display: t => (t.outs ? outsToIp(t.outs) : '—') },
 ]
 
 // ─── Standard and Advanced ─────────────────────────────────────────────────────
@@ -311,11 +324,12 @@ const OVR_COLS: Col<WpblValueTotals>[] = [
 // rather than silently nowhere.
 type View = 'standard' | 'advanced'
 const VIEW_ORDER: Record<Side, Record<View, readonly string[]>> = {
-  // Playing time, then the run figures, then the two wins columns and their sum last, FanGraphs'
-  // habit of ending a row on its one-number answer. One view: eleven columns fit a desktop.
+  // FanGraphs' order: playing time, then the runs a player made (batting, the bases, the glove, the
+  // position, pitching), then WAR last, the one-number answer, with wins added after it as the
+  // second opinion. Advanced takes the glove apart and shows the two adjustments every row carries.
   overall: {
-    standard: ['pa', 'bf', 'batRuns', 'pitRuns', 'bsr', 'armAtt', 'armCs', 'armRuns', 'batWpa', 'pitWpa', 'wpa'],
-    advanced: [],
+    standard: ['pa', 'ip', 'bat', 'bsr', 'fld', 'pos', 'pit', 'batWar', 'pitWar', 'war', 'wpa'],
+    advanced: ['pa', 'ip', 'rng', 'err', 'dp', 'ofArm', 'cArm', 'cBlk', 'fld', 'gdp', 'lgAdj', 'rep', 'war'],
   },
   hitting: {
     standard: ['g', 'pa', 'ab', 'r', 'h', '2b', '3b', 'hr', 'rbi', 'sb', 'cs', 'bb', 'so',
@@ -537,7 +551,7 @@ const DERIVED_SORTS: Record<Side, Record<string, boolean>> = {
 // switch alike: the cold load used to take the first column in HIT_COLS (AVG) while the two
 // switches hard-coded OPS, so the board opened on one headline and came back from Pitching on
 // another. Both views carry both of these, which is what lets the view switch fall back to them.
-const HEADLINE: Record<Side, string> = { overall: 'wpa', hitting: 'ops', pitching: 'era', fielding: 'fpct' }
+const HEADLINE: Record<Side, string> = { overall: 'war', hitting: 'ops', pitching: 'era', fielding: 'fpct' }
 
 /** A side's module-scope columns. The render-time ones (OPS+, FIP and the rest) are DERIVED_SORTS. */
 function colsFor(side: Side): Col<never>[] {
@@ -587,13 +601,16 @@ const FLD_NAMES: Record<string, string> = {
 }
 
 const OVR_NAMES: Record<string, string> = {
-  wpa: 'Wins added, batting and pitching together', batWpa: 'Wins added at the plate and on the bases',
-  pitWpa: 'Wins added on the mound', batRuns: 'Runs added at the plate, against an average hitter',
-  pitRuns: 'Runs prevented on the mound, against an average pitcher',
-  bsr: 'Runs gained on the bases, against an average runner',
-  armRuns: 'Runs saved throwing out base stealers, against an average catcher',
-  armCs: 'Runners caught stealing, as the catcher', armAtt: 'Steal attempts against, as the catcher',
-  pa: 'Plate appearances', bf: 'Batters faced',
+  war: 'Wins above replacement, everything together', batWar: 'WAR at the plate, on the bases and in the field',
+  pitWar: 'WAR on the mound', bat: 'Batting runs against an average hitter (wRAA)',
+  bsr: 'Baserunning runs, double plays hit into included', fld: 'Fielding runs against an average fielder at the position',
+  pos: 'Positional adjustment: harder positions earn runs, easier ones give them', pit: 'Pitching runs against an average pitcher, from FIP',
+  wpa: 'Wins added: each play priced by the score, which WAR ignores, so it records who swung close games', rng: 'Range: outs made on balls hit to the zone, against the average',
+  err: 'Errors, against the average at the position', dp: 'Double plays turned, against the average at the position',
+  ofArm: 'Outfield arm: extra bases runners did not take', cArm: 'Catcher\u2019s arm: base stealers thrown out',
+  cBlk: 'Catcher blocking: wild pitches and passed balls kept in front', gdp: 'Double plays hit into, against the average',
+  lgAdj: 'League adjustment, so the league sums to zero', rep: 'Replacement runs: what a freely available player would have cost',
+  pa: 'Plate appearances', ip: 'Innings pitched',
 }
 
 /** What each column stands for on one side, with the basis-dependent ones spelled out. Shared by
@@ -636,10 +653,10 @@ function cellText<T>(c: Col<T>, t: T): string {
 // with: a row that says "12 HR" is worth more than one that says ".412 OBP", even though OBP
 // is the better stat, because this line is here to identify a season rather than to rank it.
 const CONTEXT_KEYS: Record<Side, { rate: string[]; counting: string[] }> = {
-  // Nothing here is a rate. The two halves of the total first, so a row says whose wins they are.
+  // Nothing here is a rate. The two halves of WAR first, so a row says where the wins came from.
   overall: {
     rate: [],
-    counting: ['batWpa', 'pitWpa', 'bsr', 'pa'],
+    counting: ['batWar', 'pitWar', 'fld', 'pa'],
   },
   hitting: {
     rate: ['pa', 'hr', 'rbi', 'ops', 'avg'],
@@ -1268,8 +1285,8 @@ export default function WpblStatsView({
   // reader who never leaves Hitting. Regular season only, like the Run value engines it calls, so
   // the scope chips are not offered on this side.
   const valueSeasons = useMemo(
-    () => (side === 'overall' && rvPlays ? playerValueSeasons(rvPlays, games, players, lines.batting) : null),
-    [side, rvPlays, games, players, lines.batting])
+    () => (side === 'overall' && rvPlays ? playerValueSeasons(rvPlays, games, players, lines).seasons : null),
+    [side, rvPlays, games, players, lines])
 
   // OPS+ normalizes a hitter's OBP+SLG to the league (100 = league average, 150 = 50%
   // better). It needs league-wide rate context, so build the hitting columns in-component
@@ -1654,7 +1671,7 @@ export default function WpblStatsView({
     // rather than games: a 1.000 off forty chances outranks one off four.
     const sample = (r: Row) => side === 'pitching' ? (r.totals as WpblPitchingTotals).outs
       : side === 'fielding' ? (r.totals as WpblFieldingTotals).tc
-      : side === 'overall' ? (r.totals as WpblValueTotals).pa + (r.totals as WpblValueTotals).bf
+      : side === 'overall' ? (r.totals as WpblValueTotals).pa + (r.totals as WpblValueTotals).outs
       : plateAppearances(r.totals as WpblBattingTotals)
     return built.sort((a, b) => {
       const av = val(a), bv = val(b)

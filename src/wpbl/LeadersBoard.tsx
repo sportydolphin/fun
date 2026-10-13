@@ -45,15 +45,16 @@ export interface LeaderQual { active: boolean; minPa: number; minOuts: number; m
  *  boards' cards read alike across the league switch. Runs and FIP have no MLB card; they follow the
  *  same style. The strikeout rate names the reader's basis ("K per 7"), as MLB's says "K per 9". */
 export const LEADER_CARDS: Record<LeaderSide, { key: string; title?: string }[]> = {
-  // The whole game in one board: the wins columns first, since their total is the one figure here
-  // that adds a two-way player's halves together, then the run figures each side's wins are made
-  // of, then the two the box score cannot see, the bases and the catcher's arm. MLB has no
-  // equivalent board, so these titles follow the house style rather than a counterpart.
+  // The whole game in one board, one question: who was best. WAR first, then its two halves, then
+  // the runs it is made of. Wins added is not here: it prices plays by the score, so beside WAR it
+  // read as a rival total rather than a different question. It is the last column on Players and
+  // has its boards on Run value. MLB has no equivalent board, so these titles follow the house
+  // style rather than a counterpart.
   overall: [
-    { key: 'wpa', title: 'Wins Added' }, { key: 'batWpa', title: 'Batting Wins Added' },
-    { key: 'pitWpa', title: 'Pitching Wins Added' }, { key: 'bsr', title: 'Baserunning Runs' },
-    { key: 'batRuns', title: 'Batting Runs' }, { key: 'pitRuns', title: 'Pitching Runs' },
-    { key: 'armRuns', title: 'Catcher Arm Runs' }, { key: 'armCs', title: 'Runners Caught' },
+    { key: 'war', title: 'WAR' }, { key: 'batWar', title: 'Position Player WAR' },
+    { key: 'pitWar', title: 'Pitching WAR' }, { key: 'bat', title: 'Batting Runs' },
+    { key: 'bsr', title: 'Baserunning Runs' }, { key: 'fld', title: 'Fielding Runs' },
+    { key: 'rng', title: 'Range Runs' }, { key: 'pit', title: 'Pitching Runs' },
   ],
   hitting: [
     { key: 'avg', title: 'Batting Average' }, { key: 'obp', title: 'On-Base %' },
@@ -88,7 +89,7 @@ export function leadersFor<T extends LeaderTotals>(
   // Overall breaks on the whole of a player's playing time, trips to the plate and batters faced.
   const sample = (t: T) => side === 'pitching' ? (t as WpblPitchingTotals).outs
     : side === 'fielding' ? (t as WpblFieldingTotals).tc
-    : side === 'overall' ? (t as WpblValueTotals).pa + (t as WpblValueTotals).bf
+    : side === 'overall' ? (t as WpblValueTotals).pa + (t as WpblValueTotals).outs
     : plateAppearances(t as WpblBattingTotals)
   const qualifies = (t: T) => !qual.active || (side === 'pitching' ? sample(t) >= qual.minOuts
     : side === 'fielding' ? (t as WpblFieldingTotals).g >= qual.minG : sample(t) >= qual.minPa)
