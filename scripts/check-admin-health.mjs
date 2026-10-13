@@ -11,7 +11,8 @@
  *
  * WHAT IT PAGES ON is decided in shared/adminHealth.js (and unit-tested there): a failed or
  * stalled ingest, the "unmapped team" ok:true-with-errors trap, and the nightly scoring job
- * failing or going missing. TrackMan "behind" and nightly findings are expected and never page.
+ * failing or going missing, and a recent game left in the wrong state (never started, stuck live,
+ * final with no box score) however healthy the runs look. TrackMan "behind" and nightly findings are expected and never page.
  *
  * DEDUPE. admin_alert_state remembers the signature it last paged per problem, so a persistent
  * outage pages ONCE, not every run; a changed problem (a new kind of ingest error) re-pages,
@@ -145,7 +146,28 @@ async function nearGame() {
   return (count ?? 0) > 0
 }
 
-// ─── Test mode ────────────────────────────────────────────────────────────────
+// The last three Central days of games, each marked with whether it has a box score, for the
+// game-state checks in shared/adminHealth.js. Three days because a game that has been wrong for
+// longer has already paged. A failed read answers [], which pages nothing: these checks add to
+// the pipeline alerts above and must never be the reason one is lost.
+async function recentGames() {
+  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+  const day = offset => { const d = new Date(today); d.setDate(d.getDate() + offset); return d.toLocaleDateString('en-CA') }
+  const { data: games, error } = await supabase.from('wpbl_games')
+    .select('id, game_date, start_time, status, status_detail, home_team_id, away_team_id')
+    .gte('game_date', day(-3)).lte('game_date', day(0))
+  if (error) { console.warn(`⚠️  Reading recent wpbl_games failed: ${error.message}`); return [] }
+  const finals = (games ?? []).filter(g => g.status === 'final').map(g => g.id)
+  if (finals.length === 0) return games ?? []
+  const { data: lines, error: lineErr } = await supabase.from('wpbl_batting_lines')
+    .select('game_id').in('game_id', finals)
+  // Unknown is not "none": leave has_lines unset so a failed read cannot page every final.
+  if (lineErr) { console.warn(`⚠️  Reading wpbl_batting_lines failed: ${lineErr.message}`); return games ?? [] }
+  const boxed = new Set((lines ?? []).map(l => l.game_id))
+  return (games ?? []).map(g => g.status === 'final' ? { ...g, has_lines: boxed.has(g.id) } : g)
+}
+
+// ─── Test mode────────────────────────────────────────────────────────────────
 
 async function runTest() {
   const subs = await ownerSubscriptions()
@@ -165,14 +187,15 @@ async function main() {
     await recordHeartbeat(supabase, `${WORKFLOW_JOB_PREFIX}${FAILED_WORKFLOW}`, false, process.env.FAILED_RUN_URL || null)
   }
 
-  const [ingest, validation, heartbeats, near] = await Promise.all([
+  const [ingest, validation, heartbeats, near, games] = await Promise.all([
     latestRun('wpbl_ingest_runs', 'ran_at, ok, error_count, errors'),
     latestRun('wpbl_pbp_validation_runs', 'ran_at, ok'),
     fetchHeartbeats(),
     nearGame(),
+    recentGames(),
   ])
 
-  const alerts = healthAlerts({ ingest, validation, heartbeats, nearGame: near })
+  const alerts = healthAlerts({ ingest, validation, heartbeats, nearGame: near, games })
 
   // Prior dedupe state. If the table is missing (migration not applied) we alert WITHOUT
   // dedupe rather than going silent — a noisy alert is recoverable, a missed outage is the

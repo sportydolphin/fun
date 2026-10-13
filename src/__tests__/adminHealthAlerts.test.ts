@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { healthAlerts, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS, WORKFLOW_JOB_PREFIX, WORKFLOW_FAILURE_WINDOW_MS } from '../../shared/adminHealth.js'
+import { healthAlerts, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS, WORKFLOW_JOB_PREFIX, WORKFLOW_FAILURE_WINDOW_MS, centralStartMs } from '../../shared/adminHealth.js'
 
 // The thresholds ARE the feature: a job that quietly broke while still looking fine is the
 // whole failure mode, and paging on an expected state (a "behind" TrackMan feed, a nightly
@@ -133,5 +133,54 @@ describe('healthAlerts — nothing to say', () => {
   it('returns no alerts when a table has no row yet', () => {
     expect(healthAlerts({}, NOW)).toEqual([])
     expect(healthAlerts({ ingest: null, validation: null }, NOW)).toEqual([])
+  })
+})
+
+describe('healthAlerts: game states', () => {
+  // NOW is 18:00Z on Sep 12, 2026, which is 1:00 PM Central.
+  const game = (over: Record<string, unknown> = {}) => ({
+    id: 'g1', game_date: '2026-09-12', start_time: '9:00 AM', status: 'scheduled',
+    status_detail: 'Not Started', home_team_id: 'sf', away_team_id: 'bos', ...over,
+  })
+  const gameKeys = (games: ReturnType<typeof game>[]) => healthAlerts({ games }, NOW).map(a => a.key)
+
+  it('reads the stored Central wall clock, across DST', () => {
+    expect(centralStartMs('2026-09-12', '1:00 PM')).toBe(NOW)
+    expect(centralStartMs('2026-12-12', '12:30 PM')).toBe(Date.parse('2026-12-12T18:30:00Z'))
+  })
+
+  it('pages on a game still scheduled hours after first pitch, the shape of a game the feed hid', () => {
+    expect(gameKeys([game()])).toEqual(['game-never-started'])
+  })
+
+  it('leaves a game alone inside the window, and one the feed calls postponed or delayed', () => {
+    expect(gameKeys([game({ start_time: '11:00 AM' })])).toEqual([])
+    expect(gameKeys([game({ status_detail: 'Postponed' })])).toEqual([])
+    expect(gameKeys([game({ status_detail: 'Rain Delay' })])).toEqual([])
+  })
+
+  it('counts an untimed game from the end of its day, so it can only page late', () => {
+    expect(gameKeys([game({ start_time: null })])).toEqual([])
+    expect(gameKeys([game({ start_time: null, game_date: '2026-09-11' })])).toEqual(['game-never-started'])
+  })
+
+  it('pages on a game stuck live, but not on one in a long afternoon', () => {
+    expect(gameKeys([game({ status: 'live', start_time: '7:30 AM' })])).toEqual(['game-stuck-live'])
+    expect(gameKeys([game({ status: 'live', start_time: '9:00 AM' })])).toEqual([])
+  })
+
+  it('pages on a final with no batting lines, and never when the read could not tell', () => {
+    expect(gameKeys([game({ status: 'final', has_lines: false })])).toEqual(['game-final-no-box'])
+    expect(gameKeys([game({ status: 'final', has_lines: true })])).toEqual([])
+    expect(gameKeys([game({ status: 'final' })])).toEqual([])
+  })
+
+  it('signs with the game ids, so a second bad game re-pages and the same one holds', () => {
+    const one = healthAlerts({ games: [game()] }, NOW)[0]
+    const two = healthAlerts({ games: [game(), game({ id: 'g2' })] }, NOW)[0]
+    expect(one.signature).not.toBe(two.signature)
+    expect(two.title).toContain('(2)')
+    expect(two.body).toContain('bos at sf 2026-09-12')
+    expect(healthAlerts({ games: [game()] }, NOW + 60_000)[0].signature).toBe(one.signature)
   })
 })

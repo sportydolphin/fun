@@ -41,6 +41,25 @@ export interface HeartbeatCheck {
   maxAgeMs: number | null
 }
 
+/** A recent wpbl_games row (subset the game-state checks read). */
+export interface GameStateRow {
+  id:             string
+  game_date:      string
+  start_time?:    string | null
+  status:         string
+  status_detail?: string | null
+  home_team_id:   string
+  away_team_id:   string
+  /** Whether any batting line exists. Only read on a final. */
+  has_lines?:     boolean
+}
+
+export const NEVER_STARTED_MS: number
+export const STUCK_LIVE_MS: number
+export const FINAL_NO_BOX_MS: number
+export function centralStartMs(gameDate: string, startTime?: string | null): number
+export function gameAlerts(games: GameStateRow[] | null | undefined, nowMs: number): HealthAlert[]
+
 export const INGEST_STALE_MS: number
 export const INGEST_STALE_OFFSEASON_MS: number
 export const VALIDATION_STALE_MS: number
@@ -54,6 +73,7 @@ export function healthAlerts(
     validation?: ValidationRunRow | null
     heartbeats?: Heartbeat[]
     nearGame?: boolean
+    games?: GameStateRow[] | null
   },
   nowMs?: number,
 ): HealthAlert[]
