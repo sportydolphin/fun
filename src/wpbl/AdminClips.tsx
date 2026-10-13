@@ -314,7 +314,7 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
             <Field label="At-bat">
               <Select value={chosenPlay ? sequence : ''} displayEmpty size="small" sx={selectSx}
                 onChange={e => { const v = e.target.value as number | ''; pickPlay(v === '' ? '' : Number(v)) }}
-                MenuProps={{ ...menu, PaperProps: { sx: { maxHeight: 360 } } }}>
+                MenuProps={{ ...menu, slotProps: { paper: { sx: { maxHeight: 360 } } } }}>
                 <MenuItem value="" sx={{ fontSize: '0.8rem' }}>Not one at-bat</MenuItem>
                 {playOptions.map(p => (
                   <MenuItem key={p.sequence} value={p.sequence} sx={{ fontSize: '0.78rem', whiteSpace: 'normal', maxWidth: 520 }}>

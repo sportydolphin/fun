@@ -4,7 +4,7 @@ import {
   Dialog, DialogTitle, DialogContent, IconButton,
   Box, Typography, Divider, CircularProgress, Button,
 } from '@mui/material'
-import { Close, Check, Undo, DeleteOutline, MailOutline } from '@mui/icons-material'
+import { Close, Check, Undo, DeleteOutlined, MailOutlined } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
 import { isSubscribed } from './lib/push'
 import { fetchFeedback, setFeedbackHandled, deleteFeedback, FeedbackRow } from './lib/feedback'
@@ -301,7 +301,7 @@ function FeedbackRowItem({ row, busy, onToggleHandled, onDelete }: {
             component="a" href={`mailto:${row.email}?subject=${encodeURIComponent('Re: your feedback on sportydolphin.fun')}`}
             sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, fontSize: '0.66rem', color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
           >
-            <MailOutline sx={{ fontSize: '0.8rem' }} />
+            <MailOutlined sx={{ fontSize: '0.8rem' }} />
             {row.email}
           </Box>
         )}
@@ -331,7 +331,7 @@ function FeedbackRowItem({ row, busy, onToggleHandled, onDelete }: {
             </Box>
           ) : (
             <IconButton size="small" aria-label="Delete" disabled={busy} onClick={() => setConfirmDelete(true)} sx={{ color: 'text.disabled' }}>
-              <DeleteOutline sx={{ fontSize: '1rem' }} />
+              <DeleteOutlined sx={{ fontSize: '1rem' }} />
             </IconButton>
           )}
         </Box>
@@ -380,7 +380,7 @@ function FeedbackModal({ open, onClose, onChanged }: {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
-      PaperProps={{ sx: { borderRadius: 3 } }}>
+      slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
 
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

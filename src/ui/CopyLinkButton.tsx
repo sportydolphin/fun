@@ -12,7 +12,7 @@
 // here as a fallback rather than being retired as legacy.
 import { useCallback, useState } from 'react'
 import { Box } from '@mui/material'
-import { Check, ErrorOutline, Link as LinkIcon } from '@mui/icons-material'
+import { Check, ErrorOutlined, Link as LinkIcon } from '@mui/icons-material'
 import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from './headerBar'
 
 export type CopyState = 'idle' | 'copied' | 'failed'
@@ -57,7 +57,7 @@ export function CopyLinkButton({ url, title = 'Copy link', onCopy, copiedColor =
       }}
     >
       <HeaderChipLabel icon={state === 'copied' ? <Check aria-hidden sx={HEADER_ICON_SX} />
-        : state === 'failed' ? <ErrorOutline aria-hidden sx={HEADER_ICON_SX} />
+        : state === 'failed' ? <ErrorOutlined aria-hidden sx={HEADER_ICON_SX} />
           : <LinkIcon aria-hidden sx={HEADER_ICON_SX} />}>
         {label}
       </HeaderChipLabel>

@@ -62,7 +62,7 @@ function SavingField({ value, placeholder, type, multiline, onSave }: {
     <TextField
       value={draft} placeholder={placeholder} type={type} multiline={multiline} size="small" fullWidth
       onChange={e => setDraft(e.target.value)} onBlur={commit}
-      InputProps={{ sx: { fontSize: '0.8rem' } }}
+      slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
       sx={{ '& .MuiInputBase-input': { py: 0.5 } }}
     />
   )
@@ -84,7 +84,7 @@ function SubjectPicker({ candidates, onPick }: {
     <Box sx={{ position: 'relative' }}>
       <TextField
         value={q} onChange={e => setQ(e.target.value)} placeholder="Tag who is in it…"
-        size="small" fullWidth InputProps={{ sx: { fontSize: '0.8rem' } }}
+        size="small" fullWidth slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
         sx={{ '& .MuiInputBase-input': { py: 0.5 } }}
       />
       {matches.length > 0 && (
@@ -181,8 +181,7 @@ function ContributorForm({ initial, editing, submitLabel, onSubmit, onCancel }: 
   const field = (key: keyof ContributorDraft, placeholder: string, type?: string) => (
     <TextField value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
       placeholder={placeholder} label={type === 'date' ? placeholder : undefined} type={type} size="small" fullWidth
-      InputLabelProps={type === 'date' ? { shrink: true } : undefined}
-      InputProps={{ sx: { fontSize: '0.85rem' } }}
+      slotProps={{ inputLabel: type === 'date' ? { shrink: true } : undefined, input: { sx: { fontSize: '0.85rem' } } }}
       sx={{ '& .MuiInputBase-input': { py: 1 } }} />
   )
   return (
@@ -592,7 +591,7 @@ function TagMode({ ids, start, photos, subjectsByPhoto, lookups, onChange, onClo
   const navBtn = { color: '#fff', '&.Mui-disabled': { color: 'rgba(255,255,255,0.25)' } }
 
   return (
-    <Dialog open fullScreen onClose={onClose} PaperProps={{ sx: { bgcolor: 'background.default' } }}>
+    <Dialog open fullScreen onClose={onClose} slotProps={{ paper: { sx: { bgcolor: 'background.default' } } }}>
       {/* Top bar: close, position, and the step buttons, over the photo's dark backdrop. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, bgcolor: '#000', color: '#fff' }}>
         <IconButton onClick={onClose} aria-label="Close tag mode" sx={navBtn}><Close /></IconButton>
@@ -687,7 +686,7 @@ function FigureAdder({ onAdded }: { onAdded: () => void }) {
   return (
     <Box sx={{ display: 'flex', gap: 1, p: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
       <TextField value={name} onChange={e => setName(e.target.value)} placeholder="New figure name (mascot, manager…)"
-        size="small" InputProps={{ sx: { fontSize: '0.8rem' } }} sx={{ flex: 1, minWidth: 180 }} />
+        size="small" slotProps={{ input: { sx: { fontSize: '0.8rem' } } }} sx={{ flex: 1, minWidth: 180 }} />
       <Select value={kind} onChange={e => setKind(e.target.value as WpblPhotoFigure['kind'])} size="small"
         sx={{ fontSize: '0.8rem', minWidth: 130 }}>
         {KINDS.map(k => <MenuItem key={k} value={k} sx={{ fontSize: '0.8rem' }}>{k}</MenuItem>)}
@@ -718,9 +717,9 @@ function CategoryAdder({ count, onAdded }: { count: number; onAdded: () => void 
   return (
     <Box sx={{ display: 'flex', gap: 1, p: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
       <TextField value={name} onChange={e => setName(e.target.value)} placeholder="New category (e.g. Fan signs)"
-        size="small" InputProps={{ sx: { fontSize: '0.8rem' } }} sx={{ flex: 1, minWidth: 180 }} />
+        size="small" slotProps={{ input: { sx: { fontSize: '0.8rem' } } }} sx={{ flex: 1, minWidth: 180 }} />
       <TextField value={blurb} onChange={e => setBlurb(e.target.value)} placeholder="One-line description (optional)"
-        size="small" InputProps={{ sx: { fontSize: '0.8rem' } }} sx={{ flex: 2, minWidth: 180 }} />
+        size="small" slotProps={{ input: { sx: { fontSize: '0.8rem' } } }} sx={{ flex: 2, minWidth: 180 }} />
       <Box {...pressable(add)} sx={{
         px: 1.5, py: 0.6, borderRadius: 999, cursor: slug ? 'pointer' : 'default', userSelect: 'none',
         fontSize: '0.74rem', fontWeight: 800, border: '1px solid',

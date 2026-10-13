@@ -1,6 +1,6 @@
 import { useDark } from '../ui/useDark'
 import { NameLine, NameText } from '../ui/NameText'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { track, EVENTS } from '../lib/analytics'
@@ -1605,7 +1605,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
       {/* Standout game highlights: the marquee of this game's TrackMan moments. */}
       {highlights.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'stretch', mb: 2, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover' }}>
-          {highlights.map((h, i) => hl(h.e, h.l, h.v, h.s, i === 0, h.n))}
+          {highlights.map((h, i) => <Fragment key={h.l}>{hl(h.e, h.l, h.v, h.s, i === 0, h.n)}</Fragment>)}
         </Box>
       )}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>

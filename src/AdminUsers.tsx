@@ -646,9 +646,9 @@ export function UsersPanel({ open, onClose, onChanged }: {
       open={open} onClose={onClose}
       fullScreen={!wide}
       maxWidth={false}
-      PaperProps={{ sx: wide
+      slotProps={{ paper: { sx: wide
         ? { borderRadius: 3, width: 'min(1400px, 96vw)', height: 'min(900px, 92vh)', maxWidth: 'none' }
-        : { borderRadius: 0 } }}
+        : { borderRadius: 0 } } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.25 }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>

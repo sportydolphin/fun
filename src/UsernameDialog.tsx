@@ -132,15 +132,17 @@ export function UsernameDialog({ open, onClose, userId, currentUsername, onSaved
           value={input}
           onChange={e => handleChange(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && canSave) handleSave() }}
-          inputProps={{ spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' }}
-          InputProps={{
-            startAdornment: (
-              <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: '1rem', lineHeight: 1, userSelect: 'none' }}>@</Typography>
-            ),
+          slotProps={{
+            htmlInput: { spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' },
+            input: {
+              startAdornment: (
+                <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: '1rem', lineHeight: 1, userSelect: 'none' }}>@</Typography>
+              ),
+            },
+            formHelperText: { component: 'div' } as object,
           }}
           error={status === 'taken' || (!!fmtErr && input.length > 0)}
           helperText={helperText}
-          FormHelperTextProps={{ component: 'div' } as object}
         />
       </DialogContent>
 

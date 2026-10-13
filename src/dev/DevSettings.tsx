@@ -156,7 +156,7 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
         onClose={() => { setAnchor(null); refresh() }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 280, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+        slotProps={{ paper: { sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 280, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
       >
         <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'warning.main', mb: 1.5 }}>
           🛠 Dev settings · local only

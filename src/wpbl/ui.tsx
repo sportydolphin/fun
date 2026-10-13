@@ -374,7 +374,7 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
             // 2x player page the 128.
             sizes={`${Math.ceil(size * 1.4)}px`}
             alt={name} loading={eager || priority ? 'eager' : 'lazy'}
-            {...(priority ? { fetchpriority: 'high' } : {})}
+            fetchPriority={priority ? 'high' : undefined}
             onLoad={placeholder ? (e: React.SyntheticEvent<HTMLImageElement>) => {
               const frame = e.currentTarget.parentElement
               if (frame) frame.style.backgroundImage = 'none'

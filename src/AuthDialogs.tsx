@@ -199,11 +199,14 @@ export default function AuthDialogs({
                     value={username}
                     onChange={e => { handleUsernameChange(e.target.value); setError('') }}
                     onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                    inputProps={{ spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' }}
-                    InputProps={{
-                      startAdornment: (
-                        <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: '1rem', lineHeight: 1, userSelect: 'none' }}>@</Typography>
-                      ),
+                    slotProps={{
+                      htmlInput: { spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' },
+                      input: {
+                        startAdornment: (
+                          <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: '1rem', lineHeight: 1, userSelect: 'none' }}>@</Typography>
+                        ),
+                      },
+                      formHelperText: { component: 'div' } as object,
                     }}
                     error={usernameStat === 'taken' || !!usernameValidationMsg(username)}
                     helperText={
@@ -222,7 +225,6 @@ export default function AuthDialogs({
                         </Box>
                       ) : "Leave blank and we'll pick one for you"
                     }
-                    FormHelperTextProps={{ component: 'div' } as object}
                   />
                 )}
 
