@@ -11,7 +11,7 @@ import { BaseDiamond } from '../components/LiveGameCard'
 import { TONE } from '../constants'
 import { defaultBorder } from '../lib/colorUtils'
 import { gameLink, LINK_SX } from '../lib/links'
-import type { FinalGameSummary, FinalTeam, Probable } from './FinalGames'
+import type { FinalGameSummary, FinalTeam, Probable } from './scoresData'
 
 // The Scores page's card: one game as a scoreboard prints it, a line score with R H E, the
 // decisions, the live situation, or the probable starters and where to watch. Home's strip keeps
@@ -236,6 +236,7 @@ export function ScoreCard({ game, accent, onClick }: {
           {game.series!.label}
           {game.seriesResult ? ` · ${enDash(game.seriesResult)}` : ''}
           {game.series!.decider ? ' · Decider' : ''}
+          {game.ifNecessary && game.state === 'preview' ? ' · If necessary' : ''}
         </Typography>
       )}
 
