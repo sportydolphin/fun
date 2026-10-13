@@ -814,6 +814,10 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       : null,
     [scope, leagueLines, player.id, players, teams, games, season, seasonGames, eraBasis]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Ranked only on the regular season, and only once the league's lines are in: until then the line
+  // holds its rank row open (SeasonLine's ranksPending) instead of drawing a row short.
+  const ranksPending = scope === 'regular' && !leagueLines
+
   // The season line's qualified fields, handed to the pitch profile so every "of N" on the card
   // is the same N. See `batFieldIds` in percentiles.ts.
   const batRankPool = useMemo(() => (ranks ? new Set(ranks.batFieldIds) : null), [ranks])
@@ -1117,7 +1121,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             ranked, so a total-bases lead still reaches the card through the counting ranks.
             A stat in the headline keeps its rank there and not here, so no figure is ranked twice.
             SO carries no rank, ever: second in the league in strikeouts is not an achievement. */}
-        <SeasonLine headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
+        <SeasonLine ranksPending={ranksPending} headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
           { label: 'G', value: bt.g },
           { label: 'AB', value: bt.ab },
           { label: 'R', value: bt.r, rank: countRank(ranks?.battingCounts, 'c_r') },
@@ -1200,7 +1204,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             saying how hard the innings were, which the counting stats cannot (they say what was given
             up). Batters faced is not a column, being very nearly innings times three plus the
             baserunners already itemised; `pt.bf` is still read, by the role rule in positions.ts. */}
-        <SeasonLine headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
+        <SeasonLine ranksPending={ranksPending} headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
           { label: 'W', value: pt.w, rank: countRank(ranks?.pitchingCounts, 'c_w') },
           { label: 'L', value: pt.l },
           { label: 'ERA', value: fmtEra(pt.era) },
@@ -1722,12 +1726,20 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
               {roles.map((r, i) => desktopRoleBlock(r, i === 0, i === roles.length - 1))}
               {/* Under everything, spanning, for the reason it always did: it is the one block
                   here that is neither a season fact nor a game, and a well-covered player put
-                  346px of article cards against a rail with nothing like that much to say. */}
-              <FanPhotoPlayerStrip playerId={player.id} players={players} />
-              <PlayerClips playerId={player.id} />
-              <Box sx={{ mt: 1 }}>
-                <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
-              </Box>
+                  346px of article cards against a rail with nothing like that much to say.
+                  NOT UNTIL THE LINES ARE IN. These three fetch on their own and land first, on
+                  the bottom of the screen under a one-role skeleton, and the season blocks then
+                  pushed them down by up to 2,800px: most of a cold player page's layout shift
+                  in October 2026. Drawn after, they arrive below everything already there. */}
+              {!loading && (
+                <>
+                  <FanPhotoPlayerStrip playerId={player.id} players={players} />
+                  <PlayerClips playerId={player.id} />
+                  <Box sx={{ mt: 1 }}>
+                    <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
+                  </Box>
+                </>
+              )}
             </Box>
           ) : (
             <SwipeableViews

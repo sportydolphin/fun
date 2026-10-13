@@ -9,6 +9,7 @@ import { parsePlay } from './derive/playByPlay'
 import { canonicalFeedName } from './feedNames'
 import { wpblAccent } from './constants'
 import { WinProbChart, WinProbFrame, type Readout } from '../ui/winProbChart'
+import { WIN_PROB_INFO } from './winProbInfo'
 import type { WpblGame, WpblGamePlay, WpblRunValuePlay, WpblTeam } from './types'
 
 export type { Readout }
@@ -27,7 +28,7 @@ export type { Readout }
  * Game Center (src/ui/winProbChart.tsx); this file is the model and the words.
  */
 
-const INFO = "Each team's chance of winning from the current inning, score, outs and runners. Built from this league's own plays. It doesn't know who's pitching, who's up, or how the clubs have played all season."
+const INFO = WIN_PROB_INFO
 
 interface Props {
   game: WpblGame

@@ -7,7 +7,7 @@ import { LiveDot } from '../components/boxScore'
 import { useTextTone } from '../lib/colorUtils'
 import { hoverOnly, linkPress, FOCUS_RING } from '../../ui/interaction'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
-import { fetchBracket, seededBracket, bracketLikely, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
+import { fetchBracket, seededBracket, bracketLikely, likelySeriesInRound, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
 import type { Bracket, PsSeries, PsTeam, Round, SeriesId } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
 import { SCORES_HEADER_H, STRIP_PY } from './FinalGames'
@@ -192,6 +192,7 @@ const labelBoxSx = (compact: boolean) => compact
 
 export function BracketSkeleton({ compact }: { compact: boolean }) {
   const card = <Skeleton variant="rounded" sx={{ height: SERIES_CARD_H[compact ? 'compact' : 'full'], borderRadius: 2.5 }} />
+  const n = likelySeriesInRound()
   return (
     <Box aria-hidden>
       <Box sx={{ display: 'flex', ...headerSx(compact) }}>
@@ -204,8 +205,8 @@ export function BracketSkeleton({ compact }: { compact: boolean }) {
       <Box sx={compact ? {} : ROUNDS_ONLY}>
         {/* The round's name, which the full card carries under its header. */}
         {!compact && <Typography sx={{ fontSize: TYPE_SCALE.meta, mb: 1 }}><Skeleton width="6rem" /></Typography>}
-        <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(4, compact), gap: 1 }}>
-          {[0, 1, 2, 3].map(i => <React.Fragment key={i}>{card}</React.Fragment>)}
+        <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(n, compact), gap: 1 }}>
+          {Array.from({ length: n }, (_, i) => <React.Fragment key={i}>{card}</React.Fragment>)}
         </Box>
       </Box>
       {/* The round names need no data, so the tree's skeleton draws the real ones. */}
@@ -321,8 +322,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   }, anyLive ? 30_000 : gamesToday ? 180_000 : null)
 
   // No seed on this device yet: hold the room a bracket takes while one is likely, so its arrival
-  // does not push the page down. Four series is the tallest round; a later round with fewer gives
-  // a little back, which is a far smaller move than the whole card arriving from nothing.
+  // does not push the page down. It holds the round the calendar expects (likelySeriesInRound).
   if (!bracket && !loaded && bracketLikely()) return <BracketSkeleton compact={compact} />
   // Not before the field is set; see fieldIsSet.
   if (!bracket || !fieldIsSet(bracket)) return null

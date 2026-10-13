@@ -11,6 +11,8 @@ import { GameHighlightCards } from './Highlights'
 import { GameClips } from './Watch'
 import { linkColor, useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 import { typePx } from '../ui/scale'
+import { WinProbFrame } from '../ui/winProbChart'
+import { WIN_PROB_INFO } from './winProbInfo'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -107,6 +109,15 @@ function useFitKey(): [(node: HTMLDivElement | null) => void, number] {
 const WinProbView = lazy(() => import('./WinProbView'))
 export const preloadWinProb = () => { void import('./WinProbView') }
 
+/** The chart's empty frame while its chunk loads. "The fallback is never seen" above holds for a
+ *  reader who opens a game from a page; on a cold landing the game's lines can come out of the cache
+ *  before the chunk arrives, and a null fallback put the 400px chart in under a recap already drawn,
+ *  pushing the rest of it down the screen. */
+function WinProbFallback({ game, teams }: { game: WpblGame; teams: Map<string, WpblTeam> }) {
+  return <WinProbFrame info={WIN_PROB_INFO}
+    away={teams.get(game.away_team_id)?.abbr ?? 'AWAY'} home={teams.get(game.home_team_id)?.abbr ?? 'HOME'} />
+}
+
 /**
  * The win-probability chart's lazy boundary, shared by the two places that draw it.
  *
@@ -127,7 +138,7 @@ export function LazyWinProbCard(props: {
   plays: WpblGamePlay[]
   games: WpblGame[]
 }) {
-  return <Suspense fallback={null}><WinProbView {...props} /></Suspense>
+  return <Suspense fallback={<WinProbFallback game={props.game} teams={props.teams} />}><WinProbView {...props} /></Suspense>
 }
 
 export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], videos = [], onOpenPlayer }: {
@@ -163,7 +174,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
 
       {/* First, then: the chart is the shape of the game, and the things under it are details
           of the same game. Nothing else in the recap answers "was this close" in one look. */}
-      <Suspense fallback={null}>
+      <Suspense fallback={<WinProbFallback game={game} teams={teams} />}>
         <WinProbView game={game} teams={teams} plays={plays} games={games} />
       </Suspense>
 

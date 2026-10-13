@@ -333,16 +333,20 @@ export interface LineCol {
  * the whole row would be wrong for half of it. The group rule is what says these are two kinds
  * of column.
  */
-export function SeasonLine({ cols, lead, headline, placeholder }: {
+export function SeasonLine({ cols, lead, headline, placeholder, ranksPending }: {
   cols: LineCol[]
   lead?: LineCol[]
   /** The labels the headline strip above already shows, which a phone leaves out of the line. */
   headline?: string[]
   /** The loading state: every value is a sample, drawn as a bar of its width. See FigureBar. */
   placeholder?: boolean
+  /** The figures are in and the league ranks are not. Holds the rank row open, blank, so the line
+   *  is the height it was as a placeholder and will be once ranked, rather than a row short between
+   *  the two reads, which moved everything under it twice. Above a phone only, for now. */
+  ranksPending?: boolean
 }) {
   const phone = usePhoneLayout()
-  if (!phone) return <FullSeasonLine cols={cols} lead={lead} placeholder={placeholder} />
+  if (!phone) return <FullSeasonLine cols={cols} lead={lead} placeholder={placeholder} ranksPending={ranksPending} />
   const inHead = new Set(headline ?? [])
   // W and L are the headline's "W-L".
   const shown = cols.filter(c => !inHead.has(c.label) && !(inHead.has('W-L') && (c.label === 'W' || c.label === 'L')))
@@ -478,7 +482,7 @@ const COMPACT_CELL_SX = { px: 0.4 } as const
 /** A step under `figure`, so a pitching line fits the screen in one row. */
 const COMPACT_FIGURE_SX = { fontSize: '0.85rem' } as const
 
-function FullSeasonLine({ cols, lead, placeholder }: { cols: LineCol[]; lead?: LineCol[]; placeholder?: boolean }) {
+function FullSeasonLine({ cols, lead, placeholder, ranksPending }: { cols: LineCol[]; lead?: LineCol[]; placeholder?: boolean; ranksPending?: boolean }) {
   const { tip, ink, rankBar } = useStatCard()
   const heads = lead ?? []
   const all = [...heads, ...cols]
@@ -567,7 +571,7 @@ function FullSeasonLine({ cols, lead, placeholder }: { cols: LineCol[]; lead?: L
       if (i === heads.length - 1 && cols.length > 0) return { borderRight: '2px solid', borderRightColor: 'divider' }
       return row[j + 1] ? colRuleSx(j, n) : {}
     }
-    const anyRank = row.some(c => c?.rank != null)
+    const anyRank = ranksPending || row.some(c => c?.rank != null)
     return (
       <Box component="table" key={k} sx={{
         width: '100%', minWidth: folded ? 0 : 'max-content', borderCollapse: 'collapse',
@@ -621,7 +625,7 @@ function FullSeasonLine({ cols, lead, placeholder }: { cols: LineCol[]; lead?: L
                 // mostly punctuation reads as missing data rather than as an annotation.
                 <Box component="td" key={c.label}
                   sx={{ ...lineRankSx, ...rule(j), ...(lit(c, offset + j) ? { color: ink, fontWeight: 800 } : {}) }}>
-                  {placeholder ? ' ' : !c.rank ? '' : (
+                  {placeholder || ranksPending ? ' ' : !c.rank ? '' : (
                     <RankText onRank={c.onRank} label={c.label}>
                       {isLead(offset + j) ? `${ordinal(c.rank.rank)} of ${c.rank.of}` : ordinal(c.rank.rank)}
                     </RankText>
