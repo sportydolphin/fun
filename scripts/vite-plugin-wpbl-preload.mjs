@@ -39,6 +39,7 @@ export const MLB_VIEWS = {
   bests: 'src/mlb/views/BestsView.tsx',
   find: 'src/mlb/views/FindView.tsx',
   viz: 'src/mlb/views/VizView.tsx',
+  reportCards: 'src/mlb/views/VizView.tsx',
   search: 'src/mlb/views/SearchView.tsx',
   player: 'src/mlb/views/MlbPlayerDetail.tsx',
   game: 'src/mlb/views/LiveGameCenter.tsx',

@@ -17,9 +17,10 @@
 // that never reach the edge: a notification in the bell, an old history entry.
 
 /** Every screen the section can show. 'search' is a player or team page; the views in
- *  MLB_STATS_BOARDS are the boards of the Stats tab, and 'viz' is Standings' Charts. */
-export type MlbView = 'home' | 'scores' | 'standings' | 'stats' | 'leaderboard' | 'teamStats' | 'fielding' | 'bests' | 'find' | 'viz' | 'teams' | 'search'
-const MLB_VIEWS: readonly MlbView[] = ['home', 'scores', 'standings', 'stats', 'leaderboard', 'teamStats', 'fielding', 'bests', 'find', 'viz', 'teams', 'search']
+ *  MLB_STATS_BOARDS are the boards of the Stats tab, 'viz' is Standings' Charts, and 'reportCards'
+ *  is a page of its own under More. */
+export type MlbView = 'home' | 'scores' | 'standings' | 'stats' | 'leaderboard' | 'teamStats' | 'fielding' | 'bests' | 'find' | 'viz' | 'reportCards' | 'teams' | 'search'
+const MLB_VIEWS: readonly MlbView[] = ['home', 'scores', 'standings', 'stats', 'leaderboard', 'teamStats', 'fielding', 'bests', 'find', 'viz', 'reportCards', 'teams', 'search']
 export const isMlbView = (v: unknown): v is MlbView => typeof v === 'string' && (MLB_VIEWS as readonly string[]).includes(v)
 
 /** The Stats tab's views. ONE LIST because "is this a Stats board" was spelled out by hand all over
@@ -36,9 +37,14 @@ export const isMlbStatsBoard = (v: unknown): v is MlbStatsBoard =>
 export const MLB_STATS_TABS = ['leaderboard', 'stats', 'teamStats', 'bests', 'find'] as const
 export type MlbStatsTab = (typeof MLB_STATS_TABS)[number]
 
-/** The views whose address carries a season and the board's filters: the Stats boards, and Charts,
- *  which left the Stats row for Standings in Oct 2026 but kept its season on the address. */
-export const isMlbSeasonView = (v: unknown): v is MlbStatsBoard | 'viz' => v === 'viz' || isMlbStatsBoard(v)
+/** The two club boards drawn by VizView, which carry a season on the address and nothing else: no
+ *  side, no regular / postseason choice. */
+export const isMlbChartsView = (v: unknown): v is 'viz' | 'reportCards' => v === 'viz' || v === 'reportCards'
+
+/** The views whose address carries a season and the board's filters: the Stats boards, Charts,
+ *  which left the Stats row for Standings in Oct 2026 but kept its season on the address, and the
+ *  report cards, which left Charts for a page of their own. */
+export const isMlbSeasonView = (v: unknown): v is MlbStatsBoard | 'viz' | 'reportCards' => isMlbChartsView(v) || isMlbStatsBoard(v)
 
 export const MLB_BASE = '/mlb'
 export const MLB_TEAMS_BASE = '/mlb/teams'
@@ -62,6 +68,9 @@ export const MLB_VIEW_PATHS: Record<Exclude<MlbView, 'search'>, string> = {
   bests:       '/mlb/bests',
   find:        '/mlb/find',
   viz:         '/mlb/charts',
+  // A page under More rather than a mode of Charts, where they sat behind a switch inside a mode of
+  // Standings: most of the boards are player streaks, which are no standings question.
+  reportCards: '/mlb/report-cards',
   teams:       MLB_TEAMS_BASE,
 }
 
@@ -439,10 +448,10 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
   if (!s.playerId && !s.teamId && isMlbSeasonView(s.view)) {
     // The side. The 'fielding' view is the side already, so it says nothing more.
     if (s.fielding && (s.view === 'leaderboard' || s.view === 'teamStats')) params.set('lb', 'fielding')
-    else if (s.lb === 'pitching' && s.view !== 'fielding' && s.view !== 'viz') params.set('lb', 'pitching')
+    else if (s.lb === 'pitching' && s.view !== 'fielding' && !isMlbChartsView(s.view)) params.set('lb', 'pitching')
     if (s.view === 'stats' && s.allTime) params.set('season', 'all')
     else if (s.season != null && currentSeason != null && s.season !== currentSeason) params.set('season', String(s.season))
-    if (s.view !== 'viz' && s.games && s.games !== 'regular') params.set('games', s.games)
+    if (!isMlbChartsView(s.view) && s.games && s.games !== 'regular') params.set('games', s.games)
     // The sort, on every board that has columns. Each board leaves off its own default.
     if ((s.view === 'stats' || s.view === 'teamStats' || s.view === 'fielding') && s.sort) params.set('sort', s.sort)
     if ((s.view === 'stats' || s.view === 'teamStats' || s.view === 'fielding') && s.dir) params.set('dir', s.dir)
@@ -488,7 +497,7 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
   const n = Number(season)
   snap.allTime = v === 'stats' && season === 'all'
   snap.season = Number.isInteger(n) && n > 0 ? n : null
-  if (v !== 'viz') {
+  if (!isMlbChartsView(v)) {
     const g = q.get('games')
     snap.games = g === 'post' || g === 'all' ? g : 'regular'
   }
@@ -617,15 +626,46 @@ export function withMlbCompareSeason(path: string, season: number, current: numb
   return season === current ? path : `${path}?season=${season}`
 }
 
-/** The standalone pages, as rows in the section's More menu on a desktop and on a phone. Real
- *  addresses, so the toolbar draws them as <a href> without the section loaded, as WPBL's are. */
-export const MLB_MORE_PAGES: readonly { href: string; label: string; hint: string; event?: string; eventProps?: Record<string, unknown> }[] = [
+/** A row of the section's More menu, on a desktop and on a phone. */
+export interface MlbMoreRow {
+  key: string
+  href: string
+  label: string
+  hint: string
+  /** The heading it sits under. Rows of one group are adjacent, in the order drawn. */
+  group: string
+  /** A page of its own rather than a board opened inside another view, so the footer lists it. */
+  page?: boolean
+  event?: string
+  eventProps?: Record<string, unknown>
+}
+
+/**
+ * THE ONE LIST OF THE MLB MORE MENU, grouped, every row with an address. The boards that live inside
+ * a Home card or a Standings mode had none until Oct 2026: they were handlers, so the toolbar drew
+ * them as buttons, which a crawler cannot follow, a reader cannot open in a new tab, and a link
+ * cannot be shared to. Their address is the `?open=` deep link the push notifications already land
+ * on (state/deepLink.ts), which works cold, so the board opens however the reader arrives. Not paths
+ * of their own: each is a sheet over a tab, and a path would make it a page.
+ */
+export const MLB_MORE: readonly MlbMoreRow[] = [
+  { key: 'predictions', group: 'Play',      href: `${MLB_BASE}?open=predictor`,   label: 'Predictions',      hint: 'Pick the winners, against the bots' },
+  { key: 'survivor',    group: 'Play',      href: `${MLB_BASE}?open=survivor`,    label: 'Streak Survivor',  hint: 'One hitter a day: the leaderboard' },
+  { key: 'report-cards', group: 'Trackers', href: MLB_VIEW_PATHS.reportCards,     label: 'Report cards',     hint: 'Hot streaks, frauds, the oldest rosters and more', page: true },
+  { key: 'milestones',  group: 'Trackers',  href: `${MLB_BASE}?open=milestones`,  label: 'Milestone Watch',  hint: 'Who is closing in on a round number' },
+  { key: 'moves',       group: 'Trackers',  href: `${MLB_BASE}?open=rosterMoves`, label: 'Roster moves',     hint: 'Trades, signings, call-ups and DFAs' },
+  { key: 'bracket',     group: 'Standings', href: `${MLB_VIEW_PATHS.standings}?open=bracket`, label: 'Postseason bracket', hint: 'Every series, game by game' },
+  { key: 'odds',        group: 'Standings', href: `${MLB_VIEW_PATHS.standings}?open=odds`,    label: 'Playoff odds',       hint: 'Every club, simulated nightly' },
+  { key: 'charts',      group: 'Standings', href: MLB_VIEW_PATHS.viz,             label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs wins', page: true },
   // The event's name restated rather than imported, since this file imports nothing (EVENTS in
   // lib/analytics.ts has it as MLB_COMPARE_OPENED).
-  { href: MLB_COMPARE_BASE, label: 'Compare players', hint: 'Two players side by side, and how they did against each other',
+  { key: 'compare',     group: 'Tools',     href: MLB_COMPARE_BASE,               label: 'Compare players',  hint: 'Two players side by side, and how they did against each other', page: true,
     event: 'mlb_compare_opened', eventProps: { from: 'more' } },
-  { href: MLB_GLOSSARY_PAGE, label: 'Rules & glossary', hint: 'The rules, and what each stat means' },
+  { key: 'glossary',    group: 'Tools',     href: MLB_GLOSSARY_PAGE,              label: 'Rules & glossary', hint: 'The rules, and what each stat means', page: true },
 ]
+
+/** The More rows that are pages, for the site footer, which must link only to real pages. */
+export const MLB_MORE_PAGES: readonly MlbMoreRow[] = MLB_MORE.filter(r => r.page)
 
 /** Anything that should read as "the reader is in the MLB section": the section's own paths and
  *  the standalone pages beside it. */

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
 import { ACCENT_EDGE } from '../../ui/card'
 import {
@@ -14,24 +14,22 @@ import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboar
 import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow } from '../api'
 import { chromePx, typePx } from '../../ui/scale'
-import { PillGroup } from '../../ui/PillGroup'
 import { FilterSelect } from '../../ui/FilterChip'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 
 
-// Report card / Graphs is a SWITCH on this board, not a page of its own (both live at /mlb/charts),
-// so it is the section's PillGroup, as WPBL draws its side-of-the-ball switch. It was a second
-// underline row, which under the Stats tab's board row read as a third level of pages.
-type VizTab = 'graphs' | 'report-card'
-const VIZ_TABS: { value: VizTab; label: string }[] = [
-  { value: 'report-card', label: 'Report Card' },
-  { value: 'graphs',      label: 'Graphs' },
-]
+// TWO PAGES, ONE COMPONENT: the graphs are Standings' Charts (/mlb/charts) and the report cards a
+// page of their own under More (/mlb/report-cards). Until Oct 2026 they were the two halves of a
+// switch on Charts, which put the report cards, the boards Home links to most, three levels down.
+// They share the season chip and the clubs' summary read, which is why they are still one view.
+type VizShow = 'graphs' | 'report-card'
 
 
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export interface VizViewProps {
+  /** Which page this is. Fixed for the life of the view: each page mounts its own. */
+  show: VizShow
   /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
   boardTabs: React.ReactNode
   isDesktop: boolean
@@ -53,16 +51,18 @@ function PlotSkeleton() {
 
 export function VizView({
   boardTabs, isDesktop, vizSeason, setVizSeason, teamSummaries, loadingViz,
-  nameMap, handleVizNavigate, handleLbPlayerClick, canHover, defaultTab = 'report-card',
-}: VizViewProps & { defaultTab?: VizTab }) {
-  const [vizTab, setVizTab]           = useState<VizTab>(defaultTab)
+  nameMap, handleVizNavigate, handleLbPlayerClick, canHover, show,
+}: VizViewProps) {
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
   const [vizHoverId, setVizHoverId]   = useState<number | null>(null)
   const [vizSearch, setVizSearch]     = useState('')
   const [vizSearchOpen, setVizSearchOpen] = useState(false)
 
   // Only load SOS / payrolls for the current season (past seasons have no data)
-  const showSos = vizSeason === CURRENT_SEASON
+  const current = vizSeason === CURRENT_SEASON
+  // Each page reads only what it draws: the payrolls are the graphs', everything else the cards'.
+  const cards = show === 'report-card'
+  const showSos = cards && current
 
   // Each `loading` below starts as "will this read run", never a bare false. The effects that set
   // it can run after the first paint (they do when the view mounts out of a cold lazy chunk, as on
@@ -91,18 +91,18 @@ export function VizView({
 
   // ─── Pitches per PA: a season rate, so it loads for any season ────────────
   const [pitchPa, setPitchPa]             = useState<PitchPaLeaders | null>(null)
-  const [loadingPitchPa, setLoadingPitchPa] = useState(true)
+  const [loadingPitchPa, setLoadingPitchPa] = useState(cards)
 
   // ─── Top salaries: from player_contracts, so current season only ──────────
   const [salaries, setSalaries]             = useState<SalaryRow[]>([])
   const [loadingSalaries, setLoadingSalaries] = useState(showSos)
 
   useEffect(() => {
-    if (!showSos) { setPayrolls(TEAM_PAYROLLS_2026); return }
+    if (cards || !current) { setPayrolls(TEAM_PAYROLLS_2026); return }
     fetchTeamPayrolls(vizSeason).then(live => {
       if (Object.keys(live).length >= 28) setPayrolls(live)
     })
-  }, [vizSeason, showSos])
+  }, [vizSeason, cards, current])
 
   useEffect(() => {
     if (!showSos) { setSosData([]); setExpandedBoard(null); return }
@@ -154,6 +154,7 @@ export function VizView({
   }, [vizSeason, showSos])
 
   useEffect(() => {
+    if (!cards) return
     let cancelled = false
     setLoadingPitchPa(true)
     fetchPitchesPerPa(vizSeason)
@@ -161,7 +162,7 @@ export function VizView({
       .catch(() => { if (!cancelled) setPitchPa(null) })
       .finally(() => { if (!cancelled) setLoadingPitchPa(false) })
     return () => { cancelled = true }
-  }, [vizSeason])
+  }, [vizSeason, cards])
 
   // Salaries come from the current-season contract scrape, so gate on showSos
   // like team payrolls: a past year has no per-player salary data to show.
@@ -175,20 +176,6 @@ export function VizView({
       .finally(() => { if (!cancelled) setLoadingSalaries(false) })
     return () => { cancelled = true }
   }, [vizSeason, showSos])
-
-  // ─── Swipe to switch tabs ─────────────────────────────────────────────────
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-  }, [])
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchStartRef.current) return
-    const dx = e.changedTouches[0].clientX - touchStartRef.current.x
-    const dy = e.changedTouches[0].clientY - touchStartRef.current.y
-    touchStartRef.current = null
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
-    setVizTab(dx < 0 ? 'graphs' : 'report-card')
-  }, [])
 
   const fraudTooltip = 'How many more games a team has won than its scoring says it should. The bar weighs the standings in too, so a contender getting lucky ranks above a last-place team with the same gap. They\'re fooling more people.'
   const cursedTooltip = 'How many fewer games a team has won than its scoring says it should. The bar weighs the standings in too, so a last-place team getting robbed ranks above a contender with the same gap. A contender is still fine.'
@@ -303,7 +290,7 @@ export function VizView({
       {/* ── Top controls: season picker + team search ─────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-          <PillGroup options={VIZ_TABS} value={vizTab} onChange={v => setVizTab(v as VizTab)} />
+          {!cards && <>
           <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
             All 30 teams · click to focus · hover to inspect
           </Typography>
@@ -359,6 +346,7 @@ export function VizView({
               </Box>
             </ClickAwayListener>
           )}
+          </>}
         </Box>
 
         {/* The other two boards' season chip (src/ui/FilterChip). */}
@@ -372,91 +360,68 @@ export function VizView({
       </Box>
       </StatsBar>
 
-      {/* The swipe between Report card and Graphs is this board's own, so the section's tab
-          pager stands aside here (data-swipe-lock) rather than changing tab under it too.
-
-          DRAWN WHILE LOADING TOO: every card holds its own rows' room while its read is out
+      {/* DRAWN WHILE LOADING TOO: every card holds its own rows' room while its read is out
           (`loading` on each board), so the page is its loaded height from the first frame. It was a
           28px spinner, which left the site footer on a phone's first screen and threw it 3,300px
           down when the cards landed (the layout sweep, Oct 2026). */}
-      {(loadingViz || teamSummaries.length > 0) && (
-        <Box data-swipe-lock="true" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} sx={{ overflow: 'hidden' }}>
-          <Box sx={{
-            display: 'flex',
-            width: '200%',
-            // A transform rather than margin-left, so the slide is not layout (and never a layout
-            // shift). Percent of the 200% track, so one panel is -50%.
-            transform: vizTab === 'report-card' ? 'translateX(0%)' : 'translateX(-50%)',
-            transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
-            alignItems: 'flex-start',
-          }}>
-
-            {/* ── Graphs panel (shown second; flex order places it on the right) ─ */}
-            <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, order: 2 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 5 }, rowGap: 0 }}
-                onMouseLeave={() => setVizHoverId(null)}>
-
-                {/* ERA vs OPS */}
-                <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                    <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Pitching vs Hitting</Typography>
-                    <InfoDot label="What this shows" text="Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style, so top-right teams have both elite pitching and elite hitting." />
-                  </Box>
-                  <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>How good a team's pitching and hitting are · top-right = best of both</Typography>
-                  {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
-                </Box>
-
-                {/* Wins vs Run Margin */}
-                <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                    <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Wins vs Run Margin</Typography>
-                    <InfoDot label="What this shows" text="Each bubble is a team's actual win% plotted against their run margin (runs scored minus runs allowed). The blue dashed curve is the expected win rate. Teams above the curve are winning more than their scoring predicts. Teams below are underperforming. Hover a team to see their actual record vs expected W-L." />
-                  </Box>
-                  <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>Actual record vs expected W-L based on scoring · above the curve = outperforming</Typography>
-                  {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
-                </Box>
-
-                {/* Payroll vs Performance, current season only */}
-                {showSos && (
-                  <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Payroll vs Performance</Typography>
-                        <InfoDot label="What this shows" text="Each bubble is a team's estimated payroll plotted against their current win percentage. The purple dashed line is the league's average efficiency. Teams above the line are outperforming their payroll. The quadrants show Moneyball (low spend, winning), All-In (high spend, winning), Rebuilding (low spend, losing), and Burning $$$ (high spend, losing)." />
-                      </Box>
-                      <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
-                      {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
-                    </Box>
-                )}
-              </Box>
+      {(loadingViz || teamSummaries.length > 0) && (cards ? (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 3 }, rowGap: 3 }}>
+          {playerBoards.map(board => (
+            <Box key={board.id} sx={{ minWidth: 0 }}>
+              <PlayerLeaderboardCard
+                {...board}
+                onExpand={() => setExpandedPlayerBoard(board.id)}
+                onSelectPlayer={handleLbPlayerClick}
+              />
             </Box>
-
-            {/* ── Report Card panel (shown first; flex order places it on the left) ─ */}
-            <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, order: 1 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 3 }, rowGap: 3 }}>
-                {playerBoards.map(board => (
-                  <Box key={board.id} sx={{ minWidth: 0 }}>
-                    <PlayerLeaderboardCard
-                      {...board}
-                      onExpand={() => setExpandedPlayerBoard(board.id)}
-                      onSelectPlayer={handleLbPlayerClick}
-                    />
-                  </Box>
-                ))}
-                {boards.map(board => (
-                  <Box key={board.id} sx={{ minWidth: 0 }}>
-                    <LeaderboardCard
-                      {...board}
-                      onExpand={() => setExpandedBoard(board.id)}
-                      onSelectTeam={handleVizNavigate}
-                    />
-                  </Box>
-                ))}
+          ))}
+            {boards.map(board => (
+              <Box key={board.id} sx={{ minWidth: 0 }}>
+                <LeaderboardCard
+                  {...board}
+                  onExpand={() => setExpandedBoard(board.id)}
+                  onSelectTeam={handleVizNavigate}
+                />
               </Box>
-            </Box>
-
+            ))}
           </Box>
+      ) : (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 5 }, rowGap: 0 }}
+          onMouseLeave={() => setVizHoverId(null)}>
+
+          {/* ERA vs OPS */}
+          <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Pitching vs Hitting</Typography>
+              <InfoDot label="What this shows" text="Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style, so top-right teams have both elite pitching and elite hitting." />
+            </Box>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>How good a team's pitching and hitting are · top-right = best of both</Typography>
+            {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
+          </Box>
+
+          {/* Wins vs Run Margin */}
+          <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Wins vs Run Margin</Typography>
+              <InfoDot label="What this shows" text="Each bubble is a team's actual win% plotted against their run margin (runs scored minus runs allowed). The blue dashed curve is the expected win rate. Teams above the curve are winning more than their scoring predicts. Teams below are underperforming. Hover a team to see their actual record vs expected W-L." />
+            </Box>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>Actual record vs expected W-L based on scoring · above the curve = outperforming</Typography>
+            {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
+          </Box>
+
+          {/* Payroll vs Performance, current season only */}
+          {current && (
+            <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Payroll vs Performance</Typography>
+                  <InfoDot label="What this shows" text="Each bubble is a team's estimated payroll plotted against their current win percentage. The purple dashed line is the league's average efficiency. Teams above the line are outperforming their payroll. The quadrants show Moneyball (low spend, winning), All-In (high spend, winning), Rebuilding (low spend, losing), and Burning $$$ (high spend, losing)." />
+                </Box>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
+                {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
+              </Box>
+          )}
         </Box>
-      )}
+      ))}
 
       {!loadingViz && teamSummaries.length === 0 && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No team stats available for {vizSeason}.</Typography>

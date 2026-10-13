@@ -134,7 +134,7 @@ const DEFAULT_ROUTES = [
   '/wpbl/series/firebells-vs-queens',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
   '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/team-stats', '/mlb/fielding', '/mlb/bests', '/mlb/find', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare',
-  '/mlb/charts', '/mlb/leaders?lb=fielding', '/mlb/team-stats?lb=fielding',
+  '/mlb/charts', '/mlb/report-cards', '/mlb/leaders?lb=fielding', '/mlb/team-stats?lb=fielding',
   // One slot filled, and a pair: two hitters, the shape the pair's skeleton reserves.
   '/mlb/compare/zack-wheeler-554430', '/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594',
 ]

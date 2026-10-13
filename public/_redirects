@@ -65,6 +65,7 @@
 /mlb/bests/      /mlb/bests       301
 /mlb/find/       /mlb/find        301
 /mlb/charts/     /mlb/charts      301
+/mlb/report-cards/ /mlb/report-cards 301
 /mlb/teams/      /mlb/teams       301
 /mlb/glossary/   /mlb/glossary    301
 /mlb/compare/    /mlb/compare     301
@@ -187,6 +188,7 @@
 /mlb/bests       /  200
 /mlb/find        /  200
 /mlb/charts      /  200
+/mlb/report-cards /  200
 /mlb/teams       /  200
 # The rules & glossary page, standalone beside the tabs as WPBL's is. See MLB_GLOSSARY_PAGE.
 /mlb/glossary    /  200
