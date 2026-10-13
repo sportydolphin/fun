@@ -1,7 +1,7 @@
+import { useDark } from '../ui/useDark'
 import { useMemo } from 'react'
 import { wpblBestGames } from './derive/bests'
 import { wpblAccentFg } from './constants'
-import { useWpblDark } from './ui'
 import { BestsBoards } from '../ui/bestsBoards'
 import GameLineRow from './GameLineRow'
 import { scopedGames, type SeasonScope } from './season'
@@ -37,7 +37,7 @@ export default function WpblBestsView({
    *  other board on the tab opens a person, and this one opens the NIGHT as well. */
   onOpenGame?: (g: WpblGame) => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const accent = wpblAccentFg(isDark)
   const boards = useMemo(
     () => wpblBestGames(side, batting, pitching, players, games, scope),

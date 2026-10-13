@@ -1,7 +1,8 @@
+import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
-  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark,
+  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, hoverOnly,
   TYPE_SCALE,
 } from './ui'
 import { wpblAccent, wpblSurface, formatGameTime } from './constants'
@@ -57,7 +58,7 @@ function ClubChip({ team, seed, record, winP, wins, won, onOpenTeam }: {
   won: boolean
   onOpenTeam?: (t: WpblTeam) => void
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const figure = winP != null ? fmtOdds(winP) : wins != null ? String(wins) : null
   return (
     <Box
@@ -164,7 +165,7 @@ function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
   onOpen?: () => void
   ariaLabel?: string
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const line = ({ team, score, won }: TileSide) => {
     const decided = state === 'final'
     const color = decided && won && team ? wpblAccent(team.id, dark) : decided ? 'text.secondary' : 'text.primary'

@@ -1,3 +1,4 @@
+import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import {
@@ -13,8 +14,7 @@ import { winProbModel, wpaLeaders } from './derive/winProbability'
 import { baserunningEvents, baserunningLeaders, runnerIds, type BaserunningLine } from './derive/baserunning'
 import { PlayValueCard, StealCard } from './PlayValue'
 import { wpblAccentFg } from './constants'
-import { SectionCard, LeaderRow, ExpandRow, useWpblDark, chromePx,
-  BaseDiamond, BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
+import { SectionCard, LeaderRow, ExpandRow, chromePx, BaseDiamond, BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
 import { useExperiments } from '../ExperimentsContext'
 import CountBoard from './CountBoard'
 import TakeSwingBoard from './TakeSwingBoard'
@@ -447,7 +447,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     return () => { cancelled = true }
   }, [])
 
-  const accent = wpblAccentFg(useWpblDark())
+  const accent = wpblAccentFg(useDark())
   const experiments = useExperiments()
 
   const table = useMemo(

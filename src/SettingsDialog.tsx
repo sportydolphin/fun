@@ -1,3 +1,4 @@
+import { TeamLogo } from './mlb/components/TeamLogo'
 import React, { useEffect, useState } from 'react'
 import { Button, Typography, Box, CircularProgress, TextField, Switch, useMediaQuery, type SxProps, type Theme } from '@mui/material'
 import {
@@ -7,7 +8,6 @@ import {
 } from '@mui/icons-material'
 import { Team } from './mlb/types'
 import { TEAM_BG } from './mlb/constants'
-import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from './mlb/lib/colorUtils'
 import { fetchAllTeams } from './mlb/api'
 import { supabase } from './lib/supabase'
 import {
@@ -291,7 +291,6 @@ function WpblSection({ userId, push }: { userId: string; push: PushState }) {
 // ─── MLB ────────────────────────────────────────────────────────────────────
 
 function MlbSection({ userId, push }: { userId: string; push: PushState }) {
-  const isDark = useIsDark()
   const [teams, setTeams] = useState<Team[]>([])
   const [loadingTeams, setLoadingTeams] = useState(false)
   const [teamId, setTeamId] = useState<number | null>(null)
@@ -392,7 +391,6 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
   else if (push.perm === 'denied') pickHint = 'Blocked. Turn notifications back on for this site in your browser settings.'
 
   const selectedTeam = teams.find(t => t.id === teamId)
-  const selectedBg = teamId != null ? (TEAM_BG[teamId] ?? '#444') : undefined
   const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name))
 
   return (
@@ -408,19 +406,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
           control={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
               {selectedTeam && (
-                <Box sx={{
-                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                  bgcolor: teamLogoBg(selectedTeam.id, isDark), border: `2px solid ${selectedBg}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                }}>
-                  <Box
-                    component="img"
-                    src={teamLogoSrc(selectedTeam.id, isDark)}
-                    alt=""
-                    sx={{ width: 15, height: 15, objectFit: 'contain', transform: teamLogoCrop(selectedTeam.id, isDark), transformOrigin: 'center' }}
-                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none' }}
-                  />
-                </Box>
+                <TeamLogo teamId={selectedTeam.id} abbr={selectedTeam.abbreviation} size={22} decorative />
               )}
               <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: selectedTeam ? 'text.primary' : 'text.disabled', whiteSpace: 'nowrap' }}>
                 {selectedTeam ? selectedTeam.abbreviation : loadingTeams ? 'Loading…' : 'Not set'}
@@ -460,19 +446,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
                             '&:hover': { borderColor: bg, bgcolor: `${bg}14` },
                           }}
                         >
-                          <Box sx={{
-                            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                            bgcolor: teamLogoBg(t.id, isDark), border: `2px solid ${bg}`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                          }}>
-                            <Box
-                              component="img"
-                              src={teamLogoSrc(t.id, isDark)}
-                              alt=""
-                              sx={{ width: 20, height: 20, objectFit: 'contain', transform: teamLogoCrop(t.id, isDark), transformOrigin: 'center' }}
-                              onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none' }}
-                            />
-                          </Box>
+                          <TeamLogo teamId={t.id} abbr={t.abbreviation} size={28} decorative />
                           <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, lineHeight: 1.1, textAlign: 'center' }}>
                             {t.abbreviation}
                           </Typography>

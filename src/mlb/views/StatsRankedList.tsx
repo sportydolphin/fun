@@ -1,3 +1,4 @@
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useRef, useState } from 'react'
 import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography, Skeleton } from '@mui/material'
@@ -14,7 +15,7 @@ import type { RankedEntry, RankMark, ListGroup } from '../lib/statsBoard'
 import { pressable, hoverOnly, tappableIf, linkPress, FOCUS_RING } from '../../ui/interaction'
 import { typePx } from '../../ui/scale'
 import { ExpandRow } from '../../ui/ExpandRow'
-import { LogoBubble } from '../components/boxScore'
+
 import { PlayerHeadshot } from '../components/leaderboards'
 
 // The phone's Stats board: a ranked list that shows ONE stat, with a sheet to change which.
@@ -87,7 +88,7 @@ function ListRow({ entry, club, onOpen, rank, value, context, first, total, best
       <Box sx={{ ...RANK_SX, color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled' }}><RankText rank={rank} /></Box>
 
       {club
-        ? <LogoBubble teamId={entry.teamId} abbr={entry.teamAbbr} size={32} ring={1} />
+        ? <TeamLogo teamId={entry.teamId} abbr={entry.teamAbbr} size={32} />
         : <PlayerHeadshot variant="ring" playerId={entry.playerId} name={entry.playerName} teamId={entry.teamId} size={32} />}
 
       {/* Line heights set, not inherited: MUI's 1.5 put 6px of air in each line, and a screen holds
@@ -96,7 +97,7 @@ function ListRow({ entry, club, onOpen, rank, value, context, first, total, best
         {/* The club's logo after the name, where WPBL's list draws its badge. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
           <Typography sx={NAME_SX}>{entry.playerName}</Typography>
-          {!club && entry.teamId > 0 && <LogoBubble teamId={entry.teamId} abbr={entry.teamAbbr} size={16} ring={1} />}
+          {!club && entry.teamId > 0 && <TeamLogo teamId={entry.teamId} abbr={entry.teamAbbr} size={16} />}
         </Box>
         <Typography sx={CONTEXT_SX}>
           {context}

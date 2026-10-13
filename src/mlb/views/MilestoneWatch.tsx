@@ -1,8 +1,9 @@
+import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
 import { Box, Typography } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
-import { useIsDark, highlightColor, useTextTone } from '../lib/colorUtils'
+import { highlightColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
@@ -106,7 +107,7 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
   seasonOver?: boolean
   onPlayerClick?: (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const teamColor = highlightColor(item.teamId, isDark)
   const achieved = !!item.achievedOn
   const isRecord = item.kind === 'record'
@@ -165,7 +166,7 @@ function MilestoneRow({ item, isLive, seasonOver, onPlayerClick }: {
   seasonOver?: boolean
   onPlayerClick?: (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const teamColor = highlightColor(item.teamId, isDark)
   const achieved = !!item.achievedOn
   const isRecord = item.kind === 'record'

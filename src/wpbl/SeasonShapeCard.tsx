@@ -1,10 +1,11 @@
+import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { biggestRun, leadStory, type SeasonShape, type SeasonPreview } from './derive/seasonShape'
 import { useChartScrub } from './chartScrub'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { wpblAccent, wpblFullName } from './constants'
-import { SectionCard, chromePx, pressable, FOCUS_RING, useWpblDark, CARD_BORDER } from './ui'
+import { SectionCard, chromePx, pressable, FOCUS_RING, CARD_BORDER } from './ui'
 
 // The standings plotted against the calendar.
 //
@@ -110,7 +111,7 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
   /** Where the card is drawn, for `wpbl_page_control` ('season', 'standings'). */
   page?: string
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const last = shape.columns.length - 1
 
   // TWO THINGS MOVE THE CURSOR AND THE SCRUB ALWAYS WINS. Playback walks `playCol`; pointing at

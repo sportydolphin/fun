@@ -1,8 +1,10 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, isRealClub, CURRENT_SEASON, TONE } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { ringColor } from '../lib/colorUtils'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
 import { track, EVENTS } from '../../lib/analytics'
@@ -246,25 +248,16 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
   dimmed: boolean
   onPick: () => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const col    = ringColor(team.teamId, isDark)
   const away   = side === 'away'
   const label  = TEAM_NICKNAME[team.teamId] ?? team.name
 
   const logo = (
-    <Box sx={{
-      width: chromePx(30), height: chromePx(30), borderRadius: '50%', flexShrink: 0,
-      bgcolor: teamLogoBg(team.teamId, isDark), border: `2px solid ${col}`,
+    <TeamLogo teamId={team.teamId} abbr={team.abbr} size={30} sx={{
       boxShadow: picked ? `0 0 0 2px ${col}40` : 'none',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       transition: 'box-shadow 0.15s',
-    }}>
-      <Box component="img"
-        src={teamLogoSrc(team.teamId, isDark)}
-        alt={team.abbr}
-        sx={{ width: '72%', height: '72%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(team.teamId, isDark), transformOrigin: 'center' }}
-      />
-    </Box>
+    }} />
   )
   const name = (
     <Typography sx={{
@@ -324,7 +317,7 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
   const totalVotes = awayVotes + homeVotes
   const awayPct    = totalVotes ? Math.round(awayVotes / totalVotes * 100) : null
   const homePct    = awayPct !== null ? 100 - awayPct : null
-  const isDark     = useIsDark()
+  const isDark     = useDark()
   // Ring color in dark mode gives the bars maximum contrast; light stays on TEAM_BG.
   const awayCol    = isDark ? ringColor(game.away.teamId, true) : TEAM_BG[game.away.teamId] ?? '#888'
   const homeCol    = isDark ? ringColor(game.home.teamId, true) : TEAM_BG[game.home.teamId] ?? '#888'

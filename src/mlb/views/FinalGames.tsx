@@ -1,12 +1,14 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, ICON_SIZE, edge } from '../../ui/card'
 import { Box, Typography, Skeleton, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TONE } from '../constants'
-import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
+import { defaultBorder, useTextTone } from '../lib/colorUtils'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
-import { LogoBubble, LiveDot } from '../components/boxScore'
+import { LiveDot } from '../components/boxScore'
 import { MlbSheet } from '../components/MlbSheet'
 import { track, EVENTS } from '../../lib/analytics'
 import { scrollBehavior } from '../../lib/motion'
@@ -330,7 +332,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   const isLive      = game.state === 'live'
   const noScore     = isPreview || isPostponed   // postponed games never happened → no score row
   const statusColor = isLive ? '#ef4444' : isPostponed ? '#f59e0b' : 'text.disabled'
-  const isDark = useIsDark()
+  const isDark = useDark()
 
   // Which team to emphasize: winner (final) or current leader (live)
   const emphasize = (t: FinalTeam): boolean => {
@@ -344,7 +346,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
     const em = emphasize(t)
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <LogoBubble teamId={t.teamId} abbr={t.abbr} size={20} />
+        <TeamLogo teamId={t.teamId} abbr={t.abbr} size={20} />
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.4 }}>
           <Typography sx={{
             fontSize: TYPE_SCALE.meta, fontWeight: em ? 800 : 600, lineHeight: 1,

@@ -1,9 +1,10 @@
+import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, TEAM_NICKNAME, TONE } from '../constants'
-import { fmtGB, useIsDark, highlightColor } from '../lib/colorUtils'
+import { fmtGB, highlightColor } from '../lib/colorUtils'
 import { fetchStandings } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { PageTabs } from '../../ui/PageTabs'
@@ -94,7 +95,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
   highlightTeamId?: number | null
 }) {
   const teams = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
-  const isDark = useIsDark()
+  const isDark = useDark()
 
   let lastPlayoffIdx = -1
   for (let i = 0; i < teams.length; i++) {
@@ -232,7 +233,7 @@ function PlayoffTeamRow({ team, gbText, isLast, showSep, onTeamClick, highlightT
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const teamColor = highlightColor(team.teamId, isDark)
   const clickable = !!onTeamClick
   const isMine = highlightTeamId != null && team.teamId === highlightTeamId

@@ -1,3 +1,4 @@
+import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { edge } from '../ui/card'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
@@ -5,7 +6,7 @@ import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
-import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, FittedName, ModalShell, pressable, FOCUS_RING, useWpblDark, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly } from './ui'
+import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, FittedName, ModalShell, pressable, FOCUS_RING, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   wpblQualifiers, plateAppearances,
@@ -211,7 +212,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
   onBack: () => void
   onAllTeams?: () => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const accent = wpblAccent(current.id, isDark)
 
   const iconBtn = {
@@ -302,7 +303,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   onOpenStats?: (group: 'hitting' | 'pitching', sortKey?: string,
                  opts?: { mode?: 'players' | 'teams'; teamId?: string | null; qualified?: boolean }) => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const accent = wpblAccent(team.id, isDark)
   const playerLink = useWpblPlayerLink()
   const headingTag = useWpblHeadingTag()

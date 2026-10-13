@@ -2,12 +2,14 @@
 // its postseason series (with a way into the series itself), the feed's top performers, the plays
 // that moved the graph most, and the game's particulars. Each piece draws nothing when it has
 // nothing to say, so a spring game or a feed missing a field simply shows less.
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ChevronRight } from '@mui/icons-material'
 import { HEADSHOT, TEAM_BG, TEAM_NICKNAME } from '../constants'
-import { LogoBubble, SectionLabel } from '../components/boxScore'
-import { useIsDark, edgeTone, chartPairColors, inkOn, textTone } from '../lib/colorUtils'
+import { SectionLabel } from '../components/boxScore'
+import { edgeTone, chartPairColors, inkOn, textTone } from '../lib/colorUtils'
 import { playerLink, LINK_SX } from '../lib/links'
 import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { chromePx, typePx } from '../../ui/scale'
@@ -107,7 +109,7 @@ const KIND_LABEL: Record<string, string> = { hitter: 'At the plate', starter: 'S
 export function TopPerformers({ performers, onPlayerClick }: {
   performers: Performer[]; onPlayerClick?: (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   if (!performers.length) return null
   return (
     <Box sx={{ px: 2, py: 1.5 }}>
@@ -121,7 +123,7 @@ export function TopPerformers({ performers, onPlayerClick }: {
                 bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[p.teamId] ?? '#888888', isDark),
               }} />
               <Box sx={{ position: 'absolute', right: chromePx(-4), bottom: chromePx(-3) }}>
-                <LogoBubble teamId={p.teamId} abbr={p.abbr} size={18} ring={1} />
+                <TeamLogo teamId={p.teamId} abbr={p.abbr} size={18} />
               </Box>
             </Box>
             <Box sx={{ minWidth: 0 }}>
@@ -187,7 +189,7 @@ const ordinal = (n: number) => {
 
 /** Coloured as the chart colours each club, so a numbered dot here matches the one on the line. */
 export function BiggestSwings({ swings, away, home }: { swings: Swing[]; away: number; home: number }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const [awayCol, homeCol] = chartPairColors(away, home, isDark)
   if (!swings.length) return null
   return (

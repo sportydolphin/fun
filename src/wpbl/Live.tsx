@@ -1,3 +1,5 @@
+import { useDark } from '../ui/useDark'
+import { NameLine } from '../ui/NameText'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pressable } from '../ui/interaction'
 import { edge } from '../ui/card'
@@ -8,7 +10,7 @@ import { settleGame } from './gameOver'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import { wpblAccent, wpblFullName } from './constants'
 import { canonicalFeedName } from './feedNames'
-import { BaseDiamond, TeamBadge, useWpblDark, hoverOnly } from './ui'
+import { BaseDiamond, TeamBadge, hoverOnly } from './ui'
 import { betweenInnings, deriveSituation } from './derive/liveSituation'
 import type { Situation, LineScores } from './derive/liveSituation'
 import type { WpblTeam, WpblGame, WpblLiveState, WpblPlayer } from './types'
@@ -28,11 +30,6 @@ export type { Situation, LineScores }
 /** The section's live red. Home's scoreboard chip and the LIVE hero already use it; exported so
  *  Game Center's header can say the same thing in the same colour. */
 export const LIVE_RED = '#ef4444'
-
-export const shortName = (name: string): string => {
-  const parts = name.trim().split(/\s+/)
-  return parts.length < 2 ? name : `${parts[0][0]}. ${parts.slice(1).join(' ')}`
-}
 
 // Poll + realtime-subscribe one game's row while it is live, so score + situation stay
 // fresh. Seeded by the passed-in game; returns the freshest copy.
@@ -171,7 +168,7 @@ export function LiveBanner({ state, away, home, lines, players, sourceUpdatedAt 
    *  way. See feedNames.ts. */
   players: WpblPlayer[]
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const s = deriveSituation(state, away, home, lines)
   return (
     <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -183,8 +180,8 @@ export function LiveBanner({ state, away, home, lines, players, sourceUpdatedAt 
           certainly wrong. */}
       {!s.between && (
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          {s.batterName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(canonicalFeedName(s.batterName, players))}</Box></Typography>}
-          {s.pitcherName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(canonicalFeedName(s.pitcherName, players))}</Box></Typography>}
+          {s.batterName && <NameLine names={[canonicalFeedName(s.batterName, players)]} sx={{ fontSize: '0.76rem', lineHeight: 1.3 }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{n(canonicalFeedName(s.batterName, players))}</Box></>} />}
+          {s.pitcherName && <NameLine names={[canonicalFeedName(s.pitcherName, players)]} sx={{ fontSize: '0.76rem', lineHeight: 1.3 }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{n(canonicalFeedName(s.pitcherName, players))}</Box></>} />}
         </Box>
       )}
       {/* Last, and pushed to the end of the row: it is a caveat on everything to its left, and
@@ -201,7 +198,7 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
   players: WpblPlayer[]
   onOpen: () => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const game = useLiveGame(seed)
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const away = byId.get(game.away_team_id)
@@ -249,8 +246,8 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
             {/* Dropped for the length of the break, for the reason given in LiveBanner. */}
             {!s.between && (
               <Box sx={{ textAlign: { sm: 'right' } }}>
-                {s.batterName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(canonicalFeedName(s.batterName, players))}</Box></Typography>}
-                {s.pitcherName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(canonicalFeedName(s.pitcherName, players))}</Box></Typography>}
+                {s.batterName && <NameLine names={[canonicalFeedName(s.batterName, players)]} sx={{ fontSize: '0.74rem' }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{n(canonicalFeedName(s.batterName, players))}</Box></>} />}
+                {s.pitcherName && <NameLine names={[canonicalFeedName(s.pitcherName, players)]} sx={{ fontSize: '0.74rem' }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{n(canonicalFeedName(s.pitcherName, players))}</Box></>} />}
               </Box>
             )}
           </Box>

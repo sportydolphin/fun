@@ -1,3 +1,4 @@
+import { useDark } from '../ui/useDark'
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery, SwipeableDrawer } from '@mui/material'
 import { useTheme as useMuiTheme } from '@mui/material/styles'
@@ -10,7 +11,7 @@ import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFi
 import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SectionLabel, TYPE_SCALE, TeamBadge, useWpblDark, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
+import { SectionLabel, TYPE_SCALE, TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
 import { panelShiftSx, useSidePanelOpen, usePhoneLayout } from '../ui/ModalShell'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { PHONE_COLUMN_W } from '../ui/layoutWidths'
@@ -352,7 +353,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
   active?: boolean // accepted (call site passes it) but unused now that ordering replaced auto-scroll
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const gameLink = useWpblGameLink()
   const { notes: gameNotes, players: notePlayers, settled: notesSettled } = useGameNotes(games, teams)
   // A GRID ABOVE A PHONE. A four-club league plays at most two games a day, so a grid inside each

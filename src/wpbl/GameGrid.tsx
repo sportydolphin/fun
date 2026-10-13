@@ -296,11 +296,10 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
  * A player's name fitted to the pinned column by MEASUREMENT, degrading
  * "Suzuka Yamamoto" → "S. Yamamoto" rather than letting CSS cut it to "Suzuka Yam…".
  *
- * Why the grid does this instead of the caller: `useWpblName()` budgets a CHARACTER count (20
- * on desktop). "Suzuka Yamamoto" is 15 characters, so it passes the budget untouched and then
- * overflows a column that is a fixed number of PIXELS wide: the exact trap ui.tsx warns about
- * where wpblShortName is defined. Characters don't predict pixels, and only the grid knows the
- * pixels, so the fitting belongs here.
+ * Why the grid does this instead of the caller: a CHARACTER budget (the old `useWpblName`, 20 on
+ * desktop) let "Suzuka Yamamoto", 15 characters, through untouched, and it then overflowed a
+ * column that is a fixed number of PIXELS wide. Characters don't predict pixels, and only the grid
+ * knows the pixels, so the fitting belongs here.
  *
  * Walks wpblNameStages (full → "F. Last Names" → "F. Surname"), stepping down one stage per
  * pass while the text overflows. Converges in at most two passes. Ellipsis stays as the final

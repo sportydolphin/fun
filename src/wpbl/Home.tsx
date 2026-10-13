@@ -1,3 +1,4 @@
+import { useDark } from '../ui/useDark'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { edge, ACCENT_EDGE } from '../ui/card'
 import { Box, Typography, Skeleton, Switch, alpha } from '@mui/material'
@@ -18,7 +19,7 @@ import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { useWpblHeadingTag, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
-import { SectionCard, TeamBadge, PlayerPortrait, useWpblDark, chromePx, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand, CARD_LINK_SX } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, chromePx, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, TAB_TITLE_SX, ICON_SIZE, CLUB_BAND, cardFooterBand, CARD_LINK_SX } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import PlayoffBracket from './PlayoffBracket'
@@ -129,7 +130,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
     : live ? 'Live'
     : timeText ? `${dateText} · ${timeText}` : dateText
 
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
       {/* Winner caret, only on finals, where a fixed-width slot keeps both rows' badges aligned.
@@ -200,7 +201,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
   row: PostseasonScheduleRow
   onOpenMatchup?: (m: MatchupPreviewArg) => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   // "Semi G1 · Sep 9". The round is abbreviated because the eyebrow may not wrap and the chip is
   // 8.5rem: the longest string this builds is "Champ G1 · Sep 16", one character shorter than
   // the "Final · Yesterday" the box was sized for. NOT "Final" for the championship, which is
@@ -559,7 +560,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
 
 function Countdown({ target }: { target: number }) {
   const [now, setNow] = useState(() => Date.now())
-  const isDark = useWpblDark()
+  const isDark = useDark()
   // Once every 15s, not once a second. The label is minute-granular (`countdownLabel`), so a
   // per-second timer would re-render the card 59 times in 60 to paint the same string, on a page a
   // phone leaves open. 15s keeps the worst lag behind a minute boundary short enough that nobody
@@ -642,7 +643,7 @@ function GameReminderRow({ game, away, home, startMs }: {
   game: WpblGame; away?: WpblTeam; home?: WpblTeam; startMs: number | null
 }) {
   const { user, openAuthDialog } = useAuth()
-  const isDark     = useWpblDark()
+  const isDark     = useDark()
   const supported  = pushSupported()
   const configured = pushConfigured()
 
@@ -918,7 +919,7 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
   devChampion?: WpblTeam | null
 }) {
   const gameLink = useWpblGameLink()
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const next = useMemo(() => {
     const now = Date.now()
     const upcoming = games
@@ -1233,7 +1234,7 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
    *  whatever the real bracket gives, which is the pre-champion state while the final is on. */
   devChampion?: WpblTeam | null
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const teamList = useMemo(() => [...teams.values()], [teams])
   const standings = useMemo(() => computeStandings(teamList, games), [teamList, games])
   const bracket = useMemo(() => buildBracket(standings, games), [standings, games])
@@ -1330,7 +1331,7 @@ function ChampionshipInProgressBody({ series, teams, log, recap, onOpenGame }: {
   series: BracketSeries; teams: Map<string, WpblTeam>; log: WpblGame[]
   recap: RecapLinkProps; onOpenGame: (g: WpblGame) => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const home = series.home.team, away = series.away.team
   if (!home || !away) return null
   const stake = finalTitleStake(series)
@@ -1437,7 +1438,7 @@ function RecapButton({ recap, children }: { recap?: RecapLinkProps; children: Re
 function SeriesGameLog({ log, teams, onOpenGame }: {
   log: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const gameLink = useWpblGameLink()
   if (log.length === 0) return null
   return (
@@ -1590,7 +1591,7 @@ function nextPostseasonRow(rows: PostseasonScheduleRow[]): { r: PostseasonSchedu
 export function NextPostseasonCard({ rows, teams, games }: {
   rows: PostseasonScheduleRow[]; teams: Map<string, WpblTeam>; games: WpblGame[]
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
 
   const next = useMemo(() => nextPostseasonRow(rows), [rows])
 
@@ -1710,8 +1711,8 @@ export function NextPostseasonCard({ rows, teams, games }: {
 
 // Character budget for the featured rows: every stat-leader rank. These get a name to
 // themselves, with the team conveyed by the badge/portrait rather than by text, so they show
-// names in FULL; the shared useWpblName() cap (12 on a phone) is tuned for dense tables and
-// would abbreviate here for no reason.
+// names in FULL; the old shared character cap (12 on a phone) was tuned for dense tables and
+// abbreviated here for no reason.
 //
 // THIS USED TO BE A CHARACTER BUDGET AND THE BUDGET WAS RIGHT WHEN IT WAS WRITTEN. It carried
 // the measurement it was derived from: the hero box is 220px on mobile and 210px on desktop,
@@ -2428,7 +2429,7 @@ function ChampionBanner({ champion, season, runnerUp, champWins, rivalWins, dev,
   dev?: boolean
   onOpenTeam?: (t: WpblTeam) => void
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const accent = wpblAccent(champion.id, dark)
   const open = onOpenTeam
     ? () => { track(EVENTS.WPBL_BRACKET_TEAM, { teamId: champion.id, from: 'champion-banner' }); onOpenTeam(champion) }

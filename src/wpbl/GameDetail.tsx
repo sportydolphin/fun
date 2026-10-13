@@ -1,3 +1,5 @@
+import { useDark } from '../ui/useDark'
+import { NameLine, NameText } from '../ui/NameText'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
 import { supabase } from '../lib/supabase'
@@ -23,7 +25,7 @@ import { WpblVisuallyHiddenH1, VISUALLY_HIDDEN } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { BoxTable, BoxTeamHeading, BoxTeamSwitch, BOX_POS_SX } from '../ui/gameCenter'
 import { OutDots } from '../ui/BaseDiamond'
-import { ModalShell, usePhoneLayout, CARD_BORDER, SegNav, TapTip, TeamBadge, BaseDiamond, CopyLinkButton, pressable, hoverOnly, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
+import { ModalShell, usePhoneLayout, CARD_BORDER, SegNav, TapTip, TeamBadge, BaseDiamond, CopyLinkButton, pressable, hoverOnly, FOCUS_RING, wpblFeatureName, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay, endsInCalledThirdStrike, stateAfter, pitchingChanges } from './derive/playByPlay'
 import type { WpblRunValuePlay } from './types'
@@ -292,7 +294,7 @@ function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer }: {
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const [open, setOpen] = useState(false)
-  const dark = useWpblDark()
+  const dark = useDark()
   if (!revisions.length) return null
 
   const clubs = { away: away ? wpblFullName(away) : null, home: home ? wpblFullName(home) : null }
@@ -383,7 +385,7 @@ function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
   onOpenTeam?: (t: WpblTeam) => void
 }) {
   const isMobile = usePhoneLayout()
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const decided = awayWon || homeWon
   // playedInnings drops the feed's phantom trailing inning (see innings.ts); the 7-column
   // floor is only about how wide the grid draws for a short or in-progress game.
@@ -497,7 +499,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   names: Map<string, WpblPlayer>
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const isMobile = usePhoneLayout()
   const color = wpblAccent(team.id, isDark)
   const playerLink = useWpblPlayerLink()
@@ -654,7 +656,6 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   swing?: { sequence: number; label: string } | null
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
-  const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
   // The league's Short of a play, where a clip has been pinned to it (wpbl_video_tags, matched on
   // (game, sequence) because a play's uuid does not survive the next ingest pass). Keyed by
@@ -689,8 +690,8 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
     const feed = [...canon.keys()].sort((a, b) => b.length - a.length)
     if (!feed.length) return (t: string) => t
     const re = new RegExp(feed.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
-    return (t: string) => t.replace(re, m => shortName(canon.get(m) ?? m))
-  }, [canon, shortName])
+    return (t: string) => t.replace(re, m => canon.get(m) ?? m)
+  }, [canon])
   // Group consecutive plays into half-innings, in order.
   //
   // The half-inning's run count comes from the line score rather than from summing the plays,
@@ -1177,7 +1178,7 @@ function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                                   ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
                                   '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                                 } : {}),
-                              }}>{shortName(batter?.name ?? canon.get(parsed.who) ?? parsed.who)}</Box>
+                              }}>{batter?.name ?? canon.get(parsed.who) ?? parsed.who}</Box>
                             )
                           })()}
                           {parsed.who && ' '}
@@ -1489,7 +1490,6 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
   const avg = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null)
   const { units } = useUnits()
   const unit = speedUnit(units)
-  const shortName = useWpblName()
 
   // Per-pitch log: every tracked pitch that carries a velocity (including the one put in
   // play), newest first. Ordered by the feed's sequence, falling back to occurred_at.
@@ -1582,26 +1582,30 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
     <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', mb: 1 }}>{t}</Typography>
   )
   // Standout game-highlights tile for the summary strip: bigger value + who did it.
-  const hl = (emoji: string, label: string, value: string, sub: string, first: boolean) => (
+  const hl = (emoji: string, label: string, value: string, sub: string, first: boolean, nameIn?: 'v' | 's') => (
     <Box sx={{ flex: 1, minWidth: 0, textAlign: 'center', px: 0.75, ...(first ? {} : { borderLeft: '1px solid', borderColor: 'divider' }) }}>
       {/* 700 under 9px: see the weight ceiling under TYPE_SCALE in ui.tsx. */}
       <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
-      <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>
-      <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>
+      {nameIn === 'v'
+        ? <NameText name={value} sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25 }} />
+        : <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>}
+      {nameIn === 's'
+        ? <NameText name={sub} sx={{ fontSize: '0.62rem', color: 'text.secondary' }} />
+        : <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
     </Box>
   )
   const highlights = [
-    hardestPitch && { e: '⚡', l: 'Hardest pitch', v: `${fmtSpeed(hardestPitch.release_speed, units)} ${unit}`, s: shortName(labelFor(hardestPitch)) },
-    hardestHit   && { e: '💥', l: 'Hardest hit',   v: `${fmtSpeed(hardestHit.exit, units)} ${unit}`,          s: hardestHit.batter ? shortName(hardestHit.batter) : '—' },
-    firstHit     && { e: '🥇', l: 'First hit',      v: firstHit.batter ? shortName(firstHit.batter) : '—',     s: `${firstHit.half === 'top' ? 'Top' : 'Bot'} ${firstHit.inning}` },
-  ].filter(Boolean) as { e: string; l: string; v: string; s: string }[]
+    hardestPitch && { e: '⚡', l: 'Hardest pitch', v: `${fmtSpeed(hardestPitch.release_speed, units)} ${unit}`, s: labelFor(hardestPitch), n: 's' as const },
+    hardestHit   && { e: '💥', l: 'Hardest hit',   v: `${fmtSpeed(hardestHit.exit, units)} ${unit}`,          s: hardestHit.batter ?? '—', n: hardestHit.batter ? 's' as const : undefined },
+    firstHit     && { e: '🥇', l: 'First hit',      v: firstHit.batter ?? '—',     s: `${firstHit.half === 'top' ? 'Top' : 'Bot'} ${firstHit.inning}`, n: firstHit.batter ? 'v' as const : undefined },
+  ].filter(Boolean) as { e: string; l: string; v: string; s: string; n?: 'v' | 's' }[]
 
   return (
     <Box sx={{ p: 2 }}>
       {/* Standout game highlights: the marquee of this game's TrackMan moments. */}
       {highlights.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'stretch', mb: 2, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover' }}>
-          {highlights.map((h, i) => hl(h.e, h.l, h.v, h.s, i === 0))}
+          {highlights.map((h, i) => hl(h.e, h.l, h.v, h.s, i === 0, h.n))}
         </Box>
       )}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
@@ -1647,13 +1651,13 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
                 {/* Batter faced (+ pitcher beneath) */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   {p.batter && (
-                    <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{shortName(p.batter)}
+                    <NameLine names={[p.batter]} sx={{ fontSize: '0.78rem', fontWeight: 600 }} render={n => <>
+                      <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{n(p.batter!)}
                       {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4) }}>in play</Box>}
-                    </Typography>
+                    </>} />
                   )}
                   {p.pitcher && (
-                    <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(p.pitcher)}</Typography>
+                    <NameText name={p.pitcher} sx={{ fontSize: '0.64rem', color: 'text.disabled' }} />
                   )}
                 </Box>
                 {/* Spin */}
@@ -1687,7 +1691,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
                   <Box component="tr" key={`${r.teamAbbr}-${r.name}`} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                     <Box component="td" sx={{ ...nameCellSx, overflow: 'hidden' }}>
                       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
-                        <Typography component="span" sx={{ fontSize: '0.86rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortName(r.name)}</Typography>
+                        <NameText name={r.name} component="span" sx={{ fontSize: '0.86rem', fontWeight: 600 }} />
                         <Typography component="span" sx={{ ...posSx, textTransform: 'uppercase' }}>{r.teamAbbr}</Typography>
                       </Box>
                     </Box>
@@ -1715,7 +1719,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false, names
           <Box key={p.activity_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.55, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider', fontSize: '0.82rem' }}>
             <Box sx={{ width: '1.125rem', color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0 }}>{i + 1}</Box>
             <Box sx={{ width: '3.25rem', fontWeight: 800, flexShrink: 0 }}>{fmtSpeed(p.release_speed, units)}</Box>
-            <Box sx={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortName(labelFor(p))}</Box>
+            <NameText name={labelFor(p)} sx={{ flex: 1, minWidth: 0, fontSize: 'inherit', fontWeight: 600 }} />
             <Box sx={{ color: 'text.secondary', fontSize: '0.75rem', flexShrink: 0 }}>{p.spin_rate_rpm != null ? `${Math.round(p.spin_rate_rpm)} rpm` : ''}</Box>
           </Box>
         ))}
@@ -1992,7 +1996,7 @@ function GameCenterPage({
  * were tapping a moment ago rather than meet a new thing.
  */
 function TeamHeading({ team }: { team: WpblTeam }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   return <BoxTeamHeading badge={<TeamBadge team={team} size={24} />} name={wpblFullName(team)} color={wpblAccent(team.id, isDark)} />
 }
 
@@ -2002,7 +2006,7 @@ function TeamSwitch({ away, home, value, onChange }: {
   away: WpblTeam; home: WpblTeam
   value: 'away' | 'home'; onChange: (v: 'away' | 'home') => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const isMobile = usePhoneLayout()
   const side = (team: WpblTeam) => ({
     badge: <TeamBadge team={team} size={isMobile ? 22 : 24} />,

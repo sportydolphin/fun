@@ -1,14 +1,17 @@
+import { useDark } from '../../ui/useDark'
+import { NameText } from '../../ui/NameText'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { ChevronRight } from '@mui/icons-material'
 import { HEADSHOT, TEAM_BG, TEAM_NICKNAME, TONE, isRealClub } from '../constants'
-import { LogoBubble, LiveDot, SectionLabel } from '../components/boxScore'
+import { LiveDot, SectionLabel } from '../components/boxScore'
 import { ModalShell } from '../../ui/ModalShell'
 import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { useSheetHistory } from '../state/sheetHistory'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, playerLink, gameLink, LINK_SX } from '../lib/links'
-import { useIsDark, edgeTone } from '../lib/colorUtils'
+import { edgeTone } from '../lib/colorUtils'
 import { winsNeeded, seriesName, liveGameScore } from '../postseason'
 import type { Bracket, PsSeries, PsGame, PsTeam } from '../postseason'
 import {
@@ -16,7 +19,6 @@ import {
   nextRound,
 } from '../seriesDetail'
 import type { SeriesGameDetail, SeriesLeaders, Meeting, ClubRecord, PitcherLine, HitterTotals, PitcherTotals } from '../seriesDetail'
-import { shortName } from './scheduleData'
 import type { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal, TeamComparison } from './GamePreview'
 import { MlbHiddenH1 } from '../components/PageHeading'
@@ -103,7 +105,7 @@ function Club({ t, wins, need, won, lost, record, align, toTeam }: {
       flexDirection: { xs: 'column', sm: align === 'left' ? 'row' : 'row-reverse' }, textAlign: { xs: 'center', sm: align },
     }}>
       {t.real
-        ? <LogoBubble teamId={t.id} abbr={t.abbr} size={48} ring={2} />
+        ? <TeamLogo teamId={t.id} abbr={t.abbr} size={48} />
         : <Box sx={{ width: chromePx(48), height: chromePx(48), borderRadius: '50%', border: '1.5px dashed', borderColor: 'outline', flexShrink: 0 }} />}
       <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
         <Typography {...(t.real ? teamLink(t.id, toTeam) : {})} sx={{
@@ -191,7 +193,7 @@ function GameSide({ team, score, won, dim, starter }: {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
       {isRealClub(team.id)
-        ? <LogoBubble teamId={team.id} abbr={team.abbr} size={20} ring={1} />
+        ? <TeamLogo teamId={team.id} abbr={team.abbr} size={20} />
         : <Box sx={{ width: chromePx(20), height: chromePx(20), borderRadius: '50%', border: '1px dashed', borderColor: 'outline', flexShrink: 0 }} />}
       <Typography sx={{ width: '2.4rem', flexShrink: 0, fontSize: BODY, fontWeight: won ? 900 : 700, color: dim ? 'text.secondary' : 'text.primary' }}>
         {team.abbr}
@@ -264,7 +266,7 @@ function Starter({ p, line, teamId, teamAbbr, align, toPlayer }: {
   p: { id: number; name: string } | null; line: PitcherLine | undefined; teamId: number; teamAbbr: string; align: 'left' | 'right'
   toPlayer?: (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const sub = !p ? 'Not announced'
     : line ? [line.hand ? `${line.hand}HP` : null, `${line.wins}-${line.losses}`, line.era ? `${line.era} ERA` : null].filter(Boolean).join(' · ')
     : ' '
@@ -278,13 +280,12 @@ function Starter({ p, line, teamId, teamAbbr, align, toPlayer }: {
       </Box>
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ fontSize: CAPS, fontWeight: 800, color: 'text.disabled', letterSpacing: typePx(0.6), lineHeight: 1.2 }}>{teamAbbr}</Typography>
-        <Typography {...(p ? playerLink(p.id, p.name, toPlayer) : {})} sx={{
-          ...LINK_SX, display: 'block', fontSize: BODY, fontWeight: 800, lineHeight: 1.2,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          ...(p && toPlayer ? { cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING } : {}),
-        }}>
-          {p ? shortName(p.name) : 'TBD'}
-        </Typography>
+        {p
+          ? <NameText name={p.name} linkProps={playerLink(p.id, p.name, toPlayer)} sx={{
+              ...LINK_SX, display: 'block', fontSize: BODY, fontWeight: 800, lineHeight: 1.2,
+              ...(toPlayer ? { cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING } : {}),
+            }} />
+          : <Typography sx={{ display: 'block', fontSize: BODY, fontWeight: 800, lineHeight: 1.2 }}>TBD</Typography>}
         <Typography sx={{ fontSize: META, color: 'text.secondary', whiteSpace: 'nowrap' }}>{sub}</Typography>
       </Box>
     </Box>
@@ -349,7 +350,7 @@ function pitcherLine(t: PitcherTotals): string {
 function LeaderRow({ id, name, teamId, abbr, line, toPlayer }: {
   id: number; name: string; teamId: number; abbr: string; line: string; toPlayer?: (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6 }}>
       <Box sx={{ position: 'relative', flexShrink: 0 }}>
@@ -358,7 +359,7 @@ function LeaderRow({ id, name, teamId, abbr, line, toPlayer }: {
           bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[teamId] ?? '#888888', isDark),
         }} />
         <Box sx={{ position: 'absolute', right: chromePx(-4), bottom: chromePx(-3) }}>
-          <LogoBubble teamId={teamId} abbr={abbr} size={16} ring={1} />
+          <TeamLogo teamId={teamId} abbr={abbr} size={16} />
         </Box>
       </Box>
       <Box sx={{ minWidth: 0 }}>

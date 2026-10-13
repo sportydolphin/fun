@@ -1,3 +1,4 @@
+import { termFull, termPlain, type GlossaryEntry, type GlossaryRule, type GlossaryTerms } from '../league/glossary'
 import { ERA_BASIS_CANONICAL, QUALIFY_PA_PER_GAME, QUALIFY_FLOOR_PA, type EraBasis } from './stats'
 
 /**
@@ -16,15 +17,10 @@ import { ERA_BASIS_CANONICAL, QUALIFY_PA_PER_GAME, QUALIFY_FLOOR_PA, type EraBas
  * than the code: what the number is FOR, and what a good one looks like. A stranger cannot
  * read 1.768 without the second part, and the traffic says the section is mostly strangers.
  */
-export interface GlossaryTerm {
-  /** The expansion. Always present; this is what a tooltip shows first. */
-  full: string
-  /** One or two sentences of plain English, for a reader who does not follow baseball.
-   *  Optional because plenty of these expand to their own explanation: "Runs", "Hits". */
-  plain?: string
-}
+/** The shape is shared with MLB's glossary (src/league/glossary.ts); the words are this league's. */
+export type GlossaryTerm = GlossaryEntry
 
-export const STAT_TERMS: Record<string, GlossaryTerm> = {
+export const STAT_TERMS: GlossaryTerms = {
   AVG: { full: 'Batting average', plain: 'Hits divided by at-bats. .300 is a very good season.' },
   OBP: { full: 'On-base percentage', plain: 'How often a batter reaches base at all, walks included. Higher is better.' },
   SLG: { full: 'Slugging percentage', plain: 'Total bases per at-bat, so it rewards extra-base hits instead of counting every hit alike.' },
@@ -64,7 +60,7 @@ export const STAT_TERMS: Record<string, GlossaryTerm> = {
   GDP: { full: 'Grounded into a double play' },
   SF: { full: 'Sacrifice flies' },
   SH: { full: 'Sacrifice bunts' },
-  PA: { full: 'Plate appearances', plain: 'Every trip to the plate, walks included — which is why it, and not at-bats, is the bar for a rate title.' },
+  PA: { full: 'Plate appearances', plain: 'Every trip to the plate, walks included. That is why it, and not at-bats, is the bar for a rate title.' },
   BF: { full: 'Batters faced' },
   GS: { full: 'Games started' },
   WP: { full: 'Wild pitches' },
@@ -100,12 +96,7 @@ export const STAT_TERMS: Record<string, GlossaryTerm> = {
  */
 export type RuleSource = 'league' | 'site' | 'observed'
 
-export interface WpblRule {
-  /** Slug, and stable: it is what a link to this rule points at. */
-  id: string
-  /** Phrased as a reader would ask it, not as a rulebook would head it. */
-  question: string
-  answer: string
+export interface WpblRule extends GlossaryRule {
   source: RuleSource
   /** Shown under the answer whenever the source is not the league. */
   note?: string
@@ -135,7 +126,7 @@ export const WPBL_RULES: WpblRule[] = [
     answer: `ERA and strikeout rates are per ${ERA_BASIS_CANONICAL} innings, matching what the league publishes, `
       + 'because seven innings is a full game here. Other leagues that play 9 inning games use nine.',
     source: 'league',
-    note: 'Settings can show them per 9 instead. Nothing is recomputed — it is one performance on two scales, '
+    note: 'Settings can show them per 9 instead. Nothing is recomputed: it is one performance on two scales, '
       + 'so no ranking moves either way.',
   },
   {
@@ -165,7 +156,7 @@ export const ruleById = (id: string): WpblRule | undefined => WPBL_RULES.find(r 
  * reader who has opened this tooltip is already asking what the column is.
  */
 export const statFull = (k: string, basis: EraBasis): string =>
-  k === 'ERA' ? `Earned run average, per ${basis}` : STAT_TERMS[k]?.full ?? k
+  k === 'ERA' ? `Earned run average, per ${basis}` : termFull(STAT_TERMS, k) ?? k
 
 /** The plain-English half, or null where the expansion already says it all. */
-export const statPlain = (k: string): string | null => STAT_TERMS[k]?.plain ?? null
+export const statPlain = (k: string): string | null => termPlain(STAT_TERMS, k)

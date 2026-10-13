@@ -144,7 +144,7 @@ describe('LiveBanner during the break', () => {
     render(<LiveBanner state={LIVE} away={AWAY} home={HOME} lines={LINES} players={[]} />)
     expect(screen.getByText('2 outs')).toBeTruthy()
     expect(screen.getByText('3–1')).toBeTruthy()
-    expect(screen.getByText('N. Yonetani')).toBeTruthy()
+    expect(screen.getByText('Natsuki Yonetani')).toBeTruthy()
     expect(screen.queryByText(/Middle of|End of/)).toBeNull()
   })
 })

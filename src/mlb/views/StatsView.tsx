@@ -1,3 +1,4 @@
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { LbFullscreenState, LeaderboardEntry } from '../types'
@@ -23,7 +24,7 @@ import { HEAD_LABEL_SX, HEAD_LEAGUE_SX, HEAD_LEAGUE_TINT } from '../../ui/statsT
 import { fetchSeasonSabermetrics, fetchParkFactors } from '../apiSeasonStats'
 import { withAdvanced, advancedLeague, HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS, ADVANCED_ORDER, SABERMETRIC_KEYS, PARK_ADJUSTED_KEYS } from '../lib/advanced'
 import type { Sabermetric, StatsView as TableView } from '../lib/advanced'
-import { LogoBubble } from '../components/boxScore'
+
 import { StatsRankedList, StatsSortFilterSheet, SortBody, FilterBody, SortFilterPill, readFullTable, writeFullTable } from './StatsRankedList'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
 import { TABLE_FRAME_SX, TABLE_MAX_H, NAME_W, NAME_INNER_MAX, ROW_TINT_VAR, ROW_TINT, TABLE_FOOT_SX, FOOT_TEXT_SX, RankMarkText, frozenSx, FROZEN_EDGE } from './statsTable'
@@ -617,7 +618,7 @@ export function StatsView({
                           {/* The club's mark where the headshot was, as WPBL's table draws it: a
                               face per row made every row 56px against WPBL's 42, and the player
                               card behind the tap already has the face. */}
-                          {e.teamId > 0 && <LogoBubble teamId={e.teamId} abbr={e.teamAbbr} size={20} ring={1} />}
+                          {e.teamId > 0 && <TeamLogo teamId={e.teamId} abbr={e.teamAbbr} size={20} />}
                           <Box sx={{ minWidth: 0, maxWidth: phoneTable ? NAME_INNER_MAX : undefined }}>
                             <NameText name={isDesktop ? e.playerName : abbrevName(e.playerName)}
                               linkProps={playerLink(e.playerId, e.playerName, handleLbPlayerClick)}

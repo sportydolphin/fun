@@ -1,10 +1,12 @@
-import React, { useState } from 'react'
+import { useDark } from '../../ui/useDark'
+import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { InfoDot } from '../../ui/InfoDot'
 import { SectionCard, CardLink, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
 import { ACCENT, TEAM_BG, TEAM_SECONDARY, HEADSHOT, HEADSHOT_THUMB, TEAM_NICKNAME } from '../constants'
-import { useIsDark, useTextTone, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, edgeTone } from '../lib/colorUtils'
+import { useTextTone, edgeTone } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
+import { TeamLogo } from './TeamLogo'
 import { chromePx, typePx } from '../../ui/scale'
 import { nameAtStage, useLineNameFit } from '../../ui/names'
 import { playerLink, teamLink, LINK_SX } from '../lib/links'
@@ -30,37 +32,6 @@ export interface Board {
   tooltipText?: string
   rows: LbRow[]
   loading: boolean
-}
-
-export function TeamLogo({ teamId, abbr, size = 36, accent, highlighted }: {
-  teamId: number; abbr: string; size?: number; accent?: string; highlighted?: boolean
-}) {
-  const [failed, setFailed] = useState(false)
-  const isDark = useIsDark()
-  const ring = ringColor(teamId, isDark)
-  return (
-    <Box sx={{
-      width: chromePx(size), height: chromePx(size), borderRadius: '50%', flexShrink: 0,
-      bgcolor: failed ? ring : teamLogoBg(teamId, isDark),
-      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-      boxShadow: highlighted && accent ? `0 0 0 2.5px ${accent}` : `0 0 0 1px ${ring}30`,
-    }}>
-      {failed ? (
-        <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: abbr.length > 2 ? TYPE_SCALE.nano : TYPE_SCALE.caption, lineHeight: 1 }}>
-          {abbr}
-        </Typography>
-      ) : (
-        <Box
-          component="img"
-          src={teamLogoSrc(teamId, isDark)}
-          alt={abbr}
-          crossOrigin="anonymous"
-          onError={() => setFailed(true)}
-          sx={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
-        />
-      )}
-    </Box>
-  )
 }
 
 // The bar and verdict columns are fixed so the bars line up row to row. At 124 + 54 they left a
@@ -99,7 +70,7 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect, gho
 
       {ghost
         ? <Box sx={{ width: chromePx(36), height: chromePx(36), borderRadius: '50%', flexShrink: 0, bgcolor: 'action.hover' }} />
-        : <TeamLogo teamId={row.teamId} abbr={row.abbr} accent={accent} />}
+        : <TeamLogo teamId={row.teamId} abbr={row.abbr} size={36} />}
 
       <Box sx={{ flex: 1, minWidth: '4rem' }}>
         <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -271,7 +242,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
   playerId: number; name: string; size?: number; accent?: string; highlighted?: boolean
   variant?: 'circle' | 'portrait' | 'ring'; teamId?: number
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
 
   // WPBL's PlayerPortrait, for the two Stats boards it shares a frame with: a round face inside a
   // 2px ring of the club's second colour, so a row on /mlb/leaders and one on /wpbl/stats are the
@@ -333,7 +304,6 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
   /** Draw the row's exact box with nothing in it, for the card's loading state. */
   ghost?: boolean
 }) {
-  const isDark = useIsDark()
   const tone = useTextTone()
   const g = (text: React.ReactNode) => ghost ? <TextGhost>{text}</TextGhost> : text
   // "F. Last" before an ellipsis, measured against the room the verdict column leaves (CLAUDE.md):
@@ -366,15 +336,7 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.15 }}>
           {ghost && <Box sx={{ width: chromePx(14), height: chromePx(14), borderRadius: '50%', bgcolor: 'action.hover', flexShrink: 0 }} />}
           {!ghost && row.teamId > 0 && (
-            <Box sx={{ width: chromePx(14), height: chromePx(14), borderRadius: '50%', bgcolor: teamLogoBg(row.teamId, isDark), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-              <Box
-                component="img"
-                src={teamLogoSrc(row.teamId, isDark)}
-                alt={row.teamAbbr}
-                sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(row.teamId, isDark), transformOrigin: 'center' }}
-                onError={(ev: React.SyntheticEvent<HTMLImageElement>) => { ev.currentTarget.parentElement!.style.display = 'none' }}
-              />
-            </Box>
+            <TeamLogo teamId={row.teamId} abbr={row.teamAbbr} size={14} />
           )}
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', fontWeight: 600, lineHeight: 1 }}>
             {g(row.teamAbbr)}

@@ -1,9 +1,10 @@
+import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { edge } from '../ui/card'
 import { Box, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
-  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, TYPE_SCALE,
+  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, TYPE_SCALE,
   chromePx,
 } from './ui'
 import { wpblAccent } from './constants'
@@ -233,7 +234,7 @@ function pickSentence(choice: string | null, bracket: WpblBracket): string | nul
 export function SeriesPickLine({ series, bracket, state }: {
   series: BracketSeries; bracket: WpblBracket; state: SeriesPickState
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const { picked, bust, open, result, shares } = useSeriesPick(series, bracket, state)
   const mine = pickSentence(picked, bracket)
 
@@ -552,7 +553,7 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
 function SeriesQuestion({ series, bracket, state }: {
   series: BracketSeries; bracket: WpblBracket; state: SeriesPickState
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const { category, teams, options, picked, bust, open, result, shares } =
     useSeriesPick(series, bracket, state)
   const pickedTeamId = parsePickChoice(picked ?? '')?.teamId ?? null

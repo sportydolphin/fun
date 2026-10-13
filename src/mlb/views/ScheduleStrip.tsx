@@ -1,15 +1,18 @@
+import { useDark } from '../../ui/useDark'
+import { NameText } from '../../ui/NameText'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, edge } from '../../ui/card'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
+import { ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { FinalGameSummary } from './FinalGames'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { LiveGameCard } from '../components/LiveGameCard'
 import {
-  chipDate, relativeChipDate, shortName, formatIP, COMPACT_ROW_MAX,
+  chipDate, relativeChipDate, formatIP, COMPACT_ROW_MAX,
   scheduleGameToPreview, gamesOnDate, gmLabel,
   fetchTeamSchedule, fetchGamePreview, fetchGameFinalDetails, fetchLiveGameData,
   ScheduleGame, ProbablePitcher, GamePreviewData, GameFinalDetails, LiveGameData,
@@ -40,7 +43,6 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
   const isPostponed = game.state === 'postponed'
   const unplayedTag = game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD'
   const isWin       = game.isWin === true
-  const isDark      = useIsDark()
 
   return (
     <Box
@@ -94,18 +96,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         {game.isHome ? 'VS' : '@'}
       </Typography>
 
-      <Box sx={{
-        width: chromePx(28), height: chromePx(28), borderRadius: '50%', bgcolor: teamLogoBg(game.opponentId, isDark),
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        overflow: 'hidden', flexShrink: 0,
-      }}>
-        <Box
-          component="img"
-          src={teamLogoSrc(game.opponentId, isDark)}
-          alt={game.opponentAbbr}
-          sx={{ width: chromePx(20), height: chromePx(20), objectFit: 'contain', transform: teamLogoCrop(game.opponentId, isDark), transformOrigin: 'center' }}
-        />
-      </Box>
+      <TeamLogo teamId={game.opponentId} abbr={game.opponentAbbr} size={28} decorative />
 
       <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
         {game.opponentAbbr}
@@ -226,33 +217,24 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   const homeTeamId = myTeamId ? (game.isHome ? myTeamId        : game.opponentId) : game.opponentId
   const awayScore  = game.isHome ? game.opponentScore : game.teamScore
   const homeScore  = game.isHome ? game.teamScore     : game.opponentScore
-  const isDark     = useIsDark()
+  const isDark     = useDark()
   const awayCol    = ringColor(awayTeamId, isDark)
   const homeCol    = ringColor(homeTeamId, isDark)
   const oppCol     = ringColor(game.opponentId, isDark)
 
   // Small clickable logo circle. ringCol overrides border for W/L ring on the followed team
   const logoCircle = (teamId: number, col: string, size: number, ringCol?: string) => (
-    <Box
+    <TeamLogo teamId={teamId} abbr={TEAM_ABBR[teamId] ?? ''} size={size}
       {...pressable(e => { e.stopPropagation(); onTeamClick?.(teamId) })}
+      // The W/L ring through edge(): raw #22c55e measured 2.13:1 on the light page. The heavier
+      // width is what says "result" rather than "club".
+      ring={ringCol ? edge(ringCol) : undefined} ringWidth={ringCol ? 2.5 : undefined}
       sx={{
-        width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
-        // The W/L ring through edge(): raw #22c55e measured 2.13:1 on the light page.
-        border: ringCol ? '2.5px solid' : '1.5px solid', borderColor: ringCol ? edge(ringCol) : col,
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-        boxShadow: ringCol ? `0 0 0 1px ${ringCol}50` : `0 0 0 1px ${col}30`,
         cursor: onTeamClick ? 'pointer' : 'default',
         transition: 'transform 0.12s, box-shadow 0.12s',
         '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: ringCol ? `0 0 0 2px ${ringCol}80` : `0 0 0 2px ${col}60` } : {},
       }}
-    >
-      <Box component="img"
-        src={teamLogoSrc(teamId, isDark)}
-        alt={TEAM_ABBR[teamId] ?? ''}
-        sx={{ width: chromePx(Math.round(size * 0.7)), height: chromePx(Math.round(size * 0.7)), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
-      />
-    </Box>
+    />
   )
 
   return (
@@ -530,7 +512,6 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   onPlayerClick?: (id: number) => void
   inline?:       boolean   // sit inline to the right of the time (no top margin / width cap)
 }) {
-  const isDark = useIsDark()
 
   if (loading) return (
     <Box sx={{ mt: 0.75 }}>
@@ -539,7 +520,6 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   )
 
   const PitcherChip = ({ pitcher, teamId }: { pitcher: ProbablePitcher | null; teamId: number }) => {
-    const col = ringColor(teamId, isDark)
     return (
       <Box
         {...pressable(e => { e.stopPropagation(); if (pitcher) onPlayerClick?.(pitcher.id) })}
@@ -549,24 +529,12 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
           '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT_TEXT } : {},
         }}
       >
-        <Box sx={{
-          width: chromePx(22), height: chromePx(22), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
-          border: `1.5px solid ${col}`, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
-          justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-        }}>
-          <Box component="img" alt=""
-            src={teamLogoSrc(teamId, isDark)}
-            sx={{ width: chromePx(15), height: chromePx(15), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
-          />
-        </Box>
+        <TeamLogo teamId={teamId} abbr={TEAM_ABBR[teamId] ?? ''} size={22} decorative
+          sx={{ display: { xs: 'none', sm: 'flex' } }} />
         <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
-          <Typography className="pmn" sx={{
-            fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            transition: 'color 0.12s',
-          }}>
-            {pitcher ? shortName(pitcher.name) : 'TBD'}
-          </Typography>
+          {pitcher
+            ? <NameText name={pitcher.name} className="pmn" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2, transition: 'color 0.12s' }} />
+            : <Typography className="pmn" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' }}>TBD</Typography>}
           {pitcher && (
             <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap' }}>
               {pitcher.era} ERA
@@ -599,7 +567,6 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
   onPlayerClick?: (id: number) => void
   inline?:        boolean  // sit inline to the right of the score (no top margin / width cap)
 }) {
-  const isDark = useIsDark()
   let first  = finalDetails.winnerPitcher
   let second = finalDetails.loserPitcher
   if (!first && !second) return null
@@ -608,7 +575,6 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
   }
 
   const PlayerCard = ({ player }: { player: NonNullable<GameFinalDetails['winnerPitcher']> }) => {
-    const col = ringColor(player.teamId, isDark)
     return (
       <Box
         {...pressable(e => { e.stopPropagation(); onPlayerClick?.(player.id) })}
@@ -623,25 +589,10 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
           width: chromePx(26), display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
           justifyContent: 'center', flexShrink: 0,
         }}>
-          <Box sx={{
-            width: chromePx(22), height: chromePx(22), borderRadius: '50%', bgcolor: teamLogoBg(player.teamId, isDark),
-            border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-          }}>
-            <Box component="img" alt=""
-              src={teamLogoSrc(player.teamId, isDark)}
-              sx={{ width: chromePx(15), height: chromePx(15), objectFit: 'contain', transform: teamLogoCrop(player.teamId, isDark), transformOrigin: 'center' }}
-            />
-          </Box>
+          <TeamLogo teamId={player.teamId} abbr={TEAM_ABBR[player.teamId] ?? ''} size={22} decorative />
         </Box>
         <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
-          <Typography className="pmn" sx={{
-            fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            transition: 'color 0.12s',
-          }}>
-            {shortName(player.name)}
-          </Typography>
+          <NameText name={player.name} className="pmn" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2, transition: 'color 0.12s' }} />
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap' }}>
             {formatIP(player.ip)} IP · {player.er}ER
           </Typography>

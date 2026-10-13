@@ -1,8 +1,10 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { useIsDark, accentColor, edgeTone, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { accentColor, edgeTone, cardGradient } from '../lib/colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers, fetchPostseasonGamePerformers } from './Spotlight'
@@ -192,7 +194,7 @@ export function TopPerformers({
     }
   }
 
-  const isDark = useIsDark()
+  const isDark = useDark()
 
   if (loading) {
     return (
@@ -266,17 +268,7 @@ export function TopPerformers({
               } : {}),
             }}
           >
-            <Box sx={{
-              width: chromePx(14), height: chromePx(14), borderRadius: '50%', bgcolor: teamLogoBg(entry.teamId, isDark),
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden', flexShrink: 0,
-            }}>
-              <Box
-                component="img" alt=""
-                src={teamLogoSrc(entry.teamId, isDark)}
-                sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(entry.teamId, isDark), transformOrigin: 'center' }}
-              />
-            </Box>
+            <TeamLogo teamId={entry.teamId} abbr={abbr} size={14} decorative />
             <Typography className="tp-abbr" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1 }}>
               {[entry.position, abbr, entry.context].filter(Boolean).join(' · ')}
             </Typography>

@@ -8,21 +8,9 @@ import { Box, Typography } from '@mui/material'
 import { CARD_BORDER, SectionCard, TYPE_SCALE } from './card'
 import { PillGroup } from './PillGroup'
 import { typePx } from './scale'
+import type { GlossaryRule, GlossaryEntry, GlossaryGroup } from '../league/glossary'
 
-export interface GlossaryRule {
-  /** Slug, and stable: it is the anchor a link to this rule points at. */
-  id: string
-  question: string
-  answer: string
-  /** Where the rule came from; `badge` turns it into the label shown beside the question. */
-  source: string
-  /** The working, shown under the answer. */
-  note?: string
-}
-
-export interface GlossaryEntry { full: string; plain?: string | null }
-
-export interface GlossaryGroup { key: string; label: string; keys: string[] }
+export type { GlossaryRule, GlossaryEntry, GlossaryGroup } from '../league/glossary'
 
 export function GlossaryRules({ title, rules, badge }: {
   title: string

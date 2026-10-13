@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NameText } from '../ui/NameText'
 import { edge } from '../ui/card'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import {
@@ -15,7 +16,7 @@ type TrackingRows = {
   pitching: Parameters<typeof aggregateTracking>[2]
 }
 import { WPBL_ACCENT } from './constants'
-import { SectionCard, LeaderRow, CARD_BORDER, useWpblName, chromePx } from './ui'
+import { SectionCard, LeaderRow, CARD_BORDER, chromePx } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
@@ -30,7 +31,6 @@ import { InfoDot } from '../ui/InfoDot'
 function BestTile({ label, value, unit, name, accent }: {
   label: string; value: string; unit: string; name: string; accent: string
 }) {
-  const shortName = useWpblName()
   return (
     <Box sx={{
       flex: 1, minWidth: chromePx(130), p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
@@ -41,7 +41,7 @@ function BestTile({ label, value, unit, name, accent }: {
         <Typography sx={{ fontSize: '1.7rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: accent }}>{value}</Typography>
         <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary' }}>{unit}</Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, mt: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(name)}</Typography>
+      <NameText name={name} sx={{ fontSize: '0.75rem', fontWeight: 600, mt: 0.4 }} />
     </Box>
   )
 }

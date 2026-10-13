@@ -1,3 +1,4 @@
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useRef, useState } from 'react'
 import {
   Box, Typography, Popover,
@@ -15,7 +16,7 @@ import { mlbUrlFor } from '../routes'
 import { StatsFilterSheet, controlPill } from './StatsRankedList'
 import { FieldingLeaders } from './FieldingLeaders'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../../ui/leaders'
-import { LogoBubble } from '../components/boxScore'
+
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 import { PlayerHeadshot } from '../components/leaderboards'
 
@@ -246,7 +247,7 @@ export function LeaderboardView({
                   items={entries.map((e, i) => ({
                     key: String(e.playerId), ...ranks[i], name: e.playerName, value: texts[i],
                     portrait: <PlayerHeadshot variant="ring" playerId={e.playerId} name={e.playerName} teamId={e.teamId} size={PORTRAIT_PX} />,
-                    badge: e.teamId > 0 ? <LogoBubble teamId={e.teamId} abbr={e.teamAbbr} size={16} ring={1} /> : undefined,
+                    badge: e.teamId > 0 ? <TeamLogo teamId={e.teamId} abbr={e.teamAbbr} size={16} /> : undefined,
                     linkProps: playerLink(e.playerId, e.playerName, handleLbPlayerClick),
                   }))} />
               )

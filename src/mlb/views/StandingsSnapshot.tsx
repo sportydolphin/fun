@@ -1,9 +1,10 @@
+import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchStandings, fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { TEAM_NICKNAME, ACCENT } from '../constants'
-import { useIsDark, highlightColor, fmtGB } from '../lib/colorUtils'
+import { highlightColor, fmtGB } from '../lib/colorUtils'
 import { TeamLogo } from '../components/TeamLogo'
 import { SectionCard, TYPE_SCALE } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
@@ -54,7 +55,7 @@ function SnapshotRow({ team, rightLabel, rightColor, oddsLabel, oddsClr, isMine,
   showSep:     boolean
   onTeamClick?: (id: number) => void
 }) {
-  const isDark    = useIsDark()
+  const isDark    = useDark()
   const teamColor = highlightColor(team.teamId, isDark)
   const clickable = !!onTeamClick
 

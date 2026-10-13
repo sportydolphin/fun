@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import LiveGameView, { lineFor } from '../LiveGameView'
 import { deriveSituation } from '../Live'
 import type {
@@ -91,8 +91,8 @@ describe('the bases, named', () => {
 
   it('names who is on, and does not list the bases that are empty', () => {
     draw(LIVE)
-    expect(screen.getByText('1B')).toBeTruthy()
-    expect(screen.getByText('L. Hastings')).toBeTruthy()
+    const onFirst = screen.getByText('1B').parentElement!
+    expect(within(onFirst).getByText('Lexi Hastings')).toBeTruthy()
     expect(screen.queryByText('2B')).toBeNull()
     expect(screen.queryByText('3B')).toBeNull()
   })
@@ -114,7 +114,7 @@ describe('the bases, named', () => {
         plays={[play()]} batting={[]} pitching={[]} names={names} games={[]}
       />,
     )
-    expect(screen.getByText('V. Perez')).toBeTruthy()
+    expect(screen.getByText('Valerie Perez')).toBeTruthy()
     expect(screen.queryByText('Val Perez')).toBeNull()
   })
 

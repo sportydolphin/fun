@@ -2,12 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { nowLine, restingReadout, scrubReadout } from '../WinProbView'
 import type { WinProbPoint } from '../derive/winProbability'
 import type { WpblGame, WpblRunValuePlay, WpblTeam } from '../types'
-import { wpblShortName } from '../ui'
 
-// The row is one line, so the readouts take the section's name shortener the way the card
-// passes it in. `full` keeps a name whole, for the assertions that are not about width.
+// The readouts take the card's name corrector (the feed's spellings to the roster's). `full`
+// leaves a name as it is.
 const full = (n: string) => n
-const short = (n: string) => wpblShortName(n, 14)
 
 // The readout, which is the only part of this card that is a decision rather than a gesture:
 // which club the two percentages are about, when they are worth printing twice, and what the
@@ -111,14 +109,17 @@ describe('nowLine', () => {
 })
 
 describe('one line', () => {
-  // The row cannot wrap, so the name is the part that gives way: what survives the width is
-  // what happened, not who it was attributed to in full.
-  it('abbreviates a long name and leaves the play alone', () => {
+  // The row cannot wrap, so the name is the part that gives way. The readout hands the chart the
+  // name in full and says which part of the sentence it is; the chart measures the row and steps
+  // the name down to "F. Last" only if it does not fit. A character count cannot know the room.
+  it('names the batter at the front of the sentence, in full', () => {
     const p = point({}, { batter_name: 'Tháima Maximiliana', narrative: 'Tháima Maximiliana struck out looking.' })
-    expect(scrubReadout(p, game, teams, short).text).toBe('T. Maximiliana struck out looking.')
+    const r = scrubReadout(p, game, teams, full)
+    expect(r.text).toBe('Tháima Maximiliana struck out looking.')
+    expect(r.who).toBe('Tháima Maximiliana')
   })
 
-  it('leaves a name that already fits', () => {
-    expect(scrubReadout(point(), game, teams, short).text).toBe('Jamie Mackay singled up the middle.')
+  it('names nobody when the feed gave no batter', () => {
+    expect(scrubReadout(point({}, { narrative: null }), game, teams, full).who).toBeUndefined()
   })
 })

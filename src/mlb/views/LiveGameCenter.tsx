@@ -1,8 +1,10 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { edge } from '../../ui/card'
-import { Box, Typography, useMediaQuery } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, HEADSHOT, TONE } from '../constants'
-import { useIsDark, accentColor, chartPairColors, inkOn, textTone, useTextTone } from '../lib/colorUtils'
+import { accentColor, chartPairColors, inkOn, textTone, useTextTone } from '../lib/colorUtils'
 import { ModalShell, useOpensAsPanel, usePhoneLayout } from '../../ui/ModalShell'
 import { BoxTeamHeading, BoxTeamSwitch, HalfHeading, PlayRow, RUN_GREEN, PLAY_TEXT_SX, PLAY_DETAIL_SX, PLAY_COUNT_SX, PLAY_STATE_SX } from '../../ui/gameCenter'
 import { BaseDiamond, OutDots } from '../../ui/BaseDiamond'
@@ -16,16 +18,13 @@ import { hoverOnly, pressable, FOCUS_RING } from '../../ui/interaction'
 import { FinalGameSummary } from './FinalGames'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { scrollBehavior } from '../../lib/motion'
-import {
-  BoxScore, parseBoxScoreData,
-  LogoBubble, LiveDot, ClubBox,
-} from '../components/boxScore'
+import { BoxScore, parseBoxScoreData, LiveDot, ClubBox } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
 import { MlbHiddenH1, MlbAddressH1 } from '../components/PageHeading'
 import { DetailPageBar } from '../../ui/DetailPageBar'
 import { ExpandButton } from '../../ui/ExpandButton'
 import { GC_CAPS, GC_META, GC_BODY } from './gameType'
-import { useChartScrub } from '../../ui/chartScrub'
+import { WinProbChart as SharedWinProbChart } from '../../ui/winProbChart'
 import { pushEntry, sheetOpenAt, stackNextPanel } from '../state/sheetHistory'
 import { openPlayerPanel } from '../state/playerPanel'
 import { expandGameToPage } from '../state/gamePage'
@@ -327,7 +326,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
   onSelect?: (id: number) => void
 }) {
   const tone = useTextTone()
-  const isDark = useIsDark()
+  const isDark = useDark()
   const col    = TEAM_BG[teamId] ?? '#444'
   const accent = accentColor(col, isDark)
   return (
@@ -403,62 +402,25 @@ function SituationPanel({ sit, onPlayerClick }: {
 
 // ─── Win probability chart ────────────────────────────────────────────────────
 //
-// WPBL's chart (src/wpbl/WinProbView.tsx), drawn from StatsAPI's numbers instead of a model of our
-// own, so a reader moving between the two sections reads one chart. Each club's share of the game
-// is its territory in its own colour (the away club above the line, the home club below), the
-// readout box sits ABOVE the plot so a finger on the chart never covers the answer, and the plot is
-// read by hovering, holding or arrowing along it (the shared scrub hook, src/ui/chartScrub.ts).
-// WPBL's notes on why each of those is the way it is apply here unchanged.
-//
+// Drawn by the chart WPBL's Game Center draws (src/ui/winProbChart.tsx), from StatsAPI's numbers
+// instead of a model of our own, so a reader moving between the two sections reads one chart.
 // At rest the readout shows the biggest swing, and the Summary's numbered list of swings is marked
 // on the line with the same numbers.
 
-/** The readout's height, fixed so the card does not move under a finger. In rem because it holds
- *  type; see CAPTION_H in WinProbView.tsx for what px does here. */
-const WP_CAPTION_H = '4.25rem'
-const WP_CHART_H = { xs: chromePx(132), sm: chromePx(178) }
-
-function WpLabel({ children, sx }: { children: React.ReactNode; sx: object }) {
-  return (
-    <Typography sx={{
-      position: 'absolute', fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.5),
-      color: 'text.secondary', pointerEvents: 'none', ...sx,
-    }}>{children}</Typography>
-  )
-}
+const WP_INFO = "Each club's chance of winning after every play, as MLB's own win probability model rates it."
 
 function WinProbChart({ pts, plays, away, home, live, marks = [] }: {
   pts: WpPoint[]; plays: GcPlay[]; away: GcTeam; home: GcTeam; live: boolean
   /** Point indexes to number on the line, biggest first: the Summary's swings. */
   marks?: number[]
 }) {
-  const isDark = useIsDark()
-  const canHover = useMediaQuery('(hover: hover)')
-  const scrub = useChartScrub(pts.length,
-    'Win probability through the game. Press and hold the chart, or use the arrow keys, to read any moment of it.')
-  if (pts.length < 2) return null
-
+  const isDark = useDark()
   // Not the club primaries: half of them are near-black and two of them at 30% are one grey.
   // See chartPairColors.
   const [awayCol, homeCol] = chartPairColors(away.teamId, home.teamId, isDark)
-
-  // In a 0..100 box stretched to the card. Vertex i is the state BEFORE play i; the last vertex is
-  // where the last play left it. StatsAPI gives each play's after-value and how much it added.
-  const n = pts.length
-  const x = (i: number) => (i / n) * 100
-  const y = (homePct: number) => 100 - homePct
-  const verts = pts.map((p, i) => `${x(i).toFixed(3)},${y(p.before).toFixed(3)}`)
-  verts.push(`100,${y(pts[n - 1].wp).toFixed(3)}`)
-  const homeFill = `M0,100 L${verts.join(' L')} L100,100 Z`
-  const awayFill = `M0,0 L${verts.join(' L')} L100,0 Z`
-
-  const innings: { inning: number; from: number; to: number }[] = []
-  pts.forEach((p, i) => {
-    const last = innings[innings.length - 1]
-    if (last && last.inning === p.inning) last.to = x(i)
-    else innings.push({ inning: p.inning, from: x(i), to: x(i) })
-  })
-  if (innings.length) innings[innings.length - 1].to = 100
+  // StatsAPI speaks in percent, the chart in 0..1.
+  const plot = useMemo(() => pts.map(p => ({ before: p.before / 100, after: p.wp / 100, inning: p.inning })), [pts])
+  if (pts.length < 2) return null
 
   const playByIdx = new Map(plays.map(p => [p.atBatIndex, p] as const))
   // "SEA 52% → 82%", named for the club the play left in front, as WPBL's readout does.
@@ -468,145 +430,47 @@ function WinProbChart({ pts, plays, away, home, live, marks = [] }: {
     const abbr = homeSide ? home.abbr : away.abbr
     return f(before) === f(after) ? `${abbr} ${f(after)}` : `${abbr} ${f(before)} → ${f(after)}`
   }
-  const ord = (k: number) => ordinal(k)
-
-  const restIdx = marks.length ? marks[0] : -1
-  const at = scrub.index == null ? null : pts[scrub.index]
-  let read: { label: string; pct: string; text: string; note: string } | null = null
-  if (at) {
-    const p = playByIdx.get(at.atBatIndex)
-    read = {
-      label: p ? `${p.half === 'bottom' ? 'Bot' : 'Top'} ${ord(p.inning)} · ${p.outs} out` : `Inning ${at.inning}`,
-      pct: pctLine(at.before, at.wp),
-      text: p?.description ?? '',
-      note: p ? `${away.abbr} ${p.awayScore}, ${home.abbr} ${p.homeScore}` : '',
+  const readout = (i: number | null, canHover: boolean) => {
+    if (i != null) {
+      const at = pts[i]
+      const p = playByIdx.get(at.atBatIndex)
+      return {
+        label: p ? `${p.half === 'bottom' ? 'Bot' : 'Top'} ${ordinal(p.inning)} · ${p.outs} out` : `Inning ${at.inning}`,
+        pct: pctLine(at.before, at.wp),
+        text: p?.description ?? '',
+        note: p ? `${away.abbr} ${p.awayScore}, ${home.abbr} ${p.homeScore}` : '',
+      }
     }
-  } else if (restIdx >= 0) {
-    const pt = pts[restIdx]
+    if (!marks.length || !pts[marks[0]]) return null
+    const pt = pts[marks[0]]
     const p = playByIdx.get(pt.atBatIndex)
-    read = {
-      label: `${live ? 'Biggest swing so far' : 'Swing of the game'}${p ? ` · ${ord(p.inning)}` : ''}`,
+    return {
+      label: `${live ? 'Biggest swing so far' : 'Swing of the game'}${p ? ` · ${ordinal(p.inning)}` : ''}`,
       pct: pctLine(pt.before, pt.wp),
       text: p?.description ?? '',
       note: `${canHover ? 'Hover' : 'Hold'} the chart for any play`,
     }
   }
-  const last = pts[n - 1].wp
-  const now = live ? `${last >= 50 ? home.abbr : away.abbr} ${Math.round(last >= 50 ? last : 100 - last)}%` : null
+  const last = pts[pts.length - 1].wp
+  const now = live
+    ? { text: `${last >= 50 ? home.abbr : away.abbr} ${Math.round(last >= 50 ? last : 100 - last)}%`, color: textTone(last >= 50 ? homeCol : awayCol, isDark) }
+    : null
 
   return (
-    <Box sx={{ border: '1px solid', borderColor: 'outline', borderRadius: 2, overflow: 'hidden' }}>
-      <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>Win probability</Typography>
-        {now && (
-          <Typography sx={{ ml: 'auto', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: textTone(last >= 50 ? homeCol : awayCol, isDark) }}>
-            {now}
-          </Typography>
-        )}
-      </Box>
-
-      <Box sx={{
-        px: 1.5, pt: 0.25, pb: 1, mb: 1, height: WP_CAPTION_H, overflow: 'hidden',
-        borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column',
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
-          <Typography sx={{
-            fontSize: GC_CAPS, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8),
-            color: 'primary.main', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{read?.label}</Typography>
-          <Typography sx={{ ml: 'auto', fontSize: GC_META, fontWeight: 800, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: 'text.primary' }}>
-            {read?.pct}
-          </Typography>
-        </Box>
-        <Typography aria-live="polite" sx={{ fontSize: '0.85rem', lineHeight: 1.45, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {read?.text}
-        </Typography>
-        <Typography sx={{
-          mt: 'auto', pt: 0.25, fontSize: GC_CAPS, fontWeight: 700, textTransform: 'uppercase',
-          letterSpacing: typePx(0.7), color: 'text.secondary', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
-        }}>{read?.note}</Typography>
-      </Box>
-
-      <Box
-        {...scrub.props}
-        data-swipe-lock="true"
-        sx={{
-          position: 'relative', height: WP_CHART_H,
-          touchAction: 'pan-y', WebkitTapHighlightColor: 'transparent',
-          userSelect: 'none', WebkitTouchCallout: 'none', cursor: 'crosshair', outline: 'none',
-          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' },
-        }}
-      >
-        <Box component="svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden
-          sx={{ display: 'block', width: '100%', height: '100%', color: 'text.primary' }}>
-          <path d={awayFill} fill={awayCol} opacity={0.3} />
-          <path d={homeFill} fill={homeCol} opacity={0.3} />
-          {innings.slice(1).map(iv => (
-            <line key={iv.inning} x1={iv.from} x2={iv.from} y1={0} y2={100}
-              stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-          ))}
-          <line x1={0} x2={100} y1={50} y2={50}
-            stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-          {restIdx >= 0 && scrub.index == null && (
-            <line x1={x(restIdx + 1)} x2={x(restIdx + 1)} y1={0} y2={100}
-              stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
-          )}
-          <polyline points={verts.join(' ')} fill="none"
-            stroke="currentColor" strokeOpacity={0.85} strokeWidth={2}
-            strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          {scrub.index != null && (
-            <line x1={x(scrub.index)} x2={x(scrub.index)} y1={0} y2={100}
-              stroke="currentColor" strokeOpacity={0.55} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-          )}
-        </Box>
-
-        {/* The swings, numbered to match the list under the chart. HTML dots, because an SVG
-            circle in a box stretched by preserveAspectRatio="none" comes out an ellipse. Each sits
-            where its play LANDED, the next vertex. Faded while the chart is being read. */}
-        {marks.map((i, k) => pts[i] && (
-          <Box key={i} aria-hidden sx={{
-            position: 'absolute',
-            left: `${Math.min(Math.max(x(i + 1), 2), 98)}%`,
-            top: `${Math.min(Math.max(y(pts[i].wp), 8), 92)}%`,
-            transform: 'translate(-50%, -50%)',
-            width: '1.05rem', height: '1.05rem', borderRadius: '50%',
-            bgcolor: pts[i].wp >= pts[i].before ? homeCol : awayCol,
-            border: '2px solid', borderColor: 'background.paper',
-            color: inkOn(pts[i].wp >= pts[i].before ? homeCol : awayCol), fontSize: '0.56rem', fontWeight: 900, lineHeight: 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            pointerEvents: 'none', opacity: scrub.index == null ? 1 : 0, transition: 'opacity 120ms ease',
-          }}>{k + 1}</Box>
-        ))}
-
-        {at && scrub.index != null && (
-          <Box aria-hidden sx={{
-            position: 'absolute',
-            left: `${Math.min(Math.max(x(scrub.index), 1.5), 98.5)}%`,
-            top: `${Math.min(Math.max(y(at.before), 3), 97)}%`,
-            transform: 'translate(-50%, -50%)',
-            width: chromePx(11), height: chromePx(11), borderRadius: '50%',
-            bgcolor: 'text.primary', border: '2px solid', borderColor: 'background.paper', pointerEvents: 'none',
-          }} />
-        )}
-
-        <WpLabel sx={{ top: 4, left: 6, color: textTone(awayCol, isDark) }}>{away.abbr}</WpLabel>
-        <WpLabel sx={{ bottom: 4, left: 6, color: textTone(homeCol, isDark) }}>{home.abbr}</WpLabel>
-        <WpLabel sx={{ top: '50%', right: 6, transform: 'translateY(-50%)', opacity: 0.75 }}>50%</WpLabel>
-      </Box>
-
-      <Box aria-hidden sx={{ position: 'relative', height: '0.95rem', mt: '2px' }}>
-        {innings.filter(iv => iv.to - iv.from >= 3.5).map(iv => (
-          <Typography key={iv.inning} sx={{
-            position: 'absolute', left: `${(iv.from + iv.to) / 2}%`, transform: 'translateX(-50%)',
-            fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1,
-          }}>{iv.inning}</Typography>
-        ))}
-      </Box>
-      <Typography aria-hidden sx={{
-        height: '0.8rem', mb: 0.75, textAlign: 'center', fontSize: '0.58rem', fontWeight: 700,
-        letterSpacing: typePx(0.8), textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1,
-      }}>Inning</Typography>
-    </Box>
+    <SharedWinProbChart
+      points={plot}
+      away={{ abbr: away.abbr, fill: awayCol, ink: textTone(awayCol, isDark) }}
+      home={{ abbr: home.abbr, fill: homeCol, ink: textTone(homeCol, isDark) }}
+      info={WP_INFO}
+      now={now}
+      accent="primary.main"
+      // Each swing in the colour of the club it favoured, numbered to match the list under the chart.
+      marks={marks.filter(i => pts[i]).map((i, k) => {
+        const col = pts[i].wp >= pts[i].before ? homeCol : awayCol
+        return { index: i, color: col, ink: inkOn(col), label: String(k + 1) }
+      })}
+      readout={readout}
+    />
   )
 }
 
@@ -751,7 +615,7 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle, onPlaye
             <React.Fragment key={p.atBatIndex}>
               {showHeader && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pt: 1.25, pb: 0.5 }}>
-                  <LogoBubble teamId={p.battingTeamId} abbr={TEAM_ABBR[p.battingTeamId] ?? ''} size={18} ring={1} />
+                  <TeamLogo teamId={p.battingTeamId} abbr={TEAM_ABBR[p.battingTeamId] ?? ''} size={18} />
                   <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
                     {label(p)}
                   </Typography>
@@ -775,7 +639,7 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle, onPlaye
             <HalfHeading
               open={open}
               onToggle={() => onToggle(g.key)}
-              badge={<LogoBubble teamId={g.battingTeamId} abbr={TEAM_ABBR[g.battingTeamId] ?? ''} size={18} ring={1} />}
+              badge={<TeamLogo teamId={g.battingTeamId} abbr={TEAM_ABBR[g.battingTeamId] ?? ''} size={18} />}
               label={label(g, g.plays[0]?.pitcher)}
               runs={g.runs}
               awayTo={g.awayTo}
@@ -808,10 +672,10 @@ function TeamBoxColumns({ box, onPlayerClick, stacked = false }: {
   stacked?: boolean
 }) {
   const [side, setSide] = useState<'away' | 'home'>('away')
-  const isDark = useIsDark()
+  const isDark = useDark()
   const dense = usePhoneLayout()
   const club = (t: BoxScore['away'], size: number) => ({
-    badge: <LogoBubble teamId={t.teamId} abbr={t.abbr} size={size} />,
+    badge: <TeamLogo teamId={t.teamId} abbr={t.abbr} size={size} />,
     name: t.name, short: TEAM_NICKNAME[t.teamId] ?? t.abbr,
     color: accentColor(TEAM_BG[t.teamId] ?? '#888888', isDark),
   })
@@ -852,7 +716,7 @@ function Scoreboard({ box, decided, onTeam, blank = false }: {
    *  the clubs left empty, so the header is its loaded height from the first frame. */
   blank?: boolean
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const lastNum = box.innings.length ? box.innings[box.innings.length - 1].num : 0
   const byNum = new Map(box.innings.map(i => [i.num, i] as const))
   const cols = Array.from({ length: Math.max(9, lastNum) }, (_, k) => k + 1)
@@ -879,9 +743,9 @@ function Scoreboard({ box, decided, onTeam, blank = false }: {
             ...(onTeam ? { cursor: 'pointer', borderRadius: 1, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING } : {}),
           }}>
             {blank
-              // LogoBubble's own box: its ring is a border outside the 24px.
+              // TeamLogo's box: exactly its size, ring included.
               ? <Box sx={{ width: chromePx(24), height: chromePx(24), borderRadius: '50%', bgcolor: 'action.hover', border: '1.5px solid transparent', flexShrink: 0 }} />
-              : <LogoBubble teamId={t.teamId} abbr={t.abbr} size={24} ring={1.5} />}
+              : <TeamLogo teamId={t.teamId} abbr={t.abbr} size={24} />}
             <Typography sx={{ fontSize: { xs: '0.84rem', sm: '0.92rem' }, fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: muted ? 'text.secondary' : 'text.primary' }}>
               <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{t.abbr}</Box>
               <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{TEAM_NICKNAME[t.teamId] ?? t.name}</Box>

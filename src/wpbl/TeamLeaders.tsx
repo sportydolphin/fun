@@ -1,5 +1,7 @@
+import { useDark } from '../ui/useDark'
+import { NameText } from '../ui/NameText'
 import { Box, Typography } from '@mui/material'
-import { TeamBadge, PlayerPortrait, useWpblDark, useWpblName, pressable, hoverOnly, TAPPABLE, FOCUS_RING, TYPE_SCALE, chromePx } from './ui'
+import { TeamBadge, PlayerPortrait, pressable, hoverOnly, TAPPABLE, FOCUS_RING, TYPE_SCALE, chromePx } from './ui'
 import { wpblAccent } from './constants'
 import { aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, scaleToBasis } from './stats'
 import { outsToIp } from './innings'
@@ -127,10 +129,9 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
    *  series overview keeps its compact capped table. */
   rich?: boolean
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   // The section's own answer to a long name in a narrow column: "Kelsie Whitmore" on a desktop,
   // "K. Whitmore" on a phone, where two names and a label share 375px.
-  const shortName = useWpblName()
   const byLabel = (rows: Leader[]) => new Map(rows.map(r => [r.label, r]))
   const A = byLabel(awayLeaders), H = byLabel(homeLeaders)
   const rows = LEADER_CATEGORIES.filter(c => A.has(c) || H.has(c))
@@ -151,11 +152,9 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
         ...(l && onOpenPlayer ? TAPPABLE : null), ...FOCUS_RING,
       }}
     >
-      <Typography sx={{
-        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600,
-        textAlign: align, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        color: l ? 'text.primary' : 'text.disabled',
-      }}>{l ? shortName(l.player.name) : '—'}</Typography>
+      {l
+        ? <NameText name={l.player.name} sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, textAlign: align, color: 'text.primary' }} />
+        : <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, textAlign: align, color: 'text.disabled' }}>—</Typography>}
       {/* 800, matching the team comparison directly above, and for the reason given there: a
           tabular figure at 900 in a colour picked to be read closes its own counters up, and
           these are the same numbers in the same accent inches below that block. */}
@@ -226,8 +225,7 @@ function RichLeaders({ away, home, A, H, onOpenPlayer }: {
   A: Map<string, Leader>; H: Map<string, Leader>
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
-  const dark = useWpblDark()
-  const shortName = useWpblName()
+  const dark = useDark()
 
   // One club's leader in one category: portrait on the OUTER edge, the name over the value
   // reading in from it, so the two clubs face each other across the category label.
@@ -252,11 +250,9 @@ function RichLeaders({ away, home, A, H, onOpenPlayer }: {
           }} />
         )}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: outer, textAlign: dir === 'away' ? 'left' : 'right' }}>
-          <Typography noWrap sx={{
-            maxWidth: '100%', fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.2,
-            overflow: 'hidden', textOverflow: 'ellipsis',
-            color: l ? 'text.primary' : 'text.disabled',
-          }}>{l ? shortName(l.player.name) : '—'}</Typography>
+          {l
+            ? <NameText name={l.player.name} sx={{ maxWidth: '100%', fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.2, color: 'text.primary' }} />
+            : <Typography noWrap sx={{ maxWidth: '100%', fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.2, color: 'text.disabled' }}>—</Typography>}
           <Typography sx={{
             fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums',
             color: l ? wpblAccent(team.id, dark) : 'text.disabled',

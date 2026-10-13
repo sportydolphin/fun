@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Box } from '@mui/material'
-import { PlayerPortrait, TeamBadge, useWpblName } from './ui'
+import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblPlayerLink } from './LinkContext'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../ui/leaders'
 import { plateAppearances, type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals } from './stats'
@@ -104,7 +104,6 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
 }) {
   const byKey = new Map(cols.map(c => [c.key, c]))
   // The same short form LeaderRow uses: 18 characters, so a card's name column shows whole names.
-  const shortName = useWpblName(18)
   const playerLink = useWpblPlayerLink()
   const [hover, setHover] = useState<string | null>(null)
   return (
@@ -117,7 +116,7 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
             seeAll={{ href: seeAllHref(card.key), onClick: () => onSeeAll(card.key) }}
             hoverKey={hover} onHover={setHover}
             items={leadersFor(seasons, col, side, qual).map(r => ({
-              key: r.player.id, rank: r.rank, tied: r.tied, name: shortName(r.player.name), value: r.text,
+              key: r.player.id, rank: r.rank, tied: r.tied, name: r.player.name, value: r.text,
               portrait: <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={PORTRAIT_PX} />,
               badge: r.player.team_id ? <TeamBadge team={{ id: r.player.team_id, abbr: r.player.team_id }} size={16} /> : undefined,
               linkProps: playerLink(r.player, onOpenPlayer),

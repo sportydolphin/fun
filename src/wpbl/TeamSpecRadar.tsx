@@ -1,8 +1,9 @@
+import { useDark } from '../ui/useDark'
 import { useId, useMemo, useState, useRef, useEffect } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { useReducedMotion } from '../AccessibilityContext'
 import { wpblAccent } from './constants'
-import { useWpblDark, CARD_BORDER, INNER_BORDER } from './ui'
+import { CARD_BORDER, INNER_BORDER } from './ui'
 import {
   TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES, formatSpecStat, specHighlights, specRank, specDirectionHint,
   type TeamSpecKey, type TeamSpecs,
@@ -216,7 +217,7 @@ export function TeamSpecRadar({
   specs, teams, focusId = null, radius = 96, showLabels = true,
   values = null, selected = null, onSelect,
 }: TeamSpecRadarProps) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const titleId = useId()
   const n = TEAM_SPEC_AXES.length
   const padL = showLabels ? HPAD_L : 8
@@ -389,7 +390,7 @@ export function TeamSpecDetail({ specs, teamId, selected, kLabel, scaleK, onClea
   scaleK: (v: number) => number
   onClear: () => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const row = specs.byTeam.get(teamId)
   if (!row) return null
   const accent = wpblAccent(teamId, isDark)

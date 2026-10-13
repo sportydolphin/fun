@@ -1,9 +1,11 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, CardLink, TYPE_SCALE } from '../../ui/card'
 import { TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME } from '../constants'
-import { useIsDark, ringColor } from '../lib/colorUtils'
-import { LogoBubble } from '../components/boxScore'
+import { ringColor } from '../lib/colorUtils'
+
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { pressable, hoverOnly, FOCUS_RING } from '../../ui/interaction'
@@ -59,7 +61,7 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
   onClose: () => void
   playing?: Set<number>
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const anyPlaying = !!playing && playing.size > 0
   // A pick closes the sheet THROUGH HISTORY and follows once its entry is gone. Following lands on
   // Home, and a navigation made while the sheet's entry was still on top would leave that entry
@@ -102,7 +104,7 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
                       ...hoverOnly({ bgcolor: `${col}1f`, borderColor: col }),
                       ...FOCUS_RING,
                     }}>
-                      <LogoBubble teamId={id} abbr={TEAM_ABBR[id]} size={36} />
+                      <TeamLogo teamId={id} abbr={TEAM_ABBR[id]} size={36} />
                       <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1 }}>{TEAM_ABBR[id]}</Typography>
                       {live && (
                         <Box sx={{

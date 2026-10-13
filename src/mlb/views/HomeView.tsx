@@ -1,3 +1,4 @@
+import { useDark } from '../../ui/useDark'
 import React, { memo, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, TAB_TITLE_SX } from '../../ui/card'
@@ -14,7 +15,7 @@ import {
 // ~1,400-line schedule module, lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
-import { useIsDark, edgeTone, cardGradient135, fmtGB } from '../lib/colorUtils'
+import { edgeTone, cardGradient135, fmtGB } from '../lib/colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { RosterMovesCard } from './RosterMoves'
 import { LiveDramaCard } from './LiveDrama'
@@ -253,7 +254,7 @@ function HomeViewInner({
     }).catch(() => {})
   }, [followedTeamId])
 
-  const isDark = useIsDark()
+  const isDark = useDark()
 
   // ── Daily report cards ────────────────────────────────────────────────────────
   // Two cards rotate daily: each day picks a distinct pair from the pool, keyed to

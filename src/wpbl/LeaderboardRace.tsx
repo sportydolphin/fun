@@ -1,9 +1,10 @@
+import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, chromePx, pressable, FOCUS_RING, CARD_BORDER, useWpblDark, hoverOnly } from './ui'
+import { SectionCard, chromePx, pressable, FOCUS_RING, CARD_BORDER, hoverOnly } from './ui'
 import { wpblAccent } from './constants'
-import { shortName } from './Live'
+import { NameText } from '../ui/NameText'
 import { countsInStandings } from './season'
 import { prefersReducedMotion } from '../lib/motion'
 import type { WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblRunValuePlay } from './types'
@@ -253,7 +254,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
    *  late: until it does, the batter stats fall back to the game cadence off the box score. */
   plays?: WpblRunValuePlay[]
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const reduce = prefersReducedMotion()
   const [metricKey, setMetricKey] = useState('hr')
   const [speed, setSpeed] = useState(1)
@@ -513,10 +514,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
                 flex: '0 0 clamp(6rem, calc(22vw + 1rem), 9.5rem)', width: 'clamp(6rem, calc(22vw + 1rem), 9.5rem)',
                 display: 'flex', alignItems: 'center', minWidth: 0,
               }}>
-                <Typography sx={{
-                  fontSize: '0.84rem', fontWeight: 600, whiteSpace: 'nowrap',
-                  overflow: 'hidden', textOverflow: 'ellipsis',
-                }}>{shortName(nameOf.get(id) ?? '')}</Typography>
+                <NameText name={nameOf.get(id) ?? ''} sx={{ fontSize: '0.84rem', fontWeight: 600, minWidth: 0 }} />
               </Box>
               {/* The bar and the value riding its tip. */}
               <Box sx={{ position: 'relative', flex: 1, height: chromePx(BAR_PX), minWidth: 0 }}>

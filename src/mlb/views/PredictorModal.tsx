@@ -1,12 +1,14 @@
 // The Predictor's full board: every game of the slate as a card, opened from the Home widget.
 // Its own module so it loads on that tap. It was half of Predictor.tsx, and Home renders only
 // the widget, so every Home landing carried the board for a reader who may never open it.
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import { pressable } from '../../ui/interaction'
 import { edge } from '../../ui/card'
 import React, { useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TONE, FILL } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { ringColor } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { track, EVENTS } from '../../lib/analytics'
 import { chromePx, typePx } from '../../ui/scale'
@@ -22,7 +24,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
   onPick:      (teamId: number) => void
 }) {
   const team    = side === 'away' ? game.away : game.home
-  const isDark  = useIsDark()
+  const isDark  = useDark()
   const col     = ringColor(team.teamId, isDark)
   const picked  = prediction === team.teamId
   const isWin   = game.state === 'final' && game.winnerId === team.teamId
@@ -60,23 +62,11 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
       )}
 
       {/* Team logo: a click votes (bubbles to parent) */}
-      <Box
-        sx={{
-          width: { xs: chromePx(44), sm: chromePx(54) }, height: { xs: chromePx(44), sm: chromePx(54) }, borderRadius: '50%',
-          bgcolor: teamLogoBg(team.teamId, isDark), border: `2px solid ${col}`,
-          boxShadow: picked ? `0 0 0 3px ${col}35` : `0 0 0 1px ${col}20`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', flexShrink: 0,
-          transition: 'box-shadow 0.15s',
-          '&:hover': { boxShadow: `0 0 0 3px ${col}55` },
-        }}
-      >
-        <Box component="img"
-          src={teamLogoSrc(team.teamId, isDark)}
-          alt={team.abbr}
-          sx={{ width: '72%', height: '72%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(team.teamId, isDark), transformOrigin: 'center' }}
-        />
-      </Box>
+      <TeamLogo teamId={team.teamId} abbr={team.abbr} size={{ xs: 44, sm: 54 }} sx={{
+        boxShadow: picked ? `0 0 0 3px ${col}35` : 'none',
+        transition: 'box-shadow 0.15s',
+        '&:hover': { boxShadow: `0 0 0 3px ${col}55` },
+      }} />
 
       {/* Team nickname */}
       <Typography

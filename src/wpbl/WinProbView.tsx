@@ -1,5 +1,5 @@
+import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Typography, useMediaQuery } from '@mui/material'
 import { fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, getCachedWpblAllPlayers } from './api'
 import {
   gameWinProb, fmtWinPct, winProbModel, swingLabel,
@@ -7,11 +7,11 @@ import {
 } from './derive/winProbability'
 import { parsePlay } from './derive/playByPlay'
 import { canonicalFeedName } from './feedNames'
-import { useChartScrub } from './chartScrub'
 import { wpblAccent } from './constants'
-import { CARD_BORDER, TapTip, useWpblDark, useWpblName } from './ui'
+import { WinProbChart, WinProbFrame, type Readout } from '../ui/winProbChart'
 import type { WpblGame, WpblGamePlay, WpblRunValuePlay, WpblTeam } from './types'
-import { typePx } from '../ui/scale'
+
+export type { Readout }
 
 /**
  * The shape of a game: win probability from the first pitch to the last out, and the one play
@@ -23,53 +23,11 @@ import { typePx } from '../ui/scale'
  * can be said for most of what this section computes.
  *
  * The model is in derive/winProbability.ts, built from the league's own plays. It knows
- * nothing about who is pitching, and it is measured on 263 half-innings, both of which the
- * caption says out loud.
+ * nothing about who is pitching, which the ⓘ says out loud. The drawing is shared with MLB's
+ * Game Center (src/ui/winProbChart.tsx); this file is the model and the words.
  */
 
-
-/** The inning axis: the row of numbers, and the word saying what they are. */
-const AXIS_H = 15
-const AXIS_LABEL_H = 12
-
-/**
- * The caption's height, reserved from the first paint and never negotiated afterwards.
- *
- * This card sits at the top of the recap, so every pixel it gains late pushes the rest of the
- * tab down, and it gains them a second or two late by construction: it needs the league's
- * whole play log, not this game's. Reserving the chart alone still leaves the recap visibly
- * lurching once the model lands.
- *
- * So the readout is a fixed box, and it always has something in it: an empty reserved gap
- * reads as something that failed to load.
- *
- * A FIXED height rather than a fitted one, because the text changes under a moving finger and
- * a box that resized as it did would be the one thing this card must never do. That is also
- * why the play is one line and not two: the height has to be the worst case, so every game
- * pays for the longest sentence any game could produce.
- *
- * IN REM, NEVER PX. It reserves room for three rows of TYPE, which is the one thing CLAUDE.md
- * says must not be sized in px: the section is drawn a quarter larger from `md` up and the
- * reader can add another eighth on top of that. A px box does not clip when the type grows,
- * which is what makes the failure easy to miss. It is a flex column with a fixed height, so
- * what it does instead is CRUSH THE MIDDLE ROW, and the middle row is the play: on a desktop the
- * play's line drops from the 25px it needs to 9px, and to 4px with Large text on. Not clipped at
- * the edge, cut in half lengthways: the reader sees the top third of the letters and cannot read
- * the sentence, which is the entire thing the chart is scrubbed for. The label row above it and
- * the note below it both look perfect throughout, because `mt: auto` on the note pins the two
- * ends and leaves the slack, or the deficit, to whatever is between them.
- *
- * 4.25rem, not 4. The natural height is a shade under 4rem at every scale measured (4.00 on a
- * phone, 3.89 at Large text, 4.00 on a desktop, 3.87 at both), which means 4rem would fit by
- * nothing at all. The extra quarter is 4px on a phone and it is the difference between a rule
- * and a coincidence.
- */
-const CAPTION_H = '4.25rem'
-
-/** The plot's own height. Tall enough for the shape to read, short enough that the recap it
- *  sits inside is still a recap. The phone figure pays for the readout above it: Game Center
- *  is a sheet, and the card only gets about 220px of it before the fold. */
-const CHART_H = { xs: 132, sm: 178 }
+const INFO = "Each team's chance of winning from the current inning, score, outs and runners. Built from this league's own plays. It doesn't know who's pitching, who's up, or how the clubs have played all season."
 
 interface Props {
   game: WpblGame
@@ -107,363 +65,59 @@ export default function WinProbView({ game, teams, plays, games }: Props) {
   // the frame is drawn immediately, at exactly the size it will end up, and the chart is
   // filled in underneath it. The alternative renders nothing for a second and then shoves the
   // whole recap down the screen.
-  if (league === null) return <WinProbFrame game={game} teams={teams} />
+  if (league === null) {
+    return <WinProbFrame info={INFO}
+      away={teams.get(game.away_team_id)?.abbr ?? 'AWAY'} home={teams.get(game.home_team_id)?.abbr ?? 'HOME'} />
+  }
   if (!wp || wp.points.length < 2) return null
   return <WinProbCard game={game} teams={teams} wp={wp} />
 }
 
-/** The card before its data: the real header, and an empty chart of the real height. */
-function WinProbFrame({ game, teams }: { game: WpblGame; teams: Map<string, WpblTeam> }) {
-  const home = teams.get(game.home_team_id)
-  const away = teams.get(game.away_team_id)
-  return (
-    <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
-      <CardHeader />
-      {/* Same order and the same boxes as the real card, or the recap moves when the model
-          lands. The readout's box is reserved even though the frame has nothing to put in it. */}
-      <Box sx={{ height: CAPTION_H, mb: 1, borderBottom: '1px solid', borderColor: 'divider' }} />
-      <Box sx={{ position: 'relative', height: CHART_H }}>
-        <Box aria-hidden sx={{
-          position: 'absolute', left: 0, right: 0, top: '50%',
-          borderTop: '1px dashed', borderColor: 'divider', opacity: 0.6,
-        }} />
-        <Label sx={{ top: 4, left: 6 }}>{away?.abbr ?? 'AWAY'}</Label>
-        <Label sx={{ bottom: 4, left: 6 }}>{home?.abbr ?? 'HOME'}</Label>
-      </Box>
-      <Box sx={{ height: AXIS_H, mt: '2px' }} />
-      <Box sx={{ height: AXIS_LABEL_H }} />
-    </Box>
-  )
-}
-
-/**
- * Shared by the frame and the card, so the two can never disagree about the header.
- *
- * `now` is the live game's headline and the one number this card owes a reader who is watching
- * rather than reading back: where it stands, this second. It is deliberately NOT in the readout
- * below, which rests on the biggest moment so far and must keep resting there. That readout is
- * a play, scrubbing moves it, and a live figure that jumped between "the play you are pointing
- * at" and "now" every fifteen seconds would be the one thing on the card that cannot be trusted
- * to hold still. Up here it is a fact about the game rather than a fact about a play.
- *
- * It sits on the title's own line, so the frame that omits it is exactly as tall as the card
- * that has it. Everything in this component is a fixed height for the reason at CAPTION_H.
- */
-function CardHeader({ now }: { now?: string | null }) {
-  return (
-    <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>Win probability</Typography>
-      <TapTip
-        title="Each team's chance of winning from the current inning, score, outs and runners. Built from this league's own plays. It doesn't know who's pitching, who's up, or how the clubs have played all season."
-        sx={{
-          width: 16, height: 16, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          border: '1px solid', borderColor: 'text.disabled', color: 'text.disabled',
-          fontSize: '0.6rem', fontWeight: 800, lineHeight: 1,
-        }}
-      >i</TapTip>
-      {now && (
-        /* Tabular figures and a nowrap, because this repaints on every poll of a live game and
-           a number that reflows the row as it lands reads as a glitch rather than as news. */
-        <Typography sx={{
-          ml: 'auto', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap',
-          fontVariantNumeric: 'tabular-nums', color: 'var(--wpbl-accent-fg)',
-        }}>{now}</Typography>
-      )}
-    </Box>
-  )
-}
-
 /** Split out so the model work above stays in one place and this stays drawing. */
 function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, WpblTeam>; wp: GameWinProb }) {
-  const home = teams.get(game.home_team_id)
-  const away = teams.get(game.away_team_id)
   // The curated foreground colours, not the primaries. Every club in this league is
   // near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), which is fine behind a logo
   // and useless for two areas that have to be told apart: the primaries draw Los Angeles in
   // pure black at 30% over a dark card. See the note on wpblAccent.
-  const dark = useWpblDark()
-  const homeColor = wpblAccent(game.home_team_id, dark)
-  const awayColor = wpblAccent(game.away_team_id, dark)
-
-  // The line, in a 0..100 box. `preserveAspectRatio="none"` lets it stretch to whatever width
-  // the card has; the stroke is told not to stretch with it, which is the whole reason this
-  // works as an SVG rather than as a canvas.
+  const dark = useDark()
   const pts = wp.points
-  const x = (i: number) => (pts.length === 1 ? 0 : (i / (pts.length - 1)) * 100)
-  const y = (p: number) => (1 - p) * 100
-  const line = pts.map((pt, i) => `${x(i).toFixed(3)},${y(pt.before).toFixed(3)}`)
-  // The last point is the result, not another state, so the line is walked to it explicitly.
-  line.push(`100,${y(pts[pts.length - 1].after).toFixed(3)}`)
-
-  const homeFill = `M0,100 L${line.join(' L')} L100,100 Z`
-  const awayFill = `M0,0 L${line.join(' L')} L100,0 Z`
-
-  // One span per inning, so the chart can be READ against the game rather than just looked
-  // at. A rule every time the inning changes tells a reader nothing on its own: the swing
-  // sentence says "in the 6th" and there has to be a way to find the 6th. Both halves of an
-  // inning are consecutive in play order, so grouping by the inning number gives one span.
-  const innings: { inning: number; from: number; to: number }[] = []
-  for (let i = 0; i < pts.length; i++) {
-    const last = innings[innings.length - 1]
-    if (last && last.inning === pts[i].play.inning) last.to = x(i)
-    else innings.push({ inning: pts[i].play.inning, from: x(i), to: x(i) })
-  }
-  if (innings.length > 0) innings[innings.length - 1].to = 100
+  const plot = useMemo(() => pts.map(p => ({ before: p.before, after: p.after, inning: p.play.inning })), [pts])
 
   // THE CARD ALWAYS RESTS ON A PLAY. The one that won it where a winner exists, the most
   // volatile one while a game is still being played, and in a rout the biggest of a small
   // lot. The honesty about which of those it is belongs in the LABEL, not in whether a play
-  // shows: dropping the play in a rout and printing a sentence about its absence answers a
-  // question nobody asked while the card has a perfectly good play to show. `SWING_FLOOR`
-  // decides the wording, never whether a reader gets a play at all.
-  //
-  // The marker sits where the swing LANDED, which is the next play's position. Clamped,
-  // because in a game decided on the last play, which is the one worth marking, the next
-  // position is off the right edge and the dot would simply not be drawn.
+  // shows (see restingReadout).
   const resting = wp.decisive ?? wp.biggest
   const restIdx = resting ? pts.indexOf(resting) : -1
-  const bigX = restIdx >= 0 ? Math.min(x(restIdx + 1), 100) : 0
 
-  // Reading the chart: hold a finger on it, hover it, or arrow along it. The answer goes in
-  // the caption box above the plot rather than in a floating tooltip: see the note on it.
-  //
-  // ONE SHAPE, BOTH STATES. Resting and scrubbing fill the same three rows, so the card is
-  // not two different things in one box: a finger landing on the plot moves the readout it
-  // was already showing, which is a far better way of teaching the gesture than the hint is.
-  const canHover = useMediaQuery('(hover: hover)')
-  // One line means the row has a budget, and the name is the part of a play that can be given
-  // up without losing what happened. The section's own shortener, so a name degrades here the
-  // way it does in every other WPBL list.
   // The readout names the batter of each play from the feed's prose (`batter_name`), which is
   // wrong for the seven players in feedNames.ts. Correct it to the roster spelling before
   // shortening, the same fix the play-by-play and the live panel make. The roster is the
   // app-wide cache, already warm by the time Game Center opens this chart; absent, the name is
   // left as the feed sent it rather than blocking on a fetch this card does not otherwise need.
   const roster = getCachedWpblAllPlayers()
-  const shorten = useWpblName(14)
   const short = useCallback(
-    (name: string) => shorten(roster ? canonicalFeedName(name, roster) : name),
-    [shorten, roster],
+    (name: string) => (roster ? canonicalFeedName(name, roster) : name),
+    [roster],
   )
-  const scrub = useChartScrub(pts.length,
-    'Win probability through the game. Press and hold the chart, or use the arrow keys, to read any moment of it.')
-  const at = scrub.index == null ? null : pts[scrub.index]
   // Only while it is being played. On a final game "SF 100%" is not a forecast, it is the
   // scoreboard three inches up the sheet with a percent sign on it.
-  const now = game.status === 'live' ? nowLine(wp.final, game, teams) : null
-  const read = at ? scrubReadout(at, game, teams, short)
-    : resting ? restingReadout(resting, game, teams, short, canHover, resting === wp.decisive)
-    : null
+  const now = game.status === 'live' ? { text: nowLine(wp.final, game, teams), color: 'var(--wpbl-accent-fg)' } : null
 
   return (
-    <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
-      {/* One row, and the method is not in it. Three lines of "who is pitching is invisible to
-      it" under a 132px chart would spend more of a phone screen on a disclaimer than on the
-      thing being disclaimed. It is a tap away on the ⓘ, which is where a caveat belongs
-      for a card whose headline claim a reader can check against the score above it. */}
-      <CardHeader now={now} />
-
-      {/* The readout, ABOVE the plot, and both halves of that are deliberate.
-
-      It is the caption box rather than a floating tooltip because a tooltip covers the
-      chart it is describing and sits under the hand doing the pointing, and because a
-      fixed box costs no layout shift.
-
-      It is above rather than below because of where this card lands on a phone. Game
-      Center is a sheet, and by the time it has drawn the line score, the highlight reel,
-      the tab row and the recap's opening line, the pane gives this card less height than
-      the card has: with the readout last, the only part that answers the question is
-      below the fold, along with the hint that says the chart can be held at all. Above the
-      plot it arrives ~190px earlier in the scroll, and a finger on the chart does not
-      cover it. */}
-      <Box sx={{
-        px: 1.5, pt: 0.25, pb: 1, mb: 1, height: CAPTION_H, overflow: 'hidden',
-        borderBottom: '1px solid', borderColor: 'divider',
-        // A column with the note pushed to the floor: the slack a one-line play leaves sits
-        // between the play and the note, so the note holds still when the play wraps to two.
-        display: 'flex', flexDirection: 'column',
-      }}>
-        {/* Row 1: what this moment IS, and the win probability at it. The two never swap
-            sides, so dragging changes the words in place instead of rearranging the row. */}
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
-          <Typography sx={{
-            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8),
-            color: 'var(--wpbl-accent-fg)', whiteSpace: 'nowrap',
-            overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{read?.label}</Typography>
-          {/* Tabular figures, because this number changes under a moving finger and
-              proportional digits make the whole row twitch as it does. */}
-          <Typography sx={{
-            ml: 'auto', fontSize: '0.62rem', fontWeight: 800, whiteSpace: 'nowrap',
-            fontVariantNumeric: 'tabular-nums', color: 'text.secondary',
-          }}>{read?.pct}</Typography>
-        </Box>
-
-        {/* Row 2: the play, on ONE line, whatever the feed writes. A second line costs 20px
-            of a card that has to fit above the fold of a sheet, and buys the tail of a
-            sentence whose front already carries it. The batter's name gives way first (see
-            the shortener passed to the readout), so what survives the width is the play. */}
-        <Typography aria-live="polite" sx={{
-          fontSize: '0.85rem', lineHeight: 1.45,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>{read?.text}</Typography>
-
-        {/* Row 3: the score there, or, at rest, the one thing on the card that says it can be
-            read at all. A hold gesture nobody is told about is a feature nobody finds. */}
-        <Typography sx={{
-          mt: 'auto', pt: 0.25, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase',
-          letterSpacing: typePx(0.7), color: 'text.disabled', whiteSpace: 'nowrap',
-          fontVariantNumeric: 'tabular-nums',
-        }}>{read?.note}</Typography>
-      </Box>
-      <Box
-        {...scrub.props}
-        sx={{
-          position: 'relative', height: CHART_H,
-          // Vertical belongs to the page; sideways is the scrub's, claimed before the browser
-          // can start a pan with it.
-          touchAction: 'pan-y', WebkitTapHighlightColor: 'transparent',
-          userSelect: 'none', WebkitTouchCallout: 'none',
-          cursor: 'crosshair', outline: 'none',
-          '&:focus-visible': {
-            outline: '2px solid', outlineColor: 'var(--wpbl-accent-solid)', outlineOffset: '-2px',
-          },
-        }}
-      >
-        <Box component="svg" viewBox="0 0 100 100" preserveAspectRatio="none"
-          aria-hidden sx={{ display: 'block', width: '100%', height: '100%' }}>
-          {/* The two territories. Whichever side of the line you are on is the share of the
-              game that team held, which is the one thing about this chart nobody has to be
-              taught. */}
-          <path d={awayFill} fill={awayColor} opacity={0.3} />
-          <path d={homeFill} fill={homeColor} opacity={0.3} />
-          {innings.slice(1).map(iv => (
-            <line key={iv.inning} x1={iv.from} x2={iv.from} y1={0} y2={100}
-              stroke="currentColor" strokeOpacity={0.12} strokeWidth={1}
-              vectorEffect="non-scaling-stroke" />
-          ))}
-          <line x1={0} x2={100} y1={50} y2={50}
-            stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 3"
-            vectorEffect="non-scaling-stroke" />
-          {/* The swing moment, marked on the plot itself so the "Swing of the game" sentence
-              points somewhere a reader can see before they ever touch the chart. An accent rule
-              the full height of the column, only at rest: once a finger lands, the scrub crosshair
-              below is the line that matters and two would compete. */}
-          {restIdx >= 0 && scrub.index == null && (
-            <line x1={bigX} x2={bigX} y1={0} y2={100}
-              stroke="var(--wpbl-accent-solid)" strokeOpacity={0.5} strokeWidth={1.5}
-              vectorEffect="non-scaling-stroke" />
-          )}
-          <polyline points={line.join(' ')} fill="none"
-            stroke="currentColor" strokeOpacity={0.85} strokeWidth={2}
-            strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          {scrub.index != null && (
-            <line x1={x(scrub.index)} x2={x(scrub.index)} y1={0} y2={100}
-              stroke="currentColor" strokeOpacity={0.55} strokeWidth={1}
-              vectorEffect="non-scaling-stroke" />
-          )}
-        </Box>
-
-        {/* The marker is an HTML dot, not an SVG circle, and that is not a preference. The box
-            is stretched to the card's width by `preserveAspectRatio="none"`, and while the
-            line can opt out of that for its stroke, a circle cannot opt out of it for its
-            shape: it comes out an ellipse two and a half times wider than it is tall. Nudged
-            off the very corner so a dot on the last play of the game is not half-clipped. */}
-        {restIdx >= 0 && (
-          <Box aria-hidden sx={{
-            position: 'absolute',
-            left: `${Math.min(Math.max(bigX, 2), 98)}%`,
-            top: `${Math.min(Math.max(y(pts[restIdx].after), 6), 94)}%`,
-            transform: 'translate(-50%, -50%)',
-            width: 10, height: 10, borderRadius: '50%',
-            bgcolor: 'var(--wpbl-accent-solid)',
-            border: '2px solid', borderColor: 'background.paper',
-            // A soft accent halo so the dot reads as the point of the chart, not just another
-            // marker: it is the same colour as the swing rule it sits on.
-            boxShadow: '0 0 0 5px color-mix(in srgb, var(--wpbl-accent-solid) 22%, transparent)',
-            pointerEvents: 'none',
-            // It goes as soon as the chart is being read. This dot means "the play in the
-            // readout", and the moment a finger lands the readout is somewhere else: leaving
-            // it up puts two dots on the plot, one of which is pointing at a play the card is
-            // no longer telling you anything about. Faded rather than unmounted, so it does
-            // not blink in and out as a linger expires.
-            opacity: scrub.index == null ? 1 : 0,
-            transition: 'opacity 120ms ease',
-          }} />
-        )}
-
-        {/* Where the finger is. An HTML dot for the same reason the swing marker is one: the
-            box is stretched horizontally, so an SVG circle in it comes out an ellipse. */}
-        {at && scrub.index != null && (
-          <Box aria-hidden sx={{
-            position: 'absolute',
-            left: `${Math.min(Math.max(x(scrub.index), 1.5), 98.5)}%`,
-            top: `${Math.min(Math.max(y(at.before), 3), 97)}%`,
-            transform: 'translate(-50%, -50%)',
-            width: 11, height: 11, borderRadius: '50%',
-            bgcolor: 'text.primary',
-            border: '2px solid', borderColor: 'background.paper',
-            pointerEvents: 'none',
-          }} />
-        )}
-
-        {/* The club names sit on their own halves rather than in a legend, so the chart needs
-            no key: the top of the box is the away team's and the bottom is the home team's.
-            The midline is labelled once, on the right, where the line has almost always left
-            the middle by the end: without it the chart has a shape and no scale. */}
-        <Label sx={{ top: 4, left: 6 }}>{away?.abbr ?? 'AWAY'}</Label>
-        <Label sx={{ bottom: 4, left: 6 }}>{home?.abbr ?? 'HOME'}</Label>
-        <Label sx={{ top: '50%', right: 6, transform: 'translateY(-50%)', opacity: 0.75 }}>50%</Label>
-      </Box>
-
-      {/* Innings, under their own stretch of the chart. Numbered wherever two labels will not
-      collide, which is a lower bar than it sounds: a digit at this size is about 5px and a
-      375px card gives 3.5% of its width 12px to put it in. A 7% threshold looks reasonable
-      and quietly drops the SEVENTH from a game the home team won without batting in it,
-      which is the one inning a reader most wants to find. */}
-      <Box aria-hidden sx={{ position: 'relative', height: AXIS_H, mt: '2px' }}>
-        {innings.filter(iv => iv.to - iv.from >= 3.5).map(iv => (
-          <Typography key={iv.inning} sx={{
-            position: 'absolute', left: `${(iv.from + iv.to) / 2}%`, transform: 'translateX(-50%)',
-            fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled', lineHeight: 1,
-          }}>{iv.inning}</Typography>
-        ))}
-      </Box>
-
-      {/* And what those numbers ARE. A bare row of 1 to 7 under a baseball chart is a good
-          guess rather than a label, and the axis is worth eleven pixels of saying so. */}
-      <Typography aria-hidden sx={{
-        height: AXIS_LABEL_H, textAlign: 'center', fontSize: '0.55rem', fontWeight: 700,
-        letterSpacing: typePx(0.8), textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
-      }}>Inning</Typography>
-
-    </Box>
+    <WinProbChart
+      points={plot}
+      away={{ abbr: teams.get(game.away_team_id)?.abbr ?? 'AWAY', fill: wpblAccent(game.away_team_id, dark) }}
+      home={{ abbr: teams.get(game.home_team_id)?.abbr ?? 'HOME', fill: wpblAccent(game.home_team_id, dark) }}
+      info={INFO}
+      now={now}
+      accent="var(--wpbl-accent-fg)"
+      marks={restIdx >= 0 ? [{ index: restIdx, color: 'var(--wpbl-accent-solid)' }] : []}
+      readout={(i, canHover) => i != null ? scrubReadout(pts[i], game, teams, short)
+        : resting ? restingReadout(resting, game, teams, short, canHover, resting === wp.decisive)
+        : null}
+    />
   )
-}
-
-function Label({ children, sx }: { children: React.ReactNode; sx: object }) {
-  return (
-    <Typography sx={{
-      position: 'absolute', fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.5),
-      color: 'text.secondary', pointerEvents: 'none', ...sx,
-    }}>{children}</Typography>
-  )
-}
-
-/**
- * The three rows the readout box holds, filled the same way whether the card is resting on the
- * play of the game or following a finger. One shape means a reader learns to read it once.
- */
-export interface Readout {
-  /** Row 1 left: what this moment is. A label at rest, the inning and outs while scrubbing. */
-  label: string
-  /** Row 1 right: the win probability at it. */
-  pct: string
-  /** Row 2: the play itself. */
-  text: string
-  /** Row 3: the score there, or, at rest, the hint that the chart can be read. */
-  note: string
 }
 
 /**
@@ -510,10 +164,14 @@ export function nowLine(p: number, game: WpblGame, teams: Map<string, WpblTeam>)
 function playText(pt: WinProbPoint, short: (name: string) => string): { who: string; what: string } {
   const parsed = parsePlay(pt.play.narrative ?? '', pt.play.batter_name, x => x)
   return {
-    who: parsed.who ? `${short(parsed.who)} ` : '',
+    who: parsed.who ? short(parsed.who) : '',
     what: parsed.what || pt.play.narrative?.trim() || 'No play recorded',
   }
 }
+
+/** The sentence, and the name at its front for the chart to step down if the row is narrow. */
+const playLine = ({ who, what }: { who: string; what: string }) =>
+  ({ text: who ? `${who} ${what}.` : `${what}.`, who: who || undefined })
 
 /** One moment of the game, as the finger passes over it. */
 export function scrubReadout(
@@ -525,11 +183,11 @@ export function scrubReadout(
   const p = pt.play
   const away = teams.get(game.away_team_id)?.abbr ?? 'AWAY'
   const home = teams.get(game.home_team_id)?.abbr ?? 'HOME'
-  const { who, what } = playText(pt, short)
+  const play = playLine(playText(pt, short))
   return {
     label: `${p.half === 'bottom' ? 'Bot' : 'Top'} ${ordinal(p.inning)} · ${p.outs ?? 0} out`,
     pct: pctLine(pt, game, teams),
-    text: `${who}${what}.`,
+    ...play,
     // The scoreboard as the play left it. 60% at 1-0 and 60% at 8-7 are not the same game,
     // and the win figure alone cannot tell them apart.
     note: `${away} ${pt.awayScore}, ${home} ${pt.homeScore}`,
@@ -563,14 +221,14 @@ export function restingReadout(
   // The words come from derive/winProbability, which is also what the play-by-play's badge
   // reads: one definition, so the chart and the list cannot call the same play two things.
   const label = swingLabel(pt.swing, decided, game.status)
-  const { who, what } = playText(pt, short)
+  const play = playLine(playText(pt, short))
   return {
     // The inning goes where a scrubbed play keeps it, at the end of the label, and not on the
     // sentence: the feed's narratives already end in their own clause ("singled to left field,
     // RBI"), and hanging "in the 1st" off that reads as though the RBI happened in the 1st.
     label: `${label} · ${ordinal(pt.play.inning)}`,
     pct: pctLine(pt, game, teams),
-    text: `${who}${what}.`,
+    ...play,
     // The affordance, not the score: the final score is on the scoreboard directly above this
     // card, and somebody already holding the chart does not need to be told they can.
     note: `${canHover ? 'Hover' : 'Hold'} the chart for any play`,

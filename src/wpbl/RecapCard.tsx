@@ -1,10 +1,11 @@
+import { useDark } from '../ui/useDark'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay, WpblVideo } from './types'
 import { buildRecap, leagueRecapContext, type RecapStar } from './derive/recap'
 import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
-import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE, useWpblDark, CLUB_BAND, cardFooterBand } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE, CLUB_BAND, cardFooterBand } from './ui'
 import { relativeDayLabel, wpblFullName, wpblSurface } from './constants'
 import { GameHighlightCards } from './Highlights'
 import { GameClips } from './Watch'
@@ -246,7 +247,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
 }) {
   const gameLink = useWpblGameLink()
   const playerLink = useWpblPlayerLink()
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const game = useMemo(() => latestFinal(games), [games])
   const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblRecapPlay[] } | null>(null)
 
