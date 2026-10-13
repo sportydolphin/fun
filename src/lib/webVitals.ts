@@ -43,7 +43,7 @@ export function routeOf(pathname: string): string {
 
 // Emotion's generated classes (`css-1x2y3z`) change with every build, and `MuiBox-root` is on
 // half the elements in the app, so neither says which box moved. What is left is the tag, an id,
-// and MUI's component classes (`MuiCard-root`, `MuiTabs-flexContainer`).
+// and MUI's component classes (`MuiCard-root`, `MuiTabs-list`).
 const NOISE = /^(css-|MuiBox-root$)/
 function part(el: Element): string {
   const id = el.id && !/\d{3}/.test(el.id) ? `#${el.id}` : ''

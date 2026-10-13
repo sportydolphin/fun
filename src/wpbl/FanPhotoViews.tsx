@@ -230,7 +230,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
         }}
       >
         <Box component="img" src={photo.card_url} alt={caption} loading={priority ? 'eager' : 'lazy'}
-          {...(priority === 'high' ? { fetchpriority: 'high' } : {})}
+          fetchPriority={priority === 'high' ? 'high' : undefined}
           sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
       </Box>
       {showCaption && (
@@ -455,8 +455,7 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, 
   // THE FIRST TILES ARE NOT LAZY. On Home the rail's first photo is the page's largest image, and
   // marked `loading="lazy"` it waited for layout before its request even began: five seconds into
   // Lighthouse's mobile run, which made it an eleven-second largest paint. Three tiles fill the
-  // rail on any screen; the rest (and the whole loop copy) stay lazy. `fetchpriority` lowercase,
-  // as React 18 passes it through only spelled that way (see Reading.tsx).
+  // rail on any screen; the rest (and the whole loop copy) stay lazy.
   const tiles = (copy: boolean) => photos.map((p, i) => {
     const a = railTileAspect(p.width, p.height)
     return (
@@ -485,11 +484,9 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, 
           {tiles(false)}
           {/* The loop's second copy (see useRailAutoScroll). `display: contents` so its tiles are
               flex items of the rail like the originals, with the same gap at the seam. `inert`
-              is set through the ref because React 18 has no prop for it; it takes the copy out
-              of the tab order and the accessibility tree while leaving it clickable. */}
+              takes the copy out of the tab order and the accessibility tree while leaving it clickable. */}
           {looping && (
-            <Box data-loop-copy aria-hidden ref={(el: HTMLElement | null) => { el?.setAttribute('inert', '') }}
-              sx={{ display: 'contents' }}>
+            <Box data-loop-copy aria-hidden inert sx={{ display: 'contents' }}>
               {tiles(true)}
             </Box>
           )}

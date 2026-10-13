@@ -202,12 +202,22 @@ item 2 describes, which is why that item comes first.
    v4 to v7, their Node 24 majors, in all 38 workflows. `daily-bots.yml` also ran its own scripts on
    Node 20, past end of life since April; it is on 22 with everything else. The deploy-key pushes
    (sitemap, archive, feature requests) are the part CI cannot exercise: watch their next runs.
-6. **Dependencies.** ✅ Patch and minor shipped Oct 13 as one pull request: supabase-js 2.106 to
-   2.117, MUI 7.3.7 to 7.3.11, Vite 6.4.4, Vitest 4.1, playwright-core 1.64, pg, ws; `npm audit`
-   was already clean, so the `yaml` finding had gone with an earlier bump. Then the majors,
-   one at a time, this winter while nothing is live: React 19 with its types, MUI 9, Vite 8 with
-   plugin-react 6, ESLint 10 with react-hooks 7 (whose new rules will find things), TypeScript 7,
-   jsdom 29. Spring is the wrong time for any of them.
+6. **Dependencies.** ✅ **Done Oct 13.** Patch and minor as one pull request (#75), then every major
+   one commit at a time: React 19, MUI 9, Vite 8 with plugin-react 6 and esbuild 0.28, ESLint 10
+   with react-hooks 7 and globals 17, TypeScript 7, jsdom 29, jest-dom 7, web-vitals 6. Three
+   things were left as decisions rather than finished:
+   - **Two TypeScripts.** The typecheck runs 7 (2s against 13); `typescript` stays at 6.0 because
+     typescript-eslint parses through the JS API that 7 does not have. See docs/CI.md.
+   - **An npm override for jsx-a11y**, whose peer range stops at ESLint 9. Drop it when a release
+     declares 10.
+   - **react-hooks 7 reports 314 findings under its recommended set**, almost all React Compiler
+     readiness (138 refs read during render, 117 setState in an effect). Only the two rules the
+     lint already named are on. The one real defect among them (components declared inside a
+     parent, remounting every render) is fixed. Turning the rest on is its own sweep, and only
+     worth it if the React Compiler is adopted.
+   Vite 8 also splits the entry into about 60 preloaded chunks where Rollup made one, about 5%
+   more initial JavaScript; left at the default, since hand-written chunk groups once blanked the
+   page.
 7. **Rehearse the spring.** Replay the archived 2026 feed through `wpbl-ingest` into a scratch
    schema and diff it against the mirror, so the feed re-verification on the clock above is a run
    rather than a reading of CLAUDE.md. Same item as the clock's: make `wpbl-postseason-check` fail
@@ -245,7 +255,7 @@ WPBL season.
 **P1**
 - **Google Play release** (ops item 9). Close; only Play's process is left.
 - Wins added and baserunning on the player card and Compare (item 8 below).
-- Dependencies (ops item 6): the patch and minor pull request, then the majors one at a time.
+- ~~Dependencies (ops item 6)~~ ✅ done Oct 13, patch, minor and every major.
 - Crash triage (ops item 2), once a week of tagged rows is in.
 
 **P2**

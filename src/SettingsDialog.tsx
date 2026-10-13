@@ -949,7 +949,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                     onChange={e => { setDeleteConfirm(e.target.value); setDeleteErr('') }}
                     error={!!deleteErr}
                     helperText={deleteErr || ' '}
-                    inputProps={{ spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' }}
+                    slotProps={{ htmlInput: { spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' } }}
                     sx={{ mb: 1 }}
                   />
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>

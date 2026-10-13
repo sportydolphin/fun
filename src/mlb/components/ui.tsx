@@ -142,7 +142,7 @@ export function StatPicker({ defs, selected, onToggle, label }: StatPickerProps)
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{ sx: { borderRadius: 2.5, p: 1.5, mt: 0.75, maxWidth: chromePx(210), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+        slotProps={{ paper: { sx: { borderRadius: 2.5, p: 1.5, mt: 0.75, maxWidth: chromePx(210), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
       >
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
           {defs.map(def => (

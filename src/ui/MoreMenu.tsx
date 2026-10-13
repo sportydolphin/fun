@@ -147,12 +147,12 @@ export function MoreSheet({ open, onClose, rows }: { open: boolean; onClose: () 
       disableSwipeToOpen
       // Capped and centred to the bar's own width, with rounded top corners and clearance for the
       // iOS home indicator, so it reads as a sheet the bar raised rather than a full-bleed slab.
-      PaperProps={{ sx: {
+      slotProps={{ paper: { sx: {
         maxWidth: chromePx(460), mx: 'auto', left: 0, right: 0,
         borderTopLeftRadius: 16, borderTopRightRadius: 16,
         bgcolor: 'background.raised',
         pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)',
-      } }}
+      } } }}
     >
       <Box sx={{ px: 2, pt: 1 }}>
         <Box aria-hidden sx={{ width: chromePx(36), height: chromePx(4), borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }} />

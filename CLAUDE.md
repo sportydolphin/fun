@@ -580,7 +580,7 @@ here (`/cups`, `/stopwatch`, `/weights`, `/poop`, `/testgame`, plus the `project
 leagues, and a games drawer nobody visited was still costing routes, redirects, CSS,
 a password-lock dialog and a tile grid on the admin page.
 
-**Stack:** React 18 + TypeScript + Vite + MUI · Supabase (Postgres, Auth, Edge Functions,
+**Stack:** React 19 + TypeScript + Vite + MUI · Supabase (Postgres, Auth, Edge Functions,
 pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
 `sportydolphin.fun`.
 

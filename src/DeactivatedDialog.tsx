@@ -10,7 +10,7 @@ import { BlockOutlined } from '@mui/icons-material'
 export function DeactivatedDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
-      PaperProps={{ sx: { borderRadius: 3 } }}>
+      slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
       <DialogContent sx={{ px: 3, py: 3.5, textAlign: 'center' }}>
         <Box sx={{
           width: 52, height: 52, borderRadius: '50%', mx: 'auto', mb: 1.75,

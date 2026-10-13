@@ -228,9 +228,9 @@ export function UserDetailDialog({ user, days, onClose }: {
 
   return (
     <Dialog open onClose={onClose} fullScreen={!wide} maxWidth={false}
-      PaperProps={{ sx: wide
+      slotProps={{ paper: { sx: wide
         ? { borderRadius: 3, width: 'min(980px, 94vw)', height: 'min(860px, 90vh)', maxWidth: 'none' }
-        : { borderRadius: 0 } }}>
+        : { borderRadius: 0 } } }}>
 
       <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, pb: 1.25 }}>
         <Box sx={{ minWidth: 0 }}>

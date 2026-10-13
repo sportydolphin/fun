@@ -31,6 +31,9 @@ export default tseslint.config(
   // renders, chiefly a click handler on something a keyboard cannot reach. 130 of those had built
   // up by Oct 2026: the account menu, the footer's Feedback and What's new, every carousel arrow.
   // MUI's Box is read as the element its `component` prop names, so `<Box onClick>` is a div.
+  // Its 6.10.2 peer range stops at ESLint 9, though it uses nothing ESLint 10 removed (checked
+  // Oct 2026, with a file of known violations); `overrides` in package.json lets it install. Drop
+  // the override once a release declares 10.
   {
     files: ['src/**/*.tsx'],
     plugins: { 'jsx-a11y': jsxA11y },

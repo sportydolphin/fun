@@ -277,7 +277,7 @@ export function SearchView({
                 onClose={() => setCardMenuAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: chromePx(190) } }}
+                slotProps={{ paper: { sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: chromePx(190) } } }}
               >
                 <MenuItem
                   onClick={() => { const el = cardMenuAnchor; setCardMenuAnchor(null); setCardOptionsAnchor(el) }}
@@ -303,7 +303,7 @@ export function SearchView({
                 onClose={() => setCardOptionsAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: chromePx(290), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+                slotProps={{ paper: { sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: chromePx(290), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
               >
                 {/* Colors */}
                 <Box sx={{ mb: 1.75 }}>

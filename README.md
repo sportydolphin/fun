@@ -9,7 +9,7 @@ A baseball web app with **two independent league sections**, switchable from the
 
 Both sections share one shell: auth, header search, notifications/Web Push, units, theme, and back-button history.
 
-**Stack:** React 18 + TypeScript + Vite + MUI, Supabase (Postgres + Auth + Edge Functions) for data and accounts, and GitHub Actions for the nightly/periodic precompute and push-sender jobs. Installable PWA.
+**Stack:** React 19 + TypeScript + Vite + MUI, Supabase (Postgres + Auth + Edge Functions) for data and accounts, and GitHub Actions for the nightly/periodic precompute and push-sender jobs. Installable PWA.
 
 📐 **[ARCHITECTURE.md](ARCHITECTURE.md)**: full system diagram covering frontend routes, database tables, edge functions, the WPBL ingest pipeline, every cron job, and external integrations.
 

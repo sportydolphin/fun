@@ -212,7 +212,7 @@ function Cover({ article, teamById, widths, sizes, lead, badge = 20, fresh, sx }
           // The lead is the page's largest paint and always on screen, so it is neither lazy nor
           // left queued behind the grid's requests.
           loading={lead ? 'eager' : 'lazy'} decoding="async"
-          {...(lead ? { fetchpriority: 'high' } : {})}
+          fetchPriority={lead ? 'high' : undefined}
           sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       )}
       {teams.length > 0 && (

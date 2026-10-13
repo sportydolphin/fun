@@ -519,7 +519,9 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
     </Box>
   )
 
-  const PitcherChip = ({ pitcher, teamId }: { pitcher: ProbablePitcher | null; teamId: number }) => {
+  // Called as a function, not rendered as <PitcherChip>: declared in here it would be a new component
+  // type each render, and React would remount it, NameText measurement and all.
+  const pitcherChip = ({ pitcher, teamId }: { pitcher: ProbablePitcher | null; teamId: number }) => {
     return (
       <Box
         {...pressable(e => { e.stopPropagation(); if (pitcher) onPlayerClick?.(pitcher.id) })}
@@ -551,9 +553,9 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
       maxWidth: inline ? 'none' : chromePx(COMPACT_ROW_MAX),
     }}>
-      <PitcherChip pitcher={awayPitcher} teamId={awayTeamId} />
+      {pitcherChip({ pitcher: awayPitcher, teamId: awayTeamId })}
       <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
-      <PitcherChip pitcher={homePitcher} teamId={homeTeamId} />
+      {pitcherChip({ pitcher: homePitcher, teamId: homeTeamId })}
     </Box>
   )
 }
@@ -574,7 +576,8 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
     [first, second] = [second, first]
   }
 
-  const PlayerCard = ({ player }: { player: NonNullable<GameFinalDetails['winnerPitcher']> }) => {
+  // A function for the same reason as pitcherChip above.
+  const playerCard = ({ player }: { player: NonNullable<GameFinalDetails['winnerPitcher']> }) => {
     return (
       <Box
         {...pressable(e => { e.stopPropagation(); onPlayerClick?.(player.id) })}
@@ -607,11 +610,11 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
       mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
       maxWidth: inline ? 'none' : chromePx(COMPACT_ROW_MAX),
     }}>
-      {first && <PlayerCard player={first} />}
+      {first && playerCard({ player: first })}
       {first && second && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
       )}
-      {second && <PlayerCard player={second} />}
+      {second && playerCard({ player: second })}
     </Box>
   )
 }

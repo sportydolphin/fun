@@ -434,11 +434,11 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
         placeholder="Search players"
         size="small"
         fullWidth
-        InputProps={{
+        slotProps={{ input: {
           startAdornment: (
             <InputAdornment position="start"><SearchIcon sx={{ fontSize: '1.1rem' }} /></InputAdornment>
           ),
-        }}
+        } }}
         sx={{ mb: 1.5 }}
       />
       <Box sx={{
