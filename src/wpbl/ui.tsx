@@ -4,8 +4,9 @@
 // helpers) moved to src/ui on Sep 28, 2026, when MLB adopted WPBL's shell; it is re-exported
 // below so nothing in the section had to change its imports.
 
+import { useDark } from '../ui/useDark'
 import React, { useEffect, useLayoutEffect, useMemo, useCallback, useRef, useState } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
 import { wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import { wpblPortraitSet, type WpblPortraitSet } from './portraits'
@@ -19,27 +20,16 @@ import { nameStages, nameAtStage, useLineNameFit } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
 import { TYPE_SCALE, CARD_BORDER, edge } from '../ui/card'
+import { ClubBadge } from '../ui/ClubBadge'
 export { TYPE_SCALE, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, SectionCard, Chevron } from '../ui/card'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
 export { ModalShell, usePhoneLayout, AfterShellEnters } from '../ui/ModalShell'
-import { usePhoneLayout } from '../ui/ModalShell'
 
 // ─── Name shortening ────────────────────────────────────────────────────────────
-// Compact a full name to "F. Last" once it's long enough to crowd a tight WPBL layout
-// (stat tables, leader rows, box scores). Names within `maxLen` pass through untouched,
-// and a single-token name is never abbreviated. Most callers should use useWpblName()
-// for the viewport-aware default rather than calling this with a fixed length.
-//
-// `maxLen` is a character count, which only approximates what fits: pass 0 to abbreviate
-// unconditionally. A fixed-width column wants that, because characters don't predict pixels:
-// "Jamie Mackay" and "Alexia Jorge" are both 12 long and only one of them overflows.
-export function wpblShortName(name: string, maxLen = 16): string {
-  const full = (name ?? '').trim()
-  if (full.length <= maxLen) return full
-  const parts = full.split(/\s+/)
-  if (parts.length < 2 || !parts[0]) return full
-  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
-}
+// Every name is MEASURED now: FittedName below, NameText / NameLine (src/ui/NameText.tsx) in a
+// list row, useLineNameFit for a line of several. The character-count shortener that used to live
+// here (`wpblShortName` / `useWpblName`) went in Oct 2026: a count cannot know the room, so it
+// left a name whole on a phone that then cut it, and abbreviated one that fitted on a desktop.
 
 // Name formatter for the FEATURED rows, where a name gets a line to itself and should read in
 // full. Degrades in stages rather than being ellipsed mid-word, because a cut-off name is worse
@@ -165,24 +155,6 @@ export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
       )}
     </Box>
   )
-}
-
-// Viewport-aware name shortener to drop into any WPBL list/table/tile. Horizontal space is
-// scarcest on phones, so names abbreviate to "F. Last" past a short length there, and only
-// for genuinely long names on wider screens. Returns a stable formatter.
-// `mobileMaxLen` is the phone-width threshold; 0 means always abbreviate there. Desktop has
-// room for the whole name either way, so it keeps its own limit regardless.
-export function useWpblName(mobileMaxLen = 12): (name: string) => string {
-  // Through the theme, so a list inside the desktop side panel shortens like the phone it is laid
-  // out as. See usePhoneLayout.
-  const isMobile = usePhoneLayout()
-  const maxLen = isMobile ? mobileMaxLen : 20
-  return useCallback((name: string) => wpblShortName(name, maxLen), [maxLen])
-}
-
-// Is the app in dark mode? Used to pick foreground-safe team accents (see wpblAccent).
-export function useWpblDark(): boolean {
-  return useTheme().palette.mode === 'dark'
 }
 
 // ─── Form dots ──────────────────────────────────────────────────────────────────
@@ -324,37 +296,21 @@ export const CARD_LINK_SX = {
 // team grid, box scores). A team-color circle ringed in the team's secondary hue (so
 // near-black or page-matching primaries stay defined), with the bundled logo on top:
 // full-bleed for finished lockups (Boston), centered for transparent knockouts, or
-// the abbreviation when no logo exists.
+// the abbreviation when no logo exists. The drawing is src/ui/ClubBadge.tsx, shared with MLB's
+// TeamLogo; this says which colours and art a WPBL club gets.
 export function TeamBadge({ team, size = 34, ring }: {
   team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number
   /** Override the ring colour, which defaults to the club's secondary. For a surface that keys a
    *  whole card on one team colour and needs the badge ring to match it rather than compete. */
   ring?: string
 }) {
-  const logo = wpblLogo(team.id)
-  const fill = wpblLogoFill(team.id)
   return (
-    <Box sx={{
-      // ART, SO IT FOLLOWS --app-chrome AND NOT THE ROOT FONT SIZE. Every caller passes a pixel
-      // number, and one calc here scales all 43 of them on desktop without any of them growing
-      // when a reader turns Large text on: a club badge is not type.
-      width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
-      borderRadius: '50%', flexShrink: 0,
-      bgcolor: wpblColor(team.id),
+    <ClubBadge size={size} alt={team.abbr} src={wpblLogo(team.id) ?? undefined}
+      bg={wpblColor(team.id)}
       // Through edge(): a club's secondary can sit close to the page (Firebells red on the dark
       // page measured 1.8:1), and the ring is the badge's edge. CLAUDE.md, "Borders".
-      border: '2px solid', borderColor: edge(ring ?? wpblSecondary(team.id)),
-      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    }}>
-      {logo
-        ? <Box
-            component="img" src={logo} alt={team.abbr}
-            sx={fill
-              ? { width: '100%', height: '100%', objectFit: 'cover' }
-              : { width: '74%', height: '74%', objectFit: 'contain' }}
-          />
-        : <Typography sx={{ fontSize: size * 0.34, fontWeight: 800, color: '#fff' }}>{team.abbr}</Typography>}
-    </Box>
+      ring={edge(ring ?? wpblSecondary(team.id))}
+      fit={wpblLogoFill(team.id) ? 'cover' : 'contain'} logoScale={0.65} />
   )
 }
 
@@ -647,7 +603,7 @@ export { SectionLabel, CardLink } from '../ui/card'
 // The share chip for a sheet header, shared with MLB (src/ui/CopyLinkButton.tsx). WPBL confirms
 // a copy in its own accent.
 export function CopyLinkButton(props: { url: string; title?: string; onCopy?: () => void }) {
-  return <CopyLinkButtonBase {...props} copiedColor={wpblAccentFg(useWpblDark())} />
+  return <CopyLinkButtonBase {...props} copiedColor={wpblAccentFg(useDark())} />
 }
 
 // ModalShell lives in src/ui/ModalShell.tsx (shared with MLB); re-exported above.

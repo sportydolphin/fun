@@ -1,12 +1,14 @@
+import { useDark } from '../ui/useDark'
+import { NameText } from '../ui/NameText'
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
-import { deriveSituation, shortName, FeedAge, type Situation } from './Live'
+import { deriveSituation, FeedAge, type Situation } from './Live'
 import { LazyWinProbCard } from './RecapCard'
 import { canonicalFeedName, matchFeedName } from './feedNames'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { battingStatline, pitchingStatline } from './derive/recap'
 import { wpblAccent, wpblFullName } from './constants'
-import { CARD_BORDER, FOCUS_RING, PlayerPortrait, TeamBadge, chromePx, pressable, usePhoneLayout, useWpblDark, useWpblName } from './ui'
+import { CARD_BORDER, FOCUS_RING, PlayerPortrait, TeamBadge, chromePx, pressable, usePhoneLayout } from './ui'
 import { useWpblPlayerLink, linkColor } from './LinkContext'
 import type {
   WpblBattingLine, WpblGame, WpblGamePlay, WpblPitchingLine, WpblPlayer, WpblTeam,
@@ -182,7 +184,7 @@ function SituationPanel({ game, s, away, home, last, teams, batting, pitching, n
   names: Map<string, WpblPlayer>
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const score = <ScoreHeader away={away} home={home} game={game} divider={!!s || !!last} />
 
   // No live count yet: the score, and the last play if the feed has logged one.
@@ -505,10 +507,9 @@ function Runners({ s, accent, names }: { s: Situation; accent: string; names: Ma
             width: '1.5rem', flexShrink: 0, textAlign: 'right',
             fontSize: '0.66rem', fontWeight: 800, color: accent,
           }}>{r.base}</Typography>
-          <Typography sx={{
-            fontSize: '0.84rem', fontWeight: 600, minWidth: 0,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{r.name ? shortName(r.name) : 'Runner on'}</Typography>
+          {r.name
+            ? <NameText name={r.name} sx={{ fontSize: '0.84rem', fontWeight: 600, minWidth: 0 }} />
+            : <Typography sx={{ fontSize: '0.84rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}>Runner on</Typography>}
         </Box>
       ))}
     </Box>
@@ -618,7 +619,6 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
   names: Map<string, WpblPlayer>
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
-  const short = useWpblName()
   const playerLink = useWpblPlayerLink()
   const text = play.narrative?.trim()
   // Only the two names this play carries, longest first so "Elodie Ciamarro" is replaced before
@@ -634,8 +634,8 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
     const re = new RegExp(pool
       .sort((a, b) => b.length - a.length)
       .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
-    return (t: string) => t.replace(re, m => short(canon.get(m) ?? m))
-  }, [play.batter_name, play.pitcher_name, short, names])
+    return (t: string) => t.replace(re, m => canon.get(m) ?? m)
+  }, [play.batter_name, play.pitcher_name, names])
 
   const parsed = useMemo(
     () => parsePlay(text ?? '', play.batter_name, shorten),
@@ -680,7 +680,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
                     ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
                     '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                   } : {}),
-                }}>{short(batter?.name ?? canonicalFeedName(parsed.who, names.values()))}</Box>
+                }}>{batter?.name ?? canonicalFeedName(parsed.who, names.values())}</Box>
               )}
               {parsed.who && ' '}
               {parsed.what}

@@ -1,9 +1,11 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
 import { ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, TONE } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
+import { ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { supabase } from '../../lib/supabase'
 import { fetchDeactivatedUserIds } from '../../lib/usernames'
@@ -344,8 +346,7 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
   subLabel?: string
 }) {
   const tone = useTextTone()
-  const [failed, setFailed] = useState(false)
-  const isDark   = useIsDark()
+  const isDark   = useDark()
   const col      = ringColor(teamId, isDark)
   const rankCol  = RANK_COLORS[rank] ?? '#94a3b8'
   const logoSize = rank === 0 ? 68 : 56
@@ -354,29 +355,10 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6 }}>
       {/* Logo with rank badge */}
       <Box sx={{ position: 'relative', mb: 0.25 }}>
-        <Box sx={{
-          width: chromePx(logoSize), height: chromePx(logoSize), borderRadius: '50%',
-          bgcolor: teamLogoBg(teamId, isDark),
-          border: `2.5px solid ${col}`,
+        <TeamLogo teamId={teamId} abbr={teamAbbr} size={logoSize} sx={{
           boxShadow: rank === 0 ? `0 0 0 2px ${rankCol}55, 0 4px 16px ${col}30` : `0 2px 8px ${col}20`,
-          overflow: 'hidden', flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'box-shadow 0.2s',
-        }}>
-          {failed ? (
-            <Typography sx={{ color: tone(col), fontWeight: 900, fontSize: logoSize * 0.28, lineHeight: 1 }}>
-              {teamAbbr}
-            </Typography>
-          ) : (
-            <Box
-              component="img"
-              src={teamLogoSrc(teamId, isDark)}
-              alt={teamAbbr}
-              onError={() => setFailed(true)}
-              sx={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
-            />
-          )}
-        </Box>
+        }} />
 
         {/* Rank badge */}
         <Box sx={{

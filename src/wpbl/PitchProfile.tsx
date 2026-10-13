@@ -1,10 +1,10 @@
+import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllPitchPlays, getCachedWpblAllPitchPlays } from './api'
 import { aggregatePitchCodes, pitchQualifiers, rankBy, fmtPct, type PitchProfile, type PitchRates, type PitchCounts } from './derive/pitches'
 import { wpblQualifiers } from './stats'
 import { ordinal } from './percentiles'
-import { useWpblDark } from './ui'
 import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './cardParts'
 import { inSeason, gamesInSeason, type SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
@@ -186,7 +186,7 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
   /** The card's control colour, for the disclosure. Never used on a number. */
   accent: string
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const amber = amberFor(dark)
   // Better than the league, and a top-five rank: the section's own blue, the same for every club.
   const better = useRankInk()

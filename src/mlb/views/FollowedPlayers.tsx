@@ -1,3 +1,4 @@
+import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, edge, ACCENT_EDGE } from '../../ui/card'
@@ -10,7 +11,7 @@ import { searchPlayers, fetchRecentGames, fetchRosterMoves, fetchServedSuspensio
 import { MOVE_STYLE } from './RosterMoves'
 import { parseIP } from '../lib/utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
-import { useIsDark, defaultBorder, useTextTone } from '../lib/colorUtils'
+import { defaultBorder, useTextTone } from '../lib/colorUtils'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { chromePx, typePx } from '../../ui/scale'
 import { cachedJson, FRESH_LONG_MS } from '../lib/readCache'
@@ -193,7 +194,7 @@ function fetchLeagueAverages() {
 }
 
 function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const [series, setSeries] = useState<number[] | null>(() => _sparkCache.get(id) ?? null)
   const [baseline, setBaseline] = useState<number | null>(null)
   const [tipOpen, setTipOpen] = useState(false)   // explainer popup (hover on desktop, tap on mobile)
@@ -572,7 +573,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const [expanded, setExpanded]         = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)   // portaled search/suggestions Popper content
-  const isDark = useIsDark()
+  const isDark = useDark()
 
   // Only a preview of the list shows by default (3 rows on phones, where vertical space is
   // precious, and 5 from sm up), behind a "View all" toggle. Which rows are dropped is

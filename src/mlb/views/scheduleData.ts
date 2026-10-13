@@ -29,11 +29,6 @@ export function relativeChipDate(d: string) {
   return chipDate(d)
 }
 
-export function shortName(name: string) {
-  const parts = name.trim().split(' ')
-  return parts.length <= 1 ? name : `${parts[0][0]}. ${parts.slice(1).join(' ')}`
-}
-
 // Cap the two-half (away | home) rows so the second team/pitcher sits close to the
 // first instead of spreading to ~50% of the wide My-Feed column. Shared by the score
 // row, performer row, and pitcher row so their logos stay vertically aligned.

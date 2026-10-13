@@ -1,8 +1,9 @@
+import { TeamLogo } from './TeamLogo'
 import { Box } from '@mui/material'
 import { PORTRAIT_PX } from '../../ui/leaders'
 import { GameLineFrame, formatGameLineLabel } from '../../ui/gameLine'
 import { PlayerHeadshot } from './leaderboards'
-import { LogoBubble } from './boxScore'
+
 import { gameLink, playerLink } from '../lib/links'
 import { TEAM_ABBR } from '../constants'
 import type { MlbLineGame, MlbLinePlayer } from '../seasonLines'
@@ -51,7 +52,7 @@ export default function GameLineRow({
       portrait={player
         ? <PlayerHeadshot variant="ring" playerId={player.playerId} name={name} teamId={club || undefined} size={PORTRAIT_PX} />
         : <Box sx={{ width: PORTRAIT_PX, flexShrink: 0 }} />}
-      club={club > 0 ? <LogoBubble teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} ring={1} /> : undefined}
+      club={club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined}
       rowLink={nameOpens === 'game' ? link : undefined}
       nameLink={player ? playerLink(player.playerId, name, onOpenPlayer) : undefined}
       gameLink={link}

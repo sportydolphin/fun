@@ -10,10 +10,11 @@
 // question this answers is "when does his money land", and a Crochet-vs-league
 // scale would flatten every non-star to an invisible sliver.
 
+import { useDark } from '../../ui/useDark'
 import React from 'react'
 import { Box, Typography, Tooltip } from '@mui/material'
 import { PlayerContract, ContractYear } from '../types'
-import { useIsDark, defaultBorder } from '../lib/colorUtils'
+import { defaultBorder } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
 
 // One colour per control state. Deliberately not team-coloured: these encode
@@ -49,7 +50,7 @@ export function ContractPanel({ contract, currentSeason }: {
   contract:      PlayerContract
   currentSeason: number
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const years  = contract.years
 
   // Free-agent rows mark the date rather than a payment, so they'd otherwise set

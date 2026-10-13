@@ -2,6 +2,8 @@
 // season-stat comparison bars) shown from the Scores scoreboard and the team
 // ScheduleStrip. Extracted from FinalGames.tsx.
 
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import { pressable } from '../../ui/interaction'
 import { edge } from '../../ui/card'
 import React, { useState, useEffect } from 'react'
@@ -9,14 +11,14 @@ import { Box, Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
-import { useIsDark, accentColor, textTone } from '../lib/colorUtils'
+import { accentColor, textTone } from '../lib/colorUtils'
 import { ModalShell, useOpensAsPanel } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { useGameSeo } from '../state/gameSeo'
 import { mlbGamePath } from '../routes'
 import { MlbCopyLink } from '../components/CopyLink'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
-import { LogoBubble, SectionLabel } from '../components/boxScore'
+import { SectionLabel } from '../components/boxScore'
 import { chromePx, typePx } from '../../ui/scale'
 import { MlbHiddenH1 } from '../components/PageHeading'
 
@@ -153,7 +155,7 @@ export function TeamComparison({ away, home, sx }: {
   /** The series sheet sets its own gutter and divider; the preview keeps these. */
   sx?: SxProps<Theme>
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const [stats, setStats] = useState<Map<number, TeamSeasonStats> | null>(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -340,7 +342,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
     return () => document.removeEventListener('keydown', h)
   }, [onPrev, onNext])
 
-  const isDark = useIsDark()
+  const isDark = useDark()
 
   // Shimmer placeholder block that reserves the pitcher card's full height while probable
   // starters load, so stepping between games with ‹ › doesn't collapse then re-expand.
@@ -449,7 +451,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
         cursor: onTeamClick ? 'pointer' : 'default',
       }}
     >
-      <LogoBubble teamId={t.teamId} abbr={t.abbr} size={48} ring={2.5} />
+      <TeamLogo teamId={t.teamId} abbr={t.abbr} size={48} />
       <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>{t.abbr}</Typography>
     </Box>
   )

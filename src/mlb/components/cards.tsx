@@ -1,12 +1,14 @@
 // ─── Card components ──────────────────────────────────────────────────────────
 
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from './TeamLogo'
 import { pressable } from '../../ui/interaction'
 import { edge, ACCENT_EDGE } from '../../ui/card'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
-import { useIsDark, accentColor, edgeTone, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone, textTone } from '../lib/colorUtils'
+import { accentColor, edgeTone, fmtGB, teamLogoSrc, teamLogoCrop, useTextTone, textTone } from '../lib/colorUtils'
 import { StatGrid } from './ui'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
@@ -38,7 +40,6 @@ function ordinal(n: number): string {
 
 export function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, rankMode, hitLeaders, pitLeaders, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat, standing }: TeamCardInnerProps) {
   const logoSize = large ? 160 : 72
-  const isDark = useIsDark()
 
   const wins = pitchingStats?.wins ?? hittingStats?.wins
   const losses = pitchingStats?.losses ?? hittingStats?.losses
@@ -63,24 +64,9 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
       ].filter(Boolean).join(' · ')
     : null
 
+  // The card's own ink as the ring, heavier than a list badge: this is the club the card is about.
   const logoEl = (
-    <Box sx={{
-      width: chromePx(logoSize), height: chromePx(logoSize),
-      borderRadius: '50%',
-      border: `3px solid ${palette.text}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      bgcolor: teamLogoBg(team.id, isDark),
-      overflow: 'hidden',
-      flexShrink: 0,
-    }}>
-      <Box
-        component="img"
-        src={teamLogoSrc(team.id, isDark)}
-        alt={team.abbreviation}
-        crossOrigin="anonymous"
-        sx={{ width: '82%', height: '82%', objectFit: 'contain', transform: teamLogoCrop(team.id, isDark), transformOrigin: 'center' }}
-      />
-    </Box>
+    <TeamLogo teamId={team.id} abbr={team.abbreviation} size={logoSize} ring={palette.text} ringWidth={3} logoScale={0.82} />
   )
 
   return (
@@ -207,7 +193,7 @@ export function FeaturedMiniCard({
     .filter((d): d is StatDef => d != null)
 
   const teamColor = TEAM_BG[teamId] ?? ACCENT
-  const isDark    = useIsDark()
+  const isDark    = useDark()
   const accent    = accentColor(teamColor, isDark)
 
   return (
@@ -327,7 +313,7 @@ export function DivisionStandingsCard({
 }) {
   const sorted = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
   const teamColor = TEAM_BG[highlightTeamId] ?? ACCENT
-  const isDark2   = useIsDark()
+  const isDark2   = useDark()
   const accent2   = accentColor(teamColor, isDark2)
   // As text on the highlighted row's own team tint, which sits closer to it than the page does.
   const accent2Text = textTone(accent2, isDark2, undefined, 5.6)

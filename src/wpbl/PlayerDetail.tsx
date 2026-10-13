@@ -1,3 +1,4 @@
+import { useDark } from '../ui/useDark'
 import { startTransition, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getSeedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, getCachedWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, type WpblPitchLoc } from './api'
@@ -7,7 +8,7 @@ import { computeWpblPlayerRanks, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type Wpbl
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, AfterShellEnters, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, hoverOnly, CARD_BORDER } from './ui'
+import { ModalShell, AfterShellEnters, PlayerPortrait, CopyLinkButton, TapTip, SegNav, chromePx, hoverOnly, CARD_BORDER } from './ui'
 import { ExpandButton } from '../ui/ExpandButton'
 import { DetailPageBar } from './DetailPageBar'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
@@ -491,7 +492,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   /** Offer the side panel's "Expand" to the full page. Shown only while this IS the side panel. */
   onExpand?: () => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
 
   // The fan awards this player won, for the ribbon under their name. The tally read is shared and
   // cached app-wide (Home reads it for the results card), and it fails to empty, so a player page

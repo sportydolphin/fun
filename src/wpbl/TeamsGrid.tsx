@@ -1,9 +1,10 @@
+import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { edge } from '../ui/card'
 import { Box, Typography } from '@mui/material'
 import { computeStandings, fetchWpblAllLines, fetchWpblAllPitchPlays } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
-import { TeamBadge, FOCUS_RING, CARD_BORDER, CARD_FILL, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
+import { TeamBadge, FOCUS_RING, CARD_BORDER, CARD_FILL, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
@@ -117,7 +118,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
   onOpen: () => void
 }) {
   const teamLink = useWpblTeamLink()
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const accent = wpblAccent(row.team.id, isDark)
   const gp = row.wins + row.losses
   const diff = row.runsFor - row.runsAgainst
@@ -221,7 +222,7 @@ export default function TeamsGrid({ teams, games, onSelect }: {
     () => new Map(teams.map(t => [t.id, fixtureFor(t.id, games, byId)])),
     [teams, games, byId])
   const ranked = rows.some(r => r.wins + r.losses > 0)
-  const isDark = useWpblDark()
+  const isDark = useDark()
 
   // The spec chart needs league-wide box-score lines AND every plate appearance's pitch
   // sequence, neither of which this page reads for anything else. Both fetches are cached and

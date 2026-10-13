@@ -1,3 +1,4 @@
+import { TeamLogo } from '../components/TeamLogo'
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { runFinder, type FinderQuery } from '../../league/finder'
@@ -7,7 +8,7 @@ import { chromePx } from '../../ui/scale'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 import GameLineRow from '../components/GameLineRow'
 import { PlayerHeadshot } from '../components/leaderboards'
-import { LogoBubble } from '../components/boxScore'
+
 import { playerLink } from '../lib/links'
 import { TEAM_ABBR, TEAM_NICKNAME } from '../constants'
 import { MLB_CLUBS } from '../routes'
@@ -77,7 +78,7 @@ export function MlbFindView({
                 portrait: t.player
                   ? <PlayerHeadshot variant="ring" playerId={t.player.playerId} name={t.name} teamId={club || undefined} size={PORTRAIT_PX} />
                   : <Box sx={{ width: chromePx(PORTRAIT_PX) }} />,
-                badge: club > 0 ? <LogoBubble teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} ring={1} /> : undefined,
+                badge: club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined,
                 linkProps: t.player ? playerLink(t.player.playerId, t.name, onOpenPlayer) : undefined,
               }
             }} />

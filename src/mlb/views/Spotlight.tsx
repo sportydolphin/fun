@@ -1,9 +1,11 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import React from 'react'
 import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { postseasonGameLabel } from '../postseason'
-import { useIsDark, accentColor, edgeTone, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop, useTextTone } from '../lib/colorUtils'
+import { accentColor, edgeTone, cardGradient, useTextTone } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 
@@ -529,7 +531,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
   onTeamClick?:   (id: number) => void
 }) {
   const tone = useTextTone()
-  const isDark     = useIsDark()
+  const isDark     = useDark()
   const teamColor  = TEAM_BG[data.teamId] ?? '#444'
   const abbr       = TEAM_ABBR[data.teamId] ?? '—'
   const accent     = mode === 'hot' ? teamColor : COLD_ACCENT
@@ -651,16 +653,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
               ...(onTeamClick ? { cursor: 'pointer', '&:hover .spotlight-team-abbr': { color: 'text.primary', textDecoration: 'underline' } } : {}),
             }}
           >
-            <Box sx={{
-              width: chromePx(14), height: chromePx(14), borderRadius: '50%', bgcolor: teamLogoBg(data.teamId, isDark),
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden', flexShrink: 0,
-            }}>
-              <Box component="img" alt=""
-                src={teamLogoSrc(data.teamId, isDark)}
-                sx={{ width: chromePx(11), height: chromePx(11), objectFit: 'contain', transform: teamLogoCrop(data.teamId, isDark), transformOrigin: 'center' }}
-              />
-            </Box>
+            <TeamLogo teamId={data.teamId} abbr={abbr} size={14} decorative />
             <Typography className="spotlight-team-abbr" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1 }}>
               {data.position} · {abbr}
             </Typography>

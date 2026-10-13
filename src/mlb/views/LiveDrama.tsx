@@ -1,3 +1,4 @@
+import { useDark } from '../../ui/useDark'
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, edge } from '../../ui/card'
@@ -5,8 +6,8 @@ import { Box, Typography } from '@mui/material'
 import { DramaEvent, DramaKind, fetchLiveDrama, ord } from '../lib/liveDrama'
 import { useDevDrama } from '../dev/devDrama'
 import { TEAM_NICKNAME } from '../constants'
-import { useIsDark, useTextTone } from '../lib/colorUtils'
-import { TeamLogo } from '../components/leaderboards'
+import { useTextTone } from '../lib/colorUtils'
+import { TeamLogo } from '../components/TeamLogo'
 import { FinalGameSummary } from './FinalGames'
 import { stampOverlay, clearOverlayIf } from '../state/homeOverlay'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
@@ -106,7 +107,7 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const devDrama  = useDevDrama()
   const simActive = import.meta.env.DEV && devDrama.enabled
 

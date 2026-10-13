@@ -17,10 +17,11 @@
 // EVERY PLAYER NAME IS STILL A REAL LINK IN THE DOCUMENT. The hometown lists are hidden with
 // `display: none` rather than unmounted when their country is not picked, so the 118 anchors this
 // page carries (the same crawl path PlayersIndex.tsx exists for) are always there to follow.
+import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, computeStandings, countsInStandings } from './api'
-import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, hoverOnly, pressable, useWpblDark, TextGhost, chromePx } from './ui'
+import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, hoverOnly, pressable, TextGhost, chromePx } from './ui'
 import { wpblAccent, wpblFullName } from './constants'
 import { byCountry, placeOf } from './derive/hometowns'
 import { buildBracket, championResult } from './derive/bracket'
@@ -33,7 +34,7 @@ const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
 
 export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string) => void }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])

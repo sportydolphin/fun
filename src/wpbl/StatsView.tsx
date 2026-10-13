@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { NameText } from '../ui/NameText'
 import { ACCENT_EDGE } from '../ui/card'
 import { Box, Typography, CircularProgress, Skeleton, useMediaQuery } from '@mui/material'
 import { alpha } from '@mui/material/styles'
@@ -16,7 +17,7 @@ import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import {
   TeamBadge, PlayerPortrait, ModalShell, SectionLabel, PillGroup, ExpandRow, NewDot,
-  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf, chromePx } from './ui'
+  CARD_BORDER, pressable, FOCUS_RING, hoverOnly, tappableIf, chromePx } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, aggregateFielding, sumBatting, sumPitching, sumFielding,
@@ -905,7 +906,6 @@ export default function WpblStatsView({
   // The name column is a fixed width, so the default character threshold is the wrong test: it
   // would let a 12-character "Jamie Mackay" through whole to be cut to "Jamie Mac…" while a
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
-  const shortName = useWpblName(0)
   const playerLink = useWpblPlayerLink()
   const isNarrow = useMediaQuery('(max-width:600px)')
   const { basis: eraBasis, offLeague: eraOffLeague, fmtEra } = useEraBasis()
@@ -1533,7 +1533,7 @@ export default function WpblStatsView({
       if (qualified) list = list.filter(s => s.qualified)
       built = list.map(s => ({
         key: s.player.id, team: teamById.get(s.player.team_id),
-        label: shortName(s.player.name), fullName: s.player.name, sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
+        label: s.player.name, fullName: s.player.name, sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
         totals: s.totals, qualified: s.qualified,
         onClick: () => onOpenPlayer(s.player),
         link: playerLink(s.player, onOpenPlayer),
@@ -1556,7 +1556,7 @@ export default function WpblStatsView({
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, side, players, lines, fielding, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, shortName, lobByGameTeam, games, scope, positionIndex])
+  }, [mode, side, players, lines, fielding, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex])
 
   // Standard competition ranking (1, 2, T-3, T-3, 5), judged on the number AS SHOWN. Three hitters
   // printed at .400 and numbered 8, 9 and 10 claims an order the reader cannot see, which is
@@ -2615,9 +2615,11 @@ export default function WpblStatsView({
                                 every player row came out 9px taller than its text: two rows fewer
                                 on a phone's capped board. A team row has no link and renders a <p>,
                                 already a block, which is why the league row never showed it. */}
-                            <Typography {...r.link} sx={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {teamsNarrow && r.shortLabel ? r.shortLabel : r.label}
-                            </Typography>
+                            {r.fullName
+                              ? <NameText name={r.fullName} linkProps={r.link} sx={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15 }} />
+                              : <Typography {...r.link} sx={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {teamsNarrow && r.shortLabel ? r.shortLabel : r.label}
+                                </Typography>}
                             {/* Not on a phone, where the board is capped to the screen and the line
                                 costs a sixth of every row. The card behind the tap has it, and the
                                 ranked list never carried it either. */}
@@ -2686,8 +2688,7 @@ export default function WpblStatsView({
 // big number. Not literally LeaderRow, because that one takes a WpblPlayer and puts a portrait
 // on it, and half the rows here can be clubs, which want their badge and have no face.
 //
-// The name is the league's spelling, not the table's. `row.label` is pre-abbreviated to
-// "D. Benites" to survive a narrow column; a list row has 200px and no reason to shorten
+// The name is the league's spelling, in full: a list row has 200px and no reason to shorten
 // anybody.
 //
 // The player's position, which the table shows under the name, gives its line to the three

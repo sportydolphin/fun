@@ -2,7 +2,7 @@
 // THE SITE'S RULE FOR A NAME THAT DOES NOT FIT: abbreviate to "F. Last" before ever ellipsing.
 // "Kelsie Whit…" loses the part of the name a reader knows someone by; "K. Whitmore" keeps it.
 // The CSS ellipsis stays only as the net under the last stage. Shared by both sections, which is
-// why it lives here: WPBL's FittedName and useWpblName are built on it.
+// why it lives here: WPBL's FittedName and NameText / NameLine are built on it.
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 

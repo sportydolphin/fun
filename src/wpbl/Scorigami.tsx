@@ -18,12 +18,13 @@
 //
 // FROM THE SCHEDULE ALONE, both cached app-wide, so on a reader who has been anywhere else on the
 // section this resolves from memory and adds no request.
+import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, Switch, FormControlLabel } from '@mui/material'
 import { fetchWpblSchedule, fetchWpblTeams } from './api'
 import { wpblScorigami, scorigamiKey, scorigamiCountsAt, type ScorigamiCell } from './derive/scorigami'
 import { wpblGamePath } from './routes'
-import { FOCUS_RING, CARD_BORDER, chromePx, pressable, hoverOnly, useWpblDark } from './ui'
+import { FOCUS_RING, CARD_BORDER, chromePx, pressable, hoverOnly } from './ui'
 import { useReducedMotion } from '../AccessibilityContext'
 import WpblPage from './WpblPage'
 import type { WpblGame, WpblTeam } from './types'
@@ -100,7 +101,7 @@ export default function WpblScorigami({ onOpenGame }: {
   const grid = useMemo(() => wpblScorigami(games), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const reduce = useReducedMotion()
-  const dark = useWpblDark()
+  const dark = useDark()
   const [clubColors, setClubColorsState] = useState(readClubColors)
   const setClubColors = (on: boolean) => {
     setClubColorsState(on)

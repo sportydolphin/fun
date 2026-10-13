@@ -1,3 +1,4 @@
+import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
 import { Box, Typography } from '@mui/material'
@@ -6,9 +7,10 @@ import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
 import { cardMoves, moveWindowDays } from '../lib/rosterMoves'
 import { CURRENT_SEASON, TEAM_ABBR, TONE } from '../constants'
-import { useIsDark, ringColor, useTextTone } from '../lib/colorUtils'
+import { ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
-import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
+import { PlayerHeadshot } from '../components/leaderboards'
+import { TeamLogo } from '../components/TeamLogo'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { useDeepLink } from '../state/deepLink'
 import { typePx, chromePx } from '../../ui/scale'
@@ -301,7 +303,7 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   // Filter to one club (null = all) and per-day collapse. Both survive close/
   // reopen within a visit. The selected chip and chevrons make the state visible.
   const [filterTeam, setFilterTeam]       = useState<number | null>(null)
@@ -384,7 +386,7 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
                   transition: 'opacity 0.15s',
                 }}
               >
-                <TeamLogo teamId={id} abbr={TEAM_ABBR[id] ?? '?'} size={26} accent={ringColor(id, isDark)} highlighted={filterTeam === id} />
+                <TeamLogo teamId={id} abbr={TEAM_ABBR[id] ?? '?'} size={26} highlight={filterTeam === id ? ringColor(id, isDark) : undefined} />
               </Box>
             ))}
           </Box>

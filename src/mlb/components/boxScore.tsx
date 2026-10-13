@@ -4,10 +4,12 @@
 // StatsAPI linescore + boxscore into the typed BoxScore these components take.
 // Extracted from FinalGames.tsx.
 
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from './TeamLogo'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, TEAM_BG } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, accentColor } from '../lib/colorUtils'
+import { accentColor } from '../lib/colorUtils'
 import { BoxTable, BOX_POS_SX } from '../../ui/gameCenter'
 import { usePhoneLayout } from '../../ui/ModalShell'
 import { chromePx, typePx } from '../../ui/scale'
@@ -139,29 +141,6 @@ export function parseBoxScoreData(ls: any, box: any): BoxScore {
   return { innings, away: mkTeamBox('away'), home: mkTeamBox('home') }
 }
 
-// ─── Team logo bubble ───────────────────────────────────────────────────────
-
-export function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
-  teamId: number; abbr: string; size: number; ring?: number
-}) {
-  const isDark = useIsDark()
-  const col = ringColor(teamId, isDark)
-  return (
-    <Box sx={{
-      width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
-      border: `${ring}px solid ${col}`, flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    }}>
-      <Box
-        component="img"
-        src={teamLogoSrc(teamId, isDark)}
-        alt={abbr}
-        sx={{ width: chromePx(size * 0.72), height: chromePx(size * 0.72), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
-      />
-    </Box>
-  )
-}
-
 // ─── Pulsing live dot ─────────────────────────────────────────────────────────
 
 export function LiveDot({ size = 6 }: { size?: number }) {
@@ -231,7 +210,7 @@ export function LineScoreTable({ box }: { box: BoxScore }) {
             <Box component="tr" key={side} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
               <Box component="td" sx={{ py: 0.45 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                  <LogoBubble teamId={t.teamId} abbr={t.abbr} size={18} ring={1.25} />
+                  <TeamLogo teamId={t.teamId} abbr={t.abbr} size={18} />
                   <Typography sx={{ fontSize: '0.72rem', fontWeight: t.runs > (side === 'away' ? box.home.runs : box.away.runs) ? 800 : 600, lineHeight: 1 }}>
                     {t.abbr}
                   </Typography>
@@ -280,7 +259,7 @@ const boxName = (name: string, dense: boolean) => {
 }
 
 export function ClubBox({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const dense = usePhoneLayout()
   const color = accentColor(TEAM_BG[team.teamId] ?? '#888888', isDark)
   // The season AVG and ERA, where there is room. A phone's table is WPBL's nine fitted columns, and

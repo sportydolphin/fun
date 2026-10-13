@@ -1,3 +1,4 @@
+import { TeamLogo } from '../components/TeamLogo'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CURRENT_SEASON, TEAM_ABBR } from '../constants'
@@ -8,7 +9,7 @@ import { FIELDING_DEFS, fieldingQualified, fieldingRows, combineFieldingSplits, 
 import { mlbUrlFor } from '../routes'
 import { playerLink } from '../lib/links'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../../ui/leaders'
-import { LogoBubble } from '../components/boxScore'
+
 import { PlayerHeadshot } from '../components/leaderboards'
 
 // LEADERS ON THE FIELDING SIDE, the four cards WPBL's Leaders draws for it (LEADER_CARDS.fielding in
@@ -104,7 +105,7 @@ export function FieldingLeaders({ season, gameScope, canHover, onOpenPlayer, onS
             // The row's own id: a player can lead one card at two positions.
             key: it.row.id, rank: it.rank, tied: it.tied, name: it.row.name, value: it.text,
             portrait: <PlayerHeadshot variant="ring" playerId={it.row.playerId!} name={it.row.name} teamId={it.row.teamId} size={PORTRAIT_PX} />,
-            badge: it.row.teamId > 0 ? <LogoBubble teamId={it.row.teamId} abbr={TEAM_ABBR[it.row.teamId] ?? ''} size={16} ring={1} /> : undefined,
+            badge: it.row.teamId > 0 ? <TeamLogo teamId={it.row.teamId} abbr={TEAM_ABBR[it.row.teamId] ?? ''} size={16} /> : undefined,
             linkProps: playerLink(it.row.playerId!, it.row.name, onOpenPlayer),
           }))} />
       ))}

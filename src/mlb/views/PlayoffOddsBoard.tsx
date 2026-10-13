@@ -1,7 +1,8 @@
+import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT_TEXT, TEAM_NICKNAME } from '../constants'
-import { useIsDark, highlightColor } from '../lib/colorUtils'
+import { highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { TeamLogo } from '../components/TeamLogo'
 import { chromePx, typePx } from '../../ui/scale'
@@ -33,7 +34,7 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const teamColor = highlightColor(row.teamId, isDark)
   const clickable = !!onTeamClick
   const isMine = highlightTeamId != null && row.teamId === highlightTeamId

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
 import { nameAtStage, useLineNameFit } from './names'
@@ -19,6 +20,23 @@ export function NameText({ name, sx, component = 'p', className, linkProps }: {
   return (
     <Typography ref={fit.ref} component={component} className={className} noWrap {...linkProps} sx={sx}>
       {nameAtStage(name, fit.stage)}
+    </Typography>
+  )
+}
+
+/** A line holding names among other text ("vs K. Whitmore · in play"), every name stepped down
+ *  together until the line fits. `render` gets the formatter for this line's current stage. Same
+ *  parent rule as NameText: it has to be allowed to shrink. */
+export function NameLine({ names, render, sx, component = 'p' }: {
+  names: string[]
+  render: (name: (full: string) => string) => ReactNode
+  sx?: SxProps<Theme>
+  component?: 'p' | 'span'
+}) {
+  const fit = useLineNameFit<HTMLElement>(names)
+  return (
+    <Typography ref={fit.ref} component={component} noWrap sx={sx}>
+      {render(n => nameAtStage(n, fit.stage))}
     </Typography>
   )
 }

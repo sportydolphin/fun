@@ -1,8 +1,10 @@
+import { useDark } from '../../ui/useDark'
+import { TeamLogo } from '../components/TeamLogo'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, TEAM_DIVISION, TEAM_NICKNAME, TEAM_BG } from '../constants'
-import { LogoBubble } from '../components/boxScore'
+
 import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
-import { useIsDark, edgeTone } from '../lib/colorUtils'
+import { edgeTone } from '../lib/colorUtils'
 import { mlbTeamPath } from '../routes'
 import { chromePx, typePx } from '../../ui/scale'
 import { MlbTabTitle } from '../components/PageHeading'
@@ -23,7 +25,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
   followedTeamId: number | null
   onTeamClick: (teamId: number) => void
 }) {
-  const isDark = useIsDark()
+  const isDark = useDark()
   const ids = Object.keys(TEAM_ABBR).map(Number)
   return (
     <Box>
@@ -54,7 +56,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
                       ...hoverOnly({ bgcolor: 'action.hover' }),
                       ...FOCUS_RING,
                     }}>
-                      <LogoBubble teamId={id} abbr={TEAM_ABBR[id]} size={30} />
+                      <TeamLogo teamId={id} abbr={TEAM_ABBR[id]} size={30} />
                       <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, flex: 1, minWidth: 0 }}>
                         {TEAM_NICKNAME[id] ?? TEAM_ABBR[id]}
                       </Typography>

@@ -1,3 +1,4 @@
+import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import {
@@ -9,7 +10,7 @@ import {
   type PitchBoard, type PitchProfile, type PitchCounts, type PitchKind,
 } from './derive/pitches'
 import { wpblAccentFg } from './constants'
-import { SectionCard, LeaderRow, CARD_BORDER, useWpblDark } from './ui'
+import { SectionCard, LeaderRow, CARD_BORDER } from './ui'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { wpblQualifiers } from './stats'
 import { typePx } from '../ui/scale'
@@ -72,7 +73,7 @@ const LABEL_W = '6.75rem'
 const VALUE_W = '2.375rem'
 
 function PitchMix({ counts, total }: { counts: PitchCounts; total: number }) {
-  const color = offerColors(useWpblDark())
+  const color = offerColors(useDark())
   if (total === 0) return null
 
   const groupTotal: Record<Offer, number> = {
@@ -263,7 +264,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
   const mins = useMemo(() => pitchQualifiers(qual.active ? qual.teamGames : 0), [qual])
 
   // Readable on both themes: these boards use it for the ranked value, which is text.
-  const accent = wpblAccentFg(useWpblDark())
+  const accent = wpblAccentFg(useDark())
   // Same breakpoint the Stats table uses for its own phone layout.
   const narrow = useMediaQuery('(max-width:600px)')
   const pitching = side === 'pitching'

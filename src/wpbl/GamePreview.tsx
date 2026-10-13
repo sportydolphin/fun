@@ -1,7 +1,9 @@
+import { useDark } from '../ui/useDark'
+import { NameText } from '../ui/NameText'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllLines, getCachedWpblAllLines, fetchWpblAllPlayers, getCachedWpblAllPlayers } from './api'
-import { ModalShell, SegNav, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, pressable, hoverOnly, FOCUS_RING, TAPPABLE, TYPE_SCALE } from './ui'
+import { ModalShell, SegNav, TeamBadge, PlayerPortrait, pressable, hoverOnly, FOCUS_RING, TAPPABLE, TYPE_SCALE } from './ui'
 import { wpblAccent, wpblFullName, positionRank } from './constants'
 import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
@@ -75,8 +77,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
    *  and puts each in its own section. */
   renderBoards?: (boards: { matchup: React.ReactNode; leaders: React.ReactNode; rosters: React.ReactNode }) => React.ReactNode
 }) {
-  const isDark = useWpblDark()
-  const shortName = useWpblName()
+  const isDark = useDark()
   const playerLink = useWpblPlayerLink()
   const { basis: eraBasis, kLabel } = useEraBasis()
   const [lines, setLines] = useState(() => getCachedWpblAllLines())
@@ -360,9 +361,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, onOpenPl
               ...(onOpenPlayer ? { cursor: 'pointer', ...FOCUS_RING, transition: 'background 0.12s', ...hoverOnly({ bgcolor: 'action.hover' }) } : {}),
             }}>
               <PlayerPortrait name={p.name} teamId={team.id} size={22} />
-              <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600 }}>
-                {shortName(p.name)}
-              </Typography>
+              <NameText name={p.name} sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600 }} />
               {p.position && (
                 <Typography sx={{
                   flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',

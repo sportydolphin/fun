@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
-import { useScrollLock } from '../lib/useScrollLock'
+import { useScrollLock } from '../../ui/scrollLock'
 
 /**
  * The shared ModalShell as a history entry: Back closes it, and every other way out (the close

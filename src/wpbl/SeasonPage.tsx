@@ -16,6 +16,7 @@
 //
 // NO TAB OF ITS OWN, like the league, glossary and sources pages beside it: a real path linked from the
 // footer, which is the crawl path that has actually worked. See WPBL_SEASON_PAGE in routes.ts.
+import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
 import {
@@ -50,7 +51,7 @@ import { winProbModel, gameWinProb, swingOfGame, fmtWinPct, wildestGames, type W
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath, wpblComparePath, WPBL_MATCHUPS_PAGE } from './routes'
 import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './derive/matchups'
 import { wpblColor, wpblAccent, wpblFullName } from './constants'
-import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TeamBadge, PlayerPortrait, useWpblDark, TextGhost, chromePx } from './ui'
+import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TeamBadge, PlayerPortrait, TextGhost, chromePx } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { NameText } from '../ui/NameText'
@@ -944,7 +945,7 @@ function SeasonChampionBlock({ champ }: {
   /** Null draws the banner empty, for the page's skeleton. */
   champ: ChampionResult | null
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const accent = champ ? wpblAccent(champ.champion.id, isDark) : 'var(--wpbl-medal-1)'
   return (
     <Box sx={{
@@ -1280,7 +1281,7 @@ function wildContext(w: WildGame<WpblGame>): string {
 }
 
 function WildLine({ wild, wide }: { wild: WildGame<WpblGame>; wide?: boolean }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const pts = wild.wp.points
   const ys = [pts[0]?.before ?? 0.5, ...pts.map(p => p.after)].map(v => winnerProb(v, wild.homeWon))
   const step = ys.length > 1 ? 100 / (ys.length - 1) : 0

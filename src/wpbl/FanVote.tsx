@@ -1,10 +1,12 @@
+import { useDark } from '../ui/useDark'
+import { NameText } from '../ui/NameText'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { edge } from '../ui/card'
 import { Box, Typography, Menu, MenuItem, ListItemIcon, Skeleton, useMediaQuery, type Theme } from '@mui/material'
 import { EmojiEvents, IosShare, ContentCopy, Download } from '@mui/icons-material'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
-  pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx, CARD_INK,
+  pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, TYPE_SCALE, chromePx, CARD_INK,
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
 import {
@@ -283,10 +285,9 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
   /** The way out of a MANAGER's card, which has no player page to go to. See the chip below. */
   onOpenTeam?: (t: WpblTeam) => void
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const playerLink = useWpblPlayerLink()
   const teamLink = useWpblTeamLink()
-  const short = useWpblName()
   const accent = wpblAccent(candidate.teamId, dark)
   // THE ONE FIGURE THIS COMPONENT HAS TO SPELL ITSELF. Everything else on a tile arrives
   // pre-formatted from a pure builder, but ERA is stored on the league's basis and the reader
@@ -451,10 +452,12 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
         position: 'relative', width: '100%', minWidth: 0,
         textAlign: { xs: 'center', sm: 'left' },
       }}>
-        <Typography sx={{
-          fontSize: TYPE_SCALE.body, fontWeight: on ? 800 : 700, lineHeight: 1.25,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>{candidate.playerId ? short(candidate.name) : candidate.name}</Typography>
+        {candidate.playerId
+          ? <NameText name={candidate.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: on ? 800 : 700, lineHeight: 1.25 }} />
+          : <Typography sx={{
+              fontSize: TYPE_SCALE.body, fontWeight: on ? 800 : 700, lineHeight: 1.25,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{candidate.name}</Typography>}
         {/* Whatever the figures do not already say: the club a manager runs, the "if needed" on a
             play, the note that Boston changed benches in week one. Dropped when the stats below
             already carry the same sentence, which is the ordinary player case. */}
@@ -896,8 +899,7 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
    *  text of the size that figure will be. */
   skeleton?: boolean
 }) {
-  const dark = useWpblDark()
-  const short = useWpblName()
+  const dark = useDark()
   const playerLink = useWpblPlayerLink()
   const teamLink = useWpblTeamLink()
   // ERA is stored on the league's basis and rescaled at DISPLAY time, so the same formatter the
@@ -917,7 +919,6 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
   }).filter(c => (bucket[c.key] ?? 0) > 0), [candidates, bucket, players, state.ballot, award.id])
 
   const teamOf = (id: string | null) => (id ? teams.find(t => t.id === id) ?? null : null)
-  const label = (c: AwardCandidate) => (c.playerId ? short(c.name) : c.name)
   const pct = (c: AwardCandidate) => (total > 0 ? Math.round((votesOf(c.key) / total) * 100) : 0)
 
   // A per-award share button, open to everyone. Tapping it opens a small menu (Share / Copy /
@@ -1151,11 +1152,13 @@ function AwardResult({ entry, index, players, teams, state, onOpenPlayer, onOpen
                       line. The hero name steps up on desktop so it stays the biggest thing on the
                       card, above the enlarged category heading. */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(6), minWidth: 0 }}>
-                    {bar(<Typography sx={{
-                      fontSize: isWinner ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading } : TYPE_SCALE.body,
-                      fontWeight: isWinner ? 800 : 700, lineHeight: 1.2, minWidth: 0,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{isWinner ? c.name : label(c)}</Typography>)}
+                    {bar(!isWinner && c.playerId
+                      ? <NameText name={c.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2, minWidth: 0 }} />
+                      : <Typography sx={{
+                          fontSize: isWinner ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading } : TYPE_SCALE.body,
+                          fontWeight: isWinner ? 800 : 700, lineHeight: 1.2, minWidth: 0,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>{c.name}</Typography>)}
                     {isWinner && !skeleton && (
                       // The one place the section spends a trophy: it marks the winner and nothing
                       // else on the sheet competes for the mark. After the name so it reads as a
@@ -1556,7 +1559,6 @@ export default function FanVoteCard({
   // The section's short-name rule (12 chars on a phone, 20 on a desktop), so a long winner
   // shortens instead of pushing the QUESTION into an ellipsis. The question is what this row
   // exists to ask; which of your five picks it was is recoverable from the sheet.
-  const short = useWpblName()
   const [fielding, setFielding] = useState<WpblFieldingLine[]>(() => getCachedWpblAllFielding() ?? [])
   // Whether that read has answered, empty or not: the sheet-only mount's `settled` covers the
   // caller's reads and cannot see this one.
@@ -1824,21 +1826,20 @@ export default function FanVoteCard({
                 winnerC ? (
                   // The winner, with a trophy in place of your pick. Gold, and after the name, the
                   // same treatment the results sheet gives its heroes.
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(4), flexShrink: 0 }}>
-                    <Typography sx={{
-                      fontSize: rowText, fontWeight: 800, color: 'text.primary', whiteSpace: 'nowrap',
-                    }}>{winnerC.playerId ? short(winnerC.name) : winnerC.name}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(4), minWidth: 0 }}>
+                    <NameText name={winnerC.name} sx={{ fontSize: rowText, fontWeight: 800, color: 'text.primary', minWidth: 0 }} />
                     <EmojiEvents titleAccess="Winner" sx={{ fontSize: rowText, color: '#eab308' }} />
                   </Box>
                 ) : (
                   <Typography sx={{ fontSize: rowText, fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>&#8212;</Typography>
                 )
               ) : (
-                <Typography sx={{
-                  fontSize: rowText, fontWeight: mineC ? 800 : 700, flexShrink: 0,
-                  whiteSpace: 'nowrap',
-                  color: mineC ? 'text.primary' : 'var(--wpbl-accent-solid)',
-                }}>{mineC ? (mineC.playerId ? short(mineC.name) : mineC.name) : 'Vote'}</Typography>
+                mineC
+                  ? <NameText name={mineC.name} sx={{ fontSize: rowText, fontWeight: 800, minWidth: 0, color: 'text.primary' }} />
+                  : <Typography sx={{
+                      fontSize: rowText, fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap',
+                      color: 'var(--wpbl-accent-solid)',
+                    }}>Vote</Typography>
               )}
             </Box>
           )

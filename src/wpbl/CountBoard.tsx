@@ -1,5 +1,6 @@
+import { useDark } from '../ui/useDark'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, useWpblDark } from './ui'
+import { SectionCard } from './ui'
 import { mixHex, heatCell } from '../lib/contrast'
 import { fmtRunValue } from './derive/runExpectancy'
 import { pitchSwing, countKey } from './derive/countValue'
@@ -35,7 +36,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
   fullCount: number | null
   accent: string
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   // The card the grid sits on, and the theme's error red, as hex: the cells are mixed from them.
   const card = dark ? '#0f1115' : '#ffffff'
   const neg = dark ? '#f44336' : '#d32f2f'

@@ -1,10 +1,13 @@
+import { useDark } from '../../ui/useDark'
+import { NameText } from '../../ui/NameText'
+import { TeamLogo } from './TeamLogo'
 import React, { useState, useEffect, useRef } from 'react'
 import { pressable } from '../../ui/interaction'
 import { edge, ACCENT_EDGE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
-import { shortName, ScheduleGame, LiveGameData } from '../views/scheduleData'
+import { ringColor } from '../lib/colorUtils'
+import { ScheduleGame, LiveGameData } from '../views/scheduleData'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink, teamLink, LINK_SX } from '../lib/links'
 
@@ -136,7 +139,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
   onTeamClick?:   (id: number) => void
   onOpenCenter?:  () => void
 }) {
-  const isDark     = useIsDark()
+  const isDark     = useDark()
   const awayTeamId = game.isHome ? game.opponentId : myTeamId
   const homeTeamId = game.isHome ? myTeamId        : game.opponentId
   const awayAbbr   = TEAM_ABBR[awayTeamId] ?? '???'
@@ -176,24 +179,16 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
     return () => clearTimeout(t)
   }, [celebration])
 
-  const logo = (teamId: number, col: string) => (
-    <Box
+  const logo = (teamId: number) => (
+    <TeamLogo teamId={teamId} abbr={TEAM_ABBR[teamId] ?? ''} size={32}
       {...teamLink(teamId, onTeamClick)}
       sx={{
-        ...LINK_SX, width: chromePx(32), height: chromePx(32), borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
-        border: `2px solid ${col}`, display: 'flex', alignItems: 'center',
-        justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-        boxShadow: `0 0 0 1px ${col}30`,
+        ...LINK_SX,
         cursor: onTeamClick ? 'pointer' : 'default',
         transition: 'transform 0.12s',
         '&:hover': onTeamClick ? { transform: 'scale(1.1)' } : {},
       }}
-    >
-      <Box component="img"
-        src={teamLogoSrc(teamId, isDark)}
-        alt={TEAM_ABBR[teamId]}
-        sx={{ width: chromePx(22), height: chromePx(22), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }} />
-    </Box>
+    />
   )
 
   return (
@@ -203,7 +198,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
       )}
       {/* Score row: [away logo] AWAY  X–Y  HOME [home logo]   ● LIVE Game Center */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        {logo(awayTeamId, awayCol)}
+        {logo(awayTeamId)}
         <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', minWidth: '1.875rem', textAlign: 'center' }}>
           {awayAbbr}
         </Typography>
@@ -215,7 +210,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
         <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', minWidth: '1.875rem', textAlign: 'center' }}>
           {homeAbbr}
         </Typography>
-        {logo(homeTeamId, homeCol)}
+        {logo(homeTeamId)}
         {onOpenCenter && (
           <Box
             {...pressable(onOpenCenter)}
@@ -259,11 +254,9 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                       {betweenInnings ? 'On the Mound' : 'Pitching'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
-                      <Typography className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', flexShrink: 0 }}>
-                        {shortName(liveData.pitcher.name)}
-                      </Typography>
+                      <NameText name={liveData.pitcher.name} className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', minWidth: 0 }} />
                       {liveData.pitcher.line && (
-                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 10 }}>
                           {liveData.pitcher.line}
                         </Typography>
                       )}
@@ -279,11 +272,9 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                       {betweenInnings ? 'Leading Off' : 'At Bat'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
-                      <Typography className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', flexShrink: 0 }}>
-                        {shortName(liveData.batter.name)}
-                      </Typography>
+                      <NameText name={liveData.batter.name} className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', minWidth: 0 }} />
                       {liveData.batter.line && (
-                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 10 }}>
                           {liveData.batter.line}
                         </Typography>
                       )}

@@ -1,7 +1,8 @@
+import { useDark } from '../ui/useDark'
 import { useMemo } from 'react'
 import { runWpblFinder, type FinderQuery, type FinderSide } from './derive/finder'
 import { wpblAccentFg, wpblFullName } from './constants'
-import { PlayerPortrait, TeamBadge, useWpblDark, useWpblName } from './ui'
+import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblPlayerLink } from './LinkContext'
 import { FinderBoard } from '../ui/finderBoard'
 import { PORTRAIT_PX } from '../ui/leaders'
@@ -39,9 +40,8 @@ export default function WpblFindView({
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenGame?: (g: WpblGame) => void
 }) {
-  const isDark = useWpblDark()
+  const isDark = useDark()
   const accent = wpblAccentFg(isDark)
-  const shortName = useWpblName(18)
   const playerLink = useWpblPlayerLink()
   const result = useMemo(
     () => runWpblFinder(side, batting, pitching, players, games, query),
@@ -63,7 +63,7 @@ export default function WpblFindView({
       )}
       tallyParts={t => ({
         key: t.player?.id ?? t.name,
-        name: shortName(t.name),
+        name: t.name,
         portrait: <PlayerPortrait name={t.name} teamId={t.teamId} size={PORTRAIT_PX} />,
         badge: t.teamId ? <TeamBadge team={{ id: t.teamId, abbr: t.teamId }} size={16} /> : undefined,
         linkProps: t.player ? playerLink(t.player, onOpenPlayer) : undefined,

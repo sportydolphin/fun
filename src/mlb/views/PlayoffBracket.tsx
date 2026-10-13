@@ -1,8 +1,9 @@
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useState, lazy, Suspense } from 'react'
 import { TYPE_SCALE, CARD_BORDER } from '../../ui/card'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { CURRENT_SEASON, TEAM_BG, TEAM_NICKNAME, TONE } from '../constants'
-import { LogoBubble, LiveDot } from '../components/boxScore'
+import { LiveDot } from '../components/boxScore'
 import { useTextTone } from '../lib/colorUtils'
 import { hoverOnly, linkPress, FOCUS_RING } from '../../ui/interaction'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
@@ -95,7 +96,7 @@ function TeamRow({ t, wins, need, won, lost, compact = false }: {
         {t.seed ?? ''}
       </Typography>
       {t.real
-        ? <Box sx={{ display: 'flex', opacity: lost ? 0.5 : 1 }}><LogoBubble teamId={t.id} abbr={t.abbr} size={26} /></Box>
+        ? <Box sx={{ display: 'flex', opacity: lost ? 0.5 : 1 }}><TeamLogo teamId={t.id} abbr={t.abbr} size={26} /></Box>
         : <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', border: '1.5px dashed', borderColor: 'outline', flexShrink: 0 }} />}
       <Typography
         sx={{

@@ -1,3 +1,4 @@
+import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR, TEAM_NICKNAME, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
@@ -12,7 +13,7 @@ import { ExpandRow, TABLE_CAP } from '../../ui/ExpandRow'
 import { HEAD_LABEL_SX, HEAD_LEAGUE_SX, HEAD_LEAGUE_TINT } from '../../ui/statsTableHead'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 import { TABLE_FRAME_SX, TABLE_MAX_H, ROW_TINT_VAR, ROW_TINT, TABLE_FOOT_SX, FOOT_TEXT_SX, RankMarkText, frozenSx, FROZEN_EDGE, NAME_W } from './statsTable'
-import { LogoBubble } from '../components/boxScore'
+
 import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 import { fetchAllTeamStats } from '../api'
 import { fetchSeasonFielding } from '../apiSeasonStats'
@@ -483,7 +484,7 @@ export function SeasonGridView({
                           <Typography sx={{ width: '1.25rem', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', lineHeight: 1 }}>
                             <RankMarkText rank={ranks[idx]} />
                           </Typography>
-                          {r.teamId > 0 && <LogoBubble teamId={r.teamId} abbr={TEAM_ABBR[r.teamId] ?? ''} size={20} ring={1} />}
+                          {r.teamId > 0 && <TeamLogo teamId={r.teamId} abbr={TEAM_ABBR[r.teamId] ?? ''} size={20} />}
                           <Box sx={{ minWidth: 0 }}>
                             {r.playerId
                               ? <NameText name={frozenOn ? abbrevName(r.name) : r.name} linkProps={link}

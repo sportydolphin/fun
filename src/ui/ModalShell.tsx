@@ -8,6 +8,7 @@ import { ThemeProvider, createTheme, useTheme, type Theme } from '@mui/material/
 import { useSwipeNav } from '../AccessibilityContext'
 import { pressable } from './interaction'
 import { chromePx } from './scale'
+import { useScrollLock } from './scrollLock'
 
 // The modal shell both league sections open their detail views in: a portalled overlay, a centred
 // card on a desktop and, with `sheet`, a bottom sheet on a phone that can be dragged down to close.
@@ -19,48 +20,6 @@ import { chromePx } from './scale'
 // vertically-centered card on `background.paper` with a soft shadow, Escape-to-close,
 // a sticky uppercase eyebrow header, a round ✕ close button, and an optional sticky
 // footer (e.g. the entry form's Save/Cancel).
-// Ref-counted body scroll lock: while any ModalShell is open, the page behind it
-// must not scroll. Counted so stacked modals (e.g. a game → a player) only release
-// the lock when the last one closes. Compensates for the removed scrollbar width so
-// locking doesn't shift the page sideways. Mirrors what MUI's Dialog does on the MLB
-// side (which WPBL's custom shell doesn't get for free).
-let scrollLockCount = 0
-const savedScroll = { htmlOverflow: '', bodyOverflow: '', bodyPaddingRight: '' }
-
-function lockBodyScroll() {
-  if (scrollLockCount++ === 0) {
-    // The viewport scroller is <html> here (not <body>), so lock both to cover
-    // whichever element actually scrolls. Compensate the removed scrollbar width
-    // on <body> so the page doesn't jump sideways when the bar disappears.
-    //
-    // CLAMPED, BECAUSE `innerWidth - clientWidth` IS NOT ALWAYS THE SCROLLBAR. It is the scrollbar
-    // only when both describe the same layout viewport in CSS px. In a scaled context (the desktop
-    // preview pane, a mobile webview or installed PWA, browser zoom, or a page wider than the
-    // screen) `window.innerWidth` reports a larger number while `clientWidth` stays the real width,
-    // so the difference is hundreds of px of nothing, and unclamped it pads the body until the whole
-    // app is squeezed into a sliver behind every open sheet. A real scrollbar is at most a couple
-    // dozen CSS px, so anything past that is the formula being fooled and there is no bar to
-    // compensate for anyway.
-    const rawGap = window.innerWidth - document.documentElement.clientWidth
-    const gap = rawGap > 0 && rawGap <= 40 ? rawGap : 0
-    savedScroll.htmlOverflow = document.documentElement.style.overflow
-    savedScroll.bodyOverflow = document.body.style.overflow
-    savedScroll.bodyPaddingRight = document.body.style.paddingRight
-    document.documentElement.style.overflow = 'hidden'
-    document.body.style.overflow = 'hidden'
-    if (gap > 0) document.body.style.paddingRight = `${gap}px`
-  }
-}
-
-function unlockBodyScroll() {
-  if (--scrollLockCount <= 0) {
-    scrollLockCount = 0
-    document.documentElement.style.overflow = savedScroll.htmlOverflow
-    document.body.style.overflow = savedScroll.bodyOverflow
-    document.body.style.paddingRight = savedScroll.bodyPaddingRight
-  }
-}
-
 /**
  * Drag a bottom sheet down to dismiss it.
  *
@@ -930,7 +889,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
   const zIndex = Math.max(ownZ, fromPanelZ)
 
   // Freeze the page behind the modal for as long as it's open.
-  useEffect(() => { lockBodyScroll(); return unlockBodyScroll }, [])
+  useScrollLock()
 
   // ANNOUNCE THE MODAL ON <html>, for one consumer: the shared AppBar's desktop blur. That bar
   // is a second full-viewport backdrop filter and it sits UNDER a modal that has already dimmed

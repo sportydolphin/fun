@@ -1,6 +1,7 @@
+import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, TAPPABLE, TYPE_SCALE, CARD_BORDER, CARD_FILL, INNER_BORDER } from './ui'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, TAPPABLE, TYPE_SCALE, CARD_BORDER, CARD_FILL, INNER_BORDER } from './ui'
 import { wpblAccent, wpblSurface, wpblFullName } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
@@ -77,7 +78,7 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
    *  ("Semifinal A winner") rather than a bare "Semifinal winner" that is the same on both. */
   placeholder?: string
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const { team, seed, wins } = entrant
 
   // An undecided championship slot still draws a row, so the box keeps its height and the
@@ -515,7 +516,7 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
   picks?: SeriesPickState
   onOpenTeam?: OpenTeam
 }) {
-  const dark = useWpblDark()
+  const dark = useDark()
   const fans = useTitlePicks(bracket, picks)
   if (odds.title.length === 0) return null
   return (

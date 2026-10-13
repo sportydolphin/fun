@@ -1,10 +1,6 @@
 import { useTheme } from '@mui/material'
 import { TEAM_BG, TEAM_COLOR_PALETTE, TEAM_ICON_STYLE, TEAM_ICON_STYLE_LIGHT, DEFAULT_ICON_BG_DARK, teamLogoUrl, teamLogoTransform } from '../constants'
 
-export function useIsDark(): boolean {
-  return useTheme().palette.mode === 'dark'
-}
-
 // Mix hex color toward white so dark team colors are readable on dark backgrounds.
 // Mix ratio 0.55 → midway between the color and white.
 export function brightColor(hex: string): string {
