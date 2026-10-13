@@ -20,6 +20,14 @@ name, and the ruleset can only require a fixed name. It runs under `always()`: a
 failed is otherwise skipped, and a skipped required check counts as passing. **Rename a job and
 you rename the check the ruleset waits for**, so every pull request waits forever.
 
+**Two TypeScripts are installed, on purpose.** `npm run typecheck` runs TypeScript 7, the native
+compiler, installed as `typescript-7` (an npm alias): it checks the project in about 2 seconds
+against 13 for TypeScript 6. `typescript` itself stays at 6.0 because typescript-eslint loads the
+compiler's JavaScript API to parse, TS 7 has none, and typescript-eslint 8 accepts nothing past
+6.0. Your editor uses 6.0 too. Both read the same `tsconfig.json`, so it must satisfy both: no
+`moduleResolution: "node"`, which 6.0 deprecates and 7 removed. When typescript-eslint supports 7,
+drop the alias and point `typescript` at 7.
+
 After the build, `check` looks at the three kinds of code that deploy or run somewhere other than
 the site, each of which used to fail only there:
 

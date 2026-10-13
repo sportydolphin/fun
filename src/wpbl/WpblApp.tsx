@@ -2033,7 +2033,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       // No snapshot means nobody in the section pushed this entry, so the address is all there is
       // to go on. It was Home, which was right only while every way in from outside was /wpbl;
       // the league switch now lands on the tab the reader was on in MLB.
-      apply(((e.state?.wpbl ?? null) as WpblSnap | null) ?? snapFromLocation())
+      apply((e.state?.wpbl as WpblSnap | undefined) ?? snapFromLocation())
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
