@@ -48,17 +48,22 @@ wRC+ on the Hitting side, so the three cannot disagree.
 
 ## Baserunning
 
-- **Steals, caught stealing and pickoffs**, priced on the base-out state they changed
-  ([`baserunning.ts`](../src/wpbl/derive/baserunning.ts)).
+- **Steals, caught stealing and pickoffs** (FanGraphs' wSB), priced on the base-out state they
+  changed ([`baserunning.ts`](../src/wpbl/derive/baserunning.ts)), less the league's steal runs per
+  time on first (singles, walks and hit batters, less intentional walks) times the player's own.
 - **Extra bases on hits and tag-ups**, each chance measured against the league's runners in the
   same spot.
 - **Double plays hit into** (FanGraphs' wGDP): a chance is a plate appearance with a runner on
   first and fewer than two out; each double play hit into, against the league's rate in those
   chances, costs the average second out.
 
-Steals are not centred: this league ran below its own break-even, and those were real runs lost.
-The league adjustment hands them back across every plate appearance, so a player who never ran is
-not punished for the league's running.
+This league ran below its own break-even, so the league's rate is negative and a runner who reached
+first and stayed there earns back what an average runner there lost. Until Oct 2026 the steal runs
+were left uncentred and the league adjustment spread them over every plate appearance instead,
+which credited a player for trips that ended in an out. A pinch runner has no times on first and
+keeps the raw figure, as in FanGraphs. Pickoffs stay in, where FanGraphs' wSB has only steals and
+caught stealing: a pickoff here is a runner's decision priced on the same table, and this league
+has too few of them to give them a line of their own.
 
 ## Fielding
 
@@ -123,13 +128,18 @@ tie half its board at one.
 ## League adjustment
 
 Whatever makes batting, baserunning, fielding and positional runs sum to zero across the league,
-spread by plate appearances. It absorbs the parts that are not centred on their own (the steal
-runs, the positional scale) so that an average position player is exactly average.
+spread by plate appearances. It absorbs the part that is not centred on its own, the positional
+scale, and the hundredths the other parts miss by, so that an average position player is exactly
+average.
 
 ## Pitching
 
-FIP, on this league's own weights, against the league ERA it is centred on:
-`(league ERA - FIP) * IP / 7`, plus pitching's share of replacement. FIP leaves balls in play to
+ifFIP, FanGraphs' WAR version of FIP, on this league's own weights, against the league ERA it is
+centred on: `(league ERA - ifFIP) * IP / 7`, plus pitching's share of replacement. ifFIP counts an
+infield fly as a strikeout, since it is an out nearly every time and moves nobody. The feed has no
+batted-ball type, so an infield fly is a pop-up, fly out or foul out to an infielder by the
+scorer's words (about 170 in 2026); the strikeout weight is measured on the two pooled. The FIP
+column on the Pitching side stays plain FIP, as FanGraphs' does. FIP leaves balls in play to
 the fielders, whose half of WAR already prices them, so the defence is never in both. Per seven
 innings, the league's own basis; see `ERA_BASIS_CANONICAL`.
 

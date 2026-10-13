@@ -83,8 +83,10 @@ export function playerValueSeasons(
   const runner = baserunningEvents(plays, rvGames, table, idOf)
   const arm = catcherArmLeaders(runner, games, catcherIndex(lines.batting, plays, players), players)
   const ledger = fieldingLedger(values, table, defenseIndex(lines.batting, plays, players), runner)
-  const baserunning = new Map<string, number>()
-  for (const l of baserunningLeaders(runner, players)) if (l.player) baserunning.set(l.player.id, l.total)
+  const baserunning = new Map<string, { steal: number; advance: number }>()
+  for (const l of baserunningLeaders(runner, players)) {
+    if (l.player) baserunning.set(l.player.id, { steal: l.stealRuns, advance: l.advanceRuns })
+  }
 
   const war = warSeason({
     values, table, games, players, batting: lines.batting, pitching: lines.pitching, baserunning, ledger, arm,
