@@ -151,7 +151,7 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
     if (state === 'final') {
       const scheduled = ls.scheduledInnings ?? 9
       const played    = ls.currentInning ?? scheduled
-      statusText = played > scheduled ? `Final/${played}` : 'Final'
+      statusText = played !== scheduled ? `Final/${played}` : 'Final'   // "Final/6" when called short, as the scoreboard prints it
     } else if (state === 'live' && ord) {
       const st = ls.inningState
       statusText =
