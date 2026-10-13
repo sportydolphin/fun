@@ -43,6 +43,8 @@ import { setDynamicSeo } from '../seo'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
+import { WpblAddressSeasonProvider, useWpblSeason } from './SeasonContext'
+import { SeasonMenu } from './SeasonMenu'
 
 const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
@@ -94,34 +96,24 @@ export default function WpblSeriesPage({ path, onNavigate, onOpenGame }: {
   const [A, B] = pair ? [...pair].sort((x, y) => x.name.localeCompare(y.name)) : [null, null]
   const canonical = A && B ? wpblSeriesPath(A, B, clubs) : null
 
-  useEffect(() => {
-    if (!A || !B || !canonical) return
-    const here = path.replace(/\/+$/, '')
-    setDynamicSeo({
-      path: here,
-      seo: {
-        title: `${A.name} vs ${B.name}: the 2026 WPBL season series | sportydolphin.fun`,
-        description: `The ${wpblFullName(A)} against the ${wpblFullName(B)} in the 2026 Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.`,
-        canonical,
-      },
-    })
-    return () => setDynamicSeo(null)
-  }, [A, B, canonical, path])
+  if (!A || !B || !canonical) return <NotASeries clubs={clubs} />
 
-  if (!A || !B) return <NotASeries clubs={clubs} />
-
+  // ONE SEASON'S SERIES, the current one unless the address names another (`?season=2026`): the
+  // same six pairings meet every year, and a record summed across two of them is no season's.
   return (
+    <WpblAddressSeasonProvider schedule={games}>
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
       <SeriesBody
         A={A} B={B} clubs={clubs} teams={teams} games={games} players={players}
         lines={lines} plays={plays} loading={loading} scope={scope} setScope={setScope}
-        onNavigate={onNavigate} onOpenGame={onOpenGame}
+        onNavigate={onNavigate} onOpenGame={onOpenGame} path={path} canonical={canonical}
       />
     </WpblLinkProvider>
+    </WpblAddressSeasonProvider>
   )
 }
 
-function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading, scope, setScope, onNavigate, onOpenGame }: {
+function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLines, plays: allPlays, loading, scope, setScope, onNavigate, onOpenGame, path, canonical }: {
   A: Club; B: Club; clubs: Club[]; teams: WpblTeam[]; games: WpblGame[]; players: WpblPlayer[]
   lines: ReturnType<typeof getCachedWpblAllLines>
   plays: ReturnType<typeof getCachedWpblAllMatchupPlays>
@@ -129,7 +121,30 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
   scope: SeasonScope; setScope: (s: SeasonScope) => void
   onNavigate: (to: string) => void
   onOpenGame: (g: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
+  path: string
+  canonical: string
 }) {
+  const { season, current, cut, seasonGames: games } = useWpblSeason(allGames)
+  const lines = useMemo(
+    () => allLines && { batting: cut(allLines.batting), pitching: cut(allLines.pitching) }, [allLines, cut])
+  const plays = useMemo(() => allPlays && cut(allPlays), [allPlays, cut])
+  const yr = season != null ? `${season} ` : ''
+  // A past year is its own page, so it is its own canonical; the current year keeps the bare URL
+  // every link and the sitemap already use.
+  const pageCanonical = season != null && season !== current ? `${canonical}?season=${season}` : canonical
+
+  useEffect(() => {
+    setDynamicSeo({
+      path: path.replace(/\/+$/, ''),
+      seo: {
+        title: `${A.name} vs ${B.name}: the ${yr}WPBL season series | sportydolphin.fun`,
+        description: `The ${wpblFullName(A)} against the ${wpblFullName(B)} in the ${yr}Women's Pro Baseball League: the season series, every meeting, the leaders in those games and the batter vs pitcher matchups between them.`,
+        canonical: pageCanonical,
+      },
+    })
+    return () => setDynamicSeo(null)
+  }, [A, B, pageCanonical, path, yr])
+
   const ink = useRankInk()
   const { fmtEra } = useEraBasis()
   const skeleton = loading && games.length === 0
@@ -212,8 +227,9 @@ function SeriesBody({ A, B, clubs, teams, games, players, lines, plays, loading,
   return (
     <WpblPage
       title={`${A.name} vs ${B.name}`}
-      standfirst={`The ${wpblFullName(A)} and the ${wpblFullName(B)} in 2026: every meeting, the leaders in those games, and which batters had the better of which pitchers.`}
+      standfirst={`The ${wpblFullName(A)} and the ${wpblFullName(B)}: every meeting, the leaders in those games, and which batters had the better of which pitchers.`}
     >
+      <SeasonMenu label="season" sx={{ mb: 1.5 }} />
       {/* ── The record ─────────────────────────────────────────────────── */}
       <Box sx={{
         display: 'grid', alignItems: 'center',

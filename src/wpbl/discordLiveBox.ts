@@ -100,7 +100,8 @@ export function buildLiveBoxReply(
       color: embedColor(leader),
       description,
       ...(fields.length ? { fields } : {}),
-      footer: { text: `WPBL 2026 · live · sportydolphin.fun` },
+      // The game's own year, which the bot selects with it.
+      footer: { text: `${game.game_date ? `WPBL ${game.game_date.slice(0, 4)}` : 'WPBL'} · live · sportydolphin.fun` },
     }],
   }
 }

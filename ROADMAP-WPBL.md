@@ -237,9 +237,22 @@ Site-wide, both sections. ROADMAP.md points here. Everything in P0 to P2 lands w
 WPBL season.
 
 **P0**
-- **Multiple seasons.** Every WPBL surface assumes one season: year menus, career totals,
+- **Multiple seasons** (in progress from Oct 13). Every WPBL surface assumes one season: year menus, career totals,
   standings, the boards, slugs, the archive. 2027 breaks all of them on its first game. Build it
   this winter with the spring rehearsal (ops item 7) as its test.
+  **Built Oct 13** (see the trap in CLAUDE.md): the season on screen (`SeasonContext.tsx`, the
+  newest year with a final), `?season=` and a year menu on Standings, Stats, Teams, club pages and
+  the series pages, every board and page cut to one year, Home and previews pinned to the current
+  season, a Career option on the player card, one recap per year at `/wpbl/season/2026` (the bare
+  URL is the latest finished one), year-aware titles and canonicals, the share and Discord cards
+  and the run-environment job on the current season, and a dev switch that clones 2026 into a
+  fake 2027. **Left for spring:** the archive writes every row to `archive/wpbl-2026/` (rename it
+  or split it by year before the first 2027 row); `POSTSEASON_SCHEDULE`, `PICKEM_SEASON` and the
+  award constants are 2026's (`offseasonByCalendar` keys on that schedule too, so the loading
+  frame reads offseason until it is replaced); the "2026 Gallery" title on the photos; Compare has
+  the current season only, with no menu; the rehearsal (ops item 7) is still the real test.
+
+**P1**
 - **The worst layout shifts** (ops item 3). Started Oct 12 from the field reports, by path: the
   WPBL desktop panel, `/wpbl/stats` on a desktop, the WPBL to MLB switch on a phone, and MLB Home
   on a desktop. Reproduced with Playwright at 4x CPU throttle, clicking and scrolling, which is
@@ -251,8 +264,6 @@ WPBL season.
   in the LCS. Cold player pages went from 0.10 to 0.23 down to about 0.02, game pages 0.09 to
   0.01, the phone switch to MLB 0.11 to 0.03. **Open:** `/wpbl/stats` on a desktop and MLB Home on
   a desktop reproduce clean locally (under 0.04), so they wait on the attributed reports.
-
-**P1**
 - **Google Play release** (ops item 9). Close; only Play's process is left.
 - Wins added and baserunning on the player card and Compare (item 8 below).
 - ~~Dependencies (ops item 6)~~ ✅ done Oct 13, patch, minor and every major.

@@ -53,6 +53,8 @@ import {
 import { publishSectionNav, clearSectionNav } from '../sectionNav'
 import { playFragmentFor } from './entryUrl'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
+import { WpblSeasonProvider, useWpblSeason, seasonFromSearch } from './SeasonContext'
+import { SeasonMenu } from './SeasonMenu'
 import { useGameNotes, ScoreCardFooter, ScoreCardFooterSkeleton } from './ScoreCardNotes'
 import { WPBL_MORE_PAGES } from './morePages'
 import { MoreSheet as SharedMoreSheet } from '../ui/MoreMenu'
@@ -60,7 +62,8 @@ import { useForegroundInterval } from '../lib/foregroundInterval'
 import { PanelActiveContext, useSectionActive } from '../lib/panelActive'
 import { WpblHeadingOwnerProvider, TabTitle } from './PageHeading'
 import { wpblGameCard } from './ogCard'
-import { setDynamicSeo } from '../seo'
+import { setDynamicSeo, wpblSeasonSeo, WPBL_ROUTES_SEASON } from '../seo'
+import { currentSeason, seasonsOnRecord } from './season'
 import { AppErrorBoundary } from '../AppErrorBoundary'
 import { typePx } from '../ui/scale'
 
@@ -249,6 +252,7 @@ function TabSkeleton({ view }: { view: WpblView }) {
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TabTitle>WPBL Standings</TabTitle>
+          <SeasonMenu label="season" sx={{ mb: -0.5 }} />
           {/* The table's caption, which says this before any data has arrived too. */}
           <Typography sx={{ mb: -1.25, fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled' }}>
             Current standings
@@ -262,6 +266,7 @@ function TabSkeleton({ view }: { view: WpblView }) {
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TabTitle>WPBL Teams</TabTitle>
+          <SeasonMenu label="season" />
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
             {[0, 1, 2, 3].map(i => block(chromePx(96), i))}
           </Box>
@@ -709,9 +714,13 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
   )
 }
 
-function StandingsView({ teams, games, onOpenTeam }: {
+function StandingsView({ teams, games: allGames, onOpenTeam }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam?: (t: WpblTeam) => void
 }) {
+  // One year's table. The whole schedule is every season the league has played, and standings
+  // summed across two of them are a record no club ever had.
+  const { season, current, seasonGames: games } = useWpblSeason(allGames)
+  const pastSeason = season != null && season !== current
   // ONE READ OF THE SEASON FOR BOTH SURFACES. The chart under the table is drawn from this, and
   // so is the table: `standingsAt(shape, last)` is `computeStandings(teams, games)` by
   // construction (see derive/seasonShape.ts), so there is no version of this page where the two
@@ -816,12 +825,13 @@ function StandingsView({ teams, games, onOpenTeam }: {
         the column `gap` belongs above it (under the h1) and not below it. `mb` eats half the
         gap to the table; on a phone the h1 is hidden, so this is the first thing drawn and the
         column gap above it is simply gone. */}
+    <SeasonMenu label="season" sx={{ mb: -0.5 }} />
     <Typography aria-live="polite" sx={{
       mb: -1.25, fontSize: '0.72rem', fontWeight: asOf ? 800 : 600, textAlign: 'left',
       color: asOf ? 'var(--wpbl-accent-fg)' : 'text.disabled',
       fontVariantNumeric: 'tabular-nums',
     }}>
-      {asOf ?? 'Current standings'}
+      {asOf ?? (pastSeason ? `Final ${season} standings` : 'Current standings')}
     </Typography>
     {/* `position: relative` is load-bearing twice over: it is what the divider overlay is
         placed against, and it is what makes the rows' `offsetTop` resolve to this box rather
@@ -1003,9 +1013,24 @@ type WpblSnap = {
    * Never alongside `gamePage`: a player over the full Game Center is the panel beside it.
    */
   playerPage?: boolean
+  /**
+   * The year on screen, or null for the current one (see SeasonContext). ABSENT is not null: an
+   * entry written before this field existed, or one built by a call site that has no reason to know
+   * the year (opening a game), leaves the reader's pick alone rather than resetting it, and `stamp`
+   * fills it in before the entry is stored, so Back always restores the year it left.
+   */
+  season?: number | null
 }
 const normalizeView = normalizeWpblView
 const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null, awards: false }
+
+/** The tabs a picked season applies to, which are the ones that sum a season. Home is "now" and
+ *  Scores lists every fixture, next year's included, so neither carries `?season=`. */
+const SEASON_VIEWS: ReadonlySet<WpblView> = new Set<WpblView>(['standings', 'stats', 'teams'])
+
+/** `?season=2026` off the address, or null. Validated against the schedule later, in
+ *  useWpblSeason, since a year the league never played is only knowable once it has loaded. */
+const seasonFromLocation = () => seasonFromSearch(window.location.search)
 
 /**
  * The view a cold load is asking for.
@@ -1028,13 +1053,13 @@ function viewFromLocation(): string | null {
  *  player or a game has to wait for the roster. */
 function snapFromLocation(): WpblSnap {
   const v = viewFromLocation()
-  if (v != null) return { ...HOME_SNAP, view: normalizeView(v).view }
+  if (v != null) return { ...HOME_SNAP, view: normalizeView(v).view, season: seasonFromLocation() }
   // /wpbl/teams/<slug> is the Teams tab with a club chosen, and `viewFromLocation` says
   // null for it because it is not a tab path. Left at that fallback the section seeds on
   // HOME, the very first replaceState rewrites the address bar to /wpbl, and the club that
   // then resolves out of the path has had its own URL thrown away before it arrives. The
   // club itself cannot be seeded here (the roster has not loaded), only the tab.
-  if (wpblTeamSlugFromPath(window.location.pathname)) return { ...HOME_SNAP, view: 'teams' }
+  if (wpblTeamSlugFromPath(window.location.pathname)) return { ...HOME_SNAP, view: 'teams', season: seasonFromLocation() }
   // /wpbl/awards is Home with the ballot open. Unlike a club or a player there is nothing to
   // resolve, so this is the whole of the cold-load path for it: no pending ref, no effect
   // waiting on a fetch.
@@ -1084,6 +1109,13 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const [awardsOpen, setAwardsOpen] = useState<boolean>(() => !!seed().awards)
   const [gamePage, setGamePage] = useState<boolean>(() => !!seed().gamePage)
   const [playerPage, setPlayerPage] = useState<boolean>(() => !!seed().playerPage)
+  // The season the reader picked, null for the current one. A ref beside it so `stamp` and
+  // `urlFor` read the newest pick without joining every navigation callback's dependencies.
+  const [pickedSeason, setPickedSeason] = useState<number | null>(() => seed().season ?? null)
+  const pickedSeasonRef = useRef(pickedSeason)
+  pickedSeasonRef.current = pickedSeason
+  /** The snapshot with the year it was taken in, for storing: see WpblSnap.season. */
+  const stamp = useCallback((s: WpblSnap): WpblSnap => (s.season !== undefined ? s : { ...s, season: pickedSeasonRef.current }), [])
   // Whether a player or a game opens as the desktop side panel: always, on a desktop, including from
   // the ballot and the series view. ModalShell lifts the panel over whichever of those it was opened
   // from, and a player opened from the Game Center panel lands exactly over it with a back control.
@@ -1253,6 +1285,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     setAwardsOpen(!!s.awards)
     setGamePage(!!s.gamePage)
     setPlayerPage(!!s.playerPage)
+    if (s.season !== undefined) setPickedSeason(s.season)
   }, [])
   // The tab is the PATH (/wpbl/standings); the open modal stays a query param on top of it.
   // The two are different kinds of thing: a tab is a page worth indexing under its own
@@ -1317,6 +1350,14 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // nothing to carry unless they are already on this tab.
     if (s.view === 'stats' && !s.game && !s.player && !s.awards) {
       carryStatsParams(new URLSearchParams(window.location.search), q)
+    }
+
+    // A PICKED SEASON, on the tabs that sum one, and only with nothing laid over them: a player or
+    // a game has one URL whatever year the page under it shows. Absent for the current season, so
+    // the address of a reader who never picks is exactly what it was before seasons existed.
+    const season = s.season !== undefined ? s.season : pickedSeasonRef.current
+    if (season != null && SEASON_VIEWS.has(s.view) && !s.game && !s.player && !s.awards) {
+      q.set('season', String(season))
     }
 
     // THE BALLOT, THEN A CLUB, CAN OWN THE PATH, both BELOW the game and player branches above for
@@ -1394,10 +1435,10 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Every forward navigation = one history entry (apply state + push a matching snapshot).
   const push = useCallback((s: WpblSnap) => {
     apply(s)
-    window.history.pushState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+    window.history.pushState({ ...window.history.state, wpbl: stamp(s) }, '', urlFor(s))
     // Tell the shell the path moved, so useSeo re-runs for the tab we just landed on.
     window.dispatchEvent(new Event(WPBL_PATH_EVENT))
-  }, [apply, urlFor])
+  }, [apply, stamp, urlFor])
 
   /**
    * Open a modal that a shared link asked for, on a cold load.
@@ -1440,17 +1481,17 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (arrivedByInAppLink.current) {
       arrivedByInAppLink.current = false
       apply(s)
-      window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+      window.history.replaceState({ ...window.history.state, wpbl: stamp(s) }, '', urlFor(s))
       window.dispatchEvent(new Event(WPBL_PATH_EVENT))
       return
     }
     if (!linkBaseSeated.current) {
       linkBaseSeated.current = true
       const base: WpblSnap = { view: s.view, team: s.team, game: null, player: null }
-      window.history.replaceState({ ...window.history.state, wpbl: base }, '', urlFor(base))
+      window.history.replaceState({ ...window.history.state, wpbl: stamp(base) }, '', urlFor(base))
     }
     push(s)
-  }, [push, apply, urlFor])
+  }, [push, apply, urlFor, stamp])
 
   // Navigation intents. Tab/team switches clear any open modal; opening a player keeps the
   // game beneath it (so Back closes the player first, then the game).
@@ -1547,9 +1588,14 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // the game behind a "‹ Game" control, which went back to a game the reader had not come from.
   const swapTo = useCallback((s: WpblSnap) => {
     apply(s)
-    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+    window.history.replaceState({ ...window.history.state, wpbl: stamp(s) }, '', urlFor(s))
     window.dispatchEvent(new Event(WPBL_PATH_EVENT))
-  }, [apply, urlFor])
+  }, [apply, stamp, urlFor])
+  // A season picked from any tab's menu. Its own history entry, since `?season=2026` is a different
+  // page from the current year's and Back should undo the pick; whatever is open over the page stays.
+  const pickSeason = useCallback((season: number | null) => {
+    push({ view, team: selectedTeam, game: detailGame, player: detailPlayer, awards: awardsOpen, gamePage, playerPage, season })
+  }, [push, view, selectedTeam, detailGame, detailPlayer, awardsOpen, gamePage, playerPage])
   // A panel on screen right now, which a click on the page swaps rather than stacks on.
   const panelShowing = playerAsPanel && ((!!detailPlayer && !showPlayerPage) || (!!detailGame && !showGamePage))
   const openGameAt = useCallback((g: WpblGame, fromCard: boolean) => {
@@ -1576,9 +1622,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     expandTab.current = tab
     const s: WpblSnap = { view, team: selectedTeam, game: detailGame, player: null, awards: awardsOpen, gamePage: true }
     apply(s)
-    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+    window.history.replaceState({ ...window.history.state, wpbl: stamp(s) }, '', urlFor(s))
     window.dispatchEvent(new Event(WPBL_PATH_EVENT))
-  }, [apply, urlFor, view, selectedTeam, detailGame, awardsOpen])
+  }, [apply, urlFor, stamp, view, selectedTeam, detailGame, awardsOpen])
   /** The player panel's Expand, on expandGame's terms: the same entry, now the full page, so Back
    *  from the page goes where Back from the panel would have. Whatever the panel sat over (a game
    *  panel, the ballot) goes with it: the page replaces the view, and a dialog over a page that has
@@ -1767,9 +1813,17 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // The club's own path, NOT `window.location.href`: anything that ran before the roster
     // landed has already had a chance to rewrite the bar, and re-stamping whatever is in it
     // would make that rewrite permanent. This is the one place that knows the URL is right.
-    window.history.replaceState({ ...window.history.state, wpbl: snap }, '', wpblTeamPath(t, teams))
+    window.history.replaceState({ ...window.history.state, wpbl: stamp(snap) }, '',
+      wpblTeamPath(t, teams) + (pickedSeasonRef.current != null ? `?season=${pickedSeasonRef.current}` : ''))
     window.dispatchEvent(new Event(WPBL_PATH_EVENT))
-  }, [teams])
+  }, [teams, stamp])
+
+  // The current season and the reader's pick, resolved the way useWpblSeason resolves them, for the
+  // tags below: this component owns the provider, so it cannot read the hook's answer.
+  const seasonNow = useMemo(() => currentSeason(games), [games])
+  const seasonOptions = useMemo(() => seasonsOnRecord(games), [games])
+  const seasonPicked = pickedSeason != null && pickedSeason !== seasonNow && seasonOptions.includes(pickedSeason)
+    ? pickedSeason : null
 
   // A player page is titled with the player's name and a game page with its final score,
   // neither of which ROUTES in seo.ts can know from the path. Register whichever one owns
@@ -1785,12 +1839,13 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (detailPlayer && players.length > 0) {
       const team = teams.find(t => t.id === detailPlayer.team_id)
       const club = team ? wpblFullName(team) : 'the WPBL'
+      const yearWord = seasonNow != null ? `${seasonNow} ` : ''
       setDynamicSeo({
         path: wpblPlayerPath(detailPlayer, players),
         seo: {
-          title: `${detailPlayer.name} Stats 2026 | WPBL | sportydolphin.fun`,
+          title: `${detailPlayer.name} Stats ${yearWord}| WPBL | sportydolphin.fun`,
           description:
-            `${detailPlayer.name} of the ${club}: 2026 Women's Pro Baseball League batting and pitching stats, game log, and season splits.`,
+            `${detailPlayer.name} of the ${club}: ${yearWord}Women's Pro Baseball League batting and pitching stats, game log, and season splits.`,
         },
       })
       return () => setDynamicSeo(null)
@@ -1806,8 +1861,20 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       })
       return () => setDynamicSeo(null)
     }
+    // A tab or a club page that sums a season, titled for the year on screen. Only when that is
+    // not the year seo.ts's entries are written for, so a reader on the current season in the
+    // year those were written gets exactly the static tags.
+    const shown = seasonPicked ?? seasonNow
+    if (shown != null && SEASON_VIEWS.has(view) && !awardsOpen && (shown !== WPBL_ROUTES_SEASON || seasonPicked != null)) {
+      const path = window.location.pathname.replace(/[/]+$/, '')
+      const seo = wpblSeasonSeo(path, shown, shown === seasonNow)
+      if (seo) {
+        setDynamicSeo({ path, seo })
+        return () => setDynamicSeo(null)
+      }
+    }
     setDynamicSeo(null)
-  }, [detailPlayer, detailGame, players, games, teams, active])
+  }, [detailPlayer, detailGame, players, games, teams, active, view, awardsOpen, seasonNow, seasonPicked, selectedTeam])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -2004,10 +2071,10 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       // nothing paints on /wpbl.
       if (s.awards) {
         const base: WpblSnap = { ...s, awards: false }
-        window.history.replaceState({ ...window.history.state, wpbl: base }, '', urlFor(base))
-        window.history.pushState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+        window.history.replaceState({ ...window.history.state, wpbl: stamp(base) }, '', urlFor(base))
+        window.history.pushState({ ...window.history.state, wpbl: stamp(s) }, '', urlFor(s))
       } else {
-        window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+        window.history.replaceState({ ...window.history.state, wpbl: stamp(s) }, '', urlFor(s))
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2088,6 +2155,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // club's list would mint a bare slug for a name someone on another club also holds. See
     // LinkContext.tsx.
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
+    <WpblSeasonProvider picked={pickedSeason} onPick={pickSeason} schedule={games}>
     {/* While a player or game modal is open it IS the page, so the tab underneath stops
         rendering an <h1> and the modal supplies it. See PageHeading.tsx. */}
     <WpblHeadingOwnerProvider owned={!detailPlayer && !detailGame}>
@@ -2288,6 +2356,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       )}
     </Box>
     </WpblHeadingOwnerProvider>
+    </WpblSeasonProvider>
     </WpblLinkProvider>
   )
 }

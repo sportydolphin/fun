@@ -77,6 +77,9 @@ export interface WpblAward {
 export const AWARDS_CLOSE_DATE = '2026-09-16'
 // 6:00 PM at the Central hub, in CDT (UTC-5) on this date. This is the final's first pitch; see above.
 export const AWARDS_CLOSE_AT = `${AWARDS_CLOSE_DATE}T18:00:00-05:00`
+/** The season the ballot is about. Its shortlists are drawn from that year's lines alone, so the
+ *  results page keeps naming 2026's candidates after 2027 has started. */
+export const AWARDS_SEASON = Number(AWARDS_CLOSE_DATE.slice(0, 4))
 
 /** When the results stop appearing ON HOME. Voting closed Sep 16 and the closed ballot shows the
  *  results in place; this is the separate, later date those results come off Home and the page

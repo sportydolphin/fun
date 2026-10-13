@@ -14,7 +14,7 @@ import {
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblGameLink } from './LinkContext'
-import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
+import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_RECAP_YEARS, wpblSeasonPath, WPBL_READING_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
 import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
 import { linkTo, UNSTYLED_LINK } from '../nav'
@@ -53,6 +53,8 @@ import { HOME_WIDE_W } from './layoutWidths'
 import { useNewSince } from './newSince'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblArticle } from './types'
 import { typePx } from '../ui/scale'
+import { useWpblSeason } from './SeasonContext'
+import { seasonOf, gamesInSeason, latestSeason } from './season'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
 // column on a phone. Everything on it is derived from data the section already caches: the
@@ -930,15 +932,22 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
     // The soonest game still ahead (small grace window), else the earliest upcoming.
     return upcoming.find(x => x.ms >= now - 3 * 3600000) ?? upcoming[0] ?? null
   }, [games])
+  // The season just played, for the recap and the bracket this card stands in for when there is no
+  // next game; and the NEXT GAME'S OWN season for its records and its series line, which in the
+  // spring is a year with no results: an Opening Day matchup reads 0–0, not last year's record.
+  const { seasonGames } = useWpblSeason(games, { current: true })
+  const nextYear = next ? seasonOf(next.g) : null
+  const nextGames = useMemo(
+    () => (nextYear == null ? seasonGames : gamesInSeason(games, nextYear)), [games, nextYear, seasonGames])
 
   // Records through `computeStandings` rather than a local count, so the two numbers on these
   // rows are the same two numbers the Standings card renders beside them. A card that
   // disagrees with the table next to it is worse than a card with no records at all.
   const recordOf = useMemo(() => {
-    const rows = computeStandings([...teams.values()], games)
+    const rows = computeStandings([...teams.values()], nextGames)
     const by = new Map(rows.map(r => [r.team.id, `${r.wins}–${r.losses}`]))
     return (id: string) => by.get(id) ?? null
-  }, [teams, games])
+  }, [teams, nextGames])
 
   // NO FEED GAME AHEAD IS NOT THE SAME AS NO NEXT GAME. Between the regular season and the league
   // publishing the bracket, `wpbl_games` has nothing ahead, and a null card leaves a hole in the
@@ -952,15 +961,15 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
   // schedule, so the end-of-season Home can be seen before the final is played. `import.meta.env.DEV`
   // is first so this whole branch drops from production.
   if (import.meta.env.DEV && devForceRecap) {
-    return <SeasonRecapPreviewCard teams={teams} games={games} devChampion={devChampion} onOpenGame={onOpenGame} />
+    return <SeasonRecapPreviewCard teams={teams} games={seasonGames} devChampion={devChampion} onOpenGame={onOpenGame} />
   }
   // Nothing in the feed ahead falls to the postseason calendar; once THAT is exhausted too, the
   // season is over and this slot becomes the recap card. Same retire-by-emptiness the strip uses,
   // so the pivot happens the moment the final goes live and nothing has to be deleted or dated.
   if (!next) {
     return nextPostseasonRow(postRows)
-      ? <NextPostseasonCard rows={postRows} teams={teams} games={games} />
-      : <SeasonRecapPreviewCard teams={teams} games={games} onOpenGame={onOpenGame} />
+      ? <NextPostseasonCard rows={postRows} teams={teams} games={seasonGames} />
+      : <SeasonRecapPreviewCard teams={teams} games={seasonGames} onOpenGame={onOpenGame} />
   }
   const g = next.g
   const away = teams.get(g.away_team_id)
@@ -968,7 +977,7 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
   const dateLabel = relativeDayLabel(g.game_date)
   const timeLabel = formatGameTime(g.game_date, g.start_time)
 
-  const { postseason, line: contextLine } = nextGameContext(g, games, teams, next.ms)
+  const { postseason, line: contextLine } = nextGameContext(g, nextGames, teams, next.ms)
 
   /**
    * The matchup, at headline weight.
@@ -1268,7 +1277,13 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
     trackImpression(EVENTS.WPBL_SEASON_CARD_SHOWN, { champion: champTeam?.id ?? null })
   }, [champTeam])
 
-  const recap = trackedLinkTo(WPBL_SEASON_PAGE, EVENTS.WPBL_SEASON_CARD_OPEN, { from: 'home' })
+  // The year this card is about, which is the year `games` holds: Home hands it the current season.
+  // Its recap has a page of its own once the season is over; until then the bare URL stands in.
+  const year = useMemo(() => latestSeason(games), [games])
+  const recap = trackedLinkTo(
+    year != null && WPBL_RECAP_YEARS.includes(year) ? wpblSeasonPath(year) : WPBL_SEASON_PAGE,
+    EVENTS.WPBL_SEASON_CARD_OPEN, { from: 'home' })
+  const yearWord = year != null ? `${year} ` : ''
   // A body with the title series' games in it cannot be one link: the games are links of their
   // own, and an anchor inside an anchor is invalid HTML that the parser repairs by splitting the
   // outer one, so the card would come out in fragments. Those bodies put the recap link on each
@@ -1276,7 +1291,7 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
   const split = finalInProgress || !!champTeam
 
   return (
-    <SectionCard title="2026 Season" fill>
+    <SectionCard title={`${yearWord}Season`} fill>
       {/* The whole body is the link, the way the league card's is: a card whose one job is to send
           a reader to the recap should open it from anywhere on the card, not just a trailing word.
           `flex: 1` + centred so it absorbs whatever height the card beside it (Last game) forces,
@@ -1297,7 +1312,7 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
         {finalInProgress && finalSeries ? (
           <ChampionshipInProgressBody series={finalSeries} teams={teams} log={finalLog} recap={recap} onOpenGame={onOpenGame} />
         ) : champTeam ? (
-          <ChampionRecapBody champion={champTeam} series={series} teams={teams} log={finalLog} isDark={isDark}
+          <ChampionRecapBody champion={champTeam} series={series} teams={teams} log={finalLog} isDark={isDark} yearWord={yearWord}
             recap={recap} onOpenGame={onOpenGame} />
         ) : (
           <>
@@ -1316,7 +1331,7 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
               The final table and the race to it, the leaders, and the plays the season turned on.
             </Typography>
 
-            <RecapButton>Read the 2026 recap</RecapButton>
+            <RecapButton>{`Read the ${yearWord}recap`}</RecapButton>
           </>
         )}
       </Box>
@@ -1492,7 +1507,9 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
  *  tinted champion hero leads, then the finals result, then the box scores; the CTA pins to the
  *  bottom. The finals block is the real championship result; a dev-simulated champion has none, so it
  *  shows the crown and the log of the real finalists' games alone. */
-function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpenGame }: {
+function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpenGame, yearWord }: {
+  /** "2026 ", or nothing before the schedule has a year. */
+  yearWord: string
   champion: WpblTeam
   series: ChampionResult | null
   teams: Map<string, WpblTeam>
@@ -1526,7 +1543,7 @@ function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpen
               <Typography sx={{
                 fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
                 color: 'var(--wpbl-medal-1)',
-              }}>2026 WPBL Champions</Typography>
+              }}>{`${yearWord}WPBL Champions`}</Typography>
             </Box>
             <Typography noWrap sx={{
               fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15,
@@ -1562,7 +1579,7 @@ function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpen
         <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} />
       </Box>
 
-      <RecapButton recap={recap}>Read the 2026 recap</RecapButton>
+      <RecapButton recap={recap}>{`Read the ${yearWord}recap`}</RecapButton>
     </>
   )
 }
@@ -2761,6 +2778,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   onCloseAwards?: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  // HOME IS THE CURRENT SEASON, whatever year the reader picked on Stats. `games` stays the whole
+  // schedule for the cards about fixtures (the scoreboard, next and last game), which have to see
+  // next year's opener in the spring; everything that sums or seeds a season (the standings behind
+  // the bracket, the leaders, the ballot, the race) reads `seasonGames` and lines cut to match.
+  const { cut, seasonGames } = useWpblSeason(games, { current: true })
   // A seeded-but-unplayed postseason chip opened as a matchup preview. Local, not a route: there
   // is no feed game to address, so this is a plain modal that closes on X/Escape.
   const [matchup, setMatchup] = useState<MatchupPreviewArg | null>(null)
@@ -2771,8 +2793,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // repaints instantly instead of flashing every card's skeleton and re-pulling all three
   // datasets.
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
+  const [allLines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
+  const lines = useMemo(() => ({ batting: cut(allLines.batting), pitching: cut(allLines.pitching) }), [allLines, cut])
   // Only the distinct game ids that carry tracking, not the whole table: the banner reduces it to
   // a set of ids anyway, so this is a one-column read instead of the 766-row, 13-column scan the
   // full fetch does (see fetchWpblTrackedGameIds). The Tracking tab still pulls the real rows.
@@ -2789,7 +2812,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   //
   // The fetcher is the same session-cached one the Run value board uses, so a reader who opens
   // both pays once, in whichever order they happen to visit.
-  const [plays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
+  const [allPlays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
+  const plays = useMemo(() => cut(allPlays), [allPlays, cut])
   // Whether that read has ANSWERED yet, which is not the same question as whether it returned
   // anything, and the right column's ordering turns on the difference. See the note at the
   // bottom of the column.
@@ -2860,22 +2884,22 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
 
   // The league's batting seasons: the pool the compare preview draws its pair from.
-  const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])
+  const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, seasonGames), [players, lines.batting, seasonGames])
 
   // Only enforce the PA / IP rate qualifier once every team has played 2+ games.
-  const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+  const qual = useMemo(() => wpblQualifiers(teams, seasonGames), [teams, seasonGames])
 
   // Standings order for the bracket below. Its own memo rather than a prop threaded down from
   // StandingsCard: both call `computeStandings` on the same two arrays, so they cannot
   // disagree, and hoisting it would put the table's data in the page's scope for one consumer.
-  const standingsRows = useMemo(() => computeStandings(teams, games), [teams, games])
+  const standingsRows = useMemo(() => computeStandings(teams, seasonGames), [teams, seasonGames])
 
   // The bracket, for the champion banner and whether the season is done. The PlayoffBracket card builds its own from
   // the same two arrays, so the two cannot disagree, and it is a handful of maps over the
   // schedule rather than anything worth threading down. Null until there are finals, and
   // `.champion` null until the title series is decided, so the offseason Home simply is not
   // there until it is true.
-  const bracket = useMemo(() => buildBracket(standingsRows, games), [standingsRows, games])
+  const bracket = useMemo(() => buildBracket(standingsRows, seasonGames), [standingsRows, seasonGames])
 
   // Dev only: the settings gear simulates the end of the season in two phases (see devChampion.ts).
   // The whole listener is DEV-guarded, so in production this state stays 'off' and every branch
@@ -2944,10 +2968,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   const championView = useMemo(() => {
     if (devChampTeam) return { champion: devChampTeam, season: String(new Date().getFullYear()), dev: true }
     if (!realChampion) return null
-    const until = championBannerUntil(games, realChampion)
+    const until = championBannerUntil(seasonGames, realChampion)
     if (until == null || Date.now() >= until) return null
-    return { ...realChampion, season: gameYear(games, realChampion), dev: false }
-  }, [realChampion, devChampTeam, games])
+    return { ...realChampion, season: gameYear(seasonGames, realChampion), dev: false }
+  }, [realChampion, devChampTeam, seasonGames])
 
   /**
    * The bracket card, and whether it leads the page.
@@ -2961,21 +2985,21 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
    * is two impression events, two sets of controls, and both of them found by anything that
    * walks the text.
    */
-  const bracketCard = standingsRows.length > 0 && games.some(g => g.status === 'final')
+  const bracketCard = standingsRows.length > 0 && seasonGames.some(g => g.status === 'final')
     ? (
       <Box sx={{ mt: 1.5 }}>
-        <PlayoffBracket rows={standingsRows} games={games} onOpenTeam={onOpenTeam}
+        <PlayoffBracket rows={standingsRows} games={seasonGames} onOpenTeam={onOpenTeam}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} from="home" />
       </Box>
     )
     : null
-  const bracketLeads = !games.some(g => g.status === 'final' && !countsInStandings(g))
+  const bracketLeads = !seasonGames.some(g => g.status === 'final' && !countsInStandings(g))
 
   // The postseason as dated-but-undrawn rows, for the scoreboard strip. The same function the
   // Schedule tab reads, so the two cannot disagree about who plays whom or about which
   // if-necessary games are still conditional.
   const postRows = useMemo(
-    () => postseasonScheduleRows(standingsRows, games, siteGames), [standingsRows, games, siteGames])
+    () => postseasonScheduleRows(standingsRows, seasonGames, siteGames), [standingsRows, seasonGames, siteGames])
 
   // The MVP race. Two passes over the play log (the run-expectancy table, then every play
   // priced against it), memoised on the three arrays they read, because this is the most
@@ -2986,9 +3010,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // games counted.
   const race = useMemo(() => {
     if (plays.length === 0 || players.length === 0) return null
-    const table = buildRunExpectancy(plays, games)
-    return mvpRace(playRunValues(plays, games, table), players, games)
-  }, [plays, players, games])
+    const table = buildRunExpectancy(plays, seasonGames)
+    return mvpRace(playRunValues(plays, seasonGames, table), players, seasonGames)
+  }, [plays, players, seasonGames])
 
   // New-tracking batch banner: fires when the set of tracked games grows since last seen.
   const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(trackedGameIds)
@@ -3031,7 +3055,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       /* Keyed `mvp`, the key the placeholder and the empty cell below also use, so the slot
           keeps one identity across all three branches and the compare card beside it is never
           remounted. */
-      <FanVoteCard key="mvp" players={players} teams={teams} games={games}
+      <FanVoteCard key="mvp" players={players} teams={teams} games={seasonGames}
         batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
         onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
         open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />,
@@ -3312,7 +3336,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
       {matchup && (
         <WpblMatchupPreview
-          away={matchup.away} home={matchup.home} teams={teams} games={games}
+          away={matchup.away} home={matchup.home} teams={teams} games={seasonGames}
           eyebrow={matchup.eyebrow} onClose={() => setMatchup(null)}
           onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer}
         />

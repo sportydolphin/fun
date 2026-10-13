@@ -22,6 +22,7 @@ import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
+import { useWpblSeason } from './SeasonContext'
 
 // The section's TrackMan showcase: season-wide velocity, spin, and batted-ball leaderboards
 // derived from the feed's pitch tracking (the distinctive data the WPBL feed carries that
@@ -78,9 +79,11 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
     const tr = getCachedWpblAllTracking(), pl = getCachedWpblAllPlayers(), ln = getCachedWpblAllLines()
     return tr && pl && ln ? { track: tr, players: pl, pitching: ln.pitching } : null
   })
+  // Cut to the year on screen first: the tracking rows and the lines are every season's.
+  const { cut } = useWpblSeason()
   const board = useMemo<TrackingBoard | null>(
-    () => (rows ? aggregateTracking(rows.track, rows.players, rows.pitching, games) : null),
-    [rows, games])
+    () => (rows ? aggregateTracking(cut(rows.track), rows.players, cut(rows.pitching), games) : null),
+    [rows, games, cut])
   const [loading, setLoading] = useState(
     () => !(getCachedWpblAllTracking() && getCachedWpblAllPlayers() && getCachedWpblAllLines()))
 

@@ -25,6 +25,7 @@ import pg from 'pg'
 import { priceRunEnvironment, RUN_VALUE_PLAY_SELECT } from '../src/wpbl/derive/runEnvironment'
 import { applyPlayCorrections, CORRECTION_SELECT, type WpblPlayCorrection } from '../src/wpbl/playCorrections'
 import { settleGames } from '../src/wpbl/gameOver'
+import { currentSeason, gamesInSeason, inSeason } from '../src/wpbl/season'
 import type { WpblGame, WpblRunValuePlay } from '../src/wpbl/types'
 
 const DRY_RUN = process.argv.includes('--dry-run') || process.env.DRY_RUN === 'true'
@@ -71,8 +72,16 @@ async function main() {
   ])
   // The statuses the browser sees: fetchWpblSchedule settles every read the same way, and the
   // final count a reader compares against is taken from those.
-  const games = settleGames(rawGames)
-  const env = priceRunEnvironment(applyPlayCorrections(plays, corrections), games)
+  const allGames = settleGames(rawGames)
+  // THE CURRENT SEASON, the one the Stats tab opens on and compares this row against
+  // (runEnvironmentCurrent counts that season's finals). Priced over every year, the row would
+  // never match a second season's count, and every reader would fall back to the play log; worse,
+  // the weights would be two seasons' run environment under one year's name. A past year picked on
+  // the tab prices itself from its own plays.
+  const year = currentSeason(allGames)
+  const games = year == null ? allGames : gamesInSeason(allGames, year)
+  const seasonPlays = year == null ? plays : inSeason(plays, allGames, year)
+  const env = priceRunEnvironment(applyPlayCorrections(seasonPlays, corrections), games)
 
   console.log(`${games.length} games, ${env.final_games} regular-season finals, ${env.plays} plays, ${corrections.length} corrections`)
   console.log('wOBA weights:', JSON.stringify(env.woba_weights))

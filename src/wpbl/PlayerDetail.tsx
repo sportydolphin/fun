@@ -591,40 +591,44 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // ever played, so each read is cut to the year on screen before anything sums it (see inSeason).
   // The player's newest season until the reader picks another, which a retired player's page needs
   // and a current one never notices. Not in the address: it resets with the player, like the scope.
-  const [pickedSeason, setPickedSeason] = useState<number | null>(null)
+  const [pickedSeason, setPickedSeason] = useState<number | 'career' | null>(null)
   const seasons = useMemo(
     () => seasonsPlayed([...allBatting, ...allPitching, ...allFielding], games),
     [allBatting, allPitching, allFielding, games])
-  const season: number | null = pickedSeason != null && seasons.includes(pickedSeason)
+  const season: number | null = typeof pickedSeason === 'number' && seasons.includes(pickedSeason)
     ? pickedSeason
     : seasons[0] ?? latestSeason(games)
+  // EVERY SEASON SUMMED, offered once there are two. No ranks, no percentiles, no qualifying bar:
+  // each of those is a season's league and a season's bar, and a career has neither. `season` stays
+  // the newest year underneath, for the few things that want a year even then.
+  const career = pickedSeason === 'career' && seasons.length > 1
   // Null only with no schedule and no lines, where there is nothing to cut.
-  const thisSeason = <T extends { game_id: string }>(rows: T[]): T[] => (season == null ? rows : inSeason(rows, games, season))
-  const batting = useMemo(() => thisSeason(allBatting), [allBatting, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
-  const pitching = useMemo(() => thisSeason(allPitching), [allPitching, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
-  const fielding = useMemo(() => thisSeason(allFielding), [allFielding, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
+  const thisSeason = <T extends { game_id: string }>(rows: T[]): T[] => (career || season == null ? rows : inSeason(rows, games, season))
+  const batting = useMemo(() => thisSeason(allBatting), [allBatting, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pitching = useMemo(() => thisSeason(allPitching), [allPitching, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fielding = useMemo(() => thisSeason(allFielding), [allFielding, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
   // That year's games, for whatever measures a season by its schedule: the qualifying bar under
   // the ranks. The schedule handed to a sum stays whole, since the lines are already cut.
-  const seasonGames = useMemo(() => (season == null ? games : gamesInSeason(games, season)), [games, season])
+  const seasonGames = useMemo(() => (career || season == null ? games : gamesInSeason(games, season)), [games, season, career])
 
   // Matched on the id, never the name: the league mints a new player_id per club, so a traded
   // player's rows carry two of them, and `api_ids` is what makes them one person. The batter
   // id on a play is already our own uuid, so this is the resolved one.
   const myBattedBalls = useMemo(
     () => thisSeason(battedBalls.filter(p => p.batter_id === player.id)),
-    [battedBalls, player.id, games, season]) // eslint-disable-line react-hooks/exhaustive-deps
+    [battedBalls, player.id, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The club that season was played for, off the lines, which carry the club of each game: the band
   // wears it, so a past year reads in that year's colours. The newest season keeps the roster's club,
   // which is "now" and is right for a player traded since their last game. A season with no line
   // naming a club falls back to it too.
   const clubId = useMemo(() => {
-    if (season == null || season === latestSeason(games)) return player.team_id
+    if (career || season == null || season === latestSeason(games)) return player.team_id
     const last = [...batting, ...pitching]
       .filter(l => l.team_id)
       .sort((a, b) => (gameById.get(b.game_id)?.game_date ?? '').localeCompare(gameById.get(a.game_id)?.game_date ?? ''))[0]
     return last?.team_id ?? player.team_id
-  }, [season, games, batting, pitching, gameById, player.team_id])
+  }, [season, career, games, batting, pitching, gameById, player.team_id])
   const team = useMemo(() => teams.find(t => t.id === clubId), [teams, clubId])
   const color = team ? wpblAccent(team.id, isDark) : '#888'
   // The RAW club colours, for the header band only. Everywhere else on this page uses
@@ -646,7 +650,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // under every feed id the player has held, which is right for finding them and wrong for
   // plotting them: the card sits beside a pitching line that follows the same scope, and its own
   // caption counts `pt.g` games from that same total.
-  const seasonPitchLocs = useMemo(() => scopedLines(thisSeason(pitchLocs), games, scope), [pitchLocs, games, season, scope]) // eslint-disable-line react-hooks/exhaustive-deps
+  const seasonPitchLocs = useMemo(() => scopedLines(thisSeason(pitchLocs), games, scope), [pitchLocs, games, season, career, scope]) // eslint-disable-line react-hooks/exhaustive-deps
   const trackedPitchGames = useMemo(() => new Set(seasonPitchLocs.map(r => r.game_id)).size, [seasonPitchLocs])
   // Every plate appearance she took part in, for the matchup tables: her own narrow read, or her
   // slice of the league log when another page already has it (see fetchWpblPlayerMatchupPlays).
@@ -663,7 +667,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // Follows the scope toggle like every other number on the card.
   const matchups = useMemo(
     () => (matchupPlays ? playerMatchups(new Set(playerPlayIds(player)), thisSeason(matchupPlays), games, scope) : null),
-    [matchupPlays, player, games, season, scope]) // eslint-disable-line react-hooks/exhaustive-deps
+    [matchupPlays, player, games, season, career, scope]) // eslint-disable-line react-hooks/exhaustive-deps
   // Every batting and pitching line in the league, for the percentile strip. Deliberately a
   // separate piece of state from the player's own lines: this one is allowed to never arrive.
   // `fetchWpblAllLines` is cached, deduped and already prefetched when the section lands on
@@ -809,14 +813,14 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // Against that season's league and that season's bar, so a past year is ranked among the players
   // who played it.
   const ranks = useMemo(
-    () => scope === 'regular' && leagueLines
+    () => scope === 'regular' && leagueLines && !career
       ? computeWpblPlayerRanks(player.id, players, teams, seasonGames, thisSeason(leagueLines.batting), thisSeason(leagueLines.pitching), eraBasis)
       : null,
-    [scope, leagueLines, player.id, players, teams, games, season, seasonGames, eraBasis]) // eslint-disable-line react-hooks/exhaustive-deps
+    [scope, leagueLines, player.id, players, teams, games, season, career, seasonGames, eraBasis]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ranked only on the regular season, and only once the league's lines are in: until then the line
   // holds its rank row open (SeasonLine's ranksPending) instead of drawing a row short.
-  const ranksPending = scope === 'regular' && !leagueLines
+  const ranksPending = scope === 'regular' && !leagueLines && !career
 
   // The season line's qualified fields, handed to the pitch profile so every "of N" on the card
   // is the same N. See `batFieldIds` in percentiles.ts.
@@ -1074,7 +1078,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   //  caption, so it belongs on it, and it is the compact size so it reads as a setting on a section
   //  rather than as navigation. On a phone the sample drops under the season label to make room.
   // Back to the regular season on a new year, as on a new player: the next one may have no playoffs.
-  const pickSeason = (y: number) => {
+  const pickSeason = (y: number | 'career') => {
     setPickedSeason(y)
     setScope('regular')
   }
@@ -1083,11 +1087,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // The year comes off the SCHEDULE rather than the clock (see `season`): this card is a
     // permanent page with a shareable URL, and read next January a wall-clock year would relabel a
     // 2026 line as 2027's.
-    const label = season != null ? `${season} ${noun}` : noun.charAt(0).toUpperCase() + noun.slice(1)
+    const label = career ? (scope === 'postseason' ? 'Career postseason' : 'Career')
+      : season != null ? `${season} ${noun}` : noun.charAt(0).toUpperCase() + noun.slice(1)
     return (
       <LineCaption
         picker={season != null
-          ? <SeasonPicker label={label} season={season} seasons={seasons} onChange={pickSeason} />
+          ? <SeasonPicker<true> career label={label} season={career ? 'career' : season} seasons={seasons} onChange={pickSeason} />
           : <Typography sx={{ ...sectionSx, mb: 0 }}>{label}</Typography>}
         meta={metaOverride !== undefined ? metaOverride : r === 'pitching' ? pitchingMeta : battingMeta}
         control={scopeControl}
@@ -1106,7 +1111,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const battingPane = {
     hasLog: battingLog.length > 0,
     /** Between the season line and the log: how the season was hit, from every pitch seen. */
-    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={season} scope={scope} rankPool={batRankPool} accent={color} />,
+    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} rankPool={batRankPool} accent={color} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode) => (
@@ -1192,7 +1197,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const pitchingPane = {
     hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
     /** Between the season line and the log: how the season was pitched, from every pitch thrown. */
-    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={season} scope={scope} rankPool={pitRankPool} accent={color} />,
+    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} rankPool={pitRankPool} accent={color} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode) => (

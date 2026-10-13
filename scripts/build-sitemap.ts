@@ -20,7 +20,7 @@ import { resolve } from 'node:path'
 import {
   WPBL_VIEW_PATHS, WPBL_PLAYERS_BASE, wpblPlayerSlug, type WpblSluggable,
   wpblGameSlug, type WpblSluggableGame, type WpblSluggableTeam,
-  WPBL_TEAMS_BASE, teamSlug, wpblSeriesPaths,
+  WPBL_TEAMS_BASE, teamSlug, wpblSeriesPaths, WPBL_RECAP_YEARS, wpblSeasonPath,
 } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
 import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, MLB_SERIES_SLUGS, MLB_FIRST_BRACKET_SEASON, MLB_POSTSEASON_BASE, mlbSeriesPath, type MlbSeriesId } from '../src/mlb/routes'
@@ -49,7 +49,9 @@ const STATIC: Entry[] = [
   // The season in review. Monthly rather than daily: its leaders and totals are frozen once
   // the season is final, and a scoring correction is the only thing that moves them after that.
   // High priority because it is the page written to be found cold after the feed stops.
-  { loc: '/wpbl/season', changefreq: 'monthly', priority: '0.8' },
+  // One per finished season; the bare /wpbl/season is the latest of them under another URL and
+  // declares that year as its canonical, so it is not listed.
+  ...WPBL_RECAP_YEARS.map(y => ({ loc: wpblSeasonPath(y), changefreq: 'monthly', priority: '0.8' })),
   // The scorigami grid. Weekly while games are still going final (each new final can light a new
   // square), and durable after: it is a season-over-season artifact that only grows.
   { loc: '/wpbl/scorigami', changefreq: 'weekly', priority: '0.7' },

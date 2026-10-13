@@ -214,7 +214,7 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, chi
   // Decided HERE rather than inside the row, because the row's presence hangs on both: with
   // either left to the row, a decided box drew it anyway, a band under a top border at its foot.
   const done = series.status === 'done'
-  const dates = done ? null : seriesDateLine(series.round, series.key)
+  const dates = done ? null : seriesDateLine(series.round, series.key, bracket?.season)
   const season = done ? null : seasonSeriesLine(series, odds)
   // No model to show once a series is decided: a finished series has a winner, not a chance.
   const showOdds = !!odds && !winner && !!home.team && !!away.team
@@ -696,7 +696,7 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
   // (see SeriesBox), so the key goes with them rather than sitting under a card with no star in
   // it: the last thing a footnote should do is explain a mark the reader cannot find.
   const showAsterisk = [...bracket.semifinals, bracket.championship]
-    .some(s => s.status !== 'done' && (seriesDateLine(s.round, s.key) ?? '').includes('*'))
+    .some(s => s.status !== 'done' && (seriesDateLine(s.round, s.key, bracket.season) ?? '').includes('*'))
 
   // NO SUBTITLE, like every other card on Home: a line describing the picture under the title made
   // this the one card on the page with a two-line header. The exception is a shut phone card while

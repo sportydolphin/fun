@@ -32,7 +32,8 @@ import { devShowDiscordCard } from '../wpbl/discordInvite'
 import { setDevChampionPhase, rerollDevChampion, devChampionState, type DevChampionPhase } from '../wpbl/dev/devChampion'
 import { setDevFanPhotos, devFanPhotosOn } from '../wpbl/dev/devFanPhotos'
 import { devBackdateNewSince } from '../wpbl/newSince'
-import { installWpblReadOverlay } from '../wpbl/api'
+import { installWpblReadOverlay, getCachedWpblSchedule } from '../wpbl/api'
+import { withDevSecondSeason, devSecondSeasonOn, setDevSecondSeason } from '../wpbl/dev/devSecondSeason'
 import {
   DEV_LIVE_SPEEDS, devLiveCandidates, devLiveCursor, devLiveFinished, devLiveOverlay,
   devLivePlayCount, devLiveSnapshot, restartDevLive, setDevLiveEnabled, setDevLiveGame,
@@ -56,7 +57,7 @@ const MobilePreview = import.meta.env.DEV ? lazy(() => import('../mlb/dev/Mobile
 // unreachable; a bare call at module scope is a SIDE EFFECT, which makes the module
 // unremovable and drags the simulator into the shipped bundle. Measured: without the `if` the
 // engine's storage key is in dist/assets/index-*.js, with it the file is absent.
-if (import.meta.env.DEV) installWpblReadOverlay(devLiveOverlay)
+if (import.meta.env.DEV) installWpblReadOverlay(withDevSecondSeason(devLiveOverlay))
 
 // The two flags read once at load by code outside this menu (lib/roles.ts, AdminUsers.tsx). They
 // have no store to subscribe to, so the menu writes them and reloads.
@@ -79,6 +80,7 @@ function activeOverrides(): Override[] {
   if (devDramaActive()) out.push({ label: 'MLB live drama', reset: () => setDevDramaEnabled(false) })
   if (devSeasonPhaseActive()) out.push({ label: 'MLB Home phase / no team', reset: () => { setDevSeasonPhase('auto'); setDevNoTeam(false) } })
   if (devChampionState().phase !== 'off') out.push({ label: 'WPBL season finale', reset: () => setDevChampionPhase('off') })
+  if (devSecondSeasonOn()) out.push({ label: 'WPBL fake 2027 season', reset: () => setDevSecondSeason(false, null), reload: true })
   if (devFanPhotosOn()) out.push({ label: 'WPBL mock fan photos', reset: () => setDevFanPhotos(false) })
   if (devLiveSnapshot().enabled) out.push({ label: 'WPBL live replay', reset: () => setDevLiveEnabled(false) })
   if (readFlag(FORCE_TESTER_KEY) === '1') out.push({ label: 'Tester role', reset: () => writeFlag(FORCE_TESTER_KEY, null), reload: true })
@@ -265,6 +267,7 @@ function WpblControls() {
       <ChampionBannerControls />
       <Divider sx={{ my: 1.75 }} />
       <FanPhotosDevControl />
+      <SecondSeasonDevControl />
       <Divider sx={{ my: 1.75 }} />
       <LiveGameSimControls />
     </>
@@ -351,6 +354,27 @@ function FanPhotosDevControl() {
       <Typography sx={note}>
         Pads the Home card to twelve so it renders before there are that many real photos. Reuses
         real photos where they exist.
+      </Typography>
+    </>
+  )
+}
+
+/**
+ * A fake 2027, cloned from 2026 (see devSecondSeason.ts), so the season menus and every board's
+ * cut can be checked against two years. Reloads, since every bulk read has to be made again.
+ */
+function SecondSeasonDevControl() {
+  const on = devSecondSeasonOn()
+  const toggle = () => { setDevSecondSeason(!on, getCachedWpblSchedule()); window.location.reload() }
+  return (
+    <>
+      <Typography sx={heading}>Second WPBL season (fake)</Typography>
+      <Button fullWidth size="small" variant="outlined" color={on ? 'success' : 'warning'} onClick={toggle} sx={btn}>
+        {on ? 'On: 2027 cloned from 2026' : 'Off'}
+      </Button>
+      <Typography sx={note}>
+        Copies 2026 a year forward: the first 40% played with their real lines and plays, the rest
+        scheduled. Open the WPBL section once before turning it on, so there is a schedule to copy.
       </Typography>
     </>
   )

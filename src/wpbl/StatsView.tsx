@@ -35,6 +35,8 @@ import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 import { TabTitle } from './PageHeading'
+import { useWpblSeason } from './SeasonContext'
+import { SeasonMenu } from './SeasonMenu'
 import { useEraBasis } from './EraBasisContext'
 import { BOTTOM_NAV_SPACE } from './BottomNav'
 import { STATS_FULL_BLEED_W } from './layoutWidths'
@@ -819,6 +821,12 @@ export interface WpblStatsFocus {
   token: number     // 0 = nothing requested yet
 }
 
+// The loaded desktop board: two header rows, TABLE_CAP body rows (each with a 1px rule), the
+// "Show all" row, the footer and the card's two borders. A sideways scrollbar, where the platform
+// draws one, is the 15px this leaves out.
+const DESKTOP_BOARD_SKELETON = `calc(${TABLE_CAP} * (1.56rem + ${chromePx(8.06)} + 1px)`
+  + ` + 0.64rem + ${chromePx(28.36)} + 48px + 0.99rem + ${chromePx(16.8)} + 2px)`
+
 // Placeholder while a sub-tab's chunk arrives. These views render in place under the group
 // bar, so a centred spinner in the content area is what the reader already sees while their
 // data loads, and the switch reads as slow rather than broken.
@@ -861,16 +869,17 @@ export function StatsSkeleton({ newBoards }: { newBoards?: ReadonlySet<string> }
           </Box>
         </Box>
       ) : (
-        // Above a phone, plus the 48px "Show all" row under the capped table (TABLE_CAP), which the
-        // default board, every qualified hitter, always has.
-        <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: `calc(${chromePx(546)} + 48px)` }, borderRadius: 2, mt: '-1px' }} />
+        // Above a phone the table is as tall as its rows, TABLE_CAP of them on the default board
+        // (every qualified hitter), plus the 48px "Show all" row and the board's footer. Each part is
+        // type plus chrome, so the box tracks the reader's text size: measured at two text scales.
+        <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: DESKTOP_BOARD_SKELETON }, borderRadius: 2, mt: '-1px' }} />
       )}
     </Box>
   )
 }
 
 export default function WpblStatsView({
-  teams, games, focus, active = true, newBoards, onBoardSeen, onOpenPlayer, onOpenTeam,
+  teams, games: allGames, focus, active = true, newBoards, onBoardSeen, onOpenPlayer, onOpenTeam,
   onOpenGame,
 }: {
   teams: WpblTeam[]
@@ -894,15 +903,23 @@ export default function WpblStatsView({
    *  real href either way and keeps working under a modified click. */
   onOpenGame?: (g: WpblGame) => void
 }) {
+  // ONE SEASON. Every read below holds every game the league has played, so each is cut to the
+  // year on screen before anything sums it, and `games` from here down is that year's schedule:
+  // the qualifying bar, the postseason switch and the run environment all measure one season.
+  const { season, current, seasons, pick: pickSeason, cut, seasonGames: games } = useWpblSeason(allGames)
+  const multiSeason = seasons.length > 1
   // Seed from the shared session cache so swiping back to this tab (SwipeableViews
   // unmounts it on the way out) repaints instantly instead of flashing the spinner.
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
+  const [allLines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
+  const lines = useMemo(
+    () => ({ batting: cut(allLines.batting), pitching: cut(allLines.pitching) }), [allLines, cut])
   const [loading, setLoading] = useState(() => getCachedWpblAllPlayers() == null || getCachedWpblAllLines() == null)
   // Null until it lands. Read on mount but never awaited by the table: only the Fielding side
   // draws it, and the most-read tab's first paint should not wait on a side most visits never open.
-  const [fielding, setFielding] = useState<WpblFieldingLine[] | null>(() => getCachedWpblAllFielding())
+  const [allFielding, setFielding] = useState<WpblFieldingLine[] | null>(() => getCachedWpblAllFielding())
+  const fielding = useMemo(() => (allFielding ? cut(allFielding) : null), [allFielding, cut])
   // The name column is a fixed width, so the default character threshold is the wrong test: it
   // would let a 12-character "Jamie Mackay" through whole to be cut to "Jamie Mac…" while a
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
@@ -1158,7 +1175,8 @@ export default function WpblStatsView({
     return () => { cancelled = true }
   }, [])
   const runEnvCurrent = runEnvironmentCurrent(runEnv, games)
-  const [rvPlays, setRvPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  const [allRvPlays, setRvPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  const rvPlays = useMemo(() => (allRvPlays ? cut(allRvPlays) : null), [allRvPlays, cut])
   const needPlays = runEnvAsked && !runEnvCurrent && !rvPlays
   useEffect(() => {
     if (!needPlays) return
@@ -1640,12 +1658,13 @@ export default function WpblStatsView({
   // reach either (neither has a per-player population to cut or a rate to gate, and Find has a
   // club picker of its own), so counting them here would light the dot on a board where nothing
   // had been filtered.
-  const filtersSet = source === 'season'
+  // A past year is a filter too, and on every board: the dot is what says this is not this season.
+  const filtersSet = season !== current || (source === 'season'
     ? teamId !== null || qualified !== qual.active || scope !== 'regular'
-    : scope !== 'regular'
+    : scope !== 'regular')
   // Whether the phone's sheet has a Filter tab: the club and the qualifying bar on Players, and the
   // season slice wherever it does something (see the chips below) once there is a postseason.
-  const canFilter = (source === 'season' && mode === 'players')
+  const canFilter = (source === 'season' && mode === 'players') || multiSeason
     || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason)
 
   // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
@@ -1725,9 +1744,9 @@ export default function WpblStatsView({
   // shut: a board counting the playoffs looks exactly like one counting the season, for the
   // reader most likely to have set it by accident. The pill's dot says only that SOMETHING is
   // not the default; this is the line that says what.
-  const scopeWord = scope === 'postseason' ? '2026 playoffs'
-    : scope === 'all' ? '2026 season + playoffs'
-    : '2026 season'
+  const scopeWord = scope === 'postseason' ? `${season ?? ''} playoffs`.trim()
+    : scope === 'all' ? `${season ?? ''} season + playoffs`.trim()
+    : `${season ?? ''} season`.trim()
   // Only when the reader has moved OFF the league's basis, and only on the pitching side. Their
   // ERA no longer matches the one the league publishes, and that is worth a permanent three words
   // at the foot. On the league's own basis it would be noise on every board.
@@ -1864,6 +1883,43 @@ export default function WpblStatsView({
     return () => { window.removeEventListener('scroll', check); window.removeEventListener('resize', check) }
   }, [pinActive, listView, loading, source, mode])
 
+  // ABOVE A PHONE THE TABLE IS PART OF THE PAGE, so the column headers follow the page by hand.
+  //
+  // The board used to be its own vertical scroller, capped to the screen, and the wheel over it
+  // scrolled that box and never the page: the 25-row board ended in a box scrolled to its last row
+  // with "Show all" and the rest of the page unreachable from anywhere over the table. Now it is
+  // as tall as its rows and the page does all the vertical scrolling.
+  //
+  // It still scrolls SIDEWAYS below about 1400px, and a box that scrolls on one axis is the sticky
+  // container on both, so the headers' `top: 0` pins them to a box that never moves. Each header
+  // cell is shifted down by however far the table's top has gone under the control bar instead,
+  // stopping at the last row. Set straight from the scroll event, not a frame later, so the header
+  // does not trail the rows by a frame.
+  useEffect(() => {
+    const box = scrollRef.current
+    const table = box?.querySelector('table')
+    const head = table?.tHead
+    if (pinActive || listView || loading || !box || !table || !head) return
+    const update = () => {
+      const bar = barRef.current
+      if (!bar) return
+      const t = table.getBoundingClientRect()
+      const shift = Math.max(0, Math.min(bar.getBoundingClientRect().bottom - t.top, t.height - head.offsetHeight))
+      box.style.setProperty('--wpbl-head-shift', `${shift}px`)
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    const ro = new ResizeObserver(update)
+    ro.observe(table)
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+      ro.disconnect()
+      box.style.removeProperty('--wpbl-head-shift')
+    }
+  }, [pinActive, listView, loading, source, mode, side])
+
   // One axis per drag on the grid (src/ui/useAxisLock). Keyed on what mounts or replaces its scroll box.
   useAxisLock(scrollRef, `${loading}|${listView}|${source}|${mode}|${side}`)
 
@@ -1957,6 +2013,8 @@ export default function WpblStatsView({
   // the Player/Team heading is set in capitals, on its own cell.
   const thBase = {
     position: 'sticky' as const, top: 0, zIndex: 3, bgcolor: 'background.paper',
+    // Above a phone the box never scrolls vertically, so `top` holds nothing; see headShift.
+    transform: pinActive ? undefined : 'translateY(var(--wpbl-head-shift, 0px))',
     fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
     color: 'text.disabled', py: 0.75, px: 0.5, whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   }
@@ -2198,6 +2256,9 @@ export default function WpblStatsView({
         {/* DESKTOP ONLY. On a phone these three would wrap onto a row of their own and take that
             height from the table, which is capped so its column headers cannot be carried up
             behind the bar. They are in the Filters sheet there, which is what they are. */}
+        {/* THE YEAR, on every board, since every board sums one: before the season slice, because it
+            is the wider cut of the two. Not drawn at all until there is a second year to pick. */}
+        {!isNarrow && <SeasonMenu sx={{ flexShrink: 0, alignItems: 'center' }} />}
         {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {/* "Both" rather than "All", which is what this option is: the team filter sitting
@@ -2385,8 +2446,8 @@ export default function WpblStatsView({
           {boardFooter}
         </Box>
       ) : (
-        <Box sx={{
-          // PINNED UNDER THE BAR, so the page cannot carry the board's column headers up
+        <Box ref={listRef} sx={{
+          // ON A PHONE, PINNED UNDER THE BAR, so the page cannot carry the board's column headers up
           // behind it. The headers stick to the top of the scroll box inside, and that box is
           // an ordinary element in page flow: without this, scrolling the PAGE takes the whole
           // board up and the labels go with it, which reads as a table that has lost its
@@ -2396,86 +2457,60 @@ export default function WpblStatsView({
           // UNDER the bar, never over it: the bar is `zIndex: 6` and this is 1. Without saying
           // so the board would paint on top of the bar it is sliding beneath, since both are
           // positioned and this one comes later in the DOM.
-          position: 'sticky', top: BOARD_TOP, zIndex: 1,
+          //
+          // Above a phone the board is as tall as its rows (see headShift), and a sticky box taller
+          // than the screen holds its top in place while the page scrolls, so its last rows could
+          // never come into view. `scrollMarginTop` is where collapsing "Show all" lands it.
+          position: pinActive ? 'sticky' : 'relative', top: pinActive ? BOARD_TOP : undefined, zIndex: 1,
+          scrollMarginTop: BOARD_TOP,
           border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden',
           ...fullBleedStickyCardSx,
         }}>
           <Box sx={{ position: 'relative' }}>
-          {/* Capped inner scroll so the column headers stay sticky (top:0) as you scroll the
-              rows. `overscroll-behavior: contain` stops the scroll from chaining out to the
-              page at the ends, so it reads as one list rather than a scroll-box fighting the
-              page. On a desktop, that is; a phone hands its vertical scroll to the page until
-              the board pins (see `boardPinned`). `dvh` tracks the mobile browser chrome so the cap doesn't overshoot.
+          {/* On a phone, a capped inner scroll so the column headers stay sticky (top:0) as you
+              scroll the rows, which hands its vertical scroll to the page until the board pins
+              (see `boardPinned`). `dvh` tracks the mobile browser chrome so the cap doesn't
+              overshoot. Above a phone there is no cap at all: the table is as tall as its rows and
+              scrolls only sideways (see headShift).
 
-              TWO SUBTRACTIONS, because a phone turned sideways wants a different one.
-
-              260px is everything standing above the table at the top of the page: toolbar, tab
-              nav, board picker, sort row. Subtracting all of it means "tall enough that nothing
-              has to scroll", which is the right answer whenever the screen can afford it.
-
-              A landscape phone cannot: 375dvh less 260 is a 115px window, the header and two
-              rows, which reads as broken rather than tight. There the page has to scroll, and
-              the cap becomes what fits in the gap the PINNED chrome leaves.
-
-              That gap is asked for rather than assumed. The shell publishes whichever of its
-              bars is actually holding a position at the top (--app-header-h on desktop, 0 on a
-              phone, whose section nav is the bottom bar), so subtracting the sum is right at every
-              width without naming a breakpoint here. 100px is this page's OWN control bar,
-              which pins under them and is the one height the shell cannot report (about 91px,
-              the rest slack).
-
-              Going taller than that breaks the thing this box exists for: a table taller than
-              the free gap can never be scrolled fully into it, so its sticky header parks
-              behind the nav and the reader loses the column labels for the rest of the board.
-
-              560px is where the two meet: the height at which the first subtraction still
-              leaves about eight rows, the point below which a scroll-box stops being a table. */}
+              Going taller than the free gap breaks the thing the phone's box exists for: a table
+              taller than the gap can never be scrolled fully into it, so its sticky header parks
+              behind the nav and the reader loses the column labels for the rest of the board. */}
           <Box ref={scrollRef} sx={{
             // On a phone, vertical scroll waits for the board to pin; see `boardPinned`.
             overflowX: 'auto', overflowY: !pinActive || boardPinned ? 'auto' : 'hidden',
-            overscrollBehaviorX: 'contain', overscrollBehaviorY: pinActive ? 'auto' : 'contain',
-            // HOW TALL THE BOARD IS ALLOWED TO BE, and the two answers are different
-            // because the question is.
-            //
-            // The column headers pin to the top of this box, and the box is an ordinary
-            // element in page flow, so scrolling the PAGE carries them up behind the bars
-            // above. The board is sticky (see where it pins) so it holds its place under the
-            // bar, but sticky only holds while its containing block has somewhere left to go,
-            // and the arithmetic comes out at one condition: the board has to FIT between the
-            // bar and whatever follows it. Taller than that and it stops being pinned before
-            // the reader stops scrolling.
-            //
-            // ON A PHONE THAT IS WORTH PAYING FOR. The page is short, a thumb reaches the
-            // bottom of it by accident, and the board is the only thing on screen. So the cap
-            // there is the real gap: the screen, less the bars above, less the footer below,
-            // less the board's own furniture.
-            //
-            // ON A DESKTOP IT IS NOT. The page barely moves under a board this size, so the
-            // guarantee would buy a case that does not arise and charge well over a hundred
-            // pixels of table for it. Wide screens keep the plain measure, where 260px is
-            // everything standing above the table at the top of the page.
-            //
-            // THE FOOTER IS MEASURED, THE REST IS NOT, and that split is the whole safety of
-            // it. `--wpbl-foot-h` comes off the `<footer>` element, whose height cannot depend
-            // on the board's. Deriving the cap from the DOCUMENT's height instead would loop:
-            // on a phone that includes the swipe pager's full-screen floor, so the board's
-            // height feeds back into its own cap, and read from a tab the pager has not yet
-            // shown it measures a zero rect and renders no board at all. The floor is what
-            // stops any of that reaching the screen.
-            maxHeight: 'calc(100dvh - 260px)',
-            // THE BOTTOM NAV IS BELOW EVERYTHING ELSE, as padding the shell reserves so the footer
-            // clears it (`BOTTOM_NAV_SPACE` plus the home-indicator inset, in WpblApp). It is not
-            // pinned at the TOP, so PINNED_CHROME reads 0 on a phone and says nothing about it.
-            // Leaving it out made the board 76px too tall (about 110px on an iPhone), and at the
-            // bottom of the page the column headers slid up behind the control bar.
-            '@media (max-width:600px)': {
+            // Y left to the browser everywhere. A phone hands the drag back to the page at the
+            // table's top; above one this box cannot scroll vertically, and `contain` on it was
+            // what kept the wheel over the table from ever reaching the page.
+            overscrollBehaviorX: 'contain', overscrollBehaviorY: 'auto',
+            ...(pinActive && {
+              // ON A PHONE THE CAP IS THE REAL GAP: the screen, less the bars above, less the
+              // footer below, less the board's own furniture. The board is sticky (see where it
+              // pins), but sticky only holds while the board FITS between the bar and whatever
+              // follows it.
+              //
+              // THE FOOTER IS MEASURED, THE REST IS NOT, and that split is the whole safety of
+              // it. `--wpbl-foot-h` comes off the `<footer>` element, whose height cannot depend
+              // on the board's. Deriving the cap from the DOCUMENT's height instead would loop:
+              // on a phone that includes the swipe pager's full-screen floor, so the board's
+              // height feeds back into its own cap, and read from a tab the pager has not yet
+              // shown it measures a zero rect and renders no board at all. The floor is what
+              // stops any of that reaching the screen.
+              //
+              // THE BOTTOM NAV IS BELOW EVERYTHING ELSE, as padding the shell reserves so the footer
+              // clears it (`BOTTOM_NAV_SPACE` plus the home-indicator inset, in WpblApp). It is not
+              // pinned at the TOP, so PINNED_CHROME reads 0 on a phone and says nothing about it.
+              // Leaving it out made the board 76px too tall (about 110px on an iPhone), and at the
+              // bottom of the page the column headers slid up behind the control bar.
               maxHeight: `max(${MIN_BOARD_PX}px, calc(100dvh - ${BOARD_TOP} - var(--wpbl-foot-h, 0px)`
                 + ` - var(--wpbl-board-foot-h, 0px) - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px)`
                 + ` - ${hideSiteFooter ? BOARD_TAIL_BARE_PX : BOARD_TAIL_PX}px))`,
-            },
-            '@media (max-height: 560px)': {
-              maxHeight: `calc(100dvh - ${PINNED_CHROME} - 100px)`,
-            },
+              // A very short screen: what fits in the gap the PINNED chrome leaves, 100px being this
+              // page's own control bar (about 91px, the rest slack).
+              '@media (max-height: 560px)': {
+                maxHeight: `calc(100dvh - ${PINNED_CHROME} - 100px)`,
+              },
+            }),
           }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
@@ -2673,6 +2708,7 @@ export default function WpblStatsView({
             <FilterBody teams={teamChips} teamId={teamId} onTeam={filterTeam}
               qualified={qualified} onQualified={toggleQualified}
               scope={hasPostseason ? scope : null} onScope={setScope}
+              season={multiSeason ? season : null} seasons={seasons} onSeason={pickSeason}
               showWho={source === 'season' && mode === 'players'}
               bar={qual.active ? qualBar : null} />
           ) : null}
@@ -2966,7 +3002,7 @@ function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose }: {
 //
 // Rows rather than tiles: there are only seven, and a club wants its badge and its whole name
 // rather than three letters.
-function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, showWho, bar }: {
+function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, season, seasons, onSeason, showWho, bar }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
@@ -2976,6 +3012,10 @@ function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onSc
    *  rather than when it is set to the regular season. */
   scope: SeasonScope | null
   onScope: (s: SeasonScope) => void
+  /** Null with one season on record, when there is no year to choose. */
+  season: number | null
+  seasons: number[]
+  onSeason: (s: number) => void
   /** Only the player board has a per-player population to filter. */
   showWho: boolean
   /** The qualifying bar in its own unit ("36 PA", "12.0 IP"), or null before it applies. Said
@@ -2985,7 +3025,16 @@ function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onSc
   const rows = { display: 'flex', flexDirection: 'column', gap: 0.75 } as const
   return (
     <>
-      {/* FIRST, because it is the widest of the three: it changes which GAMES everything
+      {/* The year before anything else: it decides which games exist at all for the rest. */}
+      {season != null && (
+        <SheetGroup title="Season">
+          <Box sx={rows}>
+            {seasons.map(y => <OptionRow key={y} label={String(y)} on={season === y} onClick={() => onSeason(y)} />)}
+          </Box>
+        </SheetGroup>
+      )}
+
+      {/* BEFORE THE CLUB, because it is the wider cut: it changes which GAMES everything
           below is counted from, where the other two only choose who to list out of them. */}
       {scope && (
         <SheetGroup title="Games">

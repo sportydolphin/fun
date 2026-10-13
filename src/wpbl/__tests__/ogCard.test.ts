@@ -21,8 +21,8 @@ const pit = (o: Partial<WpblCardPitching> = {}): WpblCardPitching => ({
 })
 // The schedule the card is told about. Every fixture line above belongs to `g-reg`.
 const GAMES = [
-  { id: 'g-reg', game_type: 'regular', counts_in_standings: true },
-  { id: 'g-post', game_type: 'postseason', counts_in_standings: false },
+  { id: 'g-reg', game_type: 'regular', counts_in_standings: true, game_date: '2026-08-01', status: 'final' as const },
+  { id: 'g-post', game_type: 'postseason', counts_in_standings: false, game_date: '2026-09-10', status: 'final' as const },
 ]
 
 const HEIGHTS = 'New York Heights'
@@ -169,6 +169,19 @@ describe('wpblCompareCard', () => {
     )
     expect(card.description).toBe('Denae Benites (New York). Jill Albayati. Their 2026 seasons side by side.')
     expect(card.cardPath).toBeNull()
+  })
+
+  it('describes the current season only, once a second one has a result', () => {
+    // A share card reads every line the player has. In 2027 that is two seasons, and summed under
+    // "the season" it would publish a career; the card is the year the site opens on.
+    const games = [...GAMES, { id: 'g-27', game_type: 'regular', counts_in_standings: true, game_date: '2027-06-01', status: 'final' as const }]
+    const card = wpblCompareCard(
+      side(hitter, 'New York', 'NY', [bat({ ab: 10, h: 10, hr: 5 }), bat({ game_id: 'g-27', ab: 4, h: 1 })], []),
+      side(pitcher, null, null, [], []),
+      games,
+    )
+    expect(card.title).toBe('Denae Benites vs Jill Albayati: 2027 WPBL stats compared | sportydolphin.fun')
+    expect(card.description).toMatch(/^Denae Benites \(New York\): \.250\//)
   })
 
   it('builds the art path only from plain club ids', () => {

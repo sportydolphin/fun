@@ -135,3 +135,74 @@ export function seasonsPlayed(lines: GameKeyed[], games: WpblDatedGame[]): numbe
 export function gamesInSeason<G extends Pick<WpblGame, 'game_date'>>(games: G[], season: number): G[] {
   return games.filter(g => seasonOf(g) === season)
 }
+
+/**
+ * The season the section shows when the reader has not picked one: the newest year with a FINAL
+ * in it, not the newest year on the schedule.
+ *
+ * The league publishes next year's schedule months before Opening Day, and from that moment the
+ * newest year on the schedule is one nobody has played. Keyed on it, every board, the standings
+ * and the leaders would flip to an empty 2027 in March and say nothing for weeks, so a fan looking
+ * up last year's batting champion would find a blank page. The schedule and Home still show the
+ * new fixtures; only the season totals wait for a result. Falls back to the newest scheduled year,
+ * so a schedule with no finals at all (the first spring of a league) still has a season.
+ */
+export function currentSeason(games: Pick<WpblGame, 'game_date' | 'status'>[]): number | null {
+  let out: number | null = null
+  for (const g of games) {
+    if (g.status !== 'final') continue
+    const y = seasonOf(g)
+    if (y != null && (out == null || y > out)) out = y
+  }
+  return out ?? latestSeason(games)
+}
+
+/** Every season a reader can pick, newest first: the years with a final, by the same rule as
+ *  `currentSeason`, so the menu never offers a year whose every board is empty. */
+export function seasonsOnRecord(games: Pick<WpblGame, 'game_date' | 'status'>[]): number[] {
+  const out = new Set<number>()
+  for (const g of games) { const y = g.status === 'final' ? seasonOf(g) : null; if (y != null) out.add(y) }
+  const cur = currentSeason(games)
+  if (cur != null) out.add(cur)
+  return [...out].sort((a, b) => b - a)
+}
+
+/**
+ * The newest season that is over, for the bare `/wpbl/season`: the newest year with a final and
+ * nothing left to play (no game live, none scheduled from `today` on). A recap of a season still
+ * being played would be a page of partial totals under the word "recap"; through the summer this
+ * stays on last year. Falls back to the current season when no year is over yet (the first summer
+ * of a league), since that page with a partial season is still better than nothing.
+ */
+export function completedSeason(games: Pick<WpblGame, 'game_date' | 'status'>[], today: string): number | null {
+  const unfinished = new Set<number>()
+  for (const g of games) {
+    const y = seasonOf(g)
+    if (y != null && (g.status === 'live' || (g.status === 'scheduled' && g.game_date >= today))) unfinished.add(y)
+  }
+  for (const y of seasonsOnRecord(games)) if (!unfinished.has(y)) return y
+  return currentSeason(games)
+}
+
+/** A game as the edge and the Discord bot read it: the postseason fields, and the date and status
+ *  once a caller selects them. Optional so an older select still type-checks and simply is not cut. */
+export type WpblDatedSeasonGame = WpblSeasonGame & Partial<Pick<WpblGame, 'game_date' | 'status'>>
+
+/**
+ * The current season's lines, for the surfaces that sum a player's line outside the app: the
+ * share card's description and the Discord `/player` card. They read every line the player has, so
+ * in a second season they would publish a career under the words "the season". Cut by the same rule
+ * as the app (`currentSeason`), so an unfurl and the page it links to agree. A schedule read without
+ * dates cannot place a line, and leaves it whole rather than guessing.
+ */
+export function currentSeasonOnly<T extends GameKeyed>(lines: T[], games: WpblDatedSeasonGame[]): T[] {
+  if (!games.some(g => g.game_date)) return lines
+  const dated = games.filter((g): g is WpblDatedGame & Pick<WpblGame, 'status'> => !!g.game_date && !!g.status)
+  const year = currentSeason(dated)
+  return year == null ? lines : inSeason(lines, dated, year)
+}
+
+/** The year `currentSeasonOnly` cuts to, for the words around it, or null without dates. */
+export function cardSeason(games: WpblDatedSeasonGame[]): number | null {
+  return currentSeason(games.filter((g): g is WpblDatedGame & Pick<WpblGame, 'status'> => !!g.game_date && !!g.status))
+}
