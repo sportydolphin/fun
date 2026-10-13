@@ -1,5 +1,6 @@
 import { plateAppearances, type WpblBattingTotals, type FipWeights } from '../stats'
 import type { PlayRunValue } from './runExpectancy'
+import { sprayZone, type SprayZone } from './spray'
 
 /**
  * Linear weights from the league's own plays: wOBA and wRC+ for hitters, FIP for pitchers.
@@ -61,14 +62,14 @@ const BIP_EVENTS = new Set([
  * wild ones off lightly. Walks and hit batters share a weight, as they do in the standard
  * formula.
  */
-export function fipWeights(values: PlayRunValue[]): FipWeights | null {
+export function fipWeights(values: PlayRunValue[], opts: { infieldFlies?: boolean } = {}): FipWeights | null {
   const acc = { hr: [0, 0], bb: [0, 0], k: [0, 0], bip: [0, 0] }
   for (const v of values) {
     if (!v.play.pitch_sequence) continue
     const e = v.play.event_type
     const k = e === 'home_run' ? 'hr'
       : e === 'walk' || e === 'hit_by_pitch' ? 'bb'
-      : e === 'strikeout' ? 'k'
+      : e === 'strikeout' || (opts.infieldFlies && isInfieldFly(v.play)) ? 'k'
       : e && BIP_EVENTS.has(e) ? 'bip' : null
     if (!k) continue
     acc[k][0] += v.value; acc[k][1]++
@@ -77,6 +78,21 @@ export function fipWeights(values: PlayRunValue[]): FipWeights | null {
   const avg = (k: keyof typeof acc) => acc[k][0] / acc[k][1]
   const bip = avg('bip')
   return { hr: avg('hr') - bip, bb: avg('bb') - bip, k: avg('k') - bip }
+}
+
+const INFIELD = new Set<SprayZone>(['P', 'C', '1B', '2B', '3B', 'SS'])
+
+/**
+ * An infield fly ball, for ifFIP: a pop-up, fly out or foul out caught by an infielder. FanGraphs
+ * prices these as strikeouts in the FIP behind its WAR, since an infield fly is an out almost
+ * every time and advances nobody, so it is the pitcher's doing in the way a strikeout is. The feed
+ * has no batted-ball type, so the scorer's verb and fielder stand in for it: "popped up to 2b",
+ * "fouled out to c". Line drives are out: a liner caught at short was hit hard, not popped up.
+ */
+export function isInfieldFly(p: { event_type?: string | null; narrative?: string | null }): boolean {
+  if (p.event_type !== 'popup' && p.event_type !== 'flyout' && p.event_type !== 'foul_out') return false
+  const z = sprayZone(p.narrative)
+  return z != null && INFIELD.has(z)
 }
 
 export function wobaWeights(values: PlayRunValue[]): WobaWeights | null {

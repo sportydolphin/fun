@@ -604,7 +604,7 @@ const OVR_NAMES: Record<string, string> = {
   war: 'Wins above replacement, everything together', batWar: 'WAR at the plate, on the bases and in the field',
   pitWar: 'WAR on the mound', bat: 'Batting runs against an average hitter (wRAA)',
   bsr: 'Baserunning runs, double plays hit into included', fld: 'Fielding runs against an average fielder at the position',
-  pos: 'Positional adjustment: harder positions earn runs, easier ones give them', pit: 'Pitching runs against an average pitcher, from FIP',
+  pos: 'Positional adjustment: harder positions earn runs, easier ones give them', pit: 'Pitching runs against an average pitcher, from FIP with infield flies counted as strikeouts',
   wpa: 'Wins added: each play priced by the score, which WAR ignores, so it records who swung close games', rng: 'Range: outs made on balls hit to the zone, against the average',
   err: 'Errors, against the average at the position', dp: 'Double plays turned, against the average at the position',
   ofArm: 'Outfield arm: extra bases runners did not take', cArm: 'Catcher\u2019s arm: base stealers thrown out',

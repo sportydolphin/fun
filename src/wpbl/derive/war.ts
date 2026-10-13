@@ -3,7 +3,7 @@ import {
   ERA_BASIS_CANONICAL,
 } from '../stats'
 import { countsInStandings } from '../../league/season'
-import { wobaWeights, fipWeights, wobaContext, woba } from './linearWeights'
+import { wobaWeights, fipWeights, wobaContext, woba, isInfieldFly } from './linearWeights'
 import { doublePlayWorth, readDoublePlay, type FieldPosition, type FieldingLedger } from './fielding'
 import type { CatcherArmLine } from './catching'
 import type { PlayRunValue, ReTable } from './runExpectancy'
@@ -18,14 +18,14 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '..
  * A PLAYER'S WAR IS RUNS, THEN WINS:
  *
  *   batting      wRAA, from wOBA on this league's own weights (linearWeights.ts)
- *   baserunning  steals, extra bases and tag-ups (baserunning.ts), plus double plays hit into
- *                against the league's rate in the same chances
+ *   baserunning  steals against the league's rate per time on first (wSB), extra bases and
+ *                tag-ups (baserunning.ts), and double plays hit into against the league's rate
  *   fielding     range, errors, double plays, outfield arms, the catcher's arm and blocking
  *                (fielding.ts, catching.ts), each centred on the average at the position per out
  *   positional   FanGraphs' scale, per out at each position, resized to this run environment
  *   league       whatever makes the four above sum to zero across the league, per PA
  *   replacement  the runs a freely available player would have cost, per PA
- *   pitching     FIP against the league, per inning, plus pitching's own replacement runs
+ *   pitching     ifFIP against the league, per inning, plus pitching's own replacement runs
  *
  * and the sum divided by this league's runs per win.
  *
@@ -112,8 +112,9 @@ export interface WarInput {
   players: WpblPlayer[]
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
-  /** Baserunning runs per player, from `baserunningLeaders` (steals and extra bases). */
-  baserunning: ReadonlyMap<string, number>
+  /** Baserunning runs per player, from `baserunningLeaders`: steal attempts and pickoffs, and
+   *  extra bases, apart, because only the steals are centred here. */
+  baserunning: ReadonlyMap<string, { steal: number; advance: number }>
   ledger: FieldingLedger
   arm: readonly CatcherArmLine<unknown>[]
 }
@@ -158,7 +159,21 @@ export function warSeason(input: WarInput): WarSeason | null {
   }
 
   // ── Baserunning, and double plays hit into ────────────────────────────────────
-  for (const [id, runs] of baserunning) line(id).bsr += runs
+  // Steals are FanGraphs' wSB: runs on attempts and pickoffs, less the league's steal runs per
+  // time on first (singles, walks, hit batters, less intentional walks) times the player's own.
+  // This league ran below its break-even, so the league rate is negative and a hitter who reached
+  // and stayed put earns back what an average runner lost. A pinch runner has no times on first
+  // and keeps the raw figure, as in FanGraphs. Extra bases arrive centred already.
+  const onFirst = (t: { h: number; doubles: number; triples: number; hr: number; bb: number; hbp: number; ibb: number }) =>
+    t.h - t.doubles - t.triples - t.hr + t.bb + t.hbp - t.ibb
+  const opps = new Map<string, number>()
+  for (const s of aggregateBatting(players, batting, games, 'regular')) opps.set(s.player.id, onFirst(s.totals))
+  let lgSteal = 0
+  for (const b of baserunning.values()) lgSteal += b.steal
+  const lgOnFirst = onFirst(lgBat)
+  const stealRate = lgOnFirst > 0 ? lgSteal / lgOnFirst : 0
+  for (const [id, b] of baserunning) line(id).bsr += b.steal + b.advance
+  for (const [id, n] of opps) line(id).bsr -= stealRate * n
   // A chance is a plate appearance with a runner on first and fewer than two out; a double play
   // hit into costs what `doublePlayWorth` says the second out was worth, on average.
   const chances = new Map<string, { opp: number; gidp: number }>()
@@ -228,14 +243,24 @@ export function warSeason(input: WarInput): WarSeason | null {
     line(id).pos += (POSITIONAL_RUNS_MLB.dh / MLB_DH_PA) * (runsPerPa / MLB_RUNS_PER_PA) * n
   }
 
-  // ── Pitching: FIP against the league ──────────────────────────────────────────
-  const fW = fipWeights(values as PlayRunValue[])
-  const fC = fipConstant(lgPit, fW)
+  // ── Pitching: ifFIP against the league ────────────────────────────────────────
+  // FanGraphs' WAR runs on ifFIP, which counts an infield fly as a strikeout, so the weights here
+  // pool the two and the constant is rebuilt with the league's infield flies in it. The FIP column
+  // on the Pitching side stays plain FIP, as FanGraphs' does.
+  const iff = new Map<string, number>()
+  let lgIff = 0
+  for (const v of values) {
+    const id = v.play.pitcher_id
+    if (!v.play.pitch_sequence || !id || !isInfieldFly(v.play)) continue
+    iff.set(id, (iff.get(id) ?? 0) + 1); lgIff++
+  }
+  const fW = fipWeights(values as PlayRunValue[], { infieldFlies: true })
+  const fC = fipConstant({ ...lgPit, so: lgPit.so + lgIff }, fW)
   for (const s of aggregatePitching(players, pitching, games, 'regular')) {
     if (s.totals.outs === 0) continue
     const l = line(s.player.id)
     l.outs = s.totals.outs
-    const f = fip(s.totals, fW, fC)
+    const f = fip({ ...s.totals, so: s.totals.so + (iff.get(s.player.id) ?? 0) }, fW, fC)
     if (f != null && lgPit.era != null) l.pit = (lgPit.era - f) * (s.totals.outs / 3) / ERA_BASIS_CANONICAL
   }
 
