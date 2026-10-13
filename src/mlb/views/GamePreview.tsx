@@ -352,7 +352,9 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
     animation: 'pvPulse 1.1s ease-in-out infinite',
   } as const
 
-  function PitcherCard({ pitcher, team, loading }: { pitcher: ProbablePitcher | null; team: { teamId: number; abbr: string }; loading?: boolean }) {
+  // Called as a function, not rendered as <PitcherCard>: declared inside this component, it would be
+  // a new component type on every render, so React would remount the card and reload its headshot.
+  function pitcherCard({ pitcher, team, loading }: { pitcher: ProbablePitcher | null; team: { teamId: number; abbr: string }; loading?: boolean }) {
     const teamColor  = TEAM_BG[team.teamId] ?? '#444'
     const accentText = accentColor(teamColor, isDark)
     const clickable  = !loading && !!pitcher && !!onPlayerClick
@@ -530,8 +532,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
             Probable Starters
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <PitcherCard pitcher={preview?.awayPitcher ?? null} team={game.away} loading={loading} />
-            <PitcherCard pitcher={preview?.homePitcher ?? null} team={game.home} loading={loading} />
+            {pitcherCard({ pitcher: preview?.awayPitcher ?? null, team: game.away, loading })}
+            {pitcherCard({ pitcher: preview?.homePitcher ?? null, team: game.home, loading })}
           </Box>
         </Box>
 

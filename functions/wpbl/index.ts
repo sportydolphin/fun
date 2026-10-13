@@ -263,7 +263,7 @@ async function withGameCard(
 async function withCompareCard(context: Ctx, pair: [WpblSluggable, WpblSluggable], roster: WpblSluggable[]): Promise<Response> {
   const page = await context.next()
   if (!(page.headers.get('content-type') || '').includes('text/html')) return page
-  let sides: [WpblCompareSide, WpblCompareSide] | null = null
+  let sides: [WpblCompareSide, WpblCompareSide] | null
   let games: WpblSeasonGame[] = []
   try {
     ({ sides, games } = await resolveCompare(pair, context.env))
@@ -290,7 +290,7 @@ async function withCard(context: Ctx, playerId: string, url: URL): Promise<Respo
   const page = await context.next()
   if (!(page.headers.get('content-type') || '').includes('text/html')) return page
 
-  let card: Resolved | null = null
+  let card: Resolved | null
   try {
     card = await resolvePlayer(playerId, context.env, url)
   } catch {
