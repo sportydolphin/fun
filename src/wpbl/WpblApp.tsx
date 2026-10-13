@@ -13,6 +13,8 @@ import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
 import { SectionLabel, TYPE_SCALE, TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
 import { panelShiftSx, useSidePanelOpen, usePhoneLayout } from '../ui/ModalShell'
+import { DetailPageBar } from '../ui/DetailPageBar'
+import { fetchWpblAwardResults } from './awardVotes'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { PHONE_COLUMN_W } from '../ui/layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
@@ -145,13 +147,23 @@ const NAV = WPBL_NAV
 // schedule's is built from the schedule's own pieces (SectionLabel, the card's padding and badge);
 // the rest are desktop measurements over the 1.25 scale, in chromePx, which holds on a phone too.
 // Check any change with `?devSlow=2500` (src/dev/slowLoad.ts) against the loaded tab.
-/** The full game or player page while its chunk loads: the card's own outline, not a tab's. */
 /** The empty result list, one array for good: the bridge compares by identity, and a fresh `[]`
  *  per publish would wake every subscriber to say nothing changed. */
 const NO_ROWS: SearchResultRow[] = []
 
-function DetailPageSkeleton() {
-  return <Skeleton variant="rounded" sx={{ height: chromePx(480), borderRadius: 3, mt: 4.5 }} />
+/** The full game or player page while its chunk or the roster loads, in the page's own frame: its
+ *  width, breaking out of the column the way the page does, and the real back bar over the card.
+ *  It sat in the 720px column 36px low until Oct 12, 2026, so the page arrived wider and higher and
+ *  moved everything on the screen. The bar is real but inert, so it holds the bar's exact height
+ *  without a second focusable Back. */
+function DetailPageSkeleton({ width }: { width: string }) {
+  return (
+    <Box aria-hidden ref={(el: HTMLElement | null) => { el?.setAttribute('inert', '') }}
+      sx={{ width, ml: `calc((100% - ${width}) / 2)` }}>
+      <DetailPageBar onBack={() => {}} eyebrow={<Skeleton width="10rem" />} />
+      <Skeleton variant="rounded" sx={{ height: chromePx(480), borderRadius: 3 }} />
+    </Box>
+  )
 }
 
 /**
@@ -1082,10 +1094,28 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // The player's full page, the same way. The game page wins if both are somehow set: a player over
   // it is the panel beside it, which is the arrangement every route into that state means.
   const showPlayerPage = playerPage && !!detailPlayer && playerAsPanel && !showGamePage
+  // A cold landing on a player's or a game's address, until the roster or the schedule resolves it
+  // (the two effects that read pendingPlayerSlug and pendingGameSlug clear it). Without it the page
+  // drew Home's skeleton at Home's width until then, and swapped to the page a second or two later
+  // at another width and depth: up to 1.4 of field CLS on a desktop in October 2026.
+  const [landingPage, setLandingPage] = useState<'player' | 'game' | null>(() =>
+    window.history.state?.wpbl ? null
+      : wpblGameSlugFromPath(window.location.pathname) ? 'game'
+        : wpblPlayerSlugFromPath(window.location.pathname) ? 'player' : null)
+  const landingAsPage = landingPage != null && playerAsPanel && !showGamePage && !showPlayerPage
+  // The fan-award tally, started now for a player's address rather than when the card mounts. The
+  // card draws the awards a player won as a row in its band, from this tally once it has landed;
+  // asked for only at mount it landed after the band had drawn and grew it by a row. The roster
+  // the card waits on is the slower read, so by the time it mounts the tally is in.
+  useEffect(() => {
+    if (landingPage === 'player') void fetchWpblAwardResults()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the address landed on
+  }, [])
   // The page moves aside for the side panel (see panelShiftSx), by the width of the widest thing on
   // the current surface: the column itself, or one of the surfaces that break out of it.
   const panelOpen = useSidePanelOpen()
-  const contentW = showGamePage ? GAME_PAGE_W : showPlayerPage ? PLAYER_PAGE_W : view === 'home' ? HOME_WIDE_W : view === 'stats' ? STATS_FULL_BLEED_W : view === 'schedule' ? HOME_WIDE_W : chromePx(720)
+  const contentW = showGamePage || (landingAsPage && landingPage === 'game') ? GAME_PAGE_W
+    : showPlayerPage || landingAsPage ? PLAYER_PAGE_W : view === 'home' ? HOME_WIDE_W : view === 'stats' ? STATS_FULL_BLEED_W : view === 'schedule' ? HOME_WIDE_W : chromePx(720)
   // The page takes the window's scroll, so it opens at its top and hands the tab back its place.
   // Layout effect, so neither the page nor the returning tab paints a frame at the wrong depth.
   // Keyed on the game as well: one page can lead to another (a player's log beside it), and the
@@ -1679,6 +1709,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (slug && teams.length === 0) return
     pendingGameId.current = null
     pendingGameSlug.current = null
+    setLandingPage(null)
     const g = slug ? findWpblGameBySlug(slug, games, teams) : games.find(gm => gm.id === id)
     if (!g) return
     // A game arrived at, rather than opened from a row, is the full page. See WpblSnap.gamePage.
@@ -1699,6 +1730,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!slug && !id) return
     pendingPlayerSlug.current = null
     pendingPlayerId.current = null
+    if (!pendingGameSlug.current) setLandingPage(null)
     const p = slug ? findWpblPlayerBySlug(slug, players) : players.find(pl => pl.id === id)
     if (!p) return
     // Arrived at, so the full page, unless the link names a game as well (`?game=`): then the game
@@ -2096,7 +2128,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           closes the page. */}
       {showGamePage && detailGame && (
         <AppErrorBoundary inline where="tab">
-          <Suspense fallback={<DetailPageSkeleton />}>
+          <Suspense fallback={<DetailPageSkeleton width={GAME_PAGE_W} />}>
             <GameDetailModal
               key={detailGame.id}
               layout="page"
@@ -2116,7 +2148,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           openGameAt), so a reader can go page to page and Back walks them in order. */}
       {showPlayerPage && detailPlayer && (
         <AppErrorBoundary inline where="tab">
-          <Suspense fallback={<DetailPageSkeleton />}>
+          <Suspense fallback={<DetailPageSkeleton width={PLAYER_PAGE_W} />}>
             <PlayerDetailModal
               key={detailPlayer.id}
               layout="page"
@@ -2131,8 +2163,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           </Suspense>
         </AppErrorBoundary>
       )}
+      {landingAsPage && <DetailPageSkeleton width={landingPage === 'game' ? GAME_PAGE_W : PLAYER_PAGE_W} />}
       {loading
-        ? (showGamePage || showPlayerPage ? null : view === 'home' ? <WpblHomeSkeleton /> : view === 'stats' ? <StatsSkeleton newBoards={newBoards} /> : <TabSkeleton view={view} />)
+        ? (showGamePage || showPlayerPage || landingAsPage ? null : view === 'home' ? <WpblHomeSkeleton /> : view === 'stats' ? <StatsSkeleton newBoards={newBoards} /> : <TabSkeleton view={view} />)
         : (
           // One panel per nav tab, in NAV order, so mobile can swipe between them. The `active` flag lets a
           // view react to becoming current after a swipe reuses its already-mounted node (e.g. Schedule
@@ -2140,7 +2173,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           // Full-bleed the swipe track to the screen edge on mobile (cancel the app's p:2 gutter), then hand
           // that 16px back to each pane via `padX`, so a swiped pane slides fully off-screen instead of
           // disappearing under a padded barrier.
-          <Box sx={{ mx: { xs: -2, sm: 0 }, display: showGamePage || showPlayerPage ? 'none' : undefined }}>
+          <Box sx={{ mx: { xs: -2, sm: 0 }, display: showGamePage || showPlayerPage || landingAsPage ? 'none' : undefined }}>
           <SwipeableViews
             index={NAV.findIndex(n => n.key === view)}
             onIndexChange={i => selectTab(NAV[i].key, 'swipe')}

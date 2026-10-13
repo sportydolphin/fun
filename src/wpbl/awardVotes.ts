@@ -61,7 +61,9 @@ async function readAwardResults(): Promise<AwardResults> {
   const { data, error } = await supabase.rpc('wpbl_award_results')
   if (error) {
     console.warn('[wpbl] fetchWpblAwardResults failed:', error.message)
-    return {}
+    // The last tally that landed, not nothing: an empty answer here replaced it, and a player's
+    // award row vanished from the band on a failed refresh and came back on the next good one.
+    return lastResults ?? {}
   }
   const out: AwardResults = {}
   for (const row of (data ?? []) as { category: string; choice: string; votes: number }[]) {

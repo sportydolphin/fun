@@ -221,6 +221,47 @@ item 2 describes, which is why that item comes first.
 
 ---
 
+## Priorities (set Oct 12, 2026)
+
+Site-wide, both sections. ROADMAP.md points here. Everything in P0 to P2 lands well before the 2027
+WPBL season.
+
+**P0**
+- **Multiple seasons.** Every WPBL surface assumes one season: year menus, career totals,
+  standings, the boards, slugs, the archive. 2027 breaks all of them on its first game. Build it
+  this winter with the spring rehearsal (ops item 7) as its test.
+- **The worst layout shifts** (ops item 3). Started Oct 12 from the field reports, by path: the
+  WPBL desktop panel, `/wpbl/stats` on a desktop, the WPBL to MLB switch on a phone, and MLB Home
+  on a desktop. Reproduced with Playwright at 4x CPU throttle, clicking and scrolling, which is
+  what the sweep does not do. **Fixed Oct 12:** a cold WPBL player or game address drew Home's
+  skeleton, then the page at another width (now the page's own frame from the first frame); the
+  photo, clip and reading blocks under a player landed before the stats and were pushed off the
+  screen; the honours row grew the band late; the season line dropped its rank row between two
+  reads; the win probability chart had a `null` fallback; MLB's bracket skeleton held four series
+  in the LCS. Cold player pages went from 0.10 to 0.23 down to about 0.02, game pages 0.09 to
+  0.01, the phone switch to MLB 0.11 to 0.03. **Open:** `/wpbl/stats` on a desktop and MLB Home on
+  a desktop reproduce clean locally (under 0.04), so they wait on the attributed reports.
+
+**P1**
+- **Google Play release** (ops item 9). Close; only Play's process is left.
+- Wins added and baserunning on the player card and Compare (item 8 below).
+- Dependencies (ops item 6): the patch and minor pull request, then the majors one at a time.
+- Crash triage (ops item 2), once a week of tagged rows is in.
+
+**P2**
+- **iOS** ([docs/IOS.md](docs/IOS.md)): a much bigger build than Play, done before the season.
+- Spring readiness: the feed rehearsal, `wpbl-postseason-check` failing on missing secrets, the
+  Traps re-verified, the Bluesky rethink.
+
+**P3**
+- `/wpbl/data` and the embeddable widget (ops item 8).
+- MLB plays and pitches. **None are stored yet** (checked Oct 12): the mirror is box-score lines
+  only, 2000 to 2026, about 196 MB of a 344 MB database. Mirror 2026 and measure before any backfill.
+- MLB Draft board, the Visuals list, the data-mining list, portrait rights.
+
+**Parked:** Call the Play, pick'em (2027 Opening Day), favourite-team theming, "This day in the
+inaugural season" (Aug 2027), rolling form, WPBL streaks and milestones.
+
 ## Next: in priority order
 
 **Nothing in progress (Oct 11, 2026).** The Oct 10 audit's ops items 1 to 5 have shipped. MLB's

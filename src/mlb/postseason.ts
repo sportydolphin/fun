@@ -224,6 +224,19 @@ export function bracketLikely(now = new Date()): boolean {
   return m >= 9 || m <= 2 || (m === 8 && now.getDate() >= 27)
 }
 
+/** How many series the round on show most likely holds, for a skeleton drawn before the bracket is
+ *  read. Four was assumed until Oct 12, 2026, which on a phone is two rows of Home's compact card
+ *  against the one row an LCS or the World Series takes, so from mid October every cold MLB Home
+ *  dropped everything under the bracket by 136px about a second after it painted: the largest
+ *  layout shift readers reported. The round boundaries move a day or two a year, which costs a
+ *  row for those days only. Past the World Series the card shows it alone (`current` is 'ws'). */
+export function likelySeriesInRound(now = new Date()): 1 | 2 | 4 {
+  const m = now.getMonth(), d = now.getDate()
+  if (m === 8 || (m === 9 && d < 12)) return 4
+  if (m === 9 && d < 23) return 2
+  return 1
+}
+
 /** Whether the field is set: all four Wild Card series between real clubs. The league can publish
  *  the postseason's series while every slot is still "AL Lower Seed", and a bracket of placeholders
  *  says nothing, so no surface draws one before this. */
