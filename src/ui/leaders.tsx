@@ -18,10 +18,22 @@ import { useLineNameFit, nameAtStage } from './names'
 /** Five, in both sections. Ten is the Players table again, card after card. */
 export const LEADERS_SHOWN = 5
 
-/** The board's grid. Four across on a wide screen: eight cards fill two rows. */
+// A card's narrowest width: the row's type (the rank column, a value like "1.752", and an "F. Last"
+// as long as "P. Crow-Armstrong") in rem, plus its structure (card and row padding, the face, the
+// club badge, the gaps) in chrome px. Four across at 1440 left a name 79px at Large text, so
+// "M. Meidlinger" was cut even after shortening; a fixed column count cannot know the text size,
+// the same reason names are never shortened by character count.
+const CARD_MIN = `calc(12.25rem + ${chromePx(124)})`
+
+/** The board's grid: as many cards across as fit `CARD_MIN`. Three on a desktop (the page column
+ *  caps the width, so 1920 is three too), two at Large text up to about 1280. The second term, a
+ *  quarter of the row less a gap, stops a fifth if the column is ever widened. */
 export const LEADER_GRID_SX = {
   display: 'grid', gap: 1.5,
-  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' },
+  gridTemplateColumns: {
+    xs: '1fr',
+    sm: `repeat(auto-fill, minmax(min(100%, max(${CARD_MIN}, calc(25% - ${chromePx(12)}))), 1fr))`,
+  },
 } as const
 
 /** Both sections' accent, for the top three ranks. A rank is text, so the foreground-safe var. */
