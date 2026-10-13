@@ -10,7 +10,8 @@ import {
   fetchWpblRunEnvironment, getCachedWpblRunEnvironment,
   fetchWpblAllFielding, getCachedWpblAllFielding,
 } from './api'
-import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
+import { buildRunExpectancy, playRunValues, fmtRunValue } from './derive/runExpectancy'
+import { playerValueSeasons, EMPTY_VALUE_TOTALS, type WpblValueTotals } from './derive/playerValue'
 import { runEnvironmentCurrent } from './derive/runEnvironment'
 import { wobaWeights, fipWeights, wobaContext, woba, wrcPlus } from './derive/linearWeights'
 import { trackingWorthShowing } from './tracking'
@@ -87,10 +88,16 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // row); those two are one pill now, which is what made the room. Only Leaders, Players and Teams
 // answer it (`fieldingBoard`). Every other board reads `boardSide`, the last of Hitting or Pitching
 // the reader chose, and moving to one of them while on Fielding drops the switch back to it.
-type Side = 'hitting' | 'pitching' | 'fielding'
+//
+// OVERALL IS THE FOURTH, and the first (Oct 2026). Every other side splits a player in half, so a
+// two-way player's season was never added up anywhere, and the value figures (wins added, run
+// value, baserunning, the catcher's arm) lived one side at a time on Run value. Overall puts them
+// in one row per player. It is where Leaders and Players open, and only those two answer it
+// (`sideOn`): Teams, Bests, Find and the play-by-play boards rank something Overall has no row for.
+type Side = 'overall' | 'hitting' | 'pitching' | 'fielding'
 /** The side every board other than the season tables speaks. */
 type BallSide = 'hitting' | 'pitching'
-type Totals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals
+type Totals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals | WpblValueTotals
 type Source = 'leaders' | 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
 
 // SIX BOARDS IN THE ROW, five of them asked of every season and one door to the rest. There were
@@ -261,6 +268,32 @@ const FLD_COLS: Col<WpblFieldingTotals>[] = [
   { key: 'g',   label: 'G',   value: t => t.g },
 ]
 
+// The Overall side's columns, every one of them the Run value board's own figure (see
+// derive/playerValue.ts). Signed, because each is measured against an average player and below
+// average is a real answer, not a missing one. Wins to two places, as Run value prints them, and
+// runs to one.
+//
+// A half of the game a player never played reads as a dash, not a zero: "0.0" under Pitching Runs
+// for a hitter claims a measurement. Batting keeps a pinch runner's steals, which have no PA.
+const wins = (v: number | null) => fmtRunValue(v, 2)
+const runs = (v: number | null) => fmtRunValue(v)
+const bat = (t: WpblValueTotals, v: number) => (t.pa || v ? v : null)
+const pit = (t: WpblValueTotals, v: number) => (t.bf ? v : null)
+const OVR_COLS: Col<WpblValueTotals>[] = [
+  { key: 'wpa',     label: 'WPA',    value: t => t.wpa,     display: t => wins(t.wpa) },
+  { key: 'batWpa',  label: 'Bat WPA', value: t => bat(t, t.batWpa),  display: t => wins(bat(t, t.batWpa)) },
+  { key: 'pitWpa',  label: 'Pit WPA', value: t => pit(t, t.pitWpa),  display: t => wins(pit(t, t.pitWpa)) },
+  { key: 'batRuns', label: 'Bat R',  value: t => bat(t, t.batRuns), display: t => runs(bat(t, t.batRuns)) },
+  { key: 'pitRuns', label: 'Pit R',  value: t => pit(t, t.pitRuns), display: t => runs(pit(t, t.pitRuns)) },
+  { key: 'bsr',     label: 'BsR',    value: t => bat(t, t.bsr),     display: t => runs(bat(t, t.bsr)) },
+  // A catcher's columns read a dash for everyone else: a zero would claim an arm nobody tested.
+  { key: 'armRuns', label: 'Arm R',  value: t => (t.armAtt ? t.armRuns : null), display: t => (t.armAtt ? runs(t.armRuns) : '—') },
+  { key: 'armCs',   label: 'CS',     value: t => (t.armAtt ? t.armCs : null),   display: t => (t.armAtt ? String(t.armCs) : '—') },
+  { key: 'armAtt',  label: 'Att',    value: t => (t.armAtt ? t.armAtt : null),  display: t => (t.armAtt ? String(t.armAtt) : '—') },
+  { key: 'pa',      label: 'PA',     value: t => t.pa },
+  { key: 'bf',      label: 'BF',     value: t => t.bf },
+]
+
 // ─── Standard and Advanced ─────────────────────────────────────────────────────
 // Two views of each board, the split FanGraphs and Baseball-Reference use. With the advanced
 // stats added in v1.97.0 the full hitting table reached 1,833px, which scrolled sideways on
@@ -278,6 +311,12 @@ const FLD_COLS: Col<WpblFieldingTotals>[] = [
 // rather than silently nowhere.
 type View = 'standard' | 'advanced'
 const VIEW_ORDER: Record<Side, Record<View, readonly string[]>> = {
+  // Playing time, then the run figures, then the two wins columns and their sum last, FanGraphs'
+  // habit of ending a row on its one-number answer. One view: eleven columns fit a desktop.
+  overall: {
+    standard: ['pa', 'bf', 'batRuns', 'pitRuns', 'bsr', 'armAtt', 'armCs', 'armRuns', 'batWpa', 'pitWpa', 'wpa'],
+    advanced: [],
+  },
   hitting: {
     standard: ['g', 'pa', 'ab', 'r', 'h', '2b', '3b', 'hr', 'rbi', 'sb', 'cs', 'bb', 'so',
       'avg', 'obp', 'slg', 'ops', 'tb', 'gdp', 'hbp', 'sh', 'sf', 'ibb', 'lob'],
@@ -304,12 +343,28 @@ const VIEW_OPTIONS = [{ value: 'standard', label: 'Standard' }, { value: 'advanc
 // vanish and the controls after it slide left. A board that cannot answer Fielding keeps the option
 // drawn and disabled (PillGroup), so the switch is the same width everywhere.
 const SIDES: { value: Side; label: string }[] = [
+  { value: 'overall', label: 'Overall' },
   { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }, { value: 'fielding', label: 'Fielding' },
 ]
-/** The boards with a fielding answer: the season tables (one row per fielder, one per club) and the
- *  leader cards built from the same lines. Bests, Find and the play-by-play boards read batting and
- *  pitching lines only. */
-const fieldingBoard = (source: Source) => source === 'season' || source === 'leaders'
+/** Whether a board answers a side. Hitting and Pitching are answered everywhere. Fielding by the
+ *  season tables (one row per fielder, one per club) and the leader cards built from the same lines:
+ *  Bests, Find and the play-by-play boards read batting and pitching lines only. Overall by Leaders
+ *  and Players, the two that rank players: a club's wins added is just its record. */
+function sideOn(side: Side, source: Source, mode: Mode = 'players'): boolean {
+  if (side === 'fielding') return source === 'season' || source === 'leaders'
+  if (side === 'overall') return source === 'leaders' || (source === 'season' && mode === 'players')
+  return true
+}
+/** Where a board opens, and what an address with no `side` means on it. */
+const defaultSide = (source: Source, mode: Mode = 'players'): Side => (sideOn('overall', source, mode) ? 'overall' : 'hitting')
+/** The side a linked column belongs to, for an address that names a column and no side: every link
+ *  written before Overall existed, when a missing side meant Hitting. */
+function sideOfSort(key: string): Side | undefined {
+  for (const s of ['hitting', 'pitching', 'fielding', 'overall'] as const) {
+    if (Object.prototype.hasOwnProperty.call(DERIVED_SORTS[s], key) || colsFor(s).some(c => c.key === key)) return s
+  }
+  return undefined
+}
 function inView(side: Side, view: View, key: string): boolean {
   const order = VIEW_ORDER[side]
   if (!order.standard.includes(key) && !order.advanced.includes(key)) return view === 'standard'
@@ -390,6 +445,8 @@ export function warmStatsReads(): void {
   // The priced row rather than the play log: the tab asks for the plays itself only if the row
   // turns out to be behind the schedule.
   fetchWpblRunEnvironment().catch(drop)
+  // The play log, which the Overall side is computed from and the tab opens on.
+  fetchWpblAllRunValuePlays().catch(drop)
 }
 
 export function carryStatsParams(from: URLSearchParams, to: URLSearchParams): void {
@@ -447,7 +504,9 @@ function axesFromQuery(): {
     // Fielding only where a board answers it; anywhere else the param is a hand-edited link, and the
     // board's own default side is the honest reading of it.
     side: board?.side ?? (side === 'hitting' || side === 'pitching' ? side
-      : side === 'fielding' && fieldingBoard(board?.source ?? 'leaders') ? side : undefined),
+      : (side === 'fielding' || side === 'overall') && sideOn(side, board?.source ?? 'leaders', board?.mode) ? side
+      // No side named. A column names one, so `?sort=ops` is still the Hitting table it always was.
+      : side == null && q.get('sort') ? sideOfSort(q.get('sort')!) : undefined),
     sortKey: q.get('sort') ?? undefined,
     sortAsc: dir === 'asc' ? true : dir === 'desc' ? false : undefined,
     // The Find board's question. Decoded against the side the URL names, since the fields
@@ -472,16 +531,22 @@ const DERIVED_SORTS: Record<Side, Record<string, boolean>> = {
   hitting: { lob: false, opsPlus: false, woba: false, wrcPlus: false },
   pitching: { eraPlus: false, fip: true, k9: false, hr9: true },
   fielding: {},
+  overall: {},
 }
 // The column each side opens on. ONE NAME, read by the cold load, the side switch and the view
 // switch alike: the cold load used to take the first column in HIT_COLS (AVG) while the two
 // switches hard-coded OPS, so the board opened on one headline and came back from Pitching on
 // another. Both views carry both of these, which is what lets the view switch fall back to them.
-const HEADLINE: Record<Side, string> = { hitting: 'ops', pitching: 'era', fielding: 'fpct' }
+const HEADLINE: Record<Side, string> = { overall: 'wpa', hitting: 'ops', pitching: 'era', fielding: 'fpct' }
+
+/** A side's module-scope columns. The render-time ones (OPS+, FIP and the rest) are DERIVED_SORTS. */
+function colsFor(side: Side): Col<never>[] {
+  return (side === 'pitching' ? PIT_COLS : side === 'fielding' ? FLD_COLS : side === 'overall' ? OVR_COLS : HIT_COLS) as unknown as Col<never>[]
+}
 
 function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
   if (key && Object.prototype.hasOwnProperty.call(DERIVED_SORTS[side], key)) return { key, asc: DERIVED_SORTS[side][key] }
-  const cols: Col<never>[] = (side === 'pitching' ? PIT_COLS : side === 'fielding' ? FLD_COLS : HIT_COLS) as unknown as Col<never>[]
+  const cols = colsFor(side)
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols.find(c => c.key === HEADLINE[side])!
   return { key: col.key, asc: !!col.lowerBetter }
 }
@@ -521,11 +586,22 @@ const FLD_NAMES: Record<string, string> = {
   g: 'Games played, in any role',
 }
 
+const OVR_NAMES: Record<string, string> = {
+  wpa: 'Wins added, batting and pitching together', batWpa: 'Wins added at the plate and on the bases',
+  pitWpa: 'Wins added on the mound', batRuns: 'Runs added at the plate, against an average hitter',
+  pitRuns: 'Runs prevented on the mound, against an average pitcher',
+  bsr: 'Runs gained on the bases, against an average runner',
+  armRuns: 'Runs saved throwing out base stealers, against an average catcher',
+  armCs: 'Runners caught stealing, as the catcher', armAtt: 'Steal attempts against, as the catcher',
+  pa: 'Plate appearances', bf: 'Batters faced',
+}
+
 /** What each column stands for on one side, with the basis-dependent ones spelled out. Shared by
  *  the Rank by sheet and the table's headings, so the two explain a column the same way. */
 function statNames(side: Side, eraBasis: EraBasis): Record<string, string> {
   if (side === 'hitting') return HIT_NAMES
   if (side === 'fielding') return FLD_NAMES
+  if (side === 'overall') return OVR_NAMES
   return {
     ...PIT_NAMES,
     era: `Earned run average, per ${eraBasis}`,
@@ -560,6 +636,11 @@ function cellText<T>(c: Col<T>, t: T): string {
 // with: a row that says "12 HR" is worth more than one that says ".412 OBP", even though OBP
 // is the better stat, because this line is here to identify a season rather than to rank it.
 const CONTEXT_KEYS: Record<Side, { rate: string[]; counting: string[] }> = {
+  // Nothing here is a rate. The two halves of the total first, so a row says whose wins they are.
+  overall: {
+    rate: [],
+    counting: ['batWpa', 'pitWpa', 'bsr', 'pa'],
+  },
   hitting: {
     rate: ['pa', 'hr', 'rbi', 'ops', 'avg'],
     counting: ['avg', 'rbi', 'ops', 'hr', 'pa'],
@@ -857,7 +938,7 @@ export function StatsSkeleton({ newBoards }: { newBoards?: ReadonlySet<string> }
       {source === 'leaders' ? (
         <Box sx={fullBleedSx}>
           <Box>
-            <LeadersBoardSkeleton side={q.side ?? 'hitting'} />
+            <LeadersBoardSkeleton side={q.side ?? defaultSide('leaders')} />
           </Box>
         </Box>
       ) : (
@@ -924,16 +1005,19 @@ export default function WpblStatsView({
   // token and should always be obeyed; this is what the reader asked for by opening the link,
   // and it only exists at mount. Read once, for that reason.
   const fromUrl = useRef(axesFromQuery()).current
-  const [side, setSide] = useState<Side>(
-    fromUrl.side ?? seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
   // Leaders unless something asked for a board: the address, or an in-app jump (a player card's
   // rank, a club's "Full stats"), which always means a table sorted by a column.
   const [source, setSource] = useState<Source>(fromUrl.source ?? (focus?.token ? seedAxes.source : 'leaders'))
+  // An in-app jump always names Hitting or Pitching; an address names a side or means the board's own.
+  const jumped = !!focus?.token && !fromUrl.source
+  const [side, setSide] = useState<Side>(
+    fromUrl.side ?? (jumped ? seedAxes.side : undefined) ?? (seedAxes.source === 'tracked' ? 'pitching'
+      : defaultSide(fromUrl.source ?? (focus?.token ? seedAxes.source : 'leaders'), fromUrl.mode)))
   // The last of Hitting and Pitching the reader chose, for every board but Fielding and for the
   // switch to come back to on the way out of it.
   const [ballSide, setBallSide] = useState<BallSide>(
     fromUrl.side === 'pitching' || (!fromUrl.side && seedAxes.side === 'pitching') ? 'pitching' : 'hitting')
-  const boardSide: BallSide = side === 'fielding' ? ballSide : side
+  const boardSide: BallSide = side === 'fielding' || side === 'overall' ? ballSide : side
   const [mode, setMode] = useState<Mode>(fromUrl.mode ?? 'players')
   // THE FIND BOARD'S QUESTION, seeded from the address bar exactly once, like the axes above.
   // `scope` is NOT held in here: the season slice is a control the whole tab shares (the chips
@@ -1031,10 +1115,9 @@ export default function WpblStatsView({
   const [qualified, setQualified] = useState(() => qual.active)
   // `defaultSort` validates the key it is handed and falls back to the board's own default, so
   // a stale or hand-edited ?sort= lands on a sensible column rather than an empty sort.
-  const [sortKey, setSortKey] = useState(
-    () => defaultSort(fromUrl.side ?? seedAxes.side ?? 'hitting', fromUrl.sortKey ?? focus?.sortKey).key)
+  const [sortKey, setSortKey] = useState(() => defaultSort(side, fromUrl.sortKey ?? focus?.sortKey).key)
   const [sortAsc, setSortAsc] = useState(
-    () => fromUrl.sortAsc ?? defaultSort(fromUrl.side ?? seedAxes.side ?? 'hitting', fromUrl.sortKey ?? focus?.sortKey).asc)
+    () => fromUrl.sortAsc ?? defaultSort(side, fromUrl.sortKey ?? focus?.sortKey).asc)
   // Not in the address bar: it follows the sort, which is. A link sorted by wRC+ opens on
   // Advanced because that is the only view with wRC+ in it.
   const [view, setView] = useState<View>(() => viewFor(side, sortKey, 'standard'))
@@ -1159,11 +1242,15 @@ export default function WpblStatsView({
   }, [])
   const runEnvCurrent = runEnvironmentCurrent(runEnv, games)
   const [rvPlays, setRvPlays] = useState(() => getCachedWpblAllRunValuePlays())
-  const needPlays = runEnvAsked && !runEnvCurrent && !rvPlays
+  // Overall is built from the play log itself, so it asks whatever the priced row says.
+  const needPlays = !rvPlays && ((runEnvAsked && !runEnvCurrent) || side === 'overall')
   useEffect(() => {
     if (!needPlays) return
     let cancelled = false
-    fetchWpblAllRunValuePlays().then(p => { if (!cancelled) setRvPlays(p) }).catch(() => { /* columns stay dashed */ })
+    // An empty log on failure, so Overall says "No stats yet" rather than holding its skeleton.
+    // The weighted columns read an empty log as no weights, and dash, as they did before.
+    fetchWpblAllRunValuePlays().then(p => { if (!cancelled) setRvPlays(p) })
+      .catch(() => { if (!cancelled) setRvPlays(prev => prev ?? []) })
     return () => { cancelled = true }
   }, [needPlays])
   // FIP's weights come from the same pass, and so dash until it lands, rather than falling back
@@ -1175,6 +1262,14 @@ export default function WpblStatsView({
   }, [runEnvCurrent, rvPlays, games])
   const wWeights = useMemo(() => (runEnvCurrent ? runEnv!.woba_weights : rvValues ? wobaWeights(rvValues) : null), [runEnvCurrent, runEnv, rvValues])
   const fWeights = useMemo(() => (runEnvCurrent ? runEnv!.fip_weights : rvValues ? fipWeights(rvValues) : null), [runEnvCurrent, runEnv, rvValues])
+
+  // The Overall side's rows. Built only once the side is asked for: it walks the season's plays
+  // five times over, which is nothing beside the read, but there is no reason to do it for a
+  // reader who never leaves Hitting. Regular season only, like the Run value engines it calls, so
+  // the scope chips are not offered on this side.
+  const valueSeasons = useMemo(
+    () => (side === 'overall' && rvPlays ? playerValueSeasons(rvPlays, games, players, lines.batting) : null),
+    [side, rvPlays, games, players, lines.batting])
 
   // OPS+ normalizes a hitter's OBP+SLG to the league (100 = league average, 150 = 50%
   // better). It needs league-wide rate context, so build the hitting columns in-component
@@ -1283,7 +1378,7 @@ export default function WpblStatsView({
     return cols
   }, [lines.pitching, fmtEra, eraBasis, games, scope, fWeights])
 
-  const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? FLD_COLS : pitCols) as Col<Totals>[]
+  const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? FLD_COLS : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -1304,7 +1399,7 @@ export default function WpblStatsView({
   const switchSide = (s: Side, log = true) => {
     if (log && s !== side) logBoard('side', { side: s })
     setSide(s)
-    if (s !== 'fielding') setBallSide(s)
+    if (s === 'hitting' || s === 'pitching') setBallSide(s)
     const next = defaultSort(s)
     setSortKey(next.key); setSortAsc(next.asc)
     // The Find board's conditions are keyed to one side's fields: innings pitched and earned
@@ -1314,7 +1409,7 @@ export default function WpblStatsView({
     // board rather than as a stat that does not apply. Drop those on the switch; a shared field
     // (strikeouts, home runs, walks) stays and changes sense with the side.
     setFindQuery(prev => {
-      const valid = new Set(finderFields(s === 'fielding' ? 'hitting' : s).map(f => f.key))
+      const valid = new Set(finderFields(s === 'hitting' || s === 'pitching' ? s : 'hitting').map(f => f.key))
       const conditions = prev.conditions.filter(c => valid.has(c.field))
       return conditions.length === prev.conditions.length ? prev : { ...prev, conditions }
     })
@@ -1334,7 +1429,7 @@ export default function WpblStatsView({
     if (!q.source && !q.side && !q.sortKey) return
     // The writer leaves every default off, so a param that is absent IS the default.
     const nextSource = q.source ?? 'leaders'
-    const nextSide: Side = q.side ?? 'hitting'
+    const nextSide: Side = q.side ?? defaultSide(nextSource, q.mode)
     setSource(nextSource)
     setMode(q.mode ?? 'players')
     if (nextSide !== side) switchSide(nextSide, false)
@@ -1422,7 +1517,7 @@ export default function WpblStatsView({
     // link they paste carries only the part worth saying.
     const set = (k: string, v: string | null) => { if (v == null) q.delete(k); else q.set(k, v) }
     set('board', board === 'leaders' ? null : board)
-    set('side', side === 'hitting' ? null : side)
+    set('side', side === defaultSide(source, mode) ? null : side)
     // Not on Leaders, which has no sort: a stray ?sort= with no board reads as a Players link.
     set('sort', source === 'leaders' || sortKey === def.key ? null : sortKey)
     set('dir', source === 'leaders' || sortAsc === defaultSort(side, sortKey).asc ? null : (sortAsc ? 'asc' : 'desc'))
@@ -1519,6 +1614,18 @@ export default function WpblStatsView({
           onClick: onOpenTeam ? () => onOpenTeam(team) : undefined,
         }
       })
+    } else if (side === 'overall') {
+      // No qualifier: every figure is a total against an average player, so a cameo reads as a
+      // small number rather than an extreme one, and the bar would only hide the bench.
+      let list = valueSeasons ?? []
+      if (teamId) list = list.filter(s => s.player.team_id === teamId)
+      built = list.map(s => ({
+        key: s.player.id, team: teamById.get(s.player.team_id),
+        label: s.player.name, fullName: s.player.name, sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
+        totals: s.totals, qualified: true,
+        onClick: () => onOpenPlayer(s.player),
+        link: playerLink(s.player, onOpenPlayer),
+      }))
     } else {
       const seasons = side === 'hitting'
         ? aggregateBatting(players, lines.batting, games, scope).map(s => ({ player: s.player, totals: s.totals as Totals, qualified: plateAppearances(s.totals) >= qual.minPa }))
@@ -1547,6 +1654,7 @@ export default function WpblStatsView({
     // rather than games: a 1.000 off forty chances outranks one off four.
     const sample = (r: Row) => side === 'pitching' ? (r.totals as WpblPitchingTotals).outs
       : side === 'fielding' ? (r.totals as WpblFieldingTotals).tc
+      : side === 'overall' ? (r.totals as WpblValueTotals).pa + (r.totals as WpblValueTotals).bf
       : plateAppearances(r.totals as WpblBattingTotals)
     return built.sort((a, b) => {
       const av = val(a), bv = val(b)
@@ -1556,7 +1664,7 @@ export default function WpblStatsView({
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, side, players, lines, fielding, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex])
+  }, [mode, side, players, lines, fielding, valueSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex])
 
   // Standard competition ranking (1, 2, T-3, T-3, 5), judged on the number AS SHOWN. Three hitters
   // printed at .400 and numbered 8, 9 and 10 claims an order the reader cannot see, which is
@@ -1578,6 +1686,9 @@ export default function WpblStatsView({
   const leagueTotals = useMemo<Totals>(
     () => side === 'hitting' ? sumBatting(lines.batting, games, scope)
       : side === 'fielding' ? sumFielding(fielding ?? [], games, scope)
+      // Every Overall figure is against the average, so the league's line is zero across and
+      // has no rate to print; the zero row keeps the type honest.
+      : side === 'overall' ? EMPTY_VALUE_TOTALS
       : sumPitching(lines.pitching, games, scope),
     [side, lines, fielding, games, scope])
   // RATES ONLY. A league total of home runs is not an average of anything a row here holds,
@@ -1599,9 +1710,9 @@ export default function WpblStatsView({
   const selectBoard = (k: string) => {
     const target: Source = k === 'players' || k === 'teams' ? 'season' : k === 'analysis' ? lastAnalysis : k as Source
     const nextMode: Mode = k === 'players' || k === 'teams' ? k : mode
-    // A board with no fielding drops the switch to the side last chosen before it; one that has
-    // fielding keeps it, so Players to Teams on Fielding compares the clubs' gloves.
-    const nextSide: Side = side === 'fielding' && !fieldingBoard(target) ? ballSide : side
+    // A board that cannot answer the side drops the switch to the side last chosen before it; one
+    // that can keeps it, so Players to Teams on Fielding compares the clubs' gloves.
+    const nextSide: Side = sideOn(side, target, nextMode) ? side : ballSide
     // One tap, one board event, named for the widest axis it moved.
     if (target !== source || nextMode !== mode) {
       logBoard(target !== source ? 'source' : 'mode', { source: target, mode: nextMode, side: nextSide })
@@ -1629,7 +1740,7 @@ export default function WpblStatsView({
     setSortKey(key); setSortAsc(defaultSort(side, key).asc)
   }
   const seeAllHref = (key: string) =>
-    `${STATS_PATH}?board=players${side !== 'hitting' ? `&side=${side}` : ''}&sort=${key}`
+    `${STATS_PATH}?board=players${side !== defaultSide('season') ? `&side=${side}` : ''}&sort=${key}`
 
   // Anything the reader has changed away from how the board opens. Drives the dot on the
   // Filters pill: `qualified` defaults to `qual.active`, so "on" is not the same as "set".
@@ -1640,13 +1751,15 @@ export default function WpblStatsView({
   // reach either (neither has a per-player population to cut or a rate to gate, and Find has a
   // club picker of its own), so counting them here would light the dot on a board where nothing
   // had been filtered.
+  // Overall has neither a qualifier nor a season slice, so neither can be "set" there.
+  const overall = side === 'overall'
   const filtersSet = source === 'season'
-    ? teamId !== null || qualified !== qual.active || scope !== 'regular'
-    : scope !== 'regular'
+    ? teamId !== null || (!overall && (qualified !== qual.active || scope !== 'regular'))
+    : !overall && scope !== 'regular'
   // Whether the phone's sheet has a Filter tab: the club and the qualifying bar on Players, and the
   // season slice wherever it does something (see the chips below) once there is a postseason.
   const canFilter = (source === 'season' && mode === 'players')
-    || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason)
+    || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !overall)
 
   // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
   // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
@@ -1713,7 +1826,7 @@ export default function WpblStatsView({
   // The club's full name, not the nickname the chip shows: "Boston Hunters" is a sentence
   // and "Hunters" is a crossword clue.
   const teamWord = teamId ? (() => { const t = teamById.get(teamId); return t ? wpblFullName(t) : null })() : null
-  const qualWord = mode === 'players' && qualified ? 'qualified only' : null
+  const qualWord = mode === 'players' && qualified && !overall ? 'qualified only' : null
   // What the faded rows are, in the bar's own unit. The only place the qualifying bar is ever
   // stated as a number, so it is also the answer to "why is this player not on the qualified board".
   const qualBar = side === 'hitting' ? `${qual.minPa} PA`
@@ -1725,7 +1838,7 @@ export default function WpblStatsView({
   // shut: a board counting the playoffs looks exactly like one counting the season, for the
   // reader most likely to have set it by accident. The pill's dot says only that SOMETHING is
   // not the default; this is the line that says what.
-  const scopeWord = scope === 'postseason' ? '2026 playoffs'
+  const scopeWord = overall ? '2026 season' : scope === 'postseason' ? '2026 playoffs'
     : scope === 'all' ? '2026 season + playoffs'
     : '2026 season'
   // Only when the reader has moved OFF the league's basis, and only on the pitching side. Their
@@ -1741,7 +1854,7 @@ export default function WpblStatsView({
   const phoneTable = isNarrow && source === 'season' && !listView
   const footWords = phoneTable
     ? [teamWord, qualified !== qual.active ? qualWord : null, fadedWord,
-        scope !== 'regular' ? scopeWord : null, eraWord]
+        scope !== 'regular' && !overall ? scopeWord : null, eraWord]
     : [capped ? `${visibleRows.length} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
         teamWord, qualWord, fadedWord, scopeWord, eraWord]
   const footText = (footWords.filter(Boolean) as string[]).join(' · ')
@@ -2130,8 +2243,8 @@ export default function WpblStatsView({
           minHeight: isNarrow ? 34 : undefined,
         }}>
           <PillGroup
-            options={SIDES.map(o => o.value === 'fielding' && !fieldingBoard(source)
-              ? { ...o, disabled: true, hint: 'Fielding is on Leaders, Players and Teams' }
+            options={SIDES.map(o => !sideOn(o.value, source, mode)
+              ? { ...o, disabled: true, hint: o.value === 'overall' ? 'Overall is on Leaders and Players' : 'Fielding is on Leaders, Players and Teams' }
               : o)}
             value={side}
             onChange={v => switchSide(v as Side)}
@@ -2198,7 +2311,7 @@ export default function WpblStatsView({
         {/* DESKTOP ONLY. On a phone these three would wrap onto a row of their own and take that
             height from the table, which is capped so its column headers cannot be carried up
             behind the bar. They are in the Filters sheet there, which is what they are. */}
-        {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && (
+        {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && !overall && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {/* "Both" rather than "All", which is what this option is: the team filter sitting
                 immediately to its right already has an "All" chip, and two chips reading All
@@ -2235,8 +2348,12 @@ export default function WpblStatsView({
                 ariaLabel="Club"
               />
             </Box>
-            <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
-            <Chip active={qualified} onClick={() => toggleQualified()}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
+            {!overall && (
+              <>
+                <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
+                <Chip active={qualified} onClick={() => toggleQualified()}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
+              </>
+            )}
           </Box>
         )}
       </Box>
@@ -2250,7 +2367,12 @@ export default function WpblStatsView({
         // Full bleed and not capped, as the season table is.
         <Box sx={fullBleedSx}>
           <Box>
-            {side === 'fielding' ? (
+            {side === 'overall' ? (
+              valueSeasons == null ? <LeadersBoardSkeleton side="overall" /> : (
+                <LeadersBoard side="overall" cols={OVR_COLS} seasons={valueSeasons} qual={qual}
+                  onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
+              )
+            ) : side === 'fielding' ? (
               fielding == null ? <LeadersBoardSkeleton side="fielding" /> : (
                 <LeadersBoard side="fielding" cols={FLD_COLS} seasons={leaderSeasons.fielding} qual={qual}
                   onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
@@ -2315,8 +2437,8 @@ export default function WpblStatsView({
               onOpenPlayer={onOpenPlayer} />
           </Suspense>
         </Box>
-      ) : side === 'fielding' && fielding == null ? (
-        // Only if Fielding is picked before its read (started on mount) has landed.
+      ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) ? (
+        // Only if the side is picked before its read (started on mount) has landed.
         <SubViewFallback />
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
@@ -2376,7 +2498,10 @@ export default function WpblStatsView({
               faded={mode === 'players' && !r.qualified}
               total={visibleRows.length}
               value={cellText(activeCol, r.totals)}
-              context={contextCols.map(c => `${cellText(c, r.totals)} ${c.label}`).join(' · ')} />
+              // A dash is a half of the game the player never played, which is noise in one line;
+              // on Overall it is most rows, since most players only bat or only pitch.
+              context={contextCols.map(c => [cellText(c, r.totals), c.label] as const)
+                .filter(([v]) => v !== '—').map(([v, l]) => `${v} ${l}`).join(' · ')} />
           ))}
           {rows.length > listCap && (
             <ExpandRow expanded={!capped} moreLabel={`Show all ${rows.length} ${noun}`}
@@ -2672,8 +2797,8 @@ export default function WpblStatsView({
           filter={canFilter ? (
             <FilterBody teams={teamChips} teamId={teamId} onTeam={filterTeam}
               qualified={qualified} onQualified={toggleQualified}
-              scope={hasPostseason ? scope : null} onScope={setScope}
-              showWho={source === 'season' && mode === 'players'}
+              scope={hasPostseason && !overall ? scope : null} onScope={setScope}
+              showWho={source === 'season' && mode === 'players'} showQualified={!overall}
               bar={qual.active ? qualBar : null} />
           ) : null}
           filtersSet={filtersSet} />
@@ -2948,7 +3073,8 @@ function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose }: {
 }) {
   const shown = sort && filter ? tab : sort ? 'sort' : 'filter'
   const eyebrow = shown === 'filter' ? 'Filter'
-    : side === 'pitching' ? 'Rank pitchers by' : side === 'fielding' ? 'Rank fielders by' : 'Rank hitters by'
+    : side === 'pitching' ? 'Rank pitchers by' : side === 'fielding' ? 'Rank fielders by'
+    : side === 'overall' ? 'Rank players by' : 'Rank hitters by'
   return (
     <ModalShell sheet eyebrow={eyebrow} onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -2966,7 +3092,7 @@ function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose }: {
 //
 // Rows rather than tiles: there are only seven, and a club wants its badge and its whole name
 // rather than three letters.
-function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, showWho, bar }: {
+function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, showWho, showQualified = true, bar }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
@@ -2978,6 +3104,8 @@ function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onSc
   onScope: (s: SeasonScope) => void
   /** Only the player board has a per-player population to filter. */
   showWho: boolean
+  /** False on a side with no qualifying bar (Overall), where the choice would do nothing. */
+  showQualified?: boolean
   /** The qualifying bar in its own unit ("36 PA", "12.0 IP"), or null before it applies. Said
    *  here because the phone's table no longer says it under the board unless Everyone is on. */
   bar: string | null
@@ -3012,14 +3140,14 @@ function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onSc
         </Box>
       </SheetGroup>
 
-      <SheetGroup title="Who to include">
+      {showQualified && <SheetGroup title="Who to include">
         <Box sx={rows}>
           <OptionRow label="Qualified" on={qualified} hint={bar ? `${bar} or more` : undefined}
             onClick={() => { if (!qualified) onQualified() }} />
           <OptionRow label="Everyone" on={!qualified} hint={bar ? `Under ${bar} shown faded` : undefined}
             onClick={() => { if (qualified) onQualified() }} />
         </Box>
-      </SheetGroup>
+      </SheetGroup>}
       </>
       )}
     </>
