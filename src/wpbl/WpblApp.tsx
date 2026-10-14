@@ -1273,6 +1273,12 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // Toolbar search bridge: WpblApp owns the shared header search while /wpbl is on screen.
   const bridge = useSearchBridge()
+  // "Whitmore 2026" in the search: the year the picked player's card opens on, for that player
+  // only. The card keeps its year to itself (PlayerDetail's pickedSeason), so this is how a year
+  // reaches it; any other open of any player passes nothing and the card picks its own.
+  const querySeasonRef = useRef(bridge.querySeason)
+  querySeasonRef.current = bridge.querySeason
+  const [openingSeason, setOpeningSeason] = useState<{ playerId: string; season: number } | null>(null)
   // False while the section is kept mounted behind MLB (App.tsx). Everything that reaches outside
   // the section (the toolbar's search and tabs, the page's tags) waits for it, or the hidden section
   // would answer MLB's search box with WPBL players.
@@ -1953,6 +1959,10 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       },
       onSelect: () => {
         track(EVENTS.WPBL_SEARCH_PICKED, { type: 'player', id: p.id, source })
+        // Read before the query is cleared, which clears the year with it. A recent is never
+        // opened on a year: none was typed for it.
+        const season = source === 'result' ? querySeasonRef.current : null
+        setOpeningSeason(season != null ? { playerId: p.id, season } : null)
         recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayerRef.current(p, 'search')
       },
     }
@@ -2251,6 +2261,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
               key={detailPlayer.id}
               layout="page"
               player={detailPlayer}
+              openingSeason={openingSeason?.playerId === detailPlayer.id ? openingSeason.season : null}
               teams={teams}
               games={games}
               players={players}
@@ -2350,6 +2361,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         <Suspense fallback={<ModalChunkFallback />}>
           <PlayerDetailModal
             player={detailPlayer}
+            openingSeason={openingSeason?.playerId === detailPlayer.id ? openingSeason.season : null}
             teams={teams}
             games={games}
             players={players}

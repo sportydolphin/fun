@@ -18,7 +18,7 @@ vi.mock('../lib/analytics', async importOriginal => {
 })
 
 import CommandPalette, { type PaletteIdleGroup } from '../CommandPalette'
-import type { SearchBridgeState, SearchResultRow } from '../mlb/state/SearchBridgeContext'
+import { useSearchBridge, type SearchBridgeState, type SearchResultRow } from '../mlb/state/SearchBridgeContext'
 
 const row = (key: string, title: string, onSelect = vi.fn()): SearchResultRow =>
   ({ key, title, subtitle: 'sub', avatar: { fallbackText: title[0] }, onSelect })
@@ -149,5 +149,13 @@ describe('the search box', () => {
     expect(option).toHaveAttribute('href', '/wpbl/compare/x-vs-y?season=2026')
     await user.keyboard('{Enter}')
     expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'compare', rank: 0 })
+  })
+
+  it('searches names for the name alone and hands the typed year on beside it', async () => {
+    const user = userEvent.setup()
+    const Probe = () => { const b = useSearchBridge(); return <output data-testid="bridge">{`${b.query}|${b.querySeason}`}</output> }
+    render(<><Host /><Probe /></>)
+    await user.keyboard('Ohtani 2023')
+    expect(screen.getByTestId('bridge')).toHaveTextContent('ohtani|2023')
   })
 })

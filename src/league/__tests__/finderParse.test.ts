@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseCompareText, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseCompareText, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -271,5 +271,13 @@ describe('parseCompareText', () => {
     expect(parseCompareText('home runs vs Boston')).toBeNull()
     expect(parseCompareText('whitmore and ibarra')).toBeNull()
     expect(parseCompareText('kelsie whitmore')).toBeNull()
+  })
+})
+
+describe('typedSeason', () => {
+  it('reads the year typed beside a name, and nothing else', () => {
+    expect(typedSeason('Ohtani 2023')).toBe(2023)
+    expect(typedSeason('Ohtani')).toBeNull()
+    expect(typedSeason('2500 pitches')).toBeNull()
   })
 })

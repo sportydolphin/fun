@@ -582,3 +582,8 @@ export function parseCompareText(text: string): { a: string; b: string; season: 
   if (hasStat(a) || hasStat(b)) return null
   return { a, b, season: year.season }
 }
+
+/** The year typed anywhere in `text` ("ohtani 2023"), read as `parseFinderText` reads one. */
+export function typedSeason(text: string): number | null {
+  return takeYear(` ${normalize(text)} `).season
+}

@@ -47,10 +47,13 @@ export interface SearchResultRow {
 
 export interface SearchBridgeState {
   query: string
+  /** A year typed beside the name ("Ohtani 2023"), so a player picked from the results opens on
+   *  that season. Null when none was typed. The year itself is not in `query`, which is names only. */
+  querySeason: number | null
   playerResults: PlayerBridgeItem[]
   teamResults: TeamBridgeItem[]
   searching: boolean
-  handleSelectPlayer: ((p: PlayerBridgeItem) => void) | null
+  handleSelectPlayer: ((p: PlayerBridgeItem, season?: number | null) => void) | null
   handleSelectTeam: ((t: TeamBridgeItem) => void) | null
   isRegistered: boolean
   // Which section currently owns the toolbar search, which decides how the results dropdown
@@ -70,6 +73,7 @@ export interface SearchBridgeState {
 
 const DEFAULT: SearchBridgeState = {
   query: '',
+  querySeason: null,
   playerResults: [],
   teamResults: [],
   searching: false,
@@ -106,9 +110,9 @@ export function updateSearchBridge(partial: Partial<SearchBridgeState>): void {
   _notify()
 }
 
-export function setSearchQuery(q: string): void {
-  if (_state.query === q) return
-  _state = { ..._state, query: q }
+export function setSearchQuery(q: string, season: number | null = null): void {
+  if (_state.query === q && _state.querySeason === season) return
+  _state = { ..._state, query: q, querySeason: season }
   _notify()
 }
 

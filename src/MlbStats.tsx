@@ -154,9 +154,14 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       playerResults: state.playerResults,
       teamResults: state.teamResults,
       searching: state.searching,
-      handleSelectPlayer: p => {
+      handleSelectPlayer: (p, season) => {
         track(EVENTS.MLB_PLAYER_OPENED, { playerId: (p as any).id, from: 'header_search' })
-        handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true }), { view: 'search', playerId: (p as any).id })
+        // A year typed with the name opens the card on it, but only one inside the player's span:
+        // the card draws any year it is handed, and a year before the debut is an empty page.
+        const first = Number(p.mlbDebutDate?.slice(0, 4)) || null
+        const last = p.active === false ? Number(p.lastPlayedDate?.slice(0, 4)) || null : CURRENT_SEASON
+        const inSpan = season != null && (first == null || season >= first) && (last == null || season <= last)
+        handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true, season: inSpan ? season : undefined }), { view: 'search', playerId: (p as any).id })
       },
       handleSelectTeam: t => {
         track(EVENTS.MLB_TEAM_OPENED, { teamId: (t as any).id, from: 'header_search' })

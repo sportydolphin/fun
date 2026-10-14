@@ -4,7 +4,7 @@ import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows } from
 import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
 import { finderSuggestions, leaderSuggestions } from './finderSearch'
-import { nameWords, parseCompareText } from './league/finderParse'
+import { nameWords, parseCompareText, typedSeason } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -179,8 +179,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   const change = (v: string) => {
     setText(v); setActive(0)
     // "whitmore hr" searches names for "whitmore": the stat and any year are for the rows above,
-    // and no player is called "whitmore hr".
-    setSearchQuery(nameWords(v) ?? v)
+    // and no player is called "whitmore hr". The year goes along on its own, so "Ohtani 2023"
+    // opens Ohtani on 2023.
+    setSearchQuery(nameWords(v) ?? v, typedSeason(v))
   }
 
   const groups = useMemo<Group[]>(() => {

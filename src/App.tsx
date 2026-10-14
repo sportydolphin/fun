@@ -613,7 +613,7 @@ function AppInner() {
           key: `p-${p.id}`, title: p.fullName,
           subtitle: (p.active === false ? [pos, retiredSpan(p)] : [pos, teamAbbr]).filter(Boolean).join(' | '),
           avatar: { imageUrl: HEADSHOT(p.id), bg: 'grey.200', fit: 'cover' as const },
-          onSelect: () => bridge.handleSelectPlayer?.(p),
+          onSelect: () => bridge.handleSelectPlayer?.(p, bridge.querySeason),
         }
       }),
       ...bridge.teamResults.slice(0, 3).map(t => {
