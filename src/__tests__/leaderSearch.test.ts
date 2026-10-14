@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { clubPageSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions } from '../finderSearch'
+import { MLB_CAREER_RANKABLE, clubPageSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions } from '../finderSearch'
+import { CAREER_SORTS } from '../mlb/api'
 import { gameRow } from '../lib/gameRow'
 
 describe('leaderSuggestions', () => {
@@ -21,6 +22,41 @@ describe('leaderSuggestions', () => {
 
   it('offers no row for a stat the table has no column for', () => {
     expect(leaderSuggestions('wpbl', 'most holds')).toEqual([])
+  })
+})
+
+describe('all-time rankings', () => {
+  it('links MLB to the all-time board', () => {
+    const [r] = leaderSuggestions('mlb', 'most hr all time')
+    expect(r.href).toBe('/mlb/stats?season=all&sort=hr&dir=desc')
+    expect(r.subtitle).toBe('Hitting · all time')
+    expect(leaderSuggestions('mlb', 'career era leaders')[0].href).toBe('/mlb/stats?lb=pitching&season=all&sort=era')
+  })
+
+  it('offers MLB nothing the all-time board cannot rank honestly', () => {
+    // It holds the top 100 on each career sort, so the bottom of a counting stat is not on it.
+    expect(leaderSuggestions('mlb', 'fewest hr all time')).toEqual([])
+    expect(leaderSuggestions('mlb', 'most hit by pitch all time')).toEqual([])
+    // A rate is fetched from both ends.
+    expect(leaderSuggestions('mlb', 'worst era all time')).toHaveLength(1)
+  })
+
+  it('every MLB all-time row is a sort the board actually fetches', () => {
+    for (const side of ['hitting', 'pitching'] as const) {
+      for (const [field, { stat, orders }] of Object.entries(MLB_CAREER_RANKABLE[side])) {
+        for (const order of orders) {
+          expect(CAREER_SORTS[side].some(s => s.field === stat && s.order === order), `${side} ${field} ${order}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('answers WPBL with its one table only while the league has one season', () => {
+    const [r] = leaderSuggestions('wpbl', 'most hr all time', { seasonCount: 1 })
+    expect(r.href).toBe('/wpbl/stats?board=players&side=hitting&sort=hr&dir=desc')
+    expect(r.subtitle).toBe('Hitting · all time, one season so far')
+    expect(leaderSuggestions('wpbl', 'most hr all time', { seasonCount: 2 })).toEqual([])
+    expect(leaderSuggestions('wpbl', 'most hr all time')).toEqual([])
   })
 })
 

@@ -217,14 +217,14 @@ describe('a year in a question', () => {
 describe('parseLeaderText', () => {
   it('reads "most hr 2026" as the home run board for that year', () => {
     const r = parseLeaderText('most hr 2026')
-    expect(r[0]).toEqual({ side: 'hitting', field: 'hr', dir: 'desc', season: 2026 })
+    expect(r[0]).toEqual({ side: 'hitting', field: 'hr', dir: 'desc', season: 2026, career: false })
     // Home runs allowed is the second reading, not a lost one.
     expect(r.map(x => x.side)).toEqual(['hitting', 'pitching'])
   })
 
   it("takes leaders and top as the board's own order, and top 10 as no count", () => {
-    expect(parseLeaderText('era leaders')).toEqual([{ side: 'pitching', field: 'era', dir: null, season: null }])
-    expect(parseLeaderText('top 10 ops')).toEqual([{ side: 'hitting', field: 'ops', dir: null, season: null }])
+    expect(parseLeaderText('era leaders')).toEqual([{ side: 'pitching', field: 'era', dir: null, season: null, career: false }])
+    expect(parseLeaderText('top 10 ops')).toEqual([{ side: 'hitting', field: 'ops', dir: null, season: null, career: false }])
   })
 
   it("reads most and fewest as the numbers' order, whichever end is good", () => {
@@ -244,12 +244,28 @@ describe('parseLeaderText', () => {
     expect(parseLeaderText('k')).toEqual([])
     expect(parseLeaderText('kelsie whitmore')).toEqual([])
   })
+
+  it('reads all time, ever and career as every season, over a year typed beside them', () => {
+    for (const q of ['most hr all time', 'most home runs of all time', 'career hr leaders', 'most hr ever', 'all-time saves leaders']) {
+      expect(parseLeaderText(q)[0], q).toMatchObject({ career: true, season: null })
+    }
+    expect(parseLeaderText('career hr 2024')[0]).toMatchObject({ career: true, season: null })
+    // A stat alone with a career word is a ranking, as a stat alone with a year is.
+    expect(parseLeaderText('career saves')[0]).toMatchObject({ side: 'pitching', field: 'sv', career: true })
+  })
+
+  it('keeps a name beside a career word for the name search', () => {
+    expect(parseLeaderText('whitmore career')).toEqual([])
+    expect(parseLeaderText('whitmore career hr')).toEqual([])
+  })
 })
 
 describe('nameWords', () => {
   it('pulls the name out of a stat or a year', () => {
     expect(nameWords('Whitmore hr')).toBe('whitmore')
     expect(nameWords('ohtani 2023')).toBe('ohtani')
+    expect(nameWords('ohtani career')).toBe('ohtani')
+    expect(nameWords('Whitmore all time hr')).toBe('whitmore')
     expect(nameWords('most home runs')).toBeNull()
   })
 
@@ -277,6 +293,8 @@ describe('parseCompareText', () => {
 describe('typedSeason', () => {
   it('reads the year typed beside a name, and nothing else', () => {
     expect(typedSeason('Ohtani 2023')).toBe(2023)
+    expect(typedSeason('Ohtani career')).toBe('career')
+    expect(typedSeason('Ohtani career 2023')).toBe('career')
     expect(typedSeason('Ohtani')).toBeNull()
     expect(typedSeason('2500 pitches')).toBeNull()
   })

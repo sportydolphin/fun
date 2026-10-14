@@ -160,6 +160,14 @@ describe('the search box', () => {
     expect(screen.getByTestId('bridge')).toHaveTextContent('ohtani|2023')
   })
 
+  it('hands on a career word as the span, so the player opens on the career', async () => {
+    const user = userEvent.setup()
+    const Probe = () => { const b = useSearchBridge(); return <output data-testid="bridge">{`${b.query}|${b.querySeason}`}</output> }
+    render(<><Host /><Probe /></>)
+    await user.keyboard('Ohtani career')
+    expect(screen.getByTestId('bridge')).toHaveTextContent('ohtani|career')
+  })
+
   it('asks the section for the games and offers each, with no compare lookup for the two clubs', async () => {
     const user = userEvent.setup()
     const resolveGames = vi.fn(async () => [{ title: 'SF 6 at NY 4', subtitle: 'Final · Sep 9, 2026', href: '/wpbl/games/x' }])

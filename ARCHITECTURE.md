@@ -156,7 +156,11 @@ flowchart LR
   ([`SearchBridgeContext.ts`](src/mlb/state/SearchBridgeContext.ts): `resolveCompare`,
   `resolveGames`), which WpblApp answers from what it holds and MlbStats from StatsAPI. The name
   search gets only the words left after any stat and year come out (`nameWords`), and the year
-  goes beside it (`querySeason`) so a picked player opens on it. A miss is retried forgivingly
+  goes beside it (`querySeason`) so a picked player opens on it; "career" or "all time" goes the
+  same way and opens the career. A ranking with one ("most hr all time") is MLB's all-time board,
+  offered only on the sorts that board fetches (`MLB_CAREER_RANKABLE`, pinned against
+  `CAREER_SORTS`), and WPBL's one-season table only while the league has a single season
+  (`seasonCount` on the bridge). A miss is retried forgivingly
   ([`src/lib/fuzzyName.ts`](src/lib/fuzzyName.ts)), only on a miss, so a correct spelling is never
   crowded; a slipped stat word is put right inside the parser. A club page row scrolls to its part
   through [`src/lib/sectionScroll.ts`](src/lib/sectionScroll.ts), a one-shot request rather than a

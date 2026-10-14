@@ -81,6 +81,35 @@ const BOARD_COLUMNS: Record<FinderSection, Record<FinderSide, Record<string, str
 
 const RATES = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip'])
 
+/**
+ * What MLB's all-time board can rank honestly, by finder field and the order asked for. That board
+ * is not every player who ever played: it is the union of StatsAPI's top 100 on each of a fixed set
+ * of career sorts (`CAREER_SORTS` in mlb/api.ts), so sorting it on anything else, or the other way
+ * on a counting stat, ranks a hundred-odd players picked for some other reason. "Fewest home runs
+ * all time" would come out as the fewest among the home run leaders. Pinned against CAREER_SORTS in
+ * leaderSearch.test.ts, since the two lists must not drift apart.
+ */
+export const MLB_CAREER_RANKABLE: Record<FinderSide, Record<string, { stat: string; orders: ('asc' | 'desc')[] }>> = {
+  hitting: {
+    h: { stat: 'hits', orders: ['desc'] }, hr: { stat: 'homeRuns', orders: ['desc'] },
+    rbi: { stat: 'rbi', orders: ['desc'] }, '2b': { stat: 'doubles', orders: ['desc'] },
+    '3b': { stat: 'triples', orders: ['desc'] }, sb: { stat: 'stolenBases', orders: ['desc'] },
+    bb: { stat: 'baseOnBalls', orders: ['desc'] }, so: { stat: 'strikeOuts', orders: ['desc'] },
+    avg: { stat: 'avg', orders: ['desc', 'asc'] }, obp: { stat: 'obp', orders: ['desc', 'asc'] },
+    slg: { stat: 'slg', orders: ['desc', 'asc'] }, ops: { stat: 'ops', orders: ['desc', 'asc'] },
+  },
+  pitching: {
+    w: { stat: 'wins', orders: ['desc'] }, ip: { stat: 'inningsPitched', orders: ['desc'] },
+    so: { stat: 'strikeOuts', orders: ['desc'] }, sv: { stat: 'saves', orders: ['desc'] },
+    era: { stat: 'era', orders: ['asc', 'desc'] }, whip: { stat: 'whip', orders: ['asc', 'desc'] },
+  },
+}
+
+export interface LeaderOptions {
+  /** How many seasons the section has on record (the search bridge's `seasonCount`). */
+  seasonCount?: number | null
+}
+
 function leaderTitle(p: ParsedLeader): string {
   const label = finderFields(p.side, 'season').find(f => f.key === p.field)?.label ?? p.field
   const desc = p.dir ? p.dir === 'desc' : !finderLowerBetter(p.side, p.field)
@@ -90,12 +119,23 @@ function leaderTitle(p: ParsedLeader): string {
 }
 
 /** A ranking typed as words, as rows linking to the section's stats table sorted on that stat. */
-export function leaderSuggestions(section: FinderSection, text: string): LeaderSuggestion[] {
+export function leaderSuggestions(section: FinderSection, text: string, opts: LeaderOptions = {}): LeaderSuggestion[] {
   return parseLeaderText(text).flatMap(p => {
     const sort = BOARD_COLUMNS[section][p.side][p.field]
     if (!sort) return []
     let href: string
-    if (section === 'mlb') {
+    if (p.career && section === 'mlb') {
+      const order = p.dir ?? (finderLowerBetter(p.side, p.field) ? 'asc' : 'desc')
+      if (!MLB_CAREER_RANKABLE[p.side][p.field]?.orders.includes(order)) return []
+      href = mlbUrlFor({ view: 'stats', lb: p.side, sort, dir: p.dir, allTime: true }, CURRENT_SEASON)
+    } else if (p.career) {
+      // WPBL's table is one season at a time, which is the league's whole history only until a
+      // second season is on record. Past that, no row rather than one season called "all time".
+      if (opts.seasonCount !== 1) return []
+      const params = new URLSearchParams({ board: 'players', side: p.side, sort })
+      if (p.dir) params.set('dir', p.dir)
+      href = `/wpbl/stats?${params}`
+    } else if (section === 'mlb') {
       href = mlbUrlFor({ view: 'stats', lb: p.side, sort, dir: p.dir, season: p.season }, CURRENT_SEASON)
     } else {
       const params = new URLSearchParams({ board: 'players', side: p.side, sort })
@@ -103,7 +143,8 @@ export function leaderSuggestions(section: FinderSection, text: string): LeaderS
       if (p.season) params.set('season', String(p.season))
       href = `/wpbl/stats?${params}`
     }
-    const subtitle = [p.side === 'pitching' ? 'Pitching' : 'Hitting', p.season ?? 'this season'].join(' · ')
+    const span = p.career ? (section === 'mlb' ? 'all time' : 'all time, one season so far') : p.season ?? 'this season'
+    const subtitle = [p.side === 'pitching' ? 'Pitching' : 'Hitting', span].join(' · ')
     return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, href, parsed: p }]
   })
 }

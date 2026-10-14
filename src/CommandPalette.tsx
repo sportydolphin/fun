@@ -126,7 +126,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, seasonCount = null }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -139,6 +139,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolveCompare?: SearchBridgeState['resolveCompare']
   /** The section's game lookup for "SF vs NY sep 9", from the search bridge. */
   resolveGames?: SearchBridgeState['resolveGames']
+  /** How many seasons the section has on record, from the search bridge. */
+  seasonCount?: number | null
 }) {
   const [text, setText] = useState('')
   const [active, setActive] = useState(0)
@@ -248,7 +250,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))
-    const leaders: Item[] = leaderSuggestions(section, text).map(s => ({
+    const leaders: Item[] = leaderSuggestions(section, text, { seasonCount }).map(s => ({
       key: s.key, kind: 'leader', title: s.title, subtitle: `Leaders · ${s.subtitle}`, href: s.href,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
@@ -283,7 +285,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare, gameRows])
+  }, [text, results, idle, section, compare, gameRows, seasonCount])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))

@@ -228,9 +228,9 @@ export async function fetchLeaderboardData(
 // fetch: ascending career home runs is thousands of players tied on zero, and the
 // endpoint returns an arbitrary handful of them. StatsView therefore refuses to
 // sort those backwards at all rather than showing a list that means nothing.
-type CareerSortSpec = { field: string; pool: 'All' | 'Qualified'; order: 'asc' | 'desc' }
+export type CareerSortSpec = { field: string; pool: 'All' | 'Qualified'; order: 'asc' | 'desc' }
 
-const CAREER_SORTS: Record<'hitting' | 'pitching', CareerSortSpec[]> = {
+export const CAREER_SORTS: Record<'hitting' | 'pitching', CareerSortSpec[]> = {
   hitting: [
     { field: 'hits',        pool: 'All',       order: 'desc' },
     { field: 'homeRuns',    pool: 'All',       order: 'desc' },

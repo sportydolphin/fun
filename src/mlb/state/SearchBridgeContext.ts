@@ -49,12 +49,13 @@ export interface SearchResultRow {
 export interface SearchBridgeState {
   query: string
   /** A year typed beside the name ("Ohtani 2023"), so a player picked from the results opens on
-   *  that season. Null when none was typed. The year itself is not in `query`, which is names only. */
-  querySeason: number | null
+   *  that season, or 'career' for "Ohtani career". Null when neither was typed. Neither is in
+   *  `query`, which is names only. */
+  querySeason: number | 'career' | null
   playerResults: PlayerBridgeItem[]
   teamResults: TeamBridgeItem[]
   searching: boolean
-  handleSelectPlayer: ((p: PlayerBridgeItem, season?: number | null) => void) | null
+  handleSelectPlayer: ((p: PlayerBridgeItem, season?: number | 'career' | null) => void) | null
   handleSelectTeam: ((t: TeamBridgeItem) => void) | null
   isRegistered: boolean
   // Which section currently owns the toolbar search, which decides how the results dropdown
@@ -72,11 +73,15 @@ export interface SearchBridgeState {
   resolveCompare: ((a: string, b: string, season: number | null) => Promise<CompareRow | null>) | null
   /** "SF vs NY sep 9", "Dodgers last night": the games asked for, from the section's schedule. */
   resolveGames: ((q: GameQuery) => Promise<CompareRow[]>) | null
+  /** How many seasons the section has on record, or null when it does not say. WPBL's stats table
+   *  ranks one season at a time, so "most hr all time" is that table only while there is one. */
+  seasonCount: number | null
 }
 
 const DEFAULT: SearchBridgeState = {
   query: '',
   querySeason: null,
+  seasonCount: null,
   playerResults: [],
   teamResults: [],
   searching: false,
@@ -114,7 +119,7 @@ export function updateSearchBridge(partial: Partial<SearchBridgeState>): void {
   _notify()
 }
 
-export function setSearchQuery(q: string, season: number | null = null): void {
+export function setSearchQuery(q: string, season: number | 'career' | null = null): void {
   if (_state.query === q && _state.querySeason === season) return
   _state = { ..._state, query: q, querySeason: season }
   _notify()

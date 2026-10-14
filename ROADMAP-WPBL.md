@@ -1119,9 +1119,13 @@ worth doing:
 
 1. **Stat definitions.** "what is OPS+", "wRC+", "FIP" opens the glossary entry. Both glossaries
    exist (`/wpbl/glossary`, `/mlb/glossary`), so this is a parser and a link. The cheapest next one.
-2. **Career and all-time.** "most hr all time", "Whitmore career". MLB's stats table already takes
-   `season=all` and both player cards have a career view; the ranking reader needs the words and
-   the player row a way to open on career.
+2. ✅ **Career and all-time** (Oct 14). "most hr all time", "career era leaders", "Whitmore
+   career". MLB links its all-time board, but only on the sorts it fetches: it is the top 100 on a
+   fixed list of career sorts, so "fewest hr all time" would rank the home run leaders and offers
+   no row. WPBL has no every-season table, so its all-time row is the one-season table while there
+   is one season and nothing after; an every-season board is what would take that further. A
+   player opens on the career from either section (WPBL's card shows its one season until there
+   is a second).
 3. **The answer in the row.** "Whitmore avg" shows ".312 · 2026" as the player row's subtitle, so a
    quick question needs no click. Free on WPBL, whose lines are in memory; one call on MLB.
 4. **A peek at the leader.** A ranking row says who leads and by what ("Most home runs · 52, …").

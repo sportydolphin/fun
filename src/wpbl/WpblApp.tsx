@@ -1280,7 +1280,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // reaches it; any other open of any player passes nothing and the card picks its own.
   const querySeasonRef = useRef(bridge.querySeason)
   querySeasonRef.current = bridge.querySeason
-  const [openingSeason, setOpeningSeason] = useState<{ playerId: string; season: number } | null>(null)
+  const [openingSeason, setOpeningSeason] = useState<{ playerId: string; season: number | 'career' } | null>(null)
   // False while the section is kept mounted behind MLB (App.tsx). Everything that reaches outside
   // the section (the toolbar's search and tabs, the page's tags) waits for it, or the hidden section
   // would answer MLB's search box with WPBL players.
@@ -1704,7 +1704,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!active) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, seasonCount: null })
       setSearchQuery('')
     }
   }, [active])
@@ -2068,6 +2068,11 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (active) updateSearchBridge({ resolveGames })
   }, [resolveGames, active])
+  // For "most hr all time", which the one-season stats table answers only while there is one.
+  const seasonCount = useMemo(() => seasonsOnRecord(games).length, [games])
+  useEffect(() => {
+    if (active) updateSearchBridge({ seasonCount })
+  }, [seasonCount, active])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

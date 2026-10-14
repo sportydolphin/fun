@@ -465,9 +465,10 @@ function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlaye
 
 export default function PlayerDetailModal({ player, openingSeason = null, teams, games, players, onClose, onOpenGame, onOpenBoard, panel = false, onBack, backLabel, layout = 'modal', onExpand }: {
   player: WpblPlayer
-  /** The year to open on, typed with the name in the search ("Whitmore 2026"). A year the player
-   *  has no line in falls back to their newest, as any unknown pick does. */
-  openingSeason?: number | null
+  /** The year to open on, typed with the name in the search ("Whitmore 2026"), or 'career'
+   *  ("Whitmore career"). A year the player has no line in falls back to their newest, as any
+   *  unknown pick does, and so does a career for a player with one season. */
+  openingSeason?: number | 'career' | null
   teams: WpblTeam[]
   games: WpblGame[]
   /** The full roster, needed to prove a name slug is unambiguous. Empty only during the first
