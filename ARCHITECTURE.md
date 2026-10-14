@@ -160,7 +160,9 @@ flowchart LR
   same way and opens the career. A ranking with one ("most hr all time") is MLB's all-time board,
   offered only on the sorts that board fetches (`MLB_CAREER_RANKABLE`, pinned against
   `CAREER_SORTS`), and WPBL's one-season table only while the league has a single season
-  (`seasonCount` on the bridge). A miss is retried forgivingly
+  (`seasonCount` on the bridge). A part of the card beside a name ("Ohtani splits") goes the same
+  way (`queryPart`) and the row asks for the scroll (`src/lib/playerParts.ts`), held while the card's
+  blocks land; a stat asked about ("what is FIP") opens the glossary at the term (`askedTerms`). A miss is retried forgivingly
   ([`src/lib/fuzzyName.ts`](src/lib/fuzzyName.ts)), only on a miss, so a correct spelling is never
   crowded; a slipped stat word is put right inside the parser. A club page row scrolls to its part
   through [`src/lib/sectionScroll.ts`](src/lib/sectionScroll.ts), a one-shot request rather than a

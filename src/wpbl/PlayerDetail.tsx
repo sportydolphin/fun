@@ -41,6 +41,7 @@ import { linkTo, UNSTYLED_LINK } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 import { typePx } from '../ui/scale'
+import { useSectionScroll } from '../lib/sectionScroll'
 
 
 // Player page: profile, season totals aggregated from box-score lines, where those totals sit
@@ -222,7 +223,7 @@ function FieldingLine({ ft, positions }: {
   ]
   return (
     <Box sx={{ mt: 2 }}>
-      <SectionHead title="Fielding" caption={positions && positions.length > 0 ? positions.join(', ').toUpperCase() : undefined} />
+      <SectionHead title="Fielding" part="fielding" caption={positions && positions.length > 0 ? positions.join(', ').toUpperCase() : undefined} />
       <Typography sx={{ ...TYPE.body, color: 'text.secondary', mt: -0.5, fontVariantNumeric: 'tabular-nums' }}>
         {parts.join('\u00a0· ')}
       </Typography>
@@ -273,7 +274,7 @@ function MatchupTable({ player, side, lines, players, scope, accent }: {
   return (
     <Box ref={sectionRef} sx={{ mt: 2 }}>
       <SectionHead
-        title={side === 'batting' ? 'Vs pitchers' : 'Vs batters'}
+        title={side === 'batting' ? 'Vs pitchers' : 'Vs batters'} part="matchups"
         caption={`${lines.length} ${lines.length === 1 ? noun : `${noun}s`}${slice} · tap a name for the matchup`}
       />
       {/* Capped once expanded, with the header pinned, for the reason written on the game log:
@@ -580,6 +581,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // The player's newest season until the reader picks another, which a retired player's page needs
   // and a current one never notices. Not in the address: it resets with the player, like the scope.
   const [pickedSeason, setPickedSeason] = useState<number | 'career' | null>(openingSeason)
+  // "Whitmore game log" from the search: the part's heading, once its data has drawn it.
+  useSectionScroll()
   const seasons = useMemo(
     () => seasonsPlayed([...allBatting, ...allPitching, ...allFielding], games),
     [allBatting, allPitching, allFielding, games])
@@ -1162,7 +1165,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     ),
     log: (
       <StatLogTable
-        title="Game log"
+        title="Game log" part="log"
         // The box score's order, matching the season line above it. TB stays HERE and not
         // there: over one night it is the slugging line of that night and worth marking as a
         // best game, and over a season it is SLG times at-bats.
@@ -1179,7 +1182,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     extras: myBattedBalls.length > 0
       ? (
         <Box sx={{ mt: 2.5 }}>
-          <SectionHead title="Hit locations" />
+          <SectionHead title="Hit locations" part="spray" />
           <SprayChart plays={myBattedBalls} bats={player.bats} />
         </Box>
       )
@@ -1244,7 +1247,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
         {/* No POS column here, unlike the batting log: a pitching line's position is 'p'
             in every row of every pitcher's season. */}
         <StatLogTable
-          title="Game log"
+          title="Game log" part="log"
           statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']}
           // The record stands in for the decision column, which is the only cell here whose
           // season form is a different thing from the sum of the games above it.
@@ -1312,7 +1315,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       ),
       log: (
         <StatLogTable
-          title="Game log"
+          title="Game log" part="log"
           statHeaders={logHeaders}
           accent={color}
           placeholder

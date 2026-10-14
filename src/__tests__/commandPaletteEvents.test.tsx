@@ -19,6 +19,7 @@ vi.mock('../lib/analytics', async importOriginal => {
 
 import CommandPalette, { type PaletteIdleGroup } from '../CommandPalette'
 import { useSearchBridge, type SearchBridgeState, type SearchResultRow } from '../mlb/state/SearchBridgeContext'
+import { pendingSectionScroll } from '../lib/sectionScroll'
 
 const row = (key: string, title: string, onSelect = vi.fn()): SearchResultRow =>
   ({ key, title, subtitle: 'sub', avatar: { fallbackText: title[0] }, onSelect })
@@ -158,6 +159,26 @@ describe('the search box', () => {
     render(<><Host /><Probe /></>)
     await user.keyboard('Ohtani 2023')
     expect(screen.getByTestId('bridge')).toHaveTextContent('ohtani|2023')
+  })
+
+  it('hands on a part of the card beside the name', async () => {
+    const user = userEvent.setup()
+    const Probe = () => { const b = useSearchBridge(); return <output data-testid="bridge">{`${b.query}|${b.queryPart}`}</output> }
+    render(<><Host /><Probe /></>)
+    await user.keyboard('Ohtani splits')
+    expect(screen.getByTestId('bridge')).toHaveTextContent('ohtani|splits')
+  })
+
+  it('puts a term asked in words first, and opens the glossary at it', async () => {
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.keyboard('what is fip')
+    const options = await screen.findAllByRole('option')
+    expect(options[0]).toHaveAccessibleName(/FIP: Fielding Independent Pitching/i)
+    expect(options[0]).toHaveAttribute('href', '/wpbl/glossary')
+    await user.keyboard('{Enter}')
+    expect(pendingSectionScroll()).toBe('section-term-FIP')
+    expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'definition', rank: 0 })
   })
 
   it('hands on a career word as the span, so the player opens on the career', async () => {

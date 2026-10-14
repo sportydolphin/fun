@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -295,6 +295,22 @@ describe('typedSeason', () => {
     expect(typedSeason('Ohtani 2023')).toBe(2023)
     expect(typedSeason('Ohtani career')).toBe('career')
     expect(typedSeason('Ohtani career 2023')).toBe('career')
+  })
+})
+
+describe('typedPart', () => {
+  it('reads a part of the card beside a name, and takes it out of the name search', () => {
+    expect(typedPart('Ohtani splits')).toBe('splits')
+    expect(typedPart('Whitmore game log')).toBe('log')
+    expect(typedPart('ohtani pitch mix 2023')).toBe('pitches')
+    expect(nameWords('Whitmore game log')).toBe('whitmore')
+    expect(nameWords('ohtani splits 2023')).toBe('ohtani')
+  })
+
+  it('wants a name: a part word alone, or a Find question with games in it, is no player to open', () => {
+    expect(typedPart('splits')).toBeNull()
+    expect(typedPart('3 hit games')).toBeNull()
+    expect(typedPart('Logan Webb')).toBeNull()
     expect(typedSeason('Ohtani')).toBeNull()
     expect(typedSeason('2500 pitches')).toBeNull()
   })

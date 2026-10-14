@@ -5,6 +5,8 @@ import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener,
 import { Brightness4, Brightness7, AccountCircle, Search } from '@mui/icons-material'
 import { useSearchBridge, noteSearchFocus } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
+import { requestSectionScroll } from './lib/sectionScroll'
+import { MLB_PLAYER_PARTS, PLAYER_PART_LABEL, WPBL_PLAYER_PARTS, playerPartKey } from './lib/playerParts'
 import type { PaletteIdleGroup } from './CommandPalette'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
@@ -604,17 +606,27 @@ function AppInner() {
   // shape already; MLB's StatsAPI rows are drawn here.
   const paletteResults = useMemo<SearchResultRow[]>(() => {
     if (!paletteOpen || !querySearchable) return []
-    if (bridge.source === 'wpbl') return bridge.resultRows
+    // "Ohtani splits": a player row says where it will open, and asks for the scroll as it opens.
+    // Here rather than in each section because both build their rows from the same query, and the
+    // part is the palette's reading of it. Only a part the section's card draws.
+    const parts = bridge.source === 'wpbl' ? WPBL_PLAYER_PARTS : MLB_PLAYER_PARTS
+    const part = bridge.queryPart && parts.has(bridge.queryPart) ? bridge.queryPart : null
+    const atPart = (row: SearchResultRow): SearchResultRow => !part ? row : {
+      ...row,
+      subtitle: [row.subtitle, `opens at ${PLAYER_PART_LABEL[part]}`].filter(Boolean).join(' · '),
+      onSelect: () => { requestSectionScroll(playerPartKey(part)); row.onSelect() },
+    }
+    if (bridge.source === 'wpbl') return bridge.resultRows.map(r => (r.key.startsWith('player-') ? atPart(r) : r))
     return [
       ...bridge.playerResults.slice(0, 6).map(p => {
         const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
         const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id as number] : undefined
-        return {
+        return atPart({
           key: `p-${p.id}`, title: p.fullName,
           subtitle: (p.active === false ? [pos, retiredSpan(p)] : [pos, teamAbbr]).filter(Boolean).join(' | '),
           avatar: { imageUrl: HEADSHOT(p.id), bg: 'grey.200', fit: 'cover' as const },
           onSelect: () => bridge.handleSelectPlayer?.(p, bridge.querySeason),
-        }
+        })
       }),
       ...bridge.teamResults.slice(0, 3).map(t => {
         const divShort = t.division?.name?.replace(/American League |National League /, '') ?? ''

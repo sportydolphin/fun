@@ -14,10 +14,13 @@ import { describeFinderQuery, finderFields, finderLowerBetter, type FinderSide }
 import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, type ClubPagePart, type ParsedFinder, type ParsedLeader } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
-import { mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
+import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
 import { WPBL_FINDER_CLUBS, wpblFinderHref } from './wpbl/finderLink'
 import { WPBL_TEAMS } from './wpbl/constants'
-import { wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
+import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
+import { askedTerms, glossaryTermKey } from './league/glossary'
+import { MLB_STAT_TERMS } from './mlb/statGlossary'
+import { STAT_TERMS } from './wpbl/glossary'
 
 export type FinderSection = 'wpbl' | 'mlb'
 
@@ -211,4 +214,32 @@ export function matchupSuggestions(section: FinderSection, text: string): { key:
     }
   }
   return out
+}
+
+export interface DefinitionSuggestion {
+  key: string
+  /** "OPS: On-base plus slugging". */
+  title: string
+  /** The plain-English half, or where it opens when the expansion is all there is. */
+  subtitle: string
+  href: string
+  /** The scroll request that opens the page at the term (lib/sectionScroll.ts). */
+  scrollTo: string
+}
+
+/**
+ * "what is OPS+", "FIP", "wRC+ meaning": the term on the section's glossary page. `asked` says the
+ * text was put as a question, which puts these rows first; a bare term goes after the rankings.
+ */
+export function definitionSuggestions(section: FinderSection, text: string): { rows: DefinitionSuggestion[]; asked: boolean } {
+  const terms = section === 'mlb' ? MLB_STAT_TERMS : STAT_TERMS
+  const page = section === 'mlb' ? MLB_GLOSSARY_PAGE : WPBL_GLOSSARY_PAGE
+  const { keys, asked } = askedTerms(text, terms)
+  return {
+    asked,
+    rows: keys.map(k => ({
+      key: `term-${k}`, title: `${k}: ${terms[k].full}`,
+      subtitle: terms[k].plain ?? 'Rules & glossary', href: page, scrollTo: glossaryTermKey(k),
+    })),
+  }
 }

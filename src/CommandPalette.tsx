@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball } from '@mui/icons-material'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { clubPageSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
+import { clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
 import { requestSectionScroll } from './lib/sectionScroll'
-import { nameWords, parseCompareText, parseGameQuery, typedSeason } from './league/finderParse'
+import { nameWords, parseCompareText, parseGameQuery, typedPart, typedSeason } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -40,7 +40,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'definition' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -199,8 +199,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     setText(v); setActive(0)
     // "whitmore hr" searches names for "whitmore": the stat and any year are for the rows above,
     // and no player is called "whitmore hr". The year goes along on its own, so "Ohtani 2023"
-    // opens Ohtani on 2023.
-    setSearchQuery(nameWords(v) ?? v, typedSeason(v))
+    // opens Ohtani on 2023, and so does a part of the card: "Ohtani splits" opens him at the splits.
+    setSearchQuery(nameWords(v) ?? v, typedSeason(v), typedPart(v))
   }
 
   const groups = useMemo<Group[]>(() => {
@@ -255,6 +255,12 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
     }))
+    const defined = definitionSuggestions(section, text)
+    const definitions: Item[] = defined.rows.map(s => ({
+      key: s.key, kind: 'definition', title: s.title, subtitle: s.subtitle, href: s.href,
+      icon: <MenuBook sx={{ fontSize: ICON_SIZE.md }} />,
+      onOpen: () => requestSectionScroll(s.scrollTo),
+    }))
     // A ranking is never also a line question ("top 10 ops" is not "an OPS of at least 10").
     const finder: Item[] = (!leaders.length && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
       key: s.key, kind: 'finder', title: s.title, subtitle: `Find · ${s.subtitle}`, href: s.href,
@@ -275,13 +281,18 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .slice(0, 6)
       .map((x, i) => pageItem(x.p, i))
 
+    // A term asked about in words ("what is OPS") is the answer; typed bare ("ops") it is more
+    // likely the board, so it waits behind the rankings and the Find readings.
+    const glossary = { label: 'Glossary', items: definitions }
     return [
+      ...(defined.asked ? [glossary] : []),
       { label: 'Games', items: games },
       { label: 'Matchups', items: matchups },
       { label: 'Clubs', items: clubPages },
       { label: 'Compare', items: compared },
       { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
+      ...(defined.asked ? [] : [glossary]),
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)

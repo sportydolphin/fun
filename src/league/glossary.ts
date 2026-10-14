@@ -41,3 +41,36 @@ export const termFull = (terms: GlossaryTerms, k: string): string | null => term
 
 /** The plain-English half, or null where the expansion already says it all. */
 export const termPlain = (terms: GlossaryTerms, k: string): string | null => terms[k]?.plain ?? null
+
+/** The scroll request's name for a term (lib/sectionScroll.ts), and so its row's anchor: `term-wRC-plus`.
+ *  Symbols spelled out and case kept, since they are what tell terms apart: wRC+ from wRC, ERA-
+ *  from ERA, and MLB's POS (a game's position) from Pos (a season's). */
+export const glossaryTermKey = (k: string): string =>
+  `term-${k.replace(/\+/g, '-plus').replace(/-$/, '-minus').replace(/%/g, '-pct').replace(/\//g, '-per-').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
+
+// "what is OPS+", "what does FIP stand for", "wRC+ meaning": a question about what a stat IS.
+const ASKED_BEFORE = /^(?:what(?:'s| is| are| does)?|whats|define|definition of|meaning of|explain)\s+(?:an?\s+|the\s+)?/
+const ASKED_AFTER = /\s+(?:mean|means|meaning|stand for|stands for|definition|defined|abbreviation)$/
+const spoken = (t: string) => t.toLowerCase().replace(/[‐-―-]/g, ' ').replace(/\s+/g, ' ').trim()
+
+/**
+ * The glossary terms `text` asks about, and whether it asked in words. Matches a term by its
+ * letters ("ops", "wrc+", "wrc plus", "k per 9") or by its expansion ("on base percentage").
+ * Unasked, only a term that cannot be the start of a name or of a ranking does: "fip" and "wrc+"
+ * are definitions, "hr" typed bare is the home run board or somebody's initials first.
+ */
+export function askedTerms(text: string, terms: GlossaryTerms): { keys: string[]; asked: boolean } {
+  let t = spoken(text).replace(/[?.!]+$/, '').trim()
+  const before = t.replace(ASKED_BEFORE, ''), asked = before !== t || ASKED_AFTER.test(before)
+  t = before.replace(ASKED_AFTER, '').trim()
+  if (!t) return { keys: [], asked }
+  const letters = t.replace(/\s+plus$/, '+').replace(/\s+minus$/, '-').replace(/\s+percent(?:age)?$/, '%').replace(/\s+per\s+/g, '/').replace(/\s+/g, '')
+  const keys = Object.keys(terms).filter(k => {
+    // An inner dash is said as a space ("k bb%"); a trailing one is a different stat (ERA-).
+    const byLetters = k.toLowerCase().replace(/\s|(?<=.)-(?=.)/g, '') === letters
+    const byName = spoken(terms[k].full) === t
+    if (!byLetters && !byName) return false
+    return asked || byName || k.length >= 3 || /[^a-z]/i.test(k)
+  })
+  return { keys, asked }
+}

@@ -3,12 +3,13 @@
 // leagues' reference pages read as one site. Each section keeps its own data (wpbl/glossary.ts,
 // mlb/statGlossary.ts) because the leagues differ exactly where a glossary has to be right: ERA per
 // seven against per nine, a four-inning win against a five-inning one.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CARD_BORDER, SectionCard, TYPE_SCALE } from './card'
 import { PillGroup } from './PillGroup'
 import { typePx } from './scale'
-import type { GlossaryRule, GlossaryEntry, GlossaryGroup } from '../league/glossary'
+import { glossaryTermKey, type GlossaryRule, type GlossaryEntry, type GlossaryGroup } from '../league/glossary'
+import { pendingSectionScroll, sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
 
 export type { GlossaryRule, GlossaryEntry, GlossaryGroup } from '../league/glossary'
 
@@ -73,7 +74,23 @@ export function GlossaryTerms({ groups, term, accent }: {
   /** The abbreviation's colour: the section's text-safe accent. */
   accent: string
 }) {
-  const [group, setGroup] = useState(groups[0].key)
+  // "what is FIP" from the search opens the page at the term, which first needs its group on
+  // screen: the list draws one group at a time, so the row the scroll waits for may not exist yet.
+  const holds = (g: GlossaryGroup | undefined, id: string) => !!g?.keys.some(k => sectionAnchorId(glossaryTermKey(k)) === id)
+  const groupAsked = (current?: string): string | null => {
+    const id = pendingSectionScroll()
+    if (!id || holds(groups.find(g => g.key === current), id)) return null
+    return groups.find(g => holds(g, id))?.key ?? null
+  }
+  const [group, setGroup] = useState(() => groupAsked() ?? groups[0].key)
+  // Every render, like useSectionScroll: a term asked for while this page is already open arrives
+  // with no remount. It settles in one step, since the switched-to group holds the term.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const asked = groupAsked(group)
+    if (asked) setGroup(asked)
+  })
+  useSectionScroll()
 
   const shown = useMemo(() => {
     const g = groups.find(x => x.key === group) ?? groups[0]
@@ -106,8 +123,8 @@ export function GlossaryTerms({ groups, term, accent }: {
         gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, columnGap: 2.5,
       }}>
         {shown.map(t => (
-          <Box key={t.k} sx={{
-            display: 'flex', gap: 1.25, py: 0.6,
+          <Box key={t.k} id={sectionAnchorId(glossaryTermKey(t.k))} sx={{
+            display: 'flex', gap: 1.25, py: 0.6, scrollMarginTop: 'calc(var(--app-header-h, 0px) + 0.75rem)',
             borderTop: '1px solid', borderColor: 'divider',
             '&:first-of-type': { borderTop: 0 },
             // The second column's first row needs its rule back: `:first-of-type` only clears the

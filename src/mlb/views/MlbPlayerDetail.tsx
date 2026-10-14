@@ -54,6 +54,7 @@ import {
 import type { Player, PlayerContract } from '../types'
 import type { PlayerSeason } from '../state/useMlbState'
 import { combineStatLines } from '../lib/gameScope'
+import { useSectionScroll } from '../../lib/sectionScroll'
 
 // ~640-line chart module, lazy so it loads with the trend section rather than the page.
 const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
@@ -155,7 +156,7 @@ function PitchMix({ pitches }: { pitches: PitchUsage[] }) {
   const top = Math.max(...pitches.map(p => p.share), 0.01)
   return (
     <Box sx={{ mt: 2.5 }}>
-      <SectionHead title="Pitch mix" caption={`${total.toLocaleString()} pitches`} />
+      <SectionHead title="Pitch mix" part="pitches" caption={`${total.toLocaleString()} pitches`} />
       <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 8.5rem) 1fr 3rem 3.75rem', columnGap: 1, rowGap: 0.6, alignItems: 'center' }}>
         {pitches.map(p => (
           <React.Fragment key={p.code}>
@@ -189,7 +190,7 @@ function Fielding({ lines, season, onOpen }: {
   const join = (parts: (string | null)[]) => parts.filter(Boolean).join(' · ')
   return (
     <Box sx={{ mt: 2.5 }}>
-      <SectionHead title="Fielding" />
+      <SectionHead title="Fielding" part="fielding" />
       {lines.slice(0, 4).map(f => {
         const s = f.stat
         const catcher = f.position === 'C' && (s.stolenBases != null || s.caughtStealing != null)
@@ -305,6 +306,8 @@ export interface MlbPlayerDetailProps {
 }
 
 export default function MlbPlayerDetail({ playerId, player, season: seasonProp, onSeasonChange, onBack, onOpenBoard, onOpenFielding, onOpenGame, followed, onToggleFollow, panel = false, onClose, backLabel, onExpand, onName }: MlbPlayerDetailProps) {
+  // "Ohtani splits" from the search: the part's heading, once its data has drawn it.
+  useSectionScroll()
   // `&& !panel` because THIS component renders the panel's shell, so its own hooks run outside the
   // shell's theme and still see the desktop. Everything inside the card reads the panel's theme.
   const mdUp = useMediaQuery(useTheme().breakpoints.up('md'))
@@ -573,7 +576,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     ]
     if (r === 'pitching') {
       return (
-        <StatLogTable title="Game log" accent={ACCENT_TEXT} best={PITCHING_BEST} totalsLabel={totalsLabel} preview={MLB_LOG_PREVIEW}
+        <StatLogTable title="Game log" part="log" accent={ACCENT_TEXT} best={PITCHING_BEST} totalsLabel={totalsLabel} preview={MLB_LOG_PREVIEW}
           statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']}
           totals={!withTotals ? undefined : [`${n0(s.wins)}-${n0(s.losses)}`, s.inningsPitched ?? '0.0', n0(s.hits), n0(s.runs), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), n0(s.numberOfPitches)]}
           rows={games.map(g => {
@@ -584,7 +587,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       )
     }
     return (
-      <StatLogTable title="Game log" accent={ACCENT_TEXT} best={BATTING_BEST} totalsLabel={totalsLabel} preview={MLB_LOG_PREVIEW}
+      <StatLogTable title="Game log" part="log" accent={ACCENT_TEXT} best={BATTING_BEST} totalsLabel={totalsLabel} preview={MLB_LOG_PREVIEW}
         statHeaders={['POS', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'TB']}
         totals={!withTotals ? undefined : ['—', n0(s.atBats), n0(s.runs), n0(s.hits), n0(s.doubles), n0(s.triples), n0(s.homeRuns), n0(s.rbi), n0(s.stolenBases), n0(s.baseOnBalls), n0(s.strikeOuts), n0(s.totalBases)]}
         rows={games.map(g => {
@@ -628,7 +631,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     ]
     return (
       <Box sx={{ mt: 2.5 }}>
-        <SectionHead title="Advanced" caption="WAR and wRC+ by FanGraphs' method · x-stats from Statcast" />
+        <SectionHead title="Advanced" part="advanced" caption="WAR and wRC+ by FanGraphs' method · x-stats from Statcast" />
         <SeasonLine cols={cells} />
       </Box>
     )
@@ -641,7 +644,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     const hand = r === 'pitching' ? 'B' : 'P'
     const name: Record<string, string> = { vl: `vs LH${hand}`, vr: `vs RH${hand}`, h: 'Home', a: 'Away', risp: 'RISP' }
     return (
-      <StatLogTable title="Splits" caption={r === 'pitching' ? 'What batters hit against this pitcher' : undefined}
+      <StatLogTable title="Splits" part="splits" caption={r === 'pitching' ? 'What batters hit against this pitcher' : undefined}
         accent={ACCENT_TEXT} leadHeaders={['Split']} preview={10}
         leadSx={[{ color: 'text.primary', fontWeight: 700 }]}
         statHeaders={[r === 'pitching' ? 'BF' : 'PA', 'AVG', 'OBP', 'SLG', 'OPS', 'HR', 'BB', 'SO']}
@@ -841,7 +844,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       )}
       {contract && (
         <Box sx={{ mt: 3 }}>
-          <SectionHead title="Contract" />
+          <SectionHead title="Contract" part="contract" />
           <ContractPanel contract={contract} currentSeason={CURRENT_SEASON} />
         </Box>
       )}

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { RecentSearchItem } from '../storage/recentSearches'
 import type { GameQuery } from '../../league/finderParse'
+import type { PlayerPart } from '../../lib/playerParts'
 export type { RecentSearchItem } from '../storage/recentSearches'
 
 export interface PlayerBridgeItem {
@@ -52,6 +53,9 @@ export interface SearchBridgeState {
    *  that season, or 'career' for "Ohtani career". Null when neither was typed. Neither is in
    *  `query`, which is names only. */
   querySeason: number | 'career' | null
+  /** A part of the card typed beside the name ("Ohtani splits"), for the player row to open at.
+   *  Not in `query` either. */
+  queryPart: PlayerPart | null
   playerResults: PlayerBridgeItem[]
   teamResults: TeamBridgeItem[]
   searching: boolean
@@ -81,6 +85,7 @@ export interface SearchBridgeState {
 const DEFAULT: SearchBridgeState = {
   query: '',
   querySeason: null,
+  queryPart: null,
   seasonCount: null,
   playerResults: [],
   teamResults: [],
@@ -119,9 +124,9 @@ export function updateSearchBridge(partial: Partial<SearchBridgeState>): void {
   _notify()
 }
 
-export function setSearchQuery(q: string, season: number | 'career' | null = null): void {
-  if (_state.query === q && _state.querySeason === season) return
-  _state = { ..._state, query: q, querySeason: season }
+export function setSearchQuery(q: string, season: number | 'career' | null = null, part: PlayerPart | null = null): void {
+  if (_state.query === q && _state.querySeason === season && _state.queryPart === part) return
+  _state = { ..._state, query: q, querySeason: season, queryPart: part }
   _notify()
 }
 
