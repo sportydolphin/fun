@@ -246,11 +246,14 @@ WPBL season.
   season, a Career option on the player card, one recap per year at `/wpbl/season/2026` (the bare
   URL is the latest finished one), year-aware titles and canonicals, the share and Discord cards
   and the run-environment job on the current season, and a dev switch that clones 2026 into a
-  fake 2027. **Left for spring:** the archive writes every row to `archive/wpbl-2026/` (rename it
-  or split it by year before the first 2027 row); `POSTSEASON_SCHEDULE`, `PICKEM_SEASON` and the
-  award constants are 2026's (`offseasonByCalendar` keys on that schedule too, so the loading
-  frame reads offseason until it is replaced); the "2026 Gallery" title on the photos; Compare has
-  the current season only, with no menu; the rehearsal (ops item 7) is still the real test.
+  fake 2027. **Finished the same day:** the archive writes one `archive/wpbl-<year>/` per season
+  (rows filed by their game's year) and `archive/wpbl/` for the clubs, players and links; Compare
+  has the year menu, on the address like the series pages; the Home gallery card is "Gallery",
+  since it samples every year; and the offseason skeleton ends on the next Opening Day, which the
+  loaded Home remembers from the schedule (`offseasonCalendar.ts`), rather than running until
+  `POSTSEASON_SCHEDULE` is replaced. **Left for spring:** `POSTSEASON_SCHEDULE`, `PICKEM_SEASON`
+  and the award constants are 2026's and wait for the league's 2027 calendar (a first visit before
+  then still guesses the offseason frame for one load); the rehearsal (ops item 7) is the real test.
 
 **P1**
 - **The worst layout shifts** (ops item 3). Started Oct 12 from the field reports, by path: the

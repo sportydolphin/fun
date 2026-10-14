@@ -1,5 +1,5 @@
 /**
- * export-wpbl-archive.ts: keep a second copy of the WPBL's inaugural season.
+ * export-wpbl-archive.ts: keep a second copy of every WPBL season, one directory per year.
  *
  * WHY THIS EXISTS, AND WHAT CHANGES ON SEP 22, 2026. Until that date `wpbl_games` and the
  * tables around it are a CACHE: every row in them can be re-fetched from
@@ -34,6 +34,14 @@
  * and every page is ordered by primary key, and the run FAILS if the rows it assembled do not
  * match the count the server reports for the same table.
  *
+ * ONE DIRECTORY PER SEASON, plus one for the league. `archive/wpbl-<year>/` holds the tables keyed
+ * to a game (the games, every line, the plays, the tracking, the corrections, the trade log),
+ * each row filed under the year its game was played; `archive/wpbl/` holds what belongs to no one
+ * year (the clubs, the people, and the links to videos, articles and photos). Everything used to
+ * go into `wpbl-2026/`, which would have filed the 2027 season under 2026 on its first game. The
+ * split also means a finished year's directory stops changing for good: a diff in `wpbl-2026/`
+ * after the season is a correction to that season, and reads as one.
+ *
  * Usage:
  *   npm run archive              # write the export
  *   npm run archive -- --check   # verify the files on disk against the live database
@@ -44,18 +52,23 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { seasonOf } from '../src/wpbl/season.ts'
 
 const CHECK = process.argv.includes('--check')
 
 /** Relative to the repo root, NOT to this file: esbuild bundles it into node_modules/.cache
  *  first, so import.meta.url points somewhere useless by the time it runs. */
-const OUT_DIR = resolve(process.cwd(), 'archive', 'wpbl-2026')
+const ARCHIVE_DIR = resolve(process.cwd(), 'archive')
+
+/** The directory for the tables that belong to no one season. */
+const LEAGUE_DIR = 'wpbl'
+const seasonDir = (year: number): string => `wpbl-${year}`
 
 /** `order` is the table's PRIMARY KEY, not a convenience. Paging is only safe over a column
  *  that is unique and never null: order by anything with ties and Postgres is free to return a
  *  row on two pages and skip another, which is the silent corruption this file cannot afford.
  *  Half these tables key on the feed's own id rather than a uuid, so this cannot be assumed. */
-interface Table { name: string; order: string }
+interface Table { name: string; order: string; perSeason: boolean }
 
 /**
  * The tables that make up the season's public record, each with the column its pages are
@@ -80,33 +93,33 @@ interface Table { name: string; order: string }
  */
 const TABLES: Table[] = [
   // The league itself.
-  { name: 'wpbl_teams', order: 'id' },
-  { name: 'wpbl_players', order: 'id' },
-  { name: 'wpbl_games', order: 'id' },
+  { name: 'wpbl_teams', order: 'id', perSeason: false },
+  { name: 'wpbl_players', order: 'id', perSeason: false },
+  { name: 'wpbl_games', order: 'id', perSeason: true },
   // The games. These four are the season: with them, every leaderboard, record, run-expectancy
   // table and win-probability graph on the site can be rebuilt from scratch in any year.
-  { name: 'wpbl_batting_lines', order: 'id' },
-  { name: 'wpbl_pitching_lines', order: 'id' },
-  { name: 'wpbl_fielding_lines', order: 'id' },
-  { name: 'wpbl_game_plays', order: 'id' },
+  { name: 'wpbl_batting_lines', order: 'id', perSeason: true },
+  { name: 'wpbl_pitching_lines', order: 'id', perSeason: true },
+  { name: 'wpbl_fielding_lines', order: 'id', perSeason: true },
+  { name: 'wpbl_game_plays', order: 'id', perSeason: true },
   // Pitch tracking. Two games' worth, from a batch the league published once and stopped, which
   // is exactly why it is worth keeping: nobody else has a copy either.
-  { name: 'wpbl_pitch_tracking', order: 'activity_id' },
+  { name: 'wpbl_pitch_tracking', order: 'activity_id', perSeason: true },
   // Our own work on top of the feed, and the part that would be hardest to reproduce: the
   // hand-made scoring corrections that no re-ingest could ever bring back, and the trade log,
   // which is the only record of which club a player was on for a given GAME as opposed to
   // today. The log was excluded when this file was written, because the ingest's insert was not
   // idempotent and it held 13,644 rows encoding 18 facts; the 20260901204532 migration made the
   // write conflict-safe and collapsed it, which is what let it in.
-  { name: 'wpbl_play_corrections', order: 'id' },
-  { name: 'wpbl_player_team_changes', order: 'id' },
+  { name: 'wpbl_play_corrections', order: 'id', perSeason: true },
+  { name: 'wpbl_player_team_changes', order: 'id', perSeason: true },
   // Context the feed does not carry. Links rather than content: the videos live on YouTube and
   // the articles on Substack, so this preserves what was published and when, not the thing
   // itself, and it is the record that survives either of those going away.
-  { name: 'wpbl_videos', order: 'video_id' },
-  { name: 'wpbl_articles', order: 'post_id' },
-  { name: 'wpbl_game_details', order: 'game_id' },
-  { name: 'wpbl_photos', order: 'page_id' },
+  { name: 'wpbl_videos', order: 'video_id', perSeason: false },
+  { name: 'wpbl_articles', order: 'post_id', perSeason: false },
+  { name: 'wpbl_game_details', order: 'game_id', perSeason: true },
+  { name: 'wpbl_photos', order: 'page_id', perSeason: false },
 ]
 
 const PAGE = 1000
@@ -177,87 +190,146 @@ const digest = (text: string): string => createHash('sha256').update(text).diges
 
 interface ManifestEntry { table: string; rows: number; sha256: string; bytes: number }
 
-async function exportAll(): Promise<void> {
-  mkdirSync(OUT_DIR, { recursive: true })
-  const entries: ManifestEntry[] = []
-  for (const t of TABLES) {
-    const rows = await readAll(t)
-    const text = serialise(rows)
-    writeFileSync(join(OUT_DIR, `${t.name}.json`), text)
-    entries.push({ table: t.name, rows: rows.length, sha256: digest(text), bytes: Buffer.byteLength(text) })
-    console.log(`  ${String(rows.length).padStart(6)} rows  ${t.name}`)
+/** One directory's worth: its name under archive/, its season (null for the league's), and the
+ *  rows of each table it holds, in TABLES order. */
+interface Slice { dir: string; season: number | null; tables: Map<string, Record<string, unknown>[]> }
+
+/**
+ * Read every table and file each row under its directory.
+ *
+ * A row's season is its GAME's, by `seasonOf`, the same rule the site cuts its boards with, so the
+ * archive and the site never disagree about which year a game was. A row whose game is missing or
+ * undated goes to the newest season, as `inSeason` does on the site: a line can land a moment
+ * before its game row, and that one belongs to the season being played. Every season directory
+ * gets every season table, empty where a year has none, so a manifest always lists the same set.
+ */
+async function slices(): Promise<Slice[]> {
+  const read = new Map<string, Record<string, unknown>[]>()
+  for (const t of TABLES) read.set(t.name, await readAll(t))
+
+  const yearOf = new Map<string, number>()
+  let latest: number | null = null
+  for (const g of read.get('wpbl_games') ?? []) {
+    const y = seasonOf({ game_date: g.game_date as string })
+    if (y == null) continue
+    yearOf.set(g.id as string, y)
+    if (latest == null || y > latest) latest = y
+  }
+  if (latest == null) throw new Error('wpbl_games has no dated game, so no row can be placed in a season.')
+  const newest = latest
+
+  const league: Slice = { dir: LEAGUE_DIR, season: null, tables: new Map() }
+  const bySeason = new Map<number, Slice>()
+  for (const y of [...new Set(yearOf.values())].sort((a, b) => a - b)) {
+    bySeason.set(y, { dir: seasonDir(y), season: y, tables: new Map() })
   }
 
-  const total = entries.reduce((n, e) => n + e.rows, 0)
-  const bytes = entries.reduce((n, e) => n + e.bytes, 0)
-  // `exported_at` is the only field here that changes when nothing else has, which would make
-  // every run a commit. The workflow commits on a content diff, so the manifest is written with
-  // the timestamp LAST and the caller compares the table digests, not the whole file.
-  const manifest = {
-    season: 2026,
+  for (const t of TABLES) {
+    const rows = read.get(t.name)!
+    if (!t.perSeason) { league.tables.set(t.name, rows); continue }
+    for (const s of bySeason.values()) s.tables.set(t.name, [])
+    for (const r of rows) {
+      const gameId = (t.name === 'wpbl_games' ? r.id : r.game_id) as string
+      bySeason.get(yearOf.get(gameId) ?? newest)!.tables.get(t.name)!.push(r)
+    }
+  }
+  return [league, ...bySeason.values()]
+}
+
+function manifestFor(s: Slice, entries: ManifestEntry[]) {
+  return {
+    // Null for the league directory, which is every season's.
+    season: s.season,
     league: "Women's Pro Baseball League",
-    source: 'https://sportydolphin.fun — mirrored from stats.womensprobaseballleague.com',
-    note: 'The public record of the WPBL inaugural season. Plain JSON arrays of rows, one file '
-      + 'per table, keys sorted. NOT a database backup: it is what the anonymous client can '
-      + 'read, which is what the website serves. See scripts/export-wpbl-archive.ts.',
+    source: 'https://sportydolphin.fun, mirrored from stats.womensprobaseballleague.com',
+    note: (s.season == null
+      ? 'The clubs, the players and the links to videos, articles and photos, across every season. '
+      : `The public record of the ${s.season} WPBL season: every row keyed to a game played that year. `)
+      + 'Plain JSON arrays of rows, one file per table, keys sorted. NOT a database backup: it is '
+      + 'what the anonymous client can read, which is what the website serves. See '
+      + 'scripts/export-wpbl-archive.ts.',
+    // The only field that changes when nothing else has, which would make every run a commit. The
+    // workflow commits on a content diff of the tables, so the manifest rides along with one.
     exported_at: new Date().toISOString(),
-    total_rows: total,
+    total_rows: entries.reduce((n, e) => n + e.rows, 0),
     tables: entries,
   }
-  writeFileSync(join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
-  console.log(`\n${total} rows across ${entries.length} tables, ${(bytes / 1e6).toFixed(2)} MB, in ${OUT_DIR}`)
+}
+
+async function exportAll(): Promise<void> {
+  let total = 0, bytes = 0, files = 0
+  for (const s of await slices()) {
+    const dir = join(ARCHIVE_DIR, s.dir)
+    mkdirSync(dir, { recursive: true })
+    const entries: ManifestEntry[] = []
+    console.log(`  ${s.dir}/`)
+    for (const [name, rows] of s.tables) {
+      const text = serialise(rows)
+      writeFileSync(join(dir, `${name}.json`), text)
+      entries.push({ table: name, rows: rows.length, sha256: digest(text), bytes: Buffer.byteLength(text) })
+      total += rows.length; bytes += Buffer.byteLength(text); files++
+      console.log(`  ${String(rows.length).padStart(6)} rows  ${name}`)
+    }
+    writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifestFor(s, entries), null, 2) + '\n')
+  }
+  console.log(`\n${total} rows across ${files} files, ${(bytes / 1e6).toFixed(2)} MB, in ${ARCHIVE_DIR}`)
 }
 
 /**
  * Verify what is on disk against the live database.
  *
  * An untested backup is a rumour, and the cheap half of testing one is proving the copy still
- * matches the original. This re-reads every table and compares the digest of what it would
- * write against the digest recorded in the manifest, so it catches a truncated file, a
- * hand-edit, and a table that has moved on since the last export.
+ * matches the original. This re-reads every table, files it the way the export would, and
+ * compares each file against both its manifest digest and the live slice, so it catches a
+ * truncated file, a hand-edit, a table that has moved on since the last export, and a season the
+ * database has that the archive does not.
  */
 async function check(): Promise<void> {
-  const manifestPath = join(OUT_DIR, 'manifest.json')
-  if (!existsSync(manifestPath)) throw new Error(`No archive at ${OUT_DIR}. Run: npm run archive`)
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { exported_at: string; tables: ManifestEntry[] }
-  const recorded = new Map(manifest.tables.map(e => [e.table, e]))
-
   let bad = 0
-  for (const t of TABLES) {
-    const file = join(OUT_DIR, `${t.name}.json`)
-    const was = recorded.get(t.name)
-    if (!existsSync(file) || !was) { console.log(`  MISSING  ${t.name}`); bad++; continue }
+  let exportedAt = ''
+  for (const s of await slices()) {
+    const dir = join(ARCHIVE_DIR, s.dir)
+    const manifestPath = join(dir, 'manifest.json')
+    if (!existsSync(manifestPath)) { console.log(`  MISSING  ${s.dir}/ (run: npm run archive)`); bad++; continue }
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { exported_at: string; tables: ManifestEntry[] }
+    exportedAt = manifest.exported_at
+    const recorded = new Map(manifest.tables.map(e => [e.table, e]))
 
-    // The file has not been corrupted or edited since it was written.
-    const onDisk = readFileSync(file, 'utf8')
-    if (digest(onDisk) !== was.sha256) { console.log(`  ALTERED  ${t.name} (file does not match its manifest digest)`); bad++; continue }
-    // ...and it still parses as what it claims to be.
-    const parsed = JSON.parse(onDisk) as unknown[]
-    if (!Array.isArray(parsed) || parsed.length !== was.rows) { console.log(`  CORRUPT  ${t.name}`); bad++; continue }
+    for (const [name, rows] of s.tables) {
+      const label = `${s.dir}/${name}`
+      const file = join(dir, `${name}.json`)
+      const was = recorded.get(name)
+      if (!existsSync(file) || !was) { console.log(`  MISSING  ${label}`); bad++; continue }
 
-    // ...and it still matches the database.
-    const live = serialise(await readAll(t))
-    const same = digest(live) === was.sha256
-    // Say WHICH kind of stale. A row count is the obvious thing to print and it is silent in
-    // the common case: a game row whose score or `updated_at` moved leaves the count identical,
-    // so "live has 30 rows, archive has 30" was the whole report on the only difference there
-    // was. Rows gained or lost and rows edited are different situations and read differently.
-    const liveRows = (JSON.parse(live) as unknown[]).length
-    const why = liveRows === was.rows
-      ? `${was.rows} rows, but their contents differ`
-      : `live has ${liveRows} rows, archive has ${was.rows}`
-    console.log(`  ${same ? 'ok      ' : 'STALE   '} ${t.name}${same ? '' : ` (${why})`}`)
-    if (!same) bad++
+      // The file has not been corrupted or edited since it was written.
+      const onDisk = readFileSync(file, 'utf8')
+      if (digest(onDisk) !== was.sha256) { console.log(`  ALTERED  ${label} (file does not match its manifest digest)`); bad++; continue }
+      // ...and it still parses as what it claims to be.
+      const parsed = JSON.parse(onDisk) as unknown[]
+      if (!Array.isArray(parsed) || parsed.length !== was.rows) { console.log(`  CORRUPT  ${label}`); bad++; continue }
+
+      // ...and it still matches the database.
+      const same = digest(serialise(rows)) === was.sha256
+      // Say WHICH kind of stale. A row count is the obvious thing to print and it is silent in
+      // the common case: a game row whose score or `updated_at` moved leaves the count identical,
+      // so "live has 30 rows, archive has 30" was the whole report on the only difference there
+      // was. Rows gained or lost and rows edited are different situations and read differently.
+      const why = rows.length === was.rows
+        ? `${was.rows} rows, but their contents differ`
+        : `live has ${rows.length} rows, archive has ${was.rows}`
+      console.log(`  ${same ? 'ok      ' : 'STALE   '} ${label}${same ? '' : ` (${why})`}`)
+      if (!same) bad++
+    }
   }
 
-  console.log(`\nExported ${manifest.exported_at}.`)
+  if (exportedAt) console.log(`\nExported ${exportedAt}.`)
   if (bad === 0) {
     console.log('Every table matches the live database and its own digest.')
   } else {
     // STALE is expected and fine while games are still being played: it means the season has
     // moved on since the last export, not that anything is wrong. It is only a failure in the
     // sense that the archive needs rewriting, which is what the scheduled job does.
-    console.log(`${bad} table(s) differ. Re-run \`npm run archive\` to bring the files up to date.`)
+    console.log(`${bad} file(s) differ. Re-run \`npm run archive\` to bring the files up to date.`)
   }
   process.exit(bad === 0 ? 0 : 1)
 }

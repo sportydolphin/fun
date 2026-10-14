@@ -1,7 +1,7 @@
 name: WPBL season archive
 
-# Writes the public record of the WPBL season to archive/wpbl-2026/ and commits it when it
-# changed.
+# Writes the public record of every WPBL season to archive/ (one wpbl-<year>/ per season, plus
+# wpbl/ for the clubs and players) and commits it when it changed.
 #
 # WHY IT EXISTS. Until Sep 22, 2026 the WPBL tables are a cache: every row can be re-fetched
 # from the league's feed, and losing them costs a re-ingest. When the feed goes quiet there is
@@ -85,13 +85,14 @@ jobs:
           # The manifest carries an exported_at that changes on every run, so it is only worth
           # committing alongside a table that actually moved. Staging the tables first and
           # checking THOSE is what keeps a quiet week from producing a commit and a deploy.
-          git add archive/wpbl-2026/*.json
-          git reset -q archive/wpbl-2026/manifest.json
+          # Every directory, so a new season's first export is picked up without editing this.
+          git add archive/wpbl*/*.json
+          git reset -q archive/wpbl*/manifest.json
           if git diff --cached --quiet; then
             echo "Season archive unchanged."
-            git checkout -- archive/wpbl-2026/manifest.json
+            git checkout -- archive/wpbl*/manifest.json
           else
-            git add archive/wpbl-2026/manifest.json
+            git add archive/wpbl*/manifest.json
             git commit -m "WPBL archive: the season as of $(date -u +%Y-%m-%d)"
             git push
           fi

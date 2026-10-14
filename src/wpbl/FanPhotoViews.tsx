@@ -605,10 +605,14 @@ export function FanPhotoPlayerStrip({ playerId, players }: { playerId: string; p
  */
 /** The Home card's shape with nothing in it: the same card, a rail of tiles at the rail's height
  *  with their two caption lines, and the ask under it, so the real card lands on the same pixels. */
+/** No year on it: the rail samples every photo there is, and in a second season a "2026" over a
+ *  2027 photo would be wrong. One constant so the skeleton and the card cannot drift apart. */
+const HOME_CARD_TITLE = 'Gallery'
+
 export function FanPhotoHomeCardSkeleton() {
   return (
     <Box sx={{ mt: 1.5 }} aria-hidden>
-      <SectionCard title="2026 Gallery">
+      <SectionCard title={HOME_CARD_TITLE}>
         <Box sx={{ mx: { xs: -2, sm: 0 }, display: 'flex', gap: 1.25, overflow: 'hidden', pb: 0.5 }}>
           {[1.5, 1, 1.5, 1.33, 1.5].map((a, i) => (
             <Box key={i} sx={{ flexShrink: 0, width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` } }}>
@@ -687,7 +691,7 @@ export function FanPhotoHomeCard({ reserve = false }: {
   return (
     <Box sx={{ mt: 1.5 }}>
       <SectionCard
-        title="2026 Gallery"
+        title={HOME_CARD_TITLE}
         action={
           <Box {...seeAll} sx={CARD_LINK_SX}>All {photos.length} photos ›</Box>
         }

@@ -22,7 +22,7 @@ import { Box, Typography } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblAllPlayers, fetchWpblSchedule, fetchWpblAllLines,
   fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays,
-  getCachedWpblAllPlayers, getCachedWpblAllLines,
+  getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblSchedule,
 } from './api'
 import {
   buildWpblComparison, rankCompareCandidates,
@@ -45,7 +45,8 @@ import {
 import { setDynamicSeo } from '../seo'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
-import { useWpblSeason } from './SeasonContext'
+import { WpblAddressSeasonProvider, useWpblSeason } from './SeasonContext'
+import { SeasonMenu } from './SeasonMenu'
 
 // The frame (heads, cards, rows, picker and their loading states) is src/ui/compare.tsx since
 // Oct 9, 2026, shared with /mlb/compare. What stays here is what is WPBL's: the portrait and club
@@ -143,7 +144,27 @@ function PlayerPicker({ candidates, teams, positionOf, onPick, skeleton }: {
 
 // ─── The page ─────────────────────────────────────────────────────────────────
 
-export default function WpblComparePage({ path, onNavigate }: {
+/**
+ * ONE SEASON'S PAIR, the current one unless the address names another (`?season=2026`), with the
+ * year menu the series pages draw. The page sits outside the section's pager, so the address is
+ * where the year lives, and the schedule behind the provider is seeded from the session cache so
+ * the menu is there from the skeleton's first frame.
+ */
+export default function WpblComparePage(props: { path: string; onNavigate: (to: string) => void }) {
+  const [schedule, setSchedule] = useState<WpblGame[]>(() => getCachedWpblSchedule() ?? [])
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblSchedule().then(g => { if (!cancelled) setSchedule(g) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  return (
+    <WpblAddressSeasonProvider schedule={schedule}>
+      <ComparePageBody {...props} />
+    </WpblAddressSeasonProvider>
+  )
+}
+
+function ComparePageBody({ path, onNavigate }: {
   path: string
   onNavigate: (to: string) => void
 }) {
@@ -153,8 +174,8 @@ export default function WpblComparePage({ path, onNavigate }: {
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [allGames, setGames] = useState<WpblGame[]>([])
   const [allLines, setLines] = useState(() => getCachedWpblAllLines())
-  // THE CURRENT SEASON: two players' seasons side by side, not two careers. This page sits outside
-  // the section's pager, so the schedule it hands in is its own read, and the whole of it.
+  // ONE SEASON: two players' seasons side by side, not two careers. The year is the provider's
+  // (see the page above); `allGames` is only the fallback for a mount outside it.
   const { season, cut, seasonGames: games } = useWpblSeason(allGames)
   const lines = useMemo(
     () => allLines && { batting: cut(allLines.batting), pitching: cut(allLines.pitching) }, [allLines, cut])
@@ -299,6 +320,7 @@ export default function WpblComparePage({ path, onNavigate }: {
           : 'Pick two players to put their seasons side by side.'}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+          {shape === 'pair' && <SeasonMenu label="season" />}
           {shape !== 'none' && (
             <Box sx={HEAD_CARD}>
               <CompareHeadSkeleton withChange={shape === 'pair'} />
@@ -338,6 +360,7 @@ export default function WpblComparePage({ path, onNavigate }: {
         : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+      {pair && <SeasonMenu label="season" />}
       {(pair || single) && (
         <Box sx={HEAD_CARD}>
           <WpblCompareHead
