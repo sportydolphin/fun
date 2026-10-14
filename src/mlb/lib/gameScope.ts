@@ -6,7 +6,6 @@
 
 export type GameScope = 'regular' | 'post' | 'all'
 export const GAME_SCOPES: readonly GameScope[] = ['regular', 'post', 'all']
-export const isGameScope = (v: unknown): v is GameScope => typeof v === 'string' && (GAME_SCOPES as readonly string[]).includes(v)
 
 /** The control's labels. "Playoffs" rather than "Postseason" so three fit across a phone. */
 // WPBL's words for the same three slices (its StatsView chips), so the control reads the same in both

@@ -2799,12 +2799,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   //
   // The fetcher is the same session-cached one the Run value board uses, so a reader who opens
   // both pays once, in whichever order they happen to visit.
-  const [allPlays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
+  const [allPlays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays(current) ?? [])
   const plays = useMemo(() => cut(allPlays), [allPlays, cut])
   // Whether that read has ANSWERED yet, which is not the same question as whether it returned
   // anything, and the right column's ordering turns on the difference. See the note at the
   // bottom of the column.
-  const [playsSettled, setPlaysSettled] = useState(() => getCachedWpblAllRunValuePlays() != null)
+  const [playsSettled, setPlaysSettled] = useState(() => getCachedWpblAllRunValuePlays(current) != null)
   // Discord invite dismissal, read once. Owned here (not inside DiscordCard) so a dismissed
   // invite unmounts the card entirely and leaves no empty wrapper taking up row-gap.
   const [discordDismissed, setDiscordDismissed] = useState(() => {
@@ -2838,11 +2838,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   useEffect(() => {
     if (!awardsResultsShowOnHome()) return
     let cancelled = false
-    const load = () => fetchWpblAllRunValuePlays()
+    // This season's plays only: the card is this year's race. See fetchWpblPlayLog.
+    const load = () => fetchWpblAllRunValuePlays(current)
       .then(p => { if (!cancelled) { setPlays(p); setPlaysSettled(true) } })
       .catch(() => { if (!cancelled) setPlaysSettled(true) /* no card, no error state: see above */ })
     const stacked = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 899.95px)').matches
-    if (!stacked || getCachedWpblAllRunValuePlays()) {
+    if (!stacked || getCachedWpblAllRunValuePlays(current)) {
       load()
       return () => { cancelled = true }
     }
@@ -2856,7 +2857,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     }
     evs.forEach(e => window.addEventListener(e, start, { passive: true }))
     return () => { cancelled = true; evs.forEach(e => window.removeEventListener(e, start)) }
-  }, [])
+  }, [current])
 
   // While a game is live, refresh only the box-score lines, and on a gentle cadence. Deliberately
   // NOT re-pulled on the tick: the full player roster (static) and the whole pitch_tracking table

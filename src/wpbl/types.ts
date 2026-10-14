@@ -539,28 +539,13 @@ export type WpblRunValuePlay = Pick<WpblGamePlay,
   | 'event_type' | 'runs_scored' | 'narrative' | 'pitch_sequence'
 >
 
-// What a spray chart needs, and nothing else.
-//
-// A SEPARATE READ FROM WpblFirstsPlay, deliberately. That one is filtered at the database to
-// the plays that could set a milestone, which drops routine outs: they are most of the play
-// log and none of them can produce a first. But a flyout is the single best-covered category
-// there is for direction (219 of 219 name one), so a spray chart built on the firsts read
-// would be hits only and would draw a fielding chart with the fielding removed.
+// What a spray chart needs, and nothing else. Outs as well as hits: a flyout is the single
+// best-covered category there is for direction (219 of 219 name one), so a chart of hits alone
+// would draw a fielding chart with the fielding removed.
 export type WpblSprayPlay = Pick<WpblGamePlay,
   | 'game_id' | 'sequence' | 'team_id'
   | 'batter_id' | 'batter_name'
   | 'narrative' | 'event_type' | 'is_hit'
->
-
-// The slim projection of a play the Hall of Firsts (computeFirsts) actually reads. The
-// league-wide play fetch on Home uses this instead of select('*') so it never ships the
-// heavy per-play columns, notably `pitch_events` (a JSON array of every pitch) plus the
-// base/count fields, none of which the firsts computation touches. The full WpblGamePlay
-// is still used for a single game's play-by-play (fetchWpblGamePlays).
-export type WpblFirstsPlay = Pick<WpblGamePlay,
-  | 'game_id' | 'sequence' | 'team_id'
-  | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
-  | 'narrative' | 'event_type' | 'is_hit' | 'runs_scored'
 >
 
 // One tracked pitch/hit event (TrackMan; mirrors wpbl_pitch_tracking).
@@ -648,21 +633,6 @@ export interface WpblGameDetails {
   synced_at: string
 }
 
-// One ingest run's health summary (mirrors wpbl_ingest_runs). Written by the wpbl-ingest
-// Edge Function at the end of every run; read by the admin freshness indicator.
-export interface WpblIngestRun {
-  id: string
-  ran_at: string
-  mode: string | null
-  ok: boolean
-  games: number
-  boxscores: number
-  error_count: number
-  errors: string[] | null
-  duration_ms: number | null
-  created_at: string
-}
-
 // Derived standings row (computed client-side from final games, not stored).
 export interface WpblStandingRow {
   team: WpblTeam
@@ -679,18 +649,6 @@ export interface WpblStandingRow {
    *  five-dot form strip on the Teams cards is the only place that difference shows. */
   recent: ('W' | 'L')[]
 }
-
-// Insert shapes for the box-score entry form (the DB fills id/created_at; game_id is
-// supplied by the save call). The feed-only stat columns carry DB defaults, so they are
-// optional on manual inserts.
-type WpblBattingFeedOnly = 'sf' | 'sh' | 'ibb' | 'gdp' | 'tb' | 'lob'
-type WpblPitchingFeedOnly = 'gs' | 'hbp' | 'ibb' | 'wp' | 'bk' | 'strikes' | 'doubles' | 'triples'
-export type WpblBattingInput =
-  Omit<WpblBattingLine, 'id' | 'game_id' | 'created_at' | WpblBattingFeedOnly>
-  & Partial<Pick<WpblBattingLine, WpblBattingFeedOnly>>
-export type WpblPitchingInput =
-  Omit<WpblPitchingLine, 'id' | 'game_id' | 'created_at' | WpblPitchingFeedOnly>
-  & Partial<Pick<WpblPitchingLine, WpblPitchingFeedOnly>>
 
 /** One player's slot + position in one game, from the wpbl_lineup_history view.
  *  `started` is resolved by play sequence when several players share a lineup slot;

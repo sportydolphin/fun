@@ -164,9 +164,6 @@ export const WPBL_MANAGERS: WpblManager[] = [
   { key: 'mgr:jemile-weeks', name: 'Jemile Weeks', teamId: 'BOS' },
 ]
 
-export const managerOf = (teamId: string): WpblManager | undefined =>
-  WPBL_MANAGERS.find(m => m.teamId === teamId)
-
 /**
  * Defensive Wizard is CHOSEN, not sorted, and it is the only award on this ballot that is.
  *

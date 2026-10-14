@@ -386,11 +386,6 @@ export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[], scope: Seas
   }
 }
 
-/** Back-compat shorthand for callers that only need the on/off flag. */
-export function qualifiersActive(teams: WpblTeam[], games: WpblGame[]): boolean {
-  return wpblQualifiers(teams, games).active
-}
-
 // ".278" (leading zero stripped) for AVG/OBP/SLG/OPS; dash when null.
 export const fmtRate = (v: number | null): string => (v == null ? '—' : v.toFixed(3).replace(/^0(?=\.)/, ''))
 // "3.24" for ERA/WHIP; dash when null.

@@ -11,7 +11,7 @@ import { pickMoves, moveWindowDays } from './lib/rosterMoves'
 
 // Public API surface split across sibling modules, re-exported here so existing
 // `from '../api'` imports across the app keep resolving unchanged.
-export { fetchSeasonPlayerStats, fetchSeasonSabermetrics } from './apiSeasonStats'
+export { fetchSeasonPlayerStats } from './apiSeasonStats'
 export * from './reportCardData'
 export * from './apiContracts'
 

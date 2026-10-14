@@ -79,7 +79,6 @@ const CUTS = /\buseWpblSeason\b|\binSeason\(/
 
 const EXEMPT: Record<string, string> = {
   // Every season on purpose.
-  'src/wpbl/firsts.ts': 'the Hall of Firsts is the first EVER, across every season',
   'src/wpbl/PlayersIndex.tsx': 'lists everyone who has ever played, which is everyone with a page',
   'src/wpbl/MatchupsPage.tsx': 'batter vs pitcher is a career: the most any pair met in 2026 is 10 times',
   'src/wpbl/WinProbView.tsx': 'the win model is how games go, and a new year has too few plays to train one',

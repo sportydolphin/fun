@@ -18,57 +18,10 @@
 
 import type { WpblGame, WpblPlayer, WpblTeam } from '../types.ts'
 
-/** Her publication. Note this is the PUBLICATION subdomain, not the author handle: the
- *  handle (dijondarling) resolves to a Substack profile page with no feed on it. */
-export const SUBSTACK_HOST = 'towardsamoreperfectgame.substack.com'  // == SOURCES[0].host
 /** Substack rejects a `limit` above 50, so both endpoints below are read a page at a time.
  *  She is under fifty posts today, but the job should not quietly start losing her back
  *  catalogue on the day she passes it. */
 export const ARCHIVE_PAGE_SIZE = 50
-export const archiveUrl = (offset: number) =>
-  `https://${SUBSTACK_HOST}/api/v1/archive?sort=new&limit=${ARCHIVE_PAGE_SIZE}&offset=${offset}`
-
-/**
- * Her author id on substack.com, and the profile endpoint that lists everything she has
- * published.
- *
- * This is the APEX domain, not her publication subdomain, and that distinction is the
- * difference between this job running and not running. Cloudflare serves a JavaScript
- * challenge to datacenter address space on `towardsamoreperfectgame.substack.com`, covering
- * both its archive API and its RSS feed, so every scheduled run 403'd. `substack.com` itself
- * is not behind that challenge.
- *
- * It is also the better source on the merits, which was a surprise: it returns her COMPLETE
- * history (37 posts back to October 2025) where the publication archive stopped at 23, and
- * it carries the same fields, `postTags` included. What it does NOT carry is the article
- * body, only a truncated preview, which is why the feed is still fetched when reachable.
- */
-export const AUTHOR_USER_ID = 5865502
-export const profilePostsUrl = (cursor?: string) =>
-  `https://substack.com/api/v1/profile/posts?profile_user_id=${AUTHOR_USER_ID}` +
-  `&limit=${ARCHIVE_PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
-export const FEED_URL = `https://${SUBSTACK_HOST}/feed`
-export const PUBLICATION_URL = `https://${SUBSTACK_HOST}`
-/** Her own styling of both, lowercase. Left as she writes them rather than title-cased to
- *  match our headings: it is her name and her masthead, not a field in our design system. */
-export const AUTHOR_NAME = 'mary mustard'
-export const PUBLICATION_NAME = 'towards a more perfect game'
-/** Her self-description, first sentence, verbatim. Her words about herself beat any summary
- *  we would write of her. The rest of the bio goes on to mention the World Cup, which this
- *  section deliberately does not carry, so quoting further would promise coverage we drop. */
-export const AUTHOR_BIO = 'I am a writer and amateur baseball player from Albany.'
-
-/** Her profile photo, resized by Substack's CDN.
- *
- *  The size matters more than it looks: the original is 2848x2846 and **2.77 MB**, which is
- *  an absurd thing to download for a 44px avatar and would be the heaviest asset on Home by
- *  a wide margin. The same image through the CDN at 96px is 4 KB. Ask for twice the display
- *  size so it stays sharp on a 2x screen, and no more. */
-const AUTHOR_PHOTO_SOURCE =
-  'https://substack-post-media.s3.amazonaws.com/public/images/de58ebf7-12be-47cf-af91-33dd25fa92ac_2848x2846.jpeg'
-export const authorPhoto = (px: number) =>
-  `https://substackcdn.com/image/fetch/w_${px},h_${px},c_fill,f_auto,q_auto:good/` +
-  encodeURIComponent(AUTHOR_PHOTO_SOURCE)
 
 // ─── Publications ───────────────────────────────────────────────────────────────
 
@@ -147,8 +100,10 @@ export const profilePostsUrlFor = (userId: number, cursor?: string) =>
  *  body is where the players, clubs and clips come from, and the feed only carries the latest 20. */
 export const postUrlFor = (host: string, slug: string) => `https://${host}/api/v1/posts/${encodeURIComponent(slug)}`
 
-/** A writer's photo through Substack's CDN at `px` square. See authorPhoto for why the size is
- *  worth caring about. */
+/** A writer's photo through Substack's CDN at `px` square. The size matters more than it looks:
+ *  an original runs to 2848x2846 and 2.77 MB, an absurd download for a 44px avatar and the
+ *  heaviest asset on Home by a wide margin, where the CDN's 96px copy is 4 KB. Ask for twice the
+ *  display size so it stays sharp on a 2x screen, and no more. */
 export const sourcePhoto = (src: SubstackSource, px: number) =>
   `https://substackcdn.com/image/fetch/w_${px},h_${px},c_fill,f_auto,q_auto:good/` +
   encodeURIComponent(src.photoSource)

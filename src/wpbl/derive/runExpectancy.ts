@@ -1,7 +1,6 @@
 import {
   buildRunExpectancy as build, playRunValues as values,
-  type PlayRunValue as Value, type ReTable, type RunnerLine as Runner,
-  type RunValueLine as Line, type WorkedExample as Example,
+  type PlayRunValue as Value, type ReTable, type RunnerLine as Runner, type WorkedExample as Example,
 } from '../../league/runExpectancy'
 import { WPBL_LEAGUE } from '../league'
 import type { WpblSeasonGame } from '../season'
@@ -16,16 +15,13 @@ export {
   BASE_PHRASE, BASE_ROW_ORDER, BASE_SHORT, DIST_MAX, baseCode, biggestSwings, describeState,
   eventValues, fmtRe, fmtRunValue, reOf, runValueLeaders, stealEconomy, topRunners, workedExample,
 } from '../../league/runExpectancy'
-export type {
-  BaseCode, EventValue, ReCell, ReTable, StealEconomy,
-} from '../../league/runExpectancy'
+export type { BaseCode, EventValue, ReTable, StealEconomy } from '../../league/runExpectancy'
 
 /** The neutral `RunValueGame`, as WPBL's own row, so `status` keeps its union. */
 export type RunValueGame = WpblSeasonGame &
   Pick<WpblGame, 'status' | 'home_team_id' | 'away_team_id' | 'home_score' | 'away_score'
     | 'home_line' | 'away_line'>
 export type PlayRunValue = Value<WpblRunValuePlay>
-export type RunValueLine = Line<WpblPlayer, WpblRunValuePlay>
 export type RunnerLine = Runner<WpblPlayer>
 export type WorkedExample = Example<WpblRunValuePlay>
 

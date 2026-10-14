@@ -312,7 +312,12 @@ Each of these has already cost someone a debugging session, and none of them fai
   Home, previews and the share and Discord cards pin to it; the tabs follow the reader's
   `?season=`; the ballot pins to `AWARDS_SEASON`; batter vs pitcher and the win model use every
   season on purpose. `__tests__/seasonOnScreen.test.tsx` fails any file that reads a league-wide
-  table without cutting it or saying why. **Each new year** needs its recap in `WPBL_RECAP_YEARS`
+  table without cutting it or saying why. **The play log is the exception that reads one year:**
+  every play read is a filter over `fetchWpblPlayLog(season)` in api.ts, which asks the database
+  for that season alone (`null` is every season). Pass the season on screen, keep the `cut` anyway
+  (it is free on rows already one year), and hold what you read WITH the season it was read for,
+  or a year picked from the menu cuts the last year's plays to nothing and draws an empty board.
+  **Each new year** needs its recap in `WPBL_RECAP_YEARS`
   (plus `_redirects` and seo.ts, pinned by routes.test.ts), a new `POSTSEASON_SCHEDULE` (another
   year's bracket shows no dates until then), and new award constants. `npm run dev` has a fake
   2027 (dev settings, "Second WPBL season") for checking all of it.
@@ -578,7 +583,7 @@ Two independent league sections sharing one shell (auth, search, notifications, 
 units):
 
 - **WPBL** (`/wpbl`, the default): Women's Pro Baseball League. Scoreboard, schedule,
-  standings, stats, TrackMan, Game Center, auto recaps, Hall of Firsts, push reminders.
+  standings, stats, TrackMan, Game Center, auto recaps, push reminders.
   Run value (the league's own run-expectancy table, built from our own plays).
   Offseason surfaces: the season recap, Reading (two outside writers, linked out, see
   `docs/READING.md`), Watch (every video, the league's Shorts tagged to the plays they show) and a

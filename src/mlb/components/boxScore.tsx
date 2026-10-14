@@ -5,7 +5,6 @@
 // Extracted from FinalGames.tsx.
 
 import { useDark } from '../../ui/useDark'
-import { TeamLogo } from './TeamLogo'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, TEAM_BG } from '../constants'
@@ -152,86 +151,6 @@ export function LiveDot({ size = 6 }: { size?: number }) {
       animation: 'scoreLivePulse 1.6s ease-in-out infinite',
       '@keyframes scoreLivePulse': { '0%,100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: 0.45, transform: 'scale(0.8)' } },
     }} />
-  )
-}
-
-// ─── Box-score modal ──────────────────────────────────────────────────────────
-
-function StatHead({ children, w = 26 }: { children: React.ReactNode; w?: number }) {
-  return (
-    <Box component="th" sx={{
-      fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
-      textTransform: 'uppercase', letterSpacing: typePx(0.4),
-      textAlign: 'right', px: 0.4, py: 0.5, minWidth: chromePx(w),
-    }}>
-      {children}
-    </Box>
-  )
-}
-
-function StatCell({ children, bold = false }: { children: React.ReactNode; bold?: boolean }) {
-  return (
-    <Box component="td" sx={{
-      fontSize: '0.76rem', fontWeight: bold ? 800 : 600, color: 'text.primary',
-      textAlign: 'right', px: 0.4, py: 0.55, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
-    }}>
-      {children}
-    </Box>
-  )
-}
-
-export function LineScoreTable({ box }: { box: BoxScore }) {
-  const rows: Array<{ side: 'away' | 'home'; t: TeamBox }> = [
-    { side: 'away', t: box.away },
-    { side: 'home', t: box.home },
-  ]
-  // Always show a full 9 innings (more only if the game went to extras); innings the
-  // game hasn't reached yet render as blank columns.
-  const lastNum = box.innings.length ? box.innings[box.innings.length - 1].num : 0
-  const byNum   = new Map(box.innings.map(i => [i.num, i] as const))
-  const cols    = Array.from({ length: Math.max(9, lastNum) }, (_, k) => k + 1)
-  return (
-    <Box data-swipe-ignore="true" sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
-      <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
-        <Box component="thead">
-          <Box component="tr">
-            <Box component="th" sx={{ minWidth: chromePx(44) }} />
-            {cols.map(num => (
-              <StatHead key={num} w={18}>{num}</StatHead>
-            ))}
-            <Box component="th" sx={{ width: chromePx(8) }} />
-            <StatHead w={22}>R</StatHead>
-            <StatHead w={22}>H</StatHead>
-            <StatHead w={22}>E</StatHead>
-          </Box>
-        </Box>
-        <Box component="tbody">
-          {rows.map(({ side, t }) => (
-            <Box component="tr" key={side} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <Box component="td" sx={{ py: 0.45 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                  <TeamLogo teamId={t.teamId} abbr={t.abbr} size={18} />
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: t.runs > (side === 'away' ? box.home.runs : box.away.runs) ? 800 : 600, lineHeight: 1 }}>
-                    {t.abbr}
-                  </Typography>
-                </Box>
-              </Box>
-              {cols.map(num => {
-                const i = byNum.get(num)
-                if (!i) return <StatCell key={num}>{''}</StatCell>   // inning not reached yet
-                const v = side === 'away' ? i.away : i.home
-                // Home team that didn't bat in its last frame → "x"
-                return <StatCell key={num}>{v == null ? (side === 'home' ? 'x' : '-') : v}</StatCell>
-              })}
-              <Box component="td" sx={{ width: chromePx(8) }} />
-              <StatCell bold>{t.runs}</StatCell>
-              <StatCell>{t.hits}</StatCell>
-              <StatCell>{t.errors}</StatCell>
-            </Box>
-          ))}
-        </Box>
-      </Box>
-    </Box>
   )
 }
 

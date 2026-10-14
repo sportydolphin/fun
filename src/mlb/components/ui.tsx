@@ -1,15 +1,13 @@
 // ─── UI primitives ────────────────────────────────────────────────────────────
 
 import { ACCENT_EDGE } from '../../ui/card'
-import React, { useState } from 'react'
-import { Box, Typography, Popover } from '@mui/material'
-import { KeyboardArrowDown } from '@mui/icons-material'
+import React from 'react'
+import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef } from '../types'
 import { ACCENT_TEXT } from '../constants'
 import { statCols } from '../lib/utils'
 import { pressable } from '../../ui/interaction'
-import { chromePx, typePx } from '../../ui/scale'
-import { FilterChip } from '../../ui/FilterChip'
+import { typePx } from '../../ui/scale'
 
 // Shared style for external link pills in the options bar
 export const linkPillSx = {
@@ -27,7 +25,7 @@ export const linkPillSx = {
 }
 
 // WPBL's eyebrow and card header link, from src/ui/card.tsx (Oct 9, 2026).
-export { SectionLabel, CardLink } from '../../ui/card'
+export { SectionLabel } from '../../ui/card'
 
 // ─── Stat item ───────────────────────────────────────────────────────────────
 
@@ -100,59 +98,6 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
         ) : null}
       </Box>
     </Box>
-  )
-}
-
-// ─── Stat picker ─────────────────────────────────────────────────────────────
-
-export interface StatPickerProps {
-  defs: StatDef[]
-  selected: string[]
-  onToggle: (key: string) => void
-  label: string
-}
-
-export function StatPicker({ defs, selected, onToggle, label }: StatPickerProps) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-  return (
-    <>
-      <Box
-        {...pressable(e => setAnchor(e.currentTarget as HTMLElement))}
-        sx={{
-          display: 'inline-flex', alignItems: 'center', gap: 0.4,
-          px: 1.75, py: 0.5,
-          borderRadius: 999,
-          border: '1.5px solid',
-          borderColor: anchor ? ACCENT_EDGE : 'outline',
-          cursor: 'pointer',
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          color: anchor ? ACCENT_TEXT : 'text.secondary',
-          transition: 'all 0.15s',
-          userSelect: 'none',
-          '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT },
-        }}
-      >
-        {label}
-        <KeyboardArrowDown sx={{ fontSize: '0.9rem', mt: '1px' }} />
-      </Box>
-      <Popover
-        open={Boolean(anchor)}
-        anchorEl={anchor}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{ paper: { sx: { borderRadius: 2.5, p: 1.5, mt: 0.75, maxWidth: chromePx(210), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
-      >
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-          {defs.map(def => (
-            <FilterChip key={def.key} active={selected.includes(def.key)} onClick={() => onToggle(def.key)}>
-              {def.label}
-            </FilterChip>
-          ))}
-        </Box>
-      </Popover>
-    </>
   )
 }
 

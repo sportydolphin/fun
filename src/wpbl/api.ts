@@ -1,8 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { viewerCountry } from '../lib/geo'
 import { playableIn } from './videoChannels'
-import { FIRSTS_EVENT_TYPES } from './firsts'
-import { countsInStandings, standingsFinals } from './season'
+import { countsInStandings, inSeason, seasonOf, standingsFinals } from './season'
 import { settleGames } from './gameOver'
 import { readSeed, writeSeed } from './seed'
 import { applyPlayCorrections, CORRECTION_SELECT, type WpblPlayCorrection } from './playCorrections'
@@ -12,7 +11,7 @@ import { playerPlayIds, PA_EVENT_TYPES, type WpblMatchupPlay } from './derive/ma
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
+  WpblFieldingLine, WpblGamePlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
   WpblGameRecap, WpblSprayPlay,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblVideoTag, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
@@ -170,6 +169,8 @@ export interface WpblReadOverlay {
   keyed?<T extends { game_id: string }>(rows: T[]): T[]
   /** The real game behind an id the overlay made up, so a per-game read can ask the database. */
   sourceGameId?(gameId: string): string
+  /** The real season behind one the overlay made up, so a season read can ask the database. */
+  sourceSeason?(season: number): number
 }
 
 /** `keyed` from the installed overlay, or the rows untouched. */
@@ -254,7 +255,9 @@ const _FIXED_GAME_COLUMN_NAMES = [
 
 type AssertNever<T extends never> = T
 /** Fails to compile, naming the field, when a WpblGame field is in neither list.
- *  `final_by_rule` is not a column (see its comment in types.ts). */
+ *  `final_by_rule` is not a column (see its comment in types.ts). Exported only so an unused type
+ *  is not an error, so nothing imports it.
+ *  @public */
 export type WpblGameColumnsPartition = AssertNever<Exclude<keyof WpblGame,
   (typeof LIVE_GAME_COLUMN_NAMES)[number] | (typeof _FIXED_GAME_COLUMN_NAMES)[number] | 'final_by_rule'>>
 
@@ -290,9 +293,6 @@ let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 // Just the distinct game ids that carry tracking, for Home's "new tracking batch" banner. See
 // fetchWpblTrackedGameIds for why this exists separately from the full table above.
 let trackedGameIdsCache: { data: string[]; at: number } | null = null
-let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
-let allPitchPlaysCache: { data: WpblPitchPlay[]; at: number } | null = null
-let allRunValuePlaysCache: { data: WpblRunValuePlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 let videoTagsCache:   { data: Map<string, WpblVideoTag>; at: number } | null = null
 let allRecapsCache:   { data: WpblGameRecap[]; at: number } | null = null
@@ -354,17 +354,11 @@ export function getCachedWpblAllPlayers(): WpblPlayer[] | null { seedPlayers(); 
 export function getCachedWpblAllLines(): WpblLinesResult | null { seedLines(); return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
 export function getCachedWpblTrackedGameIds(): string[] | null { seedTrackedIds(); return trackedGameIdsCache?.data ?? null }
-export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
-export function getCachedWpblAllPitchPlays(): WpblPitchPlay[] | null { return allPitchPlaysCache?.data ?? null }
-export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { return allRunValuePlaysCache?.data ?? null }
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
 export function getCachedWpblVideoTags(): Map<string, WpblVideoTag> | null { return videoTagsCache?.data ?? null }
 export function getCachedWpblRecaps(): WpblGameRecap[] | null { return allRecapsCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
-export function getCachedWpblFanPhotos(): WpblFanPhoto[] | null { return fanPhotosCache?.data ?? null }
-export function getCachedWpblFanPhotoSubjects(): WpblPhotoSubject[] | null { return fanPhotoSubjectsCache?.data ?? null }
-export function getCachedWpblFanPhotoFigures(): WpblPhotoFigure[] | null { return fanPhotoFiguresCache?.data ?? null }
 export function getCachedWpblSiteGames(): WpblSiteGame[] | null { seedSiteGames(); return siteGamesCache?.data ?? null }
 
 // ─── Per-entity session cache ───────────────────────────────────────────────────
@@ -449,7 +443,6 @@ export const fetchWpblPitcherLocations = pitchLocsCache.fetch
 export const getCachedWpblRoster = rosterCache.get
 export const getCachedWpblLineupHistory = lineupsCache.get
 export const getCachedWpblPitchingUsage = usageCache.get
-export const getCachedWpblPlayerLines = playerLinesCache.get
 
 /**
  * A player's lines for the first paint of their card: their own cached read, or else their slice
@@ -521,70 +514,6 @@ export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
   })
 }
 
-// Only the play columns the Hall of Firsts reads (see WpblFirstsPlay). Deliberately omits
-// `pitch_events` (a JSON array of every pitch in the play) and the base/count fields, which
-// dominate the row size but the firsts computation never uses, so this scans the whole
-// season's plays at a fraction of the transfer of select('*').
-const FIRSTS_PLAY_SELECT =
-  'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,narrative,event_type,is_hit,runs_scored'
-
-// Only the plays that could ever set a milestone (see playCanSetFirst). Routine outs are
-// most of the play log and none of them can produce a first, so they are dropped at the
-// database rather than transferred and skipped on the phone.
-const FIRSTS_PLAY_FILTER = [
-  'is_hit.is.true',
-  `event_type.in.(${FIRSTS_EVENT_TYPES.join(',')})`,
-  'runs_scored.gt.0',
-  'narrative.ilike.*balk*',
-].join(',')
-
-// ─── Batted balls, for the spray chart ────────────────────────────────────────
-//
-// A SECOND PLAY READ, and the filter is the reason. `fetchWpblAllPlays` drops routine outs at
-// the database because none of them can set a first, and a spray chart made of hits only is
-// not a spray chart: a flyout is the best-covered category in the whole log for direction
-// (219 of 219 name one), and leaving them out draws a picture where every ball a fielder
-// caught simply never happened.
-//
-// Narrowed the other way instead: only the event types that put a ball in play, and only the
-// eight columns the chart reads. That is roughly 1,500 rows for the season.
-const SPRAY_PLAY_SELECT = 'game_id,sequence,team_id,batter_id,batter_name,narrative,event_type,is_hit'
-const SPRAY_EVENT_TYPES = [
-  'single', 'double', 'triple', 'home_run',
-  'groundout', 'flyout', 'lineout', 'popup', 'foul_out', 'sacrifice', 'fielders_choice', 'out',
-]
-
-let sprayPlaysCache: { data: WpblSprayPlay[]; at: number } | null = null
-
-export function getCachedWpblBattedBalls(): WpblSprayPlay[] | null { return sprayPlaysCache?.data ?? null }
-
-/** Every batted ball of the season. Paged and ordered for the reason on fetchWpblAllPlays. */
-export function fetchWpblBattedBalls(): Promise<WpblSprayPlay[]> {
-  if (isFresh(sprayPlaysCache)) return Promise.resolve(sprayPlaysCache!.data)
-  return once('sprayPlays', async () => {
-    const PAGE = 1000
-    const out: WpblSprayPlay[] = []
-    for (let from = 0; ; from += PAGE) {
-      const page = await safe<WpblSprayPlay[]>('fetchWpblBattedBalls', () =>
-        supabase.from('wpbl_game_plays')
-          .select(SPRAY_PLAY_SELECT)
-          .in('event_type', SPRAY_EVENT_TYPES)
-          .order('game_id', { ascending: true })
-          .order('sequence', { ascending: true })
-          .range(from, from + PAGE - 1) as unknown as
-          PromiseLike<{ data: WpblSprayPlay[] | null; error: unknown }>,
-        [])
-      out.push(...page)
-      if (page.length < PAGE) break
-    }
-    // Corrections carry the batter, and a play credited to the wrong hitter puts her ball on
-    // somebody else's chart. Same overlay the firsts read applies, same reason.
-    const corrected = overlayKeyed(applyPlayCorrections(out, await fetchAllPlayCorrections()))
-    if (corrected.length > 0 || sprayPlaysCache == null) sprayPlaysCache = { data: corrected, at: Date.now() }
-    return corrected
-  })
-}
-
 // How many games carry TrackMan data, from the watcher's one-row snapshot
 // (`wpbl_tracking_watch`, refreshed daily by scripts/watch-wpbl-tracking.mjs). One row and one
 // integer, so the Stats tab can decide whether to offer the Tracked board BEFORE paying for
@@ -602,61 +531,6 @@ export function fetchWpblTrackedGameCount(): Promise<number | null> {
     return data
   })
 }
-
-// Every play-by-play row in the league that could set a Hall of Firsts milestone (first HR,
-// first strikeout, first stolen base, …): one row per play for the whole season, so it is
-// column-projected, filtered server-side, and cached last-good. Empty pre-migration.
-//
-// Paginated, and this is not optional. PostgREST caps an unbounded select at 1000 rows and
-// returns them in no defined order, so an unpaged scan silently stops at that cap (the play log
-// is well past it) with an arbitrary slice. computeFirsts sorts what it is handed and takes the
-// earliest match, so a dropped opening-day play would not just omit a milestone, it would
-// reassign it to whoever did it next. The explicit order also makes the paging deterministic:
-// without it, PostgREST can return the same row on two pages and miss another entirely.
-export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
-  if (isFresh(allPlaysCache)) return Promise.resolve(allPlaysCache!.data)
-  return once('allPlays', async () => {
-    const PAGE = 1000
-    const out: WpblFirstsPlay[] = []
-    for (let from = 0; ; from += PAGE) {
-      const page = await safe<WpblFirstsPlay[]>('fetchWpblAllPlays', () =>
-        supabase.from('wpbl_game_plays')
-          .select(FIRSTS_PLAY_SELECT)
-          .or(FIRSTS_PLAY_FILTER)
-          .order('game_id', { ascending: true })
-          .order('sequence', { ascending: true })
-          .range(from, from + PAGE - 1) as unknown as
-          PromiseLike<{ data: WpblFirstsPlay[] | null; error: unknown }>,
-        [])
-      out.push(...page)
-      if (page.length < PAGE) break
-    }
-    // Corrections matter more here than anywhere else in the app. A first is awarded once and
-    // then reads as settled league history, so a play credited to the wrong batter does not
-    // just mislabel one row, it hands somebody else's milestone to them permanently. The
-    // corrections table is tiny, so this is one extra request on a read that already made
-    // several.
-    const corrected = overlayKeyed(applyPlayCorrections(out, await fetchAllPlayCorrections()))
-    if (corrected.length > 0 || allPlaysCache == null) allPlaysCache = { data: corrected, at: Date.now() }
-    return corrected
-  })
-}
-
-// Only the columns the pitch-code boards read (see WpblPitchPlay), and only the rows that
-// have a pitch sequence at all. The filter is doing real work: a third of the play log is
-// baserunning and substitution rows that carry no pitches, and dropping them at the database
-// is a third of the transfer for a board that would skip them anyway.
-const PITCH_PLAY_SELECT =
-  'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,event_type,pitch_sequence'
-
-/** Every plate appearance in the league, as its pitch sequence.
- *
- *  Paged, for the reason spelled out on fetchWpblAllPlays: an unbounded select stops at 1000
- *  rows with no error, and the play log is well past that. A truncated read here does not
- *  fail, it just makes every rate on the boards a rate over an arbitrary slice of the season.
- *
- *  Corrected on the way out like the firsts read, because a correction to a play's batter or
- *  pitcher moves that whole at-bat's pitches from one player's line to another's. */
 
 // The season's priced run environment (derive/runEnvironment.ts): one row, read in place of the
 // whole play log by the surfaces that only want its weights. Null when the row is missing or the
@@ -677,43 +551,209 @@ export function fetchWpblRunEnvironment(): Promise<WpblRunEnvironment | null> {
   })
 }
 
-/** Every play in the league, in order, with the base-out state each one started from.
- *
- *  UNFILTERED, unlike the firsts read next door, and it has to be. Run expectancy is a walk
- *  forward through a half-inning: the state a play ended in is the state the NEXT row reports,
- *  so dropping the routine outs would leave the walk stepping over gaps and silently valuing
- *  plays against the wrong state. This is the one league-wide play read that wants all of it.
- *
- *  Paged and ordered for the reason on fetchWpblAllPlays, and corrected on the way out like
- *  every other play read: a correction that moves a run moves the value of the play it was
- *  scored on. */
-export function fetchWpblAllRunValuePlays(): Promise<WpblRunValuePlay[]> {
-  if (isFresh(allRunValuePlaysCache)) return Promise.resolve(allRunValuePlaysCache!.data)
-  return once('allRunValuePlays', async () => {
+// ─── The play log ──────────────────────────────────────────────────────────────
+//
+// ONE READ OF wpbl_game_plays FOR THE WHOLE SECTION. There used to be five, each narrowed to its
+// own board: run value (every row, with the base-out state), the pitch-code boards (rows with a
+// pitch sequence), batter vs pitcher (plate appearances), the spray chart (balls in play) and the
+// Hall of Firsts. Each was its own scan of the same table, four pages deep, so a reader who went
+// from Home to Stats to a team page downloaded the same plays three times. On the Oct 2026
+// snapshot they were 131 KB, 51 KB, 97 KB and 47 KB gzipped, and every one of the last three is a
+// subset of the first. Run value cannot be narrowed (run expectancy walks every row), and Home and
+// Stats load it on nearly every visit, so the others are now filters over it in memory and cost
+// nothing once it is here. The edge cache gains too: one URL per season instead of four shapes.
+//
+// THE CORRECTIONS RUN BEFORE THE FILTERS, which one log also buys. A read filtered at the database
+// sees the mirror's row, so a correction that turned a pickoff into a double had to fetch the row
+// it brought into the filter by its key afterwards. Over the whole log the overlay just runs first.
+//
+// ONE SEASON AT A TIME, ON THE SERVER. Every board shows one year, and the log grows by a whole
+// season every year, so a board that read every season would download two years to draw one in
+// 2027 and three in 2028. A season read filters on its games' dates through an embedded join
+// (`wpbl_games!inner()` with no columns, so it adds no bytes to a row), and its URL is the same
+// for every reader of that year, which is what lets the edge hold it. `null` is every season, for
+// the surfaces that span them on purpose: batter vs pitcher and the win model. The surfaces still
+// cut what they are handed (useWpblSeason): a cut of rows that are already one season returns the
+// same array, so it costs nothing, and it is the net under this read rather than a second rule.
+
+/** Every column a league-wide play surface reads: run expectancy's, which is the widest, plus
+ *  `is_hit` for the spray chart. */
+const PLAY_LOG_SELECT = `${RUN_VALUE_PLAY_SELECT},is_hit`
+
+/** One row of the play log. Every narrower play type the section reads is a Pick of this. */
+export type WpblLogPlay = WpblRunValuePlay & Pick<WpblGamePlay, 'is_hit'>
+
+/** A season, or null for every season the league has played. */
+export type WpblPlayScope = number | null
+
+const playLogCache = new Map<string, { data: WpblLogPlay[]; at: number }>()
+const scopeKey = (season: WpblPlayScope) => (season == null ? 'all' : String(season))
+
+/** One season cut out of the every-season log, when that is in memory and so is the schedule that
+ *  says which year each game is in. Cached under the season, so a second caller gets the same
+ *  array and anything cached on its identity still hits. */
+function sliceOfAll(season: number, needFresh: boolean): WpblLogPlay[] | null {
+  const all = playLogCache.get('all')
+  if (!all || (needFresh && !isFresh(all)) || !lastGoodSchedule) return null
+  const data = inSeason(all.data, lastGoodSchedule, season)
+  playLogCache.set(scopeKey(season), { data, at: all.at })
+  return data
+}
+
+/** The years that can have plays: every one in the schedule with a game that has started. */
+function playedSeasons(games: WpblGame[]): number[] {
+  const years = new Set<number>()
+  for (const g of games) if (g.status !== 'scheduled') { const y = seasonOf(g); if (y != null) years.add(y) }
+  return [...years]
+}
+const byGameAndSequence = (a: WpblLogPlay, b: WpblLogPlay) =>
+  a.game_id < b.game_id ? -1 : a.game_id > b.game_id ? 1 : a.sequence - b.sequence
+
+/** Every season, put together from the seasons already read, when they are all here. The other
+ *  half of `sliceOfAll`: Home reads this season and Game Center's win model reads every season,
+ *  and while the league has played one they are the same rows, which a reader going from one to
+ *  the other used to download twice. Waits on a season read already in flight. */
+async function allFromSeasons(needFresh: boolean): Promise<WpblLogPlay[] | null> {
+  if (!lastGoodSchedule) return null
+  const years = playedSeasons(lastGoodSchedule)
+  if (years.length === 0) return null
+  const parts: (Promise<WpblLogPlay[]> | WpblLogPlay[])[] = []
+  for (const y of years) {
+    const held = playLogCache.get(String(y))
+    const pending = inflight.get(`playLog:${y}`) as Promise<WpblLogPlay[]> | undefined
+    if (held && (!needFresh || isFresh(held))) parts.push(held.data)
+    else if (pending) parts.push(pending)
+    else return null
+  }
+  const logs = await Promise.all(parts)
+  if (logs.some(l => l.length === 0)) return null
+  const data = logs.length === 1 ? logs[0] : logs.flat().sort(byGameAndSequence)
+  playLogCache.set('all', { data, at: Math.min(...years.map(y => playLogCache.get(String(y))?.at ?? Date.now())) })
+  return data
+}
+
+export function getCachedWpblPlayLog(season: WpblPlayScope = null): WpblLogPlay[] | null {
+  const own = playLogCache.get(scopeKey(season))
+  if (own) return own.data
+  if (season != null) return sliceOfAll(season, false)
+  // Synchronously, only when every season is already held (no read to wait on).
+  if (!lastGoodSchedule) return null
+  const years = playedSeasons(lastGoodSchedule)
+  const logs = years.map(y => playLogCache.get(String(y))?.data)
+  if (years.length === 0 || logs.some(l => !l || l.length === 0)) return null
+  const data = logs.length === 1 ? logs[0]! : (logs as WpblLogPlay[][]).flat().sort(byGameAndSequence)
+  playLogCache.set('all', { data, at: 0 })
+  return data
+}
+
+/** The play log for one season, or every season, in game and sequence order, corrected. */
+export function fetchWpblPlayLog(season: WpblPlayScope = null): Promise<WpblLogPlay[]> {
+  const key = scopeKey(season)
+  const own = playLogCache.get(key)
+  if (isFresh(own ?? null)) return Promise.resolve(own!.data)
+  if (season != null) {
+    const slice = sliceOfAll(season, true)
+    if (slice) return Promise.resolve(slice)
+    // Every season is already on its way (a surface asked before the schedule could say which
+    // year is on screen): wait for it and cut this one out, rather than downloading it twice.
+    const all = inflight.get('playLog:all')
+    if (all) return all.then(() => sliceOfAll(season, true) ?? fetchWpblPlayLog(season))
+  }
+  return once(`playLog:${key}`, async () => {
+    if (season == null) {
+      const assembled = await allFromSeasons(true)
+      if (assembled) return assembled
+    }
+    // A dev overlay's made-up season has no rows in the database: read the real season it copies,
+    // let the overlay add its copies (fetchAllPaged does), then cut back to the season asked for.
+    const read = season == null ? null : readOverlay?.sourceSeason?.(season) ?? season
     // The corrections read runs BESIDE the pages, not after them: it is independent of them and
     // used to add a whole round trip to the end of the section's slowest read.
     const [out, corrections] = await Promise.all([
-      fetchAllPaged<WpblRunValuePlay>('fetchWpblAllRunValuePlays', (from, to) =>
-        supabase.from('wpbl_game_plays')
-          .select(RUN_VALUE_PLAY_SELECT)
+      fetchAllPaged<WpblLogPlay>('fetchWpblPlayLog', (from, to) => {
+        const rows = supabase.from('wpbl_game_plays')
+          .select(read == null ? PLAY_LOG_SELECT : `${PLAY_LOG_SELECT},wpbl_games!inner()`)
+        const scoped = read == null ? rows
+          : rows.gte('wpbl_games.game_date', `${read}-01-01`).lt('wpbl_games.game_date', `${read + 1}-01-01`)
+        return scoped
           .order('game_id', { ascending: true })
           .order('sequence', { ascending: true })
           .range(from, to) as unknown as
-          PromiseLike<{ data: WpblRunValuePlay[] | null; error: unknown }>, PLAY_LOG_WAVE),
+          PromiseLike<{ data: WpblLogPlay[] | null; error: unknown }>
+      }, PLAY_LOG_WAVE),
       fetchAllPlayCorrections(),
     ])
-    const corrected = applyPlayCorrections(out, corrections)
-    if (corrected.length > 0 || allRunValuePlaysCache == null) {
-      allRunValuePlaysCache = { data: corrected, at: Date.now() }
-    }
+    let corrected = applyPlayCorrections(out, corrections)
+    if (season != null && read !== season) corrected = inSeason(corrected, lastGoodSchedule ?? await fetchWpblSchedule(), season)
+    // A short read keeps the last good log, and leaves its clock alone so the next caller retries.
+    if (corrected.length > 0 || !playLogCache.has(key)) playLogCache.set(key, { data: corrected, at: Date.now() })
     return corrected
   })
 }
 
-/** A matchup play plus its `sequence`, which the corrections overlay keys on. */
-export type WpblPlayerMatchupPlay = WpblMatchupPlay & Pick<WpblGamePlay, 'sequence'>
+/** A filtered view of one log, built once per log array, so every caller of the same season gets
+ *  the same array and a derivation cached on its identity keeps hitting. */
+const logViews = new WeakMap<WpblLogPlay[], Map<string, WpblLogPlay[]>>()
+function viewOf(log: WpblLogPlay[], name: string, keep: (p: WpblLogPlay) => boolean): WpblLogPlay[] {
+  let views = logViews.get(log)
+  if (!views) logViews.set(log, views = new Map())
+  let view = views.get(name)
+  if (!view) views.set(name, view = log.filter(keep))
+  return view
+}
 
-const MATCHUP_PLAY_SELECT = 'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,event_type,narrative'
+/** Every play with a pitch sequence, for the pitch-code boards. A third of the log is baserunning
+ *  and substitution rows that carry no pitches. */
+const hasPitches = (p: WpblLogPlay) => p.pitch_sequence != null
+
+/** The plays that put a ball in play, for the spray chart. Outs as well as hits: a flyout is the
+ *  best-covered category in the whole log for direction, and a chart of hits alone draws a picture
+ *  in which every ball a fielder caught never happened. */
+const BATTED_BALL_EVENTS = new Set([
+  'single', 'double', 'triple', 'home_run',
+  'groundout', 'flyout', 'lineout', 'popup', 'foul_out', 'sacrifice', 'fielders_choice', 'out',
+])
+export const isBattedBall = (p: Pick<WpblGamePlay, 'event_type'>) => BATTED_BALL_EVENTS.has(p.event_type ?? '')
+
+/** The plate appearances, for batter vs pitcher. Built from the same sets `classifyPa` reads, so it
+ *  drops steals, pickoffs and substitution notes and cannot drop an out. */
+const PA_EVENTS = new Set(PA_EVENT_TYPES)
+const isPlateAppearance = (p: WpblLogPlay) => PA_EVENTS.has(p.event_type ?? '')
+
+/** Every play, for run value and the win model. See the play log above. */
+export function fetchWpblAllRunValuePlays(season: WpblPlayScope = null): Promise<WpblRunValuePlay[]> {
+  return fetchWpblPlayLog(season)
+}
+export function getCachedWpblAllRunValuePlays(season: WpblPlayScope = null): WpblRunValuePlay[] | null {
+  return getCachedWpblPlayLog(season)
+}
+
+export function fetchWpblAllPitchPlays(season: WpblPlayScope = null): Promise<WpblPitchPlay[]> {
+  return fetchWpblPlayLog(season).then(log => viewOf(log, 'pitches', hasPitches))
+}
+export function getCachedWpblAllPitchPlays(season: WpblPlayScope = null): WpblPitchPlay[] | null {
+  const log = getCachedWpblPlayLog(season)
+  return log && viewOf(log, 'pitches', hasPitches)
+}
+
+export function fetchWpblBattedBalls(season: WpblPlayScope = null): Promise<WpblSprayPlay[]> {
+  return fetchWpblPlayLog(season).then(log => viewOf(log, 'battedBalls', isBattedBall))
+}
+
+/** Every plate appearance in the league, for the batter-vs-pitcher board at /wpbl/matchups. */
+export function fetchWpblAllMatchupPlays(season: WpblPlayScope = null): Promise<WpblPlayerMatchupPlay[]> {
+  return fetchWpblPlayLog(season).then(log => viewOf(log, 'plateAppearances', isPlateAppearance))
+}
+export function getCachedWpblAllMatchupPlays(season: WpblPlayScope = null): WpblPlayerMatchupPlay[] | null {
+  const log = getCachedWpblPlayLog(season)
+  return log && viewOf(log, 'plateAppearances', isPlateAppearance)
+}
+
+/** A matchup play plus its `sequence`, which the corrections overlay keys on, and `is_hit`, which
+ *  the player page's spray chart reads off the same rows. */
+export type WpblPlayerMatchupPlay = WpblMatchupPlay & Pick<WpblGamePlay, 'sequence' | 'is_hit'>
+
+const MATCHUP_PLAY_SELECT = 'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,event_type,narrative,is_hit'
 
 const playerMatchupCache = new Map<string, { data: WpblPlayerMatchupPlay[]; at: number }>()
 
@@ -746,7 +786,7 @@ export function getCachedWpblPlayerMatchupPlays(
 ): WpblPlayerMatchupPlay[] | null {
   const own = playerMatchupCache.get(player.id)
   if (own) return own.data
-  const league = allRunValuePlaysCache?.data
+  const league = playLogCache.get('all')?.data
   return league ? league.filter(involves(new Set(playerPlayIds(player)))) : null
 }
 
@@ -773,7 +813,8 @@ export function fetchWpblPlayerMatchupPlays(
 ): Promise<WpblPlayerMatchupPlay[]> {
   const idList = playerPlayIds(player)
   const ids = new Set(idList)
-  if (isFresh(allRunValuePlaysCache)) return Promise.resolve(allRunValuePlaysCache!.data.filter(involves(ids)))
+  const league = playLogCache.get('all')
+  if (isFresh(league ?? null)) return Promise.resolve(league!.data.filter(involves(ids)))
   const own = playerMatchupCache.get(player.id)
   if (isFresh(own ?? null)) return Promise.resolve(own!.data)
   const list = idList.filter(id => UUID.test(id)).join(',')
@@ -807,78 +848,6 @@ export function fetchWpblPlayerMatchupPlays(
   })
 }
 
-let allMatchupPlaysCache: { data: WpblPlayerMatchupPlay[]; at: number } | null = null
-
-/** The league board's plays, for a synchronous first paint: its own read, or the full play log if
- *  another page has already loaded it (every column the board reads is in that one too). */
-export function getCachedWpblAllMatchupPlays(): WpblPlayerMatchupPlay[] | null {
-  return allMatchupPlaysCache?.data ?? allRunValuePlaysCache?.data ?? null
-}
-
-/**
- * Every plate appearance in the league, for the batter-vs-pitcher board at /wpbl/matchups.
- *
- * NARROWER THAN THE RUN-VALUE LOG IT COULD HAVE REUSED. That read carries the base-out state and
- * every pitch sequence, about 280KB, because run expectancy walks every row; a matchup needs eight
- * columns and only the rows that are plate appearances. The filter is `PA_EVENT_TYPES`, built from
- * the same sets `classifyPa` reads, so it drops steals, pickoffs and substitution notes and cannot
- * drop an out. When the run-value log is already fresh in memory it is used as is, at no cost.
- *
- * Paged and ordered for the reason on fetchWpblAllPlays, and corrected on the way out: a
- * correction that rewrites a batter or an outcome moves a plate appearance between two lines.
- */
-export function fetchWpblAllMatchupPlays(): Promise<WpblPlayerMatchupPlay[]> {
-  if (isFresh(allRunValuePlaysCache)) return Promise.resolve(allRunValuePlaysCache!.data)
-  if (isFresh(allMatchupPlaysCache)) return Promise.resolve(allMatchupPlaysCache!.data)
-  return once('allMatchupPlays', async () => {
-    const [out, corrections] = await Promise.all([
-      fetchAllPaged<WpblPlayerMatchupPlay>('fetchWpblAllMatchupPlays', (from, to) =>
-        supabase.from('wpbl_game_plays')
-          .select(MATCHUP_PLAY_SELECT)
-          .in('event_type', PA_EVENT_TYPES as string[])
-          .order('game_id', { ascending: true })
-          .order('sequence', { ascending: true })
-          .range(from, to) as unknown as
-          PromiseLike<{ data: WpblPlayerMatchupPlay[] | null; error: unknown }>, PLAY_LOG_WAVE),
-      fetchAllPlayCorrections(),
-    ])
-    // A correction that turns a filtered-out row (a note, a pickoff) into a plate appearance.
-    const have = new Set(out.map(p => `${p.game_id}:${p.sequence}`))
-    const becomesPa = new Map<string, number[]>()
-    for (const c of corrections) {
-      if (c.field !== 'event_type' || !c.new_value || !PA_EVENT_TYPES.includes(c.new_value)) continue
-      if (have.has(`${c.game_id}:${c.sequence}`)) continue
-      const seqs = becomesPa.get(c.game_id)
-      if (seqs) seqs.push(c.sequence); else becomesPa.set(c.game_id, [c.sequence])
-    }
-    const extra = await fetchMatchupPlaysByKey(becomesPa)
-    const corrected = applyPlayCorrections([...out, ...extra], corrections)
-    if (corrected.length > 0 || allMatchupPlaysCache == null) {
-      allMatchupPlaysCache = { data: corrected, at: Date.now() }
-    }
-    return corrected
-  })
-}
-
-export function fetchWpblAllPitchPlays(): Promise<WpblPitchPlay[]> {
-  if (isFresh(allPitchPlaysCache)) return Promise.resolve(allPitchPlaysCache!.data)
-  return once('allPitchPlays', async () => {
-    const [out, corrections] = await Promise.all([
-      fetchAllPaged<WpblPitchPlay>('fetchWpblAllPitchPlays', (from, to) =>
-        supabase.from('wpbl_game_plays')
-          .select(PITCH_PLAY_SELECT)
-          .not('pitch_sequence', 'is', null)
-          .order('game_id', { ascending: true })
-          .order('sequence', { ascending: true })
-          .range(from, to) as unknown as
-          PromiseLike<{ data: WpblPitchPlay[] | null; error: unknown }>, PLAY_LOG_WAVE),
-      fetchAllPlayCorrections(),
-    ])
-    const corrected = applyPlayCorrections(out, corrections)
-    if (corrected.length > 0 || allPitchPlaysCache == null) allPitchPlaysCache = { data: corrected, at: Date.now() }
-    return corrected
-  })
-}
 
 /**
  * Read a whole table, a page at a time.
@@ -887,7 +856,7 @@ export function fetchWpblAllPitchPlays(): Promise<WpblPitchPlay[]> {
  * anything that means "every row" has to page explicitly or it quietly returns a prefix.
  * The `order` the caller passes matters as much as the paging does: without a deterministic
  * total order PostgREST can hand back the same row on two pages and skip another entirely
- * (same trap documented on fetchWpblAllPlays above).
+ * (the trap CLAUDE.md lists under "Read every row").
  */
 async function fetchAllPaged<T>(
   label: string,
@@ -1925,10 +1894,7 @@ async function readWpblPitcherLocations(idsKey: string): Promise<WpblPitchLoc[]>
 // and the Discord /player command; importing it from here would drag the whole supabase client
 // into those. Re-exported so every existing importer keeps working and there is still exactly
 // one definition of "counts toward the season".
-export { regularSeasonLines, excludedGameIds } from './season'
-export { standingsFinals, standingsStartMin } from './season'
 export { countsInStandings }
-export { gameIsOver, settleGame, settleGames } from './gameOver'
 
 export function computeStandings(teams: WpblTeam[], games: WpblGame[]): WpblStandingRow[] {
   const acc = new Map<string, { team: WpblTeam; wins: number; losses: number; runsFor: number; runsAgainst: number }>()

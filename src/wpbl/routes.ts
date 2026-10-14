@@ -351,7 +351,8 @@ export function findByShortCode<T extends { id: string }>(code: string, rows: re
   return hit
 }
 
-/** The players index, which exists mainly so every player page has something linking to it. */
+/** The players index, which exists mainly so every player page has something linking to it.
+ *  @alias of WPBL_PLAYERS_BASE, named for what a link to it means. */
 export const WPBL_PLAYERS_INDEX = WPBL_PLAYERS_BASE
 
 export const isWpblPlayersIndex = (pathname: string) =>

@@ -511,5 +511,3 @@ export function TeamSpecPlaceholder({ minGames, ready = true }: { minGames: numb
     </Box>
   )
 }
-
-export default TeamSpecRadar
