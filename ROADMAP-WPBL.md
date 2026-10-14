@@ -1110,6 +1110,43 @@ layouts, NN/g on modal and nonmodal dialogs and on tabs, Notion's side peek and 
 
 ---
 
+## Search: what's next (Oct 14, 2026) 🎯⚙️
+
+Site-wide, both sections. The box (`src/CommandPalette.tsx`, see ARCHITECTURE's "Search") now reads
+names with typos and nicknames, Find questions, rankings, a year, two players, a club and a part of
+its page, and a game or a WPBL pairing (v1.158.0, log below). What is left, roughly in the order
+worth doing:
+
+1. **Stat definitions.** "what is OPS+", "wRC+", "FIP" opens the glossary entry. Both glossaries
+   exist (`/wpbl/glossary`, `/mlb/glossary`), so this is a parser and a link. The cheapest next one.
+2. **Career and all-time.** "most hr all time", "Whitmore career". MLB's stats table already takes
+   `season=all` and both player cards have a career view; the ranking reader needs the words and
+   the player row a way to open on career.
+3. **The answer in the row.** "Whitmore avg" shows ".312 · 2026" as the player row's subtitle, so a
+   quick question needs no click. Free on WPBL, whose lines are in memory; one call on MLB.
+4. **A peek at the leader.** A ranking row says who leads and by what ("Most home runs · 52, …").
+5. **Live games first.** A club playing right now puts "Live · 3-2, bottom 6" at the top.
+6. **Clubs as the subject.** "SF team ERA", "most runs by a team" opens the team stats board.
+7. **The other section.** An MLB name typed on WPBL offers one row into MLB, and the reverse.
+8. **A part of a player's page.** "Ohtani splits", "Whitmore game log" opens the card scrolled
+   there, the way a club page row already does (`lib/sectionScroll.ts`).
+9. **Spans and splits.** "hr since August", "avg at home 2026" as a Find link with a date range,
+   once the Find board takes one.
+10. **Records and firsts.** "first home run", "longest game" opens the Hall of Firsts or Bests.
+11. **Questions in Recent.** A ranking or a Find question run from the box comes back in Recent,
+    as players and clubs do.
+12. **Keyboard.** Tab accepts the top row; a "?" row lists what the box understands.
+13. **Examples from use.** Pick the idle examples from what readers ask, once the "Offered nothing
+    for" list on /admin (live from v1.158.0) and the picks by kind have a few weeks in them.
+14. **Measure the forgiving pass.** Mark a pick that came from the typo fallback, so the Search
+    box card says how often it saves a search.
+15. **Cache MLB name lookups.** Backspacing, or a compare, refetches a name StatsAPI just answered.
+
+Two limits to keep in mind rather than fix. A player's name inside a Find question ("Whitmore 2
+hr") is dropped from the Find row, because Find cannot filter by player; the name search beside it
+finds the player. And MLB has no regular-season page for a pairing of
+clubs, so "Cubs vs Cardinals" answers with their latest and next game only.
+
 ## Where new things go (decided Aug 27, 2026)
 
 The section has four nouns: games, clubs, players, and **the league itself**. The fourth has
@@ -1555,6 +1592,18 @@ is retired.
 ---
 
 ## Shipped log
+
+### Oct 14, 2026: search reads questions, not just names (v1.158.0)
+
+Both sections, one box. Before anything is typed it shows three recents and the examples (MLB's
+"Your team" and "Trending" lists are gone: they pushed the examples off the screen). Typed, it now
+answers rankings ("most hr 2026" links the stats table sorted on HR for 2026), a year with a name
+("Ohtani 2023" opens that season), two players ("Whitmore vs Ibarra", the compare page), a club and
+a part of its page ("Dodgers roster", scrolled to it), and games ("SF vs NY sep 9", "Cubs next
+game"; two WPBL clubs also link their series page). Typos are forgiven on a miss, in names, clubs
+and stat words, and MLB clubs answer to nicknames. The box records the typed text only when it
+offered nothing for it, in both sections, listed on /admin's Search box card as "Offered nothing
+for" (migration `20261014183000`). What is left is "Search: what's next" above.
 
 ### Oct 12, 2026: the season-series pages, laid out for a desktop
 

@@ -8,6 +8,8 @@
 > Last realigned: **Sep 27, 2026**, around bringing the section up to the WPBL standard (see
 > "Aligning with WPBL" below, which is now the live front). Before that Aug 10, 2026.
 > Last reviewed for handoff: **Oct 2, 2026**, at v1.115.1. Start at "Handoff" just below.
+> Search is site-wide and planned in [ROADMAP-WPBL.md](ROADMAP-WPBL.md), "Search: what's next"
+> (Oct 14, 2026), which covers both sections.
 > Audited **Oct 10, 2026** with the rest of the site: the site-wide ops list (error reporting,
 > layout shift, database headroom, Actions, dependencies) is in "The Oct 10, 2026 audit" in
 > [ROADMAP-WPBL.md](ROADMAP-WPBL.md), and MLB's own findings are under "Handoff".
