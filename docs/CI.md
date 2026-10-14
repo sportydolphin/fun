@@ -14,11 +14,12 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 | `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, then the code the build never sees (below) | about 3 min |
 | `layout` | `layout` | nothing itself: passes only if every `layout` slice did | seconds |
 
-`layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, about 4 minutes
-each, and `layout experiments` sweeps the flag-gated routes beside them in under a minute. Four
-slices took about 9 minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight
-slices, and the loading-shift check at the default text size only, brought that down without
-shortening a wait. The `layout` job exists because a matrix reports one check per slice under its own
+`layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, and `layout
+experiments` sweeps the flag-gated routes beside them in about a minute. Four slices took about 9
+minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight slices, and the
+loading-shift check at the default text size only, brought that down without shortening a wait.
+The slices are uneven: on the run that merged that change they took from 2m21s to 5m44s, and the
+slowest one sets the pull request's time, so a UI pull request takes about 6 minutes. The `layout` job exists because a matrix reports one check per slice under its own
 name, and the ruleset can only require a fixed name. It runs under `always()`: a job whose needs
 failed is otherwise skipped, and a skipped required check counts as passing. **Rename a job and
 you rename the check the ruleset waits for**, so every pull request waits forever.
