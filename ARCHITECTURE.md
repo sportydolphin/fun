@@ -162,7 +162,11 @@ flowchart LR
   `CAREER_SORTS`), and WPBL's one-season table only while the league has a single season
   (`seasonCount` on the bridge). A part of the card beside a name ("Ohtani splits") goes the same
   way (`queryPart`) and the row asks for the scroll (`src/lib/playerParts.ts`), held while the card's
-  blocks land; a stat asked about ("what is FIP") opens the glossary at the term (`askedTerms`). A miss is retried forgivingly
+  blocks land; a stat asked about ("what is FIP") opens the glossary at the term (`askedTerms`).
+  Questions run from the box come back under Recent on this device
+  ([`src/lib/recentQuestions.ts`](src/lib/recentQuestions.ts)), merged with the section's synced
+  players and clubs by when each was opened; MLB's name lookups are kept ten minutes
+  (`searchPlayers` in `src/mlb/api.ts`). A miss is retried forgivingly
   ([`src/lib/fuzzyName.ts`](src/lib/fuzzyName.ts)), only on a miss, so a correct spelling is never
   crowded; a slipped stat word is put right inside the parser. A club page row scrolls to its part
   through [`src/lib/sectionScroll.ts`](src/lib/sectionScroll.ts), a one-shot request rather than a

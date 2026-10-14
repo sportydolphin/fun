@@ -210,6 +210,9 @@ them are load-bearing:
   `_picked`, `_dismissed`, `_recents_cleared`, `search_finder_picked`) start that day and are read
   by `admin_search_palette`. Every open ends in one `picked` that left the box (an `example` row
   fills it with a sample question and keeps it open, so it is excluded) or one `dismissed`.
+  From the same day a pick of a player or club row that only the typo fallback found carries
+  `forgiving: true` (absent otherwise), counted per kind as `picks[].forgiving`; a question taken
+  from Recent is `kind: 'recent'`, like a player taken from there.
 - **Two events store typed text, and both only on a miss.** `wpbl_searched` keeps `q` when the
   query matched nothing (no player, club, Find reading, ranking or pair), and since Oct 14, 2026
   `command_palette_dismissed` keeps it, in both sections, when the box was closed having offered

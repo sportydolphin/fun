@@ -155,6 +155,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     updateSearchBridge({
       playerResults: state.playerResults,
       teamResults: state.teamResults,
+      resultsForgiving: state.resultsForgiving,
       searching: state.searching,
       handleSelectPlayer: (p, season) => {
         track(EVENTS.MLB_PLAYER_OPENED, { playerId: (p as any).id, from: 'header_search' })
@@ -172,7 +173,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       },
       isRegistered: true,
     })
-  }, [state.playerResults, state.teamResults, state.searching, handleBridgeSelect, active]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.playerResults, state.teamResults, state.resultsForgiving, state.searching, handleBridgeSelect, active]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A player page's title and description. seo.ts describes the tabs and the thirty clubs from a
   // table; a player cannot be in one, since the name arrives with a fetch. Keyed on the player's
@@ -262,7 +263,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (!active) return
     return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], resultsForgiving: { players: false, teams: false }, searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
       setSearchQuery('')
     }
   }, [active])

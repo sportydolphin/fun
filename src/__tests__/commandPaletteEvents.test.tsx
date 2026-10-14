@@ -42,7 +42,7 @@ const named = (name: string) => track.mock.calls.filter(c => c[0] === name).map(
 const input = () => screen.getByRole('combobox')
 
 describe('the search box', () => {
-  beforeEach(() => { track.mockClear(); window.history.replaceState({}, '', '/wpbl') })
+  beforeEach(() => { track.mockClear(); localStorage.clear(); window.history.replaceState({}, '', '/wpbl') })
   afterEach(() => { cleanup() })
 
   it('shows the recents first when nothing is typed, and a recent pick says so', async () => {
@@ -179,6 +179,33 @@ describe('the search box', () => {
     await user.keyboard('{Enter}')
     expect(pendingSectionScroll()).toBe('section-term-FIP')
     expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'definition', rank: 0 })
+  })
+
+  it('brings a question back under Recent, above an older player, and clears both together', async () => {
+    const user = userEvent.setup()
+    const recent = { label: 'Recent', kind: 'recent' as const, rows: [row('player-1', 'Kelsie Whitmore')], onClear: vi.fn() }
+    render(<Host idle={[recent]} />)
+    await user.keyboard('most hr 2026')
+    await user.keyboard('{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'reopen' }))
+
+    const group = await screen.findByRole('listbox')
+    const options = within(group).getAllByRole('option')
+    expect(options[0]).toHaveAccessibleName(/Most home runs/)
+    expect(options[0]).toHaveAttribute('href', '/wpbl/stats?board=players&side=hitting&sort=hr&dir=desc&season=2026')
+    expect(options[1]).toHaveAccessibleName(/Kelsie Whitmore/)
+
+    await user.click(screen.getByText('Clear'))
+    expect(recent.onClear).toHaveBeenCalled()
+    expect(screen.queryByRole('option', { name: /Most home runs/ })).toBeNull()
+  })
+
+  it('says on the pick when the row was found only by the typo fallback', async () => {
+    const user = userEvent.setup()
+    render(<Host results={[{ ...row('player-1', 'Kelsie Whitmore'), forgiving: true }]} />)
+    await user.keyboard('whitmor')
+    await user.keyboard('{Enter}')
+    expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'result', forgiving: true })
   })
 
   it('hands on a career word as the span, so the player opens on the career', async () => {

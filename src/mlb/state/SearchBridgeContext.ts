@@ -45,6 +45,9 @@ export interface SearchResultRow {
   subtitle?: string
   avatar: SearchResultAvatar
   onSelect: () => void
+  /** Found only by the forgiving pass (lib/fuzzyName.ts): a slip the exact search missed. Carried
+   *  onto the pick, so /admin can say how often that pass is the one that answered. */
+  forgiving?: boolean
 }
 
 export interface SearchBridgeState {
@@ -58,6 +61,8 @@ export interface SearchBridgeState {
   queryPart: PlayerPart | null
   playerResults: PlayerBridgeItem[]
   teamResults: TeamBridgeItem[]
+  /** Which of the current results came from the forgiving pass, not the exact one. */
+  resultsForgiving: { players: boolean; teams: boolean }
   searching: boolean
   handleSelectPlayer: ((p: PlayerBridgeItem, season?: number | 'career' | null) => void) | null
   handleSelectTeam: ((t: TeamBridgeItem) => void) | null
@@ -89,6 +94,7 @@ const DEFAULT: SearchBridgeState = {
   seasonCount: null,
   playerResults: [],
   teamResults: [],
+  resultsForgiving: { players: false, teams: false },
   searching: false,
   handleSelectPlayer: null,
   handleSelectTeam: null,

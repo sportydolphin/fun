@@ -1129,6 +1129,12 @@ export default function AdminPage() {
                       picked {picks.map(p => `${p.kind} ${p.events} (row ${p.avg_rank ?? '—'} avg, top ${formatShare(p.top, p.events)})`).join(' · ')}
                     </Typography>
                   )}
+                  {/* Searches a typo would have lost, found by the forgiving pass (lib/fuzzyName.ts). */}
+                  {picks.some(p => p.forgiving) && (
+                    <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.25 }}>
+                      saved by typo matching {picks.reduce((n, p) => n + (p.forgiving ?? 0), 0)} of {picks.filter(p => p.kind === 'result').reduce((n, p) => n + p.events, 0)} player and club picks
+                    </Typography>
+                  )}
                   {finder.length > 0 && (
                     <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.25 }}>
                       stat questions {finder.map(f => `${f.side} ${f.events}${f.clubs ? `, ${f.clubs} with a club` : ''}${f.ignored ? `, ${f.ignored} dropped a word` : ''}`).join(' · ')}

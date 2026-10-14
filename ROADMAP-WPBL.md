@@ -1144,14 +1144,18 @@ worth doing:
 9. **Spans and splits.** "hr since August", "avg at home 2026" as a Find link with a date range,
    once the Find board takes one.
 10. **Records and firsts.** "first home run", "longest game" opens the Hall of Firsts or Bests.
-11. **Questions in Recent.** A ranking or a Find question run from the box comes back in Recent,
-    as players and clubs do.
+11. ✅ **Questions in Recent** (Oct 14). A ranking, a Find question or a glossary term run from the
+    box comes back in Recent, merged with the players and clubs by when each was opened
+    (`src/lib/recentQuestions.ts`). On this device only: the sections' synced recents are typed as
+    a player or a club, and an older client drops anything else as it writes the list back.
 12. **Keyboard.** Tab accepts the top row; a "?" row lists what the box understands.
 13. **Examples from use.** Pick the idle examples from what readers ask, once the "Offered nothing
     for" list on /admin (live from v1.158.0) and the picks by kind have a few weeks in them.
-14. **Measure the forgiving pass.** Mark a pick that came from the typo fallback, so the Search
-    box card says how often it saves a search.
-15. **Cache MLB name lookups.** Backspacing, or a compare, refetches a name StatsAPI just answered.
+14. ✅ **Measure the forgiving pass** (Oct 14). A pick of a row only the typo fallback found carries
+    `forgiving: true`, and the Search box card says how many player and club picks it saved
+    (migration `20261014194835`, not applied yet).
+15. ✅ **Cache MLB name lookups** (Oct 14). `searchPlayers` keeps each name's answer ten minutes,
+    shares a call in flight, and keeps no failure.
 
 Two limits to keep in mind rather than fix. A player's name inside a Find question ("Whitmore 2
 hr") is dropped from the Find row, because Find cannot filter by player; the name search beside it

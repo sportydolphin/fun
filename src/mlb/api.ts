@@ -18,13 +18,36 @@ export * from './apiContracts'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
-export async function searchPlayers(name: string): Promise<Player[]> {
-  const r = await fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(name)}&sportId=1&hydrate=currentTeam`)
-  const d = await r.json()
-  const people: Player[] = d.people ?? []
-  // Active players first, retired players after, which covers the full modern era
-  return people.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
+// THE NAME LOOKUPS, KEPT FOR TEN MINUTES. The search asks StatsAPI on every settled keystroke, and
+// a reader backspacing "ohtani" to "ohta" and back, a compare asking for both halves of "Ohtani vs
+// Judge" on each key, and the forgiving pass's short starts ("oh") all re-asked for answers they
+// had seconds earlier. Kept as the promise, so two asks in flight share one call; a failed one is
+// dropped, so the next ask tries again. Bounded, oldest out first: a long session types a lot.
+const NAME_TTL_MS = 10 * 60_000
+const NAME_CACHE_MAX = 200
+const nameCache = new Map<string, { at: number; people: Promise<Player[]> }>()
+
+export function searchPlayers(name: string): Promise<Player[]> {
+  const key = name.trim().toLowerCase()
+  const hit = nameCache.get(key)
+  if (hit && Date.now() - hit.at < NAME_TTL_MS) return hit.people.then(p => [...p])
+  const people = fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(name)}&sportId=1&hydrate=currentTeam`)
+    // A refusal is thrown rather than read as nobody, or an outage would be kept as an answer.
+    .then(r => { if (!r.ok) throw new Error(`people/search ${r.status}`); return r.json() })
+    .then((d: { people?: Player[] }) => {
+      const out = d.people ?? []
+      // Active players first, retired players after, which covers the full modern era
+      return out.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
+    })
+  nameCache.delete(key)
+  nameCache.set(key, { at: Date.now(), people })
+  if (nameCache.size > NAME_CACHE_MAX) nameCache.delete(nameCache.keys().next().value!)
+  people.catch(() => { if (nameCache.get(key)?.people === people) nameCache.delete(key) })
+  return people.then(p => [...p])
 }
+
+/** Tests only: forget every cached lookup. */
+export function clearPlayerSearchCache(): void { nameCache.clear() }
 
 /**
  * A second try for a name StatsAPI's prefix search missed, "Ohatni" or "Freddy Freman". The API
