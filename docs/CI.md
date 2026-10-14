@@ -18,8 +18,11 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 experiments` sweeps the flag-gated routes beside them in about a minute. Four slices took about 9
 minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight slices, and the
 loading-shift check at the default text size only, brought that down without shortening a wait.
-The slices are uneven: on the run that merged that change they took from 2m21s to 5m44s, and the
-slowest one sets the pull request's time, so a UI pull request takes about 6 minutes. The `layout` job exists because a matrix reports one check per slice under its own
+A slice takes 2 to 6 minutes, and the slowest one sets the pull request's time: 4m22s to 5m44s
+over three runs on Oct 14, 2026. **Which slice is slowest is the runner, not its routes**, so do not
+rebalance the slices by route. The same routes took 2m54s and 5m44s on two runs, every route costs
+between about 80 and 150 seconds, and a route's cost on one run barely predicts its cost on the next
+(correlation 0.31 across 45 routes). The `layout` job exists because a matrix reports one check per slice under its own
 name, and the ruleset can only require a fixed name. It runs under `always()`: a job whose needs
 failed is otherwise skipped, and a skipped required check counts as passing. **Rename a job and
 you rename the check the ruleset waits for**, so every pull request waits forever.
