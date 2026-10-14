@@ -1,0 +1,40 @@
+{
+  "season": null,
+  "league": "Women's Pro Baseball League",
+  "source": "https://sportydolphin.fun, mirrored from stats.womensprobaseballleague.com",
+  "note": "The clubs, the players and the links to videos, articles and photos, across every season. Plain JSON arrays of rows, one file per table, keys sorted. NOT a database backup: it is what the anonymous client can read, which is what the website serves. See scripts/export-wpbl-archive.ts.",
+  "exported_at": "2026-10-14T00:30:25.648Z",
+  "total_rows": 661,
+  "tables": [
+    {
+      "table": "wpbl_teams",
+      "rows": 4,
+      "sha256": "ec01de4c91c02535",
+      "bytes": 1276
+    },
+    {
+      "table": "wpbl_players",
+      "rows": 118,
+      "sha256": "afab7e84f7ab2ab7",
+      "bytes": 66485
+    },
+    {
+      "table": "wpbl_videos",
+      "rows": 460,
+      "sha256": "81dbad0a8620990e",
+      "bytes": 274546
+    },
+    {
+      "table": "wpbl_articles",
+      "rows": 63,
+      "sha256": "4396aa00bebbd556",
+      "bytes": 75498
+    },
+    {
+      "table": "wpbl_photos",
+      "rows": 16,
+      "sha256": "fe7c989a69639e8a",
+      "bytes": 27956
+    }
+  ]
+}

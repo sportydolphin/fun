@@ -23,7 +23,7 @@ import { SectionCard, TeamBadge, PlayerPortrait, chromePx, CARD_BORDER, CARD_FIL
 import { LiveHero } from './Live'
 import { useForegroundInterval } from '../lib/foregroundInterval'
 import PlayoffBracket from './PlayoffBracket'
-import { POSTSEASON_SCHEDULE, postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, championBannerUntil, championshipGames, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
+import { postseasonScheduleRows, postseasonSlots, BEST_OF, buildBracket, championResult, championBannerUntil, championshipGames, aliveContenders, winsNeeded, type PostseasonScheduleRow, type PostseasonSlot, type WpblBracket, type BracketSeries, type ChampionResult } from './derive/bracket'
 import {
   aggregateBatting, wpblQualifiers, plateAppearances, fmtRate,
   type WpblBatSeason,
@@ -54,6 +54,7 @@ import { useNewSince } from './newSince'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblArticle } from './types'
 import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
+import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from './offseasonCalendar'
 import { seasonOf, gamesInSeason, latestSeason } from './season'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
@@ -2536,20 +2537,6 @@ function ChampionBanner({ champion, season, runnerUp, champWins, rivalWins, dev,
 }
 
 /**
- * Whether the calendar says the postseason is over, for the one surface that has to guess before
- * any data exists: the skeleton. The loaded page keys on the decided champion (`seasonDone`),
- * which needs the schedule; this needs nothing, and answers from the last date the league
- * published for the final. A final decided before its last scheduled date leaves the skeleton on
- * the in-season shape for those few days, which is the same page it drew before this existed.
- */
-export function offseasonByCalendar(now = Date.now()): boolean {
-  const dates = Object.values(POSTSEASON_SCHEDULE).flat().map(g => g.date).sort()
-  const last = dates[dates.length - 1]
-  // The end of that day in the league's zone, generously: 06:00Z the next morning.
-  return !!last && now > Date.parse(`${last}T00:00:00Z`) + 30 * 3600_000
-}
-
-/**
  * Whether a Home landing will read the season's box-score lines, judged by the calendar for a
  * caller that runs before the schedule has arrived (the warm-up in WpblApp). Once there is a
  * champion and the award results are off the page, the only cards that drew from them (Compare
@@ -2782,7 +2769,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // schedule for the cards about fixtures (the scoreboard, next and last game), which have to see
   // next year's opener in the spring; everything that sums or seeds a season (the standings behind
   // the bracket, the leaders, the ballot, the race) reads `seasonGames` and lines cut to match.
-  const { cut, seasonGames } = useWpblSeason(games, { current: true })
+  const { cut, seasonGames, schedule, current } = useWpblSeason(games, { current: true })
   // A seeded-but-unplayed postseason chip opened as a matchup preview. Local, not a route: there
   // is no feed game to address, so this is a plain modal that closes on X/Escape.
   const [matchup, setMatchup] = useState<MatchupPreviewArg | null>(null)
@@ -2928,6 +2915,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // dev-simulated champion counts, so the offseason preview shows the offseason Home.
   const realChampion = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
   const seasonDone = !!realChampion || !!devChampTeam
+  // Next year's opener, for the skeleton's guess on a later load (see offseasonByCalendar).
+  const opener = nextOpeningDay(schedule, current)
+  useEffect(() => { rememberNextOpeningDay(opener) }, [opener])
 
   // Whether anything on this render reads the box-score lines. Off only on the offseason Home once
   // the award results have come down: Compare and the ballot are filtered out of `seasonCards`

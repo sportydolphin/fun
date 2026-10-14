@@ -1,8 +1,15 @@
-# The WPBL inaugural season, in files
+# The WPBL, in files
 
-`wpbl-2026/` is the public record of the Women's Pro Baseball League's first season: one JSON
-file per table, plain arrays of rows, keys sorted, plus a `manifest.json` with row counts and a
-digest of each file.
+The public record of the Women's Pro Baseball League, one directory per season:
+
+- `wpbl-<year>/` holds every row keyed to a game played that year: the games, the batting,
+  pitching and fielding lines, the plays, the pitch tracking, our play corrections and the trade
+  log. A finished season's directory stops changing, so a later diff there is a correction.
+- `wpbl/` holds what belongs to no one year: the clubs, the players, and the links to videos,
+  articles and photos.
+
+Each is one JSON file per table, plain arrays of rows, keys sorted, plus a `manifest.json` with
+row counts and a digest of each file.
 
 Written by [`scripts/export-wpbl-archive.ts`](../scripts/export-wpbl-archive.ts) and refreshed
 weekly by the `wpbl-archive` workflow, which commits only when the data actually moved.
