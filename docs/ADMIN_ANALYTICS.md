@@ -15,6 +15,8 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | SQL: nine `security definer` RPCs | [`20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) + [`20260820064501_add_admin_wpbl_stats_board_rpc.sql`](../scripts/migrations/20260820064501_add_admin_wpbl_stats_board_rpc.sql) + [`20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql`](../scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql) |
 | SQL: the offseason pages card | [`20260925013201_admin_wpbl_page_usage_rpc.sql`](../scripts/migrations/20260925013201_admin_wpbl_page_usage_rpc.sql) |
 | SQL: the MLB card | [`20260928073655_admin_mlb_usage_rpc.sql`](../scripts/migrations/20260928073655_admin_mlb_usage_rpc.sql) |
+| SQL: the Search box card | [`20261014060457_add_admin_search_palette_rpc.sql`](../scripts/migrations/20261014060457_add_admin_search_palette_rpc.sql) |
+| The search box and its events | [`src/CommandPalette.tsx`](../src/CommandPalette.tsx), opened from [`src/App.tsx`](../src/App.tsx) |
 | MLB Home card seen / used | [`src/mlb/components/TrackedCard.tsx`](../src/mlb/components/TrackedCard.tsx) |
 | SQL: the Page speed card | [`20260927074721_add_admin_web_vitals_rpc.sql`](../scripts/migrations/20260927074721_add_admin_web_vitals_rpc.sql) |
 | Real-user timing capture | [`src/lib/webVitals.ts`](../src/lib/webVitals.ts), `trackOnExit` in [`src/lib/analytics.ts`](../src/lib/analytics.ts) |
@@ -171,6 +173,7 @@ last two rows, which say what they take instead.
 | `admin_wpbl_stats_boards(days_back, tz)` | inside the Stats tab: boards, how they were reached, sort columns, filter use |
 | `admin_wpbl_entry_points(days_back, tz)` | `props->>'from'` for player / team / game opens, plus Game Center tab × via |
 | `admin_wpbl_search(days_back, tz, lim)` | the header-search funnel, what was picked, and the queries that matched nothing |
+| `admin_search_palette(days_back, tz)` | the search box in both sections, per section: opens, picks that left it, closes with nothing (after typing, and offered nothing), how it was opened (`via`), picks by kind with average row and top-row share, stat questions by side, and WPBL queries that read as one |
 | `admin_top_players(days_back, lim, tz)` | `props->>'playerId'` joined to `wpbl_players` |
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
@@ -193,6 +196,20 @@ them are load-bearing:
 - **`admin_wpbl_entry_points` filters `game_center_opened` on `props->>'league' = 'wpbl'`.**
   That event is shared with `/mlb`, which has its own entry points and none of this labelling;
   without the filter the card would mix two sections' surfaces under one set of names.
+- **The search became one box on Oct 14, 2026, and three things changed with it.** The toolbar
+  field turned into a button that opens the palette (`src/CommandPalette.tsx`), as do its icon,
+  "/" and Ctrl+K, in both sections. (1) The section events still fire on a pick, from the same
+  handlers, so `wpbl_search_picked` (`source` result or recent) and `mlb_player_opened` /
+  `mlb_team_opened` (`from` `header_search` or `recent`) are one unbroken series across the date.
+  MLB's Your team and Trending rows still report `header_search`, exactly as they did from the old
+  dropdown; the palette's own `kind: 'suggestion'` is what tells them apart. (2) `wpbl_searched`
+  gained `finder`, the number of Find readings offered, and a query with one is NOT a miss: it
+  keeps no `q` and is not in `empty`. Before the date every stat question typed into WPBL's field
+  was counted as a search that found nothing, so the "Found nothing" share drops on Oct 14 for a
+  reason that is not better search. (3) The palette's own events (`command_palette_opened`,
+  `_picked`, `_dismissed`, `_recents_cleared`, `search_finder_picked`) start that day and are read
+  by `admin_search_palette`. Every open ends in one `picked` that left the box (an `example` row
+  fills it with a sample question and keeps it open, so it is excluded) or one `dismissed`.
 - **`wpbl_searched` is the only event that stores typed text, and only on a miss.**
   `analytics.ts` keeps `q` when the query matched nothing and drops it otherwise, capped at 40
   characters. That asymmetry is the point: a query that matched is already described by
