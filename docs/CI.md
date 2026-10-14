@@ -20,11 +20,14 @@ name, and the ruleset can only require a fixed name. It runs under `always()`: a
 failed is otherwise skipped, and a skipped required check counts as passing. **Rename a job and
 you rename the check the ruleset waits for**, so every pull request waits forever.
 
-**Every workflow runs Node 24, which brings npm 11, and the lockfile is written by npm 11.** npm 10
-and 11 disagree about which peer dependencies get a top-level lockfile entry, so a lockfile written
-by one fails the other's `npm ci` before a single check runs (Oct 14, 2026: a pull request red on
-every check in seconds, `Missing: @emnapi/core from lock file`). `devEngines` in package.json now
-makes npm 10 refuse at install with `EBADDEVENGINES`, which names the problem, and `.nvmrc` says 24.
+**The lockfile.** Every workflow runs Node 24 with npm 11, `.nvmrc` says 24, and `devEngines` in
+package.json makes any other npm refuse at install with `EBADDEVENGINES`. That alone did not fix
+Oct 14, 2026, when every check failed in seconds on `Missing: @emnapi/core from lock file`: npm on
+Windows leaves `@napi-rs/wasm-runtime`'s optional `@emnapi/core` and `@emnapi/runtime` peers out of
+the lockfile's top level, and npm on Linux requires them, so any `npm install` on a Windows machine
+broke CI again. Both are now devDependencies, which puts them in the top level on every platform;
+nothing imports them, so knip is told to ignore them. Another `Missing: X from lock file` is the
+same bug: add X to devDependencies the same way.
 
 **A branch is kept current by `pr-sync.yml`.** The ruleset does not require a branch to be up to
 date, so after each pull request lands that workflow merges `main` into every open pull request set

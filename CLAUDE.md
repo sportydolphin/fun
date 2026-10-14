@@ -95,10 +95,12 @@ Violating these creates real problems. Treat them as hard constraints.
   **Never fade text with `opacity`** to make something recessive (an eliminated club, a heatmap
   cell): it takes the text under 4.5:1 along with everything else. Use the secondary ink, and fade
   only the logo or the fill (`heatCell` in [`src/lib/contrast.ts`](src/lib/contrast.ts)).
-- **Write the lockfile with npm 11 (Node 24), as CI does.** npm 10 and 11 disagree on which peer
-  dependencies get a top-level entry, so a lockfile one writes, the other's `npm ci` refuses, and
-  every check fails in seconds (Oct 14, 2026). `devEngines` in package.json makes the wrong npm stop
-  at install rather than at CI.
+- **A lockfile written on Windows can fail `npm ci` on Linux.** npm on Windows left
+  `@napi-rs/wasm-runtime`'s optional `@emnapi/*` peers out of the lockfile's top level, CI's Linux
+  npm required them, and every check failed in seconds (Oct 14, 2026). Both are now plain
+  devDependencies so every platform writes them; do not remove them as unused (knip ignores them).
+  A new `Missing: X from lock file` in CI is the same thing: add X the same way. Node 24 and npm 11
+  everywhere, enforced by `devEngines`.
 - **Read the open pull requests, not just `main`.** Everything lands through pull requests that
   merge themselves, so work in flight (a roadmap section, a fix) lives on their branches until
   then. A SessionStart hook ([`scripts/open-prs.mjs`](scripts/open-prs.mjs)) lists them with their
