@@ -8,7 +8,7 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   fetchWpblRunEnvironment, getCachedWpblRunEnvironment,
-  fetchWpblAllFielding, getCachedWpblAllFielding,
+  fetchWpblAllFielding, getCachedWpblAllFielding, fetchWpblSchedule,
 } from './api'
 import { buildRunExpectancy, playRunValues, fmtRunValue } from './derive/runExpectancy'
 import { playerValueSeasons, EMPTY_VALUE_TOTALS, type WpblValueTotals } from './derive/playerValue'
@@ -27,7 +27,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
-import { isPostseasonGame, scopedLines, type SeasonScope } from './season'
+import { currentSeason, isPostseasonGame, scopedLines, type SeasonScope } from './season'
 import {
   decodeFinderQuery, encodeFinderQuery, finderFields,
   type FinderQuery, type FinderVenue,
@@ -454,7 +454,7 @@ export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'o
  *  round trip (about 650ms) before the slowest reads on the site had even started. Each fetcher
  *  shares an in-flight request (`once` in api.ts), so the tab's own effects pick these up rather
  *  than asking twice. Failures are the tab's to handle when it asks; here they are dropped. */
-export function warmStatsReads(): void {
+export function warmStatsReads(picked: number | null): void {
   const drop = () => { /* the tab's own read reports it */ }
   fetchWpblAllPlayers().catch(drop)
   fetchWpblAllLines().catch(drop)
@@ -463,8 +463,12 @@ export function warmStatsReads(): void {
   // The priced row rather than the play log: the tab asks for the plays itself only if the row
   // turns out to be behind the schedule.
   fetchWpblRunEnvironment().catch(drop)
-  // The play log, which the Overall side is computed from and the tab opens on.
-  fetchWpblAllRunValuePlays().catch(drop)
+  // The play log, which the Overall side is computed from and the tab opens on. One season of it,
+  // so it waits for the schedule (already in flight for the section) to say which year that is
+  // when the address does not: a guess would download the wrong year or every year.
+  fetchWpblSchedule()
+    .then(games => fetchWpblAllRunValuePlays(picked ?? currentSeason(games)))
+    .catch(drop)
 }
 
 export function carryStatsParams(from: URLSearchParams, to: URLSearchParams): void {
@@ -1277,7 +1281,10 @@ export default function WpblStatsView({
     return () => { cancelled = true }
   }, [])
   const runEnvCurrent = runEnvironmentCurrent(runEnv, games)
-  const [allRvPlays, setRvPlays] = useState(() => getCachedWpblAllRunValuePlays())
+  // Held with the season it was read for, since the read is one season's (fetchWpblPlayLog): a
+  // year picked from the menu leaves this behind, `needPlays` turns true and the effect reads it.
+  const [rvRead, setRvRead] = useState(() => ({ season, plays: getCachedWpblAllRunValuePlays(season) }))
+  const allRvPlays = rvRead.season === season ? rvRead.plays : null
   const rvPlays = useMemo(() => (allRvPlays ? cut(allRvPlays) : null), [allRvPlays, cut])
   // Overall is built from the play log itself, so it asks whatever the priced row says.
   const needPlays = !rvPlays && ((runEnvAsked && !runEnvCurrent) || side === 'overall')
@@ -1286,10 +1293,10 @@ export default function WpblStatsView({
     let cancelled = false
     // An empty log on failure, so Overall says "No stats yet" rather than holding its skeleton.
     // The weighted columns read an empty log as no weights, and dash, as they did before.
-    fetchWpblAllRunValuePlays().then(p => { if (!cancelled) setRvPlays(p) })
-      .catch(() => { if (!cancelled) setRvPlays(prev => prev ?? []) })
+    fetchWpblAllRunValuePlays(season).then(p => { if (!cancelled) setRvRead({ season, plays: p }) })
+      .catch(() => { if (!cancelled) setRvRead(prev => (prev.season === season && prev.plays ? prev : { season, plays: [] })) })
     return () => { cancelled = true }
-  }, [needPlays])
+  }, [needPlays, season])
   // FIP's weights come from the same pass, and so dash until it lands, rather than falling back
   // to MLB's: a column whose numbers change under the reader once the plays arrive would be
   // worse than one that fills in.

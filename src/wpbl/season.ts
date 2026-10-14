@@ -18,8 +18,7 @@ import type { WpblGame } from './types'
 // The slicing itself is league-neutral and lives in src/league/season.ts; re-exported here under
 // the names sixty-odd callers already use. The `.ts` is for Deno, which loads this file.
 export {
-  countsInStandings, excludedGameIds, regularSeasonLines, isPostseasonGame, postseasonGameIds,
-  scopedLines, scopedGames, regularSeasonGames,
+  countsInStandings, regularSeasonLines, isPostseasonGame, postseasonGameIds, scopedLines, scopedGames,
 } from '../league/season.ts'
 export type { SeasonScope } from '../league/season.ts'
 

@@ -40,6 +40,9 @@ the site, each of which used to fail only there:
   at `supabase functions deploy`. It is not `deno check`: Deno's strict mode reports ten disagreements
   between the supabase-js types and the ingest's row shapes, and those are their own piece of work.
 
+Last, `check` runs the dead-code report (`npm run knip`), which never fails the job: see "Dead code"
+below.
+
 Other checks on a pull request:
 
 - `Cloudflare Pages`: builds a preview of the branch. Useful, not required.
@@ -100,6 +103,31 @@ bugs. A dependency left out on purpose gets
 (usually "keyed on the id, not the object, which is rebuilt on every poll"). For a hook with no
 dependency list at all, the directive goes above the hook call, not above its closing brace.
 `npm run lint -- --fix` removes unused imports; an unused variable is left for a person.
+
+## Dead code
+
+`npm run knip` lists unused files, exports and dependencies across `src/`, `functions/`,
+`scripts/`, `shared/` and the edge functions; `knip.jsonc` says what runs without being imported
+(Pages Functions route by path, each edge function is its own entry, the cron jobs are run by
+name). It was clean when it went in, on Oct 14, 2026, after a first pass removed what it found:
+a module from the deleted toys, the Hall of Firsts' read and logic (its card came off Home on
+Aug 18), and some forty exports nothing imported.
+
+The CI step **reports and never blocks** (`continue-on-error`). A change that orphans an export
+leaves it for the next change to delete rather than holding itself up, so a yellow step on a
+pull request is a to-do, not a failure. Keep it at zero all the same: a list that is never empty
+is a list nobody reads, which is how the lint warnings got to 45.
+
+Two things it cannot see, so each carries a JSDoc tag instead of an entry in a list:
+
+- **Kept on purpose.** `@public` on the export, with the reason in the same comment (the Discord
+  funnel RPC kept for its history, the recap outlet's sitemap kept for the day the feed's window
+  closes, a compile-time assertion type that is exported only so it is not an unused local).
+- **Two names for one thing.** `@alias` on the second (`WPBL_PLAYERS_INDEX`), or knip reports
+  the pair as a duplicate export.
+
+Test files count as entries, so an export used only by a test is not reported. That is the one
+gap: a module whose only importer is its own test is dead code knip will call alive.
 
 ## The layout sweep
 

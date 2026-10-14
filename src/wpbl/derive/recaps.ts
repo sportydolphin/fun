@@ -19,7 +19,6 @@
  *  and the `author` meta on every post. There is no personal byline anywhere on the site, so
  *  the publication IS the credit; do not invent one from the contact address. */
 export const PUBLICATION_NAME = 'This is Women’s Baseball'
-export const PUBLICATION_URL = 'https://thisiswomensbaseball.com'
 export const FEED_URL = 'https://thisiswomensbaseball.com/f.rss'
 /**
  * Every post they have published, which the feed does not give you.
@@ -28,6 +27,7 @@ export const FEED_URL = 'https://thisiswomensbaseball.com/f.rss'
  * window rather than an archive: it covers a season's recaps only until fifty newer posts push
  * them out. Nothing reads this yet, and it is here so that the day the window closes over the
  * back catalogue, the fix is known.
+ * @public kept unread on purpose, for the reason above.
  */
 export const SITEMAP_URL = 'https://thisiswomensbaseball.com/sitemap.blog.xml'
 

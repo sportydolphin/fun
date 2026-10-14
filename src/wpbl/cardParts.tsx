@@ -2,7 +2,7 @@ import { useDark } from '../ui/useDark'
 import { wpblAccentFg } from './constants'
 // The heading and show-more live in src/ui/playerCard.tsx since Oct 2026, shared with MLB's player
 // page; re-exported so nothing in the section changed its imports.
-export { SectionHead, ShowMoreButton, SECTION_LABEL_SX, SECTION_CAPTION_SX } from '../ui/playerCard'
+export { SectionHead, ShowMoreButton, SECTION_CAPTION_SX } from '../ui/playerCard'
 
 // The three pieces every block on the player card shares: its heading, its show-more control,
 // and the colour a good number is drawn in.

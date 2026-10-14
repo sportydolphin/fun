@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { fetchSeasonDates as fetchDates, phaseOn, hasGamesLeft, regularGamesLeft } from '../../shared/mlbSeason.js'
+import { fetchSeasonDates as fetchDates, phaseOn, regularGamesLeft } from '../../shared/mlbSeason.js'
 import type { SeasonDates, SeasonPhase } from '../../shared/mlbSeason.js'
 import { useDevSeasonPhase } from './dev/devSeasonPhase'
 import { OPENING_DAY_KEY } from './constants'
 
-export { phaseOn, hasGamesLeft }
+export { phaseOn }
 export type { SeasonDates, SeasonPhase }
 
 // ─── Where the MLB season is, for the surfaces that change shape with it ──────

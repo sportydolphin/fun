@@ -626,5 +626,3 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
     </Box>
   )
 }
-
-export default PlayerTrendsChart

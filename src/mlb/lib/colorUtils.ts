@@ -15,7 +15,7 @@ export function brightColor(hex: string): string {
   return `#${br.toString(16).padStart(2, '0')}${bg.toString(16).padStart(2, '0')}${bb.toString(16).padStart(2, '0')}`
 }
 
-export { textTone, contrastRatio, whiteAlphaOn, edgeTone } from './contrast'
+export { textTone, edgeTone } from './contrast'
 import { textTone, contrastRatio, edgeTone } from './contrast'
 
 /** textTone bound to the current theme and its card surface. */

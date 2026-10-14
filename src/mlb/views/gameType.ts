@@ -8,6 +8,4 @@
 // for things that are actually inert.
 export const GC_CAPS = '0.64rem'   // section labels, half-inning headings, table heads
 export const GC_META = '0.76rem'   // play prose, secondary lines, scores beside a heading
-export const GC_BODY = '0.86rem'   // event names, player names, values
-/** The "+2 runs" green, held to AA on each theme: #16a34a is 3.3:1 on white. */
-export const runGreen = (isDark: boolean) => (isDark ? '#4ade80' : '#15803d')
+export const GC_BODY = '0.86rem'

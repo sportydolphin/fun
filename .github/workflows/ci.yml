@@ -81,6 +81,14 @@ jobs:
       - name: Edge functions resolve
         run: deno cache --no-config --no-lock supabase/functions/*/index.ts
 
+      # DEAD CODE: unused files, exports and dependencies across src/, functions/, scripts/ and the
+      # edge functions (knip.jsonc). REPORTED, NEVER BLOCKING, on purpose: an export a change has
+      # just orphaned is the next change's to delete, not a reason to hold this one. Last, so it adds
+      # nothing to the path to the checks that do block. See docs/CI.md.
+      - name: Dead code
+        continue-on-error: true
+        run: npm run knip
+
   # The layout checks CLAUDE.md used to ask a person to do: overflow at four widths and both text
   # sizes, and what moves on screen when a skeleton is replaced. Against the dev server, because
   # the skeleton check needs ?devSlow, which only exists in a dev build; with every response served

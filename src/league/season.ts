@@ -138,8 +138,3 @@ export function scopedGames<T extends SeasonGame>(games: T[], scope: SeasonScope
   if (scope === 'all') return games
   return games.filter(g => (scope === 'regular' ? countsInStandings(g) : isPostseasonGame(g)))
 }
-
-/** The games that count, for callers counting games rather than filtering lines. */
-export function regularSeasonGames<T extends SeasonGame>(games: T[]): T[] {
-  return games.filter(countsInStandings)
-}

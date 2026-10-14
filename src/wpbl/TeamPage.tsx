@@ -335,7 +335,10 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
     [leagueLines, cut])
   // League-wide too, and NOT cleared between clubs for the same reason `allLines` is not: see
   // the note in the effect below.
-  const [leaguePitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
+  // The year on screen's plays, held with the year they were read for: a club tapped on the rail
+  // keeps them (they are league-wide), a year picked from the menu reads that year.
+  const [pitchRead, setPitchRead] = useState<{ season: number | null; plays: WpblPitchPlay[] } | null>(null)
+  const leaguePitchPlays = pitchRead && pitchRead.season === season ? pitchRead.plays : null
   const pitchPlays = useMemo(() => leaguePitchPlays && cut(leaguePitchPlays), [leaguePitchPlays, cut])
   // DERIVED, NOT FETCHED. This is `allLines` with one club picked out of it. As state written
   // inside the same `.then` as everything else, a club whose box scores were already in memory
@@ -402,14 +405,19 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
     Promise.all([
       fetchWpblRoster(team.id), fetchWpblAllPlayers(), fetchWpblAllLines(),
       fetchWpblLineupHistory(team.id), fetchWpblPitchingUsage(team.id),
-      fetchWpblAllPitchPlays(),
-    ]).then(([r, all, l, lh, pu, pp]) => {
+    ]).then(([r, all, l, lh, pu]) => {
       if (cancelled) return
       setLineups(lh); setUsage(pu)
-      setRoster(r); setLeague(all); setAllLines(l); setPitchPlays(pp)
+      setRoster(r); setLeague(all); setAllLines(l)
     })
     return () => { cancelled = true }
   }, [team.id])
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblAllPitchPlays(season).then(plays => { if (!cancelled) setPitchRead({ season, plays }) })
+      .catch(() => { /* the spec chart keeps its placeholder */ })
+    return () => { cancelled = true }
+  }, [season])
 
 
   // Record + standing from the shared derivation.

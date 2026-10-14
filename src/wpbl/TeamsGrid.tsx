@@ -219,7 +219,7 @@ export default function TeamsGrid({ teams, games: allGames, onSelect }: {
   onSelect: (t: WpblTeam) => void
 }) {
   // One year: the records, the fixtures, the spec chart and head to head all read that season.
-  const { cut, seasonGames: games } = useWpblSeason(allGames)
+  const { season, cut, seasonGames: games } = useWpblSeason(allGames)
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const fixtures = useMemo(
@@ -237,13 +237,20 @@ export default function TeamsGrid({ teams, games: allGames, onSelect }: {
   // BOTH, OR NOTHING. `teamSpecs` takes the plays as a required argument because Contact is
   // whiff rate; a chart drawn from the lines alone would be five axes and a lie.
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
-  const [pitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
+  // The year on screen's plays, held with the year they were read for, so a year picked from the
+  // menu reads that year rather than cutting the last one's to nothing.
+  const [pitchRead, setPitchRead] = useState<{ season: number | null; plays: WpblPitchPlay[] } | null>(null)
+  const pitchPlays = pitchRead && pitchRead.season === season ? pitchRead.plays : null
   useEffect(() => {
     let cancelled = false
     fetchWpblAllLines().then(l => { if (!cancelled) setLines(l) }).catch(() => { /* empty card */ })
-    fetchWpblAllPitchPlays().then(p => { if (!cancelled) setPitchPlays(p) }).catch(() => { /* empty card */ })
     return () => { cancelled = true }
   }, [])
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblAllPitchPlays(season).then(plays => { if (!cancelled) setPitchRead({ season, plays }) }).catch(() => { /* empty card */ })
+    return () => { cancelled = true }
+  }, [season])
   const teamIds = useMemo(() => teams.map(t => t.id), [teams])
   const specs = useMemo(
     () => lines && pitchPlays ? teamSpecs(teamIds, cut(lines.batting), cut(lines.pitching), games, cut(pitchPlays)) : null,

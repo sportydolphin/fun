@@ -220,7 +220,7 @@ baseline; presenting it as one account that did not add up was the bug.
 | Read | Surface | Corrected |
 |---|---|---|
 | `fetchWpblGamePlays` | Game Center play-by-play | yes |
-| `fetchWpblAllPlays` | (no surface: the Hall of Firsts card it fed was retired) | yes |
+| `fetchWpblPlayLog` | Run value, win probability, the pitch-code boards, batter vs pitcher, the season's spray chart | yes, before any filter |
 | `fetchWpblGameRecapPlays` | Home "Last Game" card, recap engine | yes |
 
 The corrections table is tiny and usually empty, so the per-game reads fetch it alongside the

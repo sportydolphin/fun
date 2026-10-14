@@ -241,7 +241,7 @@ export function positionRank(pos: string | null | undefined): number {
 // Innings conversions live in ./innings so the recap engine can be loaded outside the app
 // bundle (this module imports the logos as Vite assets, which nothing else can resolve).
 // Re-exported here because the whole section imports them from constants.
-export { outsToIp, ipToOuts, playedInnings } from './innings'
+export { outsToIp, playedInnings } from './innings'
 
 /**
  * How long until `targetMs`, in words: "in 3h 20m", "in 2d 5h", "in 14m".

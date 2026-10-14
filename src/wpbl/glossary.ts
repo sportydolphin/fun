@@ -1,4 +1,4 @@
-import { termFull, termPlain, type GlossaryEntry, type GlossaryRule, type GlossaryTerms } from '../league/glossary'
+import { termFull, termPlain, type GlossaryRule, type GlossaryTerms } from '../league/glossary'
 import { ERA_BASIS_CANONICAL, QUALIFY_PA_PER_GAME, QUALIFY_FLOOR_PA, type EraBasis } from './stats'
 
 /**
@@ -16,10 +16,9 @@ import { ERA_BASIS_CANONICAL, QUALIFY_PA_PER_GAME, QUALIFY_FLOOR_PA, type EraBas
  * is and nobody else. `plain` is the half that was missing, and it costs the writing rather
  * than the code: what the number is FOR, and what a good one looks like. A stranger cannot
  * read 1.768 without the second part, and the traffic says the section is mostly strangers.
+ *
+ * The shape is shared with MLB's glossary (src/league/glossary.ts); the words are this league's.
  */
-/** The shape is shared with MLB's glossary (src/league/glossary.ts); the words are this league's. */
-export type GlossaryTerm = GlossaryEntry
-
 export const STAT_TERMS: GlossaryTerms = {
   AVG: { full: 'Batting average', plain: 'Hits divided by at-bats. .300 is a very good season.' },
   OBP: { full: 'On-base percentage', plain: 'How often a batter reaches base at all, walks included. Higher is better.' },

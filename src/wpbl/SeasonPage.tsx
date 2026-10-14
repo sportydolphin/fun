@@ -280,18 +280,27 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
   // The play log is the biggest read on the page and only the biggest-plays and improbable-win
   // blocks want it, so it is separate and never gates the leaders above it. A slow or failed
   // play read leaves those two blocks out and the rest of the page whole.
+  //
+  // The year's plays only (fetchWpblPlayLog). Before the schedule has said which year is over,
+  // `year` is null and this asks for every season; the year's own read then waits on that one and
+  // cuts itself out of it, so the page never downloads the log twice.
   useEffect(() => {
     let cancelled = false
-    fetchWpblAllRunValuePlays().then(p => { if (!cancelled) setPlays(p) }).catch(() => { /* blocks omit themselves */ })
+    fetchWpblAllRunValuePlays(year).then(p => { if (!cancelled) setPlays(p) }).catch(() => { /* blocks omit themselves */ })
     return () => { cancelled = true }
-  }, [])
+  }, [year])
 
   // The spray chart's own read: every batted ball the narrative could place. Its own effect, and
   // allowed to never arrive, for the same reason the play log is: the leaders and fun facts above
   // it do not wait on it and the section simply omits the chart until it lands.
+  // The batted balls are a filter over that same log, so they cost nothing more.
   useEffect(() => {
     let cancelled = false
-    fetchWpblBattedBalls().then(b => { if (!cancelled) setBattedBalls(b) }).catch(() => { /* section omits itself */ })
+    fetchWpblBattedBalls(year).then(b => { if (!cancelled) setBattedBalls(b) }).catch(() => { /* section omits itself */ })
+    return () => { cancelled = true }
+  }, [year])
+  useEffect(() => {
+    let cancelled = false
     fetchWpblVideos().then(v => { if (!cancelled) setVideos(v) }).catch(() => { /* section omits itself */ })
     return () => { cancelled = true }
   }, [])

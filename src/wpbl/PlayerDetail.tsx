@@ -28,8 +28,7 @@ import { PlayerClips } from './Watch'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import PitchProfileBlock from './PitchProfile'
-import { fetchWpblBattedBalls, getCachedWpblBattedBalls } from './api'
-import type { WpblSprayPlay } from './types'
+import { isBattedBall } from './api'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
 import { wpblPlayerShortPath, wpblCompareStartPath, wpblComparePath, WPBL_AWARDS_PATH, WPBL_GLOSSARY_PAGE } from './routes'
 import { playerMatchups, playerPlayIds, type WpblMatchupLine } from './derive/matchups'
@@ -516,21 +515,6 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     return () => { cancelled = true }
   }, [player.id])
 
-  /**
-   * Every batted ball of the season, for the spray chart, seeded from the app-wide cache.
-   *
-   * FETCHED HERE RATHER THAN PASSED IN, because this is the only surface that wants it and
-   * the read is its own cached call: a player page opened cold pays for it once and every
-   * player opened afterwards is free. Deliberately NOT the plays `fetchWpblAllPlays` returns,
-   * which are filtered to what can set a milestone and so contain no routine outs.
-   */
-  const [battedBalls, setBattedBalls] = useState<WpblSprayPlay[]>(() => getCachedWpblBattedBalls() ?? [])
-  useEffect(() => {
-    if (battedBalls.length > 0) return
-    let cancelled = false
-    fetchWpblBattedBalls().then(rows => { if (!cancelled) lateUpdate(() => setBattedBalls(rows)) })
-    return () => { cancelled = true }
-  }, [battedBalls.length])
 
   /**
    * Which of the two layouts to BUILD, rather than which to show.
@@ -611,12 +595,6 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // the ranks. The schedule handed to a sum stays whole, since the lines are already cut.
   const seasonGames = useMemo(() => (career || season == null ? games : gamesInSeason(games, season)), [games, season, career])
 
-  // Matched on the id, never the name: the league mints a new player_id per club, so a traded
-  // player's rows carry two of them, and `api_ids` is what makes them one person. The batter
-  // id on a play is already our own uuid, so this is the resolved one.
-  const myBattedBalls = useMemo(
-    () => thisSeason(battedBalls.filter(p => p.batter_id === player.id)),
-    [battedBalls, player.id, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The club that season was played for, off the lines, which carry the club of each game: the band
   // wears it, so a past year reads in that year's colours. The newest season keeps the roster's club,
@@ -668,6 +646,16 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const matchups = useMemo(
     () => (matchupPlays ? playerMatchups(new Set(playerPlayIds(player)), thisSeason(matchupPlays), games, scope) : null),
     [matchupPlays, player, games, season, career, scope]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Her balls in play, for the spray chart, off the same plays: every one she hit is a plate
+  // appearance she took part in. It used to be a read of the whole league's batted balls, which a
+  // player page opened cold paid for in full to draw one player's chart.
+  //
+  // Matched on the id, never the name: the league mints a new player_id per club, so a traded
+  // player's rows carry two of them, and `api_ids` is what makes them one person. The batter
+  // id on a play is already our own uuid, so this is the resolved one.
+  const myBattedBalls = useMemo(
+    () => (matchupPlays ? thisSeason(matchupPlays.filter(p => p.batter_id === player.id && isBattedBall(p))) : []),
+    [matchupPlays, player.id, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
   // Every batting and pitching line in the league, for the percentile strip. Deliberately a
   // separate piece of state from the player's own lines: this one is allowed to never arrive.
   // `fetchWpblAllLines` is cached, deduped and already prefetched when the section lands on

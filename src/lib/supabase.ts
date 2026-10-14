@@ -111,12 +111,3 @@ function createSiteClient(url: string, key: string, customFetch: Fetch) {
 }
 
 export const supabase = createSiteClient(supabaseUrl, supabaseKey, baseFetch)
-
-// ─── Type helpers ─────────────────────────────────────────────────────────────
-
-export interface UserPreferences {
-  user_id:            string
-  followed_team_id:   number | null
-  followed_player_ids: number[]
-  updated_at:         string
-}

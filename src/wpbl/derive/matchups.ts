@@ -2,7 +2,7 @@ import { countsInStandings, scopedLines, type SeasonScope, type WpblSeasonGame }
 import type { WpblGamePlay, WpblGame, WpblPlayer } from '../types'
 
 // Matchup derivations: batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
-// arrays in, plain shapes out (no supabase / React), mirroring stats.ts and firsts.ts.
+// arrays in, plain shapes out (no supabase / React), mirroring stats.ts.
 //
 // The one judgement call, "what counts as a plate appearance", lives in classifyPa() so
 // every consumer (and any future producer: RISP, two-strike, player-of-the-game) agrees on
@@ -41,15 +41,12 @@ export function classifyPa(play: Pick<WpblMatchupPlay, 'event_type' | 'narrative
 /**
  * The columns a batter-versus-pitcher line reads, and no more.
  *
- * DELIBERATELY NOT `WpblFirstsPlay`. That type names the projection behind
- * `fetchWpblAllPlays`, and that read drops routine outs AT THE DATABASE because none of them
- * can set a milestone. Feed it here and every hitter in the league bats about .650: the outs
- * are most of the denominator and none of them arrive, with no error and nothing short about
- * the array to notice. The only league-wide read that belongs here is the unfiltered one,
- * `fetchWpblAllRunValuePlays`.
- *
- * A structural type cannot enforce that, since the filtered read satisfies it too. Naming it
- * something other than the wrong read's own type is what the type CAN do.
+ * The plays must include every OUT. A read narrowed to the plays that can set a milestone (the
+ * Hall of Firsts had one until Oct 2026) drops routine outs, and fed here it makes every hitter
+ * in the league bat about .650: the outs are most of the denominator and none of them arrive,
+ * with no error and nothing short about the array to notice. The league-wide reads that belong
+ * here are the play log (`fetchWpblAllRunValuePlays`) and its plate appearances
+ * (`fetchWpblAllMatchupPlays`). A structural type cannot enforce that, so it is stated here.
  */
 export type WpblMatchupPlay = Pick<WpblGamePlay,
   | 'game_id' | 'team_id' | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'

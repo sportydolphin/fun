@@ -36,11 +36,18 @@ export const FOLLOWED_PREVIEW_SM = 5
 // MLB StatsAPI numeric team IDs, named for readability. Mirrors TEAM_ABBR below.
 // Plain constants (not an enum) so call sites can write the bare name, e.g.
 // `[BOS]: ...` as a computed object key.
+/** @public on all six lines: knip does not see a use inside a multi-name export, and TEAM_ABBR
+ *  and the maps below key on every one of these. */
 export const LAA = 108, ARI = 109, BAL = 110, BOS = 111, CHC = 112
+/** @public */
 export const CIN = 113, CLE = 114, COL = 115, DET = 116, HOU = 117
+/** @public */
 export const KC  = 118, LAD = 119, WSH = 120, NYM = 121, OAK = 133
+/** @public */
 export const PIT = 134, SD  = 135, SEA = 136, SF  = 137, STL = 138
+/** @public */
 export const TB  = 139, TEX = 140, TOR = 141, MIN = 142, PHI = 143
+/** @public */
 export const ATL = 144, CWS = 145, MIA = 146, NYY = 147, MIL = 158
 
 // ─── Player stat definitions ──────────────────────────────────────────────────
@@ -125,9 +132,6 @@ export const TEAM_PITCHING_DEFS: StatDef[] = [
   { key: 'h',    label: 'H',    getValue: s => s.hits,              format: fmt,                    leaderCategory: 'ph',   defaultSelected: false, lowerIsBetter: true  },
   { key: 'k9',   label: 'K/9',  getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2),  leaderCategory: 'k9',   defaultSelected: false  },
 ]
-
-export const DEFAULT_HIT_STATS = HITTING_STAT_DEFS.filter(d => d.defaultSelected).map(d => d.key)
-export const DEFAULT_PIT_STATS = PITCHING_STAT_DEFS.filter(d => d.defaultSelected).map(d => d.key)
 export const DEFAULT_TEAM_HIT_STATS = TEAM_HITTING_DEFS.filter(d => d.defaultSelected).map(d => d.key)
 export const DEFAULT_TEAM_PIT_STATS = TEAM_PITCHING_DEFS.filter(d => d.defaultSelected).map(d => d.key)
 
