@@ -10,10 +10,11 @@
 // shell's own `navigate()` is the whole integration, and the row is a real link that opens in a new
 // tab on a modified click like any other.
 
-import { describeFinderQuery } from './league/finder'
-import { parseFinderText, type ParsedFinder } from './league/finderParse'
+import { describeFinderQuery, finderFields, finderLowerBetter, type FinderSide } from './league/finder'
+import { parseFinderText, parseLeaderText, type ParsedFinder, type ParsedLeader } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
-import { TEAM_ABBR } from './mlb/constants'
+import { CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
+import { mlbUrlFor } from './mlb/routes'
 import { WPBL_FINDER_CLUBS, wpblFinderHref } from './wpbl/finderLink'
 
 export type FinderSection = 'wpbl' | 'mlb'
@@ -44,10 +45,63 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
     if (p.oppId) bits.push(`vs ${clubLabel(section, p.oppId)}`)
     if (p.venue === 'home') bits.push('at home')
     if (p.venue === 'away') bits.push('on the road')
+    if (p.season) bits.push(String(p.season))
     // Said, not dropped: Find cannot ask about a named player, so "Whitmore 2 hr" is everyone's
     // two-homer games, and the row has to admit the name went unused.
     if (p.ignored.length) bits.push(`not used: ${p.ignored.join(' ')}`)
     const href = section === 'mlb' ? mlbFinderHref(p) : wpblFinderHref(p)
     return { key: `finder-${href}`, title, subtitle: bits.join(' · '), href, parsed: p }
+  })
+}
+
+export interface LeaderSuggestion {
+  key: string
+  /** "Most home runs", "Lowest ERA". */
+  title: string
+  subtitle: string
+  href: string
+  parsed: ParsedLeader
+}
+
+// The finder's field keys as each section's stats table names its columns. Only where they differ;
+// a field neither table has a column for (holds, times on base) is left out, and offers no row.
+const SAME = (keys: string) => Object.fromEntries(keys.split(' ').map(k => [k, k]))
+const BOARD_COLUMNS: Record<FinderSection, Record<FinderSide, Record<string, string>>> = {
+  wpbl: {
+    hitting: SAME('avg obp slg ops hr rbi r h sb cs 2b 3b tb bb so hbp gdp pa ab g'),
+    pitching: { ...SAME('era whip w l sv so ip h r er bb hr hbp wp bk bf gs g'), pitches: 'p' },
+  },
+  mlb: {
+    hitting: { ...SAME('g pa ab r h 2b 3b hr rbi sb cs bb avg obp slg ops tb gdp hbp'), so: 'k' },
+    pitching: { ...SAME('era g gs sv ip h r er hr bb hbp bk wp bf whip'), so: 'k', pitches: 'p', w: 'wl' },
+  },
+}
+
+const RATES = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip'])
+
+function leaderTitle(p: ParsedLeader): string {
+  const label = finderFields(p.side, 'season').find(f => f.key === p.field)?.label ?? p.field
+  const desc = p.dir ? p.dir === 'desc' : !finderLowerBetter(p.side, p.field)
+  const word = RATES.has(p.field) ? (desc ? 'Highest' : 'Lowest') : (desc ? 'Most' : 'Fewest')
+  // "Most home runs", but "Lowest ERA": an initialism keeps its capitals.
+  return `${word} ${label === label.toUpperCase() ? label : label.toLowerCase()}`
+}
+
+/** A ranking typed as words, as rows linking to the section's stats table sorted on that stat. */
+export function leaderSuggestions(section: FinderSection, text: string): LeaderSuggestion[] {
+  return parseLeaderText(text).flatMap(p => {
+    const sort = BOARD_COLUMNS[section][p.side][p.field]
+    if (!sort) return []
+    let href: string
+    if (section === 'mlb') {
+      href = mlbUrlFor({ view: 'stats', lb: p.side, sort, dir: p.dir, season: p.season }, CURRENT_SEASON)
+    } else {
+      const params = new URLSearchParams({ board: 'players', side: p.side, sort })
+      if (p.dir) params.set('dir', p.dir)
+      if (p.season) params.set('season', String(p.season))
+      href = `/wpbl/stats?${params}`
+    }
+    const subtitle = [p.side === 'pitching' ? 'Pitching' : 'Hitting', p.season ?? 'this season'].join(' · ')
+    return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, href, parsed: p }]
   })
 }

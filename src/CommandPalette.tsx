@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close } from '@mui/icons-material'
+import { ManageSearch, Search, Article, Close, Leaderboard } from '@mui/icons-material'
 import { setSearchQuery, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { finderSuggestions } from './finderSearch'
+import { finderSuggestions, leaderSuggestions } from './finderSearch'
+import { nameWords } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -38,7 +39,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'finder' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -100,8 +101,10 @@ const MORE_PAGES: Record<NavSection, PageEntry[]> = {
 }
 
 const EXAMPLES: Record<NavSection, string[]> = {
-  wpbl: ['5 strikeouts no walks', '3+ hits vs SF', '4-for-4 at home'],
-  mlb: ['10 strikeouts no walks', '3 home runs', '4-for-4 vs Dodgers'],
+  // One ranking among the line questions, so a reader learns the box takes both. No year in it,
+  // which would go stale every spring.
+  wpbl: ['most strikeouts', '5 strikeouts no walks', '3+ hits vs SF'],
+  mlb: ['most home runs', '10 strikeouts no walks', '4-for-4 vs Dodgers'],
 }
 
 /** How well a page's name answers the query: a name that starts with it beats a word in it, which
@@ -157,7 +160,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
 
   const change = (v: string) => {
     setText(v); setActive(0)
-    setSearchQuery(v)
+    // "whitmore hr" searches names for "whitmore": the stat and any year are for the rows above,
+    // and no player is called "whitmore hr".
+    setSearchQuery(nameWords(v) ?? v)
   }
 
   const groups = useMemo<Group[]>(() => {
@@ -180,7 +185,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         {
           label: 'Ask a stat question',
           items: EXAMPLES[section].map(ex => ({
-            key: `ex-${ex}`, kind: 'example' as const, title: ex, subtitle: 'Search every game line',
+            key: `ex-${ex}`, kind: 'example' as const, title: ex,
+            subtitle: leaderSuggestions(section, ex).length ? 'Rank every player' : 'Search every game line',
             icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
             onOpen: () => { change(ex); inputRef.current?.focus() },
           })),
@@ -188,7 +194,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       ].filter(g => g.items.length)
     }
 
-    const finder: Item[] = (mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
+    const leaders: Item[] = leaderSuggestions(section, text).map(s => ({
+      key: s.key, kind: 'leader', title: s.title, subtitle: `Leaders · ${s.subtitle}`, href: s.href,
+      icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
+      onOpen: () => {},
+    }))
+    // A ranking is never also a line question ("top 10 ops" is not "an OPS of at least 10").
+    const finder: Item[] = (!leaders.length && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
       key: s.key, kind: 'finder', title: s.title, subtitle: `Find · ${s.subtitle}`, href: s.href,
       icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {
@@ -208,6 +220,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .map((x, i) => pageItem(x.p, i))
 
     return [
+      { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
       { label: 'Pages', items: pages },

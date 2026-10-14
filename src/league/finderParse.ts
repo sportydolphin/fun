@@ -51,6 +51,8 @@ export interface ParsedFinder {
    *  player by name, so "Whitmore 2 hr" is a question about everyone's two-homer games, and the
    *  suggestion has to say it dropped the name rather than answer a different question quietly. */
   ignored: string[]
+  /** A year typed with the question ("3 hr games 2025"), or null for the board's own season. */
+  season: number | null
 }
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
@@ -249,6 +251,28 @@ function valueFor(side: FinderSide, field: string, raw: string, shift: number): 
   return Math.max(0, parseFinderValue(side, field, text) + shift)
 }
 
+// A YEAR IS A SEASON TO ASK ABOUT, never a count: "most hr 2026" read as "at least 2026 home runs"
+// answers nothing. The one exception is a figure only pitches and strikes reach in a season, so
+// "2500 pitches" stays a count. Any year baseball has been played in, so a typo of a number is not
+// taken for one.
+const YEAR = /(?<![a-z0-9.])(?:(?:in|during|for)\s+)?(18[7-9]\d|19\d\d|20\d\d)(?![a-z0-9.])/g
+const COUNT_OF_PITCHES = new RegExp(`^\\s*(?:\\+|or more|plus)?\\s*(${alt(STAT_PHRASES.filter(p => {
+  const f = STAT_ALIASES[p].pitching
+  return f === 'pitches' || f === 'strikes'
+}))})${B_END}`)
+
+/** `rest` with any year blanked out (same length, so offsets still line up), and the year. The
+ *  last one wins, as with a stat named twice. */
+function takeYear(rest: string): { rest: string; season: number | null } {
+  let season: number | null = null
+  const out = rest.replace(YEAR, (m: string, y: string, at: number) => {
+    if (COUNT_OF_PITCHES.test(rest.slice(at + m.length))) return m
+    season = Number(y)
+    return ' '.repeat(m.length)
+  })
+  return { rest: out, season }
+}
+
 /**
  * Every reading of `text` as a finder question, best first, or an empty list when it is not one.
  *
@@ -259,6 +283,9 @@ function valueFor(side: FinderSide, field: string, raw: string, shift: number): 
 export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] = []): ParsedFinder[] {
   let rest = ` ${normalize(text)} `
   if (!rest.trim()) return []
+  const year = takeYear(rest)
+  rest = year.rest
+  const season = year.season
 
   // `at` is where in the text it was written, so the conditions keep the reader's order: the first
   // one is the board's headline. Every match is blanked to spaces of its own length, which is what
@@ -410,7 +437,7 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
         for (const oppId of oppIds) {
           // A club cannot play itself, which is what "Chicago vs Chicago" would otherwise offer.
           if (teamId && teamId === oppId) continue
-          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored }, score: score + bonus })
+          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season }, score: score + bonus })
         }
       }
     }
@@ -428,4 +455,101 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
       || (a.parsed.per === b.parsed.per ? 0 : a.parsed.per === 'game' ? -1 : 1))
     .slice(0, 4)
     .map(r => r.parsed)
+}
+
+// ─── Leader questions ─────────────────────────────────────────────────────────
+
+/**
+ * "most hr 2026", "era leaders", "fewest walks allowed", "top 10 ops": a stat to RANK, which the
+ * Find board cannot answer (it filters lines; it has no "the most"). The answer is the section's
+ * stats table sorted on that column, so like a finder question the result is only an address.
+ *
+ * A count anywhere makes it the finder's question instead ("most 3 hr games" is not a ranking), and
+ * so does any word this cannot place: "whitmore hr" is a player, which the name search answers.
+ */
+export interface ParsedLeader {
+  side: FinderSide
+  field: string
+  /** The order asked for, or null for the board's own (best first). Literal, not "reversed":
+   *  "most walks allowed" is descending whichever end of that column is the good one. */
+  dir: 'asc' | 'desc' | null
+  season: number | null
+}
+
+// "top" and "best" mean the board's own order; "most" and "fewest" mean the numbers' order, which
+// differs on a stat whose good end is the low one (ERA, walks allowed).
+const LEAD_WORDS: { re: RegExp; want: 'best' | 'worst' | 'more' | 'less' }[] = [
+  { re: /(?<![a-z])(most|highest|high|greatest)(?![a-z])/g, want: 'more' },
+  { re: /(?<![a-z])(fewest|least|lowest|low)(?![a-z])/g, want: 'less' },
+  { re: /(?<![a-z])(top|best|leaders?|leading|leads?|led|tops)(?![a-z])/g, want: 'best' },
+  { re: /(?<![a-z])(worst|bottom)(?![a-z])/g, want: 'worst' },
+]
+// "top 10": how many is the board's business, not a count to search for.
+const TOP_N = /(?<![a-z0-9])(top|bottom)\s+(?:\d+|five|ten|twenty)(?![a-z0-9])/g
+// Words a ranking is asked in that say nothing more.
+const LEADER_FILLER = new Set(['league', 'leaderboard', 'leaderboards', 'board', 'rank', 'ranked', 'ranking', 'rankings', 'stat', 'stats', 'mlb', 'wpbl'])
+const STAT_ANY = new RegExp(`${B_START}${STAT}${B_END}`, 'g')
+
+export function parseLeaderText(text: string): ParsedLeader[] {
+  let rest = ` ${normalize(text)} `
+  if (!rest.trim()) return []
+  const year = takeYear(rest)
+  rest = year.rest
+  const season = year.season
+  rest = rest.replace(TOP_N, (_m: string, w: string) => ` ${w} `)
+  let want: 'best' | 'worst' | 'more' | 'less' | null = null
+  for (const w of LEAD_WORDS) rest = rest.replace(w.re, () => { want ??= w.want; return ' ' })
+  if (/\d/.test(rest)) return []
+
+  const phrases = new Set<string>()
+  rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
+  const aliases = [...new Set([...phrases].map(p => STAT_ALIASES[p]))]
+  if (aliases.length !== 1) return []
+  const alias = aliases[0]
+  // A stat alone is a ranking only when it cannot be the start of a name: "h" or "k" typed on the
+  // way to a player's name must not jump to a board.
+  if (!want && season == null && [...phrases].every(p => p.length < 2)) return []
+
+  rest = rest.replace(SEASON_WORDS, ' ')
+  const words = rest.split(/[^a-z0-9]+/).filter(Boolean)
+  const hintP = PITCHING_HINTS.some(w => words.includes(w))
+  const hintH = HITTING_HINTS.some(w => words.includes(w))
+  const extra = words.filter(w => !FILLER.has(w) && !LEADER_FILLER.has(w) && !PITCHING_HINTS.includes(w) && !HITTING_HINTS.includes(w))
+  if (extra.length) return []
+
+  const sides: FinderSide[] = hintP !== hintH
+    ? [hintP ? 'pitching' : 'hitting']
+    : alias.lean === 'pitching' ? ['pitching', 'hitting'] : ['hitting', 'pitching']
+  return sides.filter(side => alias[side]).map(side => {
+    const field = alias[side]!
+    const lowerBetter = finderLowerBetter(side, field)
+    const dir = want === 'more' ? 'desc'
+      : want === 'less' ? 'asc'
+      : want === 'worst' ? (lowerBetter ? 'desc' : 'asc')
+      : null
+    return { side, field, dir, season }
+  })
+}
+
+/**
+ * The name in a question about a player: "whitmore hr" is Whitmore, "ohtani 2023" is Ohtani. Null
+ * when the text names no stat or year, so a plain name search goes out exactly as typed. Only a
+ * stat of two letters or more counts, since "R.J." and "K." are initials before they are stats.
+ */
+export function nameWords(text: string): string | null {
+  let rest = ` ${normalize(text)} `
+  const year = takeYear(rest)
+  rest = year.rest
+  const season = year.season
+  let found = season != null
+  rest = rest.replace(STAT_ANY, (m: string, p: string) => {
+    if (p.length < 2) return m
+    found = true
+    return ' '
+  })
+  if (!found) return null
+  for (const w of LEAD_WORDS) rest = rest.replace(w.re, ' ')
+  rest = rest.replace(SEASON_WORDS, ' ')
+  const words = rest.split(/\s+/).filter(w => w && !/^[\d.+]+$/.test(w) && !FILLER.has(w) && !LEADER_FILLER.has(w))
+  return words.length ? words.join(' ') : null
 }

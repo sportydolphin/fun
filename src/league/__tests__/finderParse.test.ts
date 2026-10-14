@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseFinderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -195,5 +195,66 @@ describe('mightBeFinderQuestion', () => {
     expect(mightBeFinderQuestion('Kelsie Whitmore')).toBe(false)
     expect(mightBeFinderQuestion('3+ hits')).toBe(true)
     expect(mightBeFinderQuestion('multi-hit games')).toBe(true)
+  })
+})
+
+describe('a year in a question', () => {
+  it('reads a year as the season to ask about, never as a count', () => {
+    const r = first('3 hr games 2025')
+    expect(r.season).toBe(2025)
+    expect(r.conditions).toEqual([{ field: 'hr', op: 'gte', value: 3 }])
+    expect(first('5 strikeouts in 2024').season).toBe(2024)
+    expect(first('5 strikeouts').season).toBeNull()
+  })
+
+  it('keeps a season count of pitches a count', () => {
+    const r = parseFinderText('2500 pitches', CLUBS)
+    expect(r[0].season).toBeNull()
+    expect(r[0].conditions).toEqual([{ field: 'pitches', op: 'gte', value: 2500 }])
+  })
+})
+
+describe('parseLeaderText', () => {
+  it('reads "most hr 2026" as the home run board for that year', () => {
+    const r = parseLeaderText('most hr 2026')
+    expect(r[0]).toEqual({ side: 'hitting', field: 'hr', dir: 'desc', season: 2026 })
+    // Home runs allowed is the second reading, not a lost one.
+    expect(r.map(x => x.side)).toEqual(['hitting', 'pitching'])
+  })
+
+  it("takes leaders and top as the board's own order, and top 10 as no count", () => {
+    expect(parseLeaderText('era leaders')).toEqual([{ side: 'pitching', field: 'era', dir: null, season: null }])
+    expect(parseLeaderText('top 10 ops')).toEqual([{ side: 'hitting', field: 'ops', dir: null, season: null }])
+  })
+
+  it("reads most and fewest as the numbers' order, whichever end is good", () => {
+    expect(parseLeaderText('lowest era')[0].dir).toBe('asc')
+    expect(parseLeaderText('most walks allowed')[0]).toMatchObject({ side: 'pitching', field: 'bb', dir: 'desc' })
+    expect(parseLeaderText('worst era')[0].dir).toBe('desc')
+  })
+
+  it('offers both sides of a shared stat, the lean first, unless a hint settles it', () => {
+    expect(parseLeaderText('most strikeouts').map(r => r.side)).toEqual(['pitching', 'hitting'])
+    expect(parseLeaderText('most strikeouts by a batter').map(r => r.side)).toEqual(['hitting'])
+  })
+
+  it('leaves counts, names and a lone letter to the other searches', () => {
+    expect(parseLeaderText('most 3 hr games')).toEqual([])
+    expect(parseLeaderText('whitmore hr')).toEqual([])
+    expect(parseLeaderText('k')).toEqual([])
+    expect(parseLeaderText('kelsie whitmore')).toEqual([])
+  })
+})
+
+describe('nameWords', () => {
+  it('pulls the name out of a stat or a year', () => {
+    expect(nameWords('Whitmore hr')).toBe('whitmore')
+    expect(nameWords('ohtani 2023')).toBe('ohtani')
+    expect(nameWords('most home runs')).toBeNull()
+  })
+
+  it('leaves a plain name, and initials, as typed', () => {
+    expect(nameWords('Kelsie Whitmore')).toBeNull()
+    expect(nameWords('R.J. Smith')).toBeNull()
   })
 })

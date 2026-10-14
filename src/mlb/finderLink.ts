@@ -5,7 +5,7 @@
 import type { FinderClubAlias, ParsedFinder } from '../league/finderParse'
 import { encodeFinderQuery } from '../league/finder'
 import { MLB_CLUBS, mlbUrlFor } from './routes'
-import { TEAM_ABBR } from './constants'
+import { CURRENT_SEASON, TEAM_ABBR } from './constants'
 
 // The nickname is the slug ("red-sox"), and the city is the name with the nickname taken off. A
 // city two clubs share (Chicago, New York, Los Angeles) is listed under both, and the parser offers
@@ -27,7 +27,7 @@ export const MLB_FINDER_CLUBS: FinderClubAlias[] = (() => {
 })()
 
 /** The Find board asking `p`. */
-export function mlbFinderHref(p: ParsedFinder): string {
+export function mlbFinderHref(p: Omit<ParsedFinder, 'season'> & { season?: number | null }): string {
   return mlbUrlFor({
     view: 'find',
     lb: p.side,
@@ -35,5 +35,6 @@ export function mlbFinderHref(p: ParsedFinder): string {
     findTeam: p.teamId ? Number(p.teamId) : null,
     findOpp: p.oppId ? Number(p.oppId) : null,
     findVenue: p.venue === 'any' ? null : p.venue,
-  })
+    season: p.season,
+  }, CURRENT_SEASON)
 }
