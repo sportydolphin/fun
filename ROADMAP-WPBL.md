@@ -236,6 +236,28 @@ item 2 describes, which is why that item comes first.
 Site-wide, both sections. ROADMAP.md points here. Everything in P0 to P2 lands well before the 2027
 WPBL season.
 
+**The live order is on `/admin` → Roadmap** (the `roadmap_items` table, owner only), from Oct 13,
+2026: add, reprioritise, reorder, mark done and delete there, without a commit. It was seeded with
+this section as it stood that day plus the engineering backlog below. This section is the snapshot
+and the reasoning; where the two disagree, `/admin` is the order.
+
+**Engineering backlog (added Oct 13, 2026).** Tiered on `/admin`; the reasons in brief:
+- *P2, spring readiness.* A feed contract in `wpbl-ingest` (valibot or zod), so a renamed
+  `game_type`, a missing `completed_at` or a short `/games` list throws instead of logging
+  `ok: true`. `summary.errors` meaning failure, plus a freshness alarm that DMs the owner on
+  Discord for a scheduled game past first pitch with no live row (`admin-health-alert` already
+  pushes on both, so this is the second channel). A column-partition test from
+  `supabase gen types` asserting `LIVE_GAME_COLUMNS` and the immutable list cover exactly
+  `wpbl_games`, and the same for the line column lists, which turns that trap into a CI failure.
+- *P2, cheap now.* Freeze past seasons as static JSON (R2 or `/data/2026/*.json`, immutable
+  cache), which also becomes the open-data download. A `size-limit` bundle budget in CI. `knip`
+  for dead exports and files.
+- *P3.* Prefetch on link hover or visibility. Archive old MLB line tables to R2 or Parquet before
+  the 500 MB ceiling. Replace `html2canvas` (unmaintained) with `modern-screenshot` or
+  `html-to-image`. `@tanstack/react-virtual` for the stats table and Watch once two seasons double
+  the rows. `fast-check` property tests for `derive/` (WAR sums, `runsOnPlay`, base-state
+  transitions). A DuckDB-WASM SQL sandbox on the open-data page, over the frozen season files.
+
 **P0**
 - **Multiple seasons** (in progress from Oct 13). Every WPBL surface assumes one season: year menus, career totals,
   standings, the boards, slugs, the archive. 2027 breaks all of them on its first game. Build it

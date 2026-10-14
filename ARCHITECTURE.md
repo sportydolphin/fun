@@ -320,6 +320,10 @@ Tables grouped by domain. The pre-runner **baseline** schema is the legacy
 ([`scripts/migrations/`](scripts/migrations) + `npm run migrate`, see §10). Public reads go
 through **RLS**; service-role actors bypass it to write.
 
+`roadmap_items` is the owner's priority list behind `/admin` → Roadmap
+([`AdminRoadmap.tsx`](src/AdminRoadmap.tsx)): RLS `is_site_owner()` for every verb, written by
+the browser with plain insert, update and delete, and never edge-cached.
+
 ```mermaid
 flowchart TB
     subgraph WPBL["WPBL: mirror of the official feed (written by wpbl-ingest)"]
