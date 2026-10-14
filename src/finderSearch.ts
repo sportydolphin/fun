@@ -10,8 +10,8 @@
 // shell's own `navigate()` is the whole integration, and the row is a real link that opens in a new
 // tab on a modified click like any other.
 
-import { describeFinderQuery, finderFields, finderLowerBetter, type FinderSide } from './league/finder'
-import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, type ClubPagePart, type ParsedFinder, type ParsedLeader } from './league/finderParse'
+import { describeFinderQuery, finderFields, type FinderSide } from './league/finder'
+import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
@@ -21,6 +21,7 @@ import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 import { askedTerms, glossaryTermKey } from './league/glossary'
 import { MLB_STAT_TERMS } from './mlb/statGlossary'
 import { STAT_TERMS } from './wpbl/glossary'
+import type { LeaderAsk, LeaderPeek } from './mlb/state/SearchBridgeContext'
 
 export type FinderSection = 'wpbl' | 'mlb'
 
@@ -66,20 +67,33 @@ export interface LeaderSuggestion {
   subtitle: string
   href: string
   parsed: ParsedLeader
+  /** What the row's link ranks, in the stats table's terms, for the section to name the leader. */
+  ask: LeaderAsk
 }
 
 // The finder's field keys as each section's stats table names its columns. Only where they differ;
 // a field neither table has a column for (holds, times on base) is left out, and offers no row.
 const SAME = (keys: string) => Object.fromEntries(keys.split(' ').map(k => [k, k]))
-const BOARD_COLUMNS: Record<FinderSection, Record<FinderSide, Record<string, string>>> = {
+// The season figures (OPS+, wRC+, FIP...) have the same column key in both tables. WAR is WPBL's
+// alone: the site computes it from the league's own plays, and has no MLB WAR to rank.
+const HIT_ADVANCED = 'opsPlus wrcPlus woba iso babip kPct bbPct'
+const PIT_ADVANCED = 'eraPlus fip kbb kPct bbPct babip'
+const BOARD_COLUMNS: Record<FinderSection, Record<RankSide, Record<string, string>>> = {
   wpbl: {
-    hitting: SAME('avg obp slg ops hr rbi r h sb cs 2b 3b tb bb so hbp gdp pa ab g'),
-    pitching: { ...SAME('era whip w l sv so ip h r er bb hr hbp wp bk bf gs g'), pitches: 'p' },
+    hitting: SAME(`avg obp slg ops hr rbi r h sb cs 2b 3b tb bb so hbp gdp pa ab g ${HIT_ADVANCED}`),
+    pitching: { ...SAME(`era whip w l sv so ip h r er bb hr hbp wp bk bf gs g ${PIT_ADVANCED}`), pitches: 'p' },
+    overall: SAME('war wpa'),
   },
   mlb: {
-    hitting: { ...SAME('g pa ab r h 2b 3b hr rbi sb cs bb avg obp slg ops tb gdp hbp'), so: 'k' },
-    pitching: { ...SAME('era g gs sv ip h r er hr bb hbp bk wp bf whip'), so: 'k', pitches: 'p', w: 'wl' },
+    hitting: { ...SAME(`g pa ab r h 2b 3b hr rbi sb cs bb avg obp slg ops tb gdp hbp ${HIT_ADVANCED}`), so: 'k' },
+    pitching: { ...SAME(`era g gs sv ip h r er hr bb hbp bk wp bf whip ${PIT_ADVANCED}`), so: 'k', pitches: 'p', w: 'wl' },
+    overall: {},
   },
+}
+
+/** The section's stats-table column for a finder field, or null where the table has none. */
+export function boardColumn(section: FinderSection, side: RankSide, field: string): string | null {
+  return BOARD_COLUMNS[section][side][field] ?? null
 }
 
 const RATES = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip'])
@@ -114,8 +128,12 @@ export interface LeaderOptions {
 }
 
 function leaderTitle(p: ParsedLeader): string {
-  const label = finderFields(p.side, 'season').find(f => f.key === p.field)?.label ?? p.field
-  const desc = p.dir ? p.dir === 'desc' : !finderLowerBetter(p.side, p.field)
+  const desc = p.dir ? p.dir === 'desc' : !rankLowerBetter(p.side, p.field)
+  // A season figure keeps its own spelling: "Highest wRC+", "Most WAR".
+  const own = rankField(p.field)
+  if (own) return `${own.rate ? (desc ? 'Highest' : 'Lowest') : (desc ? 'Most' : 'Fewest')} ${own.label}`
+  const side = p.side === 'overall' ? 'hitting' : p.side
+  const label = finderFields(side, 'season').find(f => f.key === p.field)?.label ?? p.field
   const word = RATES.has(p.field) ? (desc ? 'Highest' : 'Lowest') : (desc ? 'Most' : 'Fewest')
   // "Most home runs", but "Lowest ERA": an initialism keeps its capitals.
   return `${word} ${label === label.toUpperCase() ? label : label.toLowerCase()}`
@@ -128,9 +146,9 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
     if (!sort) return []
     let href: string
     if (p.career && section === 'mlb') {
-      const order = p.dir ?? (finderLowerBetter(p.side, p.field) ? 'asc' : 'desc')
-      if (!MLB_CAREER_RANKABLE[p.side][p.field]?.orders.includes(order)) return []
-      href = mlbUrlFor({ view: 'stats', lb: p.side, sort, dir: p.dir, allTime: true }, CURRENT_SEASON)
+      const order = p.dir ?? (rankLowerBetter(p.side, p.field) ? 'asc' : 'desc')
+      if (p.side === 'overall' || !MLB_CAREER_RANKABLE[p.side][p.field]?.orders.includes(order)) return []
+      href = mlbUrlFor({ view: 'stats', lb: p.side as FinderSide, sort, dir: p.dir, allTime: true }, CURRENT_SEASON)
     } else if (p.career) {
       // WPBL's table is one season at a time, which is the league's whole history only until a
       // second season is on record. Past that, no row rather than one season called "all time".
@@ -139,7 +157,7 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
       if (p.dir) params.set('dir', p.dir)
       href = `/wpbl/stats?${params}`
     } else if (section === 'mlb') {
-      href = mlbUrlFor({ view: 'stats', lb: p.side, sort, dir: p.dir, season: p.season }, CURRENT_SEASON)
+      href = mlbUrlFor({ view: 'stats', lb: p.side as FinderSide, sort, dir: p.dir, season: p.season }, CURRENT_SEASON)
     } else {
       const params = new URLSearchParams({ board: 'players', side: p.side, sort })
       if (p.dir) params.set('dir', p.dir)
@@ -147,9 +165,17 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
       href = `/wpbl/stats?${params}`
     }
     const span = p.career ? (section === 'mlb' ? 'all time' : 'all time, one season so far') : p.season ?? 'this season'
-    const subtitle = [p.side === 'pitching' ? 'Pitching' : 'Hitting', span].join(' · ')
-    return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, href, parsed: p }]
+    const subtitle = [p.side === 'pitching' ? 'Pitching' : p.side === 'overall' ? 'Overall' : 'Hitting', span].join(' · ')
+    const ask = { side: p.side, sort, dir: p.dir, season: p.season, career: p.career }
+    return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, href, parsed: p, ask }]
   })
+}
+
+/** A ranking row's leader in words: "Kelsie Whitmore leads with 9", "Kelsie Whitmore and 1 more lead
+ *  with 9", or "4 tied at 9" once the lead is shared by more than two and one name would mislead. */
+export function peekText(p: LeaderPeek): string {
+  if (p.others >= 2) return `${p.others + 1} tied at ${p.value}`
+  return p.others ? `${p.name} and 1 more lead with ${p.value}` : `${p.name} leads with ${p.value}`
 }
 
 export interface ClubPageSuggestion {

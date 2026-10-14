@@ -4,6 +4,24 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.160.0',
+    date:    '2026-10-14',
+    changes: [
+      {
+        short: 'Search: the answer in the row',
+        full:  "Type a name and a stat, like \"Whitmore avg\" or \"Ohtani hr 2024\", and the player's row shows the number before you click.",
+      },
+      {
+        short: 'Search: who leads',
+        full:  "A ranking like \"most home runs\" or \"lowest ERA\" now says who leads it and with what, the same player the stats table puts first.",
+      },
+      {
+        short: 'Search: advanced stats',
+        full:  "Rankings and player answers now take OPS+, wRC+, wOBA, ISO, BABIP, K%, BB%, ERA+, FIP and K/BB in both sections, and WAR and WPA on WPBL: try \"highest wRC+\" or \"Whitmore WAR\".",
+      },
+    ],
+  },
+  {
     version: '1.159.0',
     date:    '2026-10-14',
     changes: [

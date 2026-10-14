@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
 import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook } from '@mui/icons-material'
-import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
+import { setSearchQuery, type CompareRow, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
+import { boardColumn, peekText, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
-import { nameWords, parseCompareText, parseGameQuery, typedPart, typedSeason } from './league/finderParse'
+import { nameWords, parseCompareText, parseGameQuery, typedPart, typedSeason, typedStat } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -70,11 +70,17 @@ interface Item {
   scrollTo?: string
   /** A question picked from Recent, which moves back to the front when asked again. */
   question?: RecentQuestion
+  /** What Recent keeps as the subtitle, when the row's own says something that will go stale (who
+   *  leads a ranking today). */
+  recentSubtitle?: string
 }
 
 /** How many recents show before anything is typed, players, clubs and questions together: few,
  *  so the example questions below them stay in view on a phone. */
 const PALETTE_RECENTS = 3
+/** How many player rows answer a stat typed beside a name. A common surname is several players, and
+ *  on MLB each answer is a call, so only the rows a reader is likely to be choosing between. */
+const ANSWERED_ROWS = 3
 const QUESTION_KINDS = new Set<PickKind>(['leader', 'finder', 'definition'])
 const QUESTION_ICON: Record<RecentQuestion['kind'], React.ReactNode> = {
   leader: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
@@ -153,7 +159,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, seasonCount = null }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, seasonCount = null }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -166,6 +172,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolveCompare?: SearchBridgeState['resolveCompare']
   /** The section's game lookup for "SF vs NY sep 9", from the search bridge. */
   resolveGames?: SearchBridgeState['resolveGames']
+  /** Who leads a ranking row, from the search bridge. */
+  resolveLeader?: SearchBridgeState['resolveLeader']
+  /** The answer to a stat typed beside a name, for one player row, from the search bridge. */
+  resolvePlayerStat?: SearchBridgeState['resolvePlayerStat']
   /** How many seasons the section has on record, from the search bridge. */
   seasonCount?: number | null
 }) {
@@ -225,6 +235,46 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }, 250)
     return () => { live = false; clearTimeout(t) }
   }, [text, section, resolveCompare])
+
+  // "Whitmore avg": the player rows answer it in their subtitles, ".312 AVG · 2026", so a quick
+  // question needs no click. Asked of the section for the first few player rows, a beat after the
+  // last key, and kept with the text it answers like the compare row.
+  const statAsk = useMemo<PlayerStatAsk | null>(() => {
+    const alias = typedStat(text)
+    if (!alias) return null
+    const columns: PlayerStatAsk['columns'] = {}
+    for (const side of ['hitting', 'pitching', 'overall'] as const) {
+      const col = alias[side] ? boardColumn(section, side, alias[side]) : null
+      if (col) columns[side] = col
+    }
+    return Object.keys(columns).length ? { columns, lean: alias.lean ?? null, season: typedSeason(text) } : null
+  }, [text, section])
+  const answerKeys = results.filter(r => r.key.startsWith('player-')).slice(0, ANSWERED_ROWS).map(r => r.key).join(' ')
+  const [answers, setAnswers] = useState<{ text: string; byKey: Record<string, string> } | null>(null)
+  useEffect(() => {
+    if (!statAsk || !resolvePlayerStat || !answerKeys) return
+    let live = true
+    const t = setTimeout(() => {
+      Promise.all(answerKeys.split(' ').map(k => resolvePlayerStat(k, statAsk).catch(() => null).then(a => [k, a] as const)))
+        .then(pairs => { if (live) setAnswers({ text, byKey: Object.fromEntries(pairs.filter(([, a]) => a)) }) })
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, statAsk, answerKeys, resolvePlayerStat])
+
+  // "Most home runs": the ranking row says who leads and with what, from the board it links to.
+  const leaderRows = useMemo(() => leaderSuggestions(section, text, { seasonCount }), [section, text, seasonCount])
+  const [peeks, setPeeks] = useState<{ text: string; byKey: Record<string, LeaderPeek> } | null>(null)
+  useEffect(() => {
+    if (!leaderRows.length || !resolveLeader) return
+    let live = true
+    const t = setTimeout(() => {
+      Promise.all(leaderRows.map(r => resolveLeader(r.ask).catch(() => null).then(p => [r.key, p] as const)))
+        .then(pairs => {
+          if (live) setPeeks({ text, byKey: Object.fromEntries(pairs.filter((x): x is [string, LeaderPeek] => !!x[1])) })
+        })
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, leaderRows, resolveLeader])
 
   const change = (v: string) => {
     setText(v); setActive(0)
@@ -289,8 +339,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))
-    const leaders: Item[] = leaderSuggestions(section, text, { seasonCount }).map(s => ({
-      key: s.key, kind: 'leader', title: s.title, subtitle: `Leaders · ${s.subtitle}`, href: s.href,
+    const peek = peeks && peeks.text === text ? peeks.byKey : {}
+    const leaders: Item[] = leaderRows.map(s => ({
+      key: s.key, kind: 'leader', title: s.title, href: s.href,
+      subtitle: ['Leaders', peek[s.key] ? peekText(peek[s.key]) : null, s.subtitle].filter(Boolean).join(' · '),
+      recentSubtitle: `Leaders · ${s.subtitle}`,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
     }))
@@ -332,10 +385,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
       ...(defined.asked ? [] : [glossary]),
-      { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
+      { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(r => {
+        const answer = answers && answers.text === text ? answers.byKey[r.key] : undefined
+        return rowItem('result')(answer ? { ...r, subtitle: [answer, r.subtitle].filter(Boolean).join(' · ') } : r)
+      }) },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare, gameRows, seasonCount, recentQs, rowPicks])
+  }, [text, results, idle, section, compare, gameRows, recentQs, rowPicks, leaderRows, peeks, answers])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))
@@ -367,7 +423,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     if (item.kind === 'example') { item.onOpen(); return }
     // Into Recent: a question by its link, a player or club by when it was opened.
     const asked = item.question ?? (QUESTION_KINDS.has(item.kind) && item.href
-      ? { kind: item.kind as RecentQuestion['kind'], title: item.title, subtitle: item.subtitle, href: item.href, scrollTo: item.scrollTo }
+      ? { kind: item.kind as RecentQuestion['kind'], title: item.title, subtitle: item.recentSubtitle ?? item.subtitle, href: item.href, scrollTo: item.scrollTo }
       : null)
     if (asked) recordRecentQuestion(section, asked)
     else if (item.rowKey) recordRowPick(section, item.rowKey)

@@ -1128,9 +1128,25 @@ worth doing:
    is one season and nothing after; an every-season board is what would take that further. A
    player opens on the career from either section (WPBL's card shows its one season until there
    is a second).
-3. **The answer in the row.** "Whitmore avg" shows ".312 · 2026" as the player row's subtitle, so a
-   quick question needs no click. Free on WPBL, whose lines are in memory; one call on MLB.
-4. **A peek at the leader.** A ranking row says who leads and by what ("Most home runs · 52, …").
+3. ✅ **The answer in the row** (Oct 14, v1.160.0). "Whitmore avg" puts ".312 AVG · 2026" in front
+   of the player row's subtitle, for the first three player rows (`typedStat` in finderParse.ts,
+   `resolvePlayerStat` on the bridge). A word for both sides ("strikeouts") is read on the side the
+   player plays, and on the word's lean for a two-way player. WPBL answers from the lines search
+   already reads; MLB makes one call per player, kept for the session, and answers a retired player
+   with no year typed for the career.
+4. ✅ **A peek at the leader** (Oct 14, v1.160.0). A ranking row says "Kelsie Whitmore leads with 9"
+   (or "4 tied at 9"). It is the first row of the board the link opens, from that board's own
+   columns and rules (`src/wpbl/statColumns.ts`, moved out of StatsView for this; MLB's `sortBoard`
+   and qualifier), so the two cannot disagree. Recent keeps the row without the name, which would
+   go stale. **Advanced stats too** (same release): OPS+, wRC+, wOBA, ISO, BABIP, K%, BB%, ERA+, FIP
+   and K/BB in both sections, WAR and WPA on WPBL ("highest wrc+", "Whitmore war"). They are season
+   figures only (`RANK_ALIASES` in finderParse.ts, which the Find parser never reads, since "2 war"
+   is not a game). WPBL builds them with the table's own builders (`hittingColumns`,
+   `pitchingColumns`, `OVR_COLS` in statColumns.ts), reading the run values only for wOBA, wRC+ and
+   FIP and the play log only for WAR and WPA; MLB folds them in with the table's `withAdvanced`,
+   reading sabermetrics only for wOBA and wRC+ and park factors only for OPS+ and ERA+. **MLB has no
+   WAR**: "most war" there offers no row, because the site has no MLB WAR to rank. A career answers
+   on MLB only the figures that need no league (K%, ISO and the like).
 5. **Live games first.** A club playing right now puts "Live · 3-2, bottom 6" at the top.
 6. **Clubs as the subject.** "SF team ERA", "most runs by a team" opens the team stats board.
 7. **The other section.** An MLB name typed on WPBL offers one row into MLB, and the reverse.
