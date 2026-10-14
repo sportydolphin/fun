@@ -21,7 +21,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 // IT IS THE ONLY SEARCH. The field in the toolbar, the icon it folds to, "/" and Ctrl+K (Cmd+K) all
 // open this (App.tsx). It drives the shared search bridge, so each section answers exactly as its
 // own search always has: WPBL's rows and recents come from WpblApp, MLB's player and club results,
-// recents and suggestions from MlbStats, and every pick runs that section's own handler, which is
+// recents from MlbStats, and every pick runs that section's own handler, which is
 // what keeps the section's open events (`wpbl_search_picked`, `mlb_player_opened` from
 // `header_search` or `recent`) counting the same things they did before the field became a button.
 // On top of that it finds every tab and More page by name, and a stat question typed as words,
@@ -36,13 +36,15 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 // LAZY, and mounted only once it has been opened: nothing here is on the first paint, and the
 // shell is the entry chunk.
 
+// 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
+// older `command_palette_picked` events carry it.
 export type PickKind = 'finder' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
-/** A group the palette shows before anything is typed: the recents, and MLB's suggestions. Built by
+/** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
 export interface PaletteIdleGroup {
   label: string
-  kind: 'recent' | 'suggestion'
+  kind: 'recent'
   rows: SearchResultRow[]
   onClear?: () => void
 }
@@ -112,7 +114,7 @@ function pageScore(p: PageEntry, q: string): number {
   return 0
 }
 
-const rowItem = (kind: 'result' | 'recent' | 'suggestion') => (r: SearchResultRow): Item => ({
+const rowItem = (kind: 'result' | 'recent') => (r: SearchResultRow): Item => ({
   key: `${kind}-${r.key}`, kind, title: r.title, subtitle: r.subtitle, avatar: r.avatar, onOpen: r.onSelect,
 })
 

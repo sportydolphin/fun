@@ -23,7 +23,6 @@ import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, Se
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
-import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_TABS, isMlbStatsBoard, type MlbStatsBoard, type MlbStatsTab, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
 import { navigate } from './nav'
 import { setDynamicSeo } from './seo'
@@ -185,16 +184,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     return () => setDynamicSeo(null)
   }, [seoPlayer])
 
-  // Fetch toolbar suggestions whenever the followed team changes
-  useEffect(() => {
-    if (!active) return
-    let live = true
-    fetchSuggestions(state.followedTeamId ?? 0, [])
-      .then(sugs => { if (live) updateSearchBridge({ toolbarSuggestions: sugs }) })
-      .catch(() => {})
-    return () => { live = false }
-  }, [state.followedTeamId, active])
-
   // Push recent searches + their re-open / clear handlers up to the toolbar
   const { recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches } = state
   useEffect(() => {
@@ -215,7 +204,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (!active) return
     return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, toolbarSuggestions: [], recentSearches: [], handleSelectRecent: null, clearRecentSearches: null })
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null })
       setSearchQuery('')
     }
   }, [active])

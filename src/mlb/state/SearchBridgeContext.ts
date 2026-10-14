@@ -20,15 +20,6 @@ export interface TeamBridgeItem {
   league?: { name?: string }
 }
 
-export interface ToolbarSuggestion {
-  id: number
-  fullName: string
-  position: string
-  teamId: number
-  teamAbbr: string
-  isTeamPlayer: boolean
-}
-
 // A self-describing toolbar search result. Produced by whichever section owns search
 // so the always-loaded toolbar can render it WITHOUT statically importing that section's
 // lazy chunk. The avatar is described by primitive data (image URL + colors), never a
@@ -66,7 +57,6 @@ export interface SearchBridgeState {
   // WPBL-native recents for the empty-query dropdown, as self-describing rows (the MLB
   // `recentSearches` below is numeric-id shaped and renders from the MLB color/logo maps).
   recentRows: SearchResultRow[]
-  toolbarSuggestions: ToolbarSuggestion[]
   recentSearches: RecentSearchItem[]
   handleSelectRecent: ((item: RecentSearchItem) => void) | null
   clearRecentSearches: (() => void) | null
@@ -83,7 +73,6 @@ const DEFAULT: SearchBridgeState = {
   source: null,
   resultRows: [],
   recentRows: [],
-  toolbarSuggestions: [],
   recentSearches: [],
   handleSelectRecent: null,
   clearRecentSearches: null,
