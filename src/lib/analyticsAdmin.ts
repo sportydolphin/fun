@@ -515,6 +515,7 @@ export function fetchTopPlayers(days: number, tz: string, lim = 10): Promise<Top
  * keep accruing from the footer link, and the rates drift toward nonsense. Kept because the RPC
  * and the history behind it are still real and someone may want them once. Re-adding it to the
  * bundle puts a round trip back on every load of the page for a number that cannot move.
+ * @public kept on purpose, for the reason above, so the dead-code check passes over it.
  */
 export function fetchDiscordFunnel(days: number, tz: string): Promise<DiscordFunnel> {
   return callRpc('admin_discord_funnel', { days_back: days, tz },

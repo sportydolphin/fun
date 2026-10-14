@@ -18,13 +18,10 @@ import { fetchBracket, seriesName, winsNeeded } from '../postseason'
 import type { PsSeries } from '../postseason'
 import { mlbSeriesPath } from '../routes'
 import { GC_CAPS, GC_META, GC_BODY } from './gameType'
-import type { MlbSeriesId } from '../routes'
 
 const POSTSEASON_TYPES = new Set(['F', 'D', 'L', 'W'])
 
 // ─── The series ───────────────────────────────────────────────────────────────
-
-export interface SeriesRef { season: number; id: MlbSeriesId }
 
 /** The series this game belongs to, from the bracket (cached app-wide), or null for a game that
  *  is not in one. The bracket is the only read that knows which slot a gamePk sits in. UNDEFINED
@@ -274,5 +271,3 @@ export function GameInfo({ info }: { info: GameInfoData }) {
     </Box>
   )
 }
-
-export const isPostseasonType = (t: string | undefined) => !!t && POSTSEASON_TYPES.has(t)

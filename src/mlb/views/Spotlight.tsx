@@ -243,11 +243,6 @@ export async function fetchSpotlight(): Promise<{ hot: HotGuyData | null; cold: 
   } catch { return { hot: null, cold: null } }
 }
 
-export async function fetchTopPerformers(): Promise<{ hitters: HotGuyData[]; pitchers: HotGuyData[] }> {
-  await fetchSpotlight()
-  return { hitters: _spotlightCache.topHitters, pitchers: _spotlightCache.topPitchers }
-}
-
 // ─── Single-game performer fetch ──────────────────────────────────────────────
 
 function gameDateLabel(date: string, now: Date): string {

@@ -2,7 +2,7 @@ import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllPitchPlays, getCachedWpblAllPitchPlays } from './api'
-import { aggregatePitchCodes, pitchQualifiers, rankBy, fmtPct, type PitchProfile, type PitchRates, type PitchCounts } from './derive/pitches'
+import { aggregatePitchCodes, pitchQualifiers, rankBy, fmtPct, type PitchRates, type PitchCounts } from './derive/pitches'
 import { wpblQualifiers } from './stats'
 import { ordinal } from './percentiles'
 import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './cardParts'
@@ -191,14 +191,14 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
   // Better than the league, and a top-five rank: the section's own blue, the same for every club.
   const better = useRankInk()
   const [open, setOpen] = useState(false)
-  const [plays, setPlays] = useState<WpblPitchPlay[] | null>(() => getCachedWpblAllPitchPlays())
+  // The card's season alone, or every season for a career (`season` null). Cached app-wide and
+  // shared with the Stats tab's Pitches board, so a reader who has opened either pays once.
+  const [plays, setPlays] = useState<WpblPitchPlay[] | null>(() => getCachedWpblAllPitchPlays(season))
   useEffect(() => {
     let cancelled = false
-    // Cached app-wide and shared with the Stats tab's Pitches board, so a reader who has opened
-    // either pays for the season's plate appearances once.
-    fetchWpblAllPitchPlays().then(p => { if (!cancelled) setPlays(p) }).catch(() => { /* renders nothing */ })
+    fetchWpblAllPitchPlays(season).then(p => { if (!cancelled) setPlays(p) }).catch(() => { /* renders nothing */ })
     return () => { cancelled = true }
-  }, [])
+  }, [season])
 
   const seasonGames = useMemo(() => (season == null ? games : gamesInSeason(games, season)), [games, season])
   const board = useMemo(
@@ -315,5 +315,3 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
     </Box>
   )
 }
-
-export type { PitchProfile }

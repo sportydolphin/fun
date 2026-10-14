@@ -1,0 +1,27 @@
+{
+  // The dead-code check (npm run knip, a non-blocking step in CI). See docs/CI.md.
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // What runs without being imported: Pages Functions route by file path, each edge function is
+  // its own Deno entry, the cron jobs are run by name from workflows, and shared/*.js is loaded
+  // by both the app and the scripts.
+  "entry": [
+    "functions/**/*.ts",
+    "supabase/functions/*/index.ts",
+    "scripts/**/*.{mjs,ts}",
+    "shared/*.js"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "functions/**/*.ts",
+    "shared/**/*.js",
+    "supabase/functions/**/*.ts",
+    "scripts/**/*.{mjs,ts}"
+  ],
+  // axe-core is read off disk by the layout sweep (require.resolve), never imported. `npm` is
+  // Deno's `npm:` specifier in an edge function, not a package.
+  "ignoreDependencies": ["axe-core", "npm"],
+  // Globs in package.json and ci.yml that knip reads as file paths.
+  "ignoreUnresolved": ["^scripts/\\*\\.ts$", "^functions/\\*\\*/\\*\\.ts$"],
+  // An export used only in its own file is a style question, not dead code.
+  "ignoreExportsUsedInFile": true
+}

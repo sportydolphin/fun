@@ -212,11 +212,10 @@ function pitchingRows(a: WpblPitchingTotals, b: WpblPitchingTotals, basis: EraBa
  *
  * `plays` MUST be unfiltered by event: the league play log (`fetchWpblAllRunValuePlays`) or one
  * of the pair's own plays (`fetchWpblPlayerMatchupPlays`), which hold every duel with anybody.
- * The firsts read in api.ts drops routine outs at the database, which is right for what
- * it is for and would make this read a .650 average for everybody: the outs are most of the
- * denominator and none of them would arrive. The parameter type is the narrow structural one
- * from matchups.ts rather than either read's own, so this cannot be enforced by the compiler
- * and is stated here instead.
+ * A read that dropped routine outs (the Hall of Firsts had one until Oct 2026) would make this a
+ * .650 average for everybody: the outs are most of the denominator and none of them would
+ * arrive. The parameter type is the narrow structural one from matchups.ts rather than either
+ * read's own, so this cannot be enforced by the compiler and is stated here instead.
  *
  * `games` is required for the reason every aggregate in this section requires it: a play
  * carries a game_id and nothing else, so it cannot say for itself whether it was a postseason

@@ -40,9 +40,10 @@ export default function FanAwardsSheet({ teams, games: allGames, scheduleSettled
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [allLines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
-  const [allPlays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
-  // THE BALLOT'S OWN YEAR, not the one on screen: every read is every season, and the shortlists and
-  // the race behind them have to be the season the votes were cast about.
+  const [allPlays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays(AWARDS_SEASON) ?? [])
+  // THE BALLOT'S OWN YEAR, not the one on screen: the lines are every season, and the shortlists and
+  // the race behind them have to be the season the votes were cast about. The plays are read as that
+  // season alone and cut all the same.
   const games = useMemo(() => gamesInSeason(allGames, AWARDS_SEASON), [allGames])
   const lines = useMemo(() => ({
     batting: inSeason(allLines.batting, allGames, AWARDS_SEASON),
@@ -52,7 +53,7 @@ export default function FanAwardsSheet({ teams, games: allGames, scheduleSettled
   const [readsSettled, setReadsSettled] = useState(false)
   useEffect(() => {
     let cancelled = false
-    Promise.allSettled([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllRunValuePlays()]).then(([r, l, p]) => {
+    Promise.allSettled([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllRunValuePlays(AWARDS_SEASON)]).then(([r, l, p]) => {
       if (cancelled) return
       if (r.status === 'fulfilled') setPlayers(r.value)
       if (l.status === 'fulfilled') setLines(l.value)

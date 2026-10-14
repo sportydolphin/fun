@@ -238,26 +238,28 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
   trackedVisible?: boolean
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
-  const [allPlays, setPlays] = useState(() => getCachedWpblAllPitchPlays())
-  // Every season's plays, cut to the year on screen before any board counts them.
-  const { cut } = useWpblSeason()
+  // The year on screen's plays, read as that year alone and cut again before any board counts
+  // them. Held with the season they were read for, so a year picked from the menu reads afresh.
+  const { season, cut } = useWpblSeason()
+  const [read, setRead] = useState(() => ({ season, plays: getCachedWpblAllPitchPlays(season) }))
+  const allPlays = read.season === season ? read.plays : null
   const plays = useMemo(() => (allPlays ? cut(allPlays) : null), [allPlays, cut])
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [loading, setLoading] = useState(() => getCachedWpblAllPitchPlays() == null)
+  const [loading, setLoading] = useState(() => getCachedWpblAllPitchPlays(season) == null)
 
   // Refetch on every mount, but paint from the session cache first. The bulk fetchers collapse
   // anything inside their own freshness window, so a reader flipping Tracked ⇆ Pitches does not
   // re-run the season-wide play scan; a genuinely stale tab still picks up the new games.
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchWpblAllPitchPlays(), fetchWpblAllPlayers()])
+    Promise.all([fetchWpblAllPitchPlays(season), fetchWpblAllPlayers()])
       .then(([p, pl]) => {
         if (cancelled) return
-        setPlays(p); setPlayers(pl); setLoading(false)
+        setRead({ season, plays: p }); setPlayers(pl); setLoading(false)
       })
       .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [])
+  }, [season])
 
   const board: PitchBoard | null = useMemo(
     () => (plays ? aggregatePitchCodes(plays, players, games) : null), [plays, players, games])

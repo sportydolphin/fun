@@ -434,27 +434,30 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   const [allBases, setAllBases] = useState(false)
   const [allTakeSwing, setAllTakeSwing] = useState(false)
 
-  const [allPlays, setPlays] = useState(() => getCachedWpblAllRunValuePlays())
-  // Every season's plays, cut to the year on screen: run expectancy is priced per season, and a
-  // table built over two would price this year's plays with last year's run environment.
-  const { cut } = useWpblSeason()
+  // The year on screen's plays, read as that year alone and cut again as the net under it: run
+  // expectancy is priced per season, and a table built over two would price this year's plays
+  // with last year's run environment. Held with the season they were read for, so a year picked
+  // from the menu reads afresh rather than drawing the last one's.
+  const { season, cut } = useWpblSeason()
+  const [read, setRead] = useState(() => ({ season, plays: getCachedWpblAllRunValuePlays(season) }))
+  const allPlays = read.season === season ? read.plays : null
   const plays = useMemo(() => (allPlays ? cut(allPlays) : null), [allPlays, cut])
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [loading, setLoading] = useState(() => getCachedWpblAllRunValuePlays() == null)
+  const [loading, setLoading] = useState(() => getCachedWpblAllRunValuePlays(season) == null)
 
   // Same shape as the pitch board: paint from the session cache, then revalidate. The bulk
   // fetchers collapse anything inside their freshness window, so flipping between the two
   // boards does not re-run the season-wide play scan.
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchWpblAllRunValuePlays(), fetchWpblAllPlayers()])
+    Promise.all([fetchWpblAllRunValuePlays(season), fetchWpblAllPlayers()])
       .then(([p, pl]) => {
         if (cancelled) return
-        setPlays(p); setPlayers(pl); setLoading(false)
+        setRead({ season, plays: p }); setPlayers(pl); setLoading(false)
       })
       .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [])
+  }, [season])
 
   const accent = wpblAccentFg(useDark())
   const experiments = useExperiments()

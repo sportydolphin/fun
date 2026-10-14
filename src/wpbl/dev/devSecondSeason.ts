@@ -25,6 +25,9 @@ const STORE_KEY = 'sd:dev-second-season'
 const PLAYED_SHARE = 0.4
 /** 52 weeks, so a Saturday game is still a Saturday. */
 const SHIFT_DAYS = 364
+/** The season that is cloned, and the one the clones land in. */
+const SOURCE_SEASON = 2026
+const CLONE_SEASON = 2027
 
 interface CloneMap {
   /** clone id to the real game it copies */
@@ -50,7 +53,7 @@ const cloneId = (id: string) => `${id.slice(0, -12)}d0d0${id.slice(-8)}`
 const isPostseason = (g: WpblGame) => !!g.game_type && /post|playoff|semi|champ/i.test(g.game_type)
 
 function build(games: WpblGame[]): CloneMap {
-  const regular = games.filter(g => !isPostseason(g) && g.game_date?.startsWith('2026'))
+  const regular = games.filter(g => !isPostseason(g) && g.game_date?.startsWith(String(SOURCE_SEASON)))
     .sort((a, b) => a.game_date.localeCompare(b.game_date))
   const cut = Math.round(regular.length * PLAYED_SHARE)
   const out: CloneMap = { source: {}, played: {} }
@@ -121,5 +124,7 @@ export function withDevSecondSeason(base: WpblReadOverlay): WpblReadOverlay {
       return out
     },
     sourceGameId: id => map?.source[id] ?? id,
+    // Every clone is a 2026 game moved 364 days on, so the fake year's plays are 2026's.
+    sourceSeason: season => (map && season === CLONE_SEASON ? SOURCE_SEASON : season),
   }
 }

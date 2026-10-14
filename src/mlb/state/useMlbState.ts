@@ -42,7 +42,6 @@ import { HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS } from '../lib/advanced'
 
 // The view names and the address of each live in ../routes.ts, which the shell and the edge read too.
 export type { MlbView } from '../routes'
-export { isMlbView } from '../routes'
 
 /** Where an open came from when it is not the tab on screen. See `openFrom`. The
  *  default is the view, and the player and team pages are the view called 'search', so the header

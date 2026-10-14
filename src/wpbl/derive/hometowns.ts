@@ -67,19 +67,3 @@ export function byCountry(players: WpblPlayer[]): HomeCountry[] {
   return [...rows.values()].sort((a, b) =>
     b.players.length - a.players.length || a.country.localeCompare(b.country))
 }
-
-export interface AgeSpread { known: number; youngest: WpblPlayer; oldest: WpblPlayer; median: number }
-
-/** Ages, which are on 116 of the 118 and are the other thing this page can say plainly.
- *  Null when nobody has one, so the card omits itself rather than rendering "NaN". */
-export function ageSpread(players: WpblPlayer[]): AgeSpread | null {
-  const withAge = players.filter(p => typeof p.age === 'number' && p.age > 0)
-  if (withAge.length === 0) return null
-  const sorted = [...withAge].sort((a, b) => (a.age as number) - (b.age as number))
-  return {
-    known: sorted.length,
-    youngest: sorted[0],
-    oldest: sorted[sorted.length - 1],
-    median: sorted[Math.floor(sorted.length / 2)].age as number,
-  }
-}

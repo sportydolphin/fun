@@ -2190,7 +2190,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => reload(), [reload])
   // Stats' own reads beside the section's, not after them: see warmStatsReads. Only while the
   // section is still loading, since after that the tab mounts and asks for itself.
-  useEffect(() => { if (loading && view === 'stats') warmStatsReads() }, [loading, view])
+  // The year picked as the section opened; a year picked later is the tab's own read.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (loading && view === 'stats') warmStatsReads(pickedSeason) }, [loading, view])
 
   // Keep the schedule / scoreboard / standings live as the official-feed ingest writes scores
   // and status changes. Teams are static, so only the schedule is re-fetched. Faster while a

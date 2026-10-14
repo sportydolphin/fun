@@ -268,8 +268,8 @@ flowchart LR
   season), the More menu and the footer
 - **Batter vs pitcher** ([`src/wpbl/derive/matchups.ts`](src/wpbl/derive/matchups.ts)): one
   derivation, `batterPitcherMatchups`, behind every surface that shows a duel. It reads the
-  UNFILTERED play read (`fetchWpblAllRunValuePlays`), never the firsts read, which drops routine
-  outs at the database and would make every hitter bat about .650. It takes the schedule as a
+  play log (`fetchWpblAllRunValuePlays`) or its plate appearances, never a read that drops routine
+  outs, which would make every hitter bat about .650. It takes the schedule as a
   required argument and a `SeasonScope`, because the playoffs are 717 of the 2,820 stored plate
   appearances and a play cannot say which game type it came from. It keys on the player ids the
   ingest resolved, never the name: the ingest leaves an id null exactly when a name is ambiguous.
@@ -297,8 +297,7 @@ flowchart LR
   own run-expectancy table and what each play was worth) and `winProbability` built on it,
   `recap` / `discordRecap` / `blueskyRecap` / `discordBirthdays`, `predictions`, `trivia`,
   `bracket`, `seeding`, `series` / `seriesOdds`, `pitches`, `pitchingUsage`, `lineupGrid`,
-  `matchups`, `compare`, `mvpRace`, `teamSpec`, `hometowns`, `articles`, `feedHealth`. **`firsts` is not in
-  this folder**: the Hall of Firsts lives at [`src/wpbl/firsts.ts`](src/wpbl/firsts.ts).
+  `matchups`, `compare`, `mvpRace`, `teamSpec`, `hometowns`, `articles`, `feedHealth`.
 - **Settings** ([`src/SettingsDialog.tsx`](src/SettingsDialog.tsx)) is split by league, with
   a WPBL / MLB switch seeded from the section the reader came from, so a WPBL-only visitor
   never scrolls past thirty MLB crests. Account, accessibility, app and danger-zone settings
@@ -431,7 +430,7 @@ any of them. `team_as_of` records the date of the newest box score that placed h
 `team_id`, which is what stops a re-read of an old game from undoing a trade, and every move
 the ingest makes on its own is logged to `wpbl_player_team_changes`. Historical team is never
 read off the roster row: box-score lines and plays each carry the club that game was played
-for, and that is what the game logs, team pages and Hall of Firsts use.
+for, and that is what the game logs and team pages use.
 
 **Nor is a club's feed id the club.** The same rule applies one level up: the league mints a
 new team id per context, so Boston is one id all regular season and a different one in the

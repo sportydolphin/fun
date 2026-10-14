@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { pressable } from '../../ui/interaction'
 import { edge } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT_TEXT, CURRENT_SEASON, TONE } from '../constants'
-import { chromePx, typePx } from '../../ui/scale'
+import { TEAM_BG, TEAM_ABBR, HEADSHOT, CURRENT_SEASON, TONE } from '../constants'
+import { chromePx } from '../../ui/scale'
 import { useTextTone } from '../lib/colorUtils'
 import { cachedJson, FRESH_LONG_MS } from '../lib/readCache'
 
@@ -144,75 +144,6 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, large }: {
           ✓
         </Box>
       )}
-    </Box>
-  )
-}
-
-// ─── SuggestedPlayersSection ──────────────────────────────────────────────────
-
-export function SuggestedPlayersSection({ teamId, followedPlayerIds, onFollow }: {
-  teamId:            number
-  followedPlayerIds: number[]
-  onFollow:          (id: number) => void
-}) {
-  const [suggestions, setSuggestions] = useState<SuggestionPlayer[]>([])
-  const [loading,     setLoading]     = useState(true)
-
-  useEffect(() => {
-    setLoading(true)
-    fetchSuggestions(teamId, followedPlayerIds)
-      .then(setSuggestions)
-      .finally(() => setLoading(false))
-    // Refetch only when the club changes; a follow is reflected through alreadyFollowed, and
-    // refetching on it would reshuffle the list under the reader's finger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId])
-
-  if (!loading && suggestions.length === 0) return null
-
-  return (
-    <Box sx={{
-      borderRadius: 3, border: '1px solid', borderColor: 'outline',
-      bgcolor: 'background.paper', overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <Box sx={{
-        px: 2, py: 1.25,
-        borderBottom: '1px solid', borderColor: 'divider',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <Typography sx={{
-          fontWeight: 800, fontSize: { xs: '0.65rem', sm: '0.72rem' },
-          textTransform: 'uppercase', letterSpacing: typePx(1.2), color: ACCENT_TEXT,
-        }}>
-          Suggested Players
-        </Typography>
-        <Typography sx={{ fontSize: { xs: '0.58rem', sm: '0.64rem' }, color: 'text.disabled' }}>
-          ★ = your team
-        </Typography>
-      </Box>
-
-      <Box sx={{ px: 2, py: 1.5 }}>
-        {loading ? (
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading suggestions…</Typography>
-        ) : (
-          <Box sx={{
-            display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
-            flexWrap: 'wrap',
-            '&::-webkit-scrollbar': { display: 'none' },
-            scrollbarWidth: 'none',
-          }}>
-            {suggestions.map(p => (
-              <SuggestionChip
-                key={p.id}
-                player={p}
-                alreadyFollowed={followedPlayerIds.includes(p.id)}
-                onFollow={() => onFollow(p.id)}
-              />
-            ))}
-          </Box>
-        )}
-      </Box>
     </Box>
   )
 }
