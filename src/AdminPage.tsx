@@ -5,6 +5,7 @@ import { Refresh, ExpandMore } from '@mui/icons-material'
 import { StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
 import AdminPhotos from './wpbl/AdminPhotos'
 import AdminClips from './wpbl/AdminClips'
+import AdminRoadmap from './AdminRoadmap'
 import { PlayerPortrait } from './wpbl/ui'
 // The gesture the win probability and standings charts already use. It lives under wpbl/
 // because `data-swipe-lock` exists for that section's tab pager, but nothing in it is
@@ -43,13 +44,14 @@ const palettePicked = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.pic
 // whether the pipelines ran, and the things the owner operates. They share almost nothing:
 // the range and league filters below apply to the first and to nothing else, so they are
 // three groups rather than three runs of cards separated by nothing but a heading.
-type Group = 'audience' | 'health' | 'tools' | 'photos' | 'clips'
+type Group = 'audience' | 'health' | 'tools' | 'photos' | 'clips' | 'roadmap'
 const GROUPS: Array<{ value: Group; label: string }> = [
   { value: 'audience', label: 'Audience' },
   { value: 'health',   label: 'Health' },
   { value: 'tools',    label: 'Tools' },
   { value: 'photos',   label: 'Photos' },
   { value: 'clips',    label: 'Clips' },
+  { value: 'roadmap',  label: 'Roadmap' },
 ]
 
 // How many event rows the card shows before the "show all" tap. Twelve covers everything
@@ -1264,6 +1266,8 @@ export default function AdminPage() {
       {group === 'photos' && <AdminPhotos />}
 
       {group === 'clips' && <AdminClips />}
+
+      {group === 'roadmap' && <AdminRoadmap />}
     </Box>
   )
 }
