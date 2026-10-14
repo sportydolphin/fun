@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball } from '@mui/icons-material'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { clubPageSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
+import { clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
 import { requestSectionScroll } from './lib/sectionScroll'
-import { nameWords, parseCompareText, parseGameQuery, typedSeason } from './league/finderParse'
+import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
+import { nameWords, parseCompareText, parseGameQuery, typedPart, typedSeason } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -40,7 +41,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'definition' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -61,6 +62,24 @@ interface Item {
   icon?: React.ReactNode
   /** Everything a pick does other than the navigation itself, which a link does on its own. */
   onOpen: () => void
+  /** A player or club row only the forgiving pass found (SearchResultRow.forgiving). */
+  forgiving?: boolean
+  /** The section's own key for a player or club row, so the palette can note when it was opened. */
+  rowKey?: string
+  /** For a question row: the scroll its page is opened at, kept with it in Recent. */
+  scrollTo?: string
+  /** A question picked from Recent, which moves back to the front when asked again. */
+  question?: RecentQuestion
+}
+
+/** How many recents show before anything is typed, players, clubs and questions together: few,
+ *  so the example questions below them stay in view on a phone. */
+const PALETTE_RECENTS = 3
+const QUESTION_KINDS = new Set<PickKind>(['leader', 'finder', 'definition'])
+const QUESTION_ICON: Record<RecentQuestion['kind'], React.ReactNode> = {
+  leader: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
+  finder: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
+  definition: <MenuBook sx={{ fontSize: ICON_SIZE.md }} />,
 }
 
 interface Group { label: string; items: Item[]; onClear?: () => void }
@@ -120,13 +139,21 @@ function pageScore(p: PageEntry, q: string): number {
 
 const rowItem = (kind: 'result' | 'recent') => (r: SearchResultRow): Item => ({
   key: `${kind}-${r.key}`, kind, title: r.title, subtitle: r.subtitle, avatar: r.avatar, onOpen: r.onSelect,
+  forgiving: r.forgiving, rowKey: r.key,
+})
+
+/** A question from Recent, as a row: a link again, at the same scroll. */
+const questionItem = (q: RecentQuestion): Item => ({
+  key: `recent-q-${q.href}-${q.scrollTo ?? ''}`, kind: 'recent', title: q.title, subtitle: q.subtitle, href: q.href,
+  icon: QUESTION_ICON[q.kind], scrollTo: q.scrollTo, question: q,
+  onOpen: () => { if (q.scrollTo) requestSectionScroll(q.scrollTo) },
 })
 
 const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, seasonCount = null }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -139,8 +166,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolveCompare?: SearchBridgeState['resolveCompare']
   /** The section's game lookup for "SF vs NY sep 9", from the search bridge. */
   resolveGames?: SearchBridgeState['resolveGames']
+  /** How many seasons the section has on record, from the search bridge. */
+  seasonCount?: number | null
 }) {
   const [text, setText] = useState('')
+  // The questions and pick times, read fresh on every open: another tab may have asked one.
+  const [recentQs, setRecentQs] = useState<RecentQuestion[]>([])
+  const [rowPicks, setRowPicks] = useState<Record<string, number>>({})
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
@@ -154,6 +186,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   useEffect(() => {
     if (!open) return
     setText(''); setActive(0)
+    setRecentQs(getRecentQuestions(section)); setRowPicks(getRowPicks(section))
     pickedRef.current = false
     return () => {
       if (!pickedRef.current) {
@@ -197,8 +230,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     setText(v); setActive(0)
     // "whitmore hr" searches names for "whitmore": the stat and any year are for the rows above,
     // and no player is called "whitmore hr". The year goes along on its own, so "Ohtani 2023"
-    // opens Ohtani on 2023.
-    setSearchQuery(nameWords(v) ?? v, typedSeason(v))
+    // opens Ohtani on 2023, and so does a part of the card: "Ohtani splits" opens him at the splits.
+    setSearchQuery(nameWords(v) ?? v, typedSeason(v), typedPart(v))
   }
 
   const groups = useMemo<Group[]>(() => {
@@ -215,8 +248,16 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     })
 
     if (!q) {
+      // Recent is the section's players and clubs and this device's questions, as one list.
+      const sectionRecent = idle.find(g => g.label === 'Recent')
+      const recent = mergeRecent(sectionRecent?.rows ?? [], recentQs, rowPicks, PALETTE_RECENTS)
+        .map(e => ('row' in e ? rowItem('recent')(e.row) : questionItem(e.question)))
+      const clearRecent = sectionRecent?.onClear || recentQs.length
+        ? () => { sectionRecent?.onClear?.(); clearRecentQuestions(section); setRecentQs([]); setRowPicks({}) }
+        : undefined
       return [
-        ...idle.map(g => ({ label: g.label, items: g.rows.map(rowItem(g.kind)), onClear: g.onClear })),
+        { label: 'Recent', items: recent, onClear: clearRecent },
+        ...idle.filter(g => g !== sectionRecent).map(g => ({ label: g.label, items: g.rows.map(rowItem(g.kind)), onClear: g.onClear })),
         { label: 'Pages', items: TAB_PAGES[section].map(pageItem) },
         {
           label: 'Ask a stat question',
@@ -248,10 +289,16 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))
-    const leaders: Item[] = leaderSuggestions(section, text).map(s => ({
+    const leaders: Item[] = leaderSuggestions(section, text, { seasonCount }).map(s => ({
       key: s.key, kind: 'leader', title: s.title, subtitle: `Leaders · ${s.subtitle}`, href: s.href,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
+    }))
+    const defined = definitionSuggestions(section, text)
+    const definitions: Item[] = defined.rows.map(s => ({
+      key: s.key, kind: 'definition', title: s.title, subtitle: s.subtitle, href: s.href, scrollTo: s.scrollTo,
+      icon: <MenuBook sx={{ fontSize: ICON_SIZE.md }} />,
+      onOpen: () => requestSectionScroll(s.scrollTo),
     }))
     // A ranking is never also a line question ("top 10 ops" is not "an OPS of at least 10").
     const finder: Item[] = (!leaders.length && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
@@ -273,17 +320,22 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .slice(0, 6)
       .map((x, i) => pageItem(x.p, i))
 
+    // A term asked about in words ("what is OPS") is the answer; typed bare ("ops") it is more
+    // likely the board, so it waits behind the rankings and the Find readings.
+    const glossary = { label: 'Glossary', items: definitions }
     return [
+      ...(defined.asked ? [glossary] : []),
       { label: 'Games', items: games },
       { label: 'Matchups', items: matchups },
       { label: 'Clubs', items: clubPages },
       { label: 'Compare', items: compared },
       { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
+      ...(defined.asked ? [] : [glossary]),
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare, gameRows])
+  }, [text, results, idle, section, compare, gameRows, seasonCount, recentQs, rowPicks])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))
@@ -308,8 +360,17 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       section, kind: item.kind, rank: flat.indexOf(item), typed,
       // Whether the palette's own top row was the one taken, which is what the ordering is for.
       top: flat[0] === item,
+      // Found only by the forgiving pass: a search the typo would otherwise have lost. Absent, not
+      // false, on every other pick, so the event stays as it was for those.
+      ...(item.forgiving ? { forgiving: true } : {}),
     })
     if (item.kind === 'example') { item.onOpen(); return }
+    // Into Recent: a question by its link, a player or club by when it was opened.
+    const asked = item.question ?? (QUESTION_KINDS.has(item.kind) && item.href
+      ? { kind: item.kind as RecentQuestion['kind'], title: item.title, subtitle: item.subtitle, href: item.href, scrollTo: item.scrollTo }
+      : null)
+    if (asked) recordRecentQuestion(section, asked)
+    else if (item.rowKey) recordRowPick(section, item.rowKey)
     pickedRef.current = true
     onClose()
     item.onOpen()

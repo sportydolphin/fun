@@ -17,6 +17,7 @@ import { TapTip } from './TapTip'
 import { TAPPABLE, hoverOnly } from './interaction'
 import { chromePx, typePx } from './scale'
 import { usePhoneLayout } from './ModalShell'
+import { playerPartAnchor, type PlayerPart } from '../lib/playerParts'
 
 /** What a league supplies to the card parts. */
 export interface StatCardEnv {
@@ -77,15 +78,21 @@ export const SECTION_CAPTION_SX = {
  * which is what `flexWrap` buys; a label is never ellipsised, since it is the only thing saying
  * what the numbers under it are.
  */
-export function SectionHead({ title, caption, sx }: {
+/** Where a part the search scrolls to stops: clear of the pinned toolbar on a page, and a little
+ *  air above the heading in a sheet, where the variable is 0. */
+const PART_SCROLL_SX = { scrollMarginTop: 'calc(var(--app-header-h, 0px) + 0.75rem)' }
+
+export function SectionHead({ title, caption, sx, part }: {
   title: React.ReactNode
   caption?: React.ReactNode
   sx?: object
+  /** The part of the card this heads, so the search can open the card scrolled to it. */
+  part?: PlayerPart
 }) {
   return (
-    <Box sx={{
+    <Box id={part ? playerPartAnchor(part) : undefined} sx={{
       display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-      flexWrap: 'wrap', columnGap: 1.5, rowGap: 0.25, mb: 1, ...sx,
+      flexWrap: 'wrap', columnGap: 1.5, rowGap: 0.25, mb: 1, ...(part ? PART_SCROLL_SX : null), ...sx,
     }}>
       <Typography sx={SECTION_LABEL_SX}>{title}</Typography>
       {caption != null && <Typography sx={{ ...SECTION_CAPTION_SX, textAlign: 'right' }}>{caption}</Typography>}
@@ -978,8 +985,10 @@ export interface StatLogRow {
   selected?: boolean
 }
 
-export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], statHeaders, rows, totals, totalsLabel = 'Season', best, accent, preview = LOG_PREVIEW, noun = ['game', 'games'], leadSx, placeholder }: {
+export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], statHeaders, rows, totals, totalsLabel = 'Season', best, accent, preview = LOG_PREVIEW, noun = ['game', 'games'], leadSx, placeholder, part }: {
   title: string
+  /** The part of the card this is, so the search can open the card scrolled to it. */
+  part?: PlayerPart
   /** The loading state: rows of samples, each cell drawn as a bar of its sample's width, and the
    *  Show more control drawn invisibly so it still takes its height. Pass samples as the lead too. */
   placeholder?: boolean
@@ -1038,7 +1047,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
     ...(leadSx?.[k] ?? {}),
   })
   return (
-    <Box ref={sectionRef} sx={{ mt: 2 }}>
+    <Box ref={sectionRef} id={part ? playerPartAnchor(part) : undefined} sx={{ mt: 2, ...(part ? PART_SCROLL_SX : null) }}>
       {caption != null ? <SectionHead title={title} caption={caption} /> : <Typography sx={sectionSx}>{title}</Typography>}
       {/* Capped and self-scrolling, with the header pinned to the top of it and the season row
           pinned to the bottom. This is the one block on the page that grows on its own: a row a

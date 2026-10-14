@@ -1117,30 +1117,45 @@ names with typos and nicknames, Find questions, rankings, a year, two players, a
 its page, and a game or a WPBL pairing (v1.158.0, log below). What is left, roughly in the order
 worth doing:
 
-1. **Stat definitions.** "what is OPS+", "wRC+", "FIP" opens the glossary entry. Both glossaries
-   exist (`/wpbl/glossary`, `/mlb/glossary`), so this is a parser and a link. The cheapest next one.
-2. **Career and all-time.** "most hr all time", "Whitmore career". MLB's stats table already takes
-   `season=all` and both player cards have a career view; the ranking reader needs the words and
-   the player row a way to open on career.
+1. ✅ **Stat definitions** (Oct 14). "what is OPS+", "wRC+ meaning", "what does FIP stand for", or
+   a term typed bare that cannot be a name or a ranking ("fip", "wrc+"), opens the section's
+   glossary scrolled to the term, with its group switched on. Asked in words, the row comes first;
+   bare, it waits behind the rankings. `askedTerms` in `src/league/glossary.ts`.
+2. ✅ **Career and all-time** (Oct 14). "most hr all time", "career era leaders", "Whitmore
+   career". MLB links its all-time board, but only on the sorts it fetches: it is the top 100 on a
+   fixed list of career sorts, so "fewest hr all time" would rank the home run leaders and offers
+   no row. WPBL has no every-season table, so its all-time row is the one-season table while there
+   is one season and nothing after; an every-season board is what would take that further. A
+   player opens on the career from either section (WPBL's card shows its one season until there
+   is a second).
 3. **The answer in the row.** "Whitmore avg" shows ".312 · 2026" as the player row's subtitle, so a
    quick question needs no click. Free on WPBL, whose lines are in memory; one call on MLB.
 4. **A peek at the leader.** A ranking row says who leads and by what ("Most home runs · 52, …").
 5. **Live games first.** A club playing right now puts "Live · 3-2, bottom 6" at the top.
 6. **Clubs as the subject.** "SF team ERA", "most runs by a team" opens the team stats board.
 7. **The other section.** An MLB name typed on WPBL offers one row into MLB, and the reverse.
-8. **A part of a player's page.** "Ohtani splits", "Whitmore game log" opens the card scrolled
-   there, the way a club page row already does (`lib/sectionScroll.ts`).
+8. ✅ **A part of a player's page** (Oct 14). "Ohtani splits", "Whitmore game log" opens the card
+   scrolled there, through `lib/sectionScroll.ts` as a club page row does: the game log, splits,
+   pitch mix, advanced, fielding and contract on MLB; the game log, pitch profile, matchups, hit
+   locations and fielding on WPBL (`src/lib/playerParts.ts`). The scroll is held for three seconds
+   while the card's blocks land, since the first one measured scrolled and was then pushed 470px
+   down. Not done: on a phone, a two-way player's other role's tab is not switched to, so "Ohtani
+   pitch mix" there opens on whichever role is showing.
 9. **Spans and splits.** "hr since August", "avg at home 2026" as a Find link with a date range,
    once the Find board takes one.
 10. **Records and firsts.** "first home run", "longest game" opens the Hall of Firsts or Bests.
-11. **Questions in Recent.** A ranking or a Find question run from the box comes back in Recent,
-    as players and clubs do.
+11. ✅ **Questions in Recent** (Oct 14). A ranking, a Find question or a glossary term run from the
+    box comes back in Recent, merged with the players and clubs by when each was opened
+    (`src/lib/recentQuestions.ts`). On this device only: the sections' synced recents are typed as
+    a player or a club, and an older client drops anything else as it writes the list back.
 12. **Keyboard.** Tab accepts the top row; a "?" row lists what the box understands.
 13. **Examples from use.** Pick the idle examples from what readers ask, once the "Offered nothing
     for" list on /admin (live from v1.158.0) and the picks by kind have a few weeks in them.
-14. **Measure the forgiving pass.** Mark a pick that came from the typo fallback, so the Search
-    box card says how often it saves a search.
-15. **Cache MLB name lookups.** Backspacing, or a compare, refetches a name StatsAPI just answered.
+14. ✅ **Measure the forgiving pass** (Oct 14). A pick of a row only the typo fallback found carries
+    `forgiving: true`, and the Search box card says how many player and club picks it saved
+    (migration `20261014194835`, not applied yet).
+15. ✅ **Cache MLB name lookups** (Oct 14). `searchPlayers` keeps each name's answer ten minutes,
+    shares a call in flight, and keeps no failure.
 
 Two limits to keep in mind rather than fix. A player's name inside a Find question ("Whitmore 2
 hr") is dropped from the Find row, because Find cannot filter by player; the name search beside it

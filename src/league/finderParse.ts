@@ -1,6 +1,7 @@
 import { finderFields, finderLowerBetter, parseFinderValue } from './finder'
 import type { FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
 import { editDistance } from '../lib/fuzzyName'
+import type { PlayerPart } from '../lib/playerParts'
 
 /**
  * A finder question typed as words: "5 strikeouts no walks", "3+ hits vs SF", "4-for-4 at home".
@@ -289,6 +290,38 @@ const COUNT_OF_PITCHES = new RegExp(`^\\s*(?:\\+|or more|plus)?\\s*(${alt(STAT_P
   return f === 'pitches' || f === 'strikes'
 }))})${B_END}`)
 
+// A WHOLE CAREER, or every season there has been: "most hr all time", "Whitmore career". Taken
+// before the season words, since "of all time" would otherwise leave "all time" for nothing to read.
+const CAREER_WORDS = /(?<![a-z])(of all time|all time|all-time|alltime|ever|in history|history|career|careers|lifetime)(?![a-z])/g
+
+// A PART OF A PLAYER'S CARD: "Ohtani splits", "Whitmore game log". Phrases first, as everywhere.
+// Not "games" alone, which is how a Find question is asked ("3 hit games"), and not "war", which
+// is a stat before it is a section.
+const PLAYER_PART_WORDS: { re: RegExp; part: PlayerPart }[] = [
+  { re: /(?<![a-z])(game logs?|gamelogs?|logs?|recent games|last games)(?![a-z])/g, part: 'log' },
+  { re: /(?<![a-z])(splits?|vs lefties|vs righties|vs lhp|vs rhp|home and away|home away|home road)(?![a-z])/g, part: 'splits' },
+  { re: /(?<![a-z])(pitch mix|pitch profile|plate discipline|arsenal|repertoire)(?![a-z])/g, part: 'pitches' },
+  { re: /(?<![a-z])(advanced stats|advanced|sabermetrics|statcast)(?![a-z])/g, part: 'advanced' },
+  { re: /(?<![a-z])(fielding|defen[cs]e)(?![a-z])/g, part: 'fielding' },
+  { re: /(?<![a-z])(contract|salary)(?![a-z])/g, part: 'contract' },
+  { re: /(?<![a-z])(spray charts?|spray|hit locations?|hit chart)(?![a-z])/g, part: 'spray' },
+  { re: /(?<![a-z])(matchups?|vs pitchers|vs batters)(?![a-z])/g, part: 'matchups' },
+]
+
+/** `rest` with any word for a part of the card blanked out (same length), and the last part named. */
+function takePart(rest: string): { rest: string; part: PlayerPart | null } {
+  let part: PlayerPart | null = null
+  for (const w of PLAYER_PART_WORDS) rest = rest.replace(w.re, m => { part = w.part; return ' '.repeat(m.length) })
+  return { rest, part }
+}
+
+/** `rest` with any word for a whole career blanked out (same length), and whether there was one. */
+function takeCareer(rest: string): { rest: string; career: boolean } {
+  let career = false
+  const out = rest.replace(CAREER_WORDS, m => { career = true; return ' '.repeat(m.length) })
+  return { rest: out, career }
+}
+
 /** `rest` with any year blanked out (same length, so offsets still line up), and the year. The
  *  last one wins, as with a stat named twice. */
 function takeYear(rest: string): { rest: string; season: number | null } {
@@ -502,7 +535,11 @@ export interface ParsedLeader {
   /** The order asked for, or null for the board's own (best first). Literal, not "reversed":
    *  "most walks allowed" is descending whichever end of that column is the good one. */
   dir: 'asc' | 'desc' | null
+  /** Null for the board's own season, and always null with `career`. */
   season: number | null
+  /** Every season summed ("all time", "career"): the board across a whole history, not one year.
+   *  Beats a year typed beside it, since "career hr 2024" can only mean the career. */
+  career: boolean
 }
 
 // "top" and "best" mean the board's own order; "most" and "fewest" mean the numbers' order, which
@@ -522,9 +559,11 @@ const STAT_ANY = new RegExp(`${B_START}${STAT}${B_END}`, 'g')
 export function parseLeaderText(text: string): ParsedLeader[] {
   let rest = ` ${fixStatTypos(normalize(text))} `
   if (!rest.trim()) return []
-  const year = takeYear(rest)
+  const span = takeCareer(rest)
+  const year = takeYear(span.rest)
   rest = year.rest
-  const season = year.season
+  const career = span.career
+  const season = career ? null : year.season
   rest = rest.replace(TOP_N, (_m: string, w: string) => ` ${w} `)
   let want: 'best' | 'worst' | 'more' | 'less' | null = null
   for (const w of LEAD_WORDS) rest = rest.replace(w.re, () => { want ??= w.want; return ' ' })
@@ -537,7 +576,7 @@ export function parseLeaderText(text: string): ParsedLeader[] {
   const alias = aliases[0]
   // A stat alone is a ranking only when it cannot be the start of a name: "h" or "k" typed on the
   // way to a player's name must not jump to a board.
-  if (!want && season == null && [...phrases].every(p => p.length < 2)) return []
+  if (!want && season == null && !career && [...phrases].every(p => p.length < 2)) return []
 
   rest = rest.replace(SEASON_WORDS, ' ')
   const words = rest.split(/[^a-z0-9]+/).filter(Boolean)
@@ -556,21 +595,21 @@ export function parseLeaderText(text: string): ParsedLeader[] {
       : want === 'less' ? 'asc'
       : want === 'worst' ? (lowerBetter ? 'desc' : 'asc')
       : null
-    return { side, field, dir, season }
+    return { side, field, dir, season, career }
   })
 }
 
 /**
- * The name in a question about a player: "whitmore hr" is Whitmore, "ohtani 2023" is Ohtani. Null
- * when the text names no stat or year, so a plain name search goes out exactly as typed. Only a
+ * The name in a question about a player: "whitmore hr" is Whitmore, "ohtani 2023" and "ohtani
+ * career" are Ohtani. Null when the text names no stat, year or career, so a plain name search goes out exactly as typed. Only a
  * stat of two letters or more counts, since "R.J." and "K." are initials before they are stats.
  */
 export function nameWords(text: string): string | null {
-  let rest = ` ${fixStatTypos(normalize(text))} `
-  const year = takeYear(rest)
-  rest = year.rest
-  const season = year.season
-  let found = season != null
+  const part = takePart(` ${fixStatTypos(normalize(text))} `)
+  const span = takeCareer(part.rest)
+  const year = takeYear(span.rest)
+  let rest = year.rest
+  let found = year.season != null || span.career || part.part != null
   rest = rest.replace(STAT_ANY, (m: string, p: string) => {
     if (p.length < 2) return m
     found = true
@@ -612,9 +651,18 @@ export function parseCompareText(text: string): { a: string; b: string; season: 
   return { a, b, season: year.season }
 }
 
-/** The year typed anywhere in `text` ("ohtani 2023"), read as `parseFinderText` reads one. */
-export function typedSeason(text: string): number | null {
-  return takeYear(` ${normalize(text)} `).season
+/** The part of the card a player row should open at ("Ohtani splits"), or null. Only beside a
+ *  name: a part word alone is not a player to open. */
+export function typedPart(text: string): PlayerPart | null {
+  const { part } = takePart(` ${normalize(text)} `)
+  return part && nameWords(text) ? part : null
+}
+
+/** The span a player row should open on: the year typed anywhere in `text` ("ohtani 2023"), read
+ *  as `parseFinderText` reads one, or 'career' for "Whitmore career", which beats a year beside it. */
+export function typedSeason(text: string): number | 'career' | null {
+  const span = takeCareer(` ${normalize(text)} `)
+  return span.career ? 'career' : takeYear(span.rest).season
 }
 
 // ─── A club and one of its pages ──────────────────────────────────────────────

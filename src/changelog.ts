@@ -4,6 +4,28 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.159.0',
+    date:    '2026-10-14',
+    changes: [
+      {
+        short: 'Search: career and all time',
+        full:  "Ask for \"most home runs all time\" or \"career ERA leaders\" to open MLB's all-time board, and type \"Ohtani career\" to open a player on their whole career.",
+      },
+      {
+        short: 'Search: what a stat means',
+        full:  "Type \"what is OPS+\", \"wRC+ meaning\" or just \"FIP\" to open the rules & glossary page at that stat.",
+      },
+      {
+        short: 'Search: straight to part of a player page',
+        full:  "\"Ohtani splits\", \"Whitmore game log\" or \"Skenes pitch mix\" opens the player already scrolled to that part of the page.",
+      },
+      {
+        short: 'Search: your questions come back',
+        full:  "Rankings, stat questions and glossary lookups you run now show up under Recent beside the players and clubs, so you can ask them again in one tap.",
+      },
+    ],
+  },
+  {
     version: '1.158.0',
     date:    '2026-10-14',
     changes: [

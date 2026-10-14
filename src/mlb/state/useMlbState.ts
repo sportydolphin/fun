@@ -158,6 +158,8 @@ export function useMlbState() {
   const [query, setQuery] = useState('')
   const [playerResults, setPlayerResults] = useState<Player[]>([])
   const [teamResults, setTeamResults] = useState<Team[]>([])
+  // Whether each list came from the forgiving pass, for the search bridge (resultsForgiving).
+  const [resultsForgiving, setResultsForgiving] = useState({ players: false, teams: false })
   const [allTeams, setAllTeams] = useState<Team[]>([])
   const [searching, setSearching] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -490,8 +492,10 @@ export function useMlbState() {
       t.name.toLowerCase().includes(q) || t.abbreviation.toLowerCase().includes(q) || matchesClubNickname(t.id, q)
     )
     // A slip in a club's name ("Dodgrs"), only once the exact pass found nothing (lib/fuzzyName.ts).
-    if (!teamMatches.length && q.length >= 3) teamMatches = fuzzyMatches(allTeams, q, t => [t.name])
+    const teamsForgiven = !teamMatches.length && q.length >= 3
+    if (teamsForgiven) teamMatches = fuzzyMatches(allTeams, q, t => [t.name])
     teamMatches = teamMatches.slice(0, 5)
+    setResultsForgiving({ players: false, teams: teamsForgiven && teamMatches.length > 0 })
     setTeamResults(teamMatches)
     if (teamMatches.length > 0 && !blocked) setDropdownOpen(true)
 
@@ -507,9 +511,11 @@ export function useMlbState() {
         // StatsAPI matches the start of each name and nothing looser, so "Ohatni" finds no one. A
         // second, forgiving try runs only on a miss, so a correct spelling costs no extra call and
         // is never crowded by near names (searchPlayersForgiving says how).
-        if (!players.length) players = await searchPlayersForgiving(query)
+        const forgiven = !players.length
+        if (forgiven) players = await searchPlayersForgiving(query)
         const playerSlice = players.slice(0, 6)
         setPlayerResults(playerSlice)
+        setResultsForgiving(f => ({ ...f, players: forgiven && playerSlice.length > 0 }))
         if (!blocked && (playerSlice.length > 0 || teamMatches.length > 0)) setDropdownOpen(true)
       } finally {
         setSearching(false)
@@ -1007,7 +1013,7 @@ export function useMlbState() {
     clearSelection,
     // Search
     query, setQuery,
-    playerResults, teamResults, allTeams,
+    playerResults, teamResults, resultsForgiving, allTeams,
     searching, dropdownOpen, setDropdownOpen,
     selectPlayer, selectTeam,
 

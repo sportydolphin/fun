@@ -1280,7 +1280,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // reaches it; any other open of any player passes nothing and the card picks its own.
   const querySeasonRef = useRef(bridge.querySeason)
   querySeasonRef.current = bridge.querySeason
-  const [openingSeason, setOpeningSeason] = useState<{ playerId: string; season: number } | null>(null)
+  const [openingSeason, setOpeningSeason] = useState<{ playerId: string; season: number | 'career' } | null>(null)
   // False while the section is kept mounted behind MLB (App.tsx). Everything that reaches outside
   // the section (the toolbar's search and tabs, the page's tags) waits for it, or the hidden section
   // would answer MLB's search box with WPBL players.
@@ -1704,7 +1704,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!active) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
   }, [active])
@@ -2006,7 +2006,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         .filter(pl => jerseyOf(pl) === jersey)
         .sort((a, b) => (order.get(a.team_id ?? '') ?? 99) - (order.get(b.team_id ?? '') ?? 99)
           || a.name.localeCompare(b.name))
-      return { q: raw.toLowerCase(), players: p, teams: [] as WpblTeam[] }
+      return { q: raw.toLowerCase(), players: p, teams: [] as WpblTeam[], forgiving: false }
     }
     const q = raw.toLowerCase()
     if (q.length < 2) return null
@@ -2014,11 +2014,12 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     let t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))
     // A slip ("Whitmor", "Firebels"): the forgiving pass, and only once the exact one found nothing,
     // so a correct spelling is never crowded by near misses (src/lib/fuzzyName.ts).
-    if (!p.length && !t.length && q.length >= 3) {
+    const forgiving = !p.length && !t.length && q.length >= 3
+    if (forgiving) {
       p = fuzzyMatches(players, q, pl => [pl.name])
       t = fuzzyMatches(teams, q, tm => [`${tm.city} ${tm.name}`, tm.name, tm.city])
     }
-    return { q, players: p, teams: t }
+    return { q, players: p, teams: t, forgiving }
   }, [bridge.query, players, teams])
 
   useEffect(() => {
@@ -2026,7 +2027,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!matches) { updateSearchBridge({ resultRows: NO_ROWS }); return }
     const playerRows = matches.players.slice(0, 6).map(p => buildPlayerRow(p, 'result'))
     const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
-    updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
+    updateSearchBridge({ resultRows: [...playerRows, ...teamRows], resultsForgiving: { players: matches.forgiving, teams: matches.forgiving } })
   }, [matches, buildPlayerRow, buildTeamRow, active])
 
   // "Whitmore vs Ibarra" in the palette. The halves arrive lowercased with accents folded (the
@@ -2068,6 +2069,11 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (active) updateSearchBridge({ resolveGames })
   }, [resolveGames, active])
+  // For "most hr all time", which the one-season stats table answers only while there is one.
+  const seasonCount = useMemo(() => seasonsOnRecord(games).length, [games])
+  useEffect(() => {
+    if (active) updateSearchBridge({ seasonCount })
+  }, [seasonCount, active])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

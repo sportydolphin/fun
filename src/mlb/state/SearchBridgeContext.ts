@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { RecentSearchItem } from '../storage/recentSearches'
 import type { GameQuery } from '../../league/finderParse'
+import type { PlayerPart } from '../../lib/playerParts'
 export type { RecentSearchItem } from '../storage/recentSearches'
 
 export interface PlayerBridgeItem {
@@ -44,17 +45,26 @@ export interface SearchResultRow {
   subtitle?: string
   avatar: SearchResultAvatar
   onSelect: () => void
+  /** Found only by the forgiving pass (lib/fuzzyName.ts): a slip the exact search missed. Carried
+   *  onto the pick, so /admin can say how often that pass is the one that answered. */
+  forgiving?: boolean
 }
 
 export interface SearchBridgeState {
   query: string
   /** A year typed beside the name ("Ohtani 2023"), so a player picked from the results opens on
-   *  that season. Null when none was typed. The year itself is not in `query`, which is names only. */
-  querySeason: number | null
+   *  that season, or 'career' for "Ohtani career". Null when neither was typed. Neither is in
+   *  `query`, which is names only. */
+  querySeason: number | 'career' | null
+  /** A part of the card typed beside the name ("Ohtani splits"), for the player row to open at.
+   *  Not in `query` either. */
+  queryPart: PlayerPart | null
   playerResults: PlayerBridgeItem[]
   teamResults: TeamBridgeItem[]
+  /** Which of the current results came from the forgiving pass, not the exact one. */
+  resultsForgiving: { players: boolean; teams: boolean }
   searching: boolean
-  handleSelectPlayer: ((p: PlayerBridgeItem, season?: number | null) => void) | null
+  handleSelectPlayer: ((p: PlayerBridgeItem, season?: number | 'career' | null) => void) | null
   handleSelectTeam: ((t: TeamBridgeItem) => void) | null
   isRegistered: boolean
   // Which section currently owns the toolbar search, which decides how the results dropdown
@@ -72,13 +82,19 @@ export interface SearchBridgeState {
   resolveCompare: ((a: string, b: string, season: number | null) => Promise<CompareRow | null>) | null
   /** "SF vs NY sep 9", "Dodgers last night": the games asked for, from the section's schedule. */
   resolveGames: ((q: GameQuery) => Promise<CompareRow[]>) | null
+  /** How many seasons the section has on record, or null when it does not say. WPBL's stats table
+   *  ranks one season at a time, so "most hr all time" is that table only while there is one. */
+  seasonCount: number | null
 }
 
 const DEFAULT: SearchBridgeState = {
   query: '',
   querySeason: null,
+  queryPart: null,
+  seasonCount: null,
   playerResults: [],
   teamResults: [],
+  resultsForgiving: { players: false, teams: false },
   searching: false,
   handleSelectPlayer: null,
   handleSelectTeam: null,
@@ -114,9 +130,9 @@ export function updateSearchBridge(partial: Partial<SearchBridgeState>): void {
   _notify()
 }
 
-export function setSearchQuery(q: string, season: number | null = null): void {
-  if (_state.query === q && _state.querySeason === season) return
-  _state = { ..._state, query: q, querySeason: season }
+export function setSearchQuery(q: string, season: number | 'career' | null = null, part: PlayerPart | null = null): void {
+  if (_state.query === q && _state.querySeason === season && _state.queryPart === part) return
+  _state = { ..._state, query: q, querySeason: season, queryPart: part }
   _notify()
 }
 

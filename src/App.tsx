@@ -5,6 +5,8 @@ import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener,
 import { Brightness4, Brightness7, AccountCircle, Search } from '@mui/icons-material'
 import { useSearchBridge, noteSearchFocus } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
+import { requestSectionScroll } from './lib/sectionScroll'
+import { MLB_PLAYER_PARTS, PLAYER_PART_LABEL, WPBL_PLAYER_PARTS, playerPartKey } from './lib/playerParts'
 import type { PaletteIdleGroup } from './CommandPalette'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
@@ -78,7 +80,6 @@ const WpblApp = lazy(loadWpbl)
  *  Failures are swallowed on purpose: this is a prefetch, and the real import will report any
  *  problem properly when the reader actually goes there. */
 // How many recent searches the palette lists before anything is typed.
-const PALETTE_RECENTS = 3
 
 function preloadSection(path: string) {
   const p = isWpblSection(path) ? loadMlb('/mlb', '') : loadWpbl()
@@ -604,47 +605,63 @@ function AppInner() {
   // shape already; MLB's StatsAPI rows are drawn here.
   const paletteResults = useMemo<SearchResultRow[]>(() => {
     if (!paletteOpen || !querySearchable) return []
-    if (bridge.source === 'wpbl') return bridge.resultRows
+    // "Ohtani splits": a player row says where it will open, and asks for the scroll as it opens.
+    // Here rather than in each section because both build their rows from the same query, and the
+    // part is the palette's reading of it. Only a part the section's card draws.
+    const parts = bridge.source === 'wpbl' ? WPBL_PLAYER_PARTS : MLB_PLAYER_PARTS
+    const part = bridge.queryPart && parts.has(bridge.queryPart) ? bridge.queryPart : null
+    const atPart = (row: SearchResultRow): SearchResultRow => !part ? row : {
+      ...row,
+      subtitle: [row.subtitle, `opens at ${PLAYER_PART_LABEL[part]}`].filter(Boolean).join(' · '),
+      onSelect: () => { requestSectionScroll(playerPartKey(part)); row.onSelect() },
+    }
+    // Which rows the forgiving pass found, so the pick can say so (/admin's Search box card).
+    const forgiven = (row: SearchResultRow, isPlayer: boolean): SearchResultRow =>
+      (isPlayer ? bridge.resultsForgiving.players : bridge.resultsForgiving.teams) ? { ...row, forgiving: true } : row
+    if (bridge.source === 'wpbl') {
+      return bridge.resultRows.map(r => (r.key.startsWith('player-') ? forgiven(atPart(r), true) : forgiven(r, false)))
+    }
     return [
       ...bridge.playerResults.slice(0, 6).map(p => {
         const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
         const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id as number] : undefined
-        return {
-          key: `p-${p.id}`, title: p.fullName,
+        return forgiven(atPart({
+          key: `player-${p.id}`, title: p.fullName,
           subtitle: (p.active === false ? [pos, retiredSpan(p)] : [pos, teamAbbr]).filter(Boolean).join(' | '),
           avatar: { imageUrl: HEADSHOT(p.id), bg: 'grey.200', fit: 'cover' as const },
           onSelect: () => bridge.handleSelectPlayer?.(p, bridge.querySeason),
-        }
+        }), true)
       }),
       ...bridge.teamResults.slice(0, 3).map(t => {
         const divShort = t.division?.name?.replace(/American League |National League /, '') ?? ''
         const leagueShort = t.league?.name?.includes('American') ? 'AL' : t.league?.name?.includes('National') ? 'NL' : ''
-        return {
-          key: `t-${t.id}`, title: t.name, subtitle: [leagueShort, divShort].filter(Boolean).join(' · ') || 'Team',
+        return forgiven({
+          key: `team-${t.id}`, title: t.name, subtitle: [leagueShort, divShort].filter(Boolean).join(' · ') || 'Team',
           avatar: mlbTeamAvatar(t.id),
           onSelect: () => bridge.handleSelectTeam?.(t),
-        }
+        }, false)
       }),
     ]
   }, [paletteOpen, querySearchable, bridge])
 
-  // What the palette shows before anything is typed: the last few recents and nothing else, so
-  // the stat-search examples below them stay in view. Storage keeps a longer list; only the top
-  // PALETTE_RECENTS show here. (MLB's "Your team" / "Trending" groups were dropped for the same
-  // reason.)
+  // What the palette shows before anything is typed: the section's recents, whole. The palette
+  // merges in the questions this device asked and shows only the first few of the lot, so the
+  // stat-search examples below them stay in view (PALETTE_RECENTS in CommandPalette.tsx). MLB's
+  // "Your team" / "Trending" groups were dropped for the same reason.
   const paletteIdle = useMemo<PaletteIdleGroup[]>(() => {
     if (!paletteOpen) return []
     if (bridge.source === 'wpbl') {
       return bridge.recentRows.length
-        ? [{ label: 'Recent', kind: 'recent', rows: bridge.recentRows.slice(0, PALETTE_RECENTS), onClear: bridge.clearRecentSearches ?? undefined }]
+        ? [{ label: 'Recent', kind: 'recent', rows: bridge.recentRows, onClear: bridge.clearRecentSearches ?? undefined }]
         : []
     }
-    const recents = bridge.recentSearches.slice(0, PALETTE_RECENTS)
+    const recents = bridge.recentSearches
     if (!recents.length) return []
     return [{
       label: 'Recent', kind: 'recent', onClear: bridge.clearRecentSearches ?? undefined,
       rows: recents.map(r => ({
-        key: `r-${r.type}-${r.id}`, title: r.name,
+        // The same key as the result row it was picked from, so the palette's pick times line up.
+        key: `${r.type}-${r.id}`, title: r.name,
         subtitle: r.type === 'player' ? [r.position, r.teamId ? TEAM_ABBR[r.teamId] : null].filter(Boolean).join(' · ') : 'Team',
         avatar: r.type === 'player' ? { imageUrl: HEADSHOT(r.id), bg: 'grey.200', fit: 'cover' as const } : mlbTeamAvatar(r.id),
         onSelect: () => bridge.handleSelectRecent?.(r),
@@ -1574,7 +1591,7 @@ function AppInner() {
         <Suspense fallback={null}>
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
             results={paletteResults} idle={paletteIdle} searching={bridge.searching}
-            resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames} />
+            resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames} seasonCount={bridge.seasonCount} />
         </Suspense>
       )}
 

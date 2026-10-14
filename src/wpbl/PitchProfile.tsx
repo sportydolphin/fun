@@ -253,7 +253,7 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
 
   return (
     <Box sx={{ mt: 2.5 }}>
-      <SectionHead title={side === 'pitching' ? 'Pitch profile' : 'Plate discipline'} caption={coverage} />
+      <SectionHead title={side === 'pitching' ? 'Pitch profile' : 'Plate discipline'} part="pitches" caption={coverage} />
 
       {/* Four across from sm up, two by two on a phone. A top-five rank is drawn in the rank blue
           and bold, the season line's rule, and nothing else: the headline praises, it does not

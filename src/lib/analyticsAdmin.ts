@@ -72,7 +72,11 @@ export interface PaletteSection {
   recents_cleared: number
 }
 export interface PaletteVia    { section: string; via: string; events: number; browsers: number }
-export interface PalettePick   { section: string; kind: string; events: number; browsers: number; avg_rank: number | null; top: number; typed: number }
+export interface PalettePick   {
+  section: string; kind: string; events: number; browsers: number; avg_rank: number | null; top: number; typed: number
+  /** Picks of a row only the typo fallback found. Absent until 20261014194835 runs. */
+  forgiving?: number
+}
 export interface PaletteFinder { section: string; side: string; events: number; browsers: number; clubs: number; ignored: number }
 /** Text the box offered nothing for. Absent until 20261014183000_add_palette_missed_queries.sql runs. */
 export interface PaletteMiss   { section: string; q: string; events: number; browsers: number }
