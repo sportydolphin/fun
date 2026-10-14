@@ -1471,6 +1471,18 @@ export default function WpblStatsView({
     // After the switch, which re-sorts on the side's headline column: no `sort` is that column.
     const next = defaultSort(nextSide, q.sortKey)
     setSortKey(next.key); setSortAsc(q.sortAsc ?? next.asc)
+    // Find's question too, or a stat question typed into the search (src/finderSearch.ts) opened
+    // the board still asking the previous one whenever Stats had been visited already, and Back
+    // between two questions changed the address and nothing else. After the side switch, which
+    // prunes conditions the new side lacks, so this lands whole.
+    if (nextSource === 'find') {
+      setFindQuery({
+        conditions: decodeFinderQuery(q.find ?? null, nextSide === 'pitching' ? 'pitching' : 'hitting'),
+        teamId: q.findTeam || null,
+        oppId: q.findOpp || null,
+        venue: q.findVenue ?? 'any',
+      })
+    }
   }
   useEffect(() => {
     const onPop = () => applyAddress.current()

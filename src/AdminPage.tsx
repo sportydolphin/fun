@@ -13,16 +13,19 @@ import { useChartScrub } from './ui/chartScrub'
 import {
   fetchAnalytics, localTz, deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, shortDate, seriesPoints,
-  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PALETTE,
   EMPTY_PAGE_USAGE, groupActions, buildFunnels, eventInfo, PAGE_LABELS, prettyId,
   EMPTY_WEB_VITALS, vitalRating, formatVital, EMPTY_MLB_USAGE, mlbCardLabel,
 } from './lib/analyticsAdmin'
 import type { LayoutShifts, VitalKey, VitalRating, WebVitalsRow } from './lib/analyticsAdmin'
-import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
+import type { AnalyticsBundle, LeagueFilter, DayPoint, PaletteStats } from './lib/analyticsAdmin'
 import { typePx } from './ui/scale'
 
 /** "1 browser" / "2 browsers" — the counts here are small enough that "1 browsers" shows. */
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`
+// The search box's totals across both sections, for the card's one-line summary.
+const paletteOpened = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.opened, 0)
+const palettePicked = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.picked, 0)
 
 // The owner's dashboard for what people actually do on the site — the thing that used to
 // mean opening the Supabase SQL editor.
@@ -86,7 +89,7 @@ const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
 
 const EMPTY_BUNDLE: AnalyticsBundle = {
   overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS,
-  entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, players: [],
+  entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, palette: EMPTY_PALETTE, players: [],
   growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE, vitals: EMPTY_WEB_VITALS, mlb: EMPTY_MLB_USAGE,
 }
 
@@ -521,7 +524,7 @@ export default function AdminPage() {
 
   useEffect(() => load(), [load])
 
-  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb } = data
+  const { overview, events, tabs, statsBoards, entryPoints, search, palette, players, growth, pages, vitals, mlb } = data
   const t = overview.totals, p = overview.prev
 
   // A range that reaches back before the first event would otherwise pad the chart with
@@ -1071,6 +1074,71 @@ export default function AdminPage() {
                 </Box>
               </>
             )}
+          </Box>
+        )}
+      </Fold>
+
+      {/* ── the search box, both sections ─────────────────────────────── */}
+      {/* Since Oct 14, 2026 the toolbar field opens the palette (CommandPalette.tsx) in both
+          sections, and this is its funnel: how it is reached, what is taken from it and from how
+          far down, and how often it is closed with nothing. The card above still counts WPBL's
+          searches and picks, which the palette's rows fire unchanged. */}
+      <Fold title="Search box"
+        summary={palettePicked(palette) === 0 && paletteOpened(palette) === 0 ? 'Not opened in this range'
+          : `${formatCount(paletteOpened(palette))} opens, ${formatShare(palettePicked(palette), paletteOpened(palette))} ended in a pick`}>
+        {palette.sections.length === 0 ? (
+          <Box sx={{ px: 1.5, py: 2 }}>
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
+              Not opened in this range. The search became this box on Oct 14, 2026, so ranges
+              reaching back past that are empty rather than quiet.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ px: 1.5, py: 0.5 }}>
+            {palette.sections.map(sec => {
+              const via = palette.via.filter(v => v.section === sec.section)
+              const picks = palette.picks.filter(p => p.section === sec.section)
+              const finder = palette.finder.filter(f => f.section === sec.section)
+              return (
+                <Box key={sec.section} sx={{ mb: 1.5 }}>
+                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 0.5, mb: 0.25, textTransform: 'uppercase' }}>
+                    {sec.section}
+                  </Typography>
+                  <StatRow label="Opened" value={formatCount(sec.opened)} sub={plural(sec.opened_browsers, 'browser')} />
+                  <StatRow label="Ended in a pick" value={formatCount(sec.picked)}
+                    sub={`${formatShare(sec.picked, sec.opened)} · ${formatShare(sec.picked_browsers, sec.opened_browsers)} of browsers`} />
+                  {/* Typed something and left anyway is the number to watch; offered nothing at
+                      all is the subset where the search had no answer to give. */}
+                  <StatRow label="Closed with nothing" value={formatCount(sec.dismissed)}
+                    sub={`${sec.dismissed_typed} after typing, ${sec.dismissed_empty} offered nothing`} />
+                  {sec.recents_cleared > 0 && (
+                    <StatRow label="Cleared recents" value={formatCount(sec.recents_cleared)} />
+                  )}
+                  {via.length > 0 && (
+                    <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.75 }}>
+                      opened from {via.map(v => `${v.via} ${v.events}`).join(' · ')}
+                    </Typography>
+                  )}
+                  {/* `rank` counts from the top row as 0, so a low average says the ordering is
+                      doing its job and a high one says readers scroll past something to reach it. */}
+                  {picks.length > 0 && (
+                    <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.25 }}>
+                      picked {picks.map(p => `${p.kind} ${p.events} (row ${p.avg_rank ?? '—'} avg, top ${formatShare(p.top, p.events)})`).join(' · ')}
+                    </Typography>
+                  )}
+                  {finder.length > 0 && (
+                    <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.25 }}>
+                      stat questions {finder.map(f => `${f.side} ${f.events}${f.clubs ? `, ${f.clubs} with a club` : ''}${f.ignored ? `, ${f.ignored} dropped a word` : ''}`).join(' · ')}
+                    </Typography>
+                  )}
+                  {sec.section === 'wpbl' && palette.wpbl_questions.events > 0 && (
+                    <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.25 }}>
+                      {formatCount(palette.wpbl_questions.events)} searches read as a stat question, kept out of "Matched nothing"
+                    </Typography>
+                  )}
+                </Box>
+              )
+            })}
           </Box>
         )}
       </Fold>

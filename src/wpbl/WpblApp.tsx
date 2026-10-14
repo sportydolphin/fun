@@ -21,6 +21,7 @@ import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from './recentSearches'
 import { useAuth } from '../AuthContext'
+import { wpblSearchedProps } from './searchAnalytics'
 import { jerseyQuery, jerseyOf } from './playerSearch'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame } from './types'
 import { fmtSigned } from './stats'
@@ -2024,11 +2025,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     const { q, players: pl, teams: tm } = matches
     const id = setTimeout(() => {
       loggedQueries.current.add(q)
-      const empty = pl.length + tm.length === 0
-      track(EVENTS.WPBL_SEARCHED, {
-        length: q.length, players: pl.length, teams: tm.length,
-        ...(empty ? { q: q.slice(0, 40) } : {}),
-      })
+      // The miss rule, and why a stat question is not one, are in searchAnalytics.ts.
+      track(EVENTS.WPBL_SEARCHED, wpblSearchedProps(q, pl.length, tm.length))
     }, 700)
     return () => clearTimeout(id)
   }, [matches, active])

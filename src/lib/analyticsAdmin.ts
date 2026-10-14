@@ -62,6 +62,26 @@ export interface SearchPick   { type: string; source: string; events: number; br
 export interface SearchMiss   { q: string; events: number; browsers: number }
 export interface SearchStats  { totals: SearchTotals; picks: SearchPick[]; missed: SearchMiss[] }
 
+// The search palette, both sections (admin_search_palette). Every open ends in one pick that left
+// it (`picked`, examples excluded) or one `dismissed`, so the two are the open's outcomes.
+export interface PaletteSection {
+  section: string
+  opened: number; opened_browsers: number
+  picked: number; picked_browsers: number
+  dismissed: number; dismissed_typed: number; dismissed_empty: number
+  recents_cleared: number
+}
+export interface PaletteVia    { section: string; via: string; events: number; browsers: number }
+export interface PalettePick   { section: string; kind: string; events: number; browsers: number; avg_rank: number | null; top: number; typed: number }
+export interface PaletteFinder { section: string; side: string; events: number; browsers: number; clubs: number; ignored: number }
+export interface PaletteStats {
+  sections: PaletteSection[]
+  via: PaletteVia[]
+  picks: PalettePick[]
+  finder: PaletteFinder[]
+  wpbl_questions: { events: number; browsers: number }
+}
+
 export interface TopPlayer  { player_id: string; name: string; team_id: string | null; opens: number; browsers: number }
 export interface DiscordFunnel { impressions: number; shown: number; joined: number; dismissed: number }
 export interface Growth {
@@ -169,6 +189,11 @@ export const EVENT_INFO: Record<string, EventInfo> = {
 
   wpbl_searched:          A('Searched', 'Search & sharing'),
   wpbl_search_picked:     A('Picked a search result', 'Search & sharing'),
+  command_palette_opened:    A('Opened the search', 'Search & sharing'),
+  command_palette_picked:    A('Picked a row in the search', 'Search & sharing'),
+  command_palette_dismissed: A('Closed the search without a pick', 'Search & sharing'),
+  command_palette_recents_cleared: A('Cleared recent searches', 'Search & sharing'),
+  search_finder_picked:      A('Opened a typed stat question on Find', 'Search & sharing'),
   wpbl_share_copied:      A('Copied a share link', 'Search & sharing'),
   wpbl_share_opened:      A('Arrived from a share link', 'Search & sharing'),
 
@@ -428,6 +453,10 @@ export const EMPTY_SEARCH: SearchStats = {
   picks: [], missed: [],
 }
 
+export const EMPTY_PALETTE: PaletteStats = {
+  sections: [], via: [], picks: [], finder: [], wpbl_questions: { events: 0, browsers: 0 },
+}
+
 export const EMPTY_GROWTH: Growth = {
   signups: [], signups_window: 0, total_users: 0, deleted_users: 0,
   push_users: 0, push_devices: 0, notify_game_start: 0, notify_picks: 0,
@@ -467,6 +496,10 @@ export function fetchEntryPoints(days: number, tz: string): Promise<EntryPoints>
 
 export function fetchSearchStats(days: number, tz: string, lim = 25): Promise<SearchStats> {
   return callRpc('admin_wpbl_search', { days_back: days, tz, lim }, EMPTY_SEARCH)
+}
+
+export function fetchPaletteStats(days: number, tz: string): Promise<PaletteStats> {
+  return callRpc('admin_search_palette', { days_back: days, tz }, EMPTY_PALETTE)
 }
 
 export function fetchTopPlayers(days: number, tz: string, lim = 10): Promise<TopPlayer[]> {
@@ -551,6 +584,7 @@ export interface AnalyticsBundle {
   statsBoards: StatsBoards
   entryPoints: EntryPoints
   search: SearchStats
+  palette: PaletteStats
   players: TopPlayer[]
   growth: Growth
   pages: PageUsage
@@ -579,7 +613,8 @@ export function fetchAnalytics(
     fetchPageUsage(days, tz),
     fetchWebVitals(days, tz),
     fetchMlbUsage(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb]) => ({
-    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb,
+    fetchPaletteStats(days, tz),
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette,
   }))
 }

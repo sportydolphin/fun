@@ -1,10 +1,11 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { ACCENT_EDGE } from './ui/card'
 import { createPortal } from 'react-dom'
-import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
-import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
-import { useSearchBridge, setSearchQuery, noteSearchFocus } from './mlb/state/SearchBridgeContext'
-import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
+import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery } from '@mui/material'
+import { Brightness4, Brightness7, AccountCircle, Search } from '@mui/icons-material'
+import { useSearchBridge, noteSearchFocus } from './mlb/state/SearchBridgeContext'
+import type { PlayerBridgeItem, ToolbarSuggestion, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
+import type { PaletteIdleGroup } from './CommandPalette'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
@@ -123,6 +124,7 @@ const FeedbackDialog = lazy(() => import('./FeedbackDialog').then(m => ({ defaul
 const UsernameDialog = lazy(() => import('./UsernameDialog').then(m => ({ default: m.UsernameDialog })))
 const DeactivatedDialog = lazy(() => import('./DeactivatedDialog').then(m => ({ default: m.DeactivatedDialog })))
 const ChangelogDialogs = lazy(() => import('./ChangelogDialogs'))
+const CommandPalette = lazy(() => import('./CommandPalette'))
 
 // Latch a dialog's "has ever been open" flag.
 //
@@ -291,163 +293,9 @@ function retiredSpan(p: PlayerBridgeItem): string {
   return 'Retired'
 }
 
-function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRecent, onClearRecents }: {
-  suggestions: ToolbarSuggestion[]
-  onSelect: (s: ToolbarSuggestion) => void
-  recents: RecentSearchItem[]
-  onSelectRecent: (item: RecentSearchItem) => void
-  onClearRecents: () => void
-}) {
-  // Never show the same player in both "Recent" and a suggestions section below it.
-  const displayedRecents = recents.slice(0, 5)
-  const recentPlayerIds  = new Set(displayedRecents.filter(r => r.type === 'player').map(r => r.id))
-  const nonRecent        = suggestions.filter(s => !recentPlayerIds.has(s.id))
-  const teamPlayers = nonRecent.filter(s => s.isTeamPlayer)
-  const trending    = nonRecent.filter(s => !s.isTeamPlayer)
-
-  const renderRecents = () => (
-    <>
-      <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
-          Recent
-        </Typography>
-        <Box
-          {...pressable(onClearRecents)}
-          sx={{ cursor: 'pointer', fontSize: '0.62rem', fontWeight: 600, color: 'text.disabled', userSelect: 'none', '&:hover': { color: 'error.main' } }}
-        >
-          Clear
-        </Box>
-      </Box>
-      <List dense disablePadding>
-        {displayedRecents.map((r, i) => (
-          <React.Fragment key={`rec-${r.type}-${r.id}`}>
-            {i > 0 && <Divider />}
-            <ListItemButton onClick={() => onSelectRecent(r)} sx={{ gap: 1.25, py: 0.6 }}>
-              {r.type === 'player' ? (
-                <Box sx={{ width: 40, height: 54, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(r.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 5%', bgcolor: 'action.hover' }} />
-              ) : (
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, flexShrink: 0, bgcolor: TEAM_BG[r.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${r.id}.svg`} alt={r.name} sx={{ width: 28, height: 28, objectFit: 'contain' }} />
-                </Box>
-              )}
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{r.name}</Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
-                  {r.type === 'player'
-                    ? [r.position, r.teamId ? TEAM_ABBR[r.teamId] : null].filter(Boolean).join(' · ')
-                    : 'Team'}
-                </Typography>
-              </Box>
-            </ListItemButton>
-          </React.Fragment>
-        ))}
-      </List>
-    </>
-  )
-
-  const renderSection = (label: string, players: ToolbarSuggestion[]) => (
-    <>
-      <Box sx={{ px: 1.5, pt: 1, pb: 0.25 }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
-          {label}
-        </Typography>
-      </Box>
-      <List dense disablePadding>
-        {players.map((s, i) => (
-          <React.Fragment key={`sug-${s.id}`}>
-            {i > 0 && <Divider />}
-            <ListItemButton onClick={() => onSelect(s)} sx={{ gap: 1.25, py: 0.6 }}>
-              <Box sx={{ width: 40, height: 54, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(s.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 5%', bgcolor: 'action.hover' }} />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{s.fullName}</Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{s.position} · {s.teamAbbr}</Typography>
-              </Box>
-            </ListItemButton>
-          </React.Fragment>
-        ))}
-      </List>
-    </>
-  )
-
-  return (
-    <Paper elevation={8} sx={{
-      position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
-      zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      maxHeight: '70vh', overflowY: 'auto',
-    }}>
-      {recents.length > 0 && renderRecents()}
-      {recents.length > 0 && (teamPlayers.length > 0 || trending.length > 0) && <Divider sx={{ mt: 0.5 }} />}
-      {teamPlayers.length > 0 && renderSection('Your Team', teamPlayers)}
-      {teamPlayers.length > 0 && trending.length > 0 && <Divider sx={{ mt: 0.5 }} />}
-      {trending.length > 0 && renderSection('Trending', trending)}
-      <Box sx={{ height: 6 }} />
-    </Paper>
-  )
-}
-
-// Generic toolbar search result — one row of a section-agnostic dropdown (currently the
-// WPBL section). Renders purely from primitive data on the row (image URL + colors), so
-// the always-loaded toolbar never has to import a section's lazy chunk to draw its avatar.
-function ToolbarResultRow({ row, onSelect }: { row: SearchResultRow; onSelect: (r: SearchResultRow) => void }) {
-  const a = row.avatar
-  const contain = a.fit === 'contain'
-  return (
-    <ListItemButton onClick={() => onSelect(row)} sx={{ gap: 1.25, py: 0.75 }}>
-      <Box sx={{
-        width: 36, height: 36, flexShrink: 0,
-        borderRadius: a.circle ? '50%' : 1.5,
-        bgcolor: a.bg ?? 'grey.700',
-        border: a.ring ? `2px solid ${a.ring}` : undefined,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-      }}>
-        {a.imageUrl
-          ? <Box component="img" src={a.imageUrl} alt="" loading="lazy" sx={{ width: contain ? '74%' : '100%', height: contain ? '74%' : '100%', objectFit: a.fit ?? 'cover' }} />
-          : <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>{a.fallbackText}</Typography>}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{row.title}</Typography>
-        {row.subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{row.subtitle}</Typography>}
-      </Box>
-    </ListItemButton>
-  )
-}
-
-// Empty-query dropdown for the section that drives the generic result rows (currently WPBL):
-// the players and teams last opened from search, each a self-describing SearchResultRow. The
-// MLB section keeps its own richer ToolbarSuggestionsDropdown (Recent + Your Team + Trending).
-function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
-  rows: SearchResultRow[]
-  onSelect: (r: SearchResultRow) => void
-  onClear: () => void
-}) {
-  return (
-    <Paper elevation={8} sx={{
-      position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
-      zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      maxHeight: '70vh', overflowY: 'auto',
-    }}>
-      <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.disabled' }}>
-          Recent
-        </Typography>
-        <Box
-          {...pressable(onClear)}
-          sx={{ cursor: 'pointer', fontSize: '0.62rem', fontWeight: 600, color: 'text.disabled', userSelect: 'none', '&:hover': { color: 'error.main' } }}
-        >
-          Clear
-        </Box>
-      </Box>
-      <List dense disablePadding>
-        {rows.map((row, i) => (
-          <React.Fragment key={row.key}>
-            {i > 0 && <Divider />}
-            <ToolbarResultRow row={row} onSelect={onSelect} />
-          </React.Fragment>
-        ))}
-      </List>
-      <Box sx={{ height: 6 }} />
-    </Paper>
-  )
+// A StatsAPI club's logo, as a palette row's avatar.
+function mlbTeamAvatar(id: number): SearchResultAvatar {
+  return { imageUrl: `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${id}.svg`, bg: TEAM_BG[id], fit: 'contain' }
 }
 
 function AppInner() {
@@ -685,85 +533,137 @@ function AppInner() {
       isWpbl
     />
   ), [])
-  const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  // "/" opens the search, as on GitHub and YouTube. It matters more now that the field folds to
-  // an icon beside the tabs on most laptop widths: a reader with a keyboard should not have to
-  // reach for the mouse to find it. Never while typing somewhere, and never under a modal, where
-  // it would open a field the reader cannot see.
+  // THE SEARCH IS THE PALETTE (CommandPalette.tsx). The field in this bar and the icon it folds
+  // to are buttons that open it, and so are "/" and Ctrl+K (Cmd+K). Until Oct 2026 the field was
+  // a real input with dropdowns of its own (results, recents, MLB's suggestions), beside a palette
+  // that drove the same search bridge: two lists over one query, one of which had to be held shut
+  // while the other typed. One box now does all of it, on every width.
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const paletteMounted = useOpenedOnce(paletteOpen)
+  const closePalette = useCallback(() => setPaletteOpen(false), [])
+  // Which section's search this is. The bridge says once a section has registered; the route says
+  // before that.
+  const searchSection: 'wpbl' | 'mlb' = bridge.source ?? (isMlbSection(path) ? 'mlb' : 'wpbl')
+  // `via` is how it was opened, which the palette cannot know for itself and is the first question
+  // about it: does anyone find the shortcut, or is it all the field.
+  const openPalette = useCallback((via: 'field' | 'icon' | 'slash' | 'shortcut') => {
+    if (paletteOpen) return
+    // The sections load their search data on the first focus of the search (onFirstSearchFocus),
+    // which used to be the field's; opening the palette is that moment now.
+    noteSearchFocus()
+    track(EVENTS.COMMAND_PALETTE_OPENED, { section: searchSection, via })
+    setPaletteOpen(true)
+  }, [paletteOpen, searchSection])
+  // "/" as on GitHub and YouTube, never while typing somewhere and never under a modal. Ctrl+K
+  // fires from inside a field too, since a modifier chord cannot be typing, and closes the palette
+  // again; it is the browser's own "search the web" key, so it is taken only where a section
+  // answers a search.
   useEffect(() => {
     if (!searchShown) return
     const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        if (paletteOpen) setPaletteOpen(false)
+        else openPalette('shortcut')
+        return
+      }
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
       const t = e.target as HTMLElement | null
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
-      if (document.documentElement.hasAttribute('data-modal-open')) return
+      if (document.documentElement.hasAttribute('data-modal-open') || paletteOpen) return
       e.preventDefault()
-      if (searchCollapsed) setMobileSearchExpanded(true)
-      else searchInputRef.current?.focus()
+      openPalette('slash')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [searchShown, searchCollapsed])
-  const [toolbarDropdownOpen, setToolbarDropdownOpen] = useState(false)
-  const [toolbarInputFocused, setToolbarInputFocused] = useState(false)
-
-  // Results present from either the MLB player/team fields or the generic WPBL rows.
-  const hasSearchResults =
-    bridge.playerResults.length > 0 || bridge.teamResults.length > 0 || bridge.resultRows.length > 0
+  }, [searchShown, paletteOpen, openPalette])
+  // "Ctrl K" or "⌘K" on the field, for a reader with a keyboard and a mouse; a touch screen has
+  // no shortcut to advertise. Read once: the platform does not change under a page.
+  const shortcutLabel = useMemo(
+    () => (typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K'),
+    [])
+  const finePointer = useMediaQuery('(hover: hover) and (pointer: fine)')
 
   /**
    * Whether the typed query is enough to search on.
    *
    * Two characters everywhere, with one exception: on the WPBL section a single digit is a
-   * complete search, because it is a jersey number and no player's name contains one. Without
-   * this the section's number search worked for "#3" and silently did nothing for "7", which is
-   * the more natural way to type it. MLB keeps the two-character floor: its query is a network
-   * call, and one character there is a request for the whole league.
-   *
-   * Four places below asked `bridge.query.length >= 2` independently, and a fifth asked for the
-   * inverse to show the recents dropdown. They have to agree, or the results panel and the
-   * recents panel are open at the same time.
+   * complete search, because it is a jersey number and no player's name contains one. MLB keeps
+   * the two-character floor: its query is a network call, and one character there is a request
+   * for the whole league.
    */
   const querySearchable = useMemo(() => {
     const q = bridge.query.trim()
     return q.length >= 2 || (bridge.source === 'wpbl' && jerseyQuery(q) != null)
   }, [bridge.query, bridge.source])
 
-  useEffect(() => {
-    setToolbarDropdownOpen(querySearchable && (hasSearchResults || bridge.searching))
-  }, [querySearchable, hasSearchResults, bridge.searching])
+  // The section's own rows for the palette, in the one self-describing shape. WPBL publishes that
+  // shape already; MLB's StatsAPI rows are drawn here.
+  const paletteResults = useMemo<SearchResultRow[]>(() => {
+    if (!paletteOpen || !querySearchable) return []
+    if (bridge.source === 'wpbl') return bridge.resultRows
+    return [
+      ...bridge.playerResults.slice(0, 6).map(p => {
+        const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
+        const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id as number] : undefined
+        return {
+          key: `p-${p.id}`, title: p.fullName,
+          subtitle: (p.active === false ? [pos, retiredSpan(p)] : [pos, teamAbbr]).filter(Boolean).join(' | '),
+          avatar: { imageUrl: HEADSHOT(p.id), bg: 'grey.200', fit: 'cover' as const },
+          onSelect: () => bridge.handleSelectPlayer?.(p),
+        }
+      }),
+      ...bridge.teamResults.slice(0, 3).map(t => {
+        const divShort = t.division?.name?.replace(/American League |National League /, '') ?? ''
+        const leagueShort = t.league?.name?.includes('American') ? 'AL' : t.league?.name?.includes('National') ? 'NL' : ''
+        return {
+          key: `t-${t.id}`, title: t.name, subtitle: [leagueShort, divShort].filter(Boolean).join(' · ') || 'Team',
+          avatar: mlbTeamAvatar(t.id),
+          onSelect: () => bridge.handleSelectTeam?.(t),
+        }
+      }),
+    ]
+  }, [paletteOpen, querySearchable, bridge])
 
-  const handleToolbarSelectPlayer = (p: PlayerBridgeItem) => {
-    bridge.handleSelectPlayer?.(p)
-    setMobileSearchExpanded(false)
-    setToolbarInputFocused(false)
-  }
-
-  const handleToolbarSelectTeam = (t: TeamBridgeItem) => {
-    bridge.handleSelectTeam?.(t)
-    setMobileSearchExpanded(false)
-    setToolbarInputFocused(false)
-  }
-
-  // Generic WPBL result row — the row carries its own onSelect (routes through WpblApp's
-  // navigation so the back-stack stays correct); the toolbar only tidies its own UI state.
-  const handleToolbarSelectRow = (row: SearchResultRow) => {
-    row.onSelect()
-    setMobileSearchExpanded(false)
-    setToolbarInputFocused(false)
-  }
-
-  const handleToolbarSelectSuggestion = (s: ToolbarSuggestion) => {
-    bridge.handleSelectPlayer?.({
-      id: s.id,
-      fullName: s.fullName,
-      primaryPosition: { abbreviation: s.position },
-      currentTeam: { id: s.teamId },
+  // What the palette shows before anything is typed: the recents, and on MLB the followed club's
+  // players and the trending ones. These were the field's own empty dropdowns, so a reader who
+  // used them finds the same rows in the same order. A player already in Recent is not offered
+  // again below it.
+  const paletteIdle = useMemo<PaletteIdleGroup[]>(() => {
+    if (!paletteOpen) return []
+    if (bridge.source === 'wpbl') {
+      return bridge.recentRows.length
+        ? [{ label: 'Recent', kind: 'recent', rows: bridge.recentRows, onClear: bridge.clearRecentSearches ?? undefined }]
+        : []
+    }
+    const recents = bridge.recentSearches.slice(0, 5)
+    const recentIds = new Set(recents.filter(r => r.type === 'player').map(r => r.id))
+    const suggestion = (x: ToolbarSuggestion): SearchResultRow => ({
+      key: `s-${x.id}`, title: x.fullName, subtitle: [x.position, x.teamAbbr].filter(Boolean).join(' · '),
+      avatar: { imageUrl: HEADSHOT(x.id), bg: 'grey.200', fit: 'cover' },
+      onSelect: () => bridge.handleSelectPlayer?.({
+        id: x.id, fullName: x.fullName, primaryPosition: { abbreviation: x.position }, currentTeam: { id: x.teamId },
+      }),
     })
-    setMobileSearchExpanded(false)
-    setToolbarInputFocused(false)
-  }
+    const rest = bridge.toolbarSuggestions.filter(x => !recentIds.has(x.id))
+    const groups: PaletteIdleGroup[] = []
+    if (recents.length) {
+      groups.push({
+        label: 'Recent', kind: 'recent', onClear: bridge.clearRecentSearches ?? undefined,
+        rows: recents.map(r => ({
+          key: `r-${r.type}-${r.id}`, title: r.name,
+          subtitle: r.type === 'player' ? [r.position, r.teamId ? TEAM_ABBR[r.teamId] : null].filter(Boolean).join(' · ') : 'Team',
+          avatar: r.type === 'player' ? { imageUrl: HEADSHOT(r.id), bg: 'grey.200', fit: 'cover' as const } : mlbTeamAvatar(r.id),
+          onSelect: () => bridge.handleSelectRecent?.(r),
+        })),
+      })
+    }
+    const team = rest.filter(x => x.isTeamPlayer)
+    const trending = rest.filter(x => !x.isTeamPlayer)
+    if (team.length) groups.push({ label: 'Your team', kind: 'suggestion', rows: team.map(suggestion) })
+    if (trending.length) groups.push({ label: 'Trending', kind: 'suggestion', rows: trending.map(suggestion) })
+    return groups
+  }, [paletteOpen, bridge])
 
   // Show the post sign-in/out toast stashed by AuthContext (or the delete-account
   // flow) just before it reloaded the page
@@ -974,18 +874,11 @@ function AppInner() {
         <Toolbar variant="dense" sx={{
           minHeight: 'calc(48px * var(--app-chrome, 1))', py: 0.5,
         }}>
-          {/* Close button — mobile search mode only */}
-          {searchCollapsed && mobileSearchExpanded && (
-            <IconButton size="small" aria-label="Close search" onClick={() => { setMobileSearchExpanded(false); setSearchQuery('') }} sx={{ mr: 0.5, flexShrink: 0 }}>
-              <Close fontSize="small" />
-            </IconButton>
-          )}
-
           {/* Brand name — hidden while mobile search is expanded. Version + What's
               new now live in the site footer. */}
           <Box sx={{
             flex: 1, minWidth: 0, ...(hasToolbarNav && { [NAV_INLINE]: { flex: '0 0 auto' } }),
-            display: mobileSearchExpanded && searchCollapsed ? 'none' : 'flex',
+            display: 'flex',
             alignItems: 'center', gap: 0.75,
           }}>
             {/* Logo mark. The art is a black plate with the dolphin knocked out of it,
@@ -1151,7 +1044,7 @@ function AppInner() {
           {/* The section tabs, beside the brand on a wide screen. Narrower than that the bar cannot
               hold brand, tabs and icons on one line, and the tabs take a row of their own under
               this one (below the Toolbar). */}
-          {hasToolbarNav && !(searchCollapsed && mobileSearchExpanded) && (
+          {hasToolbarNav && (
             <ToolbarNav
               section={navSection!}
               path={path}
@@ -1165,162 +1058,56 @@ function AppInner() {
               }}
             />
           )}
-          {hasToolbarNav && !mobileSearchExpanded && <Box sx={{ flex: 1, display: 'none', [NAV_INLINE]: { display: 'block' } }} />}
+          {hasToolbarNav && <Box sx={{ flex: 1, display: 'none', [NAV_INLINE]: { display: 'block' } }} />}
 
-          {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
-          {searchShown && (!searchCollapsed || mobileSearchExpanded) && (
-            <ClickAwayListener onClickAway={() => {
-              setToolbarDropdownOpen(false)
-              setToolbarInputFocused(false)
-              if (searchCollapsed) { setMobileSearchExpanded(false); setSearchQuery('') }
-            }}>
-              <Box sx={{
-                position: 'relative',
-                // Structure, same as the bar's height: this is a fixed box holding a field.
-                // Narrower beside the tabs, where the bar has a fourth thing to hold.
-                width: !searchCollapsed ? `calc(${hasToolbarNav ? 220 : 260}px * var(--app-chrome, 1))` : undefined,
-                flex: searchCollapsed ? 1 : undefined,
-                // Opened from the icon on a desktop it takes the bar, but a field 1200px wide is a
-                // field nobody can read across: centre it at a width a name fits in.
-                ...(searchCollapsed && isDesktop && { maxWidth: 'calc(560px * var(--app-chrome, 1))' }),
-                mx: !searchCollapsed ? 1.5 : searchCollapsed && isDesktop ? 'auto' : 0,
+          {/* The search field: a button that opens the palette, drawn as the field it was so the bar
+              keeps its shape. Folded to an icon (below) wherever there is no room for it. */}
+          {searchShown && !searchCollapsed && (
+            <Box
+              component="button"
+              type="button"
+              onClick={() => openPalette('field')}
+              aria-label="Search players, clubs, pages or a stat question"
+              aria-keyshortcuts="Control+K Meta+K /"
+              aria-haspopup="dialog"
+              sx={{
+                // Structure: a fixed box holding a field. Narrower beside the tabs, where the bar has
+                // a fourth thing to hold.
+                width: `calc(${hasToolbarNav ? 220 : 260}px * var(--app-chrome, 1))`,
+                mx: 1.5,
                 // Beside the tabs, one group gap to the first icon: 2.5 plus that button's 5px of
                 // padding. Elsewhere the field is centred and keeps 1.5 both sides.
-                ...(!searchCollapsed && hasToolbarNav && { mr: 2.5 }),
+                ...(hasToolbarNav && { mr: 2.5 }),
+                display: 'flex', alignItems: 'center', gap: 0.75,
+                px: 1.5, py: 0.55,
+                borderRadius: 999,
+                border: '1.5px solid',
+                borderColor: paletteOpen ? ACCENT_EDGE : 'outline',
+                bgcolor: 'background.paper',
+                transition: 'border-color 0.2s',
+                cursor: 'text', font: 'inherit', textAlign: 'left', color: 'inherit',
+                '&:hover': { borderColor: ACCENT_EDGE },
+                '&:focus-visible': FOCUS_RING,
+              }}
+            >
+              <Search sx={{ fontSize: '0.9rem', color: 'text.secondary', flexShrink: 0 }} />
+              <Box component="span" sx={{
+                flex: 1, minWidth: 0, fontSize: '0.82rem', color: 'text.secondary',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: 0.75,
-                  px: 1.5, py: 0.55,
-                  borderRadius: 999,
-                  border: '1.5px solid',
-                  borderColor: toolbarDropdownOpen ? ACCENT_EDGE : 'outline',
-                  bgcolor: 'background.paper',
-                  transition: 'border-color 0.2s',
-                }}>
-                  {bridge.searching && querySearchable
-                    ? <CircularProgress size={13} sx={{ color: 'text.disabled', flexShrink: 0 }} />
-                    : <Search sx={{ fontSize: '0.9rem', color: 'text.disabled', flexShrink: 0 }} />
-                  }
-                  <Box
-                    component="input"
-                    ref={searchInputRef}
-                    autoFocus={mobileSearchExpanded && searchCollapsed}
-                    value={bridge.query}
-                    onChange={(e: any) => setSearchQuery(e.target.value)}
-                    onFocus={() => {
-                      noteSearchFocus()
-                      setToolbarInputFocused(true)
-                      if (querySearchable) setToolbarDropdownOpen(true)
-                    }}
-                    onKeyDown={(e: any) => {
-                      if (e.key === 'Escape') {
-                        setSearchQuery('')
-                        setToolbarDropdownOpen(false)
-                        setToolbarInputFocused(false)
-                        if (searchCollapsed) setMobileSearchExpanded(false)
-                      }
-                    }}
-                    placeholder="Search player or team…"
-                    sx={{
-                      flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
-                      fontSize: '0.82rem', color: 'text.primary', p: 0, fontFamily: 'inherit',
-                      '&::placeholder': { color: 'text.disabled' },
-                      minWidth: 0,
-                    }}
-                  />
-                  {bridge.query && (
-                    <Box
-                      {...pressable(() => setSearchQuery(''))}
-                      sx={{ cursor: 'pointer', color: 'text.disabled', display: 'flex', flexShrink: 0, '&:hover': { color: 'text.primary' } }}
-                    >
-                      <Close sx={{ fontSize: '0.85rem' }} />
-                    </Box>
-                  )}
-                </Box>
-
-                {/* Recent + suggestions dropdown — shown when input is focused and query is empty.
-                    WPBL drives its own generic recent rows; MLB keeps its richer suggestions view. */}
-                {toolbarInputFocused && !querySearchable && bridge.source === 'wpbl' && bridge.recentRows.length > 0 && (
-                  <ToolbarRecentRowsDropdown
-                    rows={bridge.recentRows}
-                    onSelect={handleToolbarSelectRow}
-                    onClear={() => bridge.clearRecentSearches?.()}
-                  />
-                )}
-                {toolbarInputFocused && !querySearchable && bridge.source !== 'wpbl' && (bridge.recentSearches.length > 0 || bridge.toolbarSuggestions.length > 0) && (
-                  <ToolbarSuggestionsDropdown
-                    suggestions={bridge.toolbarSuggestions}
-                    onSelect={handleToolbarSelectSuggestion}
-                    recents={bridge.recentSearches}
-                    onSelectRecent={(item) => {
-                      bridge.handleSelectRecent?.(item)
-                      setMobileSearchExpanded(false)
-                      setToolbarInputFocused(false)
-                    }}
-                    onClearRecents={() => bridge.clearRecentSearches?.()}
-                  />
-                )}
-
-                {/* Search results dropdown */}
-                {toolbarDropdownOpen && querySearchable && hasSearchResults && (
-                  <Paper elevation={8} sx={{
-                    position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
-                    zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 240,
-                  }}>
-                    <List dense disablePadding>
-                      {/* WPBL owns search → render its self-describing generic rows. */}
-                      {bridge.source === 'wpbl' && bridge.resultRows.map((row, i) => (
-                        <React.Fragment key={row.key}>
-                          {i > 0 && <Divider />}
-                          <ToolbarResultRow row={row} onSelect={handleToolbarSelectRow} />
-                        </React.Fragment>
-                      ))}
-                      {bridge.source !== 'wpbl' && bridge.playerResults.slice(0, 6).map((p, i) => {
-                        const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
-                        const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id as number] : undefined
-                        const sub = p.active === false
-                          ? [pos, retiredSpan(p)].filter(Boolean).join(' | ')
-                          : [pos, teamAbbr].filter(Boolean).join(' | ')
-                        return (
-                          <React.Fragment key={`tbp-${p.id}`}>
-                            {i > 0 && <Divider />}
-                            <ListItemButton onClick={() => handleToolbarSelectPlayer(p)} sx={{ gap: 1.25, py: 0.75 }}>
-                              <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(p.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', bgcolor: 'grey.200' }} />
-                              <Box sx={{ minWidth: 0 }}>
-                                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{p.fullName}</Typography>
-                                {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{sub}</Typography>}
-                              </Box>
-                            </ListItemButton>
-                          </React.Fragment>
-                        )
-                      })}
-                      {bridge.playerResults.length > 0 && bridge.teamResults.length > 0 && (
-                        <Divider sx={{ borderStyle: 'dashed' }} />
-                      )}
-                      {bridge.teamResults.slice(0, 3).map((t, i) => {
-                        const divShort = t.division?.name?.replace(/American League |National League /, '') ?? ''
-                        const leagueShort = t.league?.name?.includes('American') ? 'AL' : t.league?.name?.includes('National') ? 'NL' : ''
-                        const sub = [leagueShort, divShort].filter(Boolean).join(' · ')
-                        return (
-                          <React.Fragment key={`tbt-${t.id}`}>
-                            {i > 0 && <Divider />}
-                            <ListItemButton onClick={() => handleToolbarSelectTeam(t)} sx={{ gap: 1.25, py: 0.75 }}>
-                              <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flexShrink: 0, bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${t.id}.svg`} alt={t.abbreviation} sx={{ width: 26, height: 26, objectFit: 'contain' }} />
-                              </Box>
-                              <Box sx={{ minWidth: 0 }}>
-                                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{t.name}</Typography>
-                                {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{sub}</Typography>}
-                              </Box>
-                            </ListItemButton>
-                          </React.Fragment>
-                        )
-                      })}
-                    </List>
-                  </Paper>
-                )}
+                {/* Not "player or team" any more: it finds pages and stat questions too, and beside the
+                    shortcut badge the longer words were cut to "Search player or te…". */}
+                Search…
               </Box>
-            </ClickAwayListener>
+              {finePointer && (
+                <Box component="kbd" aria-hidden sx={{
+                  flexShrink: 0, fontFamily: 'inherit', fontSize: '0.66rem', fontWeight: 700, lineHeight: 1.4,
+                  color: 'text.secondary', px: 0.6, borderRadius: 1, border: '1px solid', borderColor: 'outline',
+                }}>
+                  {shortcutLabel}
+                </Box>
+              )}
+            </Box>
           )}
 
           {/* Right-side icons — flex:1 on desktop so they balance the brand and keep search centered */}
@@ -1332,9 +1119,9 @@ function AppInner() {
             mr: user && showHandle ? '-10px' : '-5px',
           }}>
             {/* Search icon wherever the field is folded away (a phone, or beside the tabs on a
-                narrower desktop), until it is opened */}
-            {searchShown && searchCollapsed && !mobileSearchExpanded && (
-              <IconButton size="small" aria-label="Search" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary' }}>
+                narrower desktop). Opens the same palette. */}
+            {searchShown && searchCollapsed && (
+              <IconButton size="small" aria-label="Search" aria-haspopup="dialog" onClick={() => openPalette('icon')} sx={{ color: 'text.secondary' }}>
                 <Search />
               </IconButton>
             )}
@@ -1793,6 +1580,13 @@ function AppInner() {
       {deactivatedMounted && (
         <Suspense fallback={DIALOG_FALLBACK}>
           <DeactivatedDialog open={deactivated} onClose={() => setDeactivated(false)} />
+        </Suspense>
+      )}
+
+      {paletteMounted && (
+        <Suspense fallback={null}>
+          <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
+            results={paletteResults} idle={paletteIdle} searching={bridge.searching} />
         </Suspense>
       )}
 

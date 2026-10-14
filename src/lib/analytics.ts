@@ -139,8 +139,21 @@ export const EVENTS = {
   // The header search, which is on screen on every WPBL page and was entirely unmeasured:
   // nothing said how often it was used, how often it found nothing, or whether a typed result
   // or a recent did the work. `wpbl_searched` is the denominator for `wpbl_search_picked`.
-  WPBL_SEARCHED:       'wpbl_searched',       // a settled query ran, props {length, players, teams, q?}
+  WPBL_SEARCHED:       'wpbl_searched',       // a settled query ran, props {length, players, teams, finder, q?}; `q` only when nothing answered, a Find reading included
   WPBL_SEARCH_PICKED:  'wpbl_search_picked',  // chose a row, props {type, id, source: 'result' | 'recent'}
+  // The site's search, which since Oct 2026 is one palette (src/CommandPalette.tsx) opened from
+  // the toolbar field, its icon, "/" or Ctrl+K, in both sections. Every open is followed by
+  // exactly one `picked` or `dismissed`, so opened = picked + dismissed, give or take an example
+  // question (a pick that keeps it open) and a tab closed with it open. The section's own events
+  // still fire on a pick underneath these: `wpbl_search_picked`, and `mlb_player_opened` /
+  // `mlb_team_opened` from `header_search` or `recent`, so those series run on unbroken.
+  COMMAND_PALETTE_OPENED:    'command_palette_opened',    // props {section, via: 'field' | 'icon' | 'slash' | 'shortcut'}
+  COMMAND_PALETTE_PICKED:    'command_palette_picked',    // props {section, kind: 'finder' | 'result' | 'recent' | 'suggestion' | 'page' | 'example', rank, typed, top}
+  COMMAND_PALETTE_DISMISSED: 'command_palette_dismissed', // closed with no pick, props {section, typed, shown}
+  COMMAND_PALETTE_RECENTS_CLEARED: 'command_palette_recents_cleared', // props {section}
+  // A stat question typed as words ("5 strikeouts no walks") and opened on the Find board. Fires
+  // beside the palette's own pick, with what the question asked.
+  SEARCH_FINDER_PICKED:      'search_finder_picked',      // props {section, side, conditions, clubs, venue, ignored, from: 'palette'}
 
   // Which Game Center tab gets read. Same argument as `wpbl_stats_board`, which is already
   // here for the same reason: the Recap / Box Score / Play-by-Play / Pitch Data axis never

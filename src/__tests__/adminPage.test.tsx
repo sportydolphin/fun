@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PAGE_USAGE, EMPTY_WEB_VITALS, EMPTY_MLB_USAGE,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PALETTE, EMPTY_PAGE_USAGE, EMPTY_WEB_VITALS, EMPTY_MLB_USAGE,
   type AnalyticsBundle,
 } from '../lib/analyticsAdmin'
 
@@ -18,6 +18,7 @@ const bundle = (over: Partial<AnalyticsBundle> = {}): AnalyticsBundle => ({
   statsBoards: EMPTY_STATS_BOARDS,
   entryPoints: EMPTY_ENTRY_POINTS,
   search: EMPTY_SEARCH,
+  palette: EMPTY_PALETTE,
   players: [],
   growth: EMPTY_GROWTH,
   pages: EMPTY_PAGE_USAGE,
