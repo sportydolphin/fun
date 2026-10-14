@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.161.0',
+    date:    '2026-10-14',
+    changes: [
+      {
+        short: 'WPBL Stats: faster boards',
+        full:  "The WPBL Stats tab's leaders, player tables and WAR, and the search box's WPBL answers, now come from season totals worked out once on the server, so they open without downloading every box score and play. The numbers are the same.",
+      },
+    ],
+  },
+  {
     version: '1.160.0',
     date:    '2026-10-14',
     changes: [

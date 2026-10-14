@@ -161,7 +161,11 @@ describe('where the rule is applied', () => {
   it('runs on the schedule read', () => {
     const api = readFileSync('src/wpbl/api.ts', 'utf8')
     const fn = api.slice(api.indexOf('export function fetchWpblSchedule'))
-    expect(fn.slice(0, fn.indexOf('\n}')).includes('settleGames(')).toBe(true)
+    expect(fn.slice(0, fn.indexOf('\n}')).includes('cleanSchedule(')).toBe(true)
+    // cleanSchedule drops the phantoms, sorts, and settles.
+    const own = readFileSync('src/wpbl/gameOver.ts', 'utf8')
+    const clean = own.slice(own.indexOf('export function cleanSchedule'))
+    expect(clean.slice(0, clean.indexOf('\n}')).includes('settleGames(')).toBe(true)
   })
 
   it('runs again after the live poll merges its columns over the row', () => {

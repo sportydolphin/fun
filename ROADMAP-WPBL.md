@@ -1624,6 +1624,25 @@ is retired.
 
 ## Shipped log
 
+### Oct 14, 2026: every player's season, totalled once (v1.161.0)
+
+The Stats tab opens on Leaders · Overall, which is WAR, and every visit downloaded every box-score
+line (73KB gzipped) and the 3,707-play log, then ran the WAR engine in the browser; so did a "most
+war" search. Now `scripts/compute-wpbl-player-seasons.ts` runs the same code
+(`derive/playerSeasons.ts`) hourly into `wpbl_player_seasons`, one row per player, year and slice
+(about 20KB gzipped for 2026), and the Players, Leaders and Overall boards and the search answers
+read that. Counts only, so the rates, the reader's ERA basis and the "Both" slice are rebuilt by the
+same functions as before. **Current means a fingerprint of the inputs**, a view hashing the schedule,
+lines, plays, corrections and roster, read by the job before its inputs and by the reader beside the
+rows: any change from any writer sends readers back to the lines until the next run. The finals
+count alone would have served wrong numbers after a box score landed late or a play was corrected.
+The drift check dispatches the job after a repair. Teams, Fielding, Bests, Find and the Analysis
+boards still read the lines, now only when opened. Two orders were made explicit so both paths
+agree to the last bit: `cleanSchedule` sorts the schedule (WAR's float sums follow game order), and
+every ranking breaks a tie on sample, then name (`leaderOrder.ts`). Pinned in
+`__tests__/playerSeasons.test.ts` against the sweep's recorded 2026 season: every cell of every
+column and the leader of every ranking match.
+
 ### Oct 14, 2026: search reads questions, not just names (v1.158.0)
 
 Both sections, one box. Before anything is typed it shows three recents and the examples (MLB's

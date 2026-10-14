@@ -99,6 +99,13 @@ export function sumBatting(lines: WpblBattingLine[], games: WpblSeasonGame[], sc
   return sumBattingRaw(scopedLines(lines, games, scope))
 }
 
+/** The counting half of a batting line, the part that adds. Everything else in
+ *  `WpblBattingTotals` is derived from these by `battingFromCounts`, which is what lets the
+ *  stored season rows (derive/playerSeasons.ts) keep only these and still print the same rates:
+ *  the same function builds the rates on both paths. */
+export const BATTING_COUNT_KEYS = ['g', 'ab', 'r', 'h', 'doubles', 'triples', 'hr', 'rbi', 'bb', 'so', 'sb', 'hbp', 'cs', 'sf', 'sh', 'gdp', 'ibb'] as const
+export type WpblBattingCounts = Pick<WpblBattingTotals, typeof BATTING_COUNT_KEYS[number]>
+
 /** The arithmetic alone, on lines already known to be in scope. Internal, so the grouping
  *  helpers below can filter once for the whole league instead of once per player. */
 function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
@@ -108,6 +115,12 @@ function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
     t.rbi += l.rbi; t.bb += l.bb; t.so += l.so; t.sb += l.sb; t.hbp += l.hbp; t.cs += l.cs
     t.sf += l.sf; t.sh += l.sh; t.gdp += l.gdp ?? 0; t.ibb += l.ibb ?? 0
   }
+  return battingFromCounts(t)
+}
+
+/** The rates from the counts. Every batting total on the site is built here. */
+export function battingFromCounts(c: WpblBattingCounts): WpblBattingTotals {
+  const t = { ...c }
   const singles = t.h - t.doubles - t.triples - t.hr
   const tb = singles + 2 * t.doubles + 3 * t.triples + 4 * t.hr
   const obDen = t.ab + t.bb + t.hbp + t.sf // now that the feed reports sac flies
@@ -222,6 +235,10 @@ export function sumPitching(lines: WpblPitchingLine[], games: WpblSeasonGame[], 
   return sumPitchingRaw(scopedLines(lines, games, scope))
 }
 
+/** The counting half of a pitching line; see `BATTING_COUNT_KEYS`. */
+export const PITCHING_COUNT_KEYS = ['g', 'outs', 'h', 'r', 'er', 'bb', 'so', 'hr', 'w', 'l', 's', 'bf', 'pitches', 'strikes', 'gs', 'hbp', 'wp', 'bk'] as const
+export type WpblPitchingCounts = Pick<WpblPitchingTotals, typeof PITCHING_COUNT_KEYS[number]>
+
 /** The arithmetic alone; see `sumBattingRaw`. */
 function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
   const t = { g: lines.length, outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, w: 0, l: 0, s: 0, bf: 0, pitches: 0, strikes: 0, gs: 0, hbp: 0, wp: 0, bk: 0 }
@@ -235,6 +252,12 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
     else if (l.decision === 'L') t.l++
     else if (l.decision === 'S') t.s++
   }
+  return pitchingFromCounts(t)
+}
+
+/** The rates from the counts; see `battingFromCounts`. */
+export function pitchingFromCounts(c: WpblPitchingCounts): WpblPitchingTotals {
+  const t = { ...c }
   const ip = t.outs / 3
   // On ERA_BASIS_CANONICAL, the league's own basis; see there for why it is not a setting.
   const era = ip > 0 ? (t.er * ERA_BASIS_CANONICAL) / ip : null

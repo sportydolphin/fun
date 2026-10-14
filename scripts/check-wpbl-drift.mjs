@@ -59,6 +59,7 @@
 
 import pg from 'pg'
 import { pathToFileURL } from 'node:url'
+import { appendFileSync } from 'node:fs'
 
 const FEED = 'https://stats.womensprobaseballleague.com/v1'
 const JSON_OUT = process.argv.includes('--json')
@@ -619,6 +620,13 @@ async function main() {
     // is the interesting case: it means the disagreement is not something re-ingesting fixes.
     ;({ checked, drift, missing } = await scan(await readOurs(url)))
   }
+
+  // A repair rewrites a game's lines and plays, so every stored player season is now behind them
+  // and readers are falling back to the lines. The workflow reads this and runs
+  // wpbl-player-seasons.yml at once rather than leaving it to the next hourly run. AFTER the
+  // revisions write above, which must stay before the repair.
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `repaired=${repaired.length}
+`)
 
   if (JSON_OUT) {
     console.log(JSON.stringify({ generated_at: new Date().toISOString(), checked, logged, repaired, drift, missing }, null, 2))

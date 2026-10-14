@@ -1,0 +1,60 @@
+name: WPBL Player Seasons
+
+on:
+  schedule:
+    # Hourly, 20 minutes after the run environment. The rows only go out of date when an input
+    # changes, and until this run retotals them every reader falls back to reading the lines and
+    # plays itself, so a lag costs readers speed, never a wrong number (see the migration). In the
+    # offseason a run reads one stamp, finds it matches and writes nothing.
+    - cron: '37 * * * *'
+  # Also started by the nightly drift check the moment it repairs a game.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Total the seasons and print them, without writing.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+      force:
+        description: 'Write even when the stored rows already match.'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
+
+concurrency:
+  group: wpbl-player-seasons
+  cancel-in-progress: false
+
+jobs:
+  total:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # esbuild because the totals are src/wpbl/derive/playerSeasons.ts, the same code the browser
+      # runs, rather than a copy of it.
+      - name: Install dependencies
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js pg esbuild'
+
+      - name: Total every player's season
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN:                   ${{ inputs.dry_run }}
+          FORCE:                     ${{ inputs.force }}
+        # A scheduled run has no `inputs`, so DRY_RUN is empty there and the real write runs.
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm run player-seasons -- --dry-run
+          else
+            npm run player-seasons
+          fi

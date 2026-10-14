@@ -4,6 +4,7 @@ import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblPlayerLink } from './LinkContext'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../ui/leaders'
 import { plateAppearances, type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals } from './stats'
+import { compareRows } from './leaderOrder'
 import type { WpblPlayer } from './types'
 import type { WpblValueTotals } from './derive/playerValue'
 
@@ -80,7 +81,7 @@ export const LEADER_CARDS: Record<LeaderSide, { key: string; title?: string }[]>
 const titleFor = (card: { title?: string }, col: { label: string }) => card.title ?? col.label.replace('/', ' per ')
 
 /** The rows a card shows: qualified first for a rate, best end first, ties broken toward the bigger
- *  sample, and a dash never ranked. Ranks are competition ranks on the number AS PRINTED, the
+ *  sample (then the name, leaderOrder.ts), and a dash never ranked. Ranks are competition ranks on the number AS PRINTED, the
  *  Players board's rule, so two hitters at .400 share a place. */
 export function leadersFor<T extends LeaderTotals>(
   seasons: LeaderSeason<T>[], col: LeaderCol<T>, side: LeaderSide, qual: LeaderQual,
@@ -100,7 +101,7 @@ export function leadersFor<T extends LeaderTotals>(
     // A counting stat nobody has any of is not a lead. Zero saves at the top of Saves in April
     // would print five names under a number that ranks nobody.
     .filter(x => col.rate || x.v > 0)
-    .sort((a, b) => (a.v !== b.v ? (col.lowerBetter ? a.v - b.v : b.v - a.v) : sample(b.s.totals) - sample(a.s.totals)))
+    .sort((a, b) => compareRows(a.v, b.v, !!col.lowerBetter, sample(a.s.totals), sample(b.s.totals), a.s.player.name, b.s.player.name))
     .slice(0, LEADERS_SHOWN)
   const texts = pool.map(x => (col.display ? col.display(x.s.totals) : String(col.value(x.s.totals))))
   const ranks = printedRanks(texts)

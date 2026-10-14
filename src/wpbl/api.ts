@@ -2,10 +2,11 @@ import { supabase } from '../lib/supabase'
 import { viewerCountry } from '../lib/geo'
 import { playableIn } from './videoChannels'
 import { countsInStandings, inSeason, seasonOf, standingsFinals } from './season'
-import { settleGames } from './gameOver'
+import { cleanSchedule } from './gameOver'
 import { readSeed, writeSeed } from './seed'
 import { applyPlayCorrections, CORRECTION_SELECT, type WpblPlayCorrection } from './playCorrections'
 import { RUN_VALUE_PLAY_SELECT, type WpblRunEnvironment } from './derive/runEnvironment'
+import { PLAYER_SEASON_SELECT, playerSeasonsCurrent, type WpblPlayerSeasonRow } from './derive/playerSeasons'
 import { buildFanPhotoIndex, type FanPhotoIndex } from './fanPhotos'
 import { playerPlayIds, PA_EVENT_TYPES, type WpblMatchupPlay } from './derive/matchups'
 import type {
@@ -95,21 +96,6 @@ export function fetchWpblTeams(): Promise<WpblTeam[]> {
 // than holding a second copy.
 export function getCachedWpblSchedule(): WpblGame[] | null { seedSchedule(); return lastGoodSchedule }
 
-// The feed occasionally emits a phantom `scheduled` duplicate of a game it already
-// reported final (same date + matchup, different api_game_id). Drop the not-yet-played
-// copy when a played one exists for the same matchup-day; genuine doubleheaders (two
-// played, or two upcoming) are left untouched.
-//
-// wpbl-ingest also suppresses these server-side (deletes the phantom row from the mirror),
-// so on a healthy DB this filter is a no-op, kept as a cheap fallback for the window before
-// a re-ingest clears an already-stored phantom.
-function dedupeSchedule(games: WpblGame[]): WpblGame[] {
-  const played = (g: WpblGame) => g.status === 'final' || g.status === 'live'
-  const hasPlayed = new Set<string>()
-  for (const g of games) if (played(g)) hasPlayed.add(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`)
-  return games.filter(g => played(g) || !hasPlayed.has(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`))
-}
-
 /**
  * An empty schedule read never replaces a good one.
  *
@@ -194,7 +180,7 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
     // is a rule that gets forgotten by the next one. Everything downstream of this read sees a
     // game the league has stopped updating as the final it is. See gameOver.ts.
     seedSchedule()
-    const schedule = mergeSchedule(settleGames(dedupeSchedule(games)), lastGoodSchedule)
+    const schedule = mergeSchedule(cleanSchedule(games), lastGoodSchedule)
     if (schedule.length > 0) {
       // Only a real read is remembered for the next visit, never the seed handed back.
       if (games.length > 0) writeSeed('schedule', schedule)
@@ -547,6 +533,38 @@ export function fetchWpblRunEnvironment(): Promise<WpblRunEnvironment | null> {
       [])
     const data = rows[0] ?? null
     runEnvironmentCache = { data, at: Date.now() }
+    return data
+  })
+}
+
+// Every player's season, totalled by scripts/compute-wpbl-player-seasons.ts (derive/playerSeasons.ts):
+// the Stats tab's boards and the search box's answers read these in place of every box-score line
+// and the play log. ONE SEASON PER READ, keyed on the year, like the play log: the table holds every
+// year and a board shows one. The rows are trusted only when they describe the inputs as they
+// stand now, which the database answers with one small read of `wpbl_player_season_stamp` beside
+// them (the migration explains the stamp). `current` false, or a failed read, means "read the
+// lines", exactly as before the table existed.
+export interface WpblPlayerSeasonsRead { rows: WpblPlayerSeasonRow[]; current: boolean }
+const playerSeasonsCache = new Map<number, { data: WpblPlayerSeasonsRead; at: number }>()
+export function getCachedWpblPlayerSeasons(season: number): WpblPlayerSeasonsRead | null {
+  return playerSeasonsCache.get(season)?.data ?? null
+}
+export function fetchWpblPlayerSeasons(season: number): Promise<WpblPlayerSeasonsRead> {
+  const own = playerSeasonsCache.get(season)
+  if (isFresh(own ?? null)) return Promise.resolve(own!.data)
+  return once(`playerSeasons:${season}`, async () => {
+    const [rows, stamps] = await Promise.all([
+      fetchAllPaged<WpblPlayerSeasonRow>('fetchWpblPlayerSeasons', (from, to) =>
+        supabase.from('wpbl_player_seasons').select(PLAYER_SEASON_SELECT).eq('season', season)
+          .order('scope', { ascending: true }).order('player_id', { ascending: true })
+          .range(from, to) as unknown as PromiseLike<{ data: WpblPlayerSeasonRow[] | null; error: unknown }>),
+      safe<{ stamp: string }[]>('fetchWpblPlayerSeasonStamp', () =>
+        supabase.from('wpbl_player_season_stamp').select('stamp').limit(1) as unknown as
+          PromiseLike<{ data: { stamp: string }[] | null; error: unknown }>,
+        []),
+    ])
+    const data = { rows, current: playerSeasonsCurrent(rows, stamps[0]?.stamp ?? null) }
+    playerSeasonsCache.set(season, { data, at: Date.now() })
     return data
   })
 }

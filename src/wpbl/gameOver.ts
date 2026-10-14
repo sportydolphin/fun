@@ -168,3 +168,33 @@ export function settleGames<T extends SettleableGame>(games: T[]): T[] {
   })
   return changed ? out : games
 }
+
+// The feed occasionally emits a phantom `scheduled` duplicate of a game it already
+// reported final (same date + matchup, different api_game_id). Drop the not-yet-played
+// copy when a played one exists for the same matchup-day; genuine doubleheaders (two
+// played, or two upcoming) are left untouched.
+//
+// wpbl-ingest also suppresses these server-side (deletes the phantom row from the mirror),
+// so on a healthy DB this filter is a no-op, kept as a cheap fallback for the window before
+// a re-ingest clears an already-stored phantom.
+function dedupeSchedule<T extends SettleableGame & Pick<WpblGame, 'game_date' | 'away_team_id' | 'home_team_id'>>(games: T[]): T[] {
+  const played = (g: T) => g.status === 'final' || g.status === 'live'
+  const hasPlayed = new Set<string>()
+  for (const g of games) if (played(g)) hasPlayed.add(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`)
+  return games.filter(g => played(g) || !hasPlayed.has(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`))
+}
+
+/** The schedule as every reader sees it: in one order, phantoms dropped, then settled. Here
+ *  rather than in api.ts so the jobs that compute what the browser would
+ *  (scripts/compute-wpbl-player-seasons.ts) can clean a raw read the same way without bundling the
+ *  supabase client.
+ *
+ *  ONE ORDER, NOT THE DATABASE'S. The read orders by date alone, and Postgres returns games on the
+ *  same date in whatever order it likes. WAR and wins added sum floats game by game, so a different
+ *  order moves their last bit, and a stored row the job wrote would then disagree with the browser's
+ *  own figure by 1e-17, enough to swap two players tied to the eye. Sorted here, both read one order. */
+export function cleanSchedule<T extends SettleableGame & Pick<WpblGame, 'id' | 'game_date' | 'start_time' | 'away_team_id' | 'home_team_id'>>(games: T[]): T[] {
+  const key = (g: T) => `${g.game_date}|${g.start_time ?? '~'}|${g.id}`
+  const ordered = [...games].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
+  return settleGames(dedupeSchedule(ordered))
+}
