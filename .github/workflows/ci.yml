@@ -89,52 +89,103 @@ jobs:
         continue-on-error: true
         run: npm run knip
 
+  # WHETHER A PULL REQUEST CAN CHANGE A LAYOUT. The sweep is most of the wait on every pull request,
+  # and one that edits only docs, cron scripts, other workflows or the database cannot move a box
+  # on a page. Everything not listed as safe counts as UI, so a new folder is swept until someone
+  # decides otherwise; the sweep itself, its fixtures and this file are always swept. Read from the
+  # API rather than a deep clone, and a renamed file counts under both names, so moving a page
+  # into docs/ is still a change to src/. A push to `main` always sweeps.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      sweep: ${{ steps.files.outputs.sweep }}
+    steps:
+      - id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "${{ github.event_name }}" != pull_request ]; then echo sweep=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          gh api --paginate "repos/${{ github.repository }}/pulls/$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > files.txt
+          cat files.txt
+          # An empty list (an API hiccup, or a pull request with no diff) sweeps rather than guesses.
+          sweep=$([ -s files.txt ] && echo false || echo true)
+          while read -r f; do
+            case "$f" in
+              scripts/layout-sweep.mjs | scripts/fixtures/* | .github/workflows/ci.yml) sweep=true ;;
+              docs/* | *.md | scripts/* | .github/* | supabase/*) ;;
+              *) sweep=true ;;
+            esac
+          done < files.txt
+          echo "sweep=$sweep" | tee -a "$GITHUB_OUTPUT"
+
   # The layout checks CLAUDE.md used to ask a person to do: overflow at four widths and both text
-  # sizes, and what moves on screen when a skeleton is replaced. Against the dev server, because
+  # sizes, and what moves on screen when a skeleton is replaced (default text only). Against the dev server, because
   # the skeleton check needs ?devSlow, which only exists in a dev build; with every response served
   # from scripts/fixtures/, because this job holds no key and must not read the real database.
   #
-  # FOUR SLICES IN PARALLEL, by route (--shard). On one runner this was the slowest check on every
-  # pull request, about 13 minutes against 4 for `check`.
+  # EIGHT SLICES IN PARALLEL, by route (--shard). On one runner this was the slowest check on every
+  # pull request, about 13 minutes against 4 for `check`. Four slices still took about 9 minutes
+  # each (Oct 14, 2026), nearly all of it the sweep's fixed waits, which stay as they are because
+  # they are what catch loading phases on this slower runner (docs/CI.md). Setup is about 25
+  # seconds a slice, so halving the routes per slice nearly halves the wall clock.
   #
-  # The experiments sweep is a FIFTH slice rather than a second step in the first. As a step it ran
-  # after shard 1's own sweep, already the longest of the four, and added its 35 seconds to the
+  # The experiments sweep is its own slice rather than a second step in the first. As a step it ran
+  # after shard 1's own sweep, already the longest of the slices, and added its 35 seconds to the
   # slowest path through every pull request; alone it finishes well before any of them.
+  #
+  # SKIPPED STEP BY STEP, NOT AS A JOB, when `changes` says the pull request touches no UI. A
+  # skipped job reports `skipped`, which fails the `layout` test below; a job whose steps all skip
+  # reports success, so `layout` still goes green and the pull request still merges.
   layout-shard:
-    name: layout ${{ matrix.shard }}${{ matrix.shard != 'experiments' && '/4' || '' }}
+    name: layout ${{ matrix.shard }}${{ matrix.shard != 'experiments' && '/8' || '' }}
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, experiments]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, experiments]
     env:
+      SWEEP: ${{ needs.changes.outputs.sweep }}
       VITE_SUPABASE_URL: 'http://127.0.0.1:54321'
       VITE_SUPABASE_ANON_KEY: 'sweep-anon-key'
       VITE_VAPID_PUBLIC_KEY: 'sweep-vapid-key'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - if: ${{ env.SWEEP != 'true' }}
+        run: echo "No UI change in this pull request, so no sweep (the changes job lists why)."
+
+      - if: ${{ env.SWEEP == 'true' }}
+        uses: actions/checkout@v7
+      - if: ${{ env.SWEEP == 'true' }}
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
 
-      - run: npm ci
+      - if: ${{ env.SWEEP == 'true' }}
+        run: npm ci
 
       - name: Start the dev server
+        if: ${{ env.SWEEP == 'true' }}
         run: |
           nohup npx vite --port 5173 --strictPort > vite.log 2>&1 &
           for i in $(seq 60); do curl -sf http://localhost:5173/ > /dev/null && exit 0; sleep 1; done
           cat vite.log; exit 1
 
       - name: Sweep
-        if: ${{ matrix.shard != 'experiments' }}
-        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --shard ${{ matrix.shard }}/4
+        if: ${{ env.SWEEP == 'true' && matrix.shard != 'experiments' }}
+        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --shard ${{ matrix.shard }}/8
 
       # The one place a flag-gated layout gets looked at. Name the routes that draw something
       # behind the flag; as of this writing that is the steal card on Run value, and nothing else.
       - name: Sweep with experiments on
-        if: ${{ matrix.shard == 'experiments' }}
+        if: ${{ env.SWEEP == 'true' && matrix.shard == 'experiments' }}
         run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --experiments --routes /wpbl/stats?board=runs
 
       # Both frames of every case that shifted. A shift that hangs on timing can happen on this

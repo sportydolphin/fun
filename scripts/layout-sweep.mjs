@@ -13,8 +13,9 @@
  *    And every outline (a box bordered on all four sides) at under 3:1 against what is behind it,
  *    in both themes (probeBorders, CLAUDE.md "Borders").
  *
- * 2. LOADING SHIFT (--shift). Loads each page with ?devSlow, records where every piece of text
- *    sits while the skeleton is up, then again once the content lands, and reports what moved.
+ * 2. LOADING SHIFT (--shift), at the default text size only. Loads each page with ?devSlow,
+ *    records where every piece of text sits while the skeleton is up, then again once the content
+ *    lands, and reports what moved.
  *    The house rule is that a skeleton is the loaded page drawn empty, with the real titles in
  *    the real places, so a title that moves is a skeleton the wrong size. Compares rects rather
  *    than reading CLS, because a hidden or headless browser records no layout-shift entries.
@@ -61,7 +62,7 @@
  *   npm run sweep -- --experiments --routes wpbl/stats?board=runs
  *   npm run sweep -- --replay --shift --cpu 4      # CI's slower machine, to reproduce its timing
  *   npm run sweep -- --replay --shift --shots out  # save both frames of every case that shifts
- *   npm run sweep -- --replay --shift --shard 2/4  # the second of four slices, as CI runs it
+ *   npm run sweep -- --replay --shift --shard 2/8  # the second of eight slices, as CI runs it
  *
  * Exits 1 when anything is reported. CI runs it on every pull request (the `layout` job).
  */
@@ -549,7 +550,11 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
       await settle(page, 300)
       return result
     }
-    if (SHIFT) {
+    // ON THE DEFAULT TEXT SIZE ONLY. Large text is what breaks overflow, so that check keeps both
+    // sizes; it almost never changes whether a skeleton is the size of the page it stands in for.
+    // This pass is most of a case's fixed waits (devSlow, the first snapshot, the settle), so
+    // running it at both sizes nearly doubled every CI slice to look again at the same skeletons.
+    if (SHIFT && text === 'default') {
       const sep = route.includes('?') ? '&' : '?'
       await page.goto(`${BASE}${route}${sep}devSlow=${SLOW_MS}`, { waitUntil: 'domcontentloaded' })
       await page.waitForTimeout(Math.min(1200, SLOW_MS / 2))
@@ -697,15 +702,18 @@ async function main() {
   if (BASELINE) {
     const covered = new Set(results.map(r => `${r.route}${EXPERIMENTS ? ' +experiments' : ''}|${r.width}|${r.text}`))
     const caseOf = k => k.split('|').slice(0, 3).join('|')
+    // A shift key at Large text names a check runCase no longer makes, so this run neither clears
+    // it nor calls it fixed. The keys still carry the text size, so an entry made before then reads.
+    const checked = k => covered.has(caseOf(k)) && !(k.endsWith('|shift') && k.split('|')[2] !== 'default')
     if (UPDATE_BASELINE && !fixture.misses.size) {
       // Only the cases this run looked at are replaced, so a narrowed run (--routes) or the
       // experiments pass cannot wipe what the other run recorded.
-      const merged = [...[...baseline].filter(k => !covered.has(caseOf(k))), ...found].sort()
+      const merged = [...[...baseline].filter(k => !checked(k)), ...found].sort()
       fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(merged, null, 2)}\n`)
       console.log(`\nBaseline now holds ${merged.length} known finding(s).`)
       process.exit(0)
     }
-    const gone = [...baseline].filter(k => covered.has(caseOf(k)) && !found.has(k))
+    const gone = [...baseline].filter(k => checked(k) && !found.has(k))
     if (known) console.log(`\n${known} known finding(s) in the baseline, not repeated here.`)
     if (gone.length) {
       console.log(`${gone.length} baseline finding(s) no longer happen. Fixed? Then: npm run sweep -- --replay --shift --update-baseline`)

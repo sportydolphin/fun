@@ -14,11 +14,23 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 | `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, then the code the build never sees (below) | about 3 min |
 | `layout` | `layout` | nothing itself: passes only if every `layout` slice did | seconds |
 
-`layout 1/4` to `layout 4/4` are the layout sweep split by route, run in parallel, about 3 to 4
-minutes each, and `layout experiments` sweeps the flag-gated routes beside them in under a minute. The `layout` job exists because a matrix reports one check per slice under its own
+`layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, about 4 minutes
+each, and `layout experiments` sweeps the flag-gated routes beside them in under a minute. Four
+slices took about 9 minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight
+slices, and the loading-shift check at the default text size only, brought that down without
+shortening a wait. The `layout` job exists because a matrix reports one check per slice under its own
 name, and the ruleset can only require a fixed name. It runs under `always()`: a job whose needs
 failed is otherwise skipped, and a skipped required check counts as passing. **Rename a job and
 you rename the check the ruleset waits for**, so every pull request waits forever.
+
+**A pull request that touches no UI skips the sweep.** The `changes` job lists the pull request's
+files, and if every one is under `docs/`, `scripts/`, `.github/` or `supabase/`, or ends in `.md`,
+each slice skips its steps and reports success, so `layout` goes green with `check` in about 3
+minutes. Three paths in those folders always sweep: `scripts/layout-sweep.mjs`,
+`scripts/fixtures/`, and `.github/workflows/ci.yml`. Anything else, a new top-level folder included,
+counts as UI until the list says otherwise. A renamed file counts under its old name too, and a push
+to `main` always sweeps. The slices skip their steps rather than the whole job on purpose: a skipped
+job fails the `layout` test, and a required check that never reports leaves the pull request waiting.
 
 **The lockfile.** Every workflow runs Node 24 with npm 11, `.nvmrc` says 24, and `devEngines` in
 package.json makes any other npm refuse at install with `EBADDEVENGINES`. That alone did not fix
@@ -148,7 +160,8 @@ gap: a module whose only importer is its own test is dead code knip will call al
 
 `scripts/layout-sweep.mjs` drives Chrome against the dev server and checks four things at four
 widths (375, 760, 960, 1440) and both text sizes: text that overflows its box, anything that
-moves when a page's skeleton is replaced by its content (the loading-states rule in CLAUDE.md),
+moves when a page's skeleton is replaced by its content (the loading-states rule in CLAUDE.md;
+default text size only, since Large text breaks overflow and almost never a skeleton's size),
 every outline under 3:1 against what is behind it (the borders rule), and the axe-core rules in
 `AXE_RULES`: text contrast, and a name on every control, link, image and input (the
 accessibility rule). The last two run in the light theme and then the dark one on the same load.
@@ -188,11 +201,11 @@ Flags worth knowing:
 | Flag | Does |
 |---|---|
 | `--replay` | serve from the fixture, network shut (what CI does) |
-| `--shift` | also run the loading-shift check |
+| `--shift` | also run the loading-shift check (default text size only) |
 | `--record --merge` | add what the named routes fetch to the fixture, at its own clock |
 | `--baseline` | fail only on findings not in the baseline file |
 | `--routes a,b` | only these routes (leading slash optional, for Git Bash) |
-| `--shard i/n` | every n-th route from the i-th (CI runs `1/4` to `4/4`) |
+| `--shard i/n` | every n-th route from the i-th (CI runs `1/8` to `8/8`) |
 | `--experiments` | with the experiments flag on; CI sweeps the flagged routes this way in the `layout experiments` slice |
 | `--cpu 4` | slow Chrome down to CI's speed |
 | `--shots dir` | save the before and after frame of every case that shifts |
