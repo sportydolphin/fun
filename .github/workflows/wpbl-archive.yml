@@ -51,7 +51,7 @@ jobs:
           ssh-key: ${{ secrets.MAIN_BOT_DEPLOY_KEY }}
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # A FAILURE, not a warning. This used to warn, and it ran green every Sunday from Sep 6
       # to Sep 21, 2026 without exporting anything, because the two secrets had never been

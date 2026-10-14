@@ -18,8 +18,9 @@
     "scripts/**/*.{mjs,ts}"
   ],
   // axe-core is read off disk by the layout sweep (require.resolve), never imported. `npm` is
-  // Deno's `npm:` specifier in an edge function, not a package.
-  "ignoreDependencies": ["axe-core", "npm"],
+  // Deno's `npm:` specifier in an edge function, not a package. The two @emnapi packages are
+  // listed only to pin them into the lockfile's top level (docs/CI.md, "The lockfile").
+  "ignoreDependencies": ["axe-core", "npm", "@emnapi/core", "@emnapi/runtime"],
   // Globs in package.json and ci.yml that knip reads as file paths.
   "ignoreUnresolved": ["^scripts/\\*\\.ts$", "^functions/\\*\\*/\\*\\.ts$"],
   // An export used only in its own file is a style question, not dead code.

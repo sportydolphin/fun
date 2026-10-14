@@ -67,8 +67,9 @@ Violating these creates real problems. Treat them as hard constraints.
   dev server ([`scripts/layout-sweep.mjs`](scripts/layout-sweep.mjs)); `--routes` narrows it.
   **CI runs it on every pull request** (the `layout` check, four parallel slices) from a recorded
   snapshot of the data, with the clock frozen at the moment it was taken. A query the snapshot
-  lacks fails the job, so a change to what a page fetches comes with `npm run sweep:record`, run
-  against real data, and the new `scripts/fixtures/layout-sweep.json.gz` in the same pull request.
+  lacks fails the job and prints the routes to record, so a change to what a page fetches comes with
+  `npm run sweep:record -- --merge --routes <those>` (or the "Sweep: record" workflow on the branch)
+  and the new files under `scripts/fixtures/layout-sweep/` in the same pull request.
   The accepted-findings baseline is empty: fix a finding, don't baseline it. A failure CI sees and
   your machine doesn't is CI's slower runner catching a real loading phase; reproduce it with
   `--cpu 4` and the job's `sweep-shots` artifact ([docs/CI.md](docs/CI.md)).
@@ -94,6 +95,16 @@ Violating these creates real problems. Treat them as hard constraints.
   **Never fade text with `opacity`** to make something recessive (an eliminated club, a heatmap
   cell): it takes the text under 4.5:1 along with everything else. Use the secondary ink, and fade
   only the logo or the fill (`heatCell` in [`src/lib/contrast.ts`](src/lib/contrast.ts)).
+- **A lockfile written on Windows can fail `npm ci` on Linux.** npm on Windows left
+  `@napi-rs/wasm-runtime`'s optional `@emnapi/*` peers out of the lockfile's top level, CI's Linux
+  npm required them, and every check failed in seconds (Oct 14, 2026). Both are now plain
+  devDependencies so every platform writes them; do not remove them as unused (knip ignores them).
+  A new `Missing: X from lock file` in CI is the same thing: add X the same way. Node 24 and npm 11
+  everywhere, enforced by `devEngines`.
+- **Read the open pull requests, not just `main`.** Everything lands through pull requests that
+  merge themselves, so work in flight (a roadmap section, a fix) lives on their branches until
+  then. A SessionStart hook ([`scripts/open-prs.mjs`](scripts/open-prs.mjs)) lists them with their
+  checks; a red one is usually waiting on nobody.
 - **Never commit secrets.** Client build vars live in Cloudflare Pages env plus `.env`;
   edge-function and cron secrets live in Supabase and GitHub Actions (table in
   ARCHITECTURE §9).

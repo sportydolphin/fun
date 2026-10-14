@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Unlike the sibling cron jobs this one cannot install a hand-picked subset: it bundles
       # TypeScript out of src/ with esbuild and rasterises a card, so it needs the real tree.

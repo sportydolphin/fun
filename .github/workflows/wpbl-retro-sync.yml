@@ -30,7 +30,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # `pg` rather than the supabase client, matching watch-wpbl-tracking: this is a dozen
       # rows of owner-only data and talks to Postgres directly.

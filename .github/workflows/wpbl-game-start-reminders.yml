@@ -54,7 +54,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # `npm ci` would install the whole frontend toolchain (React, MUI, Vite,
       # Vitest) that this script never imports. The sender needs exactly three
