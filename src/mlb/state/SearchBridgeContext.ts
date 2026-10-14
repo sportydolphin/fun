@@ -20,6 +20,9 @@ export interface TeamBridgeItem {
   league?: { name?: string }
 }
 
+/** "A vs B" resolved by the section that owns the search: the pair's compare page. */
+export interface CompareRow { title: string; subtitle: string; href: string }
+
 // A self-describing toolbar search result. Produced by whichever section owns search
 // so the always-loaded toolbar can render it WITHOUT statically importing that section's
 // lazy chunk. The avatar is described by primitive data (image URL + colors), never a
@@ -60,6 +63,9 @@ export interface SearchBridgeState {
   recentSearches: RecentSearchItem[]
   handleSelectRecent: ((item: RecentSearchItem) => void) | null
   clearRecentSearches: (() => void) | null
+  /** Two names typed as "A vs B", resolved against the section's players. Null when either half
+   *  names nobody, or before a section has registered. A promise because MLB's is a network call. */
+  resolveCompare: ((a: string, b: string, season: number | null) => Promise<CompareRow | null>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -76,6 +82,7 @@ const DEFAULT: SearchBridgeState = {
   recentSearches: [],
   handleSelectRecent: null,
   clearRecentSearches: null,
+  resolveCompare: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }

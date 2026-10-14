@@ -48,7 +48,7 @@ import {
   wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, wpblAppOwnsPath,
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
-  WPBL_AWARDS_PATH, isWpblAwardsPage,
+  WPBL_AWARDS_PATH, isWpblAwardsPage, wpblComparePath,
   WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
 } from './routes'
@@ -1695,7 +1695,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!active) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null })
       setSearchQuery('')
     }
   }, [active])
@@ -2009,6 +2009,29 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
   }, [matches, buildPlayerRow, buildTeamRow, active])
+
+  // "Whitmore vs Ibarra" in the palette. The halves arrive lowercased with accents folded (the
+  // parser's normalize), so the names are folded the same way before matching. Best match first:
+  // the whole name, then the start of one, then anywhere in it, which is how a surname alone finds
+  // its player.
+  const resolveCompare = useCallback(async (a: string, b: string, season: number | null) => {
+    const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    const pick = (q: string) => {
+      const ms = players.filter(pl => fold(pl.name).includes(q))
+      return ms.find(pl => fold(pl.name) === q) ?? ms.find(pl => fold(pl.name).startsWith(q)) ?? ms[0] ?? null
+    }
+    const pa = pick(a), pb = pick(b)
+    if (!pa || !pb || pa.id === pb.id) return null
+    const path = wpblComparePath(pa, pb, players)
+    return {
+      title: `${pa.name} vs ${pb.name}`,
+      subtitle: season ? `${season} seasons side by side` : 'Seasons side by side',
+      href: season ? `${path}?season=${season}` : path,
+    }
+  }, [players])
+  useEffect(() => {
+    if (active) updateSearchBridge({ resolveCompare })
+  }, [resolveCompare, active])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

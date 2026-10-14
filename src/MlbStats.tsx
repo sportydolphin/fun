@@ -3,14 +3,15 @@ import type { ReactNode } from 'react'
 import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
-import { ACCENT_TEXT } from './mlb/constants'
+import { ACCENT_TEXT, CURRENT_SEASON } from './mlb/constants'
+import { searchPlayers } from './mlb/api'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
 import { requestDeepLink, parseDeepLink } from './mlb/state/deepLink'
 import { MoreSheet } from './ui/MoreMenu'
 import { FinalGamesSection } from './mlb/views/FinalGames'
 import { GameRoute } from './mlb/views/GameRoute'
 import { SeriesRoute } from './mlb/views/SeriesRoute'
-import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE, MLB_MORE, type MlbMoreRow } from './mlb/routes'
+import { mlbComparePath, withMlbCompareSeason, mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE, MLB_MORE, type MlbMoreRow } from './mlb/routes'
 
 // `?ref=short` means a short link (functions/m) sent this reader here. Read when the chunk loads,
 // before the section's first address rewrite drops the query, and counted once on mount. Only a
@@ -199,12 +200,33 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     })
   }, [recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches, active])
 
+  // "Judge vs Ohtani" in the palette: StatsAPI's own name search for each half, its first answer
+  // (active players come first), the same lookup the header search makes for one name.
+  useEffect(() => {
+    if (!active) return
+    updateSearchBridge({
+      resolveCompare: async (a, b, season) => {
+        try {
+          const [ra, rb] = await Promise.all([searchPlayers(a), searchPlayers(b)])
+          const pa = ra[0], pb = rb[0]
+          if (!pa || !pb || pa.id === pb.id) return null
+          const year = season ?? CURRENT_SEASON
+          return {
+            title: `${pa.fullName} vs ${pb.fullName}`,
+            subtitle: `${year} seasons side by side`,
+            href: withMlbCompareSeason(mlbComparePath(pa, pb), year, CURRENT_SEASON),
+          }
+        } catch { return null }
+      },
+    })
+  }, [active])
+
   // Unregister from the toolbar when this section unmounts or is hidden behind WPBL. Within one
   // commit React runs every cleanup before any setup, so this lands before WPBL registers.
   useEffect(() => {
     if (!active) return
     return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null })
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null })
       setSearchQuery('')
     }
   }, [active])

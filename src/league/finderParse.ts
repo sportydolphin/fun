@@ -553,3 +553,32 @@ export function nameWords(text: string): string | null {
   const words = rest.split(/\s+/).filter(w => w && !/^[\d.+]+$/.test(w) && !FILLER.has(w) && !LEADER_FILLER.has(w))
   return words.length ? words.join(' ') : null
 }
+
+// ─── Two players ──────────────────────────────────────────────────────────────
+
+// "whitmore vs ibarra", "judge or ohtani", "compare judge and ohtani 2024". "and" and "with" only
+// after "compare", since plenty of questions have an "and" in them that joins no players.
+const COMPARE_JOIN = /\s(?:vs\.?|versus|v\.?|or|compared (?:to|with)|against)\s/
+const COMPARE_JOIN_AFTER_VERB = /\s(?:and|with|to)\s/
+const STAT_ONE = new RegExp(`${B_START}${STAT}${B_END}`, 'g')
+
+/**
+ * Two names to put side by side, and a year if one was typed, or null. Only names: a count or a
+ * stat on either side makes it a line question against a club ("3 hits vs SF"), which is the
+ * finder's. Whether each half is really a player is the section's to say, against its own roster.
+ */
+export function parseCompareText(text: string): { a: string; b: string; season: number | null } | null {
+  const year = takeYear(` ${normalize(text)} `)
+  let rest = year.rest
+  const verb = /^\s*compare\s/.test(rest)
+  if (verb) rest = rest.replace(/^\s*compare\s/, ' ')
+  let parts = rest.split(COMPARE_JOIN)
+  if (parts.length !== 2 && verb) parts = rest.split(COMPARE_JOIN_AFTER_VERB)
+  if (parts.length !== 2) return null
+  const [a, b] = parts.map(p => p.trim().replace(/\s+/g, ' '))
+  if (a.length < 2 || b.length < 2 || /\d/.test(`${a} ${b}`)) return null
+  // Initials ("r.j.") are not stats, as in nameWords.
+  const hasStat = (t: string) => [...` ${t} `.matchAll(STAT_ONE)].some(m => m[1].length >= 2)
+  if (hasStat(a) || hasStat(b)) return null
+  return { a, b, season: year.season }
+}

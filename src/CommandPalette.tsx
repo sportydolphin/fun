@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard } from '@mui/icons-material'
-import { setSearchQuery, type SearchResultRow } from './mlb/state/SearchBridgeContext'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows } from '@mui/icons-material'
+import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
 import { finderSuggestions, leaderSuggestions } from './finderSearch'
-import { nameWords } from './league/finderParse'
+import { nameWords, parseCompareText } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -39,7 +39,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -125,7 +125,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -134,6 +134,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   /** What to show before anything is typed, ahead of the pages. */
   idle: PaletteIdleGroup[]
   searching: boolean
+  /** The section's "A vs B" lookup, from the search bridge. */
+  resolveCompare?: SearchBridgeState['resolveCompare']
 }) {
   const [text, setText] = useState('')
   const [active, setActive] = useState(0)
@@ -157,6 +159,22 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       setSearchQuery('')
     }
   }, [open, section])
+
+  // "A vs B", once the section has found both players. Kept with the text it answers, so a reply
+  // that lands after the reader has typed on is never shown against the newer text.
+  const [compare, setCompare] = useState<{ text: string; row: CompareRow } | null>(null)
+  useEffect(() => {
+    const pair = resolveCompare ? parseCompareText(text) : null
+    if (!pair || !resolveCompare) return
+    let live = true
+    // A beat after the last key, since MLB's answer is two network calls per try.
+    const t = setTimeout(() => {
+      resolveCompare(pair.a, pair.b, pair.season)
+        .then(row => { if (live && row) setCompare({ text, row }) })
+        .catch(() => {})
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, resolveCompare])
 
   const change = (v: string) => {
     setText(v); setActive(0)
@@ -194,6 +212,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       ].filter(g => g.items.length)
     }
 
+    const compared: Item[] = compare && compare.text === text ? [{
+      key: `compare-${compare.row.href}`, kind: 'compare', title: compare.row.title,
+      subtitle: `Compare · ${compare.row.subtitle}`, href: compare.row.href,
+      icon: <CompareArrows sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }] : []
     const leaders: Item[] = leaderSuggestions(section, text).map(s => ({
       key: s.key, kind: 'leader', title: s.title, subtitle: `Leaders · ${s.subtitle}`, href: s.href,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
@@ -220,12 +243,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .map((x, i) => pageItem(x.p, i))
 
     return [
+      { label: 'Compare', items: compared },
       { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section])
+  }, [text, results, idle, section, compare])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))

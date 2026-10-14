@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseCompareText, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -256,5 +256,20 @@ describe('nameWords', () => {
   it('leaves a plain name, and initials, as typed', () => {
     expect(nameWords('Kelsie Whitmore')).toBeNull()
     expect(nameWords('R.J. Smith')).toBeNull()
+  })
+})
+
+describe('parseCompareText', () => {
+  it('reads two names, any of the usual joins, and a year', () => {
+    expect(parseCompareText('Whitmore vs Ibarra')).toEqual({ a: 'whitmore', b: 'ibarra', season: null })
+    expect(parseCompareText('judge or ohtani 2024')).toEqual({ a: 'judge', b: 'ohtani', season: 2024 })
+    expect(parseCompareText('compare Kelsie Whitmore and Diana Ibarra')).toEqual({ a: 'kelsie whitmore', b: 'diana ibarra', season: null })
+  })
+
+  it('leaves a line question against a club, and a plain "and", to the other searches', () => {
+    expect(parseCompareText('3 hits vs SF')).toBeNull()
+    expect(parseCompareText('home runs vs Boston')).toBeNull()
+    expect(parseCompareText('whitmore and ibarra')).toBeNull()
+    expect(parseCompareText('kelsie whitmore')).toBeNull()
   })
 })

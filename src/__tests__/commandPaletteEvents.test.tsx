@@ -18,18 +18,20 @@ vi.mock('../lib/analytics', async importOriginal => {
 })
 
 import CommandPalette, { type PaletteIdleGroup } from '../CommandPalette'
-import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
+import type { SearchBridgeState, SearchResultRow } from '../mlb/state/SearchBridgeContext'
 
 const row = (key: string, title: string, onSelect = vi.fn()): SearchResultRow =>
   ({ key, title, subtitle: 'sub', avatar: { fallbackText: title[0] }, onSelect })
 
-function Host({ idle = [], results = [] }: { idle?: PaletteIdleGroup[]; results?: SearchResultRow[] }) {
+function Host({ idle = [], results = [], resolveCompare }: {
+  idle?: PaletteIdleGroup[]; results?: SearchResultRow[]; resolveCompare?: SearchBridgeState['resolveCompare']
+}) {
   const [open, setOpen] = useState(true)
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}>reopen</button>
       <CommandPalette open={open} onClose={() => setOpen(false)} section="wpbl"
-        results={results} idle={idle} searching={false} />
+        results={results} idle={idle} searching={false} resolveCompare={resolveCompare} />
     </>
   )
 }
@@ -133,5 +135,19 @@ describe('the search box', () => {
     render(<Host />)
     await user.click(screen.getByRole('button', { name: 'Close search' }))
     await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 8 }]))
+  })
+
+  it('offers the compare page for "A vs B" once the section finds both, and counts the pick', async () => {
+    const user = userEvent.setup()
+    const resolveCompare = vi.fn(async (a: string, b: string, season: number | null) =>
+      ({ title: `${a} vs ${b}`, subtitle: String(season), href: '/wpbl/compare/x-vs-y?season=2026' }))
+    render(<Host resolveCompare={resolveCompare} />)
+    await user.keyboard('Whitmore vs Ibarra 2026')
+
+    const option = await screen.findByRole('option', { name: /whitmore vs ibarra/ })
+    expect(resolveCompare).toHaveBeenLastCalledWith('whitmore', 'ibarra', 2026)
+    expect(option).toHaveAttribute('href', '/wpbl/compare/x-vs-y?season=2026')
+    await user.keyboard('{Enter}')
+    expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'compare', rank: 0 })
   })
 })

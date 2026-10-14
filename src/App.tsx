@@ -1573,7 +1573,8 @@ function AppInner() {
       {paletteMounted && (
         <Suspense fallback={null}>
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
-            results={paletteResults} idle={paletteIdle} searching={bridge.searching} />
+            results={paletteResults} idle={paletteIdle} searching={bridge.searching}
+            resolveCompare={bridge.resolveCompare} />
         </Suspense>
       )}
 
