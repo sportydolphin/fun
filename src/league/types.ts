@@ -82,6 +82,11 @@ export interface PitchingGameLine {
   hbp: number
   wp: number
   bk: number
+  /** 1 for the pitcher who started. */
+  gs?: number | null
+  /** The pitcher's decision, one letter: W, L, S (save) or H (hold). Null for none. A pitcher gets at
+   *  most one of the four in a game, which is why one column holds them. */
+  decision?: string | null
 }
 
 /**

@@ -28,6 +28,14 @@ import type { BattingGameLine, LeagueGame, LeaguePlayer, PitchingGameLine } from
  * below depends on the league, so it takes no `League`. The WPBL binding is `runWpblFinder` in
  * src/wpbl/derive/finder.ts.
  *
+ * TWO GRAINS: A GAME, OR A SEASON. "Five home runs" in a game is a question about one night and
+ * "five home runs" on the season is a question about a body of work, and a reader asks both in the
+ * same breath. Season mode is the same engine over the same lines: each player's lines are summed
+ * (after the club, opponent and venue cuts, so "at home" is a home split) and the conditions run on
+ * the sums. It is the only place a RATE can be asked about, since a batting average over one night
+ * is three at-bats, and a rate needs a qualifying bar or the answer to ".300 hitters" is a pinch
+ * hitter who went 1-for-2. See `runFinder`.
+ *
  * EVERY CONDITION IS AND. Nothing here builds an OR, and that is a deliberate stopping point
  * rather than an oversight: "five strikeouts AND no walks" is a question people actually ask,
  * "five strikeouts OR no walks" is not, and offering a boolean tree would cost the whole UI.
@@ -54,6 +62,9 @@ export interface FinderCondition {
 /** Which side of the game a line sits on, and where it was played. */
 export type FinderVenue = 'any' | 'home' | 'away'
 
+/** What one match is: a single game line, or a player's lines summed over the season on screen. */
+export type FinderPer = 'game' | 'season'
+
 export interface FinderQuery {
   conditions: FinderCondition[]
   /** The club the player was playing FOR. Null is every club. */
@@ -62,10 +73,11 @@ export interface FinderQuery {
   oppId: string | null
   venue: FinderVenue
   scope: SeasonScope
+  per: FinderPer
 }
 
 export const EMPTY_FINDER_QUERY: FinderQuery = {
-  conditions: [], teamId: null, oppId: null, venue: 'any', scope: 'regular',
+  conditions: [], teamId: null, oppId: null, venue: 'any', scope: 'regular', per: 'game',
 }
 
 interface Field<L> {
@@ -80,6 +92,12 @@ interface Field<L> {
   parse?: (raw: string) => number
   /** Turn the stored unit back into what the reader would have typed, for the input box. */
   unparse?: (v: number) => string
+  /** Only a season can be asked about this: games played, and every rate. */
+  seasonOnly?: boolean
+  /** A rate, which needs a qualifying bar before it means anything (see `runFinder`). */
+  rate?: boolean
+  /** Lower is the better end (ERA, WHIP), so a list ordered by it starts at the bottom. */
+  lowerBetter?: boolean
 }
 
 // ─── What can be asked about ──────────────────────────────────────────────────
@@ -110,13 +128,28 @@ const HIT_FIELDS: Field<BattingGameLine>[] = [
   { key: 'pa', label: 'Plate appearances', unit: 'PA', value: l => l.ab + l.bb + l.hbp + l.sf + l.sh },
 ]
 
-const PIT_FIELDS: Field<PitchingGameLine>[] = [
+// THE DECISION AS FOUR COUNTS. A line carries it as one letter (`decision`), which a season cannot
+// sum, so each line is read once into a 0 or 1 per decision (`decided`) before anything filters or
+// sums it. A night's "wins at least 1" is then the game a pitcher won, and a season's is the sum.
+type DecidedPitching = PitchingGameLine & { w: number; l: number; sv: number; hld: number }
+const decided = (l: PitchingGameLine): DecidedPitching => ({
+  ...l,
+  w: l.decision === 'W' ? 1 : 0, l: l.decision === 'L' ? 1 : 0,
+  sv: l.decision === 'S' ? 1 : 0, hld: l.decision === 'H' ? 1 : 0,
+})
+
+const PIT_FIELDS: Field<DecidedPitching>[] = [
   // STORED IN OUTS AND ASKED FOR IN INNINGS, which is the one field where the two differ.
   // "4.2" is four and two thirds, not four point two, so the input is parsed with `ipToOuts`
   // rather than with Number: typed as a decimal, an innings threshold is wrong by a third of
   // an inning about two thirds of the time, and it reads perfectly either way.
   { key: 'ip', label: 'Innings pitched', unit: 'IP', value: l => l.outs,
     display: outsToIp, parse: ipToOuts, unparse: outsToIp },
+  { key: 'w', label: 'Wins', unit: 'W', value: l => l.w },
+  { key: 'l', label: 'Losses', unit: 'L', value: l => l.l },
+  { key: 'sv', label: 'Saves', unit: 'SV', value: l => l.sv },
+  { key: 'hld', label: 'Holds', unit: 'HLD', value: l => l.hld },
+  { key: 'gs', label: 'Games started', unit: 'GS', value: l => l.gs ?? 0 },
   { key: 'so', label: 'Strikeouts', unit: 'K', value: l => l.so },
   { key: 'h', label: 'Hits allowed', unit: 'H', value: l => l.h },
   { key: 'r', label: 'Runs allowed', unit: 'R', value: l => l.r },
@@ -132,19 +165,85 @@ const PIT_FIELDS: Field<PitchingGameLine>[] = [
   { key: 'baserunners', label: 'Baserunners allowed', unit: 'BR', value: l => l.h + l.bb + l.hbp },
 ]
 
-/** The fields one side can be asked about, in the order the pickers list them. */
-export function finderFields(side: FinderSide): { key: string; label: string; unit: string }[] {
-  const fields: Field<never>[] = (side === 'pitching' ? PIT_FIELDS : HIT_FIELDS) as Field<never>[]
-  return fields.map(f => ({ key: f.key, label: f.label, unit: f.unit }))
+// ─── What only a season can be asked about ────────────────────────────────────
+//
+// A season line is the player's game lines summed, plus `g`, the games in it. Every counting field
+// above reads a sum exactly as it reads one night, so these are only what a sum adds: games, and
+// the rates.
+//
+// RATES ARE STORED AS INTEGERS IN THEIR LAST PRINTED DIGIT, the way innings are stored as outs: a
+// .300 average is 300 and a 2.45 ERA is 245. That keeps every condition an integer, which is what
+// the address grammar can carry (its separator is a dot), and it makes "over .300" exactly what a
+// reader means, 301 and up, rather than a float comparison that 0.3 fails by a rounding error.
+type SeasonBatting = BattingGameLine & { g: number }
+type SeasonPitching = DecidedPitching & { g: number }
+
+const ratio = (num: number, den: number) => (den > 0 ? num / den : 0)
+const thousandths = (v: number) => Math.round(v * 1000)
+const showThousandths = (v: number) => (v / 1000).toFixed(3).replace(/^0(?=\.)/, '')
+/** ".300", "0.300" and "300" all mean the same average: nothing a reader types under 5 is thousandths. */
+const parseThousandths = (raw: string) => { const n = Number(raw.trim()); return n < 5 ? Math.round(n * 1000) : Math.round(n) }
+const hundredths = (v: number) => Math.round(v * 100)
+const showHundredths = (v: number) => (Number.isFinite(v) ? (v / 100).toFixed(2) : '—')
+/** "2.45" and "245" both mean a 2.45 ERA: nothing a reader types under 50 is hundredths. */
+const parseHundredths = (raw: string) => { const n = Number(raw.trim()); return n < 50 ? Math.round(n * 100) : Math.round(n) }
+const obp = (l: BattingGameLine) => ratio(l.h + l.bb + l.hbp, l.ab + l.bb + l.hbp + l.sf)
+const slg = (l: BattingGameLine) => ratio(l.tb, l.ab)
+const RATE3 = { rate: true, seasonOnly: true, display: showThousandths, parse: parseThousandths, unparse: showThousandths }
+const RATE2 = { rate: true, seasonOnly: true, lowerBetter: true, display: showHundredths, parse: parseHundredths, unparse: showHundredths }
+
+const HIT_SEASON_FIELDS: Field<SeasonBatting>[] = [
+  { key: 'g', label: 'Games played', unit: 'G', value: l => l.g, seasonOnly: true },
+  { key: 'avg', label: 'Batting average', unit: 'AVG', value: l => thousandths(ratio(l.h, l.ab)), ...RATE3 },
+  { key: 'obp', label: 'On-base percentage', unit: 'OBP', value: l => thousandths(obp(l)), ...RATE3 },
+  { key: 'slg', label: 'Slugging percentage', unit: 'SLG', value: l => thousandths(slg(l)), ...RATE3 },
+  { key: 'ops', label: 'OPS', unit: 'OPS', value: l => thousandths(obp(l) + slg(l)), ...RATE3 },
+]
+
+/** The pitching rates, on the ERA basis the section reads in (seven or nine innings; see stats.ts).
+ *  Runs or runners with no outs recorded is no finite rate: it sorts last and never passes. */
+const pitSeasonFields = (eraInnings: number): Field<SeasonPitching>[] => [
+  { key: 'g', label: 'Games pitched', unit: 'G', value: l => l.g, seasonOnly: true },
+  { key: 'era', label: 'ERA', unit: 'ERA', ...RATE2,
+    value: l => (l.outs > 0 ? hundredths((l.er * eraInnings * 3) / l.outs) : l.er > 0 ? Infinity : 0) },
+  { key: 'whip', label: 'WHIP', unit: 'WHIP', ...RATE2,
+    value: l => (l.outs > 0 ? hundredths(((l.h + l.bb) * 3) / l.outs) : l.h + l.bb > 0 ? Infinity : 0) },
+]
+/** For labels and parsing, where the basis plays no part. */
+const PIT_SEASON_FIELDS = pitSeasonFields(9)
+
+function allFields(side: FinderSide): Field<never>[] {
+  return (side === 'pitching' ? [...PIT_FIELDS, ...PIT_SEASON_FIELDS] : [...HIT_FIELDS, ...HIT_SEASON_FIELDS]) as Field<never>[]
+}
+
+/** The fields one side can be asked about, in the order the pickers list them. A season can be
+ *  asked everything a game can, and then its games and its rates. */
+export function finderFields(side: FinderSide, per: FinderPer = 'game'): { key: string; label: string; unit: string }[] {
+  return allFields(side)
+    .filter(f => per === 'season' || !f.seasonOnly)
+    .map(f => ({ key: f.key, label: f.label, unit: f.unit }))
 }
 
 function fieldFor(side: FinderSide, key: string): Field<never> | null {
-  const fields: Field<never>[] = (side === 'pitching' ? PIT_FIELDS : HIT_FIELDS) as Field<never>[]
-  return fields.find(f => f.key === key) ?? null
+  return allFields(side).find(f => f.key === key) ?? null
 }
 
-/** The default condition a freshly added row carries: the side's headline stat, at least one. */
-export function defaultCondition(side: FinderSide): FinderCondition {
+/** Whether the low end of this field is the good end (ERA, WHIP), so a list ordered by it starts there. */
+export function finderLowerBetter(side: FinderSide, key: string): boolean {
+  return !!fieldFor(side, key)?.lowerBetter
+}
+
+/** The conditions another grain can still ask: going back to single games drops every rate. */
+export function conditionsForPer(side: FinderSide, per: FinderPer, conditions: FinderCondition[]): FinderCondition[] {
+  const known = new Set(finderFields(side, per).map(f => f.key))
+  return conditions.filter(c => known.has(c.field))
+}
+
+/** The condition a freshly added row carries. A game asks for the side's headline count, and a
+ *  season for its headline rate: what a season question is usually about, and the one default that
+ *  means the same thing in a thirty-game season and a 162-game one. */
+export function defaultCondition(side: FinderSide, per: FinderPer = 'game'): FinderCondition {
+  if (per === 'season') return side === 'pitching' ? { field: 'era', op: 'lte', value: 300 } : { field: 'avg', op: 'gte', value: 300 }
   return { field: side === 'pitching' ? 'so' : 'h', op: 'gte', value: side === 'pitching' ? 5 : 3 }
 }
 
@@ -177,11 +276,16 @@ export function finderUnit(side: FinderSide, fieldKey: string): string {
 // question asks about joins them (`finderColumns`), so "2+ balks" shows the balks.
 const HIT_COLUMNS = ['ab', 'h', 'r', 'hr', 'rbi', 'bb', 'so', 'sb']
 const PIT_COLUMNS = ['ip', 'h', 'r', 'er', 'bb', 'so', 'hr']
+// A season's line is the back of a baseball card rather than a box score: games, the counts that
+// make the rates, and the rates.
+const HIT_SEASON_COLUMNS = ['g', 'pa', 'h', 'hr', 'rbi', 'sb', 'avg', 'obp', 'slg', 'ops']
+const PIT_SEASON_COLUMNS = ['g', 'gs', 'w', 'l', 'sv', 'ip', 'er', 'bb', 'so', 'era', 'whip']
 
 /** The stat columns for the table: the side's standard line, then every field a condition names
  *  that the line lacks, in the order asked. */
-export function finderColumns(side: FinderSide, query: Pick<FinderQuery, 'conditions'>): { key: string; unit: string; label: string }[] {
-  const keys = [...(side === 'pitching' ? PIT_COLUMNS : HIT_COLUMNS)]
+export function finderColumns(side: FinderSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): { key: string; unit: string; label: string }[] {
+  const season = query.per === 'season'
+  const keys = [...(side === 'pitching' ? (season ? PIT_SEASON_COLUMNS : PIT_COLUMNS) : (season ? HIT_SEASON_COLUMNS : HIT_COLUMNS))]
   for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field)) keys.push(c.field)
   return keys.map(k => { const f = fieldFor(side, k)!; return { key: k, unit: f.unit, label: f.label } })
 }
@@ -192,17 +296,20 @@ export interface FinderSort { key: string; desc: boolean }
 
 /** The sort, or null once it names a column the table no longer draws: a sort on a condition's own
  *  column outlives the condition otherwise, ordering the list by a number nobody can see. */
-export function validFinderSort(side: FinderSide, query: Pick<FinderQuery, 'conditions'>, sort: FinderSort | null): FinderSort | null {
+export function validFinderSort(side: FinderSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }, sort: FinderSort | null): FinderSort | null {
   if (!sort) return null
-  return sort.key === 'date' || finderColumns(side, query).some(c => c.key === sort.key) ? sort : null
+  if (sort.key === 'date') return query.per === 'season' ? null : sort
+  return finderColumns(side, query).some(c => c.key === sort.key) ? sort : null
 }
 
 export interface FinderRow<P extends LeaguePlayer = LeaguePlayer, G extends LeagueGame = LeagueGame> {
   key: string
   player: P | null
   name: string
-  /** The club played for THAT DAY, off the line. Never the roster's, which means "now". */
+  /** The club played for THAT DAY, off the line. Never the roster's, which means "now". A season
+   *  row's is the club its lines were played for most often. */
   teamId: string | null
+  /** The night. Null on a season row, which is many. */
   game: G | null
   /** The value of the first condition's field, which is what the row is measured by. */
   headline: number
@@ -232,6 +339,18 @@ export interface FinderResult<P extends LeaguePlayer = LeaguePlayer, G extends L
   tally: FinderTally<P>[]
   /** The field `headline` is measured in, for the unit beside each number. */
   headlineField: string
+  /** The bar a season question about a rate applied, so the board can say who was left out and
+   *  why. Null when none was: a game question, no rate asked, or the reader set their own. */
+  qualifier: { field: 'pa' | 'ip'; min: number } | null
+}
+
+/** What the section knows that the engine cannot: the innings an ERA is quoted per, and the
+ *  league's qualifying bar for a rate, both from that section's own rules. */
+export interface FinderOptions {
+  /** Seven in WPBL (or the reader's choice; see EraBasisContext), nine in MLB. */
+  eraInnings?: number
+  /** The season's bar for a rate title, in plate appearances and outs. Absent applies none. */
+  qualify?: { minPa: number; minOuts: number } | null
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
@@ -245,11 +364,61 @@ const hitDetail = (l: BattingGameLine): string => [
   l.sb > 0 && plural(l.sb, 'SB', 'SB'),
 ].filter(Boolean).join(', ')
 
+const DECISION_WORD: Record<string, string> = { W: 'Win', L: 'Loss', S: 'Save', H: 'Hold' }
 const pitDetail = (l: PitchingGameLine): string =>
-  `${outsToIp(l.outs)} IP, ${l.h} H, ${l.r} R, ${l.bb} BB, ${l.so} K`
+  `${l.decision && DECISION_WORD[l.decision] ? `${DECISION_WORD[l.decision]}, ` : ''}${outsToIp(l.outs)} IP, ${l.h} H, ${l.r} R, ${l.bb} BB, ${l.so} K`
+
+// A season row's detail says the games first, since "12 HR" means one thing in 20 games and another
+// in 160, and then the line's shape. The rates are columns on a desktop; on a phone this is the only
+// place they appear, so it carries the slash line.
+const hitSeasonDetail = (l: SeasonBatting): string => [
+  plural(l.g, 'G', 'G'),
+  `${l.h}-for-${l.ab}`,
+  l.hr > 0 && plural(l.hr, 'HR', 'HR'),
+  l.rbi > 0 && plural(l.rbi, 'RBI', 'RBI'),
+  l.ab > 0 && [ratio(l.h, l.ab), obp(l), slg(l)].map(v => showThousandths(thousandths(v))).join('/'),
+].filter(Boolean).join(', ')
+
+const pitSeasonDetail = (era: Field<SeasonPitching>) => (l: SeasonPitching): string =>
+  [
+    plural(l.g, 'G', 'G'),
+    (l.w > 0 || l.l > 0) && `${l.w}-${l.l}`,
+    l.sv > 0 && plural(l.sv, 'SV', 'SV'),
+    `${outsToIp(l.outs)} IP`, `${showHundredths(era.value(l))} ERA`, `${l.so} K`,
+  ].filter(Boolean).join(', ')
 
 const passes = (v: number, c: FinderCondition): boolean =>
   c.op === 'gte' ? v >= c.value : c.op === 'lte' ? v <= c.value : v === c.value
+
+type AnyLine = { id: string; player_id: string; team_id: string | null; game_id: string }
+
+/** Each player's lines summed into one, with `g` the lines in it and the club the most of them were
+ *  played for. Every number on the line is summed, so a column added to the line type is summed too
+ *  without anyone remembering to add it here; a null (a night the feed did not count pitches) adds
+ *  nothing. */
+function seasonLines<L extends AnyLine>(lines: L[]): (L & { g: number })[] {
+  const byPlayer = new Map<string, L[]>()
+  for (const l of lines) {
+    const list = byPlayer.get(l.player_id)
+    if (list) list.push(l)
+    else byPlayer.set(l.player_id, [l])
+  }
+  return [...byPlayer.entries()].map(([playerId, list]) => {
+    const rows = list as unknown as Record<string, unknown>[]
+    const sum: Record<string, unknown> = { ...rows[0], id: playerId, game_id: '' }
+    for (const key of Object.keys(rows[0])) {
+      if (key === 'id' || key === 'game_id' || key === 'player_id' || key === 'team_id') continue
+      if (!rows.some(r => typeof r[key] === 'number')) continue
+      sum[key] = rows.reduce((t, r) => t + (typeof r[key] === 'number' ? (r[key] as number) : 0), 0)
+    }
+    const clubs = new Map<string | null, number>()
+    for (const l of list) clubs.set(l.team_id, (clubs.get(l.team_id) ?? 0) + 1)
+    // Ties broken on the club id, so the badge is deterministic rather than insertion-ordered.
+    sum.team_id = [...clubs.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))[0][0]
+    sum.g = list.length
+    return sum as L & { g: number }
+  })
+}
 
 /**
  * Run a query over every stored line.
@@ -258,6 +427,17 @@ const passes = (v: number, c: FinderCondition): boolean =>
  * `bestGames`: a line carries a `game_id` and nothing else, so it cannot say for itself
  * whether it belongs to the slice being asked about, and a half-finished line is not a
  * performance yet.
+ *
+ * A SEASON IS WHATEVER LINES IT IS HANDED, so the caller cuts them to one year first, as both
+ * sections already do for every board (CLAUDE.md, "every WPBL bulk read is every season"). Handed
+ * two years, a season row is both of them summed, and nothing here can tell.
+ *
+ * A RATE IS QUALIFIED unless the reader set their own bar. A season question with an average, an
+ * OPS, an ERA or a WHIP in it keeps only the players over the league's rate-title bar
+ * (`opts.qualify`), because otherwise every list of ".400 hitters" is led by a 2-for-4 and every
+ * "ERA under 1.00" by a reliever's two clean innings. A condition on plate appearances, at-bats or
+ * innings is the reader setting a bar of their own, and replaces it: "who hit .400 in at least 10
+ * PA" is a real question, and the board would otherwise refuse to ask it.
  */
 export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   side: FinderSide,
@@ -268,10 +448,12 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   query: FinderQuery,
   limit = 50,
   sort: FinderSort | null = null,
+  opts: FinderOptions = {},
 ): FinderResult<P, G> {
   const finals = games.filter(g => g.status === 'final')
   const gameById = new Map(finals.map(g => [g.id, g]))
   const playerById = new Map(players.map(p => [p.id, p]))
+  const season = query.per === 'season'
   const headlineField = query.conditions[0]?.field ?? (side === 'pitching' ? 'so' : 'h')
 
   // Every filter that is about the GAME rather than the line, applied once per line because a
@@ -287,8 +469,9 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     return true
   }
 
-  const collect = <L extends { id: string; player_id: string; team_id: string | null; game_id: string }>(
+  const collect = <L extends AnyLine>(
     lines: L[], fields: Field<L>[], detail: (l: L) => string, played: (l: L) => boolean,
+    bar: { field: 'pa' | 'ip'; own: string[]; min: number | undefined },
   ): FinderResult<P, G> => {
     const byKey = new Map(fields.map(f => [f.key, f]))
     const head = byKey.get(headlineField) ?? fields[0]
@@ -296,50 +479,69 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     // THE SEARCHED COUNT EXCLUDES LINES THAT ARE NOT APPEARANCES. Ninety-seven of the season's
     // batting lines are a pitcher's all-zero row, and telling a reader who found nothing that we
     // looked through 610 lines when 97 of them could never match anything is a worse answer than
-    // the number they would have guessed.
-    const pool = inScope.filter(l => (!query.teamId || l.team_id === query.teamId) && played(l))
-    const matched: { line: L; head: number }[] = []
-    // Appearances per player in the games the question looks at (club, venue, opponent), the
-    // denominator for the tally's "2 of 11". Counted on the same pass, before the conditions.
+    // the number they would have guessed. The club, opponent and venue cut here too, BEFORE a
+    // season is summed, which is what makes a season question "at home" a home split.
+    const cut = inScope.filter(l => (!query.teamId || l.team_id === query.teamId) && gameOk(gameById.get(l.game_id), l.team_id))
+    const pool = cut.filter(played)
+    // Appearances per player in the games the question looks at, the denominator for the tally's
+    // "2 of 11".
     const appearances = new Map<string, number>()
-    for (const line of pool) {
-      if (!gameOk(gameById.get(line.game_id), line.team_id)) continue
-      appearances.set(line.player_id, (appearances.get(line.player_id) ?? 0) + 1)
+    for (const line of pool) appearances.set(line.player_id, (appearances.get(line.player_id) ?? 0) + 1)
+    // A season sums every line, a night in the field without a trip to the plate included, so its
+    // games played agree with the Players table's; a season that never came to the plate is dropped
+    // after the sum, for the reason above.
+    const candidates = season ? seasonLines(cut).filter(played) : pool
+
+    const asksRate = season && query.conditions.some(c => byKey.get(c.field)?.rate)
+    const ownBar = query.conditions.some(c => bar.own.includes(c.field))
+    const qualifier = asksRate && !ownBar && bar.min ? { field: bar.field, min: bar.min } : null
+    const barField = byKey.get(bar.field)!
+
+    const matched: { line: L; head: number }[] = []
+    for (const line of candidates) {
+      if (qualifier && barField.value(line) < qualifier.min) continue
       let ok = true
       for (const c of query.conditions) {
         const f = byKey.get(c.field)
         // An unknown field is a hand-edited link, and dropping the condition would answer a
-        // different question than the one the URL asks. Match nothing instead.
-        if (!f || !passes(f.value(line), c)) { ok = false; break }
+        // different question than the one the URL asks. Match nothing instead. A rate on a game
+        // question is the same thing.
+        if (!f || (f.seasonOnly && !season) || !passes(f.value(line), c)) { ok = false; break }
       }
       if (ok) matched.push({ line, head: head.value(line) })
     }
 
     // SORTED BEFORE THE CAP, so a table re-sorted by another column shows the top fifty BY THAT
-    // column across every match, not the first fifty by the question's stat shuffled.
+    // column across every match, not the first fifty by the question's stat shuffled. `desc` is
+    // "highest first" whatever the stat, so an ERA column turned round is the best ERA first; the
+    // question's own order starts at the good end of its first stat.
     const dateOf = (m: { line: L }) => gameById.get(m.line.game_id)?.game_date ?? ''
+    const nameOf = (m: { line: L }) => playerById.get(m.line.player_id)?.name ?? ''
     const sortField = sort && sort.key !== 'date' ? byKey.get(sort.key) ?? null : null
     const dir = sort?.desc === false ? -1 : 1
+    const highFirst = (av: number, bv: number) => (av === bv ? 0 : av < bv ? 1 : -1)
     matched.sort((a, b) => {
-      if (sort?.key === 'date') {
+      if (sort?.key === 'date' && !season) {
         const ad = dateOf(a), bd = dateOf(b)
         if (ad !== bd) return (ad < bd ? 1 : -1) * dir
       } else if (sortField) {
-        const av = sortField.value(a.line), bv = sortField.value(b.line)
-        if (av !== bv) return (bv - av) * dir
+        const c = highFirst(sortField.value(a.line), sortField.value(b.line))
+        if (c) return c * dir
       }
-      if (a.head !== b.head) return b.head - a.head
+      if (a.head !== b.head) return highFirst(a.head, b.head) * (head.lowerBetter ? -1 : 1)
+      if (season) return nameOf(a).localeCompare(nameOf(b))
       const ad = dateOf(a), bd = dateOf(b)
       if (ad !== bd) return ad < bd ? -1 : 1
       return a.line.id < b.line.id ? -1 : 1
     })
 
+    // A SEASON HAS NO TALLY: each player is one row already, so "who did it most" is the list.
     const counts = new Map<string, number>()
     // The club a player matched for MOST OFTEN, so a traded player's tally is one row filed
     // under the club it mostly belongs to rather than the roster's "now", which would put
     // earlier games under a club not yet joined. Tallied here in the same pass as the counts.
     const clubs = new Map<string, Map<string | null, number>>()
-    for (const m of matched) {
+    for (const m of season ? [] : matched) {
       counts.set(m.line.player_id, (counts.get(m.line.player_id) ?? 0) + 1)
       let byClub = clubs.get(m.line.player_id)
       if (!byClub) { byClub = new Map(); clubs.set(m.line.player_id, byClub) }
@@ -368,7 +570,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
           player: p,
           name: p?.name ?? '—',
           teamId: line.team_id,
-          game: gameById.get(line.game_id) ?? null,
+          game: season ? null : gameById.get(line.game_id) ?? null,
           headline: v,
           headlineDisplay: head.display ? head.display(v) : String(v),
           detail: detail(line),
@@ -376,16 +578,27 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
         }
       }),
       total: matched.length,
-      searched: pool.length,
+      // A season search looked through players rather than lines, and is counted that way.
+      searched: candidates.length,
       tally,
       headlineField: head.key,
+      qualifier,
     }
   }
 
+  const qualify = opts.qualify ?? null
   if (side === 'pitching') {
-    return collect(pitching, PIT_FIELDS, pitDetail, l => l.outs > 0 || (l.bf ?? 0) > 0)
+    const seasonFields = pitSeasonFields(opts.eraInnings ?? 9)
+    const era = seasonFields.find(f => f.key === 'era')!
+    return collect(pitching.map(decided), [...PIT_FIELDS, ...seasonFields] as Field<DecidedPitching>[],
+      season ? pitSeasonDetail(era) as (l: DecidedPitching) => string : pitDetail,
+      l => l.outs > 0 || (l.bf ?? 0) > 0,
+      { field: 'ip', own: ['ip', 'bf'], min: qualify?.minOuts })
   }
-  return collect(batting, HIT_FIELDS, hitDetail, l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
+  return collect(batting, [...HIT_FIELDS, ...HIT_SEASON_FIELDS] as Field<BattingGameLine>[],
+    season ? hitSeasonDetail as (l: BattingGameLine) => string : hitDetail,
+    l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0,
+    { field: 'pa', own: ['pa', 'ab'], min: qualify?.minPa })
 }
 
 // ─── The query in the address bar ─────────────────────────────────────────────
@@ -400,16 +613,29 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
 // looking like a tracking parameter. Every character in it is URL-safe unencoded, which is the
 // other half: `>=` would come out as %3E%3D and make the link look broken.
 
+//
+// A SEASON QUESTION LEADS WITH THE WORD: `q=season~hr.gte.5`. In `q` rather than a param of its
+// own for the reason above, and because the grain decides which fields the rest of `q` may name:
+// read on its own, `avg.gte.300` is a field a game question does not have, and the decoder would
+// drop it.
+
 const COND_SEP = '~'
 const PART_SEP = '.'
+const SEASON_TOKEN = 'season'
 
 /** The query as a `q` value, or '' when it is asking for everything. */
-export function encodeFinderQuery(q: FinderQuery): string {
-  return q.conditions.map(c => `${c.field}${PART_SEP}${c.op}${PART_SEP}${c.value}`).join(COND_SEP)
+export function encodeFinderQuery(q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): string {
+  const parts = q.conditions.map(c => `${c.field}${PART_SEP}${c.op}${PART_SEP}${c.value}`)
+  return (q.per === 'season' ? [SEASON_TOKEN, ...parts] : parts).join(COND_SEP)
+}
+
+/** The grain a `q` value asks at. */
+export function decodeFinderPer(raw: string | null): FinderPer {
+  return raw?.split(COND_SEP)[0] === SEASON_TOKEN ? 'season' : 'game'
 }
 
 /**
- * Read a `q` value back.
+ * Read a `q` value's conditions back.
  *
  * FAILS TOWARD THE CONDITION IT CAN READ, and drops the rest. A hand-edited or truncated link
  * should show something rather than an error, and a dropped condition widens the result, which
@@ -418,7 +644,7 @@ export function encodeFinderQuery(q: FinderQuery): string {
  */
 export function decodeFinderQuery(raw: string | null, side: FinderSide): FinderCondition[] {
   if (!raw) return []
-  const known = new Set(finderFields(side).map(f => f.key))
+  const known = new Set(finderFields(side, decodeFinderPer(raw)).map(f => f.key))
   const ops = new Set(FINDER_OPS.map(o => o.op as string))
   const out: FinderCondition[] = []
   for (const part of raw.split(COND_SEP)) {
@@ -432,12 +658,12 @@ export function decodeFinderQuery(raw: string | null, side: FinderSide): FinderC
 }
 
 /** The query in words, for the line above the results. */
-export function describeFinderQuery(side: FinderSide, q: Pick<FinderQuery, 'conditions'>): string {
-  const labels = new Map(finderFields(side).map(f => [f.key, f]))
+export function describeFinderQuery(side: FinderSide, q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): string {
+  const labels = new Map(finderFields(side, 'season').map(f => [f.key, f]))
   const parts = q.conditions.map(c => {
     const f = labels.get(c.field)
     const sym = FINDER_OPS.find(o => o.op === c.op)?.label ?? ''
     return `${f?.label ?? c.field} ${sym} ${displayFinderValue(side, c.field, c.value)}`
   })
-  return parts.length ? parts.join(' and ') : 'every game line'
+  return parts.length ? parts.join(' and ') : q.per === 'season' ? 'every season line' : 'every game line'
 }

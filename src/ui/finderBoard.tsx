@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import {
   finderFields, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery,
+  displayFinderValue, describeFinderQuery, finderLowerBetter, conditionsForPer,
   FINDER_OPS,
-  type FinderCondition, type FinderOp, type FinderQuery, type FinderResult, type FinderRow,
+  type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
+import { GameLineFrame } from './gameLine'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
 import { SectionCard, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
@@ -52,12 +53,15 @@ const COL = { rank: 1.5, player: 8, game: 5.25, result: 3.75, stat: 2.4, gap: 0.
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
-const tableMinRem = (stats: number) =>
-  COL.rank + COL.player + COL.game + COL.result + stats * COL.stat + (stats + 3) * COL.gap + 2.5
+const tableMinRem = (stats: number, per: FinderPer = 'game') => per === 'season'
+  ? COL.rank + COL.player + stats * COL.stat + (stats + 1) * COL.gap + 2.5
+  : COL.rank + COL.player + COL.game + COL.result + stats * COL.stat + (stats + 3) * COL.gap + 2.5
 /** The rail's width, and the tally's when it sits beside the table. */
 const RAIL_REM = 22
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
+/** What a season question searches, the same in both sections. */
+const SEASON_INTRO = 'Each player’s box-score lines added up over the season, for the seasons that match.'
 
 const fieldSx = {
   ...FOCUS_RING,
@@ -117,8 +121,9 @@ function Picker({ value, onChange, options, label }: {
 
 /** One `stat op value` row. `n` is the 1-based position, spoken into the labels so a screen reader
  *  with several conditions can tell the rows apart. */
-function ConditionRow({ side, n, condition, onChange, onRemove }: {
+function ConditionRow({ side, per, n, condition, onChange, onRemove }: {
   side: FinderSide
+  per: FinderPer
   n: number
   condition: FinderCondition
   onChange: (c: FinderCondition) => void
@@ -136,7 +141,7 @@ function ConditionRow({ side, n, condition, onChange, onRemove }: {
       {/* Sized to its content, not stretched: a stat dropdown that ran the whole row was the worst
           of the board's desktop sizing. The row packs left instead. */}
       <Picker label={`Stat, condition ${n}`} value={condition.field}
-        options={finderFields(side).map(f => ({ value: f.key, label: f.label }))}
+        options={finderFields(side, per).map(f => ({ value: f.key, label: f.label }))}
         onChange={field => onChange({ ...condition, field })} />
       <Picker label={`Comparison, condition ${n}`} value={condition.op}
         options={FINDER_OPS.map(o => ({ value: o.op, label: o.label }))}
@@ -155,7 +160,7 @@ function ConditionRow({ side, n, condition, onChange, onRemove }: {
             onChange({ ...condition, value: parseFinderValue(side, condition.field, e.target.value) })
           }}
           onBlur={() => setDraft(null)}
-          sx={{ ...fieldSx, width: '3.5rem', px: 1.25, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }} />
+          sx={{ ...fieldSx, width: '4rem', px: 1.25, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }} />
         <Box {...pressable(onRemove)} aria-label={`Remove condition ${n}`} sx={{
           ...FOCUS_RING,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -173,11 +178,14 @@ function ConditionRow({ side, n, condition, onChange, onRemove }: {
 export interface FinderExample {
   label: string
   conditions: FinderCondition[]
+  /** A season question, offered under Season totals. Absent is a game question. */
+  per?: FinderPer
 }
 
 /** One way a typed question can be read, in the shape src/league/finderParse.ts returns. */
 export interface FinderReading {
   side: FinderSide
+  per: FinderPer
   conditions: FinderCondition[]
   teamId: string | null
   oppId: string | null
@@ -218,7 +226,7 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
   const scope = best ? scopeWords(best, clubAbbr) : ''
   return (
     <Box>
-      <Box component="input" type="search" aria-label="Ask in words" placeholder="Ask in words: 5 strikeouts no walks"
+      <Box component="input" type="search" aria-label="Ask in words" placeholder="Ask in words: 3 hits at home, 5 HR on the season"
         value={text} enterKeyHint="search"
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
         onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
@@ -232,14 +240,14 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             <Box component="span" sx={{ fontWeight: 800, color: ACCENT_EDGE }}>Ask ›</Box>{' '}
-            {describeFinderQuery(best.side, { conditions: best.conditions })}
+            {best.per === 'season' && 'Season: '}{describeFinderQuery(best.side, best)}
             {scope && `, ${scope}`}
             {best.side !== side && ` (${best.side})`}
             {best.ignored.length > 0 && `. Ignored: ${best.ignored.join(' ')}`}
           </Box>
         ) : (
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Name a stat and a number: 3 hits, 0 walks, 6+ innings.
+            Name a stat and a number: 3 hits, 0 walks, .300 on the season.
           </Typography>
         )}
       </Box>
@@ -344,14 +352,20 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
 }) {
   const cols = finderColumns(side, query)
   const asked = query.conditions.map(c => c.field)
+  // A SEASON ROW IS A PLAYER, so it has no night and no result: the player is its one destination,
+  // and the columns start straight after the name.
+  const season = query.per === 'season'
   const template = [
-    `${COL.rank}rem`, `minmax(${COL.player}rem, 1fr)`, `${COL.game}rem`, `${COL.result}rem`,
+    `${COL.rank}rem`, `minmax(${COL.player}rem, 1fr)`, ...(season ? [] : [`${COL.game}rem`, `${COL.result}rem`]),
     ...cols.map(() => `${COL.stat}rem`),
   ].join(' ')
   const rowSx = { display: 'grid', gridTemplateColumns: template, columnGap: `${COL.gap}rem`, alignItems: 'center' } as const
-  // No sort is the question's own order, which is its first stat, highest first: drawn as that.
-  const active: FinderSort = sort ?? { key: headlineField, desc: true }
-  const press = (key: string) => onSort({ key, desc: active.key === key ? !active.desc : true })
+  // No sort is the question's own order, which is its first stat from the good end: drawn as that.
+  // A first press on a column starts at its good end too, so a press on ERA is the best ERA.
+  const best = (key: string) => !finderLowerBetter(side, key)
+  const active: FinderSort = sort ?? { key: headlineField, desc: best(headlineField) }
+  const press = (key: string) => onSort({ key, desc: active.key === key ? !active.desc : best(key) })
+  const stretched = { '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 1 } } as const
   const plainHead = { fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap' } as const
   const head = (key: string, label: string, title: string, align: 'left' | 'right') => {
     const on = active.key === key
@@ -371,13 +385,13 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
     )
   }
   return (
-    <Box role="table" aria-label="Matching games" aria-busy={loading || undefined}>
+    <Box role="table" aria-label={season ? 'Matching seasons' : 'Matching games'} aria-busy={loading || undefined}>
       <Box role="rowgroup">
         <Box role="row" sx={{ ...rowSx, px: 0.5, pb: 0.75 }}>
           <Box role="columnheader" sx={{ ...plainHead, textAlign: 'center' }}>#</Box>
           <Box role="columnheader" sx={plainHead}>Player</Box>
-          {head('date', 'Game', 'Sort by date', 'left')}
-          <Box role="columnheader" sx={plainHead}>Result</Box>
+          {!season && head('date', 'Game', 'Sort by date', 'left')}
+          {!season && <Box role="columnheader" sx={plainHead}>Result</Box>}
           {cols.map(c => head(c.key, c.unit, `Sort by ${c.label.toLowerCase()}`, 'right'))}
         </Box>
       </Box>
@@ -390,45 +404,52 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
                 <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
                 <Typography sx={{ fontSize: TYPE_SCALE.body, flex: 1 }}><Skeleton width="70%" /></Typography>
               </Box>
-              <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton /></Typography>
-              <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton /></Typography>
+              {!season && <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton /></Typography>}
+              {!season && <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton /></Typography>}
               {cols.map(c => <Typography key={c.key} sx={{ fontSize: TYPE_SCALE.title }}><Skeleton /></Typography>)}
             </Box>
           ))
           : rows.map((r, i) => {
             const parts = rowParts(r)
             const label = gameLabel(r.game, r.teamId, clubAbbr)
+            const rowLink = season ? parts.playerLink : parts.gameLink
             return (
               <Box key={r.key} role="row" sx={{
                 ...rowSx, position: 'relative', px: 0.5, py: 0.85, borderRadius: 1,
                 borderTop: '1px solid', borderColor: 'divider',
-                ...(parts.gameLink ? TAPPABLE : {}),
+                ...(rowLink ? TAPPABLE : {}),
               }}>
                 <Box role="cell" sx={{ textAlign: 'center', fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
                   {i + 1}
                 </Box>
                 <Box role="cell" sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                   {parts.portrait}
-                  {/* Raised over the row's stretched game link, so the name still opens the player. */}
+                  {/* Raised over the row's stretched game link, so the name still opens the player. On a
+                      season row the name IS the row's link, stretched over it. */}
                   <NameText name={r.name} linkProps={parts.playerLink} sx={{
-                    position: 'relative', zIndex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit',
+                    ...(season ? {} : { position: 'relative', zIndex: 1 }),
+                    minWidth: 0, textDecoration: 'none', color: 'inherit',
                     fontSize: TYPE_SCALE.body, fontWeight: 700,
                     ...(parts.playerLink ? hoverOnly({ textDecoration: 'underline' }) : {}),
+                    ...(season && parts.playerLink ? stretched : {}),
                   }} />
                   {parts.club && <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexShrink: 0 }}>{parts.club}</Box>}
                 </Box>
-                <Box role="cell" sx={{ minWidth: 0, whiteSpace: 'nowrap', fontSize: TYPE_SCALE.meta }}>
-                  {parts.gameLink ? (
-                    <Box component="a" {...parts.gameLink} sx={{
-                      ...FOCUS_RING, color: ACCENT_EDGE, fontWeight: 700, textDecoration: 'none',
-                      '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 1 },
-                      ...hoverOnly({ textDecoration: 'underline' }),
-                    }}>{label}</Box>
-                  ) : label}
-                </Box>
-                <Box role="cell" sx={{ whiteSpace: 'nowrap', fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                  {gameResult(r.game, r.teamId)}
-                </Box>
+                {!season && (
+                  <Box role="cell" sx={{ minWidth: 0, whiteSpace: 'nowrap', fontSize: TYPE_SCALE.meta }}>
+                    {parts.gameLink ? (
+                      <Box component="a" {...parts.gameLink} sx={{
+                        ...FOCUS_RING, color: ACCENT_EDGE, fontWeight: 700, textDecoration: 'none',
+                        ...stretched, ...hoverOnly({ textDecoration: 'underline' }),
+                      }}>{label}</Box>
+                    ) : label}
+                  </Box>
+                )}
+                {!season && (
+                  <Box role="cell" sx={{ whiteSpace: 'nowrap', fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                    {gameResult(r.game, r.teamId)}
+                  </Box>
+                )}
                 {cols.map(c => {
                   const first = c.key === asked[0]
                   const isAsked = asked.includes(c.key)
@@ -451,9 +472,25 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   )
 }
 
+/** A season row for the list: the shared game-line frame with the player as its one link, since a
+ *  season has no night for the row to open. */
+function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, unit, parts, accent }: {
+  row: FinderRow<P, G>
+  i: number
+  unit: string
+  parts: FinderRowParts
+  accent?: string
+}) {
+  return (
+    <GameLineFrame rank={i + 1} emphasizeRank={false} portrait={parts.portrait} name={row.name} club={parts.club}
+      label={null} detail={row.detail} value={row.headlineDisplay} unit={unit} divider={i > 0}
+      accent={accent} rowLink={parts.playerLink} />
+  )
+}
+
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, intro, loading = false, renderRow, rowParts, tallyParts,
-  sort, onSort, examples, stickyTop, parse, onAsk,
+  sort, onSort, examples, stickyTop, parse, onAsk, accent,
 }: {
   side: FinderSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -467,7 +504,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   intro: string
   /** While the lines are still coming (MLB reads them; WPBL already holds them). */
   loading?: boolean
-  /** A matching line in the section's own parts (GameLineFrame, in game mode), for the list. */
+  /** A matching game line in the section's own parts (GameLineFrame, in game mode), for the list.
+   *  A season row is drawn here, from `rowParts`, since it has no game for a section's row to show. */
   renderRow: (row: FinderRow<P, G>, i: number, unit: string) => React.ReactNode
   /** The same line's parts, for the table. */
   rowParts: (row: FinderRow<P, G>) => FinderRowParts
@@ -483,6 +521,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The question typed as words. The box is drawn only when both are given. */
   parse?: (text: string) => FinderReading[]
   onAsk?: (r: FinderReading) => void
+  /** The section's accent for a season row's number, as its game rows use. */
+  accent?: string
 }) {
   const [allRows, setAllRows] = useState(false)
   // FOLDED ONCE THERE IS AN ANSWER, wherever there is no rail. On a phone the form is a screen of
@@ -499,8 +539,18 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const setCondition = (i: number, c: FinderCondition) =>
     onQuery({ ...query, conditions: query.conditions.map((x, j) => (j === i ? c : x)) })
   const removeCondition = (i: number) => onQuery({ ...query, conditions: query.conditions.filter((_, j) => j !== i) })
-  const addCondition = () => onQuery({ ...query, conditions: [...query.conditions, defaultCondition(side)] })
-  const askWhole = (conditions: FinderCondition[]) => { onQuery({ ...query, conditions }); setFolded(true) }
+  const season = query.per === 'season'
+  const addCondition = () => onQuery({ ...query, conditions: [...query.conditions, defaultCondition(side, query.per)] })
+  const askWhole = (ex: FinderExample) => { onQuery({ ...query, per: ex.per ?? 'game', conditions: ex.conditions }); setFolded(true) }
+  // A switch of grain keeps every condition the other grain can ask. "3+ home runs" means something
+  // over a season too, and is a better start than an empty form; a rate has no meaning in one game,
+  // so going back to games drops it. Bare, a season opens on its headline rate, since a season of
+  // every line ranks nobody.
+  const setPer = (per: FinderPer) => {
+    if (per === query.per) return
+    const kept = conditionsForPer(side, per, query.conditions)
+    onQuery({ ...query, per, conditions: kept.length || per === 'game' ? kept : [defaultCondition(side, per)] })
+  }
 
   // A NUMBER AND A SENTENCE, not just a number. "12" over a list is a fact about a question the
   // reader may have changed three controls ago; "12 games where Strikeouts at least 5" is the
@@ -508,15 +558,30 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // included: `describeFinderQuery` knows only the stat conditions, and a summary that omits the
   // who and where claims a wider search than it ran. The unasked question gets its own wording,
   // since "612 games where every game line" reads as a bug.
-  const games_ = result.total === 1 ? 'game' : 'games'
+  const who = side === 'pitching' ? ['pitcher', 'pitchers'] : ['hitter', 'hitters']
+  const games_ = season ? (result.total === 1 ? who[0] : who[1]) : result.total === 1 ? 'game' : 'games'
   const scopeText = scopeWords(query, clubAbbr)
   const total = result.total.toLocaleString()
   const summary = hasConditions
     ? `${total} ${games_} where ${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
     : scopeText
       ? `${total} ${games_} ${scopeText}. Add a condition to narrow it.`
-      : `Every line: ${total} ${games_}. Add a condition to narrow it.`
-  const questionText = `${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
+      : `Every ${season ? who[0] : 'line'}: ${total} ${games_}. Add a condition to narrow it.`
+  const questionText = `${season ? 'Season: ' : ''}${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
+  // SAID, because a bar the reader did not set is a filter they cannot see. The way past it is part
+  // of the sentence, since "where is the 2-for-4 hitter" has an answer and it is one condition away.
+  const qualifierNote = result.qualifier
+    ? result.qualifier.field === 'pa'
+      ? `Qualified hitters only: ${result.qualifier.min} plate appearances or more. Add a plate appearances condition to set your own bar.`
+      : `Qualified pitchers only: ${displayFinderValue(side, 'ip', result.qualifier.min)} innings or more. Add an innings condition to set your own bar.`
+    : null
+  const shownExamples = examples.filter(ex => (ex.per ?? 'game') === query.per)
+  // The same words loading and loaded, so the row does not reflow when the answer lands. A game
+  // question nearly always runs past the cap; a season one is a list of a few dozen at most, so it
+  // names no count the skeleton would have to guess.
+  const moreLabel = season
+    ? `Show more ${who[1]}`
+    : `Show ${loading || result.total > result.rows.length ? 'top' : 'all'} ${loading ? 50 : result.rows.length} games`
   const shownRows = allRows ? result.rows : result.rows.slice(0, RESULT_CAP)
 
   // Competition ranks over the games counts: 1, 1, 3.
@@ -531,11 +596,11 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // NOBODY TWICE IS AN ANSWER, and a ranking buries it. Four rows all reading "T-1, 1" say only that
   // every match was a different player, under a title promising a leader; a sentence says it.
   const onceEach = result.tally.length > 0 && result.tally[0].games === 1
-  const who = side === 'pitching' ? ['pitcher', 'pitchers'] : ['hitter', 'hitters']
 
-  const tableRem = tableMinRem(finderColumns(side, query).length)
+  const tableRem = tableMinRem(finderColumns(side, query).length, query.per)
   // The rail switches on the STANDARD line's width rather than this question's, so a condition that
   // adds a column cannot fold the rail away under the reader's hand while they build the question.
+  // The game line's whichever grain is asked, so switching to seasons does not move it either.
   const railRem = RAIL_REM + PANE_GAP_REM + tableMinRem(finderColumns(side, { conditions: [] }).length)
   const inRail = `@container finder (min-width: ${railRem}rem)`
   const tableOn = `@container finder-main (min-width: ${tableRem}rem)`
@@ -548,7 +613,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const tableOnly = { display: 'none', [tableOn]: { display: 'block' } }
 
   const question = (
-    <SectionCard title="The question" subtitle={intro} action={<CopyLink />}>
+    <SectionCard title="The question" subtitle={season ? SEASON_INTRO : intro} action={<CopyLink />}>
       {/* Folded: the question in one line, which is also the way back in. */}
       {hasConditions && (
         <Box {...pressable(() => setFolded(false))} aria-expanded={false} sx={{
@@ -567,11 +632,31 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
         display: isFolded ? 'none' : 'flex', [inRail]: { display: 'flex' },
         flexDirection: 'column', gap: 1, pt: 0.5,
       }}>
+        {/* THE GRAIN, first because it changes what every control under it means: "3+ home runs" is a
+            night or a body of work. */}
+        <Box role="radiogroup" aria-label="Search" sx={{
+          display: 'flex', alignSelf: 'flex-start', p: 0.25, gap: 0.25,
+          borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
+        }}>
+          {([['game', 'Single games'], ['season', 'Season totals']] as const).map(([per, label]) => {
+            const on = query.per === per
+            return (
+              <Box key={per} role="radio" aria-checked={on} {...pressable(() => setPer(per))} sx={{
+                ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', minHeight: chromePx(28), px: 1.25,
+                borderRadius: 999, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                fontSize: TYPE_SCALE.meta, fontWeight: 700,
+                bgcolor: on ? 'action.selected' : 'transparent', color: on ? 'text.primary' : 'text.secondary',
+                ...hoverOnly({ color: 'text.primary' }),
+              }}>{label}</Box>
+            )
+          })}
+        </Box>
+
         {parse && onAsk && (
           <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={r => { onAsk(r); setFolded(true) }} />
         )}
 
-        {examples.length > 0 && (
+        {shownExamples.length > 0 && (
           // One row that scrolls sideways on a phone, where the chips wrapped would be a block of
           // their own above the form; wrapped wherever there is the width.
           <Box role="group" aria-label="Example questions" sx={{
@@ -579,10 +664,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 }, py: 0.25,
             scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
           }}>
-            {examples.map(ex => {
+            {shownExamples.map(ex => {
               const on = sameConditions(ex.conditions, query.conditions)
               return (
-                <Box key={ex.label} {...pressable(() => askWhole(ex.conditions))} aria-pressed={on} sx={{
+                <Box key={ex.label} {...pressable(() => askWhole(ex))} aria-pressed={on} sx={{
                   ...FOCUS_RING, flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                   display: 'inline-flex', alignItems: 'center', minHeight: chromePx(28), px: 1.25, borderRadius: 999,
                   border: '1px solid', borderColor: on ? ACCENT_EDGE : CARD_BORDER,
@@ -595,7 +680,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
         )}
 
         {query.conditions.map((c, i) => (
-          <ConditionRow key={i} side={side} n={i + 1} condition={c}
+          <ConditionRow key={i} side={side} per={query.per} n={i + 1} condition={c}
             onChange={next => setCondition(i, next)} onRemove={() => removeCondition(i)} />
         ))}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
@@ -671,17 +756,20 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
         <Box sx={{ minWidth: 0, containerType: 'inline-size', containerName: 'finder-main' }}>
           <Box sx={{
             display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', alignItems: 'start', gap: { xs: 1.5, sm: 2 },
-            [tallyBeside]: { gridTemplateColumns: `minmax(0, 1fr) ${TALLY_REM}rem`, columnGap: `${PANE_GAP_REM}rem` },
+            ...(season ? {} : { [tallyBeside]: { gridTemplateColumns: `minmax(0, 1fr) ${TALLY_REM}rem`, columnGap: `${PANE_GAP_REM}rem` } }),
           }}>
             {/* A no-break space while loading: a plain one collapses, and the line with it. */}
-            <SectionCard title="Matching games" subtitle={loading ? String.fromCharCode(160) : summary}>
+            <SectionCard title={season ? 'Matching seasons' : 'Matching games'} subtitle={loading ? String.fromCharCode(160) : summary}>
+              {!loading && qualifierNote && (
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', pb: 1 }}>{qualifierNote}</Typography>
+              )}
               {loading ? (
                 <>
                   <Box sx={listOnly}>{Array.from({ length: RESULT_CAP }, (_, i) => <RowSkeleton key={i} divider={i > 0} />)}</Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {/* The expand row a season's worth of matches always brings, so the card does not grow
                       by it when they land and push the tally under it on a phone. */}
-                  <ExpandRow flush expanded={false} moreLabel="Show top 50 games" onToggle={() => {}} />
+                  <ExpandRow flush expanded={false} moreLabel={moreLabel} onToggle={() => {}} />
                 </>
               ) : result.rows.length === 0 ? (
                 <Box sx={{ py: 2 }}>
@@ -689,9 +777,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                   {/* SAYING WHAT WAS SEARCHED is what separates "nobody has done this" from "your
                       filters left nothing to look at". */}
                   <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-                    Searched {result.searched.toLocaleString()} {result.searched === 1 ? 'line' : 'lines'}
-                    {side === 'pitching' ? ' from pitchers who appeared' : ' from batters who came to the plate'}.
-                    Loosen a condition, or widen the club and venue.
+                    {season
+                      ? `Searched the seasons of ${result.searched.toLocaleString()} ${result.searched === 1 ? who[0] : who[1]}.`
+                      : `Searched ${result.searched.toLocaleString()} ${result.searched === 1 ? 'line' : 'lines'}${side === 'pitching' ? ' from pitchers who appeared' : ' from batters who came to the plate'}.`}
+                    {' '}Loosen a condition, or widen the club and venue.
                   </Typography>
                 </Box>
               ) : (
@@ -699,11 +788,13 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                   {/* BOTH DRAWN, ONE SHOWN, so which one is a matter of the width alone and the first
                       paint is already the right one: a measured switch would paint the list and then
                       replace it. */}
-                  <Box sx={listOnly}>{shownRows.map((r, i) => renderRow(r, i, unit))}</Box>
+                  <Box sx={listOnly}>{shownRows.map((r, i) => season ? (
+                    <SeasonRow key={r.key} row={r} i={i} unit={unit} parts={rowParts(r)} accent={accent} />
+                  ) : renderRow(r, i, unit))}</Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {result.rows.length > RESULT_CAP && (
                     <ExpandRow flush expanded={allRows}
-                      moreLabel={result.total > result.rows.length ? `Show top ${result.rows.length} games` : `Show all ${result.rows.length} games`}
+                      moreLabel={moreLabel}
                       onToggle={() => setAllRows(v => !v)} />
                   )}
                   {/* The engine caps what it returns, so a question matching half the league does not
@@ -723,7 +814,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 once the matching is done, on the Leaders board's card so it reads as those rows do.
                 "of 11" beside a count is the player's appearances in the games searched, which is
                 what separates doing it a lot from playing a lot. */}
-            {loading
+            {season ? null : loading
               ? <LeaderCardSkeleton title="Most games matching" rows={TALLY_SHOWN} seeAll={false} splitWhen={tallySplit} />
               : onceEach ? (
                 <SectionCard bare title="Most games matching">

@@ -81,6 +81,16 @@ export function finalsFromSchedule(schedule, season) {
 const n = v => (Number.isFinite(Number(v)) ? Number(v) : 0)
 const nOrNull = v => (v == null || !Number.isFinite(Number(v)) ? null : Number(v))
 
+/** The pitcher's decision as one letter, WPBL's column (W, L, S, H), or null for none. The box score
+ *  counts each as 0 or 1 for the game; the rules give a pitcher at most one of them. */
+export function decisionOf(s) {
+  if (n(s?.wins) > 0) return 'W'
+  if (n(s?.losses) > 0) return 'L'
+  if (n(s?.saves) > 0) return 'S'
+  if (n(s?.holds) > 0) return 'H'
+  return null
+}
+
 /**
  * One game's lines, from its box score.
  *
@@ -118,6 +128,7 @@ export function linesFromBox(box, gamePk) {
         bb: n(s.baseOnBalls), so: n(s.strikeOuts), hr: n(s.homeRuns),
         pitches: nOrNull(s.numberOfPitches ?? s.pitchesThrown), strikes: nOrNull(s.strikes),
         hbp: n(s.hitBatsmen), wp: n(s.wildPitches), bk: n(s.balks),
+        gs: n(s.gamesStarted), decision: decisionOf(s),
       })
       if (p?.person?.fullName && !players.some(x => x.player_id === id)) {
         players.push({ player_id: id, name: p.person.fullName, team_id: teamId })
@@ -132,7 +143,7 @@ export function linesFromBox(box, gamePk) {
 const BATTING_COLS = ['game_pk', 'player_id', 'team_id', 'ab', 'r', 'h', 'doubles', 'triples', 'hr',
   'rbi', 'bb', 'so', 'hbp', 'sb', 'cs', 'sf', 'sh', 'gdp', 'tb']
 const PITCHING_COLS = ['game_pk', 'player_id', 'team_id', 'outs', 'bf', 'h', 'r', 'er', 'bb', 'so',
-  'hr', 'pitches', 'strikes', 'hbp', 'wp', 'bk']
+  'hr', 'pitches', 'strikes', 'hbp', 'wp', 'bk', 'gs', 'decision']
 const GAME_COLS = ['game_pk', 'season', 'game_date', 'game_type', 'counts_in_standings', 'status',
   'home_team_id', 'away_team_id', 'home_score', 'away_score']
 
