@@ -163,6 +163,12 @@ flowchart LR
   (`seasonCount` on the bridge). A part of the card beside a name ("Ohtani splits") goes the same
   way (`queryPart`) and the row asks for the scroll (`src/lib/playerParts.ts`), held while the card's
   blocks land; a stat asked about ("what is FIP") opens the glossary at the term (`askedTerms`).
+  A stat beside a name ("Whitmore avg") is answered in the player row (`typedStat`, the bridge's
+  `resolvePlayerStat`), and a ranking row names its leader (`resolveLeader`), each section answering
+  from its stats table's own columns and rules ([`src/wpbl/searchAnswers.ts`](src/wpbl/searchAnswers.ts),
+  [`src/mlb/searchAnswers.ts`](src/mlb/searchAnswers.ts)). That includes the advanced figures (OPS+,
+  wRC+, FIP, and WAR on WPBL), which are season-only words the Find parser never sees. WPBL's table
+  and search both build their columns from [`src/wpbl/statColumns.ts`](src/wpbl/statColumns.ts).
   Questions run from the box come back under Recent on this device
   ([`src/lib/recentQuestions.ts`](src/lib/recentQuestions.ts)), merged with the section's synced
   players and clubs by when each was opened; MLB's name lookups are kept ten minutes

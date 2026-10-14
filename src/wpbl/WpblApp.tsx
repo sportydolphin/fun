@@ -9,6 +9,8 @@ import {
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { applyLeagueStartTimes } from './startTimes'
+import type { WpblBoard } from './searchAnswers'
+import { useEraBasis } from './EraBasisContext'
 import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
 import { SectionLabel, TYPE_SCALE, TeamBadge, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, tappableIf, pressable, TAPPABLE, FOCUS_RING } from './ui'
@@ -18,7 +20,7 @@ import { fetchWpblAwardResults } from './awardVotes'
 import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './layoutWidths'
 import { PHONE_COLUMN_W } from '../ui/layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
-import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
+import type { LeaderAsk, PlayerStatAsk, SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from './recentSearches'
 import { fuzzyMatches } from '../lib/fuzzyName'
 import { gameRow } from '../lib/gameRow'
@@ -1704,7 +1706,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!active) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
   }, [active])
@@ -2074,6 +2076,42 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (active) updateSearchBridge({ seasonCount })
   }, [seasonCount, active])
+
+  // "Whitmore avg", "Whitmore war" and "highest wrc+": the answer in the player row and the leader
+  // in the ranking row, from the stats table's own columns (src/wpbl/searchAnswers.ts). Imported on
+  // the first ask, so the column builders and the WAR engine stay out of this chunk. A board is
+  // built once per span and per what it had to read, and kept until the data under it changes.
+  const { fmtEra, basis: eraBasis } = useEraBasis()
+  const loadBoard = useMemo(() => {
+    const boards = new Map<string, Promise<WpblBoard>>()
+    return (season: number | null, need: { weights: boolean; plays: boolean }) => {
+      const key = `${season}|${need.weights}|${need.plays}`
+      let board = boards.get(key)
+      if (!board) {
+        board = import('./searchAnswers').then(m => m.loadWpblBoard({ season, schedule: games, players, teams, fmtEra, eraBasis }, need))
+        boards.set(key, board)
+        board.catch(() => { if (boards.get(key) === board) boards.delete(key) })
+      }
+      return board
+    }
+  }, [games, players, teams, fmtEra, eraBasis])
+  const resolvePlayerStat = useCallback(async (rowKey: string, ask: PlayerStatAsk) => {
+    const player = players.find(p => `player-${p.id}` === rowKey)
+    if (!player) return null
+    const m = await import('./searchAnswers')
+    const season = m.askedSeason(ask.season, games)
+    if (season === undefined) return null
+    return m.wpblPlayerAnswer(player, ask, await loadBoard(season, m.boardNeeds(ask.columns)))
+  }, [players, games, loadBoard])
+  const resolveLeader = useCallback(async (ask: LeaderAsk) => {
+    const m = await import('./searchAnswers')
+    const season = m.askedSeason(ask.career ? 'career' : ask.season, games)
+    if (season === undefined) return null
+    return m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
+  }, [players, games, loadBoard])
+  useEffect(() => {
+    if (active) updateSearchBridge({ resolvePlayerStat, resolveLeader })
+  }, [resolvePlayerStat, resolveLeader, active])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

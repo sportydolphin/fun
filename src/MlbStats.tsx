@@ -4,7 +4,8 @@ import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
 import { ACCENT_TEXT, CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
-import { fetchClubGames, searchPlayers, searchPlayersForgiving } from './mlb/api'
+import { fetchClubGames, fetchPlayerDetails, searchPlayers, searchPlayersForgiving } from './mlb/api'
+import { mlbLeaderPeek, mlbPlayerAnswer } from './mlb/searchAnswers'
 import { gameRow } from './lib/gameRow'
 import { pickGames, todayIso } from './league/finderParse'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
@@ -209,6 +210,11 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     })
   }, [recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches, active])
 
+  // "Ohtani hr" answers in the player row, which only knows its key: the player is looked up among
+  // the results being shown, through a ref so the resolver keeps one identity while they change.
+  const playerResultsRef = useRef(state.playerResults)
+  playerResultsRef.current = state.playerResults
+
   // "Judge vs Ohtani" in the palette: StatsAPI's own name search for each half, its first answer
   // (active players come first), the same lookup the header search makes for one name.
   useEffect(() => {
@@ -231,6 +237,13 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       // "Dodgers last night", "Cubs vs Cardinals": StatsAPI's schedule for the club (and opponent),
       // over the days the question can mean. A name two clubs share is each of them, at most two
       // calls for a pairing of the two Chicagos with someone.
+      // "Most home runs": who tops the board the row opens. "Ohtani hr": the player row's answer.
+      resolveLeader: ask => mlbLeaderPeek(ask).catch(() => null),
+      resolvePlayerStat: async (rowKey, ask) => {
+        const id = Number(rowKey.replace(/^player-/, ''))
+        const player = playerResultsRef.current.find(p => p.id === id) ?? await fetchPlayerDetails(id).catch(() => null)
+        return player ? mlbPlayerAnswer(player, ask).catch(() => null) : null
+      },
       resolveGames: async q => {
         const today = todayIso()
         const shift = (iso: string, days: number) => {
@@ -263,7 +276,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (!active) return
     return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], resultsForgiving: { players: false, teams: false }, searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], resultsForgiving: { players: false, teams: false }, searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null })
       setSearchQuery('')
     }
   }, [active])

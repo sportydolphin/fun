@@ -59,7 +59,10 @@ export interface ParsedFinder {
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
  *  field needs a season (a rate, games played) is the engine's to say, not the alias's. */
-interface StatAlias { hitting?: string; pitching?: string; lean?: FinderSide }
+export interface StatAlias { hitting?: string; pitching?: string; overall?: string; lean?: FinderSide }
+
+/** A side a stats table ranks on: the bat, the arm, or a player's whole game (WPBL's WAR). */
+export type RankSide = FinderSide | 'overall'
 
 // Phrases a reader uses for each box-score number, keyed by the finder's own field keys
 // (src/league/finder.ts). A phrase that names a stat on one side only, "runs batted in" or "earned
@@ -118,6 +121,51 @@ add({ pitching: 'g' }, 'appearances', 'games pitched', 'outings pitched')
 
 // Longest first, so "runs batted in" is read before "runs" and "hit by pitch" before "hit".
 const STAT_PHRASES = Object.keys(STAT_ALIASES).sort((a, b) => b.length - a.length)
+
+// FIGURES ONLY A SEASON HAS, AND NO BOX SCORE: "highest wrc+", "most war", "Whitmore fip". A board
+// ranks them and a player row can answer them, but a line question cannot ask one ("2 war" is not a
+// game), so they are kept apart from STAT_ALIASES, which the finder reads: only the ranking reader,
+// the name reader and `typedStat` see these. Keyed by the stats tables' own column keys, which both
+// sections share for every one of these.
+const RANK_ALIASES: Record<string, StatAlias> = {}
+const addRank = (alias: StatAlias, ...phrases: string[]) => { for (const p of phrases) RANK_ALIASES[p] = alias }
+addRank({ hitting: 'opsPlus' }, 'ops+', 'ops plus')
+addRank({ hitting: 'wrcPlus' }, 'wrc+', 'wrc plus', 'wrc')
+addRank({ hitting: 'woba' }, 'woba', 'weighted on base average')
+addRank({ hitting: 'iso' }, 'iso', 'isolated power')
+addRank(both('babip', 'babip'), 'babip')
+addRank(both('kPct', 'kPct', 'pitching'), 'k%', 'k pct', 'k rate', 'strikeout rate', 'strikeout percentage')
+addRank(both('bbPct', 'bbPct'), 'bb%', 'bb pct', 'walk rate', 'walk percentage')
+addRank({ pitching: 'eraPlus' }, 'era+', 'era plus')
+addRank({ pitching: 'fip' }, 'fip', 'fielding independent pitching')
+addRank({ pitching: 'kbb' }, 'k/bb', 'k bb', 'strikeout to walk', 'strikeout to walk ratio')
+addRank({ overall: 'war' }, 'war', 'wins above replacement')
+addRank({ overall: 'wpa' }, 'wpa', 'win probability added')
+
+/** How a season figure is named and which end is the good one, where the finder does not know it. */
+const RANK_FIELDS: Record<string, { label: string; rate: boolean; lowerBetter?: RankSide[] }> = {
+  opsPlus: { label: 'OPS+', rate: true }, wrcPlus: { label: 'wRC+', rate: true }, woba: { label: 'wOBA', rate: true },
+  iso: { label: 'ISO', rate: true }, babip: { label: 'BABIP', rate: true, lowerBetter: ['pitching'] },
+  kPct: { label: 'K%', rate: true, lowerBetter: ['hitting'] }, bbPct: { label: 'BB%', rate: true, lowerBetter: ['pitching'] },
+  eraPlus: { label: 'ERA+', rate: true }, fip: { label: 'FIP', rate: true, lowerBetter: ['pitching'] },
+  kbb: { label: 'K/BB', rate: true }, war: { label: 'WAR', rate: false }, wpa: { label: 'WPA', rate: false },
+}
+
+/** Whether a ranked column's good end is the low one, for the box-score stats and these alike. */
+export function rankLowerBetter(side: RankSide, field: string): boolean {
+  const meta = RANK_FIELDS[field]
+  if (meta) return !!meta.lowerBetter?.includes(side)
+  return side === 'overall' ? false : finderLowerBetter(side, field)
+}
+
+/** A season figure's own name and whether it is a rate ("wRC+", not "Wrc+"), or null for a stat the
+ *  finder already names. */
+export function rankField(field: string): { label: string; rate: boolean } | null {
+  return RANK_FIELDS[field] ?? null
+}
+
+const aliasOf = (phrase: string): StatAlias => STAT_ALIASES[phrase] ?? RANK_ALIASES[phrase]
+const RANK_PHRASES = [...new Set([...STAT_PHRASES, ...Object.keys(RANK_ALIASES)])].sort((a, b) => b.length - a.length)
 
 export const NUMBER_WORDS: Record<string, number> = {
   zero: 0, no: 0, none: 0, a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
@@ -530,7 +578,7 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
  * so does any word this cannot place: "whitmore hr" is a player, which the name search answers.
  */
 export interface ParsedLeader {
-  side: FinderSide
+  side: RankSide
   field: string
   /** The order asked for, or null for the board's own (best first). Literal, not "reversed":
    *  "most walks allowed" is descending whichever end of that column is the good one. */
@@ -554,7 +602,8 @@ const LEAD_WORDS: { re: RegExp; want: 'best' | 'worst' | 'more' | 'less' }[] = [
 const TOP_N = /(?<![a-z0-9])(top|bottom)\s+(?:\d+|five|ten|twenty)(?![a-z0-9])/g
 // Words a ranking is asked in that say nothing more.
 const LEADER_FILLER = new Set(['league', 'leaderboard', 'leaderboards', 'board', 'rank', 'ranked', 'ranking', 'rankings', 'stat', 'stats', 'mlb', 'wpbl'])
-const STAT_ANY = new RegExp(`${B_START}${STAT}${B_END}`, 'g')
+// Every stat a ranking or a name can carry: the box-score ones and the season figures above.
+const STAT_ANY = new RegExp(`${B_START}(${alt(RANK_PHRASES)})${B_END}`, 'g')
 
 export function parseLeaderText(text: string): ParsedLeader[] {
   let rest = ` ${fixStatTypos(normalize(text))} `
@@ -571,7 +620,7 @@ export function parseLeaderText(text: string): ParsedLeader[] {
 
   const phrases = new Set<string>()
   rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
-  const aliases = [...new Set([...phrases].map(p => STAT_ALIASES[p]))]
+  const aliases = [...new Set([...phrases].map(aliasOf))]
   if (aliases.length !== 1) return []
   const alias = aliases[0]
   // A stat alone is a ranking only when it cannot be the start of a name: "h" or "k" typed on the
@@ -585,12 +634,13 @@ export function parseLeaderText(text: string): ParsedLeader[] {
   const extra = words.filter(w => !FILLER.has(w) && !LEADER_FILLER.has(w) && !PITCHING_HINTS.includes(w) && !HITTING_HINTS.includes(w))
   if (extra.length) return []
 
-  const sides: FinderSide[] = hintP !== hintH
-    ? [hintP ? 'pitching' : 'hitting']
+  // A player's whole game (WAR) has one board whichever half the reader mentioned.
+  const sides: RankSide[] = alias.overall ? ['overall']
+    : hintP !== hintH ? [hintP ? 'pitching' : 'hitting']
     : alias.lean === 'pitching' ? ['pitching', 'hitting'] : ['hitting', 'pitching']
   return sides.filter(side => alias[side]).map(side => {
     const field = alias[side]!
-    const lowerBetter = finderLowerBetter(side, field)
+    const lowerBetter = rankLowerBetter(side, field)
     const dir = want === 'more' ? 'desc'
       : want === 'less' ? 'asc'
       : want === 'worst' ? (lowerBetter ? 'desc' : 'asc')
@@ -656,6 +706,20 @@ export function parseCompareText(text: string): { a: string; b: string; season: 
 export function typedPart(text: string): PlayerPart | null {
   const { part } = takePart(` ${normalize(text)} `)
   return part && nameWords(text) ? part : null
+}
+
+/**
+ * The stat asked about beside a name ("whitmore avg", "ohtani era 2023"), as the field it means on
+ * each side that records it, or null. The player row answers it in its subtitle, so a quick question
+ * needs no click. Only beside a name, and only one stat: "whitmore hr rbi" is two questions, and the
+ * row has room for one answer. Two letters or more, as in nameWords, so initials are never a stat.
+ */
+export function typedStat(text: string): StatAlias | null {
+  if (!nameWords(text)) return null
+  const { rest } = takePart(` ${fixStatTypos(normalize(text))} `)
+  const aliases = new Set<StatAlias>()
+  for (const m of rest.matchAll(STAT_ANY)) if (m[1].length >= 2) aliases.add(aliasOf(m[1]))
+  return aliases.size === 1 ? [...aliases][0] : null
 }
 
 /** The span a player row should open on: the year typed anywhere in `text` ("ohtani 2023"), read

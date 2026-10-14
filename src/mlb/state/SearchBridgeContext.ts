@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { RecentSearchItem } from '../storage/recentSearches'
-import type { GameQuery } from '../../league/finderParse'
+import type { GameQuery, RankSide } from '../../league/finderParse'
+import type { FinderSide } from '../../league/finder'
 import type { PlayerPart } from '../../lib/playerParts'
 export type { RecentSearchItem } from '../storage/recentSearches'
 
@@ -24,6 +25,18 @@ export interface TeamBridgeItem {
 
 /** A row the section works out for the palette from typed text: a pair's compare page, a game. */
 export interface CompareRow { title: string; subtitle: string; href: string }
+
+/** A ranking typed in the box, in the section's own stats-table terms: `sort` is the column key
+ *  the row's link sorts on, so the peek ranks exactly what the link opens. */
+export interface LeaderAsk { side: RankSide; sort: string; dir: 'asc' | 'desc' | null; season: number | null; career: boolean }
+
+/** Who leads a ranking, as the stats table would put them first. `others` is how many share the
+ *  lead on the number as printed. */
+export interface LeaderPeek { name: string; others: number; value: string }
+
+/** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
+ *  table has one for, the side the word leans to, and the span typed with it, if any. */
+export interface PlayerStatAsk { columns: Partial<Record<RankSide, string>>; lean: FinderSide | null; season: number | 'career' | null }
 
 // A self-describing toolbar search result. Produced by whichever section owns search
 // so the always-loaded toolbar can render it WITHOUT statically importing that section's
@@ -85,6 +98,11 @@ export interface SearchBridgeState {
   /** How many seasons the section has on record, or null when it does not say. WPBL's stats table
    *  ranks one season at a time, so "most hr all time" is that table only while there is one. */
   seasonCount: number | null
+  /** The leader of a ranking row, for the row to say who leads and by what. */
+  resolveLeader: ((ask: LeaderAsk) => Promise<LeaderPeek | null>) | null
+  /** The answer to a stat typed beside a name, for one player row (its `key`): ".312 AVG · 2026".
+   *  Null when the player has no such number in the span. */
+  resolvePlayerStat: ((rowKey: string, ask: PlayerStatAsk) => Promise<string | null>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -107,6 +125,8 @@ const DEFAULT: SearchBridgeState = {
   clearRecentSearches: null,
   resolveCompare: null,
   resolveGames: null,
+  resolveLeader: null,
+  resolvePlayerStat: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }
