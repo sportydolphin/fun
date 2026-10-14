@@ -99,14 +99,19 @@ export const PIT_COLS: Col<WpblPitchingTotals>[] = [
   { key: 'g',    label: 'G',    value: t => t.g },
 ]
 
+/** The whole league's line over the slice the rows come from (one season, or every season for a
+ *  career), which is the baseline the league-relative columns measure against: a playoff hitter's
+ *  OPS+ is measured against the playoffs. Summed from the lines here, or rebuilt from the stored
+ *  season rows' counts (derive/playerSeasons.ts), which come to the same totals. */
+export interface WpblLeagueLine { batting: WpblBattingTotals; pitching: WpblPitchingTotals }
+
+export function leagueLine(batting: WpblBattingLine[], pitching: WpblPitchingLine[], games: WpblSeasonGame[], scope: SeasonScope): WpblLeagueLine {
+  return { batting: sumBatting(batting, games, scope), pitching: sumPitching(pitching, games, scope) }
+}
+
 /** What the league-relative columns are measured against, and how the reader wants ERA. */
 export interface WpblColumnContext {
-  /** The slice the rows come from (one season, or every season for a career), which is also the
-   *  league baseline: a playoff hitter's OPS+ is measured against the playoffs. */
-  batting: WpblBattingLine[]
-  pitching: WpblPitchingLine[]
-  games: WpblSeasonGame[]
-  scope: SeasonScope
+  league: WpblLeagueLine
   /** The league's own run values (derive/linearWeights.ts). Null until they land, when wOBA, wRC+
    *  and FIP read as a dash rather than borrowing MLB's. */
   wWeights: WobaWeights | null
@@ -116,11 +121,11 @@ export interface WpblColumnContext {
 }
 
 // OPS+ normalizes a hitter's OBP+SLG to the league (100 = league average, 150 = 50% better), so
-// it needs the league's rates, from every batting line in the slice regardless of the table's
-// team or qualified filters. No park factors: the classic formula includes them, but this league's
+// it needs the league's rates, from every batting line in the slice (`ctx.league`) regardless of the
+// table's team or qualified filters. No park factors: the classic formula includes them, but this league's
 // unmeasured parks give no reliable adjustment, so it is omitted (implicitly 1.0). Sits after OPS.
 export function hittingColumns(ctx: WpblColumnContext): Col<WpblBattingTotals>[] {
-  const lg = sumBatting(ctx.batting, ctx.games, ctx.scope)
+  const lg = ctx.league.batting
   const lgObp = lg.obp, lgSlg = lg.slg
   const opsPlus = (t: WpblBattingTotals): number | null =>
     t.obp != null && t.slg != null && lgObp != null && lgObp > 0 && lgSlg != null && lgSlg > 0
@@ -157,7 +162,7 @@ export function hittingColumns(ctx: WpblColumnContext): Col<WpblBattingTotals>[]
 // than dashing to the bottom. Sits right after ERA.
 export function pitchingColumns(ctx: WpblColumnContext): Col<WpblPitchingTotals>[] {
   const { fmtEra, eraBasis, fWeights } = ctx
-  const lgTotals = sumPitching(ctx.pitching, ctx.games, ctx.scope)
+  const lgTotals = ctx.league.pitching
   const lgEra = lgTotals.era
   const fipC = fipConstant(lgTotals, fWeights)
   const eraPlus = (t: WpblPitchingTotals): number | null => {

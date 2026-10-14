@@ -64,6 +64,11 @@ export const EDGE_TABLES: Readonly<Record<string, EdgeTier>> = {
   wpbl_pitching_usage: 'live',
   wpbl_lineup_history: 'live',
   wpbl_run_environment: 'live',
+  // Every player's season (scripts/compute-wpbl-player-seasons.ts) and the stamp a reader checks
+  // them against. Held together on one policy: if either is served stale the two disagree and the
+  // reader falls back to the lines, which costs speed, never a wrong number.
+  wpbl_player_seasons: 'live',
+  wpbl_player_season_stamp: 'live',
 }
 
 /** Seconds an answer is served as current, and how long past that it may be served stale. */

@@ -27,6 +27,11 @@ concurrency:
   group: wpbl-drift-check
   cancel-in-progress: false
 
+# actions: write lets the last step start the player-seasons job after a repair.
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -45,6 +50,7 @@ jobs:
           packages: 'pg'
 
       - name: Check the mirror against the feed
+        id: drift
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           # Repair posts { gameId } to wpbl-ingest, one game per call. The service-role key is
@@ -53,3 +59,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/check-wpbl-drift.mjs --repair
+
+      # A repair rewrote a game's lines and plays, so the stored player seasons no longer match and
+      # every reader is back on the slow path. Retotal now instead of at the next hourly run.
+      # always(): the check exits 1 when drift survives, and a game it did repair still counts.
+      - name: Retotal the player seasons after a repair
+        if: always() && steps.drift.outputs.repaired != '' && steps.drift.outputs.repaired != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run wpbl-player-seasons.yml --ref ${{ github.ref_name }} -f dry_run=false

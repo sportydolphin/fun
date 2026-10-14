@@ -4,7 +4,7 @@ import { Box, Typography, Skeleton, CircularProgress, useMediaQuery } from '@mui
 import { useTheme as useMuiTheme } from '@mui/material/styles'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
-  fetchWpblAllLines, fetchWpblTrackedGameIds, fetchWpblArticles, fetchWpblSiteGames, fetchWpblFanPhotoIndex, fetchWpblVideos,
+  fetchWpblAllLines, fetchWpblPlayerSeasons, fetchWpblTrackedGameIds, fetchWpblArticles, fetchWpblSiteGames, fetchWpblFanPhotoIndex, fetchWpblVideos,
   getCachedWpblTeams, getCachedWpblSchedule, getCachedWpblSiteGames,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
@@ -1891,7 +1891,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
-  // Where each player has actually been playing, for the header search rows. Its own effect
+  // Where each player has actually been playing this season, for the header search rows. Its own effect
   // rather than the landing-view warm-up below, because search works from every tab and that
   // warm-up only runs when the section opens on Home. fetchWpblAllLines is deduped and cached
   // app-wide, so asking again here costs nothing once anything else has asked.
@@ -1907,8 +1907,16 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (!searchUsed) return
     let cancelled = false
-    fetchWpblAllLines()
-      .then(l => { if (!cancelled) setPositionIndex(buildPositionIndex(l.batting, games)) })
+    // The current season's stored positions when they are current (derive/playerSeasons.ts), which
+    // the answers read anyway, so a search costs no box-score read at all; the lines otherwise.
+    const year = currentSeason(games)
+    ;(year == null ? Promise.resolve(null) : fetchWpblPlayerSeasons(year))
+      .then(async stored => {
+        const index: Map<string, PrimaryPosition> = stored?.current
+          ? new Map(stored.rows.flatMap(r => (r.scope === 'regular' && r.position ? [[r.player_id, r.position] as const] : [])))
+          : buildPositionIndex((await fetchWpblAllLines()).batting, games)
+        if (!cancelled) setPositionIndex(index)
+      })
       .catch(() => { /* search falls back to the roster's own labels */ })
     return () => { cancelled = true }
     // Keyed on the LENGTH rather than on `games` itself: the array's identity changes on every

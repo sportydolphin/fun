@@ -9,10 +9,13 @@ import {
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   fetchWpblRunEnvironment, getCachedWpblRunEnvironment,
   fetchWpblAllFielding, getCachedWpblAllFielding, fetchWpblSchedule,
+  fetchWpblPlayerSeasons, getCachedWpblPlayerSeasons,
 } from './api'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { playerValueSeasons, EMPTY_VALUE_TOTALS, type WpblValueTotals } from './derive/playerValue'
 import { runEnvironmentCurrent } from './derive/runEnvironment'
+import { viewPlayerSeasons } from './derive/playerSeasons'
+import { compareRows } from './leaderOrder'
 import { wobaWeights, fipWeights } from './derive/linearWeights'
 import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
@@ -38,7 +41,7 @@ import { TabTitle } from './PageHeading'
 import { useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
 import { useEraBasis } from './EraBasisContext'
-import { HIT_COLS, PIT_COLS, OVR_COLS, hittingColumns, pitchingColumns, type Col } from './statColumns'
+import { HIT_COLS, PIT_COLS, OVR_COLS, hittingColumns, leagueLine, pitchingColumns, type Col } from './statColumns'
 import { BOTTOM_NAV_SPACE } from './BottomNav'
 import { STATS_FULL_BLEED_W } from './layoutWidths'
 import { typePx } from '../ui/scale'
@@ -338,17 +341,22 @@ export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'o
 export function warmStatsReads(picked: number | null): void {
   const drop = () => { /* the tab's own read reports it */ }
   fetchWpblAllPlayers().catch(drop)
-  fetchWpblAllLines().catch(drop)
   fetchWpblAllFielding().catch(drop)
   fetchWpblTrackedGameCount().catch(drop)
-  // The priced row rather than the play log: the tab asks for the plays itself only if the row
-  // turns out to be behind the schedule.
-  fetchWpblRunEnvironment().catch(drop)
-  // The play log, which the Overall side is computed from and the tab opens on. One season of it,
-  // so it waits for the schedule (already in flight for the section) to say which year that is
-  // when the address does not: a guess would download the wrong year or every year.
+  // The year's stored seasons first (derive/playerSeasons.ts), which is all the boards the tab
+  // opens on need when they are current: the box-score lines and the play log, the two heaviest
+  // reads in the section, are started only when they are not. Both wait for the schedule (already
+  // in flight for the section) to say which year that is when the address does not.
   fetchWpblSchedule()
-    .then(games => fetchWpblAllRunValuePlays(picked ?? currentSeason(games)))
+    .then(async games => {
+      const year = picked ?? currentSeason(games)
+      if (year != null && (await fetchWpblPlayerSeasons(year)).current) return
+      fetchWpblAllLines().catch(drop)
+      // The priced row rather than the play log for the weights; the play log for the Overall side,
+      // which the tab opens on.
+      fetchWpblRunEnvironment().catch(drop)
+      fetchWpblAllRunValuePlays(year).catch(drop)
+    })
     .catch(drop)
 }
 
@@ -900,7 +908,30 @@ export default function WpblStatsView({
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const lines = useMemo(
     () => ({ batting: cut(allLines.batting), pitching: cut(allLines.pitching) }), [allLines, cut])
-  const [loading, setLoading] = useState(() => getCachedWpblAllPlayers() == null || getCachedWpblAllLines() == null)
+  // Whether each read has answered. The lines are read only when something on screen needs them:
+  // see `wantLines` below.
+  const [playersIn, setPlayersIn] = useState(() => getCachedWpblAllPlayers() != null)
+  const [linesIn, setLinesIn] = useState(() => getCachedWpblAllLines() != null)
+  // EVERY PLAYER'S SEASON, STORED (derive/playerSeasons.ts): the Players and Leaders boards and the
+  // Overall side are built from these rows whenever they describe the inputs as they stand, and the
+  // box-score lines and the play log are then never read for them. When they do not (a game went
+  // final or a play was corrected since the job last ran), everything below reads and builds
+  // exactly as it did before the table existed. Held with the season it was read for, like the play
+  // log, so a year picked from the menu reads its own.
+  const [storedRead, setStoredRead] = useState(() => ({ season, read: season == null ? null : getCachedWpblPlayerSeasons(season) }))
+  const storedHere = storedRead.season === season ? storedRead.read : null
+  useEffect(() => {
+    if (season == null) return
+    let cancelled = false
+    fetchWpblPlayerSeasons(season).then(r => { if (!cancelled) setStoredRead({ season, read: r }) })
+    return () => { cancelled = true }
+  }, [season])
+  const storedCurrent = !!storedHere?.current
+  // Settled once the read has answered either way; until then neither heavy read is started.
+  const storedSettled = season == null || storedHere != null
+  const stored = useMemo(
+    () => (storedCurrent && playersIn ? viewPlayerSeasons(storedHere!.rows, players) : null),
+    [storedCurrent, storedHere, playersIn, players])
   // Null until it lands. Read on mount but never awaited by the table: only the Fielding side
   // draws it, and the most-read tab's first paint should not wait on a side most visits never open.
   const [allFielding, setFielding] = useState<WpblFieldingLine[] | null>(() => getCachedWpblAllFielding())
@@ -1033,7 +1064,8 @@ export default function WpblStatsView({
   useEffect(() => { if (source === 'tracked') setTrackedSeen(true) }, [source])
   const trackedOffered = showTracked || trackedSeen
   // The position each player has actually been playing, for the leaderboard sublabels.
-  const positionIndex = useMemo(() => buildPositionIndex(lines.batting, games), [lines.batting, games])
+  const positionIndex = useMemo(
+    () => (stored ? stored.positions : buildPositionIndex(lines.batting, games)), [stored, lines.batting, games])
   const [qualified, setQualified] = useState(() => qual.active)
   // `defaultSort` validates the key it is handed and falls back to the board's own default, so
   // a stale or hand-edited ?sort= lands on a sensible column rather than an empty sort.
@@ -1131,15 +1163,28 @@ export default function WpblStatsView({
   // as games are played, so a stale cache (or a live game) still refreshes in the
   // background without gating the already-painted table behind the spinner.
   useEffect(() => {
-    const STATS_STALE_MS = 30_000
-    if (wpblStatsCacheAgeMs() < STATS_STALE_MS) return
     let cancelled = false
-    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines()]).then(([p, l]) => {
-      if (cancelled) return
-      setPlayers(p); setLines(l); setLoading(false)
-    })
+    fetchWpblAllPlayers().then(p => { if (!cancelled) { setPlayers(p); setPlayersIn(true) } })
     return () => { cancelled = true }
   }, [])
+  // THE BOX-SCORE LINES, ONLY WHEN SOMETHING NEEDS THEM: a board the stored seasons do not cover
+  // (Teams, Fielding, Bests, Find, the Analysis boards), or stored seasons that are not current.
+  const boardNeedsLines = side === 'fielding' || (source === 'season' && mode === 'teams')
+    || (source !== 'season' && source !== 'leaders')
+  const wantLines = boardNeedsLines || (storedSettled && !storedCurrent)
+  useEffect(() => {
+    if (!wantLines) return
+    const STATS_STALE_MS = 30_000
+    if (linesIn && wpblStatsCacheAgeMs() < STATS_STALE_MS) return
+    let cancelled = false
+    fetchWpblAllLines().then(l => { if (!cancelled) { setLines(l); setLinesIn(true) } })
+    return () => { cancelled = true }
+  }, [wantLines, linesIn])
+  // The board the tab OPENED on waits for its own reads under the tab's skeleton, as it always has.
+  // A board picked later that needs the lines shows its own spinner instead, below a control bar
+  // that stays where it is.
+  const [openedNeedingLines] = useState(boardNeedsLines)
+  const loading = !playersIn || (!linesIn && (!stored || openedNeedingLines))
   useEffect(() => {
     let cancelled = false
     // An empty array rather than null on failure, so the side says "No stats yet" instead of
@@ -1168,8 +1213,9 @@ export default function WpblStatsView({
   const [rvRead, setRvRead] = useState(() => ({ season, plays: getCachedWpblAllRunValuePlays(season) }))
   const allRvPlays = rvRead.season === season ? rvRead.plays : null
   const rvPlays = useMemo(() => (allRvPlays ? cut(allRvPlays) : null), [allRvPlays, cut])
-  // Overall is built from the play log itself, so it asks whatever the priced row says.
-  const needPlays = !rvPlays && ((runEnvAsked && !runEnvCurrent) || side === 'overall')
+  // Overall is built from the play log itself, so it asks whatever the priced row says. Neither is
+  // asked while the stored seasons may yet answer both.
+  const needPlays = !rvPlays && storedSettled && !storedCurrent && ((runEnvAsked && !runEnvCurrent) || side === 'overall')
   useEffect(() => {
     if (!needPlays) return
     let cancelled = false
@@ -1186,22 +1232,38 @@ export default function WpblStatsView({
     if (runEnvCurrent || !rvPlays || rvPlays.length === 0) return null
     return playRunValues(rvPlays, games, buildRunExpectancy(rvPlays, games))
   }, [runEnvCurrent, rvPlays, games])
-  const wWeights = useMemo(() => (runEnvCurrent ? runEnv!.woba_weights : rvValues ? wobaWeights(rvValues) : null), [runEnvCurrent, runEnv, rvValues])
-  const fWeights = useMemo(() => (runEnvCurrent ? runEnv!.fip_weights : rvValues ? fipWeights(rvValues) : null), [runEnvCurrent, runEnv, rvValues])
+  const wWeights = useMemo(
+    () => (stored ? stored.weights.woba : runEnvCurrent ? runEnv!.woba_weights : rvValues ? wobaWeights(rvValues) : null),
+    [stored, runEnvCurrent, runEnv, rvValues])
+  const fWeights = useMemo(
+    () => (stored ? stored.weights.fip : runEnvCurrent ? runEnv!.fip_weights : rvValues ? fipWeights(rvValues) : null),
+    [stored, runEnvCurrent, runEnv, rvValues])
 
   // The Overall side's rows. Built only once the side is asked for: it walks the season's plays
   // five times over, which is nothing beside the read, but there is no reason to do it for a
   // reader who never leaves Hitting. Regular season only, like the Run value engines it calls, so
   // the scope chips are not offered on this side.
   const valueSeasons = useMemo(
-    () => (side === 'overall' && rvPlays ? playerValueSeasons(rvPlays, games, players, lines).seasons : null),
-    [side, rvPlays, games, players, lines])
+    () => (stored ? stored.value : side === 'overall' && rvPlays ? playerValueSeasons(rvPlays, games, players, lines).seasons : null),
+    [stored, side, rvPlays, games, players, lines])
+
+  // Every player's season on the slice showing, and the league's line over it: the stored rows when
+  // current, else summed from the lines. The same totals either way (derive/playerSeasons.ts).
+  const batSeasons = useMemo(
+    () => (stored ? stored.batting(scope) : aggregateBatting(players, lines.batting, games, scope)),
+    [stored, players, lines.batting, games, scope])
+  const pitSeasons = useMemo(
+    () => (stored ? stored.pitching(scope) : aggregatePitching(players, lines.pitching, games, scope)),
+    [stored, players, lines.pitching, games, scope])
+  const league = useMemo(
+    () => (stored ? stored.league(scope) : leagueLine(lines.batting, lines.pitching, games, scope)),
+    [stored, lines.batting, lines.pitching, games, scope])
 
   // The hitting and pitching columns, the league-relative ones included (OPS+, wOBA, wRC+, ERA+,
   // FIP and the reader's K and HR rates), are built in statColumns.ts, where the search box builds
   // the same ones to name a leader. The baseline is the same slice as the rows it ranks.
   const hitCols = useMemo<Col<WpblBattingTotals>[]>(() => {
-    const cols = hittingColumns({ batting: lines.batting, pitching: lines.pitching, games, scope, wWeights, fWeights, fmtEra, eraBasis })
+    const cols = hittingColumns({ league, wWeights, fWeights, fmtEra, eraBasis })
     // Team rows only. Player LOB isn't reported by the feed, so on the player board this
     // column would be a solid stripe of dashes pretending to be a stat.
     if (mode === 'teams') {
@@ -1214,10 +1276,10 @@ export default function WpblStatsView({
       })
     }
     return cols
-  }, [lines.batting, lines.pitching, mode, games, scope, wWeights, fWeights, fmtEra, eraBasis])
+  }, [league, mode, wWeights, fWeights, fmtEra, eraBasis])
   const pitCols = useMemo<Col<WpblPitchingTotals>[]>(
-    () => pitchingColumns({ batting: lines.batting, pitching: lines.pitching, games, scope, wWeights, fWeights, fmtEra, eraBasis }),
-    [lines.batting, lines.pitching, games, scope, wWeights, fWeights, fmtEra, eraBasis])
+    () => pitchingColumns({ league, wWeights, fWeights, fmtEra, eraBasis }),
+    [league, wWeights, fWeights, fmtEra, eraBasis])
 
   const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? FLD_COLS : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
@@ -1482,10 +1544,10 @@ export default function WpblStatsView({
       }))
     } else {
       const seasons = side === 'hitting'
-        ? aggregateBatting(players, lines.batting, games, scope).map(s => ({ player: s.player, totals: s.totals as Totals, qualified: plateAppearances(s.totals) >= qual.minPa }))
+        ? batSeasons.map(s => ({ player: s.player, totals: s.totals as Totals, qualified: plateAppearances(s.totals) >= qual.minPa }))
         : side === 'fielding'
         ? aggregateFielding(players, fielding ?? [], lines.batting, lines.pitching, games, scope).map(s => ({ player: s.player, totals: s.totals as Totals, qualified: s.totals.g >= qual.minG }))
-        : aggregatePitching(players, lines.pitching, games, scope).map(s => ({ player: s.player, totals: s.totals as Totals, qualified: s.totals.outs >= qual.minOuts }))
+        : pitSeasons.map(s => ({ player: s.player, totals: s.totals as Totals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
       // The qualifier applies to every sort, counting stats included: a 1-for-1 HR leader shouldn't
@@ -1510,15 +1572,9 @@ export default function WpblStatsView({
       : side === 'fielding' ? (r.totals as WpblFieldingTotals).tc
       : side === 'overall' ? (r.totals as WpblValueTotals).pa + (r.totals as WpblValueTotals).outs
       : plateAppearances(r.totals as WpblBattingTotals)
-    return built.sort((a, b) => {
-      const av = val(a), bv = val(b)
-      if (av == null && bv == null) return sample(b) - sample(a)
-      if (av == null) return 1          // nulls always sink
-      if (bv == null) return -1
-      if (av !== bv) return sortAsc ? av - bv : bv - av
-      return sample(b) - sample(a)
-    })
-  }, [mode, side, players, lines, fielding, valueSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex])
+    // Then the name, so a tie reads the same whichever source built the rows (leaderOrder.ts).
+    return built.sort((a, b) => compareRows(val(a), val(b), sortAsc, sample(a), sample(b), a.label, b.label))
+  }, [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex])
 
   // Standard competition ranking (1, 2, T-3, T-3, 5), judged on the number AS SHOWN. Three hitters
   // printed at .400 and numbered 8, 9 and 10 claims an order the reader cannot see, which is
@@ -1538,13 +1594,13 @@ export default function WpblStatsView({
   // what 100 means for OPS+, wRC+ and ERA+. The same slice as the boards (`scope`), and the
   // whole league whatever the team filter says, the same baseline those three indexes use.
   const leagueTotals = useMemo<Totals>(
-    () => side === 'hitting' ? sumBatting(lines.batting, games, scope)
+    () => side === 'hitting' ? league.batting
       : side === 'fielding' ? sumFielding(fielding ?? [], games, scope)
       // Every Overall figure is against the average, so the league's line is zero across and
       // has no rate to print; the zero row keeps the type honest.
       : side === 'overall' ? EMPTY_VALUE_TOTALS
-      : sumPitching(lines.pitching, games, scope),
-    [side, lines, fielding, games, scope])
+      : league.pitching,
+    [side, league, fielding, games, scope])
   // RATES ONLY. A league total of home runs is not an average of anything a row here holds,
   // and a per-player mean would be dragged down by every pitcher's empty batting line, so the
   // counting cells are left empty rather than holding a number that means something else.
@@ -1587,10 +1643,10 @@ export default function WpblStatsView({
   // The Leaders board's rows: the same aggregates as the Players table, before its sort, its club
   // chip or its qualifier, which the board applies per card (rates only; see LeadersBoard.tsx).
   const leaderSeasons = useMemo(() => source !== 'leaders' ? { batting: [], pitching: [], fielding: [] } : {
-    batting: aggregateBatting(players, lines.batting, games, scope),
-    pitching: aggregatePitching(players, lines.pitching, games, scope),
+    batting: batSeasons,
+    pitching: pitSeasons,
     fielding: side === 'fielding' ? aggregateFielding(players, fielding ?? [], lines.batting, lines.pitching, games, scope) : [],
-  }, [source, side, players, lines, fielding, games, scope])
+  }, [source, side, players, lines, fielding, games, scope, batSeasons, pitSeasons])
   // "See all" on a card: the Players table sorted by that stat, showing the population the card
   // ranked, so its top five are the table's top five. A rate card ranked qualifiers and a counting
   // card ranked everyone.
@@ -2280,7 +2336,7 @@ export default function WpblStatsView({
                   onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
               )
             ) : side === 'fielding' ? (
-              fielding == null ? <LeadersBoardSkeleton side="fielding" /> : (
+              fielding == null || !linesIn ? <LeadersBoardSkeleton side="fielding" /> : (
                 <LeadersBoard side="fielding" cols={FLD_COLS} seasons={leaderSeasons.fielding} qual={qual}
                   onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
               )
@@ -2297,6 +2353,10 @@ export default function WpblStatsView({
         <Suspense fallback={<SubViewFallback />}>
           <WpblTrackingView side={boardSide} games={games} onOpenPlayer={onOpenPlayer} />
         </Suspense>
+      ) : !linesIn && (source === 'bests' || source === 'find' || source === 'draft' || source === 'runs') ? (
+        // Bests, Find, Draft and Run value read the box-score lines, which a tab opened on a board
+        // the stored seasons answer has not read yet.
+        <SubViewFallback />
       ) : source === 'bests' ? (
         // FULL BLEED for the same reason Run value is, and the board caps and centres inside
         // it: below `sm` the bleed is `calc(100vw - 24px)`, which is WIDER than the page
@@ -2344,8 +2404,9 @@ export default function WpblStatsView({
               onOpenPlayer={onOpenPlayer} />
           </Suspense>
         </Box>
-      ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) ? (
-        // Only if the side is picked before its read (started on mount) has landed.
+      ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn) ? (
+        // Only if the side is picked before its read (started on mount) has landed, or the box-score
+        // lines a board needs and the stored seasons do not carry.
         <SubViewFallback />
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>

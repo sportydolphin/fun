@@ -9,16 +9,21 @@
 // none on Overall, as there), nulls sink and ties go to the bigger sample. The leader a row names is
 // the first row of the board its link opens, or the row is wrong in a way nobody would report.
 //
-// WHAT IS READ FOLLOWS WHAT WAS ASKED. Every answer needs the box-score lines, which search already
-// reads on its first focus. wOBA, wRC+ and FIP need the league's run values: the stored priced row
-// when it describes the schedule, the play log only otherwise, as the table decides. WAR always
-// needs the play log, the section's slowest read, so only a question about WAR or WPA pays for it.
+// WHAT IS READ FOLLOWS WHAT IS STORED. Every player's season is totalled by a job into
+// `wpbl_player_seasons` (derive/playerSeasons.ts), WAR and the season's weights included, so when
+// those rows describe the inputs as they stand the answer costs one small read and no engine. Only
+// when they do not (a game went final, or a play was corrected, since the job last ran) does it read
+// what the table would: the box-score lines, the run values (the priced row, or the play log) for
+// wOBA, wRC+ and FIP, and the play log for WAR, so only a question about WAR or WPA pays for that.
 // Loaded by WpblApp on the first answer asked for, so none of this is in the section's first chunk.
 
-import { OVR_COLS, hittingColumns, pitchingColumns, type Col } from './statColumns'
-import { aggregateBatting, aggregatePitching, plateAppearances, sumBatting, sumPitching, wpblQualifiers, type EraBasis, type WpblBattingTotals, type WpblPitchingTotals } from './stats'
-import { currentSeason, gamesInSeason, inSeason } from './season'
-import { fetchWpblAllLines, fetchWpblAllRunValuePlays, fetchWpblRunEnvironment } from './api'
+import { OVR_COLS, hittingColumns, leagueLine, pitchingColumns, type Col, type WpblLeagueLine } from './statColumns'
+import { aggregateBatting, aggregatePitching, plateAppearances, wpblQualifiers, type EraBasis, type FipWeights, type WpblBattingTotals, type WpblPitchingTotals } from './stats'
+import { currentSeason, gamesInSeason, inSeason, seasonOf } from './season'
+import { fetchWpblAllLines, fetchWpblAllRunValuePlays, fetchWpblPlayerSeasons, fetchWpblRunEnvironment } from './api'
+import { viewPlayerSeasons, type PlayerSeasonsView } from './derive/playerSeasons'
+import { compareRows } from './leaderOrder'
+import type { WobaWeights } from './derive/linearWeights'
 import { runEnvironmentCurrent, type WpblRunEnvironment } from './derive/runEnvironment'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { fipWeights, wobaWeights } from './derive/linearWeights'
@@ -34,9 +39,9 @@ type Totals = WpblBattingTotals | WpblPitchingTotals | WpblValueTotals
 export interface WpblBoard {
   /** "2026", or "career" for every season. */
   span: string
-  lines: WpblLines
-  /** The schedule the year was cut against, for the sums' postseason filter. */
-  schedule: WpblGame[]
+  /** Every player's regular-season totals, by player id. */
+  batting: Map<string, WpblBattingTotals>
+  pitching: Map<string, WpblPitchingTotals>
   columns: Record<RankSide, Col<Totals>[]>
   /** WAR and its parts by player id, or null when the play log was not read for this board. */
   value: Map<string, WpblValueTotals> | null
@@ -73,13 +78,41 @@ export function buildWpblBoard(i: WpblBoardInput): WpblBoard {
   const values = !current && plays?.length ? playRunValues(plays, games, buildRunExpectancy(plays, games)) : null
   const wWeights = current ? i.env!.woba_weights : values ? wobaWeights(values) : null
   const fWeights = current ? i.env!.fip_weights : values ? fipWeights(values) : null
-  const ctx = { batting: lines.batting, pitching: lines.pitching, games, scope: 'regular' as const, wWeights, fWeights, fmtEra: i.fmtEra, eraBasis: i.eraBasis }
   const value = plays?.length
     ? new Map(playerValueSeasons(plays, games, i.players, lines).seasons.map(s => [s.player.id, s.totals]))
     : null
+  return board(i, games, {
+    batting: new Map(aggregateBatting(i.players, lines.batting, games).map(s => [s.player.id, s.totals])),
+    pitching: new Map(aggregatePitching(i.players, lines.pitching, games).map(s => [s.player.id, s.totals])),
+    league: leagueLine(lines.batting, lines.pitching, games, 'regular'),
+    wWeights, fWeights, value,
+  })
+}
+
+/** The same board from a season's stored rows (derive/playerSeasons.ts), already known current. */
+export function storedWpblBoard(i: Omit<WpblBoardInput, 'lines' | 'env' | 'plays'>, stored: PlayerSeasonsView): WpblBoard {
+  const games = i.season == null ? i.schedule : gamesInSeason(i.schedule, i.season)
+  return board(i, games, {
+    batting: new Map(stored.batting('regular').map(s => [s.player.id, s.totals])),
+    pitching: new Map(stored.pitching('regular').map(s => [s.player.id, s.totals])),
+    league: stored.league('regular'),
+    wWeights: stored.weights.woba, fWeights: stored.weights.fip,
+    value: new Map(stored.value.map(s => [s.player.id, s.totals])),
+  })
+}
+
+function board(
+  i: Pick<WpblBoardInput, 'season' | 'teams' | 'fmtEra' | 'eraBasis'>,
+  games: WpblGame[],
+  d: {
+    batting: Map<string, WpblBattingTotals>; pitching: Map<string, WpblPitchingTotals>; league: WpblLeagueLine
+    wWeights: WobaWeights | null; fWeights: FipWeights | null; value: Map<string, WpblValueTotals> | null
+  },
+): WpblBoard {
+  const ctx = { league: d.league, wWeights: d.wWeights, fWeights: d.fWeights, fmtEra: i.fmtEra, eraBasis: i.eraBasis }
   return {
     span: i.season == null ? 'career' : String(i.season),
-    lines, schedule: i.schedule, value,
+    batting: d.batting, pitching: d.pitching, value: d.value,
     columns: {
       hitting: hittingColumns(ctx) as Col<Totals>[],
       pitching: pitchingColumns(ctx) as Col<Totals>[],
@@ -88,6 +121,16 @@ export function buildWpblBoard(i: WpblBoardInput): WpblBoard {
     // The bar is measured in the span's own games, as the table measures it in the season on screen.
     qual: wpblQualifiers(i.teams, games),
   }
+}
+
+/** The year whose stored rows answer a span: the season itself, or for a career the only season
+ *  the league has played, since a career of one year is that year. Null when a career spans more,
+ *  which the stored rows cannot answer: WAR is not a sum of seasons. */
+export function storedSpan(season: number | null, schedule: WpblGame[]): number | null {
+  if (season != null) return season
+  const years = new Set(schedule.map(seasonOf))
+  const [only] = years
+  return years.size === 1 && only != null ? only : null
 }
 
 /** What a question needs read, by the columns it names. */
@@ -100,6 +143,9 @@ export function boardNeeds(sides: Partial<Record<RankSide, string>>): { weights:
 
 /** Reads what a question needs and builds its board. The reads are the app's cached ones. */
 export async function loadWpblBoard(base: Omit<WpblBoardInput, 'lines' | 'env' | 'plays'>, need: { weights: boolean; plays: boolean }): Promise<WpblBoard> {
+  const year = storedSpan(base.season, base.schedule)
+  const stored = year == null ? null : await fetchWpblPlayerSeasons(year).catch(() => null)
+  if (stored?.current) return storedWpblBoard(base, viewPlayerSeasons(stored.rows, base.players))
   const [lines, env] = await Promise.all([
     fetchWpblAllLines(),
     need.weights ? fetchWpblRunEnvironment().catch(() => null) : Promise.resolve(null),
@@ -133,19 +179,13 @@ function cell(col: Col<Totals>, t: Totals): string {
  * word's lean when they have both: two-way players are common in this league.
  */
 export function wpblPlayerAnswer(player: WpblPlayer, ask: PlayerStatAsk, board: WpblBoard): string | null {
-  const own = {
-    hitting: board.lines.batting.filter(l => l.player_id === player.id),
-    pitching: board.lines.pitching.filter(l => l.player_id === player.id),
-  }
-  const has = (s: RankSide) => (s === 'overall' ? !!board.value?.has(player.id) : own[s].length > 0)
-  const sides = (['hitting', 'pitching', 'overall'] as const).filter(s => ask.columns[s] && has(s))
+  const own = { hitting: board.batting.get(player.id), pitching: board.pitching.get(player.id), overall: board.value?.get(player.id) }
+  const sides = (['hitting', 'pitching', 'overall'] as const).filter(s => ask.columns[s] && own[s])
   const side = sides.length > 1 ? (sides.includes('overall') ? 'overall' : ask.lean ?? 'hitting') : sides[0]
   if (!side) return null
   const col = column(board, side, ask.columns[side]!)
   if (!col) return null
-  const totals: Totals = side === 'overall' ? board.value!.get(player.id)!
-    : side === 'hitting' ? sumBatting(own.hitting, board.schedule) : sumPitching(own.pitching, board.schedule)
-  const value = cell(col, totals)
+  const value = cell(col, own[side]!)
   return value === '—' ? null : `${value} ${col.label} · ${board.span}`
 }
 
@@ -155,30 +195,25 @@ export function wpblLeaderPeek(ask: LeaderAsk, players: WpblPlayer[], board: Wpb
   if (!col) return null
   const { qual } = board
   type Row = { name: string; totals: Totals; sample: number; qualified: boolean }
-  let rows: Row[]
-  if (ask.side === 'overall') {
-    // No qualifier on Overall: every figure there is a total against an average player.
-    const byId = new Map(players.map(p => [p.id, p]))
-    rows = [...(board.value ?? new Map<string, WpblValueTotals>())].flatMap(([id, t]) => {
+  const byId = new Map(players.map(p => [p.id, p]))
+  const rowsOf = <T extends Totals>(m: Map<string, T>, sample: (t: T) => number, qualified: (t: T) => boolean): Row[] =>
+    [...m].flatMap(([id, t]) => {
       const p = byId.get(id)
-      return p ? [{ name: p.name, totals: t as Totals, sample: t.pa + t.outs, qualified: true }] : []
+      return p ? [{ name: p.name, totals: t as Totals, sample: sample(t), qualified: qualified(t) }] : []
     })
-  } else if (ask.side === 'hitting') {
-    rows = aggregateBatting(players, board.lines.batting, board.schedule).map(s => ({
-      name: s.player.name, totals: s.totals, sample: plateAppearances(s.totals), qualified: plateAppearances(s.totals) >= qual.minPa,
-    }))
-  } else {
-    rows = aggregatePitching(players, board.lines.pitching, board.schedule).map(s => ({
-      name: s.player.name, totals: s.totals, sample: s.totals.outs, qualified: s.totals.outs >= qual.minOuts,
-    }))
-  }
+  // No qualifier on Overall: every figure there is a total against an average player.
+  const rows = ask.side === 'overall'
+    ? rowsOf(board.value ?? new Map<string, WpblValueTotals>(), t => t.pa + t.outs, () => true)
+    : ask.side === 'hitting'
+    ? rowsOf(board.batting, t => plateAppearances(t), t => plateAppearances(t) >= qual.minPa)
+    : rowsOf(board.pitching, t => t.outs, t => t.outs >= qual.minOuts)
   // The table's qualified chip starts lit whenever the bar is in force, and filters every sort.
   const pool = qual.active ? rows.filter(r => r.qualified) : rows
   const asc = ask.dir ? ask.dir === 'asc' : !!col.lowerBetter
   const ranked = pool
     .map(r => ({ ...r, v: col.value(r.totals) }))
     .filter((r): r is typeof r & { v: number } => r.v != null)
-    .sort((a, b) => (a.v !== b.v ? (asc ? a.v - b.v : b.v - a.v) : b.sample - a.sample))
+    .sort((a, b) => compareRows(a.v, b.v, asc, a.sample, b.sample, a.name, b.name))
   const top = ranked[0]
   if (!top) return null
   const value = cell(col, top.totals)
