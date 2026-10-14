@@ -1,0 +1,101 @@
+name: "Sweep: record"
+
+# Records what the layout sweep's fixture is missing, against the real data, and commits it to a
+# pull request's branch. The `layout` check fails on a read the fixture lacks and prints the routes
+# to record; until Oct 2026 that meant a fifteen-minute run on somebody's own machine with `.env`.
+# Run it from the Actions tab, or: gh workflow run sweep-record.yml -f branch=<branch> -f routes=<routes>
+#
+# TWO JOBS, ON PURPOSE. The recording runs the branch's own code (npm ci, Vite, the sweep), so it
+# holds nothing worth stealing: the Supabase URL and anon key, which ship in every page of the site
+# anyway. The commit is a second job that runs no code from the branch, only git, and it alone
+# holds MAIN_BOT_DEPLOY_KEY, which can push past the ruleset. The push goes out on that key rather
+# than GITHUB_TOKEN because a push made with GITHUB_TOKEN starts no workflow, so the pull request's
+# checks would never re-run on the new fixture.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: The pull request's branch
+        required: true
+      routes:
+        description: "Routes to record, as the failed check printed them (mlb,wpbl/stats). 'all' re-records everything at a new clock."
+        required: true
+
+concurrency:
+  group: sweep-record-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      VITE_VAPID_PUBLIC_KEY:  sweep-vapid-key
+    steps:
+      - name: Refuse main
+        if: inputs.branch == 'main'
+        run: |
+          echo "::error::Record onto a pull request's branch, never main."
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.branch }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start the dev server
+        run: |
+          nohup npx vite --port 5173 --strictPort > vite.log 2>&1 &
+          for i in $(seq 60); do curl -sf http://localhost:5173/ > /dev/null && exit 0; sleep 1; done
+          cat vite.log; exit 1
+
+      - name: Record
+        env:
+          ROUTES: ${{ inputs.routes }}
+        run: |
+          if [ "$ROUTES" = all ]; then npm run sweep:record; else npm run sweep:record -- --merge --routes "$ROUTES"; fi || true
+          # The recording also sweeps, and its findings are for the replay to judge, not this job:
+          # a live recording catches timing a replay never sees.
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sweep-fixture
+          path: scripts/fixtures/layout-sweep/
+
+  commit:
+    needs: record
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.branch }}
+          ssh-key: ${{ secrets.MAIN_BOT_DEPLOY_KEY }}
+
+      - run: rm -rf scripts/fixtures/layout-sweep
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: sweep-fixture
+          path: scripts/fixtures/layout-sweep/
+
+      - name: Commit and push
+        env:
+          ROUTES: ${{ inputs.routes }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A scripts/fixtures/layout-sweep
+          if git diff --cached --quiet; then echo "The fixture already had everything."; exit 0; fi
+          git commit -m "Sweep fixture: record $ROUTES"
+          git push

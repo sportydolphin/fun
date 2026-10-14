@@ -55,7 +55,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Same install trick as the sibling WPBL workflows: pull only the packages these
       # scripts import, at the versions pinned in package-lock.json, not the whole frontend.

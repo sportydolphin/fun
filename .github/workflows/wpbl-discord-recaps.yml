@@ -48,7 +48,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Same trick as the board/reminder workflows: install only what this script needs, at
       # the versions pinned in package-lock.json, rather than the whole frontend toolchain.

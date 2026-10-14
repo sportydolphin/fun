@@ -107,5 +107,17 @@
     "eslint-plugin-jsx-a11y": {
       "eslint": "$eslint"
     }
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11",
+      "onFail": "error"
+    }
   }
 }

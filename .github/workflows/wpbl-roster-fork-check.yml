@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # A WARNING and not a failure, matching the postseason check: a tripwire nobody wired up
       # is worse than no tripwire, because it reads as covered. A red X here would be a config

@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Same install trick as the sibling WPBL workflows: pull only what this script imports,
       # at the version pinned in package-lock.json, rather than the whole frontend. esbuild is here
