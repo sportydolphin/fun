@@ -65,7 +65,7 @@ Violating these creates real problems. Treat them as hard constraints.
   reports itself visible, so anything scheduled on one (a scroll, a measurement) never happens
   there: check those in Playwright's Chrome, as the sweep does. `npm run sweep -- --shift` does exactly this against the
   dev server ([`scripts/layout-sweep.mjs`](scripts/layout-sweep.mjs)); `--routes` narrows it.
-  **CI runs it on every pull request** (the `layout` check, four parallel slices) from a recorded
+  **CI runs it on every pull request** (the `layout` check, eight parallel slices, skipped for a pull request that touches no UI) from a recorded
   snapshot of the data, with the clock frozen at the moment it was taken. A query the snapshot
   lacks fails the job and prints the routes to record, so a change to what a page fetches comes with
   `npm run sweep:record -- --merge --routes <those>` (or the "Sweep: record" workflow on the branch)

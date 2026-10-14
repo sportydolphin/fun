@@ -603,8 +603,9 @@ sequenceDiagram
 **Not scheduled, listed here so the workflow folder has no strangers:** `ci.yml` runs on every pull
 request and every commit on `main` (type-check, lint, tests, build) and holds no secrets. Its `check`
 job is required to merge into `main` (`.github/rulesets/`), and so is its `layout` job, which passes
-only when every `layout` slice does: `layout 1/4` to `4/4` each run `npm run sweep` over a quarter of the routes
-against the dev server, served from a recorded snapshot of the data
+only when every `layout` slice does: `layout 1/8` to `8/8` each run `npm run sweep` over an eighth of the routes
+against the dev server (each slice skips its steps and passes when a pull request touches no UI, per
+the `changes` job), served from a recorded snapshot of the data
 (`scripts/fixtures/layout-sweep/`, one file per read), and fails on any finding not already in
 `scripts/fixtures/layout-sweep-baseline.json`, which is empty. The whole of it is in
 [docs/CI.md](docs/CI.md).
