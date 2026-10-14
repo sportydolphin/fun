@@ -135,6 +135,9 @@ const DEFAULT_ROUTES = [
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
   '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/team-stats', '/mlb/fielding', '/mlb/bests', '/mlb/find', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare',
   '/mlb/charts', '/mlb/report-cards', '/mlb/leaders?lb=fielding', '/mlb/team-stats?lb=fielding',
+  // Find with a question asked, in both sections: the rail, the table and the tally only exist once
+  // there are matches, and the board switches between its layouts on its own width (Oct 2026).
+  '/wpbl/stats?board=find&q=h.gte.3', '/mlb/find?q=h.gte.3',
   // One slot filled, and a pair: two hitters, the shape the pair's skeleton reserves.
   '/mlb/compare/zack-wheeler-554430', '/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594',
 ]

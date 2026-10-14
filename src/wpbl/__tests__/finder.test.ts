@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery,
-  EMPTY_FINDER_QUERY, type FinderQuery,
+  finderColumns, validFinderSort, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 
@@ -254,6 +254,57 @@ describe('the query in the address bar', () => {
   it('will not take more conditions than the board can draw', () => {
     const many = Array.from({ length: 20 }, () => 'so.gte.1').join('~')
     expect(decodeFinderQuery(many, 'pitching')).toHaveLength(6)
+  })
+
+  it('sorts by the chosen column BEFORE it caps, not within the capped rows', () => {
+    // A table re-sorted by walks has to show the most walks across every match. Sorting only the
+    // fifty the question's own stat picked would show a confident, wrong top row.
+    const games = [game()]
+    const lines = [
+      pit({ player_id: 'a', so: 9, bb: 0, outs: 12 }),
+      pit({ player_id: 'b', so: 8, bb: 1, outs: 12 }),
+      pit({ player_id: 'c', so: 5, bb: 6, outs: 12 }),
+    ]
+    const cond = [{ field: 'so', op: 'gte' as const, value: 5 }]
+    expect(names(runWpblFinder('pitching', [], lines, PLAYERS, games, q({ conditions: cond }), 2)))
+      .toEqual(['Jaida Lee', 'Ayami Sato'])
+    expect(names(runWpblFinder('pitching', [], lines, PLAYERS, games, q({ conditions: cond }), 2, { key: 'bb', desc: true })))
+      .toEqual(['Emi Saiki', 'Ayami Sato'])
+    expect(names(runWpblFinder('pitching', [], lines, PLAYERS, games, q({ conditions: cond }), 3, { key: 'bb', desc: false })))
+      .toEqual(['Jaida Lee', 'Ayami Sato', 'Emi Saiki'])
+  })
+
+  it('sorts by date, newest first', () => {
+    const games = [game({ id: 'g1', game_date: '2026-08-01' }), game({ id: 'g2', game_date: '2026-08-09' })]
+    const lines = [pit({ game_id: 'g1', player_id: 'a', so: 9, outs: 12 }), pit({ game_id: 'g2', player_id: 'b', so: 5, outs: 12 })]
+    const r = runWpblFinder('pitching', [], lines, PLAYERS, games,
+      q({ conditions: [{ field: 'so', op: 'gte', value: 5 }] }), 50, { key: 'date', desc: true })
+    expect(names(r)).toEqual(['Ayami Sato', 'Jaida Lee'])
+  })
+
+  it('counts each player\'s appearances in the games searched, for "2 of 3"', () => {
+    // The denominator honours the club, venue and opponent filters: appearances in games the
+    // question did not look at would make every rate look rarer than it is.
+    const games = [game({ id: 'g1' }), game({ id: 'g2' }), game({ id: 'g3', home_team_id: 'LA', away_team_id: 'NY' })]
+    const lines = [
+      pit({ game_id: 'g1', player_id: 'a', so: 7, outs: 12 }),
+      pit({ game_id: 'g2', player_id: 'a', so: 2, outs: 12 }),
+      pit({ game_id: 'g3', player_id: 'a', so: 8, outs: 12 }),
+    ]
+    const cond = [{ field: 'so', op: 'gte' as const, value: 5 }]
+    expect(runWpblFinder('pitching', [], lines, PLAYERS, games, q({ conditions: cond })).tally[0])
+      .toMatchObject({ games: 2, played: 3 })
+    expect(runWpblFinder('pitching', [], lines, PLAYERS, games, q({ conditions: cond, venue: 'home' })).tally[0])
+      .toMatchObject({ games: 1, played: 2 })
+  })
+
+  it('draws every column a condition asks about, and forgets a sort on one that is gone', () => {
+    const bk = { conditions: [{ field: 'bk', op: 'gte' as const, value: 2 }] }
+    expect(finderColumns('pitching', bk).map(c => c.key)).toContain('bk')
+    expect(finderColumns('pitching', { conditions: [] }).map(c => c.key)).not.toContain('bk')
+    expect(validFinderSort('pitching', bk, { key: 'bk', desc: true })).toEqual({ key: 'bk', desc: true })
+    expect(validFinderSort('pitching', { conditions: [] }, { key: 'bk', desc: true })).toBeNull()
+    expect(validFinderSort('pitching', { conditions: [] }, { key: 'date', desc: true })).toEqual({ key: 'date', desc: true })
   })
 
   it('reads the question back in words', () => {

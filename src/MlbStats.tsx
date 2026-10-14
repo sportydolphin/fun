@@ -403,8 +403,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // ─── The Stats boards' side, and the switch every board draws ──────────────
   // ONE SWITCH, BUILT HERE, handed to each board, so the five boards cannot draw five versions of it
   // (they did: Players and Leaders had Hitting / Pitching, Fielding had none, Charts had its own).
-  // Fielding is drawn on every board and disabled where the board has no fielding answer, so the
-  // switch is the same width and in the same place everywhere (PillGroup's `disabled`).
+  // Fielding is drawn on every board, so the switch is the same width and in the same place
+  // everywhere, and pressed on a board with no fielding answer it goes to Leaders on Fielding. It
+  // was drawn disabled until Oct 2026, faded under the contrast floor and doing nothing when pressed.
   const statsSide: StatsSide = state.view === 'fielding'
     || (state.statsFielding && (state.view === 'leaderboard' || state.view === 'teamStats')) ? 'fielding' : state.lbGroup
   const pickSide = (next: StatsSide) => {
@@ -419,6 +420,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (next === 'fielding') {
       state.setStatsFielding(true)
       if (state.view === 'stats') go('fielding')
+      else if (!FIELDING_VIEWS.has(state.view)) go('leaderboard')
       return
     }
     state.setStatsFielding(false)
@@ -431,7 +433,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' },
         FIELDING_VIEWS.has(state.view)
           ? { value: 'fielding', label: 'Fielding' }
-          : { value: 'fielding', label: 'Fielding', disabled: true, hint: 'Fielding is on Leaders, Players and Teams' },
+          : { value: 'fielding', label: 'Fielding', hint: 'Fielding is on Leaders, Players and Teams: opens Leaders' },
       ]}
       value={statsSide}
       onChange={v => pickSide(v as StatsSide)}
