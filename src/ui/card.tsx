@@ -144,7 +144,9 @@ export function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function SectionCard({ icon, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
+export function SectionCard({ id, icon, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
+  /** An anchor a page can be asked to scroll to (lib/sectionScroll.ts). */
+  id?: string
   icon?: React.ReactNode
   title: string
   /** Something small on the title's own line, after it: an info tip. Outside the `h2`, so a
@@ -193,7 +195,9 @@ export function SectionCard({ icon, title, titleAdornment, subtitle, action, act
 }) {
   const collapsible = !!onToggleCollapse
   return (
-    <Box sx={[{
+    <Box id={id} sx={[{
+      // Lands below the pinned toolbar when scrolled to, rather than under it.
+      scrollMarginTop: id ? 'calc(var(--app-header-h, 0px) + 8px)' : undefined,
       borderRadius: frameless ? { xs: 0, sm: 3 } : 3, overflow: 'hidden',
       borderStyle: 'solid', borderColor: CARD_BORDER,
       borderWidth: frameless ? { xs: 0, sm: '1px' } : '1px',

@@ -27,6 +27,7 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
+import { sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
 // pitchers, and a roster with inline stats. Self-contained: fetches its own roster + box-score
@@ -305,6 +306,8 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
   onOpenStats?: (group: 'hitting' | 'pitching', sortKey?: string,
                  opts?: { mode?: 'players' | 'teams'; teamId?: string | null; qualified?: boolean }) => void
 }) {
+  // "Firebells roster" in the search lands here scrolled to the roster.
+  useSectionScroll()
   const isDark = useDark()
   const accent = wpblAccent(team.id, isDark)
   const playerLink = useWpblPlayerLink()
@@ -788,6 +791,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
           }}>
           {/* Results */}
           <SectionCard
+            id={sectionAnchorId('schedule')}
             title="Results"
             action={hiddenCount > 0 ? (
               // Opens the full season in a modal. Expanding in place pushed everything below
@@ -807,6 +811,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
 
           {/* Team season totals */}
           <SectionCard
+            id={sectionAnchorId('stats')}
             title="Team stats"
             action={onOpenStats ? (
               // Lands on the Teams board, which is where these totals become meaningful: a .355 team
@@ -884,7 +889,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
               screen. Two cards fill the row and read better besides: nobody scans hitting and
               pitching leaders in one pass. */}
           {hitLeaders.some(b => b.rows.length) && (
-            <SectionCard title="Hitting leaders" subtitle="Season">
+            <SectionCard id={sectionAnchorId('leaders')} title="Hitting leaders" subtitle="Season">
               {hitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
             </SectionCard>
           )}
@@ -898,6 +903,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
 
           {/* Roster with inline stats */}
           <SectionCard
+            id={sectionAnchorId('roster')}
             title="Roster"
             subtitle={rosterRows.length < visibleRoster.length
               ? `${rosterRows.length} of ${visibleRoster.length} players`

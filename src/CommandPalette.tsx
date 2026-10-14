@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close } from '@mui/icons-material'
-import { setSearchQuery, type SearchResultRow } from './mlb/state/SearchBridgeContext'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball } from '@mui/icons-material'
+import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { finderSuggestions } from './finderSearch'
+import { clubPageSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
+import { requestSectionScroll } from './lib/sectionScroll'
+import { nameWords, parseCompareText, parseGameQuery, typedSeason } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -21,7 +23,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 // IT IS THE ONLY SEARCH. The field in the toolbar, the icon it folds to, "/" and Ctrl+K (Cmd+K) all
 // open this (App.tsx). It drives the shared search bridge, so each section answers exactly as its
 // own search always has: WPBL's rows and recents come from WpblApp, MLB's player and club results,
-// recents and suggestions from MlbStats, and every pick runs that section's own handler, which is
+// recents from MlbStats, and every pick runs that section's own handler, which is
 // what keeps the section's open events (`wpbl_search_picked`, `mlb_player_opened` from
 // `header_search` or `recent`) counting the same things they did before the field became a button.
 // On top of that it finds every tab and More page by name, and a stat question typed as words,
@@ -36,13 +38,15 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 // LAZY, and mounted only once it has been opened: nothing here is on the first paint, and the
 // shell is the entry chunk.
 
-export type PickKind = 'finder' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+// 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
+// older `command_palette_picked` events carry it.
+export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
-/** A group the palette shows before anything is typed: the recents, and MLB's suggestions. Built by
+/** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
 export interface PaletteIdleGroup {
   label: string
-  kind: 'recent' | 'suggestion'
+  kind: 'recent'
   rows: SearchResultRow[]
   onClear?: () => void
 }
@@ -98,8 +102,10 @@ const MORE_PAGES: Record<NavSection, PageEntry[]> = {
 }
 
 const EXAMPLES: Record<NavSection, string[]> = {
-  wpbl: ['5 strikeouts no walks', '3+ hits vs SF', '4-for-4 at home'],
-  mlb: ['10 strikeouts no walks', '3 home runs', '4-for-4 vs Dodgers'],
+  // One ranking among the line questions, so a reader learns the box takes both. No year in it,
+  // which would go stale every spring.
+  wpbl: ['most strikeouts', '5 strikeouts no walks', '3+ hits vs SF'],
+  mlb: ['most home runs', '10 strikeouts no walks', '4-for-4 vs Dodgers'],
 }
 
 /** How well a page's name answers the query: a name that starts with it beats a word in it, which
@@ -112,7 +118,7 @@ function pageScore(p: PageEntry, q: string): number {
   return 0
 }
 
-const rowItem = (kind: 'result' | 'recent' | 'suggestion') => (r: SearchResultRow): Item => ({
+const rowItem = (kind: 'result' | 'recent') => (r: SearchResultRow): Item => ({
   key: `${kind}-${r.key}`, kind, title: r.title, subtitle: r.subtitle, avatar: r.avatar, onOpen: r.onSelect,
 })
 
@@ -120,7 +126,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -129,6 +135,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   /** What to show before anything is typed, ahead of the pages. */
   idle: PaletteIdleGroup[]
   searching: boolean
+  /** The section's "A vs B" lookup, from the search bridge. */
+  resolveCompare?: SearchBridgeState['resolveCompare']
+  /** The section's game lookup for "SF vs NY sep 9", from the search bridge. */
+  resolveGames?: SearchBridgeState['resolveGames']
 }) {
   const [text, setText] = useState('')
   const [active, setActive] = useState(0)
@@ -137,7 +147,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
 
   // Read at close, which runs from an effect cleanup, after this render's values are gone.
   const pickedRef = useRef(false)
-  const closeState = useRef({ typed: 0, shown: 0 })
+  const closeState = useRef<{ typed: number; shown: number; q?: string }>({ typed: 0, shown: 0 })
 
   // A fresh box on every open. On the way out: the shared query cleared, or the next section to
   // read the bridge would find this text in it, and a close without a pick reported.
@@ -153,9 +163,42 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }
   }, [open, section])
 
+  // "A vs B", once the section has found both players. Kept with the text it answers, so a reply
+  // that lands after the reader has typed on is never shown against the newer text.
+  const [compare, setCompare] = useState<{ text: string; row: CompareRow } | null>(null)
+  // "SF vs NY sep 9", "Dodgers last night": the section's schedule answers, on the same terms as
+  // the compare row above (kept with its text, a beat after the last key).
+  const [gameRows, setGameRows] = useState<{ text: string; rows: CompareRow[] } | null>(null)
+  useEffect(() => {
+    const q = resolveGames ? parseGameQuery(text, sectionClubs(section)) : null
+    if (!q || !resolveGames) return
+    let live = true
+    const t = setTimeout(() => {
+      resolveGames(q).then(rows => { if (live) setGameRows({ text, rows }) }).catch(() => {})
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, section, resolveGames])
+
+  useEffect(() => {
+    // Two clubs read as a game question are not two players to compare: no lookup for them.
+    const pair = resolveCompare && !parseGameQuery(text, sectionClubs(section)) ? parseCompareText(text) : null
+    if (!pair || !resolveCompare) return
+    let live = true
+    // A beat after the last key, since MLB's answer is two network calls per try.
+    const t = setTimeout(() => {
+      resolveCompare(pair.a, pair.b, pair.season)
+        .then(row => { if (live && row) setCompare({ text, row }) })
+        .catch(() => {})
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, section, resolveCompare])
+
   const change = (v: string) => {
     setText(v); setActive(0)
-    setSearchQuery(v)
+    // "whitmore hr" searches names for "whitmore": the stat and any year are for the rows above,
+    // and no player is called "whitmore hr". The year goes along on its own, so "Ohtani 2023"
+    // opens Ohtani on 2023.
+    setSearchQuery(nameWords(v) ?? v, typedSeason(v))
   }
 
   const groups = useMemo<Group[]>(() => {
@@ -178,7 +221,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         {
           label: 'Ask a stat question',
           items: EXAMPLES[section].map(ex => ({
-            key: `ex-${ex}`, kind: 'example' as const, title: ex, subtitle: 'Search every game line',
+            key: `ex-${ex}`, kind: 'example' as const, title: ex,
+            subtitle: leaderSuggestions(section, ex).length ? 'Rank every player' : 'Search every game line',
             icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
             onOpen: () => { change(ex); inputRef.current?.focus() },
           })),
@@ -186,7 +230,31 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       ].filter(g => g.items.length)
     }
 
-    const finder: Item[] = (mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
+    const games: Item[] = gameRows && gameRows.text === text ? gameRows.rows.map(r => ({
+      key: `game-${r.href}`, kind: 'game' as const, title: r.title, subtitle: r.subtitle, href: r.href,
+      icon: <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    })) : []
+    const matchups: Item[] = matchupSuggestions(section, text).map(m => ({
+      key: m.key, kind: 'matchup', title: m.title, subtitle: 'Season series · every meeting', href: m.href,
+      icon: <CompareArrows sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }))
+    const compared: Item[] = compare && compare.text === text ? [{
+      key: `compare-${compare.row.href}`, kind: 'compare', title: compare.row.title,
+      subtitle: `Compare · ${compare.row.subtitle}`, href: compare.row.href,
+      icon: <CompareArrows sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }] : []
+    const clubPages: Item[] = clubPageSuggestions(section, text).map(s => ({
+      key: s.key, kind: 'club_page', title: s.title, subtitle: 'Club page', href: s.href,
+      icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />,
+      onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
+    }))
+    const leaders: Item[] = leaderSuggestions(section, text).map(s => ({
+      key: s.key, kind: 'leader', title: s.title, subtitle: `Leaders · ${s.subtitle}`, href: s.href,
+      icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
+      onOpen: () => {},
+    }))
+    // A ranking is never also a line question ("top 10 ops" is not "an OPS of at least 10").
+    const finder: Item[] = (!leaders.length && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
       key: s.key, kind: 'finder', title: s.title, subtitle: `Find · ${s.subtitle}`, href: s.href,
       icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {
@@ -206,15 +274,26 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .map((x, i) => pageItem(x.p, i))
 
     return [
+      { label: 'Games', items: games },
+      { label: 'Matchups', items: matchups },
+      { label: 'Clubs', items: clubPages },
+      { label: 'Compare', items: compared },
+      { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section])
+  }, [text, results, idle, section, compare, gameRows])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))
-  closeState.current = { typed: text.trim().length, shown: flat.length }
+  // The typed text goes with a close ONLY when the box offered nothing for it, the rule
+  // `wpbl_searched` keeps (docs/ADMIN_ANALYTICS.md): then the text is the finding, a player or a
+  // spelling the search cannot reach. Anything that got an answer is described by its pick instead.
+  const typedText = text.trim()
+  closeState.current = typedText && !flat.length
+    ? { typed: typedText.length, shown: 0, q: typedText.slice(0, 40) }
+    : { typed: typedText.length, shown: flat.length }
 
   // Keep the lit row in view as the arrows move it. Optional, since jsdom has no scrollIntoView.
   useEffect(() => {

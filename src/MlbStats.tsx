@@ -3,14 +3,17 @@ import type { ReactNode } from 'react'
 import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
-import { ACCENT_TEXT } from './mlb/constants'
+import { ACCENT_TEXT, CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
+import { fetchClubGames, searchPlayers, searchPlayersForgiving } from './mlb/api'
+import { gameRow } from './lib/gameRow'
+import { pickGames, todayIso } from './league/finderParse'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
 import { requestDeepLink, parseDeepLink } from './mlb/state/deepLink'
 import { MoreSheet } from './ui/MoreMenu'
 import { FinalGamesSection } from './mlb/views/FinalGames'
 import { GameRoute } from './mlb/views/GameRoute'
 import { SeriesRoute } from './mlb/views/SeriesRoute'
-import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE, MLB_MORE, type MlbMoreRow } from './mlb/routes'
+import { mlbComparePath, withMlbCompareSeason, mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE, MLB_MORE, type MlbMoreRow } from './mlb/routes'
 
 // `?ref=short` means a short link (functions/m) sent this reader here. Read when the chunk loads,
 // before the section's first address rewrite drops the query, and counted once on mount. Only a
@@ -23,7 +26,6 @@ import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, Se
 import { saveDataOn } from './lib/saveData'
 import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
-import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_TABS, isMlbStatsBoard, type MlbStatsBoard, type MlbStatsTab, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
 import { navigate } from './nav'
 import { setDynamicSeo } from './seo'
@@ -154,9 +156,14 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       playerResults: state.playerResults,
       teamResults: state.teamResults,
       searching: state.searching,
-      handleSelectPlayer: p => {
+      handleSelectPlayer: (p, season) => {
         track(EVENTS.MLB_PLAYER_OPENED, { playerId: (p as any).id, from: 'header_search' })
-        handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true }), { view: 'search', playerId: (p as any).id })
+        // A year typed with the name opens the card on it, but only one inside the player's span:
+        // the card draws any year it is handed, and a year before the debut is an empty page.
+        const first = Number(p.mlbDebutDate?.slice(0, 4)) || null
+        const last = p.active === false ? Number(p.lastPlayedDate?.slice(0, 4)) || null : CURRENT_SEASON
+        const inSpan = season != null && (first == null || season >= first) && (last == null || season <= last)
+        handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true, season: inSpan ? season : undefined }), { view: 'search', playerId: (p as any).id })
       },
       handleSelectTeam: t => {
         track(EVENTS.MLB_TEAM_OPENED, { teamId: (t as any).id, from: 'header_search' })
@@ -185,16 +192,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     return () => setDynamicSeo(null)
   }, [seoPlayer])
 
-  // Fetch toolbar suggestions whenever the followed team changes
-  useEffect(() => {
-    if (!active) return
-    let live = true
-    fetchSuggestions(state.followedTeamId ?? 0, [])
-      .then(sugs => { if (live) updateSearchBridge({ toolbarSuggestions: sugs }) })
-      .catch(() => {})
-    return () => { live = false }
-  }, [state.followedTeamId, active])
-
   // Push recent searches + their re-open / clear handlers up to the toolbar
   const { recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches } = state
   useEffect(() => {
@@ -210,12 +207,61 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     })
   }, [recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches, active])
 
+  // "Judge vs Ohtani" in the palette: StatsAPI's own name search for each half, its first answer
+  // (active players come first), the same lookup the header search makes for one name.
+  useEffect(() => {
+    if (!active) return
+    updateSearchBridge({
+      resolveCompare: async (a, b, season) => {
+        try {
+          const find = async (n: string) => { const r = await searchPlayers(n); return r.length ? r : searchPlayersForgiving(n) }
+          const [ra, rb] = await Promise.all([find(a), find(b)])
+          const pa = ra[0], pb = rb[0]
+          if (!pa || !pb || pa.id === pb.id) return null
+          const year = season ?? CURRENT_SEASON
+          return {
+            title: `${pa.fullName} vs ${pb.fullName}`,
+            subtitle: `${year} seasons side by side`,
+            href: withMlbCompareSeason(mlbComparePath(pa, pb), year, CURRENT_SEASON),
+          }
+        } catch { return null }
+      },
+      // "Dodgers last night", "Cubs vs Cardinals": StatsAPI's schedule for the club (and opponent),
+      // over the days the question can mean. A name two clubs share is each of them, at most two
+      // calls for a pairing of the two Chicagos with someone.
+      resolveGames: async q => {
+        const today = todayIso()
+        const shift = (iso: string, days: number) => {
+          const [y, m, d] = iso.split('-').map(Number)
+          return todayIso(new Date(y, m - 1, d + days))
+        }
+        const when = q.when
+        const [start, end] = when && typeof when === 'object' ? [when.date, when.date]
+          : when === 'last' ? [shift(today, -60), today]
+          : when === 'next' ? [today, shift(today, 60)]
+          : [shift(today, -365), shift(today, 200)]
+        const pairs = q.clubs[0].flatMap(a => (q.clubs[1] ?? [null]).map(b => [Number(a), b == null ? null : Number(b)] as const))
+          .filter(([a, b]) => a !== b).slice(0, 2)
+        try {
+          const pools = await Promise.all(pairs.map(([a, b]) => fetchClubGames(a, b, start, end)))
+          const seen = new Set<number>()
+          const all = pools.flat().filter(g => !seen.has(g.gamePk) && !!seen.add(g.gamePk))
+          return pickGames(all, when, today, g => g.date, g => g.state !== 'scheduled').map(g => gameRow({
+            away: TEAM_ABBR[g.awayId] ?? String(g.awayId), home: TEAM_ABBR[g.homeId] ?? String(g.homeId),
+            awayScore: g.awayScore, homeScore: g.homeScore, state: g.state, date: g.date,
+            href: mlbGamePath(g.gamePk),
+          }))
+        } catch { return [] }
+      },
+    })
+  }, [active])
+
   // Unregister from the toolbar when this section unmounts or is hidden behind WPBL. Within one
   // commit React runs every cleanup before any setup, so this lands before WPBL registers.
   useEffect(() => {
     if (!active) return
     return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, toolbarSuggestions: [], recentSearches: [], handleSelectRecent: null, clearRecentSearches: null })
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
       setSearchQuery('')
     }
   }, [active])

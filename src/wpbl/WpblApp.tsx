@@ -20,6 +20,9 @@ import { PHONE_COLUMN_W } from '../ui/layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from './recentSearches'
+import { fuzzyMatches } from '../lib/fuzzyName'
+import { gameRow } from '../lib/gameRow'
+import { pickGames, todayIso, type GameQuery } from '../league/finderParse'
 import { useAuth } from '../AuthContext'
 import { wpblSearchedProps } from './searchAnalytics'
 import { jerseyQuery, jerseyOf } from './playerSearch'
@@ -48,7 +51,7 @@ import {
   wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, wpblAppOwnsPath,
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
-  WPBL_AWARDS_PATH, isWpblAwardsPage,
+  WPBL_AWARDS_PATH, isWpblAwardsPage, wpblComparePath,
   WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
 } from './routes'
@@ -1272,6 +1275,12 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // Toolbar search bridge: WpblApp owns the shared header search while /wpbl is on screen.
   const bridge = useSearchBridge()
+  // "Whitmore 2026" in the search: the year the picked player's card opens on, for that player
+  // only. The card keeps its year to itself (PlayerDetail's pickedSeason), so this is how a year
+  // reaches it; any other open of any player passes nothing and the card picks its own.
+  const querySeasonRef = useRef(bridge.querySeason)
+  querySeasonRef.current = bridge.querySeason
+  const [openingSeason, setOpeningSeason] = useState<{ playerId: string; season: number } | null>(null)
   // False while the section is kept mounted behind MLB (App.tsx). Everything that reaches outside
   // the section (the toolbar's search and tabs, the page's tags) waits for it, or the hidden section
   // would answer MLB's search box with WPBL players.
@@ -1695,7 +1704,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!active) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
       setSearchQuery('')
     }
   }, [active])
@@ -1952,6 +1961,10 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       },
       onSelect: () => {
         track(EVENTS.WPBL_SEARCH_PICKED, { type: 'player', id: p.id, source })
+        // Read before the query is cleared, which clears the year with it. A recent is never
+        // opened on a year: none was typed for it.
+        const season = source === 'result' ? querySeasonRef.current : null
+        setOpeningSeason(season != null ? { playerId: p.id, season } : null)
         recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayerRef.current(p, 'search')
       },
     }
@@ -1997,8 +2010,14 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     }
     const q = raw.toLowerCase()
     if (q.length < 2) return null
-    const p = players.filter(pl => pl.name.toLowerCase().includes(q))
-    const t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))
+    let p = players.filter(pl => pl.name.toLowerCase().includes(q))
+    let t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))
+    // A slip ("Whitmor", "Firebels"): the forgiving pass, and only once the exact one found nothing,
+    // so a correct spelling is never crowded by near misses (src/lib/fuzzyName.ts).
+    if (!p.length && !t.length && q.length >= 3) {
+      p = fuzzyMatches(players, q, pl => [pl.name])
+      t = fuzzyMatches(teams, q, tm => [`${tm.city} ${tm.name}`, tm.name, tm.city])
+    }
     return { q, players: p, teams: t }
   }, [bridge.query, players, teams])
 
@@ -2009,6 +2028,46 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
   }, [matches, buildPlayerRow, buildTeamRow, active])
+
+  // "Whitmore vs Ibarra" in the palette. The halves arrive lowercased with accents folded (the
+  // parser's normalize), so the names are folded the same way before matching. Best match first:
+  // the whole name, then the start of one, then anywhere in it, which is how a surname alone finds
+  // its player.
+  const resolveCompare = useCallback(async (a: string, b: string, season: number | null) => {
+    const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    const pick = (q: string) => {
+      const ms = players.filter(pl => fold(pl.name).includes(q))
+      return ms.find(pl => fold(pl.name) === q) ?? ms.find(pl => fold(pl.name).startsWith(q)) ?? ms[0]
+        ?? fuzzyMatches(players, q, pl => [pl.name])[0] ?? null
+    }
+    const pa = pick(a), pb = pick(b)
+    if (!pa || !pb || pa.id === pb.id) return null
+    const path = wpblComparePath(pa, pb, players)
+    return {
+      title: `${pa.name} vs ${pb.name}`,
+      subtitle: season ? `${season} seasons side by side` : 'Seasons side by side',
+      href: season ? `${path}?season=${season}` : path,
+    }
+  }, [players])
+  useEffect(() => {
+    if (active) updateSearchBridge({ resolveCompare })
+  }, [resolveCompare, active])
+
+  // "SF vs NY sep 9", "Firebells last night" in the palette, from the schedule already in hand.
+  const resolveGames = useCallback(async (q: GameQuery) => {
+    const [first, second] = q.clubs
+    const plays = (g: WpblGame, ids: string[]) => ids.includes(g.home_team_id) || ids.includes(g.away_team_id)
+    const pool = games.filter(g => plays(g, first) && (!second || plays(g, second)))
+    return pickGames(pool, q.when, todayIso(), g => g.game_date, g => g.status !== 'scheduled').map(g => gameRow({
+      away: teamById.get(g.away_team_id)?.abbr ?? g.away_team_id,
+      home: teamById.get(g.home_team_id)?.abbr ?? g.home_team_id,
+      awayScore: g.away_score, homeScore: g.home_score, state: g.status, date: g.game_date,
+      href: wpblGamePath(g, teams, games),
+    }))
+  }, [games, teams, teamById])
+  useEffect(() => {
+    if (active) updateSearchBridge({ resolveGames })
+  }, [resolveGames, active])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of
@@ -2222,6 +2281,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
               key={detailPlayer.id}
               layout="page"
               player={detailPlayer}
+              openingSeason={openingSeason?.playerId === detailPlayer.id ? openingSeason.season : null}
               teams={teams}
               games={games}
               players={players}
@@ -2321,6 +2381,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
         <Suspense fallback={<ModalChunkFallback />}>
           <PlayerDetailModal
             player={detailPlayer}
+            openingSeason={openingSeason?.playerId === detailPlayer.id ? openingSeason.season : null}
             teams={teams}
             games={games}
             players={players}

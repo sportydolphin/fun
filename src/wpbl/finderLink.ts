@@ -12,11 +12,12 @@ export const WPBL_FINDER_CLUBS: FinderClubAlias[] = Object.values(WPBL_TEAMS).ma
 }))
 
 /** The Find board asking `p`. */
-export function wpblFinderHref(p: ParsedFinder): string {
+export function wpblFinderHref(p: Omit<ParsedFinder, 'season'> & { season?: number | null }): string {
   const params = new URLSearchParams({ board: 'find', side: p.side, q: encodeFinderQuery(p) })
   if (p.teamId) params.set('team', p.teamId)
   if (p.oppId) params.set('opp', p.oppId)
   if (p.venue !== 'any') params.set('venue', p.venue)
+  if (p.season) params.set('season', String(p.season))
   // The finder's grammar is URL-safe on purpose (see encodeFinderQuery), so undo the escaping
   // URLSearchParams gives `~`: the address should read the way the board writes it.
   return `/wpbl/stats?${params.toString().replace(/%7E/gi, '~')}`

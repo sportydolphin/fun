@@ -9,6 +9,10 @@ import { Search, Shuffle, FileDownload, OpenInFull, Tune, MoreVert } from '@mui/
 import { Player, Team, Palette, RankMode, TeamPlayerStat, RosterEntry, StandingsDivision } from '../types'
 import { ACCENT, ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, TEAM_BG, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { linkPillSx, SectionLabel } from '../components/ui'
+import { sectionAnchorId, useSectionScroll } from '../../lib/sectionScroll'
+
+// A part the search can scroll to lands below the pinned toolbar rather than under it.
+const ANCHOR_SX = { scrollMarginTop: 'calc(var(--app-header-h, 0px) + 8px)' } as const
 import { FilterChip } from '../../ui/FilterChip'
 import { FullscreenEntry } from '../components/MlbSheet'
 import { TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
@@ -108,6 +112,12 @@ export function SearchView({
   const [cardOptionsAnchor, setCardOptionsAnchor] = React.useState<HTMLElement | null>(null)
   const [rosterOpen, setRosterOpen] = React.useState(true)
   const [scheduleOpen, setScheduleOpen] = React.useState(true)
+  // "Dodgers roster" in the search lands here scrolled to the roster, opened if the reader had
+  // folded it shut, since a folded part is a heading with nothing under it.
+  useSectionScroll(id => {
+    if (id === sectionAnchorId('roster')) setRosterOpen(true)
+    if (id === sectionAnchorId('schedule')) setScheduleOpen(true)
+  })
   const [showFullSchedule, setShowFullSchedule] = React.useState(false)
   // Through the section's opener, like every other list of players. This page used to push the
   // player's FULL PAGE itself, so on a desktop its roster and leaders were the one place in /mlb a
@@ -414,7 +424,7 @@ export function SearchView({
 
               {/* Division standings card */}
               {divisionStandings && (
-                <Box>
+                <Box id={sectionAnchorId('standings')} sx={ANCHOR_SX}>
                   <Box sx={{ mb: 1.25 }}><SectionLabel>Division</SectionLabel></Box>
                   <DivisionStandingsCard
                     division={divisionStandings}
@@ -427,7 +437,7 @@ export function SearchView({
 
               {/* Award leader cards in a 2×2 grid */}
               {showFeaturedRight && (
-                <Box>
+                <Box id={sectionAnchorId('leaders')} sx={ANCHOR_SX}>
                   <Box sx={{ mb: 1.25 }}><SectionLabel>Team Leaders</SectionLabel></Box>
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
                     {featuredPlayers.map(p => (
@@ -453,7 +463,7 @@ export function SearchView({
       {/* Team schedule: full-width, live/next game cards (today's game highlighted)
           with a full-schedule modal. Team pages only. */}
       {hasStats && !!team && (
-        <Box sx={{ mb: 2 }}>
+        <Box id={sectionAnchorId('schedule')} sx={{ mb: 2, ...ANCHOR_SX }}>
           <Box
             {...pressable(() => setScheduleOpen(o => !o))}
             sx={{
@@ -497,7 +507,7 @@ export function SearchView({
 
       {/* Team roster: full-width, below the card + standings/leaders grid */}
       {hasStats && !!team && teamRoster.length > 0 && (
-        <Box sx={{ mb: 2 }}>
+        <Box id={sectionAnchorId('roster')} sx={{ mb: 2, ...ANCHOR_SX }}>
           <Box
             {...pressable(() => setRosterOpen(o => !o))}
             sx={{

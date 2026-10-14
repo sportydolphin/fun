@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { RecentSearchItem } from '../storage/recentSearches'
+import type { GameQuery } from '../../league/finderParse'
 export type { RecentSearchItem } from '../storage/recentSearches'
 
 export interface PlayerBridgeItem {
@@ -20,14 +21,8 @@ export interface TeamBridgeItem {
   league?: { name?: string }
 }
 
-export interface ToolbarSuggestion {
-  id: number
-  fullName: string
-  position: string
-  teamId: number
-  teamAbbr: string
-  isTeamPlayer: boolean
-}
+/** A row the section works out for the palette from typed text: a pair's compare page, a game. */
+export interface CompareRow { title: string; subtitle: string; href: string }
 
 // A self-describing toolbar search result. Produced by whichever section owns search
 // so the always-loaded toolbar can render it WITHOUT statically importing that section's
@@ -53,10 +48,13 @@ export interface SearchResultRow {
 
 export interface SearchBridgeState {
   query: string
+  /** A year typed beside the name ("Ohtani 2023"), so a player picked from the results opens on
+   *  that season. Null when none was typed. The year itself is not in `query`, which is names only. */
+  querySeason: number | null
   playerResults: PlayerBridgeItem[]
   teamResults: TeamBridgeItem[]
   searching: boolean
-  handleSelectPlayer: ((p: PlayerBridgeItem) => void) | null
+  handleSelectPlayer: ((p: PlayerBridgeItem, season?: number | null) => void) | null
   handleSelectTeam: ((t: TeamBridgeItem) => void) | null
   isRegistered: boolean
   // Which section currently owns the toolbar search, which decides how the results dropdown
@@ -66,14 +64,19 @@ export interface SearchBridgeState {
   // WPBL-native recents for the empty-query dropdown, as self-describing rows (the MLB
   // `recentSearches` below is numeric-id shaped and renders from the MLB color/logo maps).
   recentRows: SearchResultRow[]
-  toolbarSuggestions: ToolbarSuggestion[]
   recentSearches: RecentSearchItem[]
   handleSelectRecent: ((item: RecentSearchItem) => void) | null
   clearRecentSearches: (() => void) | null
+  /** Two names typed as "A vs B", resolved against the section's players. Null when either half
+   *  names nobody, or before a section has registered. A promise because MLB's is a network call. */
+  resolveCompare: ((a: string, b: string, season: number | null) => Promise<CompareRow | null>) | null
+  /** "SF vs NY sep 9", "Dodgers last night": the games asked for, from the section's schedule. */
+  resolveGames: ((q: GameQuery) => Promise<CompareRow[]>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
   query: '',
+  querySeason: null,
   playerResults: [],
   teamResults: [],
   searching: false,
@@ -83,10 +86,11 @@ const DEFAULT: SearchBridgeState = {
   source: null,
   resultRows: [],
   recentRows: [],
-  toolbarSuggestions: [],
   recentSearches: [],
   handleSelectRecent: null,
   clearRecentSearches: null,
+  resolveCompare: null,
+  resolveGames: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }
@@ -110,9 +114,9 @@ export function updateSearchBridge(partial: Partial<SearchBridgeState>): void {
   _notify()
 }
 
-export function setSearchQuery(q: string): void {
-  if (_state.query === q) return
-  _state = { ..._state, query: q }
+export function setSearchQuery(q: string, season: number | null = null): void {
+  if (_state.query === q && _state.querySeason === season) return
+  _state = { ..._state, query: q, querySeason: season }
   _notify()
 }
 

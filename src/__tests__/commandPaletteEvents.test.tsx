@@ -18,18 +18,21 @@ vi.mock('../lib/analytics', async importOriginal => {
 })
 
 import CommandPalette, { type PaletteIdleGroup } from '../CommandPalette'
-import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
+import { useSearchBridge, type SearchBridgeState, type SearchResultRow } from '../mlb/state/SearchBridgeContext'
 
 const row = (key: string, title: string, onSelect = vi.fn()): SearchResultRow =>
   ({ key, title, subtitle: 'sub', avatar: { fallbackText: title[0] }, onSelect })
 
-function Host({ idle = [], results = [] }: { idle?: PaletteIdleGroup[]; results?: SearchResultRow[] }) {
+function Host({ idle = [], results = [], resolveCompare, resolveGames }: {
+  idle?: PaletteIdleGroup[]; results?: SearchResultRow[]; resolveCompare?: SearchBridgeState['resolveCompare']
+  resolveGames?: SearchBridgeState['resolveGames']
+}) {
   const [open, setOpen] = useState(true)
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}>reopen</button>
       <CommandPalette open={open} onClose={() => setOpen(false)} section="wpbl"
-        results={results} idle={idle} searching={false} />
+        results={results} idle={idle} searching={false} resolveCompare={resolveCompare} resolveGames={resolveGames} />
     </>
   )
 }
@@ -67,12 +70,12 @@ describe('the search box', () => {
     expect(named('command_palette_recents_cleared')).toEqual([{ section: 'wpbl' }])
   })
 
-  it('reports a close with no pick, with how much was typed and how many rows were on offer', async () => {
+  it('reports a close with no pick, and keeps the text only when nothing was on offer for it', async () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.type(input(), 'zzyzx')
     await user.keyboard('{Escape}')
-    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 5, shown: 0 }]))
+    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 5, shown: 0, q: 'zzyzx' }]))
     expect(named('command_palette_picked')).toEqual([])
     expect(screen.getByText(/Nothing matches/)).toBeInTheDocument()
   })
@@ -133,5 +136,41 @@ describe('the search box', () => {
     render(<Host />)
     await user.click(screen.getByRole('button', { name: 'Close search' }))
     await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 8 }]))
+  })
+
+  it('offers the compare page for "A vs B" once the section finds both, and counts the pick', async () => {
+    const user = userEvent.setup()
+    const resolveCompare = vi.fn(async (a: string, b: string, season: number | null) =>
+      ({ title: `${a} vs ${b}`, subtitle: String(season), href: '/wpbl/compare/x-vs-y?season=2026' }))
+    render(<Host resolveCompare={resolveCompare} />)
+    await user.keyboard('Whitmore vs Ibarra 2026')
+
+    const option = await screen.findByRole('option', { name: /whitmore vs ibarra/ })
+    expect(resolveCompare).toHaveBeenLastCalledWith('whitmore', 'ibarra', 2026)
+    expect(option).toHaveAttribute('href', '/wpbl/compare/x-vs-y?season=2026')
+    await user.keyboard('{Enter}')
+    expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'compare', rank: 0 })
+  })
+
+  it('searches names for the name alone and hands the typed year on beside it', async () => {
+    const user = userEvent.setup()
+    const Probe = () => { const b = useSearchBridge(); return <output data-testid="bridge">{`${b.query}|${b.querySeason}`}</output> }
+    render(<><Host /><Probe /></>)
+    await user.keyboard('Ohtani 2023')
+    expect(screen.getByTestId('bridge')).toHaveTextContent('ohtani|2023')
+  })
+
+  it('asks the section for the games and offers each, with no compare lookup for the two clubs', async () => {
+    const user = userEvent.setup()
+    const resolveGames = vi.fn(async () => [{ title: 'SF 6 at NY 4', subtitle: 'Final · Sep 9, 2026', href: '/wpbl/games/x' }])
+    const resolveCompare = vi.fn(async () => null)
+    render(<Host resolveGames={resolveGames} resolveCompare={resolveCompare} />)
+    await user.keyboard('SF vs NY sep 9')
+
+    const option = await screen.findByRole('option', { name: /SF 6 at NY 4/ })
+    expect(option).toHaveAttribute('href', '/wpbl/games/x')
+    expect(resolveCompare).not.toHaveBeenCalled()
+    await user.keyboard('{Enter}')
+    expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'game', rank: 0 })
   })
 })

@@ -145,6 +145,23 @@ flowchart LR
   opt-out), MLB⇆WPBL switch, and desktop scaling: `--app-type` / `--app-chrome` on both
   sections and the toolbar, one `DESKTOP_SCALE` in App.tsx, `chromePx()` / `typePx()` in
   `src/ui/scale.ts` (see the traps in CLAUDE.md and item 0 in ROADMAP-WPBL.md).
+- **Search:** one box, [`src/CommandPalette.tsx`](src/CommandPalette.tsx), opened from the
+  toolbar field, its icon, "/" and Ctrl+K in both sections. Typed text is read by
+  [`src/league/finderParse.ts`](src/league/finderParse.ts) as one of several kinds of question,
+  each turned into a link by [`src/finderSearch.ts`](src/finderSearch.ts): a Find question ("5
+  strikeouts no walks"), a ranking ("most hr 2026", linking the stats table sorted on that column),
+  a club and a part of its page ("Dodgers roster"), a WPBL pairing's series page, and two players
+  ("Whitmore vs Ibarra") or a game ("SF vs NY sep 9"). Those last two need the section's own data,
+  so the palette asks through the search bridge
+  ([`SearchBridgeContext.ts`](src/mlb/state/SearchBridgeContext.ts): `resolveCompare`,
+  `resolveGames`), which WpblApp answers from what it holds and MlbStats from StatsAPI. The name
+  search gets only the words left after any stat and year come out (`nameWords`), and the year
+  goes beside it (`querySeason`) so a picked player opens on it. A miss is retried forgivingly
+  ([`src/lib/fuzzyName.ts`](src/lib/fuzzyName.ts)), only on a miss, so a correct spelling is never
+  crowded; a slipped stat word is put right inside the parser. A club page row scrolls to its part
+  through [`src/lib/sectionScroll.ts`](src/lib/sectionScroll.ts), a one-shot request rather than a
+  `#hash`, which both sections' address writers would drop. Open ideas are in "Search: what's next"
+  in [ROADMAP-WPBL.md](ROADMAP-WPBL.md).
 - **WPBL tab pager:** [`src/wpbl/SwipeableViews.tsx`](src/wpbl/SwipeableViews.tsx),
   finger-tracking mobile swipe with keep-alive + idle neighbor pre-warming. Two scroll
   models via its `mode` prop: `window` for the section's own tabs (the page scrolls; each

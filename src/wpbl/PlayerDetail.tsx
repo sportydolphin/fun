@@ -463,8 +463,11 @@ function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlaye
   )
 }
 
-export default function PlayerDetailModal({ player, teams, games, players, onClose, onOpenGame, onOpenBoard, panel = false, onBack, backLabel, layout = 'modal', onExpand }: {
+export default function PlayerDetailModal({ player, openingSeason = null, teams, games, players, onClose, onOpenGame, onOpenBoard, panel = false, onBack, backLabel, layout = 'modal', onExpand }: {
   player: WpblPlayer
+  /** The year to open on, typed with the name in the search ("Whitmore 2026"). A year the player
+   *  has no line in falls back to their newest, as any unknown pick does. */
+  openingSeason?: number | null
   teams: WpblTeam[]
   games: WpblGame[]
   /** The full roster, needed to prove a name slug is unambiguous. Empty only during the first
@@ -575,7 +578,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // ever played, so each read is cut to the year on screen before anything sums it (see inSeason).
   // The player's newest season until the reader picks another, which a retired player's page needs
   // and a current one never notices. Not in the address: it resets with the player, like the scope.
-  const [pickedSeason, setPickedSeason] = useState<number | 'career' | null>(null)
+  const [pickedSeason, setPickedSeason] = useState<number | 'career' | null>(openingSeason)
   const seasons = useMemo(
     () => seasonsPlayed([...allBatting, ...allPitching, ...allFielding], games),
     [allBatting, allPitching, allFielding, games])
@@ -718,7 +721,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // clicked down a leaderboard, so a Playoffs scope or a scrolled-away band carried over would
     // show the next player's card already filtered, or with the header naming nobody.
     setScope('regular')
-    setPickedSeason(null)
+    setPickedSeason(openingSeason)
     bandStore.reset()
   }
   // And the scroll position, for the same reason: the next player opens at their name, not

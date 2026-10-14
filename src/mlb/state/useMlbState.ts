@@ -19,13 +19,15 @@ import {
   CURRENT_SEASON, TEAM_SEASONS, LB_FEATURED, TABLE_DEFAULT_SORT, FEATURED_PLAYER_IDS, DEFAULT_PALETTE, teamPalette, MAX_FOLLOWED_PLAYERS,
 } from '../constants'
 import {
-  searchPlayers, fetchPlayerDetails,
+  searchPlayers, searchPlayersForgiving, fetchPlayerDetails,
   fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchAllTimeLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData,
   fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam, fetchTeamRoster,
 } from '../api'
 import { track, EVENTS } from '../../lib/analytics'
+import { fuzzyMatches } from '../../lib/fuzzyName'
+import { matchesClubNickname } from '../clubNicknames'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
 import { openPlayerPanel } from './playerPanel'
 import { useOpensAsPanel } from '../../ui/ModalShell'
@@ -484,9 +486,12 @@ export function useMlbState() {
     }
 
     const q = query.toLowerCase()
-    const teamMatches = allTeams.filter(t =>
-      t.name.toLowerCase().includes(q) || t.abbreviation.toLowerCase().includes(q)
-    ).slice(0, 5)
+    let teamMatches = allTeams.filter(t =>
+      t.name.toLowerCase().includes(q) || t.abbreviation.toLowerCase().includes(q) || matchesClubNickname(t.id, q)
+    )
+    // A slip in a club's name ("Dodgrs"), only once the exact pass found nothing (lib/fuzzyName.ts).
+    if (!teamMatches.length && q.length >= 3) teamMatches = fuzzyMatches(allTeams, q, t => [t.name])
+    teamMatches = teamMatches.slice(0, 5)
     setTeamResults(teamMatches)
     if (teamMatches.length > 0 && !blocked) setDropdownOpen(true)
 
@@ -498,7 +503,11 @@ export function useMlbState() {
     const timer = setTimeout(async () => {
       setSearching(true)
       try {
-        const players = await searchPlayers(query)
+        let players = await searchPlayers(query)
+        // StatsAPI matches the start of each name and nothing looser, so "Ohatni" finds no one. A
+        // second, forgiving try runs only on a miss, so a correct spelling costs no extra call and
+        // is never crowded by near names (searchPlayersForgiving says how).
+        if (!players.length) players = await searchPlayersForgiving(query)
         const playerSlice = players.slice(0, 6)
         setPlayerResults(playerSlice)
         if (!blocked && (playerSlice.length > 0 || teamMatches.length > 0)) setDropdownOpen(true)

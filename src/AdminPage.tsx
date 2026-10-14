@@ -1101,6 +1101,7 @@ export default function AdminPage() {
               const via = palette.via.filter(v => v.section === sec.section)
               const picks = palette.picks.filter(p => p.section === sec.section)
               const finder = palette.finder.filter(f => f.section === sec.section)
+              const missed = (palette.missed ?? []).filter(m => m.section === sec.section)
               return (
                 <Box key={sec.section} sx={{ mb: 1.5 }}>
                   <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 0.5, mb: 0.25, textTransform: 'uppercase' }}>
@@ -1137,6 +1138,25 @@ export default function AdminPage() {
                     <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.25 }}>
                       {formatCount(palette.wpbl_questions.events)} searches read as a stat question, kept out of "Matched nothing"
                     </Typography>
+                  )}
+                  {/* The text is kept only for a close that was offered nothing, in both sections,
+                      so each chip is a name or a spelling the search could not reach. */}
+                  {missed.length > 0 && (
+                    <>
+                      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.secondary', mt: 0.75, mb: 0.5 }}>
+                        Offered nothing for
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                        {missed.map(x => (
+                          <Box key={x.q} title={plural(x.browsers, 'browser')} sx={{
+                            px: 0.9, py: 0.3, borderRadius: 999, bgcolor: 'action.hover',
+                            fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary',
+                          }}>
+                            {x.q}{x.events > 1 ? ` ×${x.events}` : ''}
+                          </Box>
+                        ))}
+                      </Box>
+                    </>
                   )}
                 </Box>
               )

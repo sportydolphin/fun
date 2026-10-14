@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search } from '@mui/icons-material'
 import { useSearchBridge, noteSearchFocus } from './mlb/state/SearchBridgeContext'
-import type { PlayerBridgeItem, ToolbarSuggestion, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
+import type { PlayerBridgeItem, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
 import type { PaletteIdleGroup } from './CommandPalette'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
@@ -77,6 +77,9 @@ const WpblApp = lazy(loadWpbl)
  *  after the current section settles, which covers touch, where there is no hover to wait for.
  *  Failures are swallowed on purpose: this is a prefetch, and the real import will report any
  *  problem properly when the reader actually goes there. */
+// How many recent searches the palette lists before anything is typed.
+const PALETTE_RECENTS = 3
+
 function preloadSection(path: string) {
   const p = isWpblSection(path) ? loadMlb('/mlb', '') : loadWpbl()
   p.catch(() => {})
@@ -610,7 +613,7 @@ function AppInner() {
           key: `p-${p.id}`, title: p.fullName,
           subtitle: (p.active === false ? [pos, retiredSpan(p)] : [pos, teamAbbr]).filter(Boolean).join(' | '),
           avatar: { imageUrl: HEADSHOT(p.id), bg: 'grey.200', fit: 'cover' as const },
-          onSelect: () => bridge.handleSelectPlayer?.(p),
+          onSelect: () => bridge.handleSelectPlayer?.(p, bridge.querySeason),
         }
       }),
       ...bridge.teamResults.slice(0, 3).map(t => {
@@ -625,44 +628,28 @@ function AppInner() {
     ]
   }, [paletteOpen, querySearchable, bridge])
 
-  // What the palette shows before anything is typed: the recents, and on MLB the followed club's
-  // players and the trending ones. These were the field's own empty dropdowns, so a reader who
-  // used them finds the same rows in the same order. A player already in Recent is not offered
-  // again below it.
+  // What the palette shows before anything is typed: the last few recents and nothing else, so
+  // the stat-search examples below them stay in view. Storage keeps a longer list; only the top
+  // PALETTE_RECENTS show here. (MLB's "Your team" / "Trending" groups were dropped for the same
+  // reason.)
   const paletteIdle = useMemo<PaletteIdleGroup[]>(() => {
     if (!paletteOpen) return []
     if (bridge.source === 'wpbl') {
       return bridge.recentRows.length
-        ? [{ label: 'Recent', kind: 'recent', rows: bridge.recentRows, onClear: bridge.clearRecentSearches ?? undefined }]
+        ? [{ label: 'Recent', kind: 'recent', rows: bridge.recentRows.slice(0, PALETTE_RECENTS), onClear: bridge.clearRecentSearches ?? undefined }]
         : []
     }
-    const recents = bridge.recentSearches.slice(0, 5)
-    const recentIds = new Set(recents.filter(r => r.type === 'player').map(r => r.id))
-    const suggestion = (x: ToolbarSuggestion): SearchResultRow => ({
-      key: `s-${x.id}`, title: x.fullName, subtitle: [x.position, x.teamAbbr].filter(Boolean).join(' · '),
-      avatar: { imageUrl: HEADSHOT(x.id), bg: 'grey.200', fit: 'cover' },
-      onSelect: () => bridge.handleSelectPlayer?.({
-        id: x.id, fullName: x.fullName, primaryPosition: { abbreviation: x.position }, currentTeam: { id: x.teamId },
-      }),
-    })
-    const rest = bridge.toolbarSuggestions.filter(x => !recentIds.has(x.id))
-    const groups: PaletteIdleGroup[] = []
-    if (recents.length) {
-      groups.push({
-        label: 'Recent', kind: 'recent', onClear: bridge.clearRecentSearches ?? undefined,
-        rows: recents.map(r => ({
-          key: `r-${r.type}-${r.id}`, title: r.name,
-          subtitle: r.type === 'player' ? [r.position, r.teamId ? TEAM_ABBR[r.teamId] : null].filter(Boolean).join(' · ') : 'Team',
-          avatar: r.type === 'player' ? { imageUrl: HEADSHOT(r.id), bg: 'grey.200', fit: 'cover' as const } : mlbTeamAvatar(r.id),
-          onSelect: () => bridge.handleSelectRecent?.(r),
-        })),
-      })
-    }
-    const team = rest.filter(x => x.isTeamPlayer)
-    const trending = rest.filter(x => !x.isTeamPlayer)
-    if (team.length) groups.push({ label: 'Your team', kind: 'suggestion', rows: team.map(suggestion) })
-    if (trending.length) groups.push({ label: 'Trending', kind: 'suggestion', rows: trending.map(suggestion) })
-    return groups
+    const recents = bridge.recentSearches.slice(0, PALETTE_RECENTS)
+    if (!recents.length) return []
+    return [{
+      label: 'Recent', kind: 'recent', onClear: bridge.clearRecentSearches ?? undefined,
+      rows: recents.map(r => ({
+        key: `r-${r.type}-${r.id}`, title: r.name,
+        subtitle: r.type === 'player' ? [r.position, r.teamId ? TEAM_ABBR[r.teamId] : null].filter(Boolean).join(' · ') : 'Team',
+        avatar: r.type === 'player' ? { imageUrl: HEADSHOT(r.id), bg: 'grey.200', fit: 'cover' as const } : mlbTeamAvatar(r.id),
+        onSelect: () => bridge.handleSelectRecent?.(r),
+      })),
+    }]
   }, [paletteOpen, bridge])
 
   // Show the post sign-in/out toast stashed by AuthContext (or the delete-account
@@ -1586,7 +1573,8 @@ function AppInner() {
       {paletteMounted && (
         <Suspense fallback={null}>
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
-            results={paletteResults} idle={paletteIdle} searching={bridge.searching} />
+            results={paletteResults} idle={paletteIdle} searching={bridge.searching}
+            resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames} />
         </Suspense>
       )}
 

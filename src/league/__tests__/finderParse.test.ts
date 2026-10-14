@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseFinderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -195,5 +195,176 @@ describe('mightBeFinderQuestion', () => {
     expect(mightBeFinderQuestion('Kelsie Whitmore')).toBe(false)
     expect(mightBeFinderQuestion('3+ hits')).toBe(true)
     expect(mightBeFinderQuestion('multi-hit games')).toBe(true)
+  })
+})
+
+describe('a year in a question', () => {
+  it('reads a year as the season to ask about, never as a count', () => {
+    const r = first('3 hr games 2025')
+    expect(r.season).toBe(2025)
+    expect(r.conditions).toEqual([{ field: 'hr', op: 'gte', value: 3 }])
+    expect(first('5 strikeouts in 2024').season).toBe(2024)
+    expect(first('5 strikeouts').season).toBeNull()
+  })
+
+  it('keeps a season count of pitches a count', () => {
+    const r = parseFinderText('2500 pitches', CLUBS)
+    expect(r[0].season).toBeNull()
+    expect(r[0].conditions).toEqual([{ field: 'pitches', op: 'gte', value: 2500 }])
+  })
+})
+
+describe('parseLeaderText', () => {
+  it('reads "most hr 2026" as the home run board for that year', () => {
+    const r = parseLeaderText('most hr 2026')
+    expect(r[0]).toEqual({ side: 'hitting', field: 'hr', dir: 'desc', season: 2026 })
+    // Home runs allowed is the second reading, not a lost one.
+    expect(r.map(x => x.side)).toEqual(['hitting', 'pitching'])
+  })
+
+  it("takes leaders and top as the board's own order, and top 10 as no count", () => {
+    expect(parseLeaderText('era leaders')).toEqual([{ side: 'pitching', field: 'era', dir: null, season: null }])
+    expect(parseLeaderText('top 10 ops')).toEqual([{ side: 'hitting', field: 'ops', dir: null, season: null }])
+  })
+
+  it("reads most and fewest as the numbers' order, whichever end is good", () => {
+    expect(parseLeaderText('lowest era')[0].dir).toBe('asc')
+    expect(parseLeaderText('most walks allowed')[0]).toMatchObject({ side: 'pitching', field: 'bb', dir: 'desc' })
+    expect(parseLeaderText('worst era')[0].dir).toBe('desc')
+  })
+
+  it('offers both sides of a shared stat, the lean first, unless a hint settles it', () => {
+    expect(parseLeaderText('most strikeouts').map(r => r.side)).toEqual(['pitching', 'hitting'])
+    expect(parseLeaderText('most strikeouts by a batter').map(r => r.side)).toEqual(['hitting'])
+  })
+
+  it('leaves counts, names and a lone letter to the other searches', () => {
+    expect(parseLeaderText('most 3 hr games')).toEqual([])
+    expect(parseLeaderText('whitmore hr')).toEqual([])
+    expect(parseLeaderText('k')).toEqual([])
+    expect(parseLeaderText('kelsie whitmore')).toEqual([])
+  })
+})
+
+describe('nameWords', () => {
+  it('pulls the name out of a stat or a year', () => {
+    expect(nameWords('Whitmore hr')).toBe('whitmore')
+    expect(nameWords('ohtani 2023')).toBe('ohtani')
+    expect(nameWords('most home runs')).toBeNull()
+  })
+
+  it('leaves a plain name, and initials, as typed', () => {
+    expect(nameWords('Kelsie Whitmore')).toBeNull()
+    expect(nameWords('R.J. Smith')).toBeNull()
+  })
+})
+
+describe('parseCompareText', () => {
+  it('reads two names, any of the usual joins, and a year', () => {
+    expect(parseCompareText('Whitmore vs Ibarra')).toEqual({ a: 'whitmore', b: 'ibarra', season: null })
+    expect(parseCompareText('judge or ohtani 2024')).toEqual({ a: 'judge', b: 'ohtani', season: 2024 })
+    expect(parseCompareText('compare Kelsie Whitmore and Diana Ibarra')).toEqual({ a: 'kelsie whitmore', b: 'diana ibarra', season: null })
+  })
+
+  it('leaves a line question against a club, and a plain "and", to the other searches', () => {
+    expect(parseCompareText('3 hits vs SF')).toBeNull()
+    expect(parseCompareText('home runs vs Boston')).toBeNull()
+    expect(parseCompareText('whitmore and ibarra')).toBeNull()
+    expect(parseCompareText('kelsie whitmore')).toBeNull()
+  })
+})
+
+describe('typedSeason', () => {
+  it('reads the year typed beside a name, and nothing else', () => {
+    expect(typedSeason('Ohtani 2023')).toBe(2023)
+    expect(typedSeason('Ohtani')).toBeNull()
+    expect(typedSeason('2500 pitches')).toBeNull()
+  })
+})
+
+describe('a slip in a stat word', () => {
+  it('puts the stat right and reads the question', () => {
+    expect(first('5 strikeuots no walks').conditions).toEqual([
+      { field: 'so', op: 'gte', value: 5 },
+      { field: 'bb', op: 'eq', value: 0 },
+    ])
+    expect(first('2 homres').conditions).toEqual([{ field: 'hr', op: 'gte', value: 2 }])
+    expect(parseLeaderText('most doubels')[0]).toMatchObject({ side: 'hitting', field: '2b' })
+  })
+
+  it('leaves club names, short words and names alone', () => {
+    const clubs: FinderClubAlias[] = [{ id: 'MIN', names: ['Twins', 'Minnesota'] }, { id: 'ATL', names: ['Braves', 'Atlanta'] }]
+    expect(parseFinderText('5 hr vs twins', clubs)[0].oppId).toBe('MIN')
+    expect(parseFinderText('3 hits vs braves', clubs)[0].oppId).toBe('ATL')
+    expect(parseLeaderText('twins')).toEqual([])
+    expect(nameWords('whitmore homres')).toBe('whitmore')
+    expect(nameWords('Kelsie Whitmore')).toBeNull()
+  })
+})
+
+describe('parseClubPage', () => {
+  it('reads a club and a part of its page, in either order', () => {
+    expect(parseClubPage('SF schedule', CLUBS)).toEqual([{ clubId: 'SF', part: 'schedule' }])
+    expect(parseClubPage('roster for the Hunters', CLUBS)).toEqual([{ clubId: 'BOS', part: 'roster' }])
+    expect(parseClubPage("Boston's standings", CLUBS)).toEqual([{ clubId: 'BOS', part: 'standings' }])
+  })
+
+  it('offers each club a shared city could mean', () => {
+    expect(parseClubPage('Chicago roster', CLUBS).map(r => r.clubId)).toEqual(['CHC', 'CWS'])
+  })
+
+  it('leaves a club alone, a stat question and a stray word to the other searches', () => {
+    expect(parseClubPage('SF', CLUBS)).toEqual([])
+    expect(parseClubPage('3 hits vs SF', CLUBS)).toEqual([])
+    expect(parseClubPage('Whitmore SF stats', CLUBS)).toEqual([])
+  })
+})
+
+describe('parseGameQuery', () => {
+  const NOW = new Date(2026, 9, 14) // Oct 14, 2026
+  const q = (t: string) => parseGameQuery(t, CLUBS, NOW)
+
+  it('reads two clubs and a day, written any of the usual ways', () => {
+    expect(q('SF vs NY sep 9')).toEqual({ clubs: [['SF'], ['NY']], when: { date: '2026-09-09' } })
+    expect(q('NY at SF 9/9/2025')).toEqual({ clubs: [['NY'], ['SF']], when: { date: '2025-09-09' } })
+    expect(q('Boston 2026-08-30')).toEqual({ clubs: [['BOS']], when: { date: '2026-08-30' } })
+    expect(q('Hunters sep 9 2025')?.when).toEqual({ date: '2025-09-09' })
+  })
+
+  it('takes a day with no year as the latest one, never one still to come', () => {
+    expect(q('SF dec 25')?.when).toEqual({ date: '2025-12-25' })
+  })
+
+  it('reads yesterday, last and next', () => {
+    expect(q('Boston last night')?.when).toEqual({ date: '2026-10-13' })
+    expect(q('Hunters next game')?.when).toBe('next')
+    expect(q('the Heights latest')?.when).toBe('last')
+  })
+
+  it('reads two clubs alone as their meetings, and a shared city as both its clubs', () => {
+    expect(q('Firebells Hunters')).toEqual({ clubs: [['SF'], ['BOS']], when: null })
+    expect(q('Chicago tomorrow')?.clubs).toEqual([['CHC', 'CWS']])
+  })
+
+  it('leaves a club alone, a stat question and a stray word to the other searches', () => {
+    expect(q('SF')).toBeNull()
+    expect(q('3 hits vs SF')).toBeNull()
+    expect(q('Whitmore SF last night')).toBeNull()
+  })
+})
+
+describe('pickGames', () => {
+  const G = [
+    { d: '2026-09-07', played: true }, { d: '2026-09-09', played: true },
+    { d: '2026-09-09', played: true }, { d: '2026-09-20', played: false },
+  ]
+  const pick = (when: Parameters<typeof pickGames>[1]) =>
+    pickGames(G, when, '2026-09-10', g => g.d, g => g.played).map(g => g.d)
+
+  it('gives every game on a day, the latest played, the next, or one of each', () => {
+    expect(pick({ date: '2026-09-09' })).toEqual(['2026-09-09', '2026-09-09'])
+    expect(pick('last')).toEqual(['2026-09-09'])
+    expect(pick('next')).toEqual(['2026-09-20'])
+    expect(pick(null)).toEqual(['2026-09-09', '2026-09-20'])
   })
 })

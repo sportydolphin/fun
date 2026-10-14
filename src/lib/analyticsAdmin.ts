@@ -74,11 +74,14 @@ export interface PaletteSection {
 export interface PaletteVia    { section: string; via: string; events: number; browsers: number }
 export interface PalettePick   { section: string; kind: string; events: number; browsers: number; avg_rank: number | null; top: number; typed: number }
 export interface PaletteFinder { section: string; side: string; events: number; browsers: number; clubs: number; ignored: number }
+/** Text the box offered nothing for. Absent until 20261014183000_add_palette_missed_queries.sql runs. */
+export interface PaletteMiss   { section: string; q: string; events: number; browsers: number }
 export interface PaletteStats {
   sections: PaletteSection[]
   via: PaletteVia[]
   picks: PalettePick[]
   finder: PaletteFinder[]
+  missed?: PaletteMiss[]
   wpbl_questions: { events: number; browsers: number }
 }
 
@@ -454,7 +457,7 @@ export const EMPTY_SEARCH: SearchStats = {
 }
 
 export const EMPTY_PALETTE: PaletteStats = {
-  sections: [], via: [], picks: [], finder: [], wpbl_questions: { events: 0, browsers: 0 },
+  sections: [], via: [], picks: [], finder: [], missed: [], wpbl_questions: { events: 0, browsers: 0 },
 }
 
 export const EMPTY_GROWTH: Growth = {

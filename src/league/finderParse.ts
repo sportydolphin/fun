@@ -1,5 +1,6 @@
 import { finderFields, finderLowerBetter, parseFinderValue } from './finder'
 import type { FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
+import { editDistance } from '../lib/fuzzyName'
 
 /**
  * A finder question typed as words: "5 strikeouts no walks", "3+ hits vs SF", "4-for-4 at home".
@@ -51,6 +52,8 @@ export interface ParsedFinder {
    *  player by name, so "Whitmore 2 hr" is a question about everyone's two-homer games, and the
    *  suggestion has to say it dropped the name rather than answer a different question quietly. */
   ignored: string[]
+  /** A year typed with the question ("3 hr games 2025"), or null for the board's own season. */
+  season: number | null
 }
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
@@ -234,6 +237,33 @@ function normalize(text: string): string {
     .trim()
 }
 
+// A SLIP IN A STAT WORD ("5 strikeuots", "2 homres") made the whole question unreadable: the stat
+// was not found, so the number had nothing beside it and nothing was suggested. Each word is put
+// right when it is one slip from exactly one word the questions are made of. Only words of six
+// letters or more, because shorter ones collide with real names and clubs ("twins" is one letter
+// from "wins"), and never a word that is itself a club's, which the caller passes in. The corrected
+// question is what the row then states in words, so a wrong guess shows before anyone acts on it.
+const STAT_VOCAB: string[] = (() => {
+  const words = new Set<string>()
+  for (const p of [...Object.keys(STAT_ALIASES), ...PITCHING_HINTS, ...HITTING_HINTS]) {
+    for (const w of p.split(' ')) if (w.length >= 4) words.add(w)
+  }
+  return [...words]
+})()
+
+function fixStatTypos(text: string, keep: ReadonlySet<string> = new Set()): string {
+  return text.replace(/[a-z]{6,}/g, w => {
+    if (keep.has(w) || STAT_VOCAB.includes(w) || FILLER.has(w)) return w
+    const max = w.length >= 9 ? 2 : 1
+    let best: string | null = null, bestD = max + 1, tie = false
+    for (const v of STAT_VOCAB) {
+      const d = editDistance(w, v, max)
+      if (d < bestD) { best = v; bestD = d; tie = false } else if (d === bestD) tie = true
+    }
+    return best && bestD <= max && !tie ? best : w
+  })
+}
+
 const RATE_FIELDS = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip'])
 
 /** The number a match carried, in the field's own unit once the side is known: innings in outs
@@ -249,6 +279,28 @@ function valueFor(side: FinderSide, field: string, raw: string, shift: number): 
   return Math.max(0, parseFinderValue(side, field, text) + shift)
 }
 
+// A YEAR IS A SEASON TO ASK ABOUT, never a count: "most hr 2026" read as "at least 2026 home runs"
+// answers nothing. The one exception is a figure only pitches and strikes reach in a season, so
+// "2500 pitches" stays a count. Any year baseball has been played in, so a typo of a number is not
+// taken for one.
+const YEAR = /(?<![a-z0-9.])(?:(?:in|during|for)\s+)?(18[7-9]\d|19\d\d|20\d\d)(?![a-z0-9.])/g
+const COUNT_OF_PITCHES = new RegExp(`^\\s*(?:\\+|or more|plus)?\\s*(${alt(STAT_PHRASES.filter(p => {
+  const f = STAT_ALIASES[p].pitching
+  return f === 'pitches' || f === 'strikes'
+}))})${B_END}`)
+
+/** `rest` with any year blanked out (same length, so offsets still line up), and the year. The
+ *  last one wins, as with a stat named twice. */
+function takeYear(rest: string): { rest: string; season: number | null } {
+  let season: number | null = null
+  const out = rest.replace(YEAR, (m: string, y: string, at: number) => {
+    if (COUNT_OF_PITCHES.test(rest.slice(at + m.length))) return m
+    season = Number(y)
+    return ' '.repeat(m.length)
+  })
+  return { rest: out, season }
+}
+
 /**
  * Every reading of `text` as a finder question, best first, or an empty list when it is not one.
  *
@@ -257,8 +309,12 @@ function valueFor(side: FinderSide, field: string, raw: string, shift: number): 
  * last, which is what a reader who corrected themselves meant.
  */
 export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] = []): ParsedFinder[] {
-  let rest = ` ${normalize(text)} `
+  const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
+  let rest = ` ${fixStatTypos(normalize(text), clubWords)} `
   if (!rest.trim()) return []
+  const year = takeYear(rest)
+  rest = year.rest
+  const season = year.season
 
   // `at` is where in the text it was written, so the conditions keep the reader's order: the first
   // one is the board's headline. Every match is blanked to spaces of its own length, which is what
@@ -410,7 +466,7 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
         for (const oppId of oppIds) {
           // A club cannot play itself, which is what "Chicago vs Chicago" would otherwise offer.
           if (teamId && teamId === oppId) continue
-          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored }, score: score + bonus })
+          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season }, score: score + bonus })
         }
       }
     }
@@ -429,3 +485,288 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     .slice(0, 4)
     .map(r => r.parsed)
 }
+
+// ─── Leader questions ─────────────────────────────────────────────────────────
+
+/**
+ * "most hr 2026", "era leaders", "fewest walks allowed", "top 10 ops": a stat to RANK, which the
+ * Find board cannot answer (it filters lines; it has no "the most"). The answer is the section's
+ * stats table sorted on that column, so like a finder question the result is only an address.
+ *
+ * A count anywhere makes it the finder's question instead ("most 3 hr games" is not a ranking), and
+ * so does any word this cannot place: "whitmore hr" is a player, which the name search answers.
+ */
+export interface ParsedLeader {
+  side: FinderSide
+  field: string
+  /** The order asked for, or null for the board's own (best first). Literal, not "reversed":
+   *  "most walks allowed" is descending whichever end of that column is the good one. */
+  dir: 'asc' | 'desc' | null
+  season: number | null
+}
+
+// "top" and "best" mean the board's own order; "most" and "fewest" mean the numbers' order, which
+// differs on a stat whose good end is the low one (ERA, walks allowed).
+const LEAD_WORDS: { re: RegExp; want: 'best' | 'worst' | 'more' | 'less' }[] = [
+  { re: /(?<![a-z])(most|highest|high|greatest)(?![a-z])/g, want: 'more' },
+  { re: /(?<![a-z])(fewest|least|lowest|low)(?![a-z])/g, want: 'less' },
+  { re: /(?<![a-z])(top|best|leaders?|leading|leads?|led|tops)(?![a-z])/g, want: 'best' },
+  { re: /(?<![a-z])(worst|bottom)(?![a-z])/g, want: 'worst' },
+]
+// "top 10": how many is the board's business, not a count to search for.
+const TOP_N = /(?<![a-z0-9])(top|bottom)\s+(?:\d+|five|ten|twenty)(?![a-z0-9])/g
+// Words a ranking is asked in that say nothing more.
+const LEADER_FILLER = new Set(['league', 'leaderboard', 'leaderboards', 'board', 'rank', 'ranked', 'ranking', 'rankings', 'stat', 'stats', 'mlb', 'wpbl'])
+const STAT_ANY = new RegExp(`${B_START}${STAT}${B_END}`, 'g')
+
+export function parseLeaderText(text: string): ParsedLeader[] {
+  let rest = ` ${fixStatTypos(normalize(text))} `
+  if (!rest.trim()) return []
+  const year = takeYear(rest)
+  rest = year.rest
+  const season = year.season
+  rest = rest.replace(TOP_N, (_m: string, w: string) => ` ${w} `)
+  let want: 'best' | 'worst' | 'more' | 'less' | null = null
+  for (const w of LEAD_WORDS) rest = rest.replace(w.re, () => { want ??= w.want; return ' ' })
+  if (/\d/.test(rest)) return []
+
+  const phrases = new Set<string>()
+  rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
+  const aliases = [...new Set([...phrases].map(p => STAT_ALIASES[p]))]
+  if (aliases.length !== 1) return []
+  const alias = aliases[0]
+  // A stat alone is a ranking only when it cannot be the start of a name: "h" or "k" typed on the
+  // way to a player's name must not jump to a board.
+  if (!want && season == null && [...phrases].every(p => p.length < 2)) return []
+
+  rest = rest.replace(SEASON_WORDS, ' ')
+  const words = rest.split(/[^a-z0-9]+/).filter(Boolean)
+  const hintP = PITCHING_HINTS.some(w => words.includes(w))
+  const hintH = HITTING_HINTS.some(w => words.includes(w))
+  const extra = words.filter(w => !FILLER.has(w) && !LEADER_FILLER.has(w) && !PITCHING_HINTS.includes(w) && !HITTING_HINTS.includes(w))
+  if (extra.length) return []
+
+  const sides: FinderSide[] = hintP !== hintH
+    ? [hintP ? 'pitching' : 'hitting']
+    : alias.lean === 'pitching' ? ['pitching', 'hitting'] : ['hitting', 'pitching']
+  return sides.filter(side => alias[side]).map(side => {
+    const field = alias[side]!
+    const lowerBetter = finderLowerBetter(side, field)
+    const dir = want === 'more' ? 'desc'
+      : want === 'less' ? 'asc'
+      : want === 'worst' ? (lowerBetter ? 'desc' : 'asc')
+      : null
+    return { side, field, dir, season }
+  })
+}
+
+/**
+ * The name in a question about a player: "whitmore hr" is Whitmore, "ohtani 2023" is Ohtani. Null
+ * when the text names no stat or year, so a plain name search goes out exactly as typed. Only a
+ * stat of two letters or more counts, since "R.J." and "K." are initials before they are stats.
+ */
+export function nameWords(text: string): string | null {
+  let rest = ` ${fixStatTypos(normalize(text))} `
+  const year = takeYear(rest)
+  rest = year.rest
+  const season = year.season
+  let found = season != null
+  rest = rest.replace(STAT_ANY, (m: string, p: string) => {
+    if (p.length < 2) return m
+    found = true
+    return ' '
+  })
+  if (!found) return null
+  for (const w of LEAD_WORDS) rest = rest.replace(w.re, ' ')
+  rest = rest.replace(SEASON_WORDS, ' ')
+  const words = rest.split(/\s+/).filter(w => w && !/^[\d.+]+$/.test(w) && !FILLER.has(w) && !LEADER_FILLER.has(w))
+  return words.length ? words.join(' ') : null
+}
+
+// ─── Two players ──────────────────────────────────────────────────────────────
+
+// "whitmore vs ibarra", "judge or ohtani", "compare judge and ohtani 2024". "and" and "with" only
+// after "compare", since plenty of questions have an "and" in them that joins no players.
+const COMPARE_JOIN = /\s(?:vs\.?|versus|v\.?|or|compared (?:to|with)|against)\s/
+const COMPARE_JOIN_AFTER_VERB = /\s(?:and|with|to)\s/
+const STAT_ONE = new RegExp(`${B_START}${STAT}${B_END}`, 'g')
+
+/**
+ * Two names to put side by side, and a year if one was typed, or null. Only names: a count or a
+ * stat on either side makes it a line question against a club ("3 hits vs SF"), which is the
+ * finder's. Whether each half is really a player is the section's to say, against its own roster.
+ */
+export function parseCompareText(text: string): { a: string; b: string; season: number | null } | null {
+  const year = takeYear(` ${normalize(text)} `)
+  let rest = year.rest
+  const verb = /^\s*compare\s/.test(rest)
+  if (verb) rest = rest.replace(/^\s*compare\s/, ' ')
+  let parts = rest.split(COMPARE_JOIN)
+  if (parts.length !== 2 && verb) parts = rest.split(COMPARE_JOIN_AFTER_VERB)
+  if (parts.length !== 2) return null
+  const [a, b] = parts.map(p => p.trim().replace(/\s+/g, ' '))
+  if (a.length < 2 || b.length < 2 || /\d/.test(`${a} ${b}`)) return null
+  // Initials ("r.j.") are not stats, as in nameWords.
+  const hasStat = (t: string) => [...` ${t} `.matchAll(STAT_ONE)].some(m => m[1].length >= 2)
+  if (hasStat(a) || hasStat(b)) return null
+  return { a, b, season: year.season }
+}
+
+/** The year typed anywhere in `text` ("ohtani 2023"), read as `parseFinderText` reads one. */
+export function typedSeason(text: string): number | null {
+  return takeYear(` ${normalize(text)} `).season
+}
+
+// ─── A club and one of its pages ──────────────────────────────────────────────
+
+/** The parts of a club's page a reader asks for by name. Standings has no part of its own on a
+ *  WPBL club's page, so that section sends it to the Standings tab instead. */
+export type ClubPagePart = 'roster' | 'schedule' | 'stats' | 'leaders' | 'standings'
+
+const CLUB_PAGE_WORDS: { re: RegExp; part: ClubPagePart }[] = [
+  { re: /(?<![a-z])(roster|players|lineup|depth chart|squad)(?![a-z])/, part: 'roster' },
+  { re: /(?<![a-z])(schedule|results|scores|games|fixtures|calendar)(?![a-z])/, part: 'schedule' },
+  { re: /(?<![a-z])(team stats|stats|statistics|numbers)(?![a-z])/, part: 'stats' },
+  { re: /(?<![a-z])(leaders|top players|best players)(?![a-z])/, part: 'leaders' },
+  { re: /(?<![a-z])(standings|standing|division|record|place)(?![a-z])/, part: 'standings' },
+]
+
+/**
+ * "SF schedule", "Dodgers roster", "the Cubs standings": one club and one part of its page, or null.
+ * A club name alone is the ordinary name search's, and any other word makes it a question for one
+ * of the other readers ("3 hits vs SF" is the finder's), so nothing else may be left over. A name
+ * two clubs share ("Chicago") yields one reading per club, as in the finder.
+ */
+export function parseClubPage(text: string, clubs: readonly FinderClubAlias[]): { clubId: string; part: ClubPagePart }[] {
+  let rest = ` ${normalize(text)} `
+  let part: ClubPagePart | null = null
+  for (const w of CLUB_PAGE_WORDS) {
+    if (part) break
+    rest = rest.replace(w.re, () => { part = w.part; return ' ' })
+  }
+  if (!part) return []
+  const byName = new Map<string, string[]>()
+  for (const c of clubs) {
+    for (const raw of c.names) {
+      const name = normalize(raw)
+      if (name) byName.set(name, [...new Set([...(byName.get(name) ?? []), c.id])])
+    }
+  }
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
+  if (!names.length) return []
+  let ids: string[] = []
+  rest = rest.replace(new RegExp(`(?<![a-z0-9])(?:the\\s+)?(${alt(names)})(?![a-z0-9])`),(_m: string, name: string) => {
+    ids = byName.get(name)!
+    return ' '
+  })
+  if (!ids.length) return []
+  const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['team', 'club', 'page', 's'].includes(w))
+  if (left.length) return []
+  return ids.map(clubId => ({ clubId, part: part! }))
+}
+
+// ─── A game, or two clubs' meetings ───────────────────────────────────────────
+
+/** When a game was asked for: a day, the latest one played, or the next one. */
+export type GameWhen = { date: string } | 'last' | 'next'
+
+export interface GameQuery {
+  /** Each club named, as every club the name could mean ("Chicago" is two). One or two of them. */
+  clubs: string[][]
+  /** Null when no day was said: two clubs alone ask for their meetings, latest and next. */
+  when: GameWhen | null
+}
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const MONTH_RE = /(?<![a-z])(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?![a-z0-9])/
+const SLASH_DATE = /(?<![\d/])(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?![\d/])/
+const ISO_DATE = /(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/
+const GAME_ASK_WORDS = /(?<![a-z])(box score|boxscore|game|score|final|recap|matchup|series|head to head|h2h)(?![a-z])/g
+
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** A month and day with no year is the most recent one: "sep 9" typed in October is last month,
+ *  typed in June it is last September, since nobody searches for a game months ahead by date. */
+function dayFor(month: number, day: number, year: number | null, now: Date): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+  let y = year ?? now.getFullYear()
+  if (year == null && isoDay(new Date(y, month - 1, day)) > isoDay(now)) y -= 1
+  const d = new Date(y, month - 1, day)
+  return d.getMonth() === month - 1 ? isoDay(d) : null
+}
+
+/** Each mention of a club in `rest`, blanked out, as every club the name could mean. */
+function clubMentions(rest: string, clubs: readonly FinderClubAlias[]): { rest: string; mentions: string[][] } {
+  const byName = new Map<string, string[]>()
+  for (const c of clubs) {
+    for (const raw of c.names) {
+      const name = normalize(raw)
+      if (name) byName.set(name, [...new Set([...(byName.get(name) ?? []), c.id])])
+    }
+  }
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
+  const mentions: string[][] = []
+  if (!names.length) return { rest, mentions }
+  const out = rest.replace(new RegExp(`(?<![a-z0-9])(?:the\\s+)?(${alt(names)})(?![a-z0-9])`, 'g'),(_m: string, name: string) => {
+    mentions.push(byName.get(name)!)
+    return ' '
+  })
+  return { rest: out, mentions }
+}
+
+/**
+ * "SF vs NY sep 9", "Dodgers last night", "Cubs next game", "Firebells Hunters": a game to open, or
+ * two clubs' meetings, or null. One club needs a day or a word like "game" ("Dodgers" alone is the
+ * club); two clubs need nothing more. Any word it cannot place makes it some other question. `now`
+ * is a parameter so "yesterday" can be tested.
+ */
+export function parseGameQuery(text: string, clubs: readonly FinderClubAlias[], now: Date = new Date()): GameQuery | null {
+  let rest = ` ${normalize(text)} `
+  let when: GameWhen | null = null
+  const setDay = (d: string | null) => { if (d) when = { date: d } }
+
+  rest = rest.replace(ISO_DATE, (_m: string, y: string, mo: string, d: string) => { setDay(dayFor(+mo, +d, +y, now)); return ' ' })
+  rest = rest.replace(SLASH_DATE, (_m: string, mo: string, d: string, y?: string) => {
+    setDay(dayFor(+mo, +d, y ? (y.length === 2 ? 2000 + +y : +y) : null, now)); return ' '
+  })
+  // A year on its own, or beside a month name ("sep 9 2025"), taken after the numeric dates, which
+  // carry their own, and before the month, so it can apply to it.
+  const year = takeYear(rest)
+  rest = year.rest.replace(MONTH_RE, (_m: string, mo: string, d: string) => {
+    setDay(dayFor(MONTHS.indexOf(mo.slice(0, 3)) + 1, +d, year.season, now)); return ' '
+  })
+  const shift = (days: number) => { const d = new Date(now); d.setDate(d.getDate() + days); return isoDay(d) }
+  rest = rest.replace(/(?<![a-z])(today|tonight|tonights)(?![a-z])/, () => { setDay(shift(0)); return ' ' })
+  rest = rest.replace(/(?<![a-z])(yesterday|last night)(?![a-z])/, () => { setDay(shift(-1)); return ' ' })
+  rest = rest.replace(/(?<![a-z])tomorrow(?![a-z])/, () => { setDay(shift(1)); return ' ' })
+  rest = rest.replace(/(?<![a-z])(last|latest|most recent|previous)(?![a-z])/, () => { when ??= 'last'; return ' ' })
+  rest = rest.replace(/(?<![a-z])(next|upcoming)(?![a-z])/, () => { when ??= 'next'; return ' ' })
+  let gameWord = false
+  rest = rest.replace(GAME_ASK_WORDS, () => { gameWord = true; return ' ' })
+
+  const found = clubMentions(rest, clubs)
+  const mentions = found.mentions
+  if (!mentions.length || mentions.length > 2) return null
+  if (mentions.length === 1 && !when && !gameWord) return null
+  const left = found.rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['@', 'and', 'v', 's'].includes(w))
+  if (left.length) return null
+  return { clubs: mentions, when }
+}
+
+/** The games a `GameWhen` asks for, out of one pairing's or one club's games: every game on a day
+ *  (a doubleheader is two), the latest played, the next to come, or with no day said, one of each.
+ *  Played means started, so a game under way answers "last" as well as "today". */
+export function pickGames<G>(games: readonly G[], when: GameWhen | null, today: string,
+  dateOf: (g: G) => string, played: (g: G) => boolean): G[] {
+  const sorted = [...games].sort((a, b) => dateOf(a).localeCompare(dateOf(b)))
+  if (when && typeof when === 'object') return sorted.filter(g => dateOf(g) === when.date)
+  const last = [...sorted].reverse().find(g => played(g) && dateOf(g) <= today)
+  const next = sorted.find(g => !played(g) && dateOf(g) >= today)
+  if (when === 'last') return last ? [last] : []
+  if (when === 'next') return next ? [next] : []
+  return [last, next].filter((g): g is G => g != null)
+}
+
+/** Today in the reader's own zone, as the schedules spell a day. */
+export const todayIso = (now: Date = new Date()): string => isoDay(now)

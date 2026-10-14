@@ -4,6 +4,32 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.158.0',
+    date:    '2026-10-14',
+    changes: [
+      {
+        short: 'Search: ask for the leaders',
+        full:  "Type a ranking, like \"most home runs\", \"ERA leaders\" or \"fewest walks allowed 2025\", and search links straight to the stats table sorted on that stat, for that year if you give one.",
+      },
+      {
+        short: 'Search: find a game',
+        full:  "Type one or two clubs and a day, like \"SF vs NY sep 9\", \"Dodgers last night\" or \"Cubs next game\", to open that game. Two WPBL clubs on their own also link the page for their season series.",
+      },
+      {
+        short: 'Search: compare two players, or jump to a club page',
+        full:  "\"Whitmore vs Ibarra\" opens the two players side by side, and \"Ohtani 2023\" opens a player on that season. \"Dodgers roster\" or \"SF schedule\" opens the club's page at that part of it.",
+      },
+      {
+        short: 'Search: forgives typos',
+        full:  "A misspelled player, club or stat still finds what you meant (\"Whitmor\", \"Ohatni\", \"5 strikeuots\"), and MLB clubs answer to their nicknames, like Cards, Jays and Nats.",
+      },
+      {
+        short: 'Search: fewer recents, more room',
+        full:  "Before you type, search shows your three most recent picks and the example questions, without the long lists of players that pushed the examples out of view.",
+      },
+    ],
+  },
+  {
     version: '1.157.0',
     date:    '2026-10-11',
     changes: [
