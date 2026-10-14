@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows } from '@mui/icons-material'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { finderSuggestions, leaderSuggestions } from './finderSearch'
+import { clubPageSuggestions, finderSuggestions, leaderSuggestions } from './finderSearch'
+import { requestSectionScroll } from './lib/sectionScroll'
 import { nameWords, parseCompareText, typedSeason } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
@@ -39,7 +40,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'club_page' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -218,6 +219,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       subtitle: `Compare · ${compare.row.subtitle}`, href: compare.row.href,
       icon: <CompareArrows sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }] : []
+    const clubPages: Item[] = clubPageSuggestions(section, text).map(s => ({
+      key: s.key, kind: 'club_page', title: s.title, subtitle: 'Club page', href: s.href,
+      icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />,
+      onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
+    }))
     const leaders: Item[] = leaderSuggestions(section, text).map(s => ({
       key: s.key, kind: 'leader', title: s.title, subtitle: `Leaders · ${s.subtitle}`, href: s.href,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
@@ -244,6 +250,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .map((x, i) => pageItem(x.p, i))
 
     return [
+      { label: 'Clubs', items: clubPages },
       { label: 'Compare', items: compared },
       { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },

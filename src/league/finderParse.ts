@@ -616,3 +616,51 @@ export function parseCompareText(text: string): { a: string; b: string; season: 
 export function typedSeason(text: string): number | null {
   return takeYear(` ${normalize(text)} `).season
 }
+
+// ─── A club and one of its pages ──────────────────────────────────────────────
+
+/** The parts of a club's page a reader asks for by name. Standings has no part of its own on a
+ *  WPBL club's page, so that section sends it to the Standings tab instead. */
+export type ClubPagePart = 'roster' | 'schedule' | 'stats' | 'leaders' | 'standings'
+
+const CLUB_PAGE_WORDS: { re: RegExp; part: ClubPagePart }[] = [
+  { re: /(?<![a-z])(roster|players|lineup|depth chart|squad)(?![a-z])/, part: 'roster' },
+  { re: /(?<![a-z])(schedule|results|scores|games|fixtures|calendar)(?![a-z])/, part: 'schedule' },
+  { re: /(?<![a-z])(team stats|stats|statistics|numbers)(?![a-z])/, part: 'stats' },
+  { re: /(?<![a-z])(leaders|top players|best players)(?![a-z])/, part: 'leaders' },
+  { re: /(?<![a-z])(standings|standing|division|record|place)(?![a-z])/, part: 'standings' },
+]
+
+/**
+ * "SF schedule", "Dodgers roster", "the Cubs standings": one club and one part of its page, or null.
+ * A club name alone is the ordinary name search's, and any other word makes it a question for one
+ * of the other readers ("3 hits vs SF" is the finder's), so nothing else may be left over. A name
+ * two clubs share ("Chicago") yields one reading per club, as in the finder.
+ */
+export function parseClubPage(text: string, clubs: readonly FinderClubAlias[]): { clubId: string; part: ClubPagePart }[] {
+  let rest = ` ${normalize(text)} `
+  let part: ClubPagePart | null = null
+  for (const w of CLUB_PAGE_WORDS) {
+    if (part) break
+    rest = rest.replace(w.re, () => { part = w.part; return ' ' })
+  }
+  if (!part) return []
+  const byName = new Map<string, string[]>()
+  for (const c of clubs) {
+    for (const raw of c.names) {
+      const name = normalize(raw)
+      if (name) byName.set(name, [...new Set([...(byName.get(name) ?? []), c.id])])
+    }
+  }
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
+  if (!names.length) return []
+  let ids: string[] = []
+  rest = rest.replace(new RegExp(`(?<![a-z0-9])(?:the\\s+)?(${alt(names)})(?![a-z0-9])`),(_m: string, name: string) => {
+    ids = byName.get(name)!
+    return ' '
+  })
+  if (!ids.length) return []
+  const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['team', 'club', 'page', 's'].includes(w))
+  if (left.length) return []
+  return ids.map(clubId => ({ clubId, part: part! }))
+}

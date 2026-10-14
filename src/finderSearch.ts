@@ -11,11 +11,13 @@
 // tab on a modified click like any other.
 
 import { describeFinderQuery, finderFields, finderLowerBetter, type FinderSide } from './league/finder'
-import { parseFinderText, parseLeaderText, type ParsedFinder, type ParsedLeader } from './league/finderParse'
+import { parseClubPage, parseFinderText, parseLeaderText, type ClubPagePart, type ParsedFinder, type ParsedLeader } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
-import { mlbUrlFor } from './mlb/routes'
+import { mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
 import { WPBL_FINDER_CLUBS, wpblFinderHref } from './wpbl/finderLink'
+import { WPBL_TEAMS } from './wpbl/constants'
+import { wpblTeamPath } from './wpbl/routes'
 
 export type FinderSection = 'wpbl' | 'mlb'
 
@@ -103,5 +105,44 @@ export function leaderSuggestions(section: FinderSection, text: string): LeaderS
     }
     const subtitle = [p.side === 'pitching' ? 'Pitching' : 'Hitting', p.season ?? 'this season'].join(' · ')
     return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, href, parsed: p }]
+  })
+}
+
+export interface ClubPageSuggestion {
+  key: string
+  /** "Los Angeles Dodgers roster". */
+  title: string
+  href: string
+  /** The part of the page to scroll to once it opens (lib/sectionScroll.ts), or null for a page
+   *  that is the answer whole. */
+  scrollTo: ClubPagePart | null
+}
+
+const PART_LABEL: Record<ClubPagePart, string> = {
+  roster: 'roster', schedule: 'schedule', stats: 'team stats', leaders: 'team leaders', standings: 'standings',
+}
+
+/** "SF schedule", "Dodgers roster": the club's page, opened at that part of it. */
+export function clubPageSuggestions(section: FinderSection, text: string): ClubPageSuggestion[] {
+  const clubs = section === 'mlb' ? MLB_FINDER_CLUBS : WPBL_FINDER_CLUBS
+  return parseClubPage(text, clubs).flatMap<ClubPageSuggestion>(({ clubId, part }) => {
+    if (section === 'mlb') {
+      const club = mlbClubById(Number(clubId))
+      if (!club) return []
+      // MLB's club page has leaders and its division but no team-stats card, so "stats" is the
+      // leaders, the nearest thing on it.
+      const to: ClubPagePart = part === 'stats' ? 'leaders' : part
+      const label = to === 'standings' ? 'division standings' : PART_LABEL[to]
+      return [{ key: `club-${clubId}-${to}`, title: `${club.name} ${label}`, href: mlbTeamPath(club.id), scrollTo: to }]
+    }
+    const team = WPBL_TEAMS[clubId]
+    if (!team) return []
+    const name = `${team.city} ${team.name}`
+    // A WPBL club's page has no standings of its own: four clubs are one table, on its own tab.
+    if (part === 'standings') return [{ key: `club-${clubId}-standings`, title: 'WPBL standings', href: '/wpbl/standings', scrollTo: null }]
+    return [{
+      key: `club-${clubId}-${part}`, title: `${name} ${PART_LABEL[part]}`,
+      href: wpblTeamPath(team, Object.values(WPBL_TEAMS)), scrollTo: part,
+    }]
   })
 }

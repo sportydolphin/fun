@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseCompareText, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseClubPage, parseCompareText, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -299,5 +299,23 @@ describe('a slip in a stat word', () => {
     expect(parseLeaderText('twins')).toEqual([])
     expect(nameWords('whitmore homres')).toBe('whitmore')
     expect(nameWords('Kelsie Whitmore')).toBeNull()
+  })
+})
+
+describe('parseClubPage', () => {
+  it('reads a club and a part of its page, in either order', () => {
+    expect(parseClubPage('SF schedule', CLUBS)).toEqual([{ clubId: 'SF', part: 'schedule' }])
+    expect(parseClubPage('roster for the Hunters', CLUBS)).toEqual([{ clubId: 'BOS', part: 'roster' }])
+    expect(parseClubPage("Boston's standings", CLUBS)).toEqual([{ clubId: 'BOS', part: 'standings' }])
+  })
+
+  it('offers each club a shared city could mean', () => {
+    expect(parseClubPage('Chicago roster', CLUBS).map(r => r.clubId)).toEqual(['CHC', 'CWS'])
+  })
+
+  it('leaves a club alone, a stat question and a stray word to the other searches', () => {
+    expect(parseClubPage('SF', CLUBS)).toEqual([])
+    expect(parseClubPage('3 hits vs SF', CLUBS)).toEqual([])
+    expect(parseClubPage('Whitmore SF stats', CLUBS)).toEqual([])
   })
 })
