@@ -69,12 +69,12 @@ describe('the search box', () => {
     expect(named('command_palette_recents_cleared')).toEqual([{ section: 'wpbl' }])
   })
 
-  it('reports a close with no pick, with how much was typed and how many rows were on offer', async () => {
+  it('reports a close with no pick, and keeps the text only when nothing was on offer for it', async () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.type(input(), 'zzyzx')
     await user.keyboard('{Escape}')
-    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 5, shown: 0 }]))
+    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 5, shown: 0, q: 'zzyzx' }]))
     expect(named('command_palette_picked')).toEqual([])
     expect(screen.getByText(/Nothing matches/)).toBeInTheDocument()
   })

@@ -20,6 +20,7 @@ import { PHONE_COLUMN_W } from '../ui/layoutWidths'
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from './recentSearches'
+import { fuzzyMatches } from '../lib/fuzzyName'
 import { useAuth } from '../AuthContext'
 import { wpblSearchedProps } from './searchAnalytics'
 import { jerseyQuery, jerseyOf } from './playerSearch'
@@ -1997,8 +1998,14 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     }
     const q = raw.toLowerCase()
     if (q.length < 2) return null
-    const p = players.filter(pl => pl.name.toLowerCase().includes(q))
-    const t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))
+    let p = players.filter(pl => pl.name.toLowerCase().includes(q))
+    let t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))
+    // A slip ("Whitmor", "Firebels"): the forgiving pass, and only once the exact one found nothing,
+    // so a correct spelling is never crowded by near misses (src/lib/fuzzyName.ts).
+    if (!p.length && !t.length && q.length >= 3) {
+      p = fuzzyMatches(players, q, pl => [pl.name])
+      t = fuzzyMatches(teams, q, tm => [`${tm.city} ${tm.name}`, tm.name, tm.city])
+    }
     return { q, players: p, teams: t }
   }, [bridge.query, players, teams])
 
@@ -2018,7 +2025,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
     const pick = (q: string) => {
       const ms = players.filter(pl => fold(pl.name).includes(q))
-      return ms.find(pl => fold(pl.name) === q) ?? ms.find(pl => fold(pl.name).startsWith(q)) ?? ms[0] ?? null
+      return ms.find(pl => fold(pl.name) === q) ?? ms.find(pl => fold(pl.name).startsWith(q)) ?? ms[0]
+        ?? fuzzyMatches(players, q, pl => [pl.name])[0] ?? null
     }
     const pa = pick(a), pb = pick(b)
     if (!pa || !pb || pa.id === pb.id) return null

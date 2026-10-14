@@ -4,7 +4,7 @@ import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
 import { ACCENT_TEXT, CURRENT_SEASON } from './mlb/constants'
-import { searchPlayers } from './mlb/api'
+import { searchPlayers, searchPlayersForgiving } from './mlb/api'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
 import { requestDeepLink, parseDeepLink } from './mlb/state/deepLink'
 import { MoreSheet } from './ui/MoreMenu'
@@ -207,7 +207,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     updateSearchBridge({
       resolveCompare: async (a, b, season) => {
         try {
-          const [ra, rb] = await Promise.all([searchPlayers(a), searchPlayers(b)])
+          const find = async (n: string) => { const r = await searchPlayers(n); return r.length ? r : searchPlayersForgiving(n) }
+          const [ra, rb] = await Promise.all([find(a), find(b)])
           const pa = ra[0], pb = rb[0]
           if (!pa || !pb || pa.id === pb.id) return null
           const year = season ?? CURRENT_SEASON

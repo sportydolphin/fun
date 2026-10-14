@@ -144,7 +144,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
 
   // Read at close, which runs from an effect cleanup, after this render's values are gone.
   const pickedRef = useRef(false)
-  const closeState = useRef({ typed: 0, shown: 0 })
+  const closeState = useRef<{ typed: number; shown: number; q?: string }>({ typed: 0, shown: 0 })
 
   // A fresh box on every open. On the way out: the shared query cleared, or the next section to
   // read the bridge would find this text in it, and a close without a pick reported.
@@ -253,7 +253,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))
-  closeState.current = { typed: text.trim().length, shown: flat.length }
+  // The typed text goes with a close ONLY when the box offered nothing for it, the rule
+  // `wpbl_searched` keeps (docs/ADMIN_ANALYTICS.md): then the text is the finding, a player or a
+  // spelling the search cannot reach. Anything that got an answer is described by its pick instead.
+  const typedText = text.trim()
+  closeState.current = typedText && !flat.length
+    ? { typed: typedText.length, shown: 0, q: typedText.slice(0, 40) }
+    : { typed: typedText.length, shown: flat.length }
 
   // Keep the lit row in view as the arrows move it. Optional, since jsdom has no scrollIntoView.
   useEffect(() => {

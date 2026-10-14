@@ -1,3 +1,4 @@
+import { foldName, fuzzyMatches } from '../lib/fuzzyName'
 import { Player, Team, StatDef, TeamSummary, RecentGameEntry, RosterEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry, LeaderboardEntry } from './types'
 import { TEAM_ABBR, CURRENT_SEASON } from './constants'
 import { supabase } from '../lib/supabase'
@@ -23,6 +24,23 @@ export async function searchPlayers(name: string): Promise<Player[]> {
   const people: Player[] = d.people ?? []
   // Active players first, retired players after, which covers the full modern era
   return people.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
+}
+
+/**
+ * A second try for a name StatsAPI's prefix search missed, "Ohatni" or "Freddy Freman". The API
+ * matches the start of a word and nothing looser, so this asks for short starts instead (the first
+ * three letters of the two longest words, and the first two of the longest, since a slip in the
+ * third letter is common: "oha" will never find Ohtani, "oh" does) and keeps only the players
+ * whose whole name fits the query within a slip or two (lib/fuzzyName.ts). At most three calls.
+ */
+export async function searchPlayersForgiving(name: string): Promise<Player[]> {
+  const words = foldName(name).split(' ').filter(w => w.length >= 4).sort((a, b) => b.length - a.length).slice(0, 2)
+  if (!words.length) return []
+  const starts = [...new Set([...words.map(w => w.slice(0, 3)), words[0].slice(0, 2)])]
+  const pools = await Promise.all(starts.map(s => searchPlayers(s).catch(() => [] as Player[])))
+  const seen = new Set<number>()
+  const all = pools.flat().filter(p => !seen.has(p.id) && !!seen.add(p.id))
+  return fuzzyMatches(all, name, p => [p.fullName])
 }
 
 // Player bio (name/position/currentTeam) is static within a session, and cross-links

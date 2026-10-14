@@ -1,4 +1,4 @@
-import { parseFinderText } from '../league/finderParse'
+import { parseCompareText, parseFinderText, parseLeaderText } from '../league/finderParse'
 import { mightBeFinderQuestion } from '../finderGate'
 
 /**
@@ -18,6 +18,11 @@ import { mightBeFinderQuestion } from '../finderGate'
  */
 export function wpblSearchedProps(q: string, players: number, teams: number): Record<string, unknown> {
   const finder = mightBeFinderQuestion(q) ? parseFinderText(q).length : 0
-  const empty = players + teams === 0 && finder === 0
-  return { length: q.length, players, teams, finder, ...(empty ? { q: q.slice(0, 40) } : {}) }
+  // The same holds for a ranking ("most strikeouts") and a pair ("Whitmore vs Ibarra"), both read
+  // since Oct 14, 2026. A pair whose names found nobody shows no row, and the palette's own close
+  // keeps that text (`command_palette_dismissed`), so it is not lost by being left out here.
+  const leaders = parseLeaderText(q).length
+  const compare = parseCompareText(q) ? 1 : 0
+  const empty = players + teams === 0 && finder === 0 && leaders === 0 && compare === 0
+  return { length: q.length, players, teams, finder, leaders, compare, ...(empty ? { q: q.slice(0, 40) } : {}) }
 }

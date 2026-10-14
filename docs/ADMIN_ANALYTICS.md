@@ -15,7 +15,7 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | SQL: nine `security definer` RPCs | [`20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) + [`20260820064501_add_admin_wpbl_stats_board_rpc.sql`](../scripts/migrations/20260820064501_add_admin_wpbl_stats_board_rpc.sql) + [`20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql`](../scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql) |
 | SQL: the offseason pages card | [`20260925013201_admin_wpbl_page_usage_rpc.sql`](../scripts/migrations/20260925013201_admin_wpbl_page_usage_rpc.sql) |
 | SQL: the MLB card | [`20260928073655_admin_mlb_usage_rpc.sql`](../scripts/migrations/20260928073655_admin_mlb_usage_rpc.sql) |
-| SQL: the Search box card | [`20261014060457_add_admin_search_palette_rpc.sql`](../scripts/migrations/20261014060457_add_admin_search_palette_rpc.sql) |
+| SQL: the Search box card | [`20261014060457_add_admin_search_palette_rpc.sql`](../scripts/migrations/20261014060457_add_admin_search_palette_rpc.sql) + [`20261014183000_add_palette_missed_queries.sql`](../scripts/migrations/20261014183000_add_palette_missed_queries.sql) |
 | The search box and its events | [`src/CommandPalette.tsx`](../src/CommandPalette.tsx), opened from [`src/App.tsx`](../src/App.tsx) |
 | MLB Home card seen / used | [`src/mlb/components/TrackedCard.tsx`](../src/mlb/components/TrackedCard.tsx) |
 | SQL: the Page speed card | [`20260927074721_add_admin_web_vitals_rpc.sql`](../scripts/migrations/20260927074721_add_admin_web_vitals_rpc.sql) |
@@ -210,9 +210,11 @@ them are load-bearing:
   `_picked`, `_dismissed`, `_recents_cleared`, `search_finder_picked`) start that day and are read
   by `admin_search_palette`. Every open ends in one `picked` that left the box (an `example` row
   fills it with a sample question and keeps it open, so it is excluded) or one `dismissed`.
-- **`wpbl_searched` is the only event that stores typed text, and only on a miss.**
-  `analytics.ts` keeps `q` when the query matched nothing and drops it otherwise, capped at 40
-  characters. That asymmetry is the point: a query that matched is already described by
+- **Two events store typed text, and both only on a miss.** `wpbl_searched` keeps `q` when the
+  query matched nothing (no player, club, Find reading, ranking or pair), and since Oct 14, 2026
+  `command_palette_dismissed` keeps it, in both sections, when the box was closed having offered
+  no row at all for what was typed; `admin_search_palette` lists those as `missed`. Both drop it
+  otherwise and cap it at 40 characters. That asymmetry is the point: a query that matched is already described by
   whichever row the reader picked, so keeping it would be collecting freeform user text for
   nothing, while a query that matched nothing is the only thing on this dashboard that names a
   specific thing to go and fix. Do not "make it consistent" by logging every query.
