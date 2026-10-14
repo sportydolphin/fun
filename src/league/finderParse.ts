@@ -1,5 +1,5 @@
-import { ipToOuts } from './innings'
-import type { FinderCondition, FinderOp, FinderSide, FinderVenue } from './finder'
+import { finderFields, finderLowerBetter, parseFinderValue } from './finder'
+import type { FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
 
 /**
  * A finder question typed as words: "5 strikeouts no walks", "3+ hits vs SF", "4-for-4 at home".
@@ -23,6 +23,12 @@ import type { FinderCondition, FinderOp, FinderSide, FinderVenue } from './finde
  * "allowed" settles it, and otherwise each stat leans the way a fan usually means it (strikeouts
  * toward the pitcher, home runs toward the hitter).
  *
+ * AND TWO GRAINS, A GAME OR A SEASON, decided the same way. "5 home runs on the season" says so,
+ * and so does a rate (".300 hitters", "ERA under 3"), which one game cannot have. Unsaid, the number
+ * decides: nobody has hit five home runs in a game, so "5 home runs" is a season question, while "3
+ * home runs" could be either and is offered both ways, the night first. A count no bigger than a
+ * good night ("3 hits") is offered as a game alone, since a season of three hits is everybody.
+ *
  * LEAGUE-NEUTRAL like the engine, so the clubs come in as data: WPBL's four and MLB's thirty
  * differ only in their names.
  */
@@ -36,6 +42,7 @@ export interface FinderClubAlias {
 
 export interface ParsedFinder {
   side: FinderSide
+  per: FinderPer
   conditions: FinderCondition[]
   teamId: string | null
   oppId: string | null
@@ -46,7 +53,8 @@ export interface ParsedFinder {
   ignored: string[]
 }
 
-/** One word or phrase for a stat, and the field it means on each side that records it. */
+/** One word or phrase for a stat, and the field it means on each side that records it. Whether a
+ *  field needs a season (a rate, games played) is the engine's to say, not the alias's. */
 interface StatAlias { hitting?: string; pitching?: string; lean?: FinderSide }
 
 // Phrases a reader uses for each box-score number, keyed by the finder's own field keys
@@ -88,6 +96,21 @@ add({ pitching: 'bf' }, 'batters faced', 'bf')
 add({ pitching: 'pitches' }, 'pitches', 'pitches thrown', 'pitch count')
 add({ pitching: 'strikes' }, 'strikes', 'strikes thrown')
 add({ pitching: 'baserunners' }, 'baserunners', 'base runners', 'baserunners allowed')
+// What only a season has.
+add({ hitting: 'avg' }, 'avg', 'average', 'batting average', 'ba', 'batting avg')
+add({ hitting: 'obp' }, 'obp', 'on base percentage', 'on base pct')
+add({ hitting: 'ob' }, 'on base')
+add({ hitting: 'slg' }, 'slg', 'slugging', 'slugging percentage', 'slugging pct', 'slg pct')
+add({ hitting: 'ops' }, 'ops')
+add({ pitching: 'era' }, 'era', 'earned run average')
+add({ pitching: 'whip' }, 'whip')
+add({ pitching: 'w' }, 'wins', 'win', 'victories', 'victory')
+add({ pitching: 'l' }, 'losses', 'loss')
+add({ pitching: 'sv' }, 'saves', 'save', 'sv', 'svs')
+add({ pitching: 'hld' }, 'holds', 'hold', 'hld')
+add({ pitching: 'gs' }, 'games started', 'starts', 'start', 'gs')
+add({ hitting: 'g' }, 'games played', 'gp')
+add({ pitching: 'g' }, 'appearances', 'games pitched', 'outings pitched')
 
 // Longest first, so "runs batted in" is read before "runs" and "hit by pitch" before "hit".
 const STAT_PHRASES = Object.keys(STAT_ALIASES).sort((a, b) => b.length - a.length)
@@ -106,6 +129,9 @@ const PREFIX_OPS: { words: string; op: FinderOp; shift: number }[] = [
   { words: 'exactly', op: 'eq', shift: 0 },
   { words: 'more than', op: 'gte', shift: 1 },
   { words: 'over', op: 'gte', shift: 1 },
+  { words: 'above', op: 'gte', shift: 1 },
+  { words: 'below', op: 'lte', shift: -1 },
+  { words: 'sub', op: 'lte', shift: -1 },
   { words: 'fewer than', op: 'lte', shift: -1 },
   { words: 'less than', op: 'lte', shift: -1 },
   { words: 'under', op: 'lte', shift: -1 },
@@ -135,13 +161,41 @@ const FILLER = new Set([
 ])
 
 const PITCHING_HINTS = ['pitcher', 'pitchers', 'pitching', 'pitched', 'thrown', 'allowed', 'start', 'starts', 'starter', 'starters', 'outing', 'outings']
+
+// The grain, said in words. Phrases first, so "in a season" is taken whole rather than leaving "in a".
+const SEASON_WORDS = /(?<![a-z])(on the season|this season|in a season|in the season|on the year|this year|in a year|for the season|for the year|season totals?|seasons?|totals?|year)(?![a-z])/g
+const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single game|one game|a game|games?|nights?|outings?|starts?)(?![a-z])/
+
+// HOW BIG A NUMBER ONE GAME CAN HOLD, per stat in its own unit (innings in outs). Above `max` nobody
+// has done it in a game, so the question can only be about a season; above `typical` it is a rare
+// night and a plausible season both, so both readings are offered. Generous on purpose: a max set
+// too low drops a real game question, where one set too high only offers a season reading second.
+const GAME_LIMITS: Record<FinderSide, Record<string, { typical: number; max: number }>> = {
+  hitting: {
+    h: { typical: 4, max: 7 }, ab: { typical: 6, max: 11 }, pa: { typical: 6, max: 12 }, r: { typical: 4, max: 6 },
+    hr: { typical: 2, max: 4 }, '2b': { typical: 2, max: 4 }, '3b': { typical: 1, max: 3 }, rbi: { typical: 6, max: 12 },
+    bb: { typical: 3, max: 6 }, so: { typical: 4, max: 6 }, hbp: { typical: 2, max: 3 }, sb: { typical: 3, max: 6 },
+    cs: { typical: 1, max: 3 }, gdp: { typical: 2, max: 4 }, tb: { typical: 10, max: 19 }, ob: { typical: 5, max: 9 },
+  },
+  pitching: {
+    ip: { typical: 27, max: 45 }, so: { typical: 12, max: 21 }, h: { typical: 12, max: 20 }, r: { typical: 9, max: 20 },
+    er: { typical: 8, max: 20 }, bb: { typical: 7, max: 17 }, hr: { typical: 4, max: 6 }, hbp: { typical: 3, max: 6 },
+    wp: { typical: 3, max: 6 }, bk: { typical: 2, max: 4 }, bf: { typical: 40, max: 60 },
+    pitches: { typical: 125, max: 175 }, strikes: { typical: 85, max: 125 }, baserunners: { typical: 14, max: 30 },
+    // A decision or a start is once a game at most.
+    w: { typical: 1, max: 1 }, l: { typical: 1, max: 1 }, sv: { typical: 1, max: 1 }, hld: { typical: 1, max: 1 },
+    gs: { typical: 1, max: 1 },
+  },
+}
 const HITTING_HINTS = ['hitter', 'hitters', 'hitting', 'batter', 'batters', 'batting']
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const alt = (xs: string[]) => xs.map(esc).join('|')
 
-// A number word must be followed by a space, or "a" would read "ab" as one of something.
-const NUM = `(\\d+(?:\\.\\d)?|(?:${alt(Object.keys(NUMBER_WORDS))})(?=\\s))`
+// A number word must be followed by a space, or "a" would read "ab" as one of something. A decimal
+// is any length, and may drop its leading zero (".300"): `valueFor` decides which stats take one.
+const NUM = `(\\d+(?:\\.\\d+)?|\\.\\d+|(?:${alt(Object.keys(NUMBER_WORDS))})(?=\\s))`
+const RATE = '(\\.\\d+|0\\.\\d+)'
 const PREFIX = `(?:(${alt(PREFIX_OPS.map(p => p.words))})\\s*)?`
 const SUFFIX = `(?:\\s*(${alt(SUFFIX_OPS.map(p => p.words))}))?`
 const STAT = `(${alt(STAT_PHRASES)})`
@@ -155,10 +209,16 @@ const NUMBER_FIRST = new RegExp(`${B_START}${PREFIX}${NUM}${SUFFIX}\\s*${STAT}${
 const STAT_FIRST = new RegExp(`${B_START}${STAT}\\s*(${alt(PREFIX_OPS.map(p => p.words))})?\\s*${NUM}${SUFFIX}${B_END}`, 'g')
 // "without a walk", "without walking anyone" is a stretch too far; "without a walk" is not.
 const WITHOUT = new RegExp(`${B_START}without\\s+(?:a\\s+|an\\s+|any\\s+)?${STAT}${B_END}`, 'g')
+// "hitting .300", "batting over .350", "a .300 hitter": a batting average with no stat named, which
+// is how it is usually said. Only a decimal, so "hitting 3 home runs" is left for the passes below.
+const HITTING_RATE = new RegExp(`${B_START}(?:hitting|batting|hit)\\s+${PREFIX}${RATE}${B_END}`, 'g')
+const RATE_HITTER = new RegExp(`${B_START}${PREFIX}${RATE}\\s*(?:hitters?|batters?)${B_END}`, 'g')
 // "4-for-4", "3 for 5": hits and at-bats, both exact, because "3-for-5" means exactly that.
 const FOR_LINE = /(?<![a-z0-9])(\d+)\s*(?:-|\s)\s*for\s*(?:-|\s)\s*(\d+)(?![a-z0-9])/g
 
-/** Lowercase, accents folded, the comparison glyphs spelled the ASCII way. */
+/** Lowercase, accents folded, the comparison glyphs spelled the ASCII way, and the hyphenated
+ *  forms a box score is talked about in taken apart: "3-hit game" is "3 hit game", "multi-homer" is
+ *  "2 homer", "sub-3" is "sub 3". */
 function normalize(text: string): string {
   return text
     .normalize('NFD')
@@ -166,22 +226,27 @@ function normalize(text: string): string {
     .toLowerCase()
     .replace(/≥/g, '>=').replace(/≤/g, '<=')
     .replace(/[,;!?]/g, ' ')
+    .replace(/on-base/g, 'on base')
+    .replace(/(?<![a-z0-9])multi[- ]?(?=hit|homer|hr|home run|rbi|steal|sb|strikeout|k|walk|double|run)/g, '2 ')
+    .replace(/(?<![a-z0-9])sub-(?=[\d.])/g, 'sub ')
+    .replace(/(\d)-(?=[a-z])/g, '$1 ')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-/** The number a match carried, in the field's own unit once the side is known. Innings are the
- *  one field where that differs: "6.2 innings" is 20 outs, which is why the raw text is kept. */
-function valueFor(field: string, raw: string, shift: number): number | null {
-  const n = raw in NUMBER_WORDS ? NUMBER_WORDS[raw] : Number(raw)
+const RATE_FIELDS = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip'])
+
+/** The number a match carried, in the field's own unit once the side is known: innings in outs
+ *  ("6.2" is 20), a rate in its last printed digit (".300" is 300), which is why the raw text is
+ *  kept. The finder's own parser does the converting, so a typed question and a typed box agree. */
+function valueFor(side: FinderSide, field: string, raw: string, shift: number): number | null {
+  const text = raw in NUMBER_WORDS ? String(NUMBER_WORDS[raw]) : raw
+  const n = Number(text)
   if (!Number.isFinite(n)) return null
-  if (field === 'ip') {
-    const outs = raw in NUMBER_WORDS ? n * 3 : ipToOuts(raw)
-    return Math.max(0, outs + shift)
-  }
-  // A decimal anywhere else is not a count of anything.
-  if (!Number.isInteger(n)) return null
-  return Math.max(0, n + shift)
+  // A decimal anywhere but innings and a rate is not a count of anything, and an innings decimal
+  // is thirds: "6.5 innings" is not a figure that exists.
+  if (!Number.isInteger(n) && !RATE_FIELDS.has(field) && !(field === 'ip' && /^\d+\.[0-2]$/.test(text))) return null
+  return Math.max(0, parseFinderValue(side, field, text) + shift)
 }
 
 /**
@@ -198,7 +263,9 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
   // `at` is where in the text it was written, so the conditions keep the reader's order: the first
   // one is the board's headline. Every match is blanked to spaces of its own length, which is what
   // keeps those offsets comparable across the passes.
-  type Pending = { alias: StatAlias; op: FinderOp; raw: string; shift: number; at: number }
+  // `bare` is a number with no comparison word, which reads as "at least", except on a stat whose
+  // good end is the low one: "a 2.50 ERA" is a ceiling, not a floor.
+  type Pending = { alias: StatAlias; op: FinderOp; raw: string; shift: number; at: number; bare: boolean }
   const pending: Pending[] = []
   const forLine = { h: 0, ab: 0, seen: false }
 
@@ -206,6 +273,12 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     forLine.h = Number(h); forLine.ab = Number(ab); forLine.seen = true
     return ' '.repeat(m.length)
   })
+  const rateWords = (m: string, pre: string | undefined, num: string, at: number) => {
+    const p = PREFIX_OPS.find(o => o.words === pre)
+    pending.push({ alias: STAT_ALIASES.avg, op: p?.op ?? 'gte', raw: num, shift: p?.shift ?? 0, at, bare: !p })
+    return ' '.repeat(m.length)
+  }
+  rest = rest.replace(HITTING_RATE, rateWords).replace(RATE_HITTER, rateWords)
   const numberFirst = (m: string, pre: string | undefined, num: string, suf1: string | undefined, stat: string, suf2: string | undefined, at: number) => {
     const p = PREFIX_OPS.find(o => o.words === pre)
     const s = SUFFIX_OPS.find(o => o.words === (suf1 ?? suf2))
@@ -213,19 +286,19 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     // A bare count means "at least", the way every stat search reads "5 strikeouts". A bare zero
     // cannot: "at least 0 walks" is every line in the league, and "0 walks" plainly means none.
     const op: FinderOp = p?.op ?? s?.op ?? (zero ? 'eq' : 'gte')
-    pending.push({ alias: STAT_ALIASES[stat], op, raw: num, shift: p?.shift ?? 0, at })
+    pending.push({ alias: STAT_ALIASES[stat], op, raw: num, shift: p?.shift ?? 0, at, bare: !p && !s && !zero })
     return ' '.repeat(m.length)
   }
   const statFirst = (m: string, stat: string, opWords: string | undefined, num: string, suf: string | undefined, at: number) => {
     const p = PREFIX_OPS.find(o => o.words === opWords)
     const s = SUFFIX_OPS.find(o => o.words === suf)
     const zero = num in NUMBER_WORDS ? NUMBER_WORDS[num] === 0 : Number(num) === 0
-    pending.push({ alias: STAT_ALIASES[stat], op: p?.op ?? s?.op ?? (zero ? 'eq' : 'gte'), raw: num, shift: p?.shift ?? 0, at })
+    pending.push({ alias: STAT_ALIASES[stat], op: p?.op ?? s?.op ?? (zero ? 'eq' : 'gte'), raw: num, shift: p?.shift ?? 0, at, bare: !p && !s && !zero })
     return ' '.repeat(m.length)
   }
   // Before the counts, or "without a walk" reads as one walk.
   rest = rest.replace(WITHOUT, (m: string, stat: string, at: number) => {
-    pending.push({ alias: STAT_ALIASES[stat], op: 'eq', raw: '0', shift: 0, at })
+    pending.push({ alias: STAT_ALIASES[stat], op: 'eq', raw: '0', shift: 0, at, bare: false })
     return ' '.repeat(m.length)
   })
   // Whichever order the reader wrote in goes first. Run the other way round, "hits 3 walks 0"
@@ -273,6 +346,12 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     })
   }
 
+  // The grain, from what is left: the stats and clubs are gone, so "home runs" cannot be "runs" here
+  // and "games played" has already been read as a stat.
+  let seasonHint = false
+  rest = rest.replace(SEASON_WORDS, m => { seasonHint = true; return ' '.repeat(m.length) })
+  const gameHint = GAME_WORDS.test(rest)
+
   const leftover = rest.split(/[^a-z0-9]+/).filter(Boolean)
   const words = new Set(leftover)
   const hintP = PITCHING_HINTS.some(w => words.has(w))
@@ -296,9 +375,9 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     for (const p of pending) {
       const field = p.alias[side]
       if (!field) { ok = false; break }
-      const value = valueFor(field, p.raw, p.shift)
+      const value = valueFor(side, field, p.raw, p.shift)
       if (value == null) { ok = false; break }
-      byField.set(field, { field, op: p.op, value })
+      byField.set(field, { field, op: p.bare && finderLowerBetter(side, field) ? 'lte' : p.op, value })
       // A phrase only this side records is decisive; a lean is a tiebreak.
       if (!p.alias[side === 'hitting' ? 'pitching' : 'hitting']) score += 2
       else if (p.alias.lean === side) score += 1
@@ -308,11 +387,31 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     if (side === 'hitting' && hintH) score += 3
     // The engine reads at most six conditions off a link (decodeFinderQuery).
     const conditions = [...byField.values()].slice(0, 6)
-    for (const teamId of teamIds) {
-      for (const oppId of oppIds) {
-        // A club cannot play itself, which is what "Chicago vs Chicago" would otherwise offer.
-        if (teamId && teamId === oppId) continue
-        readings.push({ parsed: { side, conditions, teamId, oppId, venue, ignored }, score })
+
+    // WHICH GRAINS. A field only a season has settles it; so does a word for either. Otherwise the
+    // biggest number decides, against what one game can hold (GAME_LIMITS).
+    const gameKeys = new Set(finderFields(side, 'game').map(f => f.key))
+    const seasonOnly = conditions.some(c => !gameKeys.has(c.field))
+    const limits = GAME_LIMITS[side]
+    const floors = conditions.filter(c => c.op !== 'lte' && limits[c.field])
+    const pastMax = floors.some(c => c.value > limits[c.field].max)
+    const pastTypical = floors.some(c => c.value > limits[c.field].typical)
+    // Exactly none of something is a night's line ("no walks"), almost never a season's.
+    const none = conditions.some(c => c.op === 'eq' && c.value === 0)
+    // "3 hits this season" is far more often "3-hit games this season" than a season of three hits,
+    // since the board is already one season: a number that small keeps the game reading, offered first.
+    const small = !pastTypical
+    const grains: { per: FinderPer; bonus: number }[] = []
+    if (!seasonOnly && (gameHint || (seasonHint ? small : !pastMax))) grains.push({ per: 'game', bonus: 1 })
+    if (seasonOnly || (!gameHint && !forLine.seen && (seasonHint || (pastTypical && !none)))) grains.push({ per: 'season', bonus: 0 })
+
+    for (const { per, bonus } of grains) {
+      for (const teamId of teamIds) {
+        for (const oppId of oppIds) {
+          // A club cannot play itself, which is what "Chicago vs Chicago" would otherwise offer.
+          if (teamId && teamId === oppId) continue
+          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored }, score: score + bonus })
+        }
       }
     }
   }
@@ -322,9 +421,11 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     ? readings.filter(r => r.parsed.side === (hintP ? 'pitching' : 'hitting'))
     : readings
   return (filtered.length ? filtered : readings)
-    // Hitting before pitching on a tie; within a side, the clubs in the order they were listed.
+    // Hitting before pitching on a tie, and a side's game before its season; within those, the
+    // clubs in the order they were listed.
     .sort((a, b) => b.score - a.score
-      || (a.parsed.side === b.parsed.side ? 0 : a.parsed.side === 'hitting' ? -1 : 1))
+      || (a.parsed.side === b.parsed.side ? 0 : a.parsed.side === 'hitting' ? -1 : 1)
+      || (a.parsed.per === b.parsed.per ? 0 : a.parsed.per === 'game' ? -1 : 1))
     .slice(0, 4)
     .map(r => r.parsed)
 }

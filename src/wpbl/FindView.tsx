@@ -4,9 +4,14 @@ import { runWpblFinder, validFinderSort, type FinderQuery, type FinderSide, type
 import { wpblAccentFg, wpblFullName } from './constants'
 import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
-import { FinderBoard, type FinderExample } from '../ui/finderBoard'
+import { FinderBoard, type FinderExample, type FinderReading } from '../ui/finderBoard'
 import { PORTRAIT_PX } from '../ui/leaders'
+import { parseFinderText } from '../league/finderParse'
+import { navigate } from '../nav'
 import GameLineRow from './GameLineRow'
+import { useEraBasis } from './EraBasisContext'
+import { WPBL_FINDER_CLUBS, wpblFinderHref } from './finderLink'
+import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
 
 // The Find board: every game line in the league that matches what you asked for.
@@ -26,7 +31,8 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam 
 // is a filter and a sort, which is why this is a board rather than a backend.
 
 // THE ONE-TAP QUESTIONS, in a seven-inning league's terms: a long start here is five or six innings,
-// where MLB's are seven or eight. Innings are in outs, as every stored innings value is.
+// where MLB's are seven or eight, and a season is thirty games, so its counts are a fifth of MLB's.
+// Innings are in outs and rates in their last printed digit, as the engine stores both.
 const EXAMPLES: Record<FinderSide, FinderExample[]> = {
   pitching: [
     { label: '8+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 8 }] },
@@ -34,6 +40,11 @@ const EXAMPLES: Record<FinderSide, FinderExample[]> = {
     { label: '6+ IP, no runs', conditions: [{ field: 'ip', op: 'gte', value: 18 }, { field: 'r', op: 'eq', value: 0 }] },
     { label: '3+ IP, no hits', conditions: [{ field: 'ip', op: 'gte', value: 9 }, { field: 'h', op: 'eq', value: 0 }] },
     { label: '2+ wild pitches', conditions: [{ field: 'wp', op: 'gte', value: 2 }] },
+    { per: 'season', label: 'ERA under 3.00', conditions: [{ field: 'era', op: 'lte', value: 299 }] },
+    { per: 'season', label: 'WHIP under 1.20', conditions: [{ field: 'whip', op: 'lte', value: 119 }] },
+    { per: 'season', label: '4+ wins', conditions: [{ field: 'w', op: 'gte', value: 4 }] },
+    { per: 'season', label: '30+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 30 }] },
+    { per: 'season', label: '30+ innings', conditions: [{ field: 'ip', op: 'gte', value: 90 }] },
   ],
   hitting: [
     { label: '3-hit games', conditions: [{ field: 'h', op: 'gte', value: 3 }] },
@@ -41,6 +52,10 @@ const EXAMPLES: Record<FinderSide, FinderExample[]> = {
     { label: '4+ RBI', conditions: [{ field: 'rbi', op: 'gte', value: 4 }] },
     { label: '2+ steals', conditions: [{ field: 'sb', op: 'gte', value: 2 }] },
     { label: 'On base 4+ times', conditions: [{ field: 'ob', op: 'gte', value: 4 }] },
+    { per: 'season', label: '.300 hitters', conditions: [{ field: 'avg', op: 'gte', value: 300 }] },
+    { per: 'season', label: '.900+ OPS', conditions: [{ field: 'ops', op: 'gte', value: 900 }] },
+    { per: 'season', label: '3+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 3 }] },
+    { per: 'season', label: '10+ steals', conditions: [{ field: 'sb', op: 'gte', value: 10 }] },
   ],
 }
 
@@ -71,9 +86,24 @@ export default function WpblFindView({
   // at fifty; not on the address, since it is how a reader looks at an answer, not the question.
   const [sortPick, setSort] = useState<FinderSort | null>(null)
   const sort = validFinderSort(side, query, sortPick)
+  // A season's ERA on the basis the reader has the site set to, so a number here matches the one
+  // beside it on every other board. The bar for a rate is the leaderboards' own (wpblQualifiers),
+  // over the schedule on screen, which StatsView has already cut to one year.
+  const { basis: eraInnings } = useEraBasis()
+  const qualify = useMemo(() => {
+    const q = wpblQualifiers(teams, games, query.scope)
+    return q.active ? { minPa: q.minPa, minOuts: q.minOuts } : null
+  }, [teams, games, query.scope])
   const result = useMemo(
-    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort),
-    [side, batting, pitching, players, games, query, sort])
+    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify }),
+    [side, batting, pitching, players, games, query, sort, eraInnings, qualify])
+  // A reading on this side is asked in place, which keeps the season and slice on screen; one on
+  // the other side goes through the address, the way the search box sends it, since the side is
+  // StatsView's to switch.
+  const onAsk = (r: FinderReading) => {
+    if (r.side === side) onQuery({ ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue })
+    else navigate(wpblFinderHref(r))
+  }
   const clubs = useMemo(
     () => [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr)).map(t => ({ value: t.id, label: wpblFullName(t) })),
     [teams])
@@ -82,7 +112,8 @@ export default function WpblFindView({
     <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={clubs}
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
       intro="Search every box-score line for the games that match."
-      sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STICKY_TOP}
+      sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STICKY_TOP} accent={accent}
+      parse={text => parseFinderText(text, WPBL_FINDER_CLUBS)} onAsk={onAsk}
       renderRow={(r, i, unit) => (
         <GameLineRow key={r.key} rank={i + 1} name={r.name} player={r.player}
           teamId={r.teamId} game={r.game} detail={r.detail}

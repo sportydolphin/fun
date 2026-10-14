@@ -33,7 +33,7 @@ import { useSectionActive } from '../../lib/panelActive'
 import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbSeasonView, isMlbChartsView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot, MlbFieldingPosition } from '../routes'
 import { gridDefaultSort, type GridSort } from '../lib/seasonGrid'
-import { decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
+import { decodeFinderPer, decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
 import type { GameScope } from '../lib/gameScope'
 import type { TeamCardInnerProps } from '../components/cards'
 import { HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS } from '../lib/advanced'
@@ -140,6 +140,7 @@ function findQueryOf(snap: MlbSnapshot | null): FinderQuery {
   return {
     ...EMPTY_FINDER_QUERY,
     conditions: decodeFinderQuery(snap.find ?? null, snap.lb ?? 'hitting'),
+    per: decodeFinderPer(snap.find ?? null),
     teamId: snap.findTeam != null ? String(snap.findTeam) : null,
     oppId: snap.findOpp != null ? String(snap.findOpp) : null,
     venue: snap.findVenue ?? 'any',

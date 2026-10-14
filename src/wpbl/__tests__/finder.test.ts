@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery,
-  finderColumns, validFinderSort, EMPTY_FINDER_QUERY, type FinderQuery,
+  finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 
@@ -311,5 +311,108 @@ describe('the query in the address bar', () => {
     expect(describeFinderQuery('pitching', q({
       conditions: [{ field: 'so', op: 'gte', value: 5 }, { field: 'ip', op: 'gte', value: 14 }],
     }))).toBe('Strikeouts at least 5 and Innings pitched at least 4.2')
+  })
+})
+
+// A SEASON IS THE SAME ENGINE OVER SUMS, and the ways it can lie are the sum's: a line counted
+// twice or not at all, a rate over a sample too small to mean anything, and a cut applied after
+// summing instead of before.
+describe('season totals', () => {
+  const games = ['g1', 'g2', 'g3'].map((id, i) => game({ id, game_date: `2026-08-0${i + 1}`, home_team_id: i === 2 ? 'LA' : 'NY', away_team_id: i === 2 ? 'NY' : 'LA' }))
+  const season = (o: Partial<FinderQuery> = {}) => q({ per: 'season', ...o })
+
+  it('sums each player\'s lines and asks the conditions of the sum', () => {
+    const lines = [
+      bat({ player_id: 'a', game_id: 'g1', ab: 4, h: 1, hr: 1 }),
+      bat({ player_id: 'a', game_id: 'g2', ab: 4, h: 2, hr: 1 }),
+      bat({ player_id: 'b', game_id: 'g1', team_id: 'LA', ab: 4, h: 3, hr: 1 }),
+    ]
+    const r = runWpblFinder('hitting', lines, [], PLAYERS, games, season({ conditions: [{ field: 'hr', op: 'gte', value: 2 }] }))
+    expect(names(r)).toEqual(['Jaida Lee'])
+    expect(r.rows[0].values).toMatchObject({ g: 2, hr: 2, h: 3, ab: 8, avg: 375 })
+    // No game behind a season row, and no tally: each player is one row already.
+    expect(r.rows[0].game).toBeNull()
+    expect(r.tally).toEqual([])
+  })
+
+  it('applies the venue BEFORE summing, so "at home" is a home split', () => {
+    const lines = [
+      bat({ player_id: 'a', game_id: 'g1', ab: 4, hr: 1 }),  // home
+      bat({ player_id: 'a', game_id: 'g3', ab: 4, hr: 1 }),  // away
+    ]
+    const r = runWpblFinder('hitting', lines, [], PLAYERS, games, season({ venue: 'home', conditions: [{ field: 'hr', op: 'gte', value: 2 }] }))
+    expect(r.total).toBe(0)
+    expect(runWpblFinder('hitting', lines, [], PLAYERS, games, season({ conditions: [{ field: 'hr', op: 'gte', value: 2 }] })).total).toBe(1)
+  })
+
+  it('holds a rate to the qualifying bar, unless the reader set one', () => {
+    const lines = [
+      bat({ player_id: 'a', game_id: 'g1', ab: 2, h: 2 }),              // 1.000 in 2 PA
+      ...['g1', 'g2', 'g3'].map(g => bat({ player_id: 'b', game_id: g, team_id: 'LA', ab: 4, h: 2 })),  // .500 in 12
+    ]
+    const avg = [{ field: 'avg', op: 'gte' as const, value: 400 }]
+    const qualify = { minPa: 10, minOuts: 30 }
+    const r = runWpblFinder('hitting', lines, [], PLAYERS, games, season({ conditions: avg }), 50, null, { qualify })
+    expect(names(r)).toEqual(['Ayami Sato'])
+    expect(r.qualifier).toEqual({ field: 'pa', min: 10 })
+    // A plate-appearance condition of the reader's own replaces the bar.
+    const own = runWpblFinder('hitting', lines, [], PLAYERS, games,
+      season({ conditions: [...avg, { field: 'pa', op: 'gte', value: 1 }] }), 50, null, { qualify })
+    expect(names(own)).toEqual(['Jaida Lee', 'Ayami Sato'])
+    expect(own.qualifier).toBeNull()
+    // A count is not a rate and needs no bar.
+    expect(runWpblFinder('hitting', lines, [], PLAYERS, games, season({ conditions: [{ field: 'h', op: 'gte', value: 1 }] }),
+      50, null, { qualify }).qualifier).toBeNull()
+  })
+
+  it('works an ERA out on the basis it is handed, and lists the lowest first', () => {
+    const lines = [
+      pit({ player_id: 'a', game_id: 'g1', outs: 21, er: 3 }),  // 3.00 per 7, 3.86 per 9
+      pit({ player_id: 'b', game_id: 'g1', team_id: 'LA', outs: 21, er: 1 }),
+    ]
+    const era = [{ field: 'era', op: 'lte' as const, value: 500 }]
+    const seven = runWpblFinder('pitching', [], lines, PLAYERS, games, season({ conditions: era }), 50, null, { eraInnings: 7 })
+    expect(names(seven)).toEqual(['Ayami Sato', 'Jaida Lee'])
+    expect(seven.rows[1].headlineDisplay).toBe('3.00')
+    const nine = runWpblFinder('pitching', [], lines, PLAYERS, games, season({ conditions: era }), 50, null, { eraInnings: 9 })
+    expect(nine.rows[1].headlineDisplay).toBe('3.86')
+  })
+
+  it('counts a decision once a game, and sums it over a season', () => {
+    const lines = [
+      pit({ player_id: 'a', game_id: 'g1', outs: 18, so: 10, decision: 'W', gs: 1 }),
+      pit({ player_id: 'a', game_id: 'g2', outs: 18, so: 4, decision: 'W', gs: 1 }),
+      pit({ player_id: 'a', game_id: 'g3', outs: 18, so: 11, decision: 'L', gs: 1 }),
+      pit({ player_id: 'b', game_id: 'g1', team_id: 'LA', outs: 3, so: 1, decision: 'S' }),
+    ]
+    // A night: ten strikeouts in a win is one game, not the loss with eleven.
+    const night = runWpblFinder('pitching', [], lines, PLAYERS, games, q({
+      conditions: [{ field: 'so', op: 'gte', value: 10 }, { field: 'w', op: 'eq', value: 1 }],
+    }))
+    expect(night.total).toBe(1)
+    expect(night.rows[0].detail).toMatch(/^Win, /)
+    // A season: the two wins add up, the starts with them, and the closer's save is his own.
+    const wins = runWpblFinder('pitching', [], lines, PLAYERS, games, season({ conditions: [{ field: 'w', op: 'gte', value: 2 }] }))
+    expect(names(wins)).toEqual(['Jaida Lee'])
+    expect(wins.rows[0].values).toMatchObject({ w: 2, l: 1, gs: 3, sv: 0 })
+    expect(names(runWpblFinder('pitching', [], lines, PLAYERS, games, season({ conditions: [{ field: 'sv', op: 'gte', value: 1 }] }))))
+      .toEqual(['Ayami Sato'])
+  })
+
+  it('reads a rate typed with or without its leading zero', () => {
+    expect(parseFinderValue('hitting', 'avg', '.300')).toBe(300)
+    expect(parseFinderValue('hitting', 'avg', '0.300')).toBe(300)
+    expect(parseFinderValue('hitting', 'ops', '1.050')).toBe(1050)
+    expect(parseFinderValue('pitching', 'era', '2.45')).toBe(245)
+  })
+
+  it('carries the grain in the address, and refuses a rate on a game question', () => {
+    const query = season({ conditions: [{ field: 'avg', op: 'gte', value: 300 }] })
+    const raw = encodeFinderQuery(query)
+    expect(raw).toBe('season~avg.gte.300')
+    expect(decodeFinderPer(raw)).toBe('season')
+    expect(decodeFinderQuery(raw, 'hitting')).toEqual(query.conditions)
+    expect(decodeFinderQuery('avg.gte.300', 'hitting')).toEqual([])
+    expect(describeFinderQuery('hitting', query)).toBe('Batting average at least .300')
   })
 })

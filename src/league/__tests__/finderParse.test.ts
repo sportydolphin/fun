@@ -13,7 +13,7 @@ const first = (t: string) => parseFinderText(t, CLUBS)[0]
 
 describe('parseFinderText', () => {
   it('reads a bare count as at least, and leans strikeouts toward the pitcher', () => {
-    const r = parseFinderText('5 strikeouts', CLUBS)
+    const r = parseFinderText('5 strikeouts', CLUBS).filter(x => x.per === 'game')
     expect(r.map(x => x.side)).toEqual(['pitching', 'hitting'])
     expect(r[0].conditions).toEqual([{ field: 'so', op: 'gte', value: 5 }])
   })
@@ -118,6 +118,73 @@ describe('parseFinderText', () => {
   })
 })
 
+describe('parseFinderText, game or season', () => {
+  const read = (t: string) => parseFinderText(t, CLUBS).map(r => `${r.side}/${r.per}`)
+
+  it('reads a hyphenated count the way it is said', () => {
+    expect(first('3-hit games')).toMatchObject({ side: 'hitting', per: 'game', conditions: [{ field: 'h', op: 'gte', value: 3 }] })
+    expect(first('multi-homer games').conditions).toEqual([{ field: 'hr', op: 'gte', value: 2 }])
+    expect(first('10-strikeout games')).toMatchObject({ side: 'pitching', per: 'game' })
+  })
+
+  it('keeps a night-sized count to games alone', () => {
+    expect(read('3 hits')).toEqual(['hitting/game', 'pitching/game'])
+    expect(read('5 k no walks')).toEqual(['pitching/game', 'hitting/game'])
+  })
+
+  it('reads a count no game can hold as a season, and a rare night as both, the night first', () => {
+    expect(first('5 home runs')).toMatchObject({ side: 'hitting', per: 'season', conditions: [{ field: 'hr', op: 'gte', value: 5 }] })
+    expect(read('5 home runs')).not.toContain('hitting/game')
+    expect(read('3 home runs').slice(0, 2)).toEqual(['hitting/game', 'hitting/season'])
+    expect(first('200 strikeouts')).toMatchObject({ side: 'pitching', per: 'season' })
+  })
+
+  it('takes a word for the grain over the size of the number', () => {
+    expect(read('at least 5 home runs on the season')).toEqual(['hitting/season', 'pitching/season'])
+    expect(read('4 hr this season')[0]).toBe('hitting/season')
+    expect(read('4 hr this season')).not.toContain('hitting/game')
+    expect(read('5 hr in a game')[0]).toBe('hitting/game')
+    // The board is one season already, so a small count "this season" is still mostly a night.
+    expect(read('3 hits this season').slice(0, 1)).toEqual(['hitting/game'])
+  })
+
+  it('reads a rate as a season, in its last printed digit', () => {
+    expect(first('.300 hitters')).toMatchObject({ side: 'hitting', per: 'season', conditions: [{ field: 'avg', op: 'gte', value: 300 }] })
+    expect(first('hitting over .300').conditions).toEqual([{ field: 'avg', op: 'gte', value: 301 }])
+    expect(first('ops over .900 at home')).toMatchObject({ venue: 'home', conditions: [{ field: 'ops', op: 'gte', value: 901 }] })
+    expect(first('era under 3').conditions).toEqual([{ field: 'era', op: 'lte', value: 299 }])
+    expect(first('sub-3 era').conditions).toEqual([{ field: 'era', op: 'lte', value: 299 }])
+    // A bare number on a stat whose good end is low is a ceiling.
+    expect(first('a 2.50 era').conditions).toEqual([{ field: 'era', op: 'lte', value: 250 }])
+    expect(first('obp .400 50 pa').conditions).toEqual([
+      { field: 'obp', op: 'gte', value: 400 },
+      { field: 'pa', op: 'gte', value: 50 },
+    ])
+  })
+
+  it('reads wins, saves and starts, once a game or summed over a season', () => {
+    expect(first('10 strikeouts in a win')).toMatchObject({ side: 'pitching', per: 'game', conditions: [
+      { field: 'so', op: 'gte', value: 10 },
+      { field: 'w', op: 'gte', value: 1 },
+    ] })
+    expect(first('15 wins')).toMatchObject({ per: 'season', conditions: [{ field: 'w', op: 'gte', value: 15 }] })
+    expect(first('30 saves')).toMatchObject({ per: 'season', conditions: [{ field: 'sv', op: 'gte', value: 30 }] })
+    expect(first('era under 3 with 20 starts').conditions).toEqual([
+      { field: 'era', op: 'lte', value: 299 },
+      { field: 'gs', op: 'gte', value: 20 },
+    ])
+  })
+
+  it('still reads "on base" as times on base, never a percentage', () => {
+    expect(first('on base 4+ times')).toMatchObject({ per: 'game', conditions: [{ field: 'ob', op: 'gte', value: 4 }] })
+  })
+
+  it('never reads an n-for-m line or a "none" as a season', () => {
+    expect(read('4-for-4')).toEqual(['hitting/game'])
+    expect(read('10 k no walks')).toEqual(['pitching/game'])
+  })
+})
+
 describe('mightBeFinderQuestion', () => {
   it('lets through every count word the parser reads, so the gate never hides a question', async () => {
     const { mightBeFinderQuestion } = await import('../../finderGate')
@@ -127,5 +194,6 @@ describe('mightBeFinderQuestion', () => {
     }
     expect(mightBeFinderQuestion('Kelsie Whitmore')).toBe(false)
     expect(mightBeFinderQuestion('3+ hits')).toBe(true)
+    expect(mightBeFinderQuestion('multi-hit games')).toBe(true)
   })
 })

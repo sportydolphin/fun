@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { finalsFromSchedule, linesFromBox } from '../../../scripts/sync-mlb-lines.mjs'
+import { decisionOf, finalsFromSchedule, linesFromBox } from '../../../scripts/sync-mlb-lines.mjs'
 
 // The two readings of StatsAPI that decide what the MLB lines mirror stores. Each case here is a
 // shape seen in the real 2026 schedule or a real box score while the job was being written.
@@ -55,7 +55,7 @@ describe('linesFromBox', () => {
           ID3: { person: { fullName: 'Pinch Runner' }, ...batting({ plateAppearances: 0, runs: 1 }) },
           ID4: {
             person: { fullName: 'Start Er' },
-            stats: { batting: { plateAppearances: 0 }, pitching: { outs: 13, battersFaced: 22, hits: 5, runs: 3, earnedRuns: 2, baseOnBalls: 3, strikeOuts: 6, numberOfPitches: 93, strikes: 51 } },
+            stats: { batting: { plateAppearances: 0 }, pitching: { outs: 13, battersFaced: 22, hits: 5, runs: 3, earnedRuns: 2, baseOnBalls: 3, strikeOuts: 6, numberOfPitches: 93, strikes: 51, gamesStarted: 1, wins: 0, losses: 1, saves: 0, holds: 0 } },
           },
         },
       },
@@ -71,7 +71,17 @@ describe('linesFromBox', () => {
 
   it('reads a pitching line in outs', () => {
     const [p] = linesFromBox(box, 99).pitching
-    expect(p).toMatchObject({ player_id: 4, outs: 13, bf: 22, er: 2, so: 6, pitches: 93, strikes: 51, wp: 0 })
+    expect(p).toMatchObject({ player_id: 4, outs: 13, bf: 22, er: 2, so: 6, pitches: 93, strikes: 51, wp: 0, gs: 1, decision: 'L' })
+  })
+
+  it('reads the decision as WPBL spells it, and none as null', () => {
+    expect(decisionOf({ wins: 1 })).toBe('W')
+    expect(decisionOf({ saves: 1, saveOpportunities: 1 })).toBe('S')
+    expect(decisionOf({ holds: 1 })).toBe('H')
+    // A blown save is not a decision; a pitcher who blew one and then won it is the winner.
+    expect(decisionOf({ blownSaves: 1 })).toBeNull()
+    expect(decisionOf({ blownSaves: 1, wins: 1 })).toBe('W')
+    expect(decisionOf({})).toBeNull()
   })
 
   it('names everyone who appeared, once', () => {
