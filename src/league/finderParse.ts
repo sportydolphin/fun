@@ -1,5 +1,6 @@
 import { finderFields, finderLowerBetter, parseFinderValue } from './finder'
 import type { FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
+import { editDistance } from '../lib/fuzzyName'
 
 /**
  * A finder question typed as words: "5 strikeouts no walks", "3+ hits vs SF", "4-for-4 at home".
@@ -236,6 +237,33 @@ function normalize(text: string): string {
     .trim()
 }
 
+// A SLIP IN A STAT WORD ("5 strikeuots", "2 homres") made the whole question unreadable: the stat
+// was not found, so the number had nothing beside it and nothing was suggested. Each word is put
+// right when it is one slip from exactly one word the questions are made of. Only words of six
+// letters or more, because shorter ones collide with real names and clubs ("twins" is one letter
+// from "wins"), and never a word that is itself a club's, which the caller passes in. The corrected
+// question is what the row then states in words, so a wrong guess shows before anyone acts on it.
+const STAT_VOCAB: string[] = (() => {
+  const words = new Set<string>()
+  for (const p of [...Object.keys(STAT_ALIASES), ...PITCHING_HINTS, ...HITTING_HINTS]) {
+    for (const w of p.split(' ')) if (w.length >= 4) words.add(w)
+  }
+  return [...words]
+})()
+
+function fixStatTypos(text: string, keep: ReadonlySet<string> = new Set()): string {
+  return text.replace(/[a-z]{6,}/g, w => {
+    if (keep.has(w) || STAT_VOCAB.includes(w) || FILLER.has(w)) return w
+    const max = w.length >= 9 ? 2 : 1
+    let best: string | null = null, bestD = max + 1, tie = false
+    for (const v of STAT_VOCAB) {
+      const d = editDistance(w, v, max)
+      if (d < bestD) { best = v; bestD = d; tie = false } else if (d === bestD) tie = true
+    }
+    return best && bestD <= max && !tie ? best : w
+  })
+}
+
 const RATE_FIELDS = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip'])
 
 /** The number a match carried, in the field's own unit once the side is known: innings in outs
@@ -281,7 +309,8 @@ function takeYear(rest: string): { rest: string; season: number | null } {
  * last, which is what a reader who corrected themselves meant.
  */
 export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] = []): ParsedFinder[] {
-  let rest = ` ${normalize(text)} `
+  const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
+  let rest = ` ${fixStatTypos(normalize(text), clubWords)} `
   if (!rest.trim()) return []
   const year = takeYear(rest)
   rest = year.rest
@@ -491,7 +520,7 @@ const LEADER_FILLER = new Set(['league', 'leaderboard', 'leaderboards', 'board',
 const STAT_ANY = new RegExp(`${B_START}${STAT}${B_END}`, 'g')
 
 export function parseLeaderText(text: string): ParsedLeader[] {
-  let rest = ` ${normalize(text)} `
+  let rest = ` ${fixStatTypos(normalize(text))} `
   if (!rest.trim()) return []
   const year = takeYear(rest)
   rest = year.rest
@@ -537,7 +566,7 @@ export function parseLeaderText(text: string): ParsedLeader[] {
  * stat of two letters or more counts, since "R.J." and "K." are initials before they are stats.
  */
 export function nameWords(text: string): string | null {
-  let rest = ` ${normalize(text)} `
+  let rest = ` ${fixStatTypos(normalize(text))} `
   const year = takeYear(rest)
   rest = year.rest
   const season = year.season

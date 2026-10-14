@@ -281,3 +281,23 @@ describe('typedSeason', () => {
     expect(typedSeason('2500 pitches')).toBeNull()
   })
 })
+
+describe('a slip in a stat word', () => {
+  it('puts the stat right and reads the question', () => {
+    expect(first('5 strikeuots no walks').conditions).toEqual([
+      { field: 'so', op: 'gte', value: 5 },
+      { field: 'bb', op: 'eq', value: 0 },
+    ])
+    expect(first('2 homres').conditions).toEqual([{ field: 'hr', op: 'gte', value: 2 }])
+    expect(parseLeaderText('most doubels')[0]).toMatchObject({ side: 'hitting', field: '2b' })
+  })
+
+  it('leaves club names, short words and names alone', () => {
+    const clubs: FinderClubAlias[] = [{ id: 'MIN', names: ['Twins', 'Minnesota'] }, { id: 'ATL', names: ['Braves', 'Atlanta'] }]
+    expect(parseFinderText('5 hr vs twins', clubs)[0].oppId).toBe('MIN')
+    expect(parseFinderText('3 hits vs braves', clubs)[0].oppId).toBe('ATL')
+    expect(parseLeaderText('twins')).toEqual([])
+    expect(nameWords('whitmore homres')).toBe('whitmore')
+    expect(nameWords('Kelsie Whitmore')).toBeNull()
+  })
+})

@@ -24,7 +24,7 @@ function allowance(len: number): number {
 
 /** Optimal string alignment distance: insertions, deletions, substitutions and one swap of
  *  neighbours, which is the commonest slip ("Ohatni"). Gives up past `max`. */
-function distance(a: string, b: string, max: number): number {
+export function editDistance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
   for (let j = 1; j <= b.length; j++) d[0][j] = j
@@ -47,8 +47,8 @@ function wordFit(typed: string, word: string): number {
   if (word.startsWith(typed)) return 3
   const max = allowance(typed.length)
   if (!max) return 0
-  if (distance(typed, word, max) <= max) return 2
-  if (word.length > typed.length && distance(typed, word.slice(0, typed.length), max) <= max) return 1
+  if (editDistance(typed, word, max) <= max) return 2
+  if (word.length > typed.length && editDistance(typed, word.slice(0, typed.length), max) <= max) return 1
   return 0
 }
 
