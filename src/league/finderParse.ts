@@ -664,3 +664,109 @@ export function parseClubPage(text: string, clubs: readonly FinderClubAlias[]): 
   if (left.length) return []
   return ids.map(clubId => ({ clubId, part: part! }))
 }
+
+// ─── A game, or two clubs' meetings ───────────────────────────────────────────
+
+/** When a game was asked for: a day, the latest one played, or the next one. */
+export type GameWhen = { date: string } | 'last' | 'next'
+
+export interface GameQuery {
+  /** Each club named, as every club the name could mean ("Chicago" is two). One or two of them. */
+  clubs: string[][]
+  /** Null when no day was said: two clubs alone ask for their meetings, latest and next. */
+  when: GameWhen | null
+}
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const MONTH_RE = /(?<![a-z])(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?![a-z0-9])/
+const SLASH_DATE = /(?<![\d/])(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?(?![\d/])/
+const ISO_DATE = /(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/
+const GAME_ASK_WORDS = /(?<![a-z])(box score|boxscore|game|score|final|recap|matchup|series|head to head|h2h)(?![a-z])/g
+
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** A month and day with no year is the most recent one: "sep 9" typed in October is last month,
+ *  typed in June it is last September, since nobody searches for a game months ahead by date. */
+function dayFor(month: number, day: number, year: number | null, now: Date): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+  let y = year ?? now.getFullYear()
+  if (year == null && isoDay(new Date(y, month - 1, day)) > isoDay(now)) y -= 1
+  const d = new Date(y, month - 1, day)
+  return d.getMonth() === month - 1 ? isoDay(d) : null
+}
+
+/** Each mention of a club in `rest`, blanked out, as every club the name could mean. */
+function clubMentions(rest: string, clubs: readonly FinderClubAlias[]): { rest: string; mentions: string[][] } {
+  const byName = new Map<string, string[]>()
+  for (const c of clubs) {
+    for (const raw of c.names) {
+      const name = normalize(raw)
+      if (name) byName.set(name, [...new Set([...(byName.get(name) ?? []), c.id])])
+    }
+  }
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
+  const mentions: string[][] = []
+  if (!names.length) return { rest, mentions }
+  const out = rest.replace(new RegExp(`(?<![a-z0-9])(?:the\\s+)?(${alt(names)})(?![a-z0-9])`, 'g'),(_m: string, name: string) => {
+    mentions.push(byName.get(name)!)
+    return ' '
+  })
+  return { rest: out, mentions }
+}
+
+/**
+ * "SF vs NY sep 9", "Dodgers last night", "Cubs next game", "Firebells Hunters": a game to open, or
+ * two clubs' meetings, or null. One club needs a day or a word like "game" ("Dodgers" alone is the
+ * club); two clubs need nothing more. Any word it cannot place makes it some other question. `now`
+ * is a parameter so "yesterday" can be tested.
+ */
+export function parseGameQuery(text: string, clubs: readonly FinderClubAlias[], now: Date = new Date()): GameQuery | null {
+  let rest = ` ${normalize(text)} `
+  let when: GameWhen | null = null
+  const setDay = (d: string | null) => { if (d) when = { date: d } }
+
+  rest = rest.replace(ISO_DATE, (_m: string, y: string, mo: string, d: string) => { setDay(dayFor(+mo, +d, +y, now)); return ' ' })
+  rest = rest.replace(SLASH_DATE, (_m: string, mo: string, d: string, y?: string) => {
+    setDay(dayFor(+mo, +d, y ? (y.length === 2 ? 2000 + +y : +y) : null, now)); return ' '
+  })
+  // A year on its own, or beside a month name ("sep 9 2025"), taken after the numeric dates, which
+  // carry their own, and before the month, so it can apply to it.
+  const year = takeYear(rest)
+  rest = year.rest.replace(MONTH_RE, (_m: string, mo: string, d: string) => {
+    setDay(dayFor(MONTHS.indexOf(mo.slice(0, 3)) + 1, +d, year.season, now)); return ' '
+  })
+  const shift = (days: number) => { const d = new Date(now); d.setDate(d.getDate() + days); return isoDay(d) }
+  rest = rest.replace(/(?<![a-z])(today|tonight|tonights)(?![a-z])/, () => { setDay(shift(0)); return ' ' })
+  rest = rest.replace(/(?<![a-z])(yesterday|last night)(?![a-z])/, () => { setDay(shift(-1)); return ' ' })
+  rest = rest.replace(/(?<![a-z])tomorrow(?![a-z])/, () => { setDay(shift(1)); return ' ' })
+  rest = rest.replace(/(?<![a-z])(last|latest|most recent|previous)(?![a-z])/, () => { when ??= 'last'; return ' ' })
+  rest = rest.replace(/(?<![a-z])(next|upcoming)(?![a-z])/, () => { when ??= 'next'; return ' ' })
+  let gameWord = false
+  rest = rest.replace(GAME_ASK_WORDS, () => { gameWord = true; return ' ' })
+
+  const found = clubMentions(rest, clubs)
+  const mentions = found.mentions
+  if (!mentions.length || mentions.length > 2) return null
+  if (mentions.length === 1 && !when && !gameWord) return null
+  const left = found.rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['@', 'and', 'v', 's'].includes(w))
+  if (left.length) return null
+  return { clubs: mentions, when }
+}
+
+/** The games a `GameWhen` asks for, out of one pairing's or one club's games: every game on a day
+ *  (a doubleheader is two), the latest played, the next to come, or with no day said, one of each.
+ *  Played means started, so a game under way answers "last" as well as "today". */
+export function pickGames<G>(games: readonly G[], when: GameWhen | null, today: string,
+  dateOf: (g: G) => string, played: (g: G) => boolean): G[] {
+  const sorted = [...games].sort((a, b) => dateOf(a).localeCompare(dateOf(b)))
+  if (when && typeof when === 'object') return sorted.filter(g => dateOf(g) === when.date)
+  const last = [...sorted].reverse().find(g => played(g) && dateOf(g) <= today)
+  const next = sorted.find(g => !played(g) && dateOf(g) >= today)
+  if (when === 'last') return last ? [last] : []
+  if (when === 'next') return next ? [next] : []
+  return [last, next].filter((g): g is G => g != null)
+}
+
+/** Today in the reader's own zone, as the schedules spell a day. */
+export const todayIso = (now: Date = new Date()): string => isoDay(now)

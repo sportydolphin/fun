@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { RecentSearchItem } from '../storage/recentSearches'
+import type { GameQuery } from '../../league/finderParse'
 export type { RecentSearchItem } from '../storage/recentSearches'
 
 export interface PlayerBridgeItem {
@@ -20,7 +21,7 @@ export interface TeamBridgeItem {
   league?: { name?: string }
 }
 
-/** "A vs B" resolved by the section that owns the search: the pair's compare page. */
+/** A row the section works out for the palette from typed text: a pair's compare page, a game. */
 export interface CompareRow { title: string; subtitle: string; href: string }
 
 // A self-describing toolbar search result. Produced by whichever section owns search
@@ -69,6 +70,8 @@ export interface SearchBridgeState {
   /** Two names typed as "A vs B", resolved against the section's players. Null when either half
    *  names nobody, or before a section has registered. A promise because MLB's is a network call. */
   resolveCompare: ((a: string, b: string, season: number | null) => Promise<CompareRow | null>) | null
+  /** "SF vs NY sep 9", "Dodgers last night": the games asked for, from the section's schedule. */
+  resolveGames: ((q: GameQuery) => Promise<CompareRow[]>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -87,6 +90,7 @@ const DEFAULT: SearchBridgeState = {
   handleSelectRecent: null,
   clearRecentSearches: null,
   resolveCompare: null,
+  resolveGames: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }

@@ -23,15 +23,16 @@ import { useSearchBridge, type SearchBridgeState, type SearchResultRow } from '.
 const row = (key: string, title: string, onSelect = vi.fn()): SearchResultRow =>
   ({ key, title, subtitle: 'sub', avatar: { fallbackText: title[0] }, onSelect })
 
-function Host({ idle = [], results = [], resolveCompare }: {
+function Host({ idle = [], results = [], resolveCompare, resolveGames }: {
   idle?: PaletteIdleGroup[]; results?: SearchResultRow[]; resolveCompare?: SearchBridgeState['resolveCompare']
+  resolveGames?: SearchBridgeState['resolveGames']
 }) {
   const [open, setOpen] = useState(true)
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}>reopen</button>
       <CommandPalette open={open} onClose={() => setOpen(false)} section="wpbl"
-        results={results} idle={idle} searching={false} resolveCompare={resolveCompare} />
+        results={results} idle={idle} searching={false} resolveCompare={resolveCompare} resolveGames={resolveGames} />
     </>
   )
 }
@@ -157,5 +158,19 @@ describe('the search box', () => {
     render(<><Host /><Probe /></>)
     await user.keyboard('Ohtani 2023')
     expect(screen.getByTestId('bridge')).toHaveTextContent('ohtani|2023')
+  })
+
+  it('asks the section for the games and offers each, with no compare lookup for the two clubs', async () => {
+    const user = userEvent.setup()
+    const resolveGames = vi.fn(async () => [{ title: 'SF 6 at NY 4', subtitle: 'Final · Sep 9, 2026', href: '/wpbl/games/x' }])
+    const resolveCompare = vi.fn(async () => null)
+    render(<Host resolveGames={resolveGames} resolveCompare={resolveCompare} />)
+    await user.keyboard('SF vs NY sep 9')
+
+    const option = await screen.findByRole('option', { name: /SF 6 at NY 4/ })
+    expect(option).toHaveAttribute('href', '/wpbl/games/x')
+    expect(resolveCompare).not.toHaveBeenCalled()
+    await user.keyboard('{Enter}')
+    expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'game', rank: 0 })
   })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { clubPageSuggestions, finderSuggestions, leaderSuggestions } from '../finderSearch'
+import { clubPageSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions } from '../finderSearch'
+import { gameRow } from '../lib/gameRow'
 
 describe('leaderSuggestions', () => {
   it('links a WPBL ranking to the Players table sorted on that column', () => {
@@ -41,5 +42,27 @@ describe('clubPageSuggestions', () => {
     expect(clubPageSuggestions('mlb', 'Dodgers stats')[0]).toMatchObject({
       title: 'Los Angeles Dodgers team leaders', href: '/mlb/teams/dodgers', scrollTo: 'leaders',
     })
+  })
+})
+
+describe('matchupSuggestions', () => {
+  it('links two WPBL clubs to their season series page, one URL whichever order', () => {
+    expect(matchupSuggestions('wpbl', 'Hunters vs Firebells')).toEqual([
+      { key: 'matchup-/wpbl/series/firebells-vs-hunters', title: 'Hunters vs Firebells', href: '/wpbl/series/firebells-vs-hunters' },
+    ])
+  })
+
+  it('offers none for a single game, or on MLB, which has no such page', () => {
+    expect(matchupSuggestions('wpbl', 'Hunters vs Firebells sep 9')).toEqual([])
+    expect(matchupSuggestions('mlb', 'Cubs vs Cardinals')).toEqual([])
+  })
+})
+
+describe('gameRow', () => {
+  it('reads a played game with its score and an unplayed one without', () => {
+    expect(gameRow({ away: 'SF', home: 'NY', awayScore: 6, homeScore: 4, state: 'final', date: '2026-09-09', href: '/g' }))
+      .toEqual({ title: 'SF 6 at NY 4', subtitle: 'Final · Sep 9, 2026', href: '/g' })
+    expect(gameRow({ away: 'SF', home: 'NY', awayScore: null, homeScore: null, state: 'scheduled', date: '2027-05-01', href: '/g' }).title)
+      .toBe('SF at NY')
   })
 })

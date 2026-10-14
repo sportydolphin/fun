@@ -21,6 +21,8 @@ import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from './recentSearches'
 import { fuzzyMatches } from '../lib/fuzzyName'
+import { gameRow } from '../lib/gameRow'
+import { pickGames, todayIso, type GameQuery } from '../league/finderParse'
 import { useAuth } from '../AuthContext'
 import { wpblSearchedProps } from './searchAnalytics'
 import { jerseyQuery, jerseyOf } from './playerSearch'
@@ -1702,7 +1704,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (!active) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
       setSearchQuery('')
     }
   }, [active])
@@ -2050,6 +2052,22 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (active) updateSearchBridge({ resolveCompare })
   }, [resolveCompare, active])
+
+  // "SF vs NY sep 9", "Firebells last night" in the palette, from the schedule already in hand.
+  const resolveGames = useCallback(async (q: GameQuery) => {
+    const [first, second] = q.clubs
+    const plays = (g: WpblGame, ids: string[]) => ids.includes(g.home_team_id) || ids.includes(g.away_team_id)
+    const pool = games.filter(g => plays(g, first) && (!second || plays(g, second)))
+    return pickGames(pool, q.when, todayIso(), g => g.game_date, g => g.status !== 'scheduled').map(g => gameRow({
+      away: teamById.get(g.away_team_id)?.abbr ?? g.away_team_id,
+      home: teamById.get(g.home_team_id)?.abbr ?? g.home_team_id,
+      awayScore: g.away_score, homeScore: g.home_score, state: g.status, date: g.game_date,
+      href: wpblGamePath(g, teams, games),
+    }))
+  }, [games, teams, teamById])
+  useEffect(() => {
+    if (active) updateSearchBridge({ resolveGames })
+  }, [resolveGames, active])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

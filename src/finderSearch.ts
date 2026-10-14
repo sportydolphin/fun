@@ -11,13 +11,13 @@
 // tab on a modified click like any other.
 
 import { describeFinderQuery, finderFields, finderLowerBetter, type FinderSide } from './league/finder'
-import { parseClubPage, parseFinderText, parseLeaderText, type ClubPagePart, type ParsedFinder, type ParsedLeader } from './league/finderParse'
+import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, type ClubPagePart, type ParsedFinder, type ParsedLeader } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
 import { mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
 import { WPBL_FINDER_CLUBS, wpblFinderHref } from './wpbl/finderLink'
 import { WPBL_TEAMS } from './wpbl/constants'
-import { wpblTeamPath } from './wpbl/routes'
+import { wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 
 export type FinderSection = 'wpbl' | 'mlb'
 
@@ -145,4 +145,29 @@ export function clubPageSuggestions(section: FinderSection, text: string): ClubP
       href: wpblTeamPath(team, Object.values(WPBL_TEAMS)), scrollTo: part,
     }]
   })
+}
+
+/** The clubs each section's questions can name, for the shell's own readers. */
+export const sectionClubs = (section: FinderSection) => section === 'mlb' ? MLB_FINDER_CLUBS : WPBL_FINDER_CLUBS
+
+/**
+ * "Firebells vs Hunters" with no day: the pairing's season-series page, every meeting and the
+ * leaders in them. WPBL only: MLB's series pages are the postseason bracket's slots, and a
+ * regular-season pairing has no page there, so its two clubs get their latest and next game instead.
+ */
+export function matchupSuggestions(section: FinderSection, text: string): { key: string; title: string; href: string }[] {
+  if (section !== 'wpbl') return []
+  const q = parseGameQuery(text, WPBL_FINDER_CLUBS)
+  if (!q || q.when || q.clubs.length !== 2) return []
+  const teams = Object.values(WPBL_TEAMS)
+  const out: { key: string; title: string; href: string }[] = []
+  for (const a of q.clubs[0]) {
+    for (const b of q.clubs[1]) {
+      const ta = WPBL_TEAMS[a], tb = WPBL_TEAMS[b]
+      if (!ta || !tb || a === b) continue
+      const href = wpblSeriesPath(ta, tb, teams)
+      out.push({ key: `matchup-${href}`, title: `${ta.name} vs ${tb.name}`, href })
+    }
+  }
+  return out
 }

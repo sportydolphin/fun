@@ -3,8 +3,10 @@ import type { ReactNode } from 'react'
 import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
-import { ACCENT_TEXT, CURRENT_SEASON } from './mlb/constants'
-import { searchPlayers, searchPlayersForgiving } from './mlb/api'
+import { ACCENT_TEXT, CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
+import { fetchClubGames, searchPlayers, searchPlayersForgiving } from './mlb/api'
+import { gameRow } from './lib/gameRow'
+import { pickGames, todayIso } from './league/finderParse'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
 import { requestDeepLink, parseDeepLink } from './mlb/state/deepLink'
 import { MoreSheet } from './ui/MoreMenu'
@@ -224,6 +226,33 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           }
         } catch { return null }
       },
+      // "Dodgers last night", "Cubs vs Cardinals": StatsAPI's schedule for the club (and opponent),
+      // over the days the question can mean. A name two clubs share is each of them, at most two
+      // calls for a pairing of the two Chicagos with someone.
+      resolveGames: async q => {
+        const today = todayIso()
+        const shift = (iso: string, days: number) => {
+          const [y, m, d] = iso.split('-').map(Number)
+          return todayIso(new Date(y, m - 1, d + days))
+        }
+        const when = q.when
+        const [start, end] = when && typeof when === 'object' ? [when.date, when.date]
+          : when === 'last' ? [shift(today, -60), today]
+          : when === 'next' ? [today, shift(today, 60)]
+          : [shift(today, -365), shift(today, 200)]
+        const pairs = q.clubs[0].flatMap(a => (q.clubs[1] ?? [null]).map(b => [Number(a), b == null ? null : Number(b)] as const))
+          .filter(([a, b]) => a !== b).slice(0, 2)
+        try {
+          const pools = await Promise.all(pairs.map(([a, b]) => fetchClubGames(a, b, start, end)))
+          const seen = new Set<number>()
+          const all = pools.flat().filter(g => !seen.has(g.gamePk) && !!seen.add(g.gamePk))
+          return pickGames(all, when, today, g => g.date, g => g.state !== 'scheduled').map(g => gameRow({
+            away: TEAM_ABBR[g.awayId] ?? String(g.awayId), home: TEAM_ABBR[g.homeId] ?? String(g.homeId),
+            awayScore: g.awayScore, homeScore: g.homeScore, state: g.state, date: g.date,
+            href: mlbGamePath(g.gamePk),
+          }))
+        } catch { return [] }
+      },
     })
   }, [active])
 
@@ -232,7 +261,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     if (!active) return
     return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null })
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null, resolveGames: null })
       setSearchQuery('')
     }
   }, [active])

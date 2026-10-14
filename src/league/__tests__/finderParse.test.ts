@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseClubPage, parseCompareText, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -317,5 +317,54 @@ describe('parseClubPage', () => {
     expect(parseClubPage('SF', CLUBS)).toEqual([])
     expect(parseClubPage('3 hits vs SF', CLUBS)).toEqual([])
     expect(parseClubPage('Whitmore SF stats', CLUBS)).toEqual([])
+  })
+})
+
+describe('parseGameQuery', () => {
+  const NOW = new Date(2026, 9, 14) // Oct 14, 2026
+  const q = (t: string) => parseGameQuery(t, CLUBS, NOW)
+
+  it('reads two clubs and a day, written any of the usual ways', () => {
+    expect(q('SF vs NY sep 9')).toEqual({ clubs: [['SF'], ['NY']], when: { date: '2026-09-09' } })
+    expect(q('NY at SF 9/9/2025')).toEqual({ clubs: [['NY'], ['SF']], when: { date: '2025-09-09' } })
+    expect(q('Boston 2026-08-30')).toEqual({ clubs: [['BOS']], when: { date: '2026-08-30' } })
+    expect(q('Hunters sep 9 2025')?.when).toEqual({ date: '2025-09-09' })
+  })
+
+  it('takes a day with no year as the latest one, never one still to come', () => {
+    expect(q('SF dec 25')?.when).toEqual({ date: '2025-12-25' })
+  })
+
+  it('reads yesterday, last and next', () => {
+    expect(q('Boston last night')?.when).toEqual({ date: '2026-10-13' })
+    expect(q('Hunters next game')?.when).toBe('next')
+    expect(q('the Heights latest')?.when).toBe('last')
+  })
+
+  it('reads two clubs alone as their meetings, and a shared city as both its clubs', () => {
+    expect(q('Firebells Hunters')).toEqual({ clubs: [['SF'], ['BOS']], when: null })
+    expect(q('Chicago tomorrow')?.clubs).toEqual([['CHC', 'CWS']])
+  })
+
+  it('leaves a club alone, a stat question and a stray word to the other searches', () => {
+    expect(q('SF')).toBeNull()
+    expect(q('3 hits vs SF')).toBeNull()
+    expect(q('Whitmore SF last night')).toBeNull()
+  })
+})
+
+describe('pickGames', () => {
+  const G = [
+    { d: '2026-09-07', played: true }, { d: '2026-09-09', played: true },
+    { d: '2026-09-09', played: true }, { d: '2026-09-20', played: false },
+  ]
+  const pick = (when: Parameters<typeof pickGames>[1]) =>
+    pickGames(G, when, '2026-09-10', g => g.d, g => g.played).map(g => g.d)
+
+  it('gives every game on a day, the latest played, the next, or one of each', () => {
+    expect(pick({ date: '2026-09-09' })).toEqual(['2026-09-09', '2026-09-09'])
+    expect(pick('last')).toEqual(['2026-09-09'])
+    expect(pick('next')).toEqual(['2026-09-20'])
+    expect(pick(null)).toEqual(['2026-09-09', '2026-09-20'])
   })
 })

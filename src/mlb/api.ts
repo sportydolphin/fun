@@ -43,6 +43,32 @@ export async function searchPlayersForgiving(name: string): Promise<Player[]> {
   return fuzzyMatches(all, name, p => [p.fullName])
 }
 
+/** One game off StatsAPI's schedule, as the search's game rows need it. */
+export interface ScheduleGameLite {
+  gamePk: number; date: string; awayId: number; homeId: number
+  awayScore: number | null; homeScore: number | null; state: 'final' | 'live' | 'scheduled'
+}
+
+/**
+ * A club's games, or two clubs' meetings, between two days: the palette's "Dodgers last night" and
+ * "Cubs vs Cardinals". StatsAPI filters on both clubs itself (`opponentId`), so a pairing is one
+ * small call whatever the range. Every game type, since a playoff game is a game someone asks for.
+ */
+export async function fetchClubGames(teamId: number, opponentId: number | null, start: string, end: string): Promise<ScheduleGameLite[]> {
+  const opp = opponentId != null ? `&opponentId=${opponentId}` : ''
+  const r = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}${opp}&startDate=${start}&endDate=${end}`)
+  const d = await r.json()
+  return (d.dates ?? []).flatMap((day: any) => (day.games ?? []).map((g: any): ScheduleGameLite => {
+    const s = g.status?.abstractGameState
+    return {
+      gamePk: g.gamePk, date: g.officialDate ?? day.date,
+      awayId: g.teams?.away?.team?.id, homeId: g.teams?.home?.team?.id,
+      awayScore: g.teams?.away?.score ?? null, homeScore: g.teams?.home?.score ?? null,
+      state: s === 'Final' ? 'final' : s === 'Live' ? 'live' : 'scheduled',
+    }
+  }))
+}
+
 // Player bio (name/position/currentTeam) is static within a session, and cross-links
 // fetch it twice per click (once in the nav handler, once inside selectPlayer), so
 // cache by id. On failure the entry is evicted so a transient blip doesn't poison it.

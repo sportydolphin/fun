@@ -148,7 +148,7 @@ export const EVENTS = {
   // still fire on a pick underneath these: `wpbl_search_picked`, and `mlb_player_opened` /
   // `mlb_team_opened` from `header_search` or `recent`, so those series run on unbroken.
   COMMAND_PALETTE_OPENED:    'command_palette_opened',    // props {section, via: 'field' | 'icon' | 'slash' | 'shortcut'}
-  COMMAND_PALETTE_PICKED:    'command_palette_picked',    // props {section, kind: 'club_page' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example', rank, typed, top}
+  COMMAND_PALETTE_PICKED:    'command_palette_picked',    // props {section, kind: 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example', rank, typed, top}
   COMMAND_PALETTE_DISMISSED: 'command_palette_dismissed', // closed with no pick, props {section, typed, shown, q?}; `q` only when the box offered nothing for the text
   COMMAND_PALETTE_RECENTS_CLEARED: 'command_palette_recents_cleared', // props {section}
   // A stat question typed as words ("5 strikeouts no walks") and opened on the Find board. Fires

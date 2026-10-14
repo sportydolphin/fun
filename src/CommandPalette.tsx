@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups } from '@mui/icons-material'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { clubPageSuggestions, finderSuggestions, leaderSuggestions } from './finderSearch'
+import { clubPageSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
 import { requestSectionScroll } from './lib/sectionScroll'
-import { nameWords, parseCompareText, typedSeason } from './league/finderParse'
+import { nameWords, parseCompareText, parseGameQuery, typedSeason } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -40,7 +40,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'club_page' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -126,7 +126,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -137,6 +137,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   searching: boolean
   /** The section's "A vs B" lookup, from the search bridge. */
   resolveCompare?: SearchBridgeState['resolveCompare']
+  /** The section's game lookup for "SF vs NY sep 9", from the search bridge. */
+  resolveGames?: SearchBridgeState['resolveGames']
 }) {
   const [text, setText] = useState('')
   const [active, setActive] = useState(0)
@@ -164,8 +166,22 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   // "A vs B", once the section has found both players. Kept with the text it answers, so a reply
   // that lands after the reader has typed on is never shown against the newer text.
   const [compare, setCompare] = useState<{ text: string; row: CompareRow } | null>(null)
+  // "SF vs NY sep 9", "Dodgers last night": the section's schedule answers, on the same terms as
+  // the compare row above (kept with its text, a beat after the last key).
+  const [gameRows, setGameRows] = useState<{ text: string; rows: CompareRow[] } | null>(null)
   useEffect(() => {
-    const pair = resolveCompare ? parseCompareText(text) : null
+    const q = resolveGames ? parseGameQuery(text, sectionClubs(section)) : null
+    if (!q || !resolveGames) return
+    let live = true
+    const t = setTimeout(() => {
+      resolveGames(q).then(rows => { if (live) setGameRows({ text, rows }) }).catch(() => {})
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, section, resolveGames])
+
+  useEffect(() => {
+    // Two clubs read as a game question are not two players to compare: no lookup for them.
+    const pair = resolveCompare && !parseGameQuery(text, sectionClubs(section)) ? parseCompareText(text) : null
     if (!pair || !resolveCompare) return
     let live = true
     // A beat after the last key, since MLB's answer is two network calls per try.
@@ -175,7 +191,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         .catch(() => {})
     }, 250)
     return () => { live = false; clearTimeout(t) }
-  }, [text, resolveCompare])
+  }, [text, section, resolveCompare])
 
   const change = (v: string) => {
     setText(v); setActive(0)
@@ -214,6 +230,14 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       ].filter(g => g.items.length)
     }
 
+    const games: Item[] = gameRows && gameRows.text === text ? gameRows.rows.map(r => ({
+      key: `game-${r.href}`, kind: 'game' as const, title: r.title, subtitle: r.subtitle, href: r.href,
+      icon: <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    })) : []
+    const matchups: Item[] = matchupSuggestions(section, text).map(m => ({
+      key: m.key, kind: 'matchup', title: m.title, subtitle: 'Season series · every meeting', href: m.href,
+      icon: <CompareArrows sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }))
     const compared: Item[] = compare && compare.text === text ? [{
       key: `compare-${compare.row.href}`, kind: 'compare', title: compare.row.title,
       subtitle: `Compare · ${compare.row.subtitle}`, href: compare.row.href,
@@ -250,6 +274,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .map((x, i) => pageItem(x.p, i))
 
     return [
+      { label: 'Games', items: games },
+      { label: 'Matchups', items: matchups },
       { label: 'Clubs', items: clubPages },
       { label: 'Compare', items: compared },
       { label: 'Leaders', items: leaders },
@@ -257,7 +283,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(rowItem('result')) },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare])
+  }, [text, results, idle, section, compare, gameRows])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))

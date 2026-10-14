@@ -1574,7 +1574,7 @@ function AppInner() {
         <Suspense fallback={null}>
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
             results={paletteResults} idle={paletteIdle} searching={bridge.searching}
-            resolveCompare={bridge.resolveCompare} />
+            resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames} />
         </Suspense>
       )}
 
