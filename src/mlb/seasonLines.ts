@@ -80,6 +80,7 @@ export function adaptSeasonLines(row: {
     outs: num(l.outs), bf: numOrNull(l.bf), h: num(l.h), r: num(l.r), er: num(l.er), bb: num(l.bb),
     so: num(l.so), hr: num(l.hr), pitches: numOrNull(l.pitches), strikes: numOrNull(l.strikes),
     hbp: num(l.hbp), wp: num(l.wp), bk: num(l.bk),
+    gs: num(l.gs), decision: typeof l.decision === 'string' ? l.decision : null,
   }))
   const players = unpack(row.players).map((p): MlbLinePlayer => ({
     id: str(p.player_id),

@@ -3,10 +3,10 @@
 // rows it hands WPBL's rows back; this file only keeps the names FindView and its tests use.
 
 export {
-  EMPTY_FINDER_QUERY, FINDER_OPS, decodeFinderQuery, defaultCondition, describeFinderQuery,
+  EMPTY_FINDER_QUERY, FINDER_OPS, decodeFinderPer, decodeFinderQuery, defaultCondition, describeFinderQuery,
   displayFinderValue, encodeFinderQuery, finderFields, finderUnit, parseFinderValue,
   unparseFinderValue, finderColumns, validFinderSort, runFinder as runWpblFinder,
 } from '../../league/finder'
 export type {
-  FinderCondition, FinderOp, FinderQuery, FinderRow, FinderSide, FinderSort, FinderTally, FinderVenue,
+  FinderCondition, FinderOp, FinderPer, FinderQuery, FinderRow, FinderSide, FinderSort, FinderTally, FinderVenue,
 } from '../../league/finder'

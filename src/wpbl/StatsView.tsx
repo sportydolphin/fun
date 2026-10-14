@@ -29,7 +29,7 @@ import {
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
 import { isPostseasonGame, scopedLines, type SeasonScope } from './season'
 import {
-  decodeFinderQuery, encodeFinderQuery, finderFields,
+  decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields,
   type FinderQuery, type FinderVenue,
 } from './derive/finder'
 import type { EraBasis } from './stats'
@@ -1064,6 +1064,7 @@ export default function WpblStatsView({
       fromUrl.find ?? null,
       fromUrl.side === 'pitching' || (!fromUrl.side && seedAxes.side === 'pitching') ? 'pitching' : 'hitting',
     ),
+    per: decodeFinderPer(fromUrl.find ?? null),
     teamId: fromUrl.findTeam || null,
     oppId: fromUrl.findOpp || null,
     venue: fromUrl.findVenue ?? 'any',
@@ -1446,7 +1447,7 @@ export default function WpblStatsView({
     // board rather than as a stat that does not apply. Drop those on the switch; a shared field
     // (strikeouts, home runs, walks) stays and changes sense with the side.
     setFindQuery(prev => {
-      const valid = new Set(finderFields(s === 'hitting' || s === 'pitching' ? s : 'hitting').map(f => f.key))
+      const valid = new Set(finderFields(s === 'hitting' || s === 'pitching' ? s : 'hitting', prev.per).map(f => f.key))
       const conditions = prev.conditions.filter(c => valid.has(c.field))
       return conditions.length === prev.conditions.length ? prev : { ...prev, conditions }
     })
@@ -1480,6 +1481,7 @@ export default function WpblStatsView({
     if (nextSource === 'find') {
       setFindQuery({
         conditions: decodeFinderQuery(q.find ?? null, nextSide === 'pitching' ? 'pitching' : 'hitting'),
+        per: decodeFinderPer(q.find ?? null),
         teamId: q.findTeam || null,
         oppId: q.findOpp || null,
         venue: q.findVenue ?? 'any',
@@ -1574,7 +1576,7 @@ export default function WpblStatsView({
     // who built a question and then walked to Players would carry `?q=so.gte.5` on a board that
     // has no idea what it means, and would paste it to somebody who lands on a table.
     const finding = source === 'find'
-    set('q', finding && findQuery.conditions.length ? encodeFinderQuery({ ...findQuery, scope }) : null)
+    set('q', finding ? encodeFinderQuery(findQuery) || null : null)
     set('team', finding ? findQuery.teamId : null)
     set('opp', finding ? findQuery.oppId : null)
     set('venue', finding && findQuery.venue !== 'any' ? findQuery.venue : null)
