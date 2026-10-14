@@ -1,0 +1,69 @@
+name: "PRs: sync with main"
+
+# When a pull request lands, bring every open pull request that is set to merge itself up to date
+# with `main`, and say so on the ones that cannot be.
+#
+# WHY. The ruleset does not require a branch to be current (`strict_required_status_checks_policy`
+# is false), so a pull request can pass its checks against an old `main` and merge on top of a new
+# one untested. And one that now CONFLICTS stops merging with no notice at all: auto-merge just
+# waits. On Oct 14, 2026 a pull request sat blocked behind a conflict nobody had been told about.
+#
+# Only after a pull request lands (a squash commit ends "(#N)"), not after the scheduled jobs'
+# generated commits, which would re-run every open pull request's checks for a sitemap.
+#
+# Merges into the branch rather than rebasing, so a local copy of the branch only needs a pull.
+# Runs no code from any branch, only git, which is why it may hold MAIN_BOT_DEPLOY_KEY: a push on
+# that key starts the branch's checks, where one on GITHUB_TOKEN would start nothing.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: pr-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  sync:
+    if: contains(github.event.head_commit.message, '(#')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.MAIN_BOT_DEPLOY_KEY }}
+
+      - name: Merge main into each auto-merge pull request
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Listed first, and every gh in the loop reads /dev/null, so none of them eats the list.
+          list=$(gh pr list --state open --base main --json number,headRefName,autoMergeRequest,isCrossRepository \
+            --jq '.[] | select(.autoMergeRequest != null and .isCrossRepository == false) | "\(.number) \(.headRefName)"')
+          while read -r num branch; do
+            [ -n "$num" ] || continue
+            git checkout -q -B "$branch" "origin/$branch"
+            if git merge-base --is-ancestor origin/main HEAD; then echo "#$num is current."; continue; fi
+            if git merge -q --no-edit origin/main; then
+              git push -q origin "$branch" && echo "#$num: merged main in."
+              continue
+            fi
+            files=$(git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/')
+            git merge --abort
+            # One comment per state of the branch, not one per push to main while it waits.
+            marker="<!-- pr-sync:$(git rev-parse --short HEAD) -->"
+            if gh pr view "$num" --json comments --jq '.comments[].body' </dev/null | grep -qF "$marker"; then continue; fi
+            hint=""
+            if echo "$files" | grep -q 'scripts/fixtures/layout-sweep/'; then
+              hint=$'\n\nThe sweep fixture is one file per read, so this is two branches recording the same read. Take main'"'"'s copy of those files, then record what the branch still lacks: run the "Sweep: record" workflow on this branch with the routes the `layout` check prints.'
+            fi
+            gh pr comment "$num" </dev/null --body "$marker"$'\n'"Auto-merge is waiting on a conflict with \`main\` ($(git log -1 --format=%s origin/main)). Merge \`main\` into this branch and resolve:"$'\n\n'"$files$hint"
+            echo "#$num: conflicts, commented."
+          done <<< "$list"

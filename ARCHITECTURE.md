@@ -595,9 +595,13 @@ request and every commit on `main` (type-check, lint, tests, build) and holds no
 job is required to merge into `main` (`.github/rulesets/`), and so is its `layout` job, which passes
 only when every `layout` slice does: `layout 1/4` to `4/4` each run `npm run sweep` over a quarter of the routes
 against the dev server, served from a recorded snapshot of the data
-(`scripts/fixtures/layout-sweep.json.gz`), and fails on any finding not already in
+(`scripts/fixtures/layout-sweep/`, one file per read), and fails on any finding not already in
 `scripts/fixtures/layout-sweep-baseline.json`, which is empty. The whole of it is in
 [docs/CI.md](docs/CI.md).
+`sweep-record.yml` (manual) records what that snapshot lacks onto a pull request's branch, and
+`pr-sync.yml` runs after each pull request lands, merging `main` into every open pull request set to
+auto-merge and commenting on any that conflict. Both push on `MAIN_BOT_DEPLOY_KEY` so the branch's
+checks run, and neither job that holds it runs code from a branch.
 `workflow-failure-alert.yml` runs on `workflow_run` and pages the owner when a scheduled run goes red:
 it records a `workflow:<name>` row in `cron_heartbeats`, then runs `check-admin-health`. It must name
 every scheduled workflow, and `workflowDeps.test.ts` fails CI otherwise. Every cron installs its few

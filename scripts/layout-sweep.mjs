@@ -31,6 +31,10 @@
  *    production database, and a page with no data is an empty state, which checks nothing. So
  *    `--record` captures every response the pages fetch (Supabase, StatsAPI) and the size of every
  *    image they draw into FIXTURE, and `--replay` serves the pages from it with the network shut.
+ *    FIXTURE is a directory, one gzipped file per response named by a hash of its request, plus
+ *    `images.json` (one line per image) and `meta.json` (the clock). It was one .json.gz until
+ *    Oct 2026, and any two pull requests that both re-recorded conflicted on it as a binary git
+ *    cannot merge; now two branches that add different reads touch different files.
  *    Both run with the clock frozen at the moment of recording, because the queries carry dates
  *    (today's scoreboard, "games since"), and a query that differs by a millisecond is a miss.
  *    Images come back as blank SVGs of the recorded size: a layout check needs the box, not the
@@ -66,6 +70,7 @@ import { chromium } from 'playwright-core'
 import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import zlib from 'node:zlib'
+import crypto from 'node:crypto'
 
 // ─── Options ──────────────────────────────────────────────────────────────────
 
@@ -101,7 +106,7 @@ const REPLAY = flag('replay')
 // at once, so a pull request adding one route would also carry a day of unrelated data changes,
 // and any finding they surface, under the same check.
 const MERGE = flag('merge')
-const FIXTURE = new URL('./fixtures/layout-sweep.json.gz', import.meta.url)
+const FIXTURE = new URL('./fixtures/layout-sweep/', import.meta.url)
 // THE FINDINGS ALREADY ON MAIN when CI started running this: 94 of them, mostly the footer sitting
 // above the fold under a skeleton shorter than the page it stands in for. A gate that failed on
 // those would have to be switched off on day one, so they are listed here, and CI fails only on
@@ -399,12 +404,24 @@ function requestKey(req) {
 /** The same idea for an image: one in Supabase storage is named by the client's URL, which CI changes. */
 const imageKey = url => url.replace(/^https?:\/\/[^/]+(?=\/storage\/v1\/)/, 'supabase')
 
-const fixture = { recordedAt: 0, responses: {}, images: {}, misses: new Set() }
+// misses: request -> the routes that asked for it, so the report can name the re-record to run.
+const fixture = { recordedAt: 0, responses: {}, images: {}, misses: new Map(), loaded: new Set() }
+
+/** One file per response, named by its request: a branch that adds a read adds a file, and only
+ *  two branches re-recording the SAME read can conflict. The key is kept inside for reading. */
+const responseFile = key => `${crypto.createHash('sha1').update(key).digest('hex').slice(0, 16)}.json.gz`
 
 function loadFixture() {
   try {
-    Object.assign(fixture, JSON.parse(zlib.gunzipSync(fs.readFileSync(FIXTURE)).toString('utf8')))
-    fixture.images = Object.fromEntries(Object.entries(fixture.images).map(([k, v]) => [imageKey(k), v]))
+    const dir = fs.readdirSync(FIXTURE)
+    fixture.recordedAt = JSON.parse(fs.readFileSync(new URL('meta.json', FIXTURE), 'utf8')).recordedAt
+    fixture.images = Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(new URL('images.json', FIXTURE), 'utf8')))
+      .map(([k, v]) => [imageKey(k), v]))
+    for (const f of dir.filter(f => f.endsWith('.json.gz'))) {
+      const { key, ...res } = JSON.parse(zlib.gunzipSync(fs.readFileSync(new URL(f, FIXTURE))).toString('utf8'))
+      fixture.responses[key] = res
+      fixture.loaded.add(key)
+    }
   } catch (err) {
     console.error(`No fixture to replay. Record one first: npm run sweep:record\n${err.message}`)
     process.exit(2)
@@ -413,8 +430,21 @@ function loadFixture() {
 
 function saveFixture() {
   const { recordedAt, responses, images } = fixture
-  fs.mkdirSync(new URL('.', FIXTURE), { recursive: true })
-  fs.writeFileSync(FIXTURE, zlib.gzipSync(JSON.stringify({ recordedAt, responses, images }), { level: 9 }))
+  fs.mkdirSync(FIXTURE, { recursive: true })
+  // A full record replaces the fixture, so a read no page makes any more leaves with it. A merge
+  // only adds, and rewrites nothing it did not record, which is what keeps its diff to its reads.
+  const keep = new Set(Object.keys(responses).map(responseFile))
+  if (!MERGE) for (const f of fs.readdirSync(FIXTURE)) if (f.endsWith('.json.gz') && !keep.has(f)) fs.rmSync(new URL(f, FIXTURE))
+  for (const [key, res] of Object.entries(responses)) {
+    const file = new URL(responseFile(key), FIXTURE)
+    if (MERGE && fixture.loaded.has(key)) continue
+    // mtime 0 in the gzip header, so recording the same answer twice writes the same bytes.
+    fs.writeFileSync(file, zlib.gzipSync(JSON.stringify({ key, ...res }), { level: 9 }))
+  }
+  // Sorted, one image a line, so two branches' new images merge as text.
+  const sorted = Object.keys(images).sort().map(k => `  ${JSON.stringify(k)}: ${JSON.stringify(images[k])}`)
+  fs.writeFileSync(new URL('images.json', FIXTURE), `{\n${sorted.join(',\n')}\n}\n`)
+  fs.writeFileSync(new URL('meta.json', FIXTURE), `${JSON.stringify({ recordedAt }, null, 2)}\n`)
   console.log(`Recorded ${Object.keys(responses).length} responses and ${Object.keys(images).length} image sizes.`)
 }
 
@@ -422,7 +452,7 @@ const isApp = url => url.startsWith(BASE)
 const TEXTUAL = /json|text|javascript|xml|csv/
 
 /** Wire a context for --record or --replay; a plain sweep leaves the network alone. */
-async function wireContext(ctx) {
+async function wireContext(ctx, route) {
   if (!RECORD && !REPLAY) return
   await ctx.clock.setFixedTime(fixture.recordedAt)
   // And seed the dice: MLB's home feed picks its featured clubs and players at random, and a
@@ -455,19 +485,20 @@ async function wireContext(ctx) {
     })
     return
   }
-  await ctx.route(url => !isApp(url.href), async route => {
-    const req = route.request()
+  await ctx.route(url => !isApp(url.href), async handle => {
+    const req = handle.request()
     if (req.resourceType() === 'image') {
       const [w, h] = fixture.images[imageKey(req.url())] ?? [1, 1]
-      return route.fulfill({ status: 200, contentType: 'image/svg+xml',
+      return handle.fulfill({ status: 200, contentType: 'image/svg+xml',
         body: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#8884"/></svg>` })
     }
     const hit = fixture.responses[requestKey(req)]
     if (!hit) {
-      fixture.misses.add(`${req.method()} ${req.url()}`)
-      return route.abort()
+      const miss = `${req.method()} ${req.url()}`
+      fixture.misses.set(miss, (fixture.misses.get(miss) ?? new Set()).add(route))
+      return handle.abort()
     }
-    return route.fulfill({ status: hit.status, headers: hit.headers,
+    return handle.fulfill({ status: hit.status, headers: hit.headers,
       body: hit.text ?? Buffer.from(hit.base64, 'base64') })
   })
 }
@@ -502,7 +533,7 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     // A service worker answers requests before page.route sees them, so a replay would leak.
     serviceWorkers: 'block',
   })
-  await wireContext(ctx)
+  await wireContext(ctx, route)
   await ctx.addInitScript(([scale, experiments]) => {
     try {
       localStorage.setItem('a11yTextScale', scale)
@@ -684,8 +715,12 @@ async function main() {
   if (fixture.misses.size) {
     problems += fixture.misses.size
     console.log(`\n${fixture.misses.size} request(s) not in the fixture, so those pages were swept with less on them`)
-    console.log('than they draw. A query changed: re-record with npm run sweep:record.')
-    for (const m of [...fixture.misses].sort()) console.log(`  ${m.length > 200 ? `${m.slice(0, 200)}…` : m}`)
+    console.log('than they draw. A query changed, so record what is missing (needs .env), and commit the fixture:')
+    // Without the leading slash, which Git Bash would rewrite into a Windows path.
+    const routes = [...new Set([...fixture.misses.values()].flatMap(r => [...r]))].map(r => r.replace(/^\//, ''))
+    console.log(`\n  npm run sweep:record -- --merge --routes ${routes.join(',')}\n`)
+    console.log('or run the "Sweep: record" workflow on the branch (docs/CI.md). The reads:')
+    for (const m of [...fixture.misses.keys()].sort()) console.log(`  ${m.length > 200 ? `${m.slice(0, 200)}…` : m}`)
   }
   console.log(problems ? `\n${problems} finding(s) across ${results.length} page loads.` : `\nClean: ${results.length} page loads.`)
   process.exit(problems ? 1 : 0)

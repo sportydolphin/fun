@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # This one needs `pg` rather than the supabase client: it talks to Postgres directly,
       # since it is three queries and one row of owner-only bookkeeping.

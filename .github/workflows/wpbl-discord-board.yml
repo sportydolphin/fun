@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Same trick as the reminder workflow: install only the two packages this script
       # imports, at the versions pinned in package-lock.json, instead of the whole frontend.

@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Regular season and postseason, so the 'games' window: see scripts/mlb-job-due.mjs.
       # Before any install, so a winter day costs one request. A manual run always goes through.

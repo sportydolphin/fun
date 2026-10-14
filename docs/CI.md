@@ -20,6 +20,21 @@ name, and the ruleset can only require a fixed name. It runs under `always()`: a
 failed is otherwise skipped, and a skipped required check counts as passing. **Rename a job and
 you rename the check the ruleset waits for**, so every pull request waits forever.
 
+**The lockfile.** Every workflow runs Node 24 with npm 11, `.nvmrc` says 24, and `devEngines` in
+package.json makes any other npm refuse at install with `EBADDEVENGINES`. That alone did not fix
+Oct 14, 2026, when every check failed in seconds on `Missing: @emnapi/core from lock file`: npm on
+Windows leaves `@napi-rs/wasm-runtime`'s optional `@emnapi/core` and `@emnapi/runtime` peers out of
+the lockfile's top level, and npm on Linux requires them, so any `npm install` on a Windows machine
+broke CI again. Both are now devDependencies, which puts them in the top level on every platform;
+nothing imports them, so knip is told to ignore them. Another `Missing: X from lock file` is the
+same bug: add X to devDependencies the same way.
+
+**A branch is kept current by `pr-sync.yml`.** The ruleset does not require a branch to be up to
+date, so after each pull request lands that workflow merges `main` into every open pull request set
+to auto-merge (their checks re-run on the result), and comments on any that now conflict, since a
+conflicting pull request otherwise waits on auto-merge with no notice. It merges rather than
+rebases, so a local copy of the branch needs a `git pull` before its next push.
+
 **Two TypeScripts are installed, on purpose.** `npm run typecheck` runs TypeScript 7, the native
 compiler, installed as `typescript-7` (an npm alias): it checks the project in about 2 seconds
 against 13 for TypeScript 6. `typescript` itself stays at 6.0 because typescript-eslint loads the
@@ -142,9 +157,15 @@ prints the rule, the element's HTML and axe's own explanation, which is usually 
 the component. A rule goes into `AXE_RULES` only once it reads clean on every page.
 
 In CI it runs in **replay** mode: every response comes from
-`scripts/fixtures/layout-sweep.json.gz`, recorded from real data, with the clock frozen at the
-moment of recording. A request the fixture lacks fails the job rather than sweeping an empty
-page. **Change what a page fetches and you re-record**, against real data (needs `.env`):
+`scripts/fixtures/layout-sweep/`, recorded from real data, with the clock frozen at the moment of
+recording (`meta.json`). It is one gzipped file per response, named by a hash of the request, plus
+`images.json`, so two pull requests that record different reads touch different files. It was one
+`.json.gz` until Oct 2026, and every pair of branches that re-recorded it conflicted on a binary.
+A request the fixture lacks fails the job rather than sweeping an empty page, and the log ends
+with the exact command to record what is missing. **Change what a page fetches and you re-record**,
+against real data (needs `.env`), either on your machine or with the **Sweep: record** workflow,
+which records on a runner and commits to the branch (`gh workflow run sweep-record.yml -f
+branch=<branch> -f routes=<routes>`, routes as the log printed them, `all` for a full record):
 
 ```bash
 npm run sweep:record

@@ -36,7 +36,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Same three packages the push senders need, versions pinned from package-lock.json so there is
       # one source of truth. The frontend toolchain is never imported here.
