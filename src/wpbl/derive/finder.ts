@@ -5,8 +5,8 @@
 export {
   EMPTY_FINDER_QUERY, FINDER_OPS, decodeFinderQuery, defaultCondition, describeFinderQuery,
   displayFinderValue, encodeFinderQuery, finderFields, finderUnit, parseFinderValue,
-  unparseFinderValue, runFinder as runWpblFinder,
+  unparseFinderValue, finderColumns, validFinderSort, runFinder as runWpblFinder,
 } from '../../league/finder'
 export type {
-  FinderCondition, FinderOp, FinderQuery, FinderRow, FinderSide, FinderTally, FinderVenue,
+  FinderCondition, FinderOp, FinderQuery, FinderRow, FinderSide, FinderSort, FinderTally, FinderVenue,
 } from '../../league/finder'

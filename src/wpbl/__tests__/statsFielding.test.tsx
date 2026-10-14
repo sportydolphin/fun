@@ -120,10 +120,10 @@ describe('the Fielding side', () => {
     expect(document.querySelector('[data-board-foot]')?.textContent).toContain('faded: under 2 G')
   })
 
-  // One switch for all three sides, on every board. A board with no fielding answer keeps the
-  // option drawn and disabled, and moving to one while on Fielding drops back to the side the
-  // reader last had, so the board is never asked a question it cannot answer.
-  it('is one switch with Hitting and Pitching, greyed where a board has no fielding', async () => {
+  // One switch for all three sides, on every board. Moving to a board with no fielding answer while
+  // on Fielding drops back to the side the reader last had, so the board is never asked a question
+  // it cannot answer; pressing Fielding THERE goes to Leaders on Fielding rather than doing nothing.
+  it('is one switch with Hitting and Pitching, and Fielding off a fielding board opens Leaders', async () => {
     draw()
     fireEvent.click(await screen.findByText('Pitching'))
     await openFielding()
@@ -131,9 +131,10 @@ describe('the Fielding side', () => {
     expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByText('Bests'))
     expect(screen.getByText('Pitching').getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByText('Fielding').getAttribute('aria-disabled')).toBe('true')
+    expect(screen.getByText('Fielding').getAttribute('aria-disabled')).toBeNull()
     fireEvent.click(screen.getByText('Fielding'))
-    expect(screen.getByText('Pitching').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Leaders').closest('[aria-current]')?.getAttribute('aria-current')).toBe('page')
   })
 
   it('stays on Fielding from Players to Teams, and sums each club', async () => {

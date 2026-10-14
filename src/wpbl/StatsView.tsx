@@ -357,7 +357,9 @@ const VIEW_OPTIONS = [{ value: 'standard', label: 'Standard' }, { value: 'advanc
 // Fielding was a board in the tab row until Oct 2026 while Hitting and Pitching were this switch,
 // so the three answers to one question lived in two places, and opening Fielding made the switch
 // vanish and the controls after it slide left. A board that cannot answer Fielding keeps the option
-// drawn and disabled (PillGroup), so the switch is the same width everywhere.
+// drawn, so the switch is the same width everywhere, and pressing it goes to Leaders on that side
+// (`pickSide`). It was drawn disabled until Oct 2026: faded to 40%, which took its text under the
+// contrast floor, and a pill that does nothing when pressed read as a broken board.
 const SIDES: { value: Side; label: string }[] = [
   { value: 'overall', label: 'Overall' },
   { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }, { value: 'fielding', label: 'Fielding' },
@@ -1768,6 +1770,14 @@ export default function WpblStatsView({
     setSource(target)
     setMode(nextMode)
   }
+  /** The side switch. A side this board cannot answer goes to Leaders, which answers every side,
+   *  rather than doing nothing: "Fielding" pressed on Find means "show me fielding". */
+  const pickSide = (s: Side) => {
+    if (sideOn(s, source, mode)) { switchSide(s); return }
+    logBoard('source', { source: 'leaders', mode, side: s })
+    switchSide(s, false)
+    setSource('leaders')
+  }
 
   // The Leaders board's rows: the same aggregates as the Players table, before its sort, its club
   // chip or its qualifier, which the board applies per card (rates only; see LeadersBoard.tsx).
@@ -2333,10 +2343,10 @@ export default function WpblStatsView({
         }}>
           <PillGroup
             options={SIDES.map(o => !sideOn(o.value, source, mode)
-              ? { ...o, disabled: true, hint: o.value === 'overall' ? 'Overall is on Leaders and Players' : 'Fielding is on Leaders, Players and Teams' }
+              ? { ...o, hint: o.value === 'overall' ? 'Overall is on Leaders and Players: opens Leaders' : 'Fielding is on Leaders, Players and Teams: opens Leaders' }
               : o)}
             value={side}
-            onChange={v => switchSide(v as Side)}
+            onChange={v => pickSide(v as Side)}
           />
         </Box>
         {/* Desktop only. A phone's ranked list shows one stat, so there is nothing to switch; its

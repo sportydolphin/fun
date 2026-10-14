@@ -172,6 +172,31 @@ export function finderUnit(side: FinderSide, fieldKey: string): string {
   return fieldFor(side, fieldKey)?.unit ?? ''
 }
 
+// The box-score columns the desktop table always draws, in box-score order. Not every field: a
+// table of sixteen numbers is the raw feed, and the point of the line is its shape. Any field the
+// question asks about joins them (`finderColumns`), so "2+ balks" shows the balks.
+const HIT_COLUMNS = ['ab', 'h', 'r', 'hr', 'rbi', 'bb', 'so', 'sb']
+const PIT_COLUMNS = ['ip', 'h', 'r', 'er', 'bb', 'so', 'hr']
+
+/** The stat columns for the table: the side's standard line, then every field a condition names
+ *  that the line lacks, in the order asked. */
+export function finderColumns(side: FinderSide, query: Pick<FinderQuery, 'conditions'>): { key: string; unit: string; label: string }[] {
+  const keys = [...(side === 'pitching' ? PIT_COLUMNS : HIT_COLUMNS)]
+  for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field)) keys.push(c.field)
+  return keys.map(k => { const f = fieldFor(side, k)!; return { key: k, unit: f.unit, label: f.label } })
+}
+
+/** What the result list is ordered by. Null is the question's own order: its first stat, highest
+ *  first, earliest game breaking a tie. `date` is the game's date. */
+export interface FinderSort { key: string; desc: boolean }
+
+/** The sort, or null once it names a column the table no longer draws: a sort on a condition's own
+ *  column outlives the condition otherwise, ordering the list by a number nobody can see. */
+export function validFinderSort(side: FinderSide, query: Pick<FinderQuery, 'conditions'>, sort: FinderSort | null): FinderSort | null {
+  if (!sort) return null
+  return sort.key === 'date' || finderColumns(side, query).some(c => c.key === sort.key) ? sort : null
+}
+
 export interface FinderRow<P extends LeaguePlayer = LeaguePlayer, G extends LeagueGame = LeagueGame> {
   key: string
   player: P | null
@@ -184,6 +209,8 @@ export interface FinderRow<P extends LeaguePlayer = LeaguePlayer, G extends Leag
   headlineDisplay: string
   /** The rest of the line, so the number has a shape. */
   detail: string
+  /** Every field on the line in its stored unit, for the desktop table's columns. */
+  values: Record<string, number>
 }
 
 export interface FinderTally<P extends LeaguePlayer = LeaguePlayer> {
@@ -191,6 +218,8 @@ export interface FinderTally<P extends LeaguePlayer = LeaguePlayer> {
   name: string
   teamId: string | null
   games: number
+  /** The player's appearances among the lines searched, so "2" can read as 2 of 3 or 2 of 40. */
+  played: number
 }
 
 export interface FinderResult<P extends LeaguePlayer = LeaguePlayer, G extends LeagueGame = LeagueGame> {
@@ -238,6 +267,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   games: G[],
   query: FinderQuery,
   limit = 50,
+  sort: FinderSort | null = null,
 ): FinderResult<P, G> {
   const finals = games.filter(g => g.status === 'final')
   const gameById = new Map(finals.map(g => [g.id, g]))
@@ -269,8 +299,12 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     // the number they would have guessed.
     const pool = inScope.filter(l => (!query.teamId || l.team_id === query.teamId) && played(l))
     const matched: { line: L; head: number }[] = []
+    // Appearances per player in the games the question looks at (club, venue, opponent), the
+    // denominator for the tally's "2 of 11". Counted on the same pass, before the conditions.
+    const appearances = new Map<string, number>()
     for (const line of pool) {
       if (!gameOk(gameById.get(line.game_id), line.team_id)) continue
+      appearances.set(line.player_id, (appearances.get(line.player_id) ?? 0) + 1)
       let ok = true
       for (const c of query.conditions) {
         const f = byKey.get(c.field)
@@ -281,10 +315,21 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       if (ok) matched.push({ line, head: head.value(line) })
     }
 
+    // SORTED BEFORE THE CAP, so a table re-sorted by another column shows the top fifty BY THAT
+    // column across every match, not the first fifty by the question's stat shuffled.
+    const dateOf = (m: { line: L }) => gameById.get(m.line.game_id)?.game_date ?? ''
+    const sortField = sort && sort.key !== 'date' ? byKey.get(sort.key) ?? null : null
+    const dir = sort?.desc === false ? -1 : 1
     matched.sort((a, b) => {
+      if (sort?.key === 'date') {
+        const ad = dateOf(a), bd = dateOf(b)
+        if (ad !== bd) return (ad < bd ? 1 : -1) * dir
+      } else if (sortField) {
+        const av = sortField.value(a.line), bv = sortField.value(b.line)
+        if (av !== bv) return (bv - av) * dir
+      }
       if (a.head !== b.head) return b.head - a.head
-      const ad = gameById.get(a.line.game_id)?.game_date ?? ''
-      const bd = gameById.get(b.line.game_id)?.game_date ?? ''
+      const ad = dateOf(a), bd = dateOf(b)
       if (ad !== bd) return ad < bd ? -1 : 1
       return a.line.id < b.line.id ? -1 : 1
     })
@@ -310,9 +355,10 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     const tally: FinderTally<P>[] = [...counts.entries()]
       .map(([id, n]) => {
         const p = playerById.get(id) ?? null
-        return { player: p, name: p?.name ?? '—', teamId: topClub(id), games: n }
+        return { player: p, name: p?.name ?? '—', teamId: topClub(id), games: n, played: appearances.get(id) ?? n }
       })
-      .sort((a, b) => (b.games !== a.games ? b.games - a.games : a.name.localeCompare(b.name)))
+      // A tie on games goes to whoever needed fewer appearances for them.
+      .sort((a, b) => b.games - a.games || a.played - b.played || a.name.localeCompare(b.name))
 
     return {
       rows: matched.slice(0, limit).map(({ line, head: v }) => {
@@ -326,6 +372,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
           headline: v,
           headlineDisplay: head.display ? head.display(v) : String(v),
           detail: detail(line),
+          values: Object.fromEntries(fields.map(f => [f.key, f.value(line)])),
         }
       }),
       total: matched.length,
@@ -385,7 +432,7 @@ export function decodeFinderQuery(raw: string | null, side: FinderSide): FinderC
 }
 
 /** The query in words, for the line above the results. */
-export function describeFinderQuery(side: FinderSide, q: FinderQuery): string {
+export function describeFinderQuery(side: FinderSide, q: Pick<FinderQuery, 'conditions'>): string {
   const labels = new Map(finderFields(side).map(f => [f.key, f]))
   const parts = q.conditions.map(c => {
     const f = labels.get(c.field)

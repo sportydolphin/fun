@@ -50,6 +50,9 @@ export interface LeaderItem {
   /** The club's mark, beside the name. */
   badge?: React.ReactNode
   value: string
+  /** A quiet word after the value, at caption size: Find's tally puts "of 11" there, so a count
+   *  reads against the player's appearances. */
+  valueNote?: string
   /** The player's link, spread onto the row (an `<a>` with its href, from the section's helper). */
   linkProps?: object
 }
@@ -75,9 +78,24 @@ const VALUE_SX = {
   flexShrink: 0, fontSize: TYPE_SCALE.heading, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
 } as const
 const rule = (i: number) => ({ borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider' })
+/** Two columns under `when`, filled down the first and then the second, so the ranking still
+ *  reads in order. */
+const splitSx = (when: string | undefined, half: number) => when ? {
+  [when]: {
+    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: 3,
+    gridAutoFlow: 'column', gridTemplateRows: `repeat(${half}, auto)`,
+  },
+} : undefined
+/** The second column's first row heads its column, so it has no rule above it. */
+const splitRule = (when: string | undefined, i: number, half: number) =>
+  when && i === half ? { [when]: { borderTop: 'none' } } : {}
 
-export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKey, onHover }: {
+export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKey, onHover, splitWhen }: {
   title: string
+  /** A media or container query under which the rows run down two columns rather than one. For a
+   *  card stretched across a wide page (Find's tally under its table), where one column is a list
+   *  of names with a screen of nothing between each and its number. */
+  splitWhen?: string
   /** The full ranking for this stat: a real address, and the in-app move on a plain click. Left
    *  off where the card IS the whole ranking (Find's tally), so there is nowhere further to go. */
   seeAll?: { href: string; onClick: () => void }
@@ -88,11 +106,13 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
   hoverKey?: string | null
   onHover?: (key: string | null) => void
 }) {
+  const half = Math.ceil(items.length / 2)
   return (
     <SectionCard bare title={title} action={seeAll && <CardLink label="See all ›" href={seeAll.href} onClick={seeAll.onClick} />}>
       {items.length === 0
         ? <Typography sx={{ py: 1.5, color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>{empty}</Typography>
-        : items.map((it, i) => {
+        : <Box sx={splitSx(splitWhen, half)}>
+          {items.map((it, i) => {
             const lit = hoverKey === it.key
             const dimmed = hoverKey != null && !lit
             return (
@@ -100,6 +120,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
                 onMouseEnter={onHover ? () => onHover(it.key) : undefined}
                 sx={{
                   ...ROW_SX, ...rule(i), ...FOCUS_RING,
+                  ...splitRule(splitWhen, i, half),
                   cursor: it.linkProps ? 'pointer' : 'default',
                   opacity: dimmed ? 0.35 : 1,
                   transition: 'opacity 0.18s, background-color 0.18s',
@@ -113,10 +134,18 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
                   <LeaderName name={it.name} />
                   {it.badge}
                 </Box>
-                <Box sx={VALUE_SX}>{it.value}</Box>
+                <Box sx={VALUE_SX}>
+                  {it.value}
+                  {it.valueNote && (
+                    <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', ml: 0.5 }}>
+                      {it.valueNote}
+                    </Box>
+                  )}
+                </Box>
               </Box>
             )
           })}
+        </Box>}
     </SectionCard>
   )
 }
@@ -131,23 +160,28 @@ function LeaderName({ name }: { name: string }) {
 
 /** The card before its rows have landed: the real title, which needs no data, over ghost rows of
  *  the loaded row's box, so nothing moves when the names arrive. */
-export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true }: {
+export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true, splitWhen }: {
   title: string
   /** The rows the loaded card will have. */
   rows?: number
   /** Whether the loaded card has a "See all" link, so the title line is the same height. */
   seeAll?: boolean
+  /** The loaded card's `splitWhen`, so the ghost takes two columns where it will. */
+  splitWhen?: string
 }) {
+  const half = Math.ceil(rows / 2)
   return (
     <SectionCard bare title={title} action={seeAll ? <CardLink label="See all ›" onClick={() => {}} /> : undefined}>
-      {Array.from({ length: rows }, (_, i) => (
-        <Box key={i} sx={{ ...ROW_SX, ...rule(i) }}>
-          <Box sx={RANK_SX}>&nbsp;</Box>
-          <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
-          <Typography sx={{ ...NAME_SX, flex: 1 }}><Skeleton width="60%" /></Typography>
-          <Box sx={VALUE_SX}><Skeleton width="2.5rem" /></Box>
-        </Box>
-      ))}
+      <Box sx={splitSx(splitWhen, half)}>
+        {Array.from({ length: rows }, (_, i) => (
+          <Box key={i} sx={{ ...ROW_SX, ...rule(i), ...splitRule(splitWhen, i, half) }}>
+            <Box sx={RANK_SX}>&nbsp;</Box>
+            <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
+            <Typography sx={{ ...NAME_SX, flex: 1 }}><Skeleton width="60%" /></Typography>
+            <Box sx={VALUE_SX}><Skeleton width="2.5rem" /></Box>
+          </Box>
+        ))}
+      </Box>
     </SectionCard>
   )
 }
