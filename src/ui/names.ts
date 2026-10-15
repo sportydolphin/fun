@@ -14,9 +14,16 @@ const NAME_PARTICLES = new Set([
   'la', 'le', 'los', 'san', 'santa', 'van', 'von', 'der', 'den', 'ter', 'bin', 'ibn', 'al', 'mc', 'mac', "o'",
 ])
 
-/** The trailing surname of a full name, keeping any particles attached ("del Castillo"). */
+// Generational suffixes, which are not a surname on their own: without this "Jazz Chisholm Jr."
+// shortened to "J. Jr." and "Vladimir Guerrero Jr." to "V. Jr." on MLB's phone table. Lowercased,
+// trailing full stop dropped.
+const NAME_SUFFIXES = new Set(['jr', 'sr', 'ii', 'iii', 'iv', 'v'])
+
+/** The trailing surname of a full name, keeping any particles attached ("del Castillo") and any
+ *  suffix after it ("Guerrero Jr."). */
 function surnameOf(parts: string[]): string {
   let i = parts.length - 1
+  if (i > 1 && NAME_SUFFIXES.has(parts[i].toLowerCase().replace(/\.$/, ''))) i--
   while (i > 1 && NAME_PARTICLES.has(parts[i - 1].toLowerCase())) i--
   return parts.slice(i).join(' ')
 }
@@ -64,6 +71,26 @@ export function useStagesFit<T extends HTMLElement>(stages: string[]): { ref: Re
   return useStageFit<T>(stages.join('|'), stages.length - 1)
 }
 
+/**
+ * Whether the line's text is wider than its box, to the sub-pixel. `scrollWidth` and `clientWidth`
+ * are whole pixels, and the old `scrollWidth > clientWidth + 1` slack let a name half a pixel too
+ * wide through: the CSS ellipsis cuts on ANY overflow, so it drew "Dillon Dingl…" where
+ * "D. Dingler" fitted (MLB's phone table, Oct 15, 2026). A range measures the text unclipped.
+ */
+function overflows(el: HTMLElement): boolean {
+  if (el.scrollWidth > el.clientWidth + 1) return true
+  // A box with no width is not laid out (a hidden tab, jsdom), so there is nothing to measure.
+  if (el.clientWidth === 0 || el.scrollWidth < el.clientWidth) return false
+  const range = document.createRange()
+  range.selectNodeContents(el)
+  const text = range.getBoundingClientRect().width
+  const cs = getComputedStyle(el)
+  const box = el.getBoundingClientRect().width
+    - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+    - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth)
+  return text > box + 0.01
+}
+
 function useStageFit<T extends HTMLElement>(key: string, maxStage: number): { ref: RefObject<T>; stage: number } {
   const ref = useRef<T>(null)
   const [stage, setStage] = useState(0)
@@ -78,8 +105,7 @@ function useStageFit<T extends HTMLElement>(key: string, maxStage: number): { re
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    // +1 absorbs sub-pixel rounding, which would otherwise abbreviate a line that fits.
-    if (el.scrollWidth > el.clientWidth + 1 && stage < maxStage) setStage(stage + 1)
+    if (stage < maxStage && overflows(el)) setStage(stage + 1)
   })
   useEffect(() => {
     const el = ref.current

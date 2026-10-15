@@ -21,7 +21,8 @@
 ## Handoff: where MLB stands (Oct 9, 2026)
 
 **State.** The September alignment plan (items 0 to 7) is done, and so is every item in the list
-that follows. Open work is the **second alignment pass** below this handoff (Oct 9), plus a
+that follows. Open work is the **second alignment pass** below this handoff (Oct 9; its Oct 15
+audit list is the next thing to pick up), plus a
 decision after October (the note under item 12). The section now has
 WPBL's phone shell, history-backed sheets, a real path for every tab, club, player and game, a
 postseason bracket, an offseason-aware Home, the desktop scale with no `zoom`, and a chunk per
@@ -556,6 +557,50 @@ will actually see all winter. The functional items do not wait.
    `GamePreview` (shared with WPBL in v1.167.0, and off the list since), Standings and the player card's `cards.tsx` (after
    Nov 1, when the bracket mode retires), and `SeriesSheet`'s 1.9 to 2.4rem score, which needs a
    step above `page` shared with WPBL's series page (2 to 3rem) rather than a guess in one file.
+
+**From the Oct 15 audit, in order** (none waits on Nov 1):
+
+1. **Names shortened before they are measured.** MLB's Stats grid on a phone
+   (`views/StatsView.tsx`, line 642) and the Teams / Fielding frozen column
+   (`views/SeasonGridView.tsx`, line 490) run `abbrevName` before `NameText` sees the name, so
+   every row reads "F. Last" whether or not the full name fits: the name rule in CLAUDE.md,
+   broken. Delete both copies and hand `NameText` the full name; it already shortens only when it
+   has to. ✅ *Oct 15:* done, and the frozen column's name box takes Players' `NAME_INNER_MAX`, since
+   a table cell otherwise grows to fit a nowrap name and nothing ever steps down. At 375px, 47 of
+   124 qualified hitters now read in full. Two bugs in the shared `src/ui/names.ts` came out with
+   it, both in WPBL too: a generational suffix was taken for the surname ("V. Jr."; now "V. Guerrero
+   Jr.", pinned in `src/ui/__tests__/names.test.ts`), and the fit allowed a pixel of slack the CSS
+   ellipsis does not, so a name half a pixel too wide was cut at full length ("Dillon Dingl…")
+   instead of stepping down; it measures to the sub-pixel now. *Left:* ten names are still cut at
+   "F. Last" in the 5.125rem column (WPBL's `NAME_INNER_MAX`), as they were before.
+2. **The legacy type list is the whole site, not just MLB.** Item 7 counts MLB's 16 files; the
+   list holds 90 files and 1,115 typed-in sizes. The admin pages are about 200 of them, WPBL's
+   `SeasonPage` 51, `WpblApp` 30, `TeamPage` 29. Twenty-nine files have five or fewer and can come
+   off in one pass, `SeriesSheet` among them once its score step exists.
+3. **One copy of each formatting helper.** `ordinal` is written 11 times, and three WPBL copies
+   (`LiveGameView`, `RunValueView`, `WinProbView`) would print "21th"; they only label innings,
+   so nobody has seen it. `outsToIp` / `ipToOuts` are copied six times beside `league/innings.ts`
+   (`mlb/compare.ts`, `components/boxScore.tsx`, `components/reportCardRows.ts`,
+   `playerProfile.ts`, `views/MlbPlayerDetail.tsx`, `wpbl/ogCard.ts`). The modified-click test
+   (`isModified`) is copied ten times while `src/nav.ts` holds the same test inline; export it from
+   there. `shortDate` is copied six times across both sections.
+4. **One recent-searches store.** WPBL's `recentSearches.ts` (145 lines, synced across devices)
+   and MLB's `storage/recentSearches.ts` (37 lines) keep the same list two ways. One store in
+   `src/lib/`, each section binding its own column.
+5. **The parity test reads `.ts` too.** `sectionParity.test.ts` checks `.tsx` names only, so 11
+   `.ts` names in both sections pass unread (`compare`, `searchAnswers`, `recentSearches`,
+   `ogCard`, `finderLink`, `gameStart` among them). Extend it, with a written reason for each pair
+   that is rightly per league (`api`, `types`, `routes`, `league`).
+6. **Split WPBL's largest files into folders,** as #103 did for Home and Game Center:
+   `StatsView.tsx` (191 KB), `WpblApp.tsx` (151 KB), `PlayerDetail.tsx` (116 KB), `FanVote.tsx`
+   (111 KB), `SeasonPage.tsx` (91 KB).
+7. **What's new loads every release ever written.** `ChangelogDialogs` is the third-largest chunk,
+   80 KB gzipped, because `changelog.ts` imports every archive back to v1.000. Load the archives
+   only when a reader scrolls past the newest releases.
+
+Checked and fine: knip finds one unused exported type (`FinderSide` in `wpbl/derive/finder.ts`);
+the 368 preload links in the built `index.html` are by design, the MLB ones inert inside
+`<template>` (`scripts/vite-plugin-wpbl-preload.mjs`).
 
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each
