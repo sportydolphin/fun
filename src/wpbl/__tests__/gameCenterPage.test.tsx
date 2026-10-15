@@ -91,7 +91,7 @@ vi.mock('../api', async (importOriginal) => {
   }
 })
 
-const { default: GameDetailModal } = await import('../GameDetail')
+const { default: GameDetailModal } = await import('../gameDetail/GameDetailModal')
 
 const page = (game: WpblGame) => render(
   <GameDetailModal layout="page" game={game} teams={TEAMS} games={[game]} onClose={() => {}} />,

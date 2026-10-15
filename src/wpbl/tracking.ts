@@ -3,7 +3,7 @@ import type { WpblTrackRow, WpblPlayer, WpblPitchingLine } from './types'
 
 // Season-wide aggregation of the feed's TrackMan tracking rows into velocity / spin /
 // batted-ball leaderboards. Attribution mirrors the Game Center Pitch Data logic (see
-// GameDetail.tsx): each row's pitcher/batter is resolved by the feed id (= our api_id)
+// gameDetail/PitchData.tsx): each row's pitcher/batter is resolved by the feed id (= our api_id)
 // first, then by a forgiving name match, and the per-game "unnamed starter" pitches are
 // rescued when exactly one box pitcher in that game has no tracking of their own.
 

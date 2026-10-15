@@ -73,7 +73,7 @@ vi.mock('../api', async (importOriginal) => {
   }
 })
 
-const { default: GameDetailModal } = await import('../GameDetail')
+const { default: GameDetailModal } = await import('../gameDetail/GameDetailModal')
 
 /** The play-by-play tab, with every half-inning open. */
 async function openPlays(rows: WpblGamePlay[]) {

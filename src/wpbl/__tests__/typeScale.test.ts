@@ -16,7 +16,8 @@ import { TYPE_SCALE_LEGACY } from './typeScaleLegacy'
 // it in one go is a change nobody could review. Add a file here when it has been converted;
 // the list is the record of how far this has got.
 const ADOPTED = [
-  'src/wpbl/Home.tsx',
+  ...['WpblHome', 'shared', 'Scoreboard', 'NextGameCard', 'NextPostseasonCard', 'ChampionCards', 'TrackingBanner',
+    'DiscordCard', 'ReadingCards', 'LeagueCard', 'ComparePreviewCard', 'Skeletons', 'PlayerCards'].map(f => `src/wpbl/home/${f}.tsx`),
   'src/wpbl/MvpRace.tsx',
   'src/wpbl/GamePreview.tsx',
   'src/wpbl/RecapCard.tsx',

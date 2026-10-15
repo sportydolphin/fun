@@ -180,7 +180,7 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   that is why `outsToIp` lives in [`innings.ts`](innings.ts).
 
 - **The fan awards ballot is open to everyone, and there is NO audience gate.** It launched behind
-  `useIsAdmin()` for a while, but that gate is gone: [`Home.tsx`](Home.tsx) draws the
+  `useIsAdmin()` for a while, but that gate is gone: [`WpblHome.tsx`](home/WpblHome.tsx) draws the
   ballot for any reader in the slot the MVP race used to hold, and [`FanVote.tsx`](FanVote.tsx)'s
   `drawable` asks only whether there are questions worth drawing, never who is asking. `/wpbl/awards`
   is a normal public route: indexed in [`seo.ts`](../seo.ts), listed in `sitemap.xml`, and not

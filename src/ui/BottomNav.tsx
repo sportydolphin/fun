@@ -174,7 +174,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
         // NO `will-change: transform`, and none is needed: a plain fixed bar composites fine without a
         // layer hint. If this bar is ever seen anchored to the bottom of the DOCUMENT rather than the
         // viewport, look for something making the document wider than the screen (see the scroller note
-        // in Home.tsx's Scoreboard) before blaming layer promotion: a wider document grows a phone's
+        // in home/Scoreboard.tsx) before blaming layer promotion: a wider document grows a phone's
         // layout viewport, and every fixed element is placed against that.
         pointerEvents: 'none', // the strip is a positioning shell; only the pill takes taps
       }}

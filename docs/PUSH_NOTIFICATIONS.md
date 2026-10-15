@@ -136,7 +136,7 @@ creates new ones.
 
 | Piece | File | Role |
 |-------|------|------|
-| Toggle UI | `src/wpbl/Home.tsx` (`GameReminderRow`) | Bell + switch under the matchup |
+| Toggle UI | `src/wpbl/home/NextGameCard.tsx` (`GameReminderRow`) | Bell + switch under the matchup |
 | Client helpers | `src/wpbl/reminders.ts` | Ensures a push sub, then writes the standing pref |
 | Catalog | `shared/notifications.js` (`buildWpblGameStart`) | Push content |
 | Tables | `scripts/create_wpbl_game_reminders.sql` | `wpbl_game_reminders` (legacy per-game opt-ins) + `wpbl_game_start_sent` (once-only log) |

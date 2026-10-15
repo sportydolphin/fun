@@ -476,7 +476,7 @@ function WinProbChart({ pts, plays, away, home, live, marks = [] }: {
 
 // ─── Play-by-play list ────────────────────────────────────────────────────────
 //
-// Two readings, as on WPBL's Plays tab (GameDetail.tsx). SCORING is the runs, flat, every
+// Two readings, as on WPBL's Plays tab (gameDetail/PlayByPlay.tsx). SCORING is the runs, flat, every
 // half-inning that had one. ALL is every play, grouped by half-inning and COLLAPSED, each heading
 // saying how many runs that half produced and what the score was after it: eighty rows open at
 // once is a wall, and fourteen headings is a game you can scan. Expand all is remembered per
@@ -660,7 +660,7 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle, onPlaye
 
 // ─── Full box score: both clubs once there is room, a toggle below that ───────
 //
-// WPBL's arrangement (GameDetail.tsx): a box score is two teams, and the only reason to show one
+// WPBL's arrangement (wpbl/gameDetail/): a box score is two teams, and the only reason to show one
 // is width. From `lg` the sheet is wide enough for both tables abreast and the toggle goes; CSS
 // rather than a media hook, so both are always in the DOM and find-in-page reaches either club.
 
@@ -831,7 +831,7 @@ function GameCenterSheet(props: GameCenterProps) {
 /**
  * GAME CENTER AS A FULL PAGE, on a desktop: reached by a game's address arrived at from outside the
  * section (a cold load, a shared link) and by the side panel's Expand. WPBL's arrangement
- * (GameCenterPage in wpbl/GameDetail.tsx): NO TABS, since a recap read against its box score is
+ * (wpbl/gameDetail/GameCenterPage.tsx): NO TABS, since a recap read against its box score is
  * exactly the case tabs fail, so the summary and the plays run down the left and both box scores
  * down the right, with a pinned bar carrying the score and links to each. One column below `lg`.
  * Same address as the panel; which one draws is the history entry's to say (see GameRoute).
@@ -1071,7 +1071,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
   )
 
   // The shared sheet (src/ui/ModalShell): a bottom sheet on a phone that drags down to close, a
-  // centred card above that. Laid out as WPBL's game page is (GameDetail.tsx): the line score as the
+  // centred card above that. Laid out as WPBL's game page is (gameDetail/GameCenterPage.tsx): the line score as the
   // header, then tabs, and from `lg` a sheet wide enough to use: the win probability across its
   // full width, and both clubs' box scores at once. It was 560px at every
   // width, so a desktop reader scrolled one long column with most of the window empty beside it.

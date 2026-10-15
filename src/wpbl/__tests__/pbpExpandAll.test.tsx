@@ -61,7 +61,7 @@ vi.mock('../api', async (importOriginal) => {
   }
 })
 
-const { default: GameDetailModal } = await import('../GameDetail')
+const { default: GameDetailModal } = await import('../gameDetail/GameDetailModal')
 
 /** The play-by-play tab, open. */
 async function openPlays() {

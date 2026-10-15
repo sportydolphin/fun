@@ -8,7 +8,7 @@
  * wpbl_game_reminders rows. The standing opt-in is expanded into one reminder per scheduled
  * game for today, so everything downstream treats them identically.
  *
- * (src/wpbl/Home.tsx → src/wpbl/reminders.ts). For every wpbl_game_reminders opt-in
+ * (src/wpbl/home/NextGameCard.tsx → src/wpbl/reminders.ts). For every wpbl_game_reminders opt-in
  * whose game's first pitch is now within the user's lead window, it sends one push.
  * A row in wpbl_game_start_sent keeps each reminder to exactly one delivery, so this
  * is safe to run every few minutes from cron.

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { NextPostseasonCard } from '../Home'
+import { NextPostseasonCard } from '../home/NextPostseasonCard'
 import type { PostseasonScheduleRow, PostseasonSlot } from '../derive/bracket'
 import type { WpblGame, WpblTeam } from '../types'
 

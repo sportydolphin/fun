@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import GameDetailModal from './GameDetail'
+import GameDetailModal from './gameDetail/GameDetailModal'
 import { WpblLinkProvider } from './LinkContext'
 import { wpblPlayerPath, wpblTeamPath, wpblGamePath, findWpblGameBySlug } from './routes'
 import {

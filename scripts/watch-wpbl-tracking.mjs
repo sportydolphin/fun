@@ -16,7 +16,7 @@
  * batch.
  *
  * WHAT IT DELIBERATELY DOES NOT DO. It does not touch the visitor-facing cue.
- * `NewTrackingBanner` in Home.tsx still tells a reader when the tracked set has grown since
+ * `NewTrackingBanner` in home/TrackingBanner.tsx still tells a reader when the tracked set has grown since
  * their browser last saw it. That is per-browser localStorage and only fires if somebody
  * visits; this fires whether or not anyone is looking. They answer different questions and
  * neither replaces the other.

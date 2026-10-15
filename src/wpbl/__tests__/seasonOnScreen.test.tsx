@@ -82,7 +82,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/PlayersIndex.tsx': 'lists everyone who has ever played, which is everyone with a page',
   'src/wpbl/MatchupsPage.tsx': 'batter vs pitcher is a career: the most any pair met in 2026 is 10 times',
   'src/wpbl/WinProbView.tsx': 'the win model is how games go, and a new year has too few plays to train one',
-  'src/wpbl/GameDetail.tsx': 'the same win model, for the swing of the game',
+  'src/wpbl/gameDetail/GameDetailModal.tsx': 'the same win model, for the swing of the game',
   'src/wpbl/ScoreCardNotes.tsx': 'grouped by game for each card, never summed across games',
   // Mentions the read in a comment only.
   'src/league/bests.ts': 'comment only',
