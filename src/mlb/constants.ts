@@ -53,7 +53,7 @@ export const ATL = 144, CWS = 145, MIA = 146, NYY = 147, MIL = 158
 // ─── Player stat definitions ──────────────────────────────────────────────────
 
 // IN WPBL'S COLUMN ORDER, which is Baseball-Reference's standard batting and pitching lines
-// (VIEW_ORDER in src/wpbl/StatsView.tsx): playing time, the counting line in box-score order, the
+// (VIEW_ORDER in src/wpbl/stats/axes.ts): playing time, the counting line in box-score order, the
 // slash line, then the tail. Until Oct 2026 the two tables put the same stats in different places
 // and MLB's had no G, PA, R or tail, so a switch between the leagues moved every column. The order
 // is the table's; the Leaders cards take theirs from LB_FEATURED. Keys never change, since they are

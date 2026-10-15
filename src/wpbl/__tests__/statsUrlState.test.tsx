@@ -33,7 +33,8 @@ vi.mock('../api', async (importOriginal) => ({
   getCachedWpblAllRunValuePlays: () => null,
 }))
 
-const { default: StatsView, STATS_URL_PARAMS, carryStatsParams } = await import('../StatsView')
+const { default: StatsView } = await import('../stats/StatsView')
+const { STATS_URL_PARAMS, carryStatsParams } = await import('../stats/address')
 
 const TEAMS: WpblTeam[] = [{
   id: 'SF', city: 'SF', name: 'SF', abbr: 'SF', color: null, color_secondary: null,

@@ -191,7 +191,7 @@ export function StatsView({
   // its rows. They were positions with medals on the first three, which put a gold and a silver
   // between two players on the same 45 home runs.
   const ranks = printedRanks(rankedAll.map(e => activeDef.format(activeDef.getValue(e.stat))))
-  // WPBL's header (thBase in src/wpbl/StatsView.tsx): small heavy labels, half a unit either side,
+  // WPBL's header (thBase in src/wpbl/stats/SeasonTable.tsx): small heavy labels, half a unit either side,
   // and no rule of its own: the first row's top border is the line under it. Two rows, the labels
   // and then the league, as src/ui/statsTableHead.ts explains. Until Oct 2026 this one drew a 2px
   // rule, an accent underline on the sorted column and twice WPBL's padding.
@@ -241,7 +241,7 @@ export function StatsView({
   // The phone's one sheet, open on its Sort or its Filter tab.
   const [sheetTab, setSheetTab] = useState<null | 'sort' | 'filter'>(null)
   const listView = !isDesktop && !fullTable
-  // THE PHONE'S FULL TABLE, WPBL's (pinActive in src/wpbl/StatsView.tsx) in every respect that a
+  // THE PHONE'S FULL TABLE, WPBL's (pinActive in src/wpbl/stats/SeasonTable.tsx) in every respect that a
   // reader feels: the sorted column frozen beside the name so the number the board is ranked on
   // never scrolls away, the board fitted between the pinned bar and the bottom nav, and vertical
   // scroll handed to the page until the board has pinned. Until Oct 2026 it was the desktop grid

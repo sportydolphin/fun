@@ -20,7 +20,7 @@ export const TABLE_FRAME_SX = {
  *  same height on a switch: they were 593 and 683 at 1440x900. One value for the board and its
  *  skeleton. */
 export const TABLE_MAX_H = 'calc(100dvh - 260px)'
-/** WPBL's NAME_W and NAME_INNER_MAX (src/wpbl/StatsView.tsx), which explains both: rem, because
+/** WPBL's NAME_W and NAME_INNER_MAX (src/wpbl/stats/layout.ts), which explains both: rem, because
  *  they reserve room for a name, and the frozen column's `left` is this same width. */
 export const NAME_W = '9.375rem'
 export const NAME_INNER_MAX = '5.125rem'
