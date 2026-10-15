@@ -11,7 +11,7 @@
 // tab on a modified click like any other.
 
 import { describeFinderQuery, finderFields, type FinderSide } from './league/finder'
-import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parseRecordText, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
+import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordText, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
@@ -19,6 +19,7 @@ import { WPBL_FINDER_CLUBS, wpblFinderHref } from './wpbl/finderLink'
 import { WPBL_TEAMS } from './wpbl/constants'
 import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 import { askedTerms, glossaryTermKey } from './league/glossary'
+import { positionFilterDef } from './league/positionFilter'
 import { MLB_STAT_TERMS } from './mlb/statGlossary'
 import { STAT_TERMS } from './wpbl/glossary'
 import type { LeaderAsk, LeaderPeek } from './mlb/state/SearchBridgeContext'
@@ -216,6 +217,33 @@ export function teamRankSuggestions(section: FinderSection, text: string): TeamR
     const stat = ranked.replace(/^(Most|Fewest|Highest|Lowest) /, '')
     const title = club ? `${club} team ${stat}` : `${ranked} by a team`
     return [{ key: `team-rank-${href}-${club ?? ''}`, title, subtitle, href }]
+  })
+}
+
+/** "best catcher", "most hr by a shortstop", "top relievers": the players board, narrowed to the
+ *  position or role (`pos=`, src/league/positionFilter.ts) and sorted on the stat when one was
+ *  named. The same shape as a ranking row, so the palette draws it as one. */
+export function positionRankSuggestions(section: FinderSection, text: string): Omit<LeaderSuggestion, 'parsed' | 'ask'>[] {
+  return parsePositionRank(text).flatMap(({ pos, leader: p }) => {
+    const def = positionFilterDef(pos)
+    const side = def.side
+    const sort = p ? BOARD_COLUMNS[section][side][p.field] : null
+    if (p && !sort) return []
+    let href: string
+    if (section === 'mlb') {
+      href = mlbUrlFor({ view: 'stats', lb: side, sort, dir: p?.dir ?? null, season: p?.season ?? null, who: pos }, CURRENT_SEASON)
+    } else {
+      const params = new URLSearchParams({ board: 'players', side })
+      if (sort) params.set('sort', sort)
+      if (p?.dir) params.set('dir', p.dir)
+      if (p?.season) params.set('season', String(p.season))
+      params.set('pos', pos)
+      href = `/wpbl/stats?${params}`
+    }
+    const who = def.plural.toLowerCase()
+    const title = p ? `${leaderTitle(p)} among ${who}` : `Best ${who}`
+    const subtitle = ['Leaders', `${def.plural} only`, p?.season ?? 'this season'].join(' · ')
+    return [{ key: `pos-rank-${href}`, title, subtitle, href }]
   })
 }
 

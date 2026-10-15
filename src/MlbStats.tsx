@@ -674,6 +674,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 setVizSeason={state.setVizSeason}
                 allTime={state.statsAllTime}
                 setAllTime={state.setStatsAllTime}
+                who={state.statsWho}
+                setWho={state.setStatsWho}
                 gameScope={state.lbGameScope}
                 setGameScope={state.setLbGameScope}
                 lbData={state.lbData}

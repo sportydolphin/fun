@@ -2,6 +2,7 @@ import { finderFields, finderLowerBetter, parseFinderValue } from './finder'
 import type { FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
 import { editDistance } from '../lib/fuzzyName'
 import type { PlayerPart } from '../lib/playerParts'
+import { positionFilterDef, type PositionFilter } from './positionFilter'
 
 /**
  * A finder question typed as words: "5 strikeouts no walks", "3+ hits vs SF", "4-for-4 at home".
@@ -832,6 +833,54 @@ export function parseRecordText(text: string): { side: RankSide; field: string }
   return parseLeaderText(rest.replace(SINGLE_GAME_G, ' ').replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' '))
     .filter(p => !p.career && p.side !== 'overall' && p.dir !== 'asc')
     .map(p => ({ side: p.side, field: p.field }))
+}
+
+// ─── A ranking among one position or role ─────────────────────────────────────
+
+// The words for a position or a pitching role, each with the filter it sets. Words only, and the
+// two-letter forms nobody confuses with a stat: "2b" and "3b" are doubles and triples here, and a
+// bare "c" is the start of a name. "pitchers" is not here: it already says which SIDE, and the
+// whole pitching board is that side.
+const POSITION_WORDS: { re: RegExp; pos: PositionFilter }[] = [
+  { re: /catchers?|backstops?/, pos: 'C' },
+  { re: /first base(?:m[ae]n)?|first sackers?/, pos: '1B' },
+  { re: /second base(?:m[ae]n)?/, pos: '2B' },
+  { re: /third base(?:m[ae]n)?|hot corner/, pos: '3B' },
+  { re: /shortstops?|ss/, pos: 'SS' },
+  { re: /infielders?/, pos: 'IF' },
+  { re: /outfielders?|(?:left|center|centre|right) fielders?/, pos: 'OF' },
+  { re: /designated hitters?|dhs?/, pos: 'DH' },
+  { re: /starting pitchers?|starters?|sps?/, pos: 'SP' },
+  { re: /relief pitchers?|relievers?|bullpen|closers?|rps?/, pos: 'RP' },
+]
+// "by a shortstop", "among catchers", "for relievers": the joining words go with the position.
+const POSITION_JOIN = '(?:(?:by|among|for|from|at)\\s+)?(?:(?:a|an|the)\\s+)?'
+const RANK_ONLY = /^(?:the\s+)?(?:best|top(?:\s+(?:\d+|five|ten|twenty))?|leading|leaders?|good|greatest)?$/
+
+/**
+ * "best catcher", "most hr by a shortstop", "top relievers", "era leaders among starters": the
+ * players board narrowed to that position or role. A stat is optional ("best catcher" is the
+ * board's own headline column); a word saying it is a ranking is not, since "catchers" alone is as
+ * likely a roster question. One position per question: "catchers and shortstops" offers nothing.
+ */
+export function parsePositionRank(text: string): { pos: PositionFilter; leader: ParsedLeader | null }[] {
+  let rest = ` ${fixStatTypos(normalize(text))} `
+  const found: PositionFilter[] = []
+  for (const w of POSITION_WORDS) {
+    rest = rest.replace(new RegExp(`(?<![a-z0-9])${POSITION_JOIN}(?:${w.re.source})(?![a-z0-9])`, 'g'), () => {
+      if (!found.includes(w.pos)) found.push(w.pos)
+      return ' '
+    })
+  }
+  if (found.length !== 1) return []
+  const pos = found[0]
+  const side = positionFilterDef(pos).side
+  const leaders = parseLeaderText(rest).filter(p => !p.career && p.side === side)
+  if (leaders.length) return leaders.map(leader => ({ pos, leader }))
+  // No stat: the board's own order, but only when what is left says "rank them".
+  const left = rest.replace(SEASON_WORDS, ' ').trim().replace(/\s+/g, ' ')
+  if (!left || !RANK_ONLY.test(left)) return []
+  return [{ pos, leader: null }]
 }
 
 // ─── A ranking of clubs ───────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/
 import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { boardColumn, peekText, recordSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
+import { boardColumn, peekText, positionRankSuggestions, recordSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
 import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
@@ -455,13 +455,17 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))
     const peek = peeks && peeks.text === text ? peeks.byKey : {}
-    const leaders: Item[] = leaderRows.map(s => ({
+    const positionRanks: Item[] = positionRankSuggestions(section, text).map(s => ({
+      key: s.key, kind: 'leader', title: s.title, subtitle: s.subtitle, href: s.href,
+      recentSubtitle: s.subtitle, icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }))
+    const leaders: Item[] = [...positionRanks, ...leaderRows.map(s => ({
       key: s.key, kind: 'leader', title: s.title, href: s.href,
       subtitle: ['Leaders', peek[s.key] ? peekText(peek[s.key]) : null, s.subtitle].filter(Boolean).join(' · '),
       recentSubtitle: `Leaders · ${s.subtitle}`,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
-    }))
+    } as Item))]
     const teamRanks: Item[] = teamRankSuggestions(section, text).map(s => ({
       key: s.key, kind: 'team_rank', title: s.title, subtitle: s.subtitle, href: s.href,
       icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},

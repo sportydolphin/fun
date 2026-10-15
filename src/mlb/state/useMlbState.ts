@@ -34,6 +34,7 @@ import { useOpensAsPanel } from '../../ui/ModalShell'
 import { useSectionActive } from '../../lib/panelActive'
 import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbSeasonView, isMlbChartsView, MLB_PATH_EVENT } from '../routes'
 import type { MlbView, MlbSnapshot, MlbFieldingPosition } from '../routes'
+import { parsePositionFilter, type PositionFilter } from '../../league/positionFilter'
 import { gridDefaultSort, type GridSort } from '../lib/seasonGrid'
 import { decodeFinderPer, decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
 import type { GameScope } from '../lib/gameScope'
@@ -358,6 +359,8 @@ export function useMlbState() {
   const [fieldingSort, setFieldingSort] = useState<GridSort | null>(() => landing?.view === 'fielding'
     ? gridSortFor(landing.sort, landing.dir, gridDefaultSort('fielding', 'hitting', landing.club ?? null)) : null)
   const [fieldingPos, setFieldingPos] = useState<MlbFieldingPosition | 'all'>(landing?.pos ?? 'all')
+  // The Players table's position or role ("best catcher" in the search), on the address as `pos`.
+  const [statsWho, setStatsWho] = useState<PositionFilter | null>(() => parsePositionFilter(landing?.who))
   const [fieldingClub, setFieldingClub] = useState<number | null>(landing?.club ?? null)
   // ─── Find (views/FindView) ─────────────────────────────────────────────────
   // The question, held here because the address carries it and Back restores it. Its `scope` is
@@ -640,6 +643,7 @@ export function useMlbState() {
     if (isMlbSeasonView(view)) s.season = vizSeason
     if (view === 'stats' && sortParam) s.sort = sortParam
     if (view === 'stats' && dirParam) s.dir = dirParam
+    if (view === 'stats' && statsWho) s.who = statsWho
     // A grid sort carries `asc` only when it is turned round, so its presence is the direction.
     const gridDir = (g: GridSort | null) => (g?.asc != null ? (g.asc ? 'asc' : 'desc') : null)
     if (view === 'teamStats' && teamGridSort) {
@@ -659,7 +663,7 @@ export function useMlbState() {
       s.findVenue = findQuery.venue === 'any' ? null : findQuery.venue
     }
     return s
-  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery, scoresDate])
+  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery, scoresDate, statsWho])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -727,6 +731,7 @@ export function useMlbState() {
     setView('stats')
     setLbGroup(group)
     setStatsAllTime(allTime)
+    setStatsWho(null)
     // A player card is regular-season numbers, so the board it opens is too.
     setLbGameScope('regular')
     if (!allTime) setVizSeason(season)
@@ -754,6 +759,7 @@ export function useMlbState() {
     )
     // Leaders has no career board, so a career Table left over from before would be the wrong page.
     setStatsAllTime(false)
+    setStatsWho(null)
     setLbFullscreen(next)
     setLbQualified(true)
     setLbStatsLimit(50)
@@ -926,6 +932,7 @@ export function useMlbState() {
       setLbGameScope(snap.games ?? 'regular')
       if (snap.view === 'stats') {
         setStatsAllTime(!!snap.allTime)
+        setStatsWho(parsePositionFilter(snap.who))
         setLbFullscreen(boardSortFor(group, snap.sort, snap.dir))
       }
     }
@@ -1087,6 +1094,7 @@ export function useMlbState() {
     teamGridSort, setTeamGridSort,
     fieldingSort, setFieldingSort,
     fieldingPos, setFieldingPos,
+    statsWho, setStatsWho,
     fieldingClub, setFieldingClub,
     gridHighlightId, setGridHighlightId,
     openGridBoard,
