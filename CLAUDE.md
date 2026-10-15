@@ -195,6 +195,12 @@ in-site bell and the push senders.
 - **Dev:** `npm install && npm run dev` → http://localhost:5173, redirects to `/wpbl`.
   Needs `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_VAPID_PUBLIC_KEY`
   for push. Without them the app renders empty states.
+- **Symbols:** the `serena` MCP ([`.mcp.json`](.mcp.json), TypeScript's language server) answers
+  "who calls X" and "what is in this file" with symbols, not whole files: prefer
+  `find_referencing_symbols`, `find_symbol` and `get_symbols_overview` to reading files to find a use.
+  Its first call after startup waits about 90s while TypeScript indexes the project. It runs on
+  `uvx --python 3.11` with `UV_PYTHON_DOWNLOADS=never`, because uv 0.13.1 fails its own Python link
+  check on this machine.
 - **Tests:** `npm run test` (Vitest, about 22s), in `src/__tests__/` and `src/**/__tests__`.
   `.tsx` tests run in jsdom and `.ts` tests in plain Node: a `.ts` test that touches `window`
   starts with `// @vitest-environment jsdom`. Never sleep for a history move; use `traverse()`
