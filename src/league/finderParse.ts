@@ -777,6 +777,42 @@ export function parseClubPage(text: string, clubs: readonly FinderClubAlias[]): 
   return ids.map(clubId => ({ clubId, part: part! }))
 }
 
+// ─── A ranking of clubs ───────────────────────────────────────────────────────
+
+const TEAM_SUBJECT = /(?<![a-z])(?:by|as|for|of)?\s*(?:a|the)?\s*(?:teams?|clubs?)(?![a-z])/g
+
+/**
+ * "SF team ERA", "most runs by a team", "Dodgers hr": a ranking whose subject is the clubs, for the
+ * section's team stats board. Needs a word saying so ("team", "club") or a club's name, since a
+ * stat alone is a PLAYER ranking (parseLeaderText) and must stay one. The club, when named, is who
+ * the reader is asking about; the board still ranks every club, which is how "SF team ERA" is
+ * answered: by where SF sits. Never career, which no team board has.
+ */
+export function parseTeamRankText(text: string, clubs: readonly FinderClubAlias[]): { leader: ParsedLeader; clubIds: string[] }[] {
+  let rest = ` ${normalize(text)} `
+  let said = false
+  rest = rest.replace(TEAM_SUBJECT, () => { said = true; return ' ' })
+  let clubIds: string[] = []
+  const byName = new Map<string, string[]>()
+  for (const c of clubs) {
+    for (const raw of c.names) {
+      const name = normalize(raw)
+      if (name) byName.set(name, [...new Set([...(byName.get(name) ?? []), c.id])])
+    }
+  }
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
+  if (names.length) {
+    rest = rest.replace(new RegExp(`(?<![a-z0-9])(?:the\\s+)?(${alt(names)})(?:'?s)?(?![a-z0-9])`), (_m: string, name: string) => {
+      clubIds = byName.get(name)!
+      return ' '
+    })
+  }
+  if (!said && !clubIds.length) return []
+  return parseLeaderText(rest)
+    .filter(p => !p.career && p.side !== 'overall')
+    .map(leader => ({ leader, clubIds }))
+}
+
 // ─── A game, or two clubs' meetings ───────────────────────────────────────────
 
 /** When a game was asked for: a day, the latest one played, or the next one. */

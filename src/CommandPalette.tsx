@@ -3,7 +3,8 @@ import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/
 import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { boardColumn, peekText, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs } from './finderSearch'
+import { boardColumn, peekText, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
+import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
 import { nameWords, parseCompareText, parseGameQuery, typedPart, typedSeason, typedStat } from './league/finderParse'
@@ -41,7 +42,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'definition' | 'result' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'team_rank' | 'definition' | 'result' | 'other_section' | 'recent' | 'suggestion' | 'page' | 'example'
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -276,6 +277,21 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     return () => { live = false; clearTimeout(t) }
   }, [text, leaderRows, resolveLeader])
 
+  // "Ohtani" on WPBL, "Whitmore" on MLB: one row into the other section, asked only once this one
+  // has finished and found no player, and only for text that is a plain name (no stat, year or
+  // number), so a question never costs a lookup in a section it is not about.
+  const ownPlayers = results.some(r => r.key.startsWith('player-'))
+  const [elsewhere, setElsewhere] = useState<{ text: string; row: OtherSectionRow } | null>(null)
+  useEffect(() => {
+    const name = text.trim()
+    if (ownPlayers || searching || name.length < 3 || /\d/.test(name) || nameWords(text) != null) return
+    let live = true
+    const t = setTimeout(() => {
+      otherSectionPlayer(section, name).then(row => { if (live && row) setElsewhere({ text, row }) }).catch(() => {})
+    }, 300)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, section, ownPlayers, searching])
+
   const change = (v: string) => {
     setText(v); setActive(0)
     // "whitmore hr" searches names for "whitmore": the stat and any year are for the rows above,
@@ -347,6 +363,15 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
     }))
+    const teamRanks: Item[] = teamRankSuggestions(section, text).map(s => ({
+      key: s.key, kind: 'team_rank', title: s.title, subtitle: s.subtitle, href: s.href,
+      icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }))
+    const other: Item[] = elsewhere && elsewhere.text === text && !ownPlayers ? [{
+      key: `other-${elsewhere.row.href}`, kind: 'other_section', title: elsewhere.row.title,
+      subtitle: elsewhere.row.subtitle, href: elsewhere.row.href,
+      icon: <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }] : []
     const defined = definitionSuggestions(section, text)
     const definitions: Item[] = defined.rows.map(s => ({
       key: s.key, kind: 'definition', title: s.title, subtitle: s.subtitle, href: s.href, scrollTo: s.scrollTo,
@@ -382,6 +407,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Matchups', items: matchups },
       { label: 'Clubs', items: clubPages },
       { label: 'Compare', items: compared },
+      { label: 'Team stats', items: teamRanks },
       { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
       ...(defined.asked ? [] : [glossary]),
@@ -389,9 +415,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         const answer = answers && answers.text === text ? answers.byKey[r.key] : undefined
         return rowItem('result')(answer ? { ...r, subtitle: [answer, r.subtitle].filter(Boolean).join(' · ') } : r)
       }) },
+      { label: section === 'mlb' ? 'In the WPBL' : 'In MLB', items: other },
       { label: 'Pages', items: pages },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare, gameRows, recentQs, rowPicks, leaderRows, peeks, answers])
+  }, [text, results, idle, section, compare, gameRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))
