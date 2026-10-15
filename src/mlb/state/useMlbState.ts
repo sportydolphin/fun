@@ -959,8 +959,11 @@ export function useMlbState() {
       // Stamped with the landing snapshot and moved to its canonical address, which matters on a
       // legacy landing (`/mlb?view=standings`): the sync above has already run for this render and
       // nothing else may change to re-run it.
+      //
+      // Not while hidden: a search opened on /mlb/compare mounts the section behind that page
+      // (App.tsx), and writing then would move the reader to /mlb under it.
       const snap: MlbSnapshot = landing ?? { view }
-      writeAddress({ ...snap }, snap)
+      if (sectionActive) writeAddress({ ...snap }, snap)
     }
   }, [allTeams, selectPlayer, selectTeam, view]) // eslint-disable-line react-hooks/exhaustive-deps
 

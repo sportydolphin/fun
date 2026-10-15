@@ -22,6 +22,15 @@ export const PanelActiveContext = createContext(true)
 export const SectionActiveContext = createContext(true)
 
 export const useSectionActive = (): boolean => useContext(SectionActiveContext)
+
+// Whether the section answers the toolbar's search. The section on screen does, and so does one
+// kept mounted behind a standalone page of its own (/wpbl/league, /wpbl/series/…, /mlb/compare):
+// those pages have no search of their own, and until Oct 2026 the box and Ctrl+K went away on them.
+// Only the search bridge reads this; everything else a hidden section must not do still keys on
+// SectionActiveContext. App.tsx gives it to at most one section at a time.
+export const SectionSearchContext = createContext(true)
+
+export const useSectionSearch = (): boolean => useContext(SectionSearchContext)
 export const usePanelActive = (): boolean => {
   const section = useContext(SectionActiveContext)
   const panel = useContext(PanelActiveContext)

@@ -46,7 +46,7 @@ import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 // the WPBL feature-flagged sections via src/lib/admin.ts.
 import { ADMIN_EMAIL } from './lib/admin'
 import { typePx } from './ui/scale'
-import { SectionActiveContext } from './lib/panelActive'
+import { SectionActiveContext, SectionSearchContext } from './lib/panelActive'
 import { otherSectionPath } from './sectionSwitch'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
@@ -155,10 +155,12 @@ type Route = '/' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/de
 /** A section kept mounted across a switch to the other one (see keptMlb in App). Hidden with
  *  `display: none`, which also hides its fixed bottom bar; `contents` while shown, so the wrapper
  *  adds no box and the section lays out exactly as it did as a direct child. */
-function KeptSection({ active, children }: { active: boolean; children: React.ReactNode }) {
+function KeptSection({ active, search, children }: { active: boolean; search: boolean; children: React.ReactNode }) {
   return (
     <SectionActiveContext.Provider value={active}>
-      <div style={{ display: active ? 'contents' : 'none' }}>{children}</div>
+      <SectionSearchContext.Provider value={search}>
+        <div style={{ display: active ? 'contents' : 'none' }}>{children}</div>
+      </SectionSearchContext.Provider>
     </SectionActiveContext.Provider>
   )
 }
@@ -418,6 +420,10 @@ function AppInner() {
   const keptWpbl = useRef(false)
   if (isMlbPath(path)) keptMlb.current = true
   if (rendersWpblApp(path)) keptWpbl.current = true
+  // The same, for a search opened on a standalone page of a section that was never visited (a
+  // cold load of /wpbl/league): the palette's players and clubs come from the section, so it is
+  // mounted then, hidden. Bumped rather than read from the ref alone, so it renders.
+  const [, setKeptBump] = useState(0)
   const keepMlb = keptMlb.current
   const keepWpbl = keptWpbl.current
   // THE SECTION TABS LIVE IN THIS BAR above a phone's width (ToolbarNav, src/sectionNav.ts), and
@@ -513,7 +519,13 @@ function AppInner() {
   // icon beside it sideways on each refresh: the one layout shift left in the toolbar. The route is
   // known on the first frame, and the two sections that answer a search are exactly the ones that
   // mount below. A query typed in that half second waits in the bridge and is answered on arrival.
-  const searchShown = bridge.isRegistered || rendersWpblApp(path) || isMlbPath(path)
+  //
+  // EVERY PAGE OF EITHER SECTION, not only the ones its app draws. Until Oct 2026 this was
+  // rendersWpblApp || isMlbPath, so the standalone pages (About the league, a season series,
+  // Batter vs pitcher, Compare, the glossaries) lost the box and Ctrl+K: exactly the pages a
+  // reader is most likely to want to leave by searching. The section answers from behind them
+  // (SectionSearchContext, keptWpbl above).
+  const searchShown = bridge.isRegistered || navSection !== null
   // STABLE, because MlbStats is memoized on it. This shell re-renders on every toolbar change (it
   // reads the search bridge), and with an inline footer here the whole MLB section re-rendered
   // with it: opening a team page from Home went round MlbStats and this shell three times, about
@@ -555,9 +567,13 @@ function AppInner() {
     // The sections load their search data on the first focus of the search (onFirstSearchFocus),
     // which used to be the field's; opening the palette is that moment now.
     noteSearchFocus()
+    // On a standalone page whose section is not mounted yet, mount it behind the page so it can
+    // answer. Its search data loads now, the moment the field's first focus always loaded it.
+    if (navSection === 'wpbl' && !keptWpbl.current) { keptWpbl.current = true; setKeptBump(n => n + 1) }
+    if (navSection === 'mlb' && !keptMlb.current) { keptMlb.current = true; setKeptBump(n => n + 1) }
     track(EVENTS.COMMAND_PALETTE_OPENED, { section: searchSection, via })
     setPaletteOpen(true)
-  }, [paletteOpen, searchSection])
+  }, [paletteOpen, searchSection, navSection])
   // "/" as on GitHub and YouTube, never while typing somewhere and never under a modal. Ctrl+K
   // fires from inside a field too, since a modifier chord cannot be typing, and closes the palette
   // again; it is the browser's own "search the web" key, so it is taken only where a section
@@ -1373,7 +1389,7 @@ function AppInner() {
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
           {keepMlb && (
-            <KeptSection active={isMlbPath(path)}>
+            <KeptSection active={isMlbPath(path)} search={navSection === 'mlb'}>
               {/* A screen tall, for the reason the /wpbl fallback below gives: at spinner height the
                   footer painted halfway up the screen and was then shoved off it, 0.13 of layout
                   shift on a desktop load (Oct 1, 2026). The section keeps itself a screen tall once
@@ -1458,7 +1474,7 @@ function AppInner() {
             </Suspense>
           )}
           {keepWpbl && (
-            <KeptSection active={rendersWpblApp(path)}>
+            <KeptSection active={rendersWpblApp(path)} search={navSection === 'wpbl'}>
               {/* A SCREEN TALL, NOT A SPINNER TALL. React.lazy suspends for at least a tick even
                   with the chunk preloaded, so this is always the first thing painted on /wpbl, and at
                   spinner height it put the footer halfway up the screen for that frame. The

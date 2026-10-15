@@ -66,7 +66,7 @@ import { useGameNotes, ScoreCardFooter, ScoreCardFooterSkeleton } from './ScoreC
 import { WPBL_MORE_PAGES } from './morePages'
 import { MoreSheet as SharedMoreSheet } from '../ui/MoreMenu'
 import { useForegroundInterval } from '../lib/foregroundInterval'
-import { PanelActiveContext, useSectionActive } from '../lib/panelActive'
+import { PanelActiveContext, useSectionActive, useSectionSearch } from '../lib/panelActive'
 import { WpblHeadingOwnerProvider, TabTitle } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo, wpblSeasonSeo, WPBL_ROUTES_SEASON } from '../seo'
@@ -1287,6 +1287,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // the section (the toolbar's search and tabs, the page's tags) waits for it, or the hidden section
   // would answer MLB's search box with WPBL players.
   const active = useSectionActive()
+  // Whether this section answers the toolbar's search, which it also does hidden behind one of its
+  // own standalone pages (see SectionSearchContext). The search bridge effects key on this.
+  const searchActive = useSectionSearch()
 
   // ── History-driven navigation ────────────────────────────────────────────────
   const apply = useCallback((s: WpblSnap) => {
@@ -1703,13 +1706,13 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Hidden behind MLB counts as unmounted. Within one commit React runs every cleanup before any
   // setup, so this hands the bar back before MLB claims it.
   useEffect(() => {
-    if (!active) return
+    if (!searchActive) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
       updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
-  }, [active])
+  }, [searchActive])
 
   // Full roster of every player, loaded once — the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
@@ -2033,12 +2036,12 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [bridge.query, players, teams])
 
   useEffect(() => {
-    if (!active) return
+    if (!searchActive) return
     if (!matches) { updateSearchBridge({ resultRows: NO_ROWS }); return }
     const playerRows = matches.players.slice(0, 6).map(p => buildPlayerRow(p, 'result'))
     const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows], resultsForgiving: { players: matches.forgiving, teams: matches.forgiving } })
-  }, [matches, buildPlayerRow, buildTeamRow, active])
+  }, [matches, buildPlayerRow, buildTeamRow, searchActive])
 
   // "Whitmore vs Ibarra" in the palette. The halves arrive lowercased with accents folded (the
   // parser's normalize), so the names are folded the same way before matching. Best match first:
@@ -2061,8 +2064,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     }
   }, [players])
   useEffect(() => {
-    if (active) updateSearchBridge({ resolveCompare })
-  }, [resolveCompare, active])
+    if (searchActive) updateSearchBridge({ resolveCompare })
+  }, [resolveCompare, searchActive])
 
   // "SF vs NY sep 9", "Firebells last night" in the palette, from the schedule already in hand.
   const resolveGames = useCallback(async (q: GameQuery) => {
@@ -2077,13 +2080,13 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     }))
   }, [games, teams, teamById])
   useEffect(() => {
-    if (active) updateSearchBridge({ resolveGames })
-  }, [resolveGames, active])
+    if (searchActive) updateSearchBridge({ resolveGames })
+  }, [resolveGames, searchActive])
   // For "most hr all time", which the one-season stats table answers only while there is one.
   const seasonCount = useMemo(() => seasonsOnRecord(games).length, [games])
   useEffect(() => {
-    if (active) updateSearchBridge({ seasonCount })
-  }, [seasonCount, active])
+    if (searchActive) updateSearchBridge({ seasonCount })
+  }, [seasonCount, searchActive])
 
   // "Whitmore avg", "Whitmore war" and "highest wrc+": the answer in the player row and the leader
   // in the ranking row, from the stats table's own columns (src/wpbl/searchAnswers.ts). Imported on
@@ -2118,8 +2121,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     return m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
   }, [players, games, loadBoard])
   useEffect(() => {
-    if (active) updateSearchBridge({ resolvePlayerStat, resolveLeader })
-  }, [resolvePlayerStat, resolveLeader, active])
+    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader })
+  }, [resolvePlayerStat, resolveLeader, searchActive])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of
@@ -2132,7 +2135,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // user text for nothing.
   const loggedQueries = useRef<Set<string>>(new Set())
   useEffect(() => {
-    if (!active || !matches || loggedQueries.current.has(matches.q)) return
+    if (!searchActive || !matches || loggedQueries.current.has(matches.q)) return
     const { q, players: pl, teams: tm } = matches
     const id = setTimeout(() => {
       loggedQueries.current.add(q)
@@ -2140,13 +2143,13 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       track(EVENTS.WPBL_SEARCHED, wpblSearchedProps(q, pl.length, tm.length))
     }, 700)
     return () => clearTimeout(id)
-  }, [matches, active])
+  }, [matches, searchActive])
 
   // Resolve stored recents against the live roster and push them up as rows. A recent whose
   // player/team no longer exists (a rare merge or roster change) is dropped rather than shown
   // dead. Cleared on unmount along with the rest of the bridge (see the register effect).
   useEffect(() => {
-    if (!active) return
+    if (!searchActive) return
     const rows = recentSearches.flatMap<SearchResultRow>(r => {
       if (r.type === 'player') {
         const p = players.find(pl => pl.id === r.id)
@@ -2156,13 +2159,16 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       return t ? [buildTeamRow(t, 'recent')] : []
     })
     updateSearchBridge({ recentRows: rows, clearRecentSearches: clearRecents })
-  }, [recentSearches, players, teams, buildPlayerRow, buildTeamRow, clearRecents, active])
+  }, [recentSearches, players, teams, buildPlayerRow, buildTeamRow, clearRecents, searchActive])
 
   // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
   // so the first Back leaves the section and a refresh restores the view. On a Back/remount
   // the entry already carries a snapshot: leave it untouched.
+  //
+  // NOT FROM BEHIND A STANDALONE PAGE. A search opened on /wpbl/league mounts this section hidden
+  // (App.tsx), and stamping then would rewrite the address to the section root under the reader.
   useEffect(() => {
-    if (!window.history.state?.wpbl) {
+    if (!window.history.state?.wpbl && wpblAppOwnsPath(window.location.pathname)) {
       // `awards` IS LOAD-BEARING HERE. This runs on a cold load, before anything else, and `urlFor`
       // of a snapshot without it returns /wpbl: landing on /wpbl/awards would rewrite the address bar
       // to the section root in the first tick, so a copied link would lose the ballot before the page
