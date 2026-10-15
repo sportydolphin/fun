@@ -1,6 +1,6 @@
 import React from 'react'
 import { pressable } from '../../ui/interaction'
-import { edge } from '../../ui/card'
+import { edge, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT, CURRENT_SEASON, TONE } from '../constants'
 import { chromePx } from '../../ui/scale'
@@ -120,12 +120,12 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, large }: {
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{
           fontWeight: 700,
-          fontSize: large ? '0.82rem' : { xs: '0.7rem', sm: '0.78rem' },
+          fontSize: large ? TYPE_SCALE.body : { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.body },
           lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {lastName}
         </Typography>
-        <Typography sx={{ fontSize: large ? '0.68rem' : { xs: '0.56rem', sm: '0.64rem' }, color: 'text.secondary', lineHeight: large ? 1.3 : 1 }}>
+        <Typography sx={{ fontSize: large ? TYPE_SCALE.micro : TYPE_SCALE.caption, color: 'text.secondary', lineHeight: large ? 1.3 : 1 }}>
           {player.position} · {player.teamAbbr}
           {player.isTeamPlayer && (
             <Box component="span" sx={{ color: tone(col), fontWeight: 800 }}> ★</Box>
@@ -139,7 +139,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, large }: {
           flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           border: '1.5px solid #22c55e60',
-          color: TONE.green, fontSize: '0.6rem', fontWeight: 900, lineHeight: 1,
+          color: TONE.green, fontSize: TYPE_SCALE.caption, fontWeight: 900, lineHeight: 1,
         }}>
           ✓
         </Box>

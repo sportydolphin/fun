@@ -18,6 +18,7 @@ import { fetchBracket, seriesName, winsNeeded } from '../postseason'
 import type { PsSeries } from '../postseason'
 import { mlbSeriesPath } from '../routes'
 import { GC_CAPS, GC_META, GC_BODY } from './gameType'
+import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 
 const POSTSEASON_TYPES = new Set(['F', 'D', 'L', 'W'])
 
@@ -75,7 +76,7 @@ export function SeriesBand({ s, gamePk, season, onOpen }: {
         fontSize: GC_META, fontWeight: 800, color: 'text.secondary', px: 1.4, py: 0.6, borderRadius: 999,
         border: '1px solid', borderColor: 'outline', ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }), ...FOCUS_RING,
       }}>
-        View series <ChevronRight sx={{ fontSize: '0.95rem' }} />
+        View series <ChevronRight sx={{ fontSize: ICON_SIZE.sm }} />
       </Box>
     </Box>
   )
@@ -91,7 +92,7 @@ export function SeriesBandSkeleton() {
         <Typography sx={{ fontSize: GC_BODY, fontWeight: 700, lineHeight: 1.35 }}>Series</Typography>
       </Box>
       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexShrink: 0, fontSize: GC_META, fontWeight: 800, px: 1.4, py: 0.6, border: '1px solid' }}>
-        View series <ChevronRight sx={{ fontSize: '0.95rem' }} />
+        View series <ChevronRight sx={{ fontSize: ICON_SIZE.sm }} />
       </Box>
     </Box>
   )
@@ -200,7 +201,7 @@ export function BiggestSwings({ swings, away, home }: { swings: Swing[]; away: n
               {/* The number the graph marks this play with. */}
               <Box sx={{
                 flexShrink: 0, width: '1.4rem', height: '1.4rem', borderRadius: '50%', bgcolor: col,
-                color: inkOn(col), fontSize: '0.66rem', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: inkOn(col), fontSize: TYPE_SCALE.micro, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>{i + 1}</Box>
               <Box sx={{ minWidth: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, flexWrap: 'wrap' }}>

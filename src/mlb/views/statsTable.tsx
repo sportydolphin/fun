@@ -1,5 +1,5 @@
 import { Box } from '@mui/material'
-import { CARD_BORDER } from '../../ui/card'
+import { CARD_BORDER, TYPE_SCALE } from '../../ui/card'
 import { STATS_BOARD_TOP } from './StatsBar'
 
 // THE STATS TAB'S TABLE FRAME, shared by every MLB board that is a grid (Players, Teams, Fielding),
@@ -29,7 +29,7 @@ export const NAME_INNER_MAX = '5.125rem'
 export const ROW_TINT_VAR = '--mlb-row-tint'
 export const ROW_TINT = `linear-gradient(var(${ROW_TINT_VAR}, transparent), var(${ROW_TINT_VAR}, transparent))`
 export const TABLE_FOOT_SX = { px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 } as const
-export const FOOT_TEXT_SX = { fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0 } as const
+export const FOOT_TEXT_SX = { fontSize: TYPE_SCALE.micro, color: 'text.disabled', fontWeight: 600, minWidth: 0 } as const
 
 /** The frozen sorted column on a phone, pinned flush against a name column `left` wide, so the
  *  number the board is ranked on never scrolls away. */

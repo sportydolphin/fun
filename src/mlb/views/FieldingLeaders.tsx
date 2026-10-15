@@ -11,6 +11,7 @@ import { playerLink } from '../lib/links'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../../ui/leaders'
 
 import { PlayerHeadshot } from '../components/leaderboards'
+import { TYPE_SCALE } from '../../ui/card'
 
 // LEADERS ON THE FIELDING SIDE, the four cards WPBL's Leaders draws for it (LEADER_CARDS.fielding in
 // src/wpbl/LeadersBoard.tsx), from the same read and the same rules as the Fielding table they open:
@@ -78,7 +79,7 @@ export function FieldingLeaders({ season, gameScope, canHover, onOpenPlayer, onS
 
   if (failed === loadKey) {
     return (
-      <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+      <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
         Couldn’t load fielding stats. Try again in a moment.
       </Typography>
     )

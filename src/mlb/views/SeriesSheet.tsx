@@ -25,6 +25,7 @@ import { MlbHiddenH1 } from '../components/PageHeading'
 import { MlbCopyLink } from '../components/CopyLink'
 import { mlbClubById, mlbSeriesPath } from '../routes'
 import { getDynamicSeo, setDynamicSeo } from '../../seo'
+import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
@@ -109,7 +110,7 @@ function Club({ t, wins, need, won, lost, record, align, toTeam }: {
         : <Box sx={{ width: chromePx(48), height: chromePx(48), borderRadius: '50%', border: '1.5px dashed', borderColor: 'outline', flexShrink: 0 }} />}
       <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
         <Typography {...(t.real ? teamLink(t.id, toTeam) : {})} sx={{
-          ...LINK_SX, display: 'block', fontSize: '1.05rem', fontWeight: won ? 900 : 800, lineHeight: 1.15,
+          ...LINK_SX, display: 'block', fontSize: TYPE_SCALE.heading, fontWeight: won ? 900 : 800, lineHeight: 1.15,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           ...(t.real && toTeam ? { cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING } : {}),
         }}>
@@ -254,7 +255,7 @@ function GameRow({ g, d, onOpen }: { g: PsGame; d: SeriesGameDetail | undefined;
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {g.state === 'live' && <LiveDot size={6} />}
-        <ChevronRight sx={{ fontSize: '1.1rem', color: 'text.disabled' }} />
+        <ChevronRight sx={{ fontSize: ICON_SIZE.md, color: 'text.disabled' }} />
       </Box>
     </Box>
   )
@@ -305,7 +306,7 @@ function NextGame({ g, d, lines, onOpen, toPlayer }: {
         <SectionLabel>{live ? `Game ${g.number} · Live` : `Next · Game ${g.number}${g.ifNecessary ? ' (if necessary)' : ''}`}</SectionLabel>
       </Box>
       {live ? (
-        <Typography sx={{ fontSize: '1rem', fontWeight: 900, mb: 0.25 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 900, mb: 0.25 }}>
           {g.away.abbr} {g.away.score ?? 0}, {g.home.abbr} {g.home.score ?? 0}
           <Box component="span" sx={{ ml: 1, fontSize: META, fontWeight: 800, color: TONE.red }}>{g.inning ?? (g.detail || 'Live')}</Box>
         </Typography>
@@ -327,7 +328,7 @@ function NextGame({ g, d, lines, onOpen, toPlayer }: {
         fontSize: META, fontWeight: 800, color: 'text.secondary', px: 1.25, py: 0.5, borderRadius: 999,
         border: '1px solid', borderColor: 'outline', ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }), ...FOCUS_RING,
       }}>
-        {live ? 'Game Center' : 'Full preview'} <ChevronRight sx={{ fontSize: '0.95rem' }} />
+        {live ? 'Game Center' : 'Full preview'} <ChevronRight sx={{ fontSize: ICON_SIZE.sm }} />
       </Box>
     </Box>
   )

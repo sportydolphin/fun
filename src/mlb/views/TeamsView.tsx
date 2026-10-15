@@ -8,6 +8,7 @@ import { edgeTone } from '../lib/colorUtils'
 import { mlbTeamPath } from '../routes'
 import { chromePx, typePx } from '../../ui/scale'
 import { MlbTabTitle } from '../components/PageHeading'
+import { TYPE_SCALE } from '../../ui/card'
 
 // The Teams tab: every club, by division, one tap from its page. Teams had no tab before Sep 28,
 // 2026; a club page was reached only by searching for it or tapping a logo somewhere else, which is
@@ -34,7 +35,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
         {DIVISIONS.map(d => (
           <Box key={d.code}>
             <Typography sx={{
-              fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase',
+              fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase',
               color: 'text.disabled', mb: 0.75,
             }}>
               {d.label}
@@ -57,11 +58,11 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
                       ...FOCUS_RING,
                     }}>
                       <TeamLogo teamId={id} abbr={TEAM_ABBR[id]} size={30} />
-                      <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, flex: 1, minWidth: 0 }}>
                         {TEAM_NICKNAME[id] ?? TEAM_ABBR[id]}
                       </Typography>
                       {mine && (
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary', letterSpacing: typePx(0.6) }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', letterSpacing: typePx(0.6) }}>
                           YOUR TEAM
                         </Typography>
                       )}

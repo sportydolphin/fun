@@ -94,7 +94,7 @@ export function LinesBoardControls({ isDesktop, sideSwitch, gameScope, setGameSc
           <Box {...pressable(() => setOpen(true))} aria-haspopup="dialog" aria-expanded={open} sx={controlPill(filtersSet)}>
             Filters
             {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
-            <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+            <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
           </Box>
         </Box>
         {open && (
@@ -183,7 +183,7 @@ export function MlbBestsView({
       </StatsBar>
 
       {!mirrored ? <NotMirrored season={vizSeason} /> : failed ? (
-        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
           Couldn’t load the {vizSeason} box scores. Try again in a moment.
         </Typography>
       ) : (

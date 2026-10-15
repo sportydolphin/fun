@@ -16,6 +16,7 @@ import {
   currentPreset, DEVICE_PRESETS, FRAME_PARAM,
 } from './devDevice'
 import { typePx } from '../../ui/scale'
+import { TYPE_SCALE } from '../../ui/card'
 
 // Room left for the toolbar above the phone + breathing space around it.
 const CHROME_V = 132
@@ -76,7 +77,7 @@ export default function MobilePreview() {
     }}>
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', justifyContent: 'center', px: 2 }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase', color: '#f59e0b', mr: 0.5 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase', color: '#f59e0b', mr: 0.5 }}>
           📱 Mobile sim
         </Typography>
         {DEVICE_PRESETS.map(d => (
@@ -113,7 +114,7 @@ export default function MobilePreview() {
         </Box>
       </Box>
 
-      <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.45)', textAlign: 'center', px: 2 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'rgba(255,255,255,0.45)', textAlign: 'center', px: 2 }}>
         {preset.label} · {w}×{h}{scale < 1 ? ` · shown at ${Math.round(scale * 100)}%` : ''}. Real viewport, so breakpoints match a phone. Click-drag inside acts as a finger, so swipes work.
       </Typography>
     </Box>,
@@ -132,7 +133,7 @@ function ChromeButton({ children, onClick, active = false, accent = false }: {
       {...pressable(onClick)}
       sx={{
         px: 1.1, py: 0.5, borderRadius: 1.5, cursor: 'pointer', userSelect: 'none',
-        fontSize: '0.68rem', fontWeight: 700, lineHeight: 1,
+        fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1,
         border: '1px solid',
         borderColor: accent ? '#f59e0b' : active ? '#60a5fa' : 'rgba(255,255,255,0.18)',
         color:       accent ? '#f59e0b' : active ? '#60a5fa' : 'rgba(255,255,255,0.72)',
