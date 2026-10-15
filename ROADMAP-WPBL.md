@@ -290,7 +290,7 @@ and the reasoning; where the two disagree, `/admin` is the order.
   0.01, the phone switch to MLB 0.11 to 0.03. **Open:** `/wpbl/stats` on a desktop and MLB Home on
   a desktop reproduce clean locally (under 0.04), so they wait on the attributed reports.
 - **Google Play release** (ops item 9). Close; only Play's process is left.
-- Wins added and baserunning on the player card and Compare (item 8 below).
+- ~~Wins added and baserunning on the player card and Compare (item 8 below)~~ ✅ done Oct 15, v1.165.0.
 - ~~Dependencies (ops item 6)~~ ✅ done Oct 13, patch, minor and every major.
 - Crash triage (ops item 2), once a week of tagged rows is in.
 
@@ -375,7 +375,8 @@ reason to come back more than once a month until spring. So the order is by that
    neither. Start with stolen bases and caught stealing at run-expectancy values: the per-play run
    values that `stealEconomy` (in `src/league/runExpectancy.ts`, behind the steal card) sums for
    the league already price each attempt, so this is crediting them to the runner.
-8. **Wins added and baserunning on the player card and Compare** (decided Oct 11). Item 7 put both
+8. ✅ **Wins added and baserunning on the player card and Compare** (shipped Oct 15 as v1.165.0; see the log). The original item:
+   (decided Oct 11). Item 7 put both
    numbers on Run value only; a reader looking at one player, or arguing about two, should meet
    them there too. Neither surface reads the league play log today, which is what both numbers
    are summed from (`wpaLeaders` in `derive/winProbability.ts`, `baserunningEvents` and

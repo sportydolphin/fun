@@ -47,6 +47,8 @@ import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 import { WpblAddressSeasonProvider, useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
+import { useSeasonValueBoards } from './useSeasonValue'
+import { playerSeasonValue } from './derive/seasonValue'
 
 // The frame (heads, cards, rows, picker and their loading states) is src/ui/compare.tsx since
 // Oct 9, 2026, shared with /mlb/compare. What stays here is what is WPBL's: the portrait and club
@@ -92,7 +94,7 @@ function WpblCompareHead({ player, team, roster, position, onNavigate, onClear }
  * `qualified` and `barText` are still built and tested, for a surface that wants to mark the bar.
  */
 function CompareGroupCard({ group }: { group: WpblCompareGroup }) {
-  return <CompareBlocksCard title={group.label} blocks={[group.playingTime, group.counting, group.rate]} />
+  return <CompareBlocksCard title={group.label} blocks={[group.playingTime, group.counting, group.rate, group.value]} />
 }
 
 /**
@@ -250,13 +252,22 @@ function ComparePageBody({ path, onNavigate }: {
         .map(p => ({ player: p, pitcher: false, played: 0, playedText: '' }))),
     [lines, players, single, games])
 
+  // Wins added and the runs on the bases, off Run value's own boards, read only once there is a
+  // pair to compare. The rows are drawn from the start and fill when the season's plays land.
+  const valueBoards = useSeasonValueBoards(pair ? season : null, allGames, games, players, lines?.batting ?? null)
+  const value = useMemo(
+    () => (pair && valueBoards ? { a: playerSeasonValue(valueBoards, pair[0].id), b: playerSeasonValue(valueBoards, pair[1].id) } : null),
+    [pair, valueBoards])
+
   const comparison = useMemo(() => {
     if (!pair || !lines) return null
     return buildWpblComparison(pair[0], pair[1], {
       teams, games, batting: lines.batting, pitching: lines.pitching,
       plays: plays && plays.id === pair[0].id ? cut(plays.data) : undefined, basis,
+      // No rows at all without a season to read, rather than ghosts that would never fill.
+      value: season == null ? undefined : value,
     })
-  }, [pair, lines, teams, games, plays, basis, cut])
+  }, [pair, lines, teams, games, plays, basis, cut, value, season])
 
   // The tags for a pair, which ROUTES cannot describe: the names arrive with the roster, a
   // beat after the route does. Cleared on the way out so the registration cannot leak onto
@@ -333,8 +344,8 @@ function ComparePageBody({ path, onNavigate }: {
             // pitching and a batting card in their three blocks each.
             <>
               <HeadToHeadSkeleton />
-              <CompareBlocksSkeleton title="Pitching" blocks={[3, 4, 4]} />
-              <CompareBlocksSkeleton title="Batting" blocks={[2, 9, 5]} />
+              <CompareBlocksSkeleton title="Pitching" blocks={[3, 4, 4, 1]} />
+              <CompareBlocksSkeleton title="Batting" blocks={[2, 9, 5, 2]} />
             </>
           ) : (
             <SectionCard title={shape === 'single' ? 'And who else' : 'Choose a player'}>

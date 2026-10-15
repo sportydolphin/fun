@@ -1,5 +1,5 @@
 import { regularSeasonLines, type SeasonGame } from './season'
-import type { BattingGameLine, League, LeagueGame, LeaguePlayer, RunValuePlay } from './types'
+import type { League, LeagueGame, LeaguePlayer, RunValuePlay } from './types'
 
 /** What this module needs to know about a game: whether it counts, whether it has finished,
  *  who was on the other side of it, and how it came out. A play names only the batting club,
@@ -789,39 +789,6 @@ export function workedExample<T extends RunValuePlay>(
     if (found) return found
   }
   return null
-}
-
-/** The runners themselves, from the box scores rather than the play log.
- *
- *  The batting lines carry SB and CS per player per game and the play log names the
- *  runner only inside its prose, so this is the column that already exists against a sentence
- *  that would have to be parsed. It also keeps a player's steal count here identical to the
- *  one on the Players board, which is where a reader will go to check it.
- *
- *  Takes the schedule for the reason every aggregate here does: a line carries a `game_id` and
- *  cannot say by itself whether its game counts. */
-export interface RunnerLine<P extends LeaguePlayer = LeaguePlayer> { player: P | null; name: string; sb: number; cs: number }
-
-export function topRunners<P extends LeaguePlayer>(
-  lines: Pick<BattingGameLine, 'game_id' | 'player_id' | 'sb' | 'cs'>[],
-  games: SeasonGame[],
-  players: P[],
-  limit = 5,
-): RunnerLine<P>[] {
-  const byId = new Map(players.map(p => [p.id, p]))
-  const rows = new Map<string, RunnerLine<P>>()
-  for (const l of regularSeasonLines(lines, games)) {
-    const sb = l.sb ?? 0, cs = l.cs ?? 0
-    if (sb === 0 && cs === 0) continue
-    const player = byId.get(l.player_id) ?? null
-    let row = rows.get(l.player_id)
-    if (!row) rows.set(l.player_id, row = { player, name: player?.name ?? '', sb: 0, cs: 0 })
-    row.sb += sb; row.cs += cs
-  }
-  return [...rows.values()]
-    .filter(r => r.name)
-    .sort((a, b) => (b.sb + b.cs) - (a.sb + a.cs) || b.sb - a.sb)
-    .slice(0, limit)
 }
 
 /** `digits` is 2 for the value of ONE play, where the whole point is often the gap between two

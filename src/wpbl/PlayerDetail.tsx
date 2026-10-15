@@ -15,7 +15,7 @@ import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { PLAYER_PAGE_W } from './layoutWidths'
 import { SectionHead, useRankInk } from './cardParts'
 import {
-  CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, FormStrip, CameoBlock, StatLogTable,
+  CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, ValueStrip, FormStrip, CameoBlock, StatLogTable,
   PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, BATTING_BEST, PITCHING_BEST, isZeroStat, ZERO_SX, bleedSx,
   useCollapsibleTable, ExpandToggle, thSx, tdSx, LOG_MAX_H, LOG_MAX_H_XS, LOG_PREVIEW, TIP_Z, type StatCardEnv,
 } from '../ui/playerCard'
@@ -42,6 +42,9 @@ import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 import { typePx } from '../ui/scale'
 import { useSectionScroll } from '../lib/sectionScroll'
+import { useSeasonValueBoards } from './useSeasonValue'
+import { playerSeasonValue, type BoardPlace } from './derive/seasonValue'
+import { fmtRunValue } from '../league/runExpectancy'
 
 
 // Player page: profile, season totals aggregated from box-score lines, where those totals sit
@@ -813,6 +816,14 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       : null,
     [scope, leagueLines, player.id, players, teams, games, season, career, seasonGames, eraBasis]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // WINS ADDED AND THE RUNS ON THE BASES, read off Run value's own boards (derive/seasonValue.ts), so
+  // "3rd of 74" here is third on that board. One season's regular season only, as the boards are,
+  // and drawn after the rest of the card: the play log they need may not be in the session yet.
+  const valueOn = scope === 'regular' && !career && season != null
+  const seasonBatting = useMemo(() => (leagueLines ? thisSeason(leagueLines.batting) : null), [leagueLines, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
+  const valueBoards = useSeasonValueBoards(valueOn ? season : null, games, seasonGames, players, seasonBatting)
+  const myValue = useMemo(() => (valueBoards ? playerSeasonValue(valueBoards, player.id) : null), [valueBoards, player.id])
+
   // Ranked only on the regular season, and only once the league's lines are in: until then the line
   // holds its rank row open (SeasonLine's ranksPending) instead of drawing a row short.
   const ranksPending = scope === 'regular' && !leagueLines && !career
@@ -1103,6 +1114,19 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // Each pane in two halves, because a desktop dialog puts them side by side: `season` is what
   // is true about her year, `log` is the record of the games it came out of. On anything
   // narrower they simply stack in this order and nothing about the reading changes.
+  /** Under the season line: the side's wins added, and a hitter's runs on the bases. A dash for a
+   *  player the board does not list, which is a season with no plate appearance on that side. */
+  const valueStrip = (r: Role) => {
+    if (!valueOn) return null
+    const cell = (label: string, p: BoardPlace | null | undefined, digits: 1 | 2, sample: string) => ({
+      label, value: myValue ? (p ? fmtRunValue(p.value, digits) : '—') : sample, rank: p ?? null,
+    })
+    const cells = r === 'pitching'
+      ? [cell('WPA', myValue?.wpaPitching, 2, '+0.00')]
+      : [cell('WPA', myValue?.wpaHitting, 2, '+0.00'), cell('BsR', myValue?.bases, 1, '+0.0')]
+    return <ValueStrip cells={cells} placeholder={!myValue} />
+  }
+
   const battingPane = {
     hasLog: battingLog.length > 0,
     /** Between the season line and the log: how the season was hit, from every pitch seen. */
@@ -1146,6 +1170,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             ...(bt.sf ? [{ label: 'SF', value: bt.sf }] : []),
           ].map((c, i) => (i === 0 ? { ...c, breakBefore: true } : c)),
         ])} />
+        {valueStrip('batting')}
       </>
     ),
     season: (
@@ -1224,6 +1249,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           ...(pt.bk ? [{ label: 'BK', value: pt.bk }] : []),
           { label: 'P', value: pt.pitches },
         ])} />
+        {valueStrip('pitching')}
       </>
     ),
     season: (
@@ -1311,6 +1337,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             r === 'pitching' ? '' : <Skeleton variant="text" sx={{ display: 'inline-block', width: '3.5em' }} />)}
           <Box sx={{ mb: 1.5 }}><RateStrip cells={head} placeholder /></Box>
           <SeasonLine cols={lineCols} headline={head.map(c => c.label)} placeholder />
+          {valueStrip(r)}
         </>
       ),
       log: (

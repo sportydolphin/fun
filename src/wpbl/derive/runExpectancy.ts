@@ -1,10 +1,10 @@
 import {
   buildRunExpectancy as build, playRunValues as values,
-  type PlayRunValue as Value, type ReTable, type RunnerLine as Runner, type WorkedExample as Example,
+  type PlayRunValue as Value, type ReTable, type WorkedExample as Example,
 } from '../../league/runExpectancy'
 import { WPBL_LEAGUE } from '../league'
 import type { WpblSeasonGame } from '../season'
-import type { WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
+import type { WpblGame, WpblRunValuePlay } from '../types'
 
 // Run expectancy for WPBL. The engine is league-neutral and lives in src/league/runExpectancy.ts,
 // where its reasoning is written down; the seven innings and the feed's `runs_scored` quirk come
@@ -13,7 +13,7 @@ import type { WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
 
 export {
   BASE_PHRASE, BASE_ROW_ORDER, BASE_SHORT, DIST_MAX, baseCode, biggestSwings, describeState,
-  eventValues, fmtRe, fmtRunValue, reOf, runValueLeaders, stealEconomy, topRunners, workedExample,
+  eventValues, fmtRe, fmtRunValue, reOf, runValueLeaders, stealEconomy, workedExample,
 } from '../../league/runExpectancy'
 export type { BaseCode, EventValue, ReTable, StealEconomy } from '../../league/runExpectancy'
 
@@ -22,7 +22,6 @@ export type RunValueGame = WpblSeasonGame &
   Pick<WpblGame, 'status' | 'home_team_id' | 'away_team_id' | 'home_score' | 'away_score'
     | 'home_line' | 'away_line'>
 export type PlayRunValue = Value<WpblRunValuePlay>
-export type RunnerLine = Runner<WpblPlayer>
 export type WorkedExample = Example<WpblRunValuePlay>
 
 export const buildRunExpectancy = (plays: WpblRunValuePlay[], games: RunValueGame[]): ReTable =>
