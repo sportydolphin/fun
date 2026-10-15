@@ -13,6 +13,7 @@ import { BoxTable, BOX_POS_SX } from '../../ui/gameCenter'
 import { usePhoneLayout } from '../../ui/ModalShell'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink } from '../lib/links'
+import { TYPE_SCALE } from '../../ui/card'
 
 // Per-inning + R/H/E line score plus full batting / pitching tables.
 interface InningLine { num: number; away: number | null; home: number | null }
@@ -216,7 +217,7 @@ export function ClubBox({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?
             key: p.id, ...nameFor(p.id, p.name),
             // The decision alone on a phone, "(W)" as WPBL prints it: the record after it took the
             // name column down to "E. Sabrow…".
-            suffix: p.note ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color, lineHeight: 1, whiteSpace: 'nowrap' }}>({dense ? p.note.split(',')[0] : p.note})</Typography> : null,
+            suffix: p.note ? <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color, lineHeight: 1, whiteSpace: 'nowrap' }}>({dense ? p.note.split(',')[0] : p.note})</Typography> : null,
             cells: [p.ip, ...PIT_COLS.map(c => (p[c.key] == null ? null : Number(p[c.key]))), ...(season ? [p.era] : [])],
           }))}
           totals={[outsToIp(sum(team.pitchers, 'outs')), ...PIT_COLS.map(c => pitTotal(c.key)), ...(season ? [''] : [])]}
@@ -229,7 +230,7 @@ export function ClubBox({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
-      fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
+      fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
       textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1,
     }}>
       {children}

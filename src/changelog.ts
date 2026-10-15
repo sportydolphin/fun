@@ -10,6 +10,16 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.166.1',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'Steadier text sizes on MLB',
+        full:  "MLB's Stats tab, search, Teams, Compare, rosters and box scores now use the same set of text sizes as the rest of the site, so labels and numbers no longer differ by a hair from page to page. The sorted column in both Stats tables keeps its width when you change the sort.",
+      },
+    ],
+  },
+  {
     version: '1.166.0',
     date:    '2026-10-15',
     changes: [

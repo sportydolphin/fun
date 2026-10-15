@@ -548,6 +548,14 @@ will actually see all winter. The functional items do not wait.
    component file name in both `wpbl/` and `mlb/` without a written reason, and the type-scale test
    now holds every file to the scale except a frozen legacy list (`typeScaleLegacy.ts`) that can
    only shrink. Still two drawings: the game preview, and the bracket (MLB's retires Nov 1).
+   ✅ *The legacy list, Oct 15 (v1.166.1):* 33 MLB files to 16. Off it: every file with five or
+   fewer typed-in sizes, and the Stats tab and search. MLB's Stats tables were WPBL's size for
+   size, so WPBL's `StatsView` and `src/ui/statsTableHead.ts` moved with them, on the same steps.
+   *Left, on purpose:* the live and postseason files (convert in spring, when they return),
+   predictions (wait for October's numbers in "MLB: what gets used"), the charts (SVG labels),
+   `GamePreview` (share it with WPBL instead), Standings and the player card's `cards.tsx` (after
+   Nov 1, when the bracket mode retires), and `SeriesSheet`'s 1.9 to 2.4rem score, which needs a
+   step above `page` shared with WPBL's series page (2 to 3rem) rather than a guess in one file.
 
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ACCENT_EDGE } from '../../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { HEADSHOT, TEAM_BG, TONE } from '../constants'
 import { RosterEntry } from '../types'
@@ -72,7 +72,7 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
       {/* Jersey number */}
       <Typography sx={{
         minWidth: '1.375rem', textAlign: 'right', flexShrink: 0,
-        fontSize: '0.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+        fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
         color: entry.jerseyNumber ? 'text.secondary' : 'text.disabled',
       }}>
         {entry.jerseyNumber ? `${entry.jerseyNumber}` : '—'}
@@ -83,12 +83,12 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
       {/* Name + handedness */}
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{
-          fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2,
+          fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {entry.fullName}
         </Typography>
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.2 }}>
           {[entry.positionAbbr, hand].filter(Boolean).join(' · ')}
         </Typography>
       </Box>
@@ -99,7 +99,7 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
           flexShrink: 0, px: 0.6, height: chromePx(16), borderRadius: 0.75,
           display: 'inline-flex', alignItems: 'center',
           bgcolor: '#ef444422', color: TONE.red,
-          fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.3),
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.3),
         }}>
           IL
         </Box>
@@ -134,7 +134,7 @@ export function TeamRoster({ roster, teamId, onPlayerClick }: {
       {groups.map(g => (
         <Box key={g.label}>
           <Typography sx={{
-            fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase',
+            fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase',
             letterSpacing: typePx(1.4), color: 'text.disabled', mb: 0.75,
           }}>
             {g.label} · {g.players.length}

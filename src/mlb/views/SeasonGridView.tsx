@@ -5,7 +5,7 @@ import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR, 
 import type { StatDef } from '../types'
 import { typePx } from '../../ui/scale'
 import { NameText } from '../../ui/NameText'
-import { CARD_BORDER } from '../../ui/card'
+import { CARD_BORDER, TYPE_SCALE } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { printedRanks } from '../../ui/leaders'
@@ -258,7 +258,7 @@ export function SeasonGridView({
 
   // ── Drawing ────────────────────────────────────────────────────────────
   const thSx = {
-    px: 0.5, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), whiteSpace: 'nowrap' as const,
+    px: 0.5, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), whiteSpace: 'nowrap' as const,
     bgcolor: 'background.paper', position: 'sticky' as const, top: 0, ...HEAD_LABEL_SX,
   }
   const tdSx = {
@@ -290,7 +290,7 @@ export function SeasonGridView({
             }}>
               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
                 {def.label}
-                {on && <Box component="span" sx={{ fontSize: '0.62rem' }}>{asc ? '↑' : '↓'}</Box>}
+                {on && <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>{asc ? '↑' : '↓'}</Box>}
               </Box>
             </Box>
           )
@@ -330,7 +330,7 @@ export function SeasonGridView({
         <Box {...pressable(toggleFullTable)} sx={{
           ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
           minHeight: 34, px: 1.25, display: 'inline-flex', alignItems: 'center', borderRadius: 999,
-          border: '1px solid', borderColor: CARD_BORDER, fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+          border: '1px solid', borderColor: CARD_BORDER, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
         }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
       )}
     </Box>
@@ -421,7 +421,7 @@ export function SeasonGridView({
       </StatsBar>
 
       {failed === loadKey && (
-        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
           Couldn’t load {teams ? 'team' : 'fielding'} stats. Try again in a moment.
         </Typography>
       )}
@@ -433,7 +433,7 @@ export function SeasonGridView({
               onOpenPlayer={() => {}} footer={() => foot(null)} />
           </Box>
         ) : ranked.length === 0 ? (
-          <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+          <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
             {canQualify && qualified ? 'Nobody has qualified here yet. Sort, then Filter → Everyone, shows everyone.'
               : gameScope === 'post' ? `No playoff games in ${vizSeason}${vizSeason >= CURRENT_SEASON ? ' yet' : ''}.`
               : 'No games in this season yet.'}
@@ -462,7 +462,7 @@ export function SeasonGridView({
                     {cols.map(def => {
                       const on = def.key === activeDef.key
                       return (
-                        <Box component="td" key={def.key} sx={{ ...tdSx, ...(isFrozen(def) ? frozen : {}), textAlign: 'center', fontSize: on ? '0.84rem' : '0.8rem', fontWeight: on ? 800 : 500, color: 'transparent' }}>
+                        <Box component="td" key={def.key} sx={{ ...tdSx, ...(isFrozen(def) ? frozen : {}), textAlign: 'center', fontSize: TYPE_SCALE.body, fontWeight: on ? 800 : 500, color: 'transparent' }}>
                           {(teamFielding ? TEAM_FIELDING_SAMPLE : SAMPLE)[def.key] ?? '000'}
                         </Box>
                       )
@@ -481,21 +481,21 @@ export function SeasonGridView({
                       }}>
                       <Box component="th" sx={{ ...tdSx, ...nameColSx, zIndex: 2, bgcolor: 'background.paper', backgroundImage: ROW_TINT, fontWeight: 'normal' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <Typography sx={{ width: '1.25rem', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', lineHeight: 1 }}>
+                          <Typography sx={{ width: '1.25rem', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', lineHeight: 1 }}>
                             <RankMarkText rank={ranks[idx]} />
                           </Typography>
                           {r.teamId > 0 && <TeamLogo teamId={r.teamId} abbr={TEAM_ABBR[r.teamId] ?? ''} size={20} />}
                           <Box sx={{ minWidth: 0 }}>
                             {r.playerId
                               ? <NameText name={frozenOn ? abbrevName(r.name) : r.name} linkProps={link}
-                                  sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15 }} />
+                                  sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.15 }} />
                               : (
-                                <Typography {...link} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <Typography {...link} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   <ClubName teamId={r.teamId} name={r.name} sx={{ font: 'inherit', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
                                 </Typography>
                               )}
                             {r.position && (
-                              <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.position}</Typography>
+                              <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1 }}>{r.position}</Typography>
                             )}
                           </Box>
                         </Box>
@@ -506,7 +506,7 @@ export function SeasonGridView({
                           <Box component="td" key={def.key} onClick={ev => { ev.stopPropagation(); pickColumn(def) }} sx={{
                             ...tdSx, ...(isFrozen(def) ? { ...frozen, zIndex: 3, '&::after': atStart ? undefined : FROZEN_EDGE } : {}), textAlign: 'center',
                             backgroundImage: [ROW_TINT, on ? `linear-gradient(${ACCENT}12, ${ACCENT}12)` : null].filter(Boolean).join(', '),
-                            fontSize: on ? '0.84rem' : '0.8rem', fontWeight: on ? 800 : 500,
+                            fontSize: TYPE_SCALE.body, fontWeight: on ? 800 : 500,
                             color: on ? 'var(--wpbl-accent-fg)' : 'text.primary',
                           }}>
                             {def.format(def.getValue(r.stat))}
@@ -520,7 +520,7 @@ export function SeasonGridView({
             </Box>
           </Box>
           {!loading && ranked.length === 0 && (
-            <Typography sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontSize: '0.85rem' }}>
+            <Typography sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
               {canQualify && qualified ? 'Nobody has qualified here yet. Turn off Qualified to see everyone.'
                 : gameScope === 'post' ? `No playoff games in ${vizSeason}${vizSeason >= CURRENT_SEASON ? ' yet' : ''}.`
                 : 'No games in this season yet.'}

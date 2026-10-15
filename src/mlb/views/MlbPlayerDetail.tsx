@@ -55,6 +55,7 @@ import type { Player, PlayerContract } from '../types'
 import type { PlayerSeason } from '../state/useMlbState'
 import { combineStatLines } from '../lib/gameScope'
 import { useSectionScroll } from '../../lib/sectionScroll'
+import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 
 // ~640-line chart module, lazy so it loads with the trend section rather than the page.
 const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
@@ -776,7 +777,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         <BandChips>
           {awards.map(a => (
             <Box key={a.key} title={`${a.label}: ${a.seasons.join(', ')}`} sx={BAND_CHIP_SX}>
-              <EmojiEvents aria-hidden sx={{ fontSize: '0.85rem', color: '#eab308' }} />
+              <EmojiEvents aria-hidden sx={{ fontSize: ICON_SIZE.sm, color: '#eab308' }} />
               {a.seasons.length > 1 ? `${a.seasons.length}× ${a.label}` : `${a.label} ${a.seasons[0]}`}
             </Box>
           ))}
@@ -800,8 +801,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
       ) : noStats || (!lines.hitting && !lines.pitching) ? (
         <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
-          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No major league stats {noStats || careerView ? 'yet' : `in ${season}`}</Typography>
-          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>Season totals appear here once this player appears in a game.</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No major league stats {noStats || careerView ? 'yet' : `in ${season}`}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Season totals appear here once this player appears in a game.</Typography>
         </Box>
       ) : (
         <>

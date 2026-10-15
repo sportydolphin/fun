@@ -12,7 +12,7 @@ import { NameText } from '../../ui/NameText'
 import { PillGroup } from '../../ui/PillGroup'
 import { ActiveFilterChip, FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { matchesPositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
-import { CARD_BORDER } from '../../ui/card'
+import { CARD_BORDER, TYPE_SCALE } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { sortBoard, ascFor, isBestFirst, leagueLine } from '../lib/statsBoard'
 import { printedRanks } from '../../ui/leaders'
@@ -197,7 +197,7 @@ export function StatsView({
   // rule, an accent underline on the sorted column and twice WPBL's padding.
   const stThSx = {
     px: 0.5,
-    fontSize: '0.6rem', fontWeight: 800,
+    fontSize: TYPE_SCALE.caption, fontWeight: 800,
     letterSpacing: typePx(0.4),
     whiteSpace: 'nowrap' as const,
     bgcolor: 'background.paper',
@@ -363,7 +363,7 @@ export function StatsView({
         <Box {...pressable(toggleFullTable)} sx={{
           ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
           minHeight: 34, px: 1.25, display: 'inline-flex', alignItems: 'center', borderRadius: 999,
-          border: '1px solid', borderColor: CARD_BORDER, fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+          border: '1px solid', borderColor: CARD_BORDER, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
         }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
       )}
     </Box>
@@ -450,7 +450,7 @@ export function StatsView({
         <Box aria-hidden sx={TABLE_FRAME_SX}>
           {/* The scroller at its cap, which a season's rows always fill. */}
           <Box sx={{ height: phoneTable ? PHONE_TABLE_MAX_H : TABLE_MAX_H, px: 2, pt: 1 }}>
-            {Array.from({ length: 12 }, (_, i) => <Skeleton key={i} sx={{ fontSize: '1.6rem' }} />)}
+            {Array.from({ length: 12 }, (_, i) => <Skeleton key={i} sx={{ height: '2.4rem' }} />)}
           </Box>
           {/* The "Show all" row of the capped table, which a qualified season board always has. */}
           {isDesktop && <Box sx={{ height: 48, borderTop: '1px solid', borderColor: 'divider' }} />}
@@ -459,7 +459,7 @@ export function StatsView({
       )}
 
       {!loadingLb && lbData && lbData.length === 0 && shownScope === 'post' && (
-        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
           No playoff games in {vizSeason}{vizSeason >= CURRENT_SEASON ? ' yet' : ''}.
         </Typography>
       )}
@@ -467,7 +467,7 @@ export function StatsView({
       {!loadingLb && lbData && lbData.length > 0 && listView && (
         <>
           {rankedAll.length === 0 ? (
-            <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+            <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
               {/* Only point at Everyone where the sheet offers it: a rate stat on a season board. */}
               {activeDef.isRate && !allTime && lbQualified
                 ? 'Nobody has qualified yet. Filters → Everyone shows the whole roster.'
@@ -524,7 +524,7 @@ export function StatsView({
                     }}>
                       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
                         {activeDef.label}
-                        <Box component="span" sx={{ fontSize: '0.62rem' }}>{effectiveAsc ? '↑' : '↓'}</Box>
+                        <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>{effectiveAsc ? '↑' : '↓'}</Box>
                       </Box>
                     </Box>
                   )}
@@ -556,7 +556,7 @@ export function StatsView({
                         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
                           {def.label}
                           {isActive && (
-                            <Box component="span" sx={{ fontSize: '0.62rem' }}>
+                            <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>
                               {effectiveAsc ? '↑' : '↓'}
                             </Box>
                           )}
@@ -631,7 +631,7 @@ export function StatsView({
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           {/* Flex-end so a wide tied rank ("T-24") overflows into the padding on
                               its left rather than into the badge. */}
-                          <Typography sx={{ width: '1.25rem', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', lineHeight: 1 }}>
+                          <Typography sx={{ width: '1.25rem', display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap', lineHeight: 1 }}>
                             <RankMarkText rank={ranks[idx]} />
                           </Typography>
                           {/* The club's mark where the headshot was, as WPBL's table draws it: a
@@ -641,13 +641,13 @@ export function StatsView({
                           <Box sx={{ minWidth: 0, maxWidth: phoneTable ? NAME_INNER_MAX : undefined }}>
                             <NameText name={isDesktop ? e.playerName : abbrevName(e.playerName)}
                               linkProps={playerLink(e.playerId, e.playerName, handleLbPlayerClick)}
-                              sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.15 }} />
+                              sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.15 }} />
                             {/* The position, as WPBL's row says it: the club is already the mark beside it.
                                 StatsAPI calls every pitcher "P", so the pitching table says which kind. */}
                             {/* Not on a phone, where the board is capped to the screen and the line
                                 costs a sixth of every row: WPBL's table drops it there too. */}
                             {!phoneTable && (lbGroup === 'pitching' || e.position) && (
-                              <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>
+                              <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1 }}>
                                 {lbGroup === 'pitching' ? pitcherRole(stat) : e.position}
                               </Typography>
                             )}
@@ -658,7 +658,7 @@ export function StatsView({
                       {phoneTable && (
                         <Box component="td" onClick={ev => { ev.stopPropagation(); handleColClick(activeDef) }} sx={{
                           ...stTdSx, ...FROZEN_SX, zIndex: 3, textAlign: 'center',
-                          fontSize: '0.84rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+                          fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
                           backgroundImage: `${ROW_TINT}, linear-gradient(${ACCENT}12, ${ACCENT}12)`,
                           '&::after': atStart ? undefined : FROZEN_EDGE,
                         }}>
@@ -684,7 +684,7 @@ export function StatsView({
                               ROW_TINT,
                               isActive ? `linear-gradient(${ACCENT}12, ${ACCENT}12)` : null,
                             ].filter(Boolean).join(', '),
-                            fontSize: isActive || isFocused ? '0.84rem' : '0.8rem',
+                            fontSize: TYPE_SCALE.body,
                             fontWeight: isActive || isFocused ? 800 : 500,
                             color: isFocused || isActive ? 'var(--wpbl-accent-fg)' : 'text.primary',
                             // Inset ring (not `outline`): an outline paints in a late phase and

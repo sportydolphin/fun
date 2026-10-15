@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NameText } from '../ui/NameText'
-import { ACCENT_EDGE } from '../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE } from '../ui/card'
 import { Box, Typography, CircularProgress, Skeleton, useMediaQuery } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
@@ -1808,7 +1808,7 @@ export default function WpblStatsView({
         // On the phone's table the words take a line of their own: beside two controls they
         // were a column of single words.
         <Typography sx={{
-          fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0,
+          fontSize: TYPE_SCALE.micro, color: 'text.disabled', fontWeight: 600, minWidth: 0,
           flexBasis: phoneTable ? '100%' : undefined,
         }}>{footText}</Typography>
       )}
@@ -1830,7 +1830,7 @@ export default function WpblStatsView({
           display: 'inline-flex', alignItems: 'center', gap: 0.4,
           minHeight: 34, px: 1.25, borderRadius: 999,
           border: '1px solid', borderColor: CARD_BORDER,
-          fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+          fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
         }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
       )}
     </Box>
@@ -2049,7 +2049,7 @@ export default function WpblStatsView({
     position: 'sticky' as const, top: 0, zIndex: 3, bgcolor: 'background.paper',
     // Above a phone the box never scrolls vertically, so `top` holds nothing; see headShift.
     transform: pinActive ? undefined : 'translateY(var(--wpbl-head-shift, 0px))',
-    fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
+    fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4),
     color: 'text.disabled', py: 0.75, px: 0.5, whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   }
   // The body cells, shared by every player row.
@@ -2064,7 +2064,7 @@ export default function WpblStatsView({
     position: 'sticky', left: nameW, zIndex: 3, touchAction: 'pan-y',
     textAlign: 'center', py: 0.5, px: 0.5,
     borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
-    fontSize: '0.84rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+    fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
     backgroundColor: 'background.paper',
     backgroundImage: `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)`,
     '&::before': SEAM_COVER,
@@ -2073,7 +2073,7 @@ export default function WpblStatsView({
   } as const
   const cellSx = (active: boolean) => ({
     textAlign: 'center', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
-    fontSize: active ? '0.84rem' : '0.8rem', fontWeight: active ? 800 : 500,
+    fontSize: TYPE_SCALE.body, fontWeight: active ? 800 : 500,
     color: active ? 'var(--wpbl-accent-fg)' : 'text.primary',
     // Layered like the header, so a hovered row and the sorted column
     // compose instead of one of them winning outright.
@@ -2255,7 +2255,7 @@ export default function WpblStatsView({
                 ...FOCUS_RING,
                 display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
                 cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
+                minHeight: 34, px: 1.25, borderRadius: 999, fontSize: TYPE_SCALE.body, fontWeight: 700,
                 border: '1px solid', transition: 'all 0.15s',
                 borderColor: source === 'season' || filtersSet ? ACCENT_EDGE : CARD_BORDER,
                 bgcolor: source === 'season' || filtersSet ? `${WPBL_ACCENT}12` : 'transparent',
@@ -2268,7 +2268,7 @@ export default function WpblStatsView({
                 </>
               ) : 'Filters'}
               {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: WPBL_ACCENT }} />}
-              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+              <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
             </Box>
           </Box>
         )}
@@ -2436,8 +2436,8 @@ export default function WpblStatsView({
         <SubViewFallback />
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
-          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
             {qualified
               ? (isNarrow
                   ? 'Nobody has qualified yet. Sort, then Filter → Everyone, shows the whole roster.'
@@ -2464,7 +2464,7 @@ export default function WpblStatsView({
             borderBottom: '1px solid', borderColor: 'divider',
           }}>
             <Typography sx={{
-              flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
+              flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4),
               textTransform: 'uppercase', color: 'text.disabled',
             }}>{mode === 'teams' ? 'Team' : 'Player'}</Typography>
             {/* The league's figure for the stat being ranked, in the header line rather than a
@@ -2473,17 +2473,17 @@ export default function WpblStatsView({
                 cells empty. */}
             {activeCol.rate && (
               <Typography data-league-head="" sx={{
-                flexShrink: 0, fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary',
+                flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary',
                 fontVariantNumeric: 'tabular-nums',
               }}>League avg {leagueCell(activeCol)}</Typography>
             )}
             <Typography sx={{
               // Not uppercased: see thBase on wOBA and wRC+.
-              flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
+              flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4),
               color: 'var(--wpbl-accent-fg)',
             }}>
               {activeCol.label}
-              <Box component="span" sx={{ ml: 0.3, fontSize: '0.62rem' }}>{sortAsc ? '↑' : '↓'}</Box>
+              <Box component="span" sx={{ ml: 0.3, fontSize: TYPE_SCALE.caption }}>{sortAsc ? '↑' : '↓'}</Box>
             </Typography>
           </Box>
           {visibleRows.map((r, i) => (
@@ -2594,7 +2594,7 @@ export default function WpblStatsView({
                     }}>
                       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
                         {activeCol.label}
-                        <Box component="span" sx={{ fontSize: '0.62rem' }}>{sortAsc ? '↑' : '↓'}</Box>
+                        <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>{sortAsc ? '↑' : '↓'}</Box>
                       </Box>
                     </Box>
                   )}
@@ -2616,7 +2616,7 @@ export default function WpblStatsView({
                         }}>
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
                           {c.label}
-                          {active && <Box component="span" sx={{ fontSize: '0.62rem' }}>{sortAsc ? '↑' : '↓'}</Box>}
+                          {active && <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>{sortAsc ? '↑' : '↓'}</Box>}
                         </Box>
                       </Box>
                     )
@@ -2692,7 +2692,7 @@ export default function WpblStatsView({
                               right, into the badge. A flex-end box overflows at its start, so the
                               extra runs left into the cell's padding, where there is room. */}
                           {!teamsNarrow && (
-                            <Typography sx={{ width: RANK_W, display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>
+                            <Typography sx={{ width: RANK_W, display: 'flex', justifyContent: 'flex-end', flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>
                               <RankText rank={ranks[i]} />
                             </Typography>
                           )}
@@ -2709,14 +2709,14 @@ export default function WpblStatsView({
                                 on a phone's capped board. A team row has no link and renders a <p>,
                                 already a block, which is why the league row never showed it. */}
                             {r.fullName
-                              ? <NameText name={r.fullName} linkProps={r.link} sx={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15 }} />
-                              : <Typography {...r.link} sx={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              ? <NameText name={r.fullName} linkProps={r.link} sx={{ display: 'block', fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.15 }} />
+                              : <Typography {...r.link} sx={{ display: 'block', fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {teamsNarrow && r.shortLabel ? r.shortLabel : r.label}
                                 </Typography>}
                             {/* Not on a phone, where the board is capped to the screen and the line
                                 costs a sixth of every row. The card behind the tap has it, and the
                                 ranked list never carried it either. */}
-                            {r.sublabel && !pinActive && <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.sublabel}</Typography>}
+                            {r.sublabel && !pinActive && <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1 }}>{r.sublabel}</Typography>}
                           </Box>
                         </Box>
                       </Box>
@@ -2835,7 +2835,7 @@ function StatListRow({ row, rank, value, context, isTeam, first, total, faded, p
         // "T-10" is the widest thing it has to hold.
         // A flex box rather than text-align, so anything wider spills evenly both ways instead of
         // only to the right, into the portrait. See the table's rank for the same trap.
-        width: '1.875rem', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800,
+        width: '1.875rem', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', justifyContent: 'center', fontSize: TYPE_SCALE.body, fontWeight: 800,
         fontVariantNumeric: 'tabular-nums',
         color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled',
       }}><RankText rank={rank} /></Box>
@@ -2849,19 +2849,19 @@ function StatListRow({ row, rank, value, context, isTeam, first, total, faded, p
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
           <Typography sx={{
-            fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.25,
+            fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.25,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{isTeam ? (row.shortLabel ?? row.label) : (row.fullName ?? row.label)}</Typography>
           {!isTeam && row.team && <TeamBadge team={row.team} size={15} />}
         </Box>
         <Typography sx={{
-          fontSize: '0.68rem', lineHeight: 1.35, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
+          fontSize: TYPE_SCALE.micro, lineHeight: 1.35, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{context}</Typography>
       </Box>
 
       <Box sx={{
-        flexShrink: 0, fontSize: '1.05rem', fontWeight: 800,
+        flexShrink: 0, fontSize: TYPE_SCALE.heading, fontWeight: 800,
         color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums',
       }}>{value}</Box>
     </Box>
@@ -2896,7 +2896,7 @@ function OptionTile({ label, hint, on, onClick }: {
       ...hoverOnly({ borderColor: ACCENT_EDGE }),
     }}>
       <Typography sx={{
-        fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2,
+        fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2,
         color: on ? 'var(--wpbl-accent-fg)' : 'text.primary',
       }}>{label}</Typography>
       {hint && (
@@ -2904,7 +2904,7 @@ function OptionTile({ label, hint, on, onClick }: {
         // picker, and "Strikeouts per…" does not say which denominator. Clamped at two so a
         // long one cannot make its row of tiles tower over the rest.
         <Typography sx={{
-          fontSize: '0.66rem', lineHeight: 1.25, color: 'text.disabled', overflowWrap: 'anywhere',
+          fontSize: TYPE_SCALE.micro, lineHeight: 1.25, color: 'text.disabled', overflowWrap: 'anywhere',
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{hint}</Typography>
       )}
@@ -2933,11 +2933,11 @@ function OptionRow({ label, hint, icon, on, onClick }: {
       {icon}
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{
-          fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.25,
+          fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.25,
           color: on ? 'var(--wpbl-accent-fg)' : 'text.primary',
         }}>{label}</Typography>
         {hint && (
-          <Typography sx={{ fontSize: '0.7rem', lineHeight: 1.3, color: 'text.disabled' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, lineHeight: 1.3, color: 'text.disabled' }}>
             {hint}
           </Typography>
         )}
@@ -2946,7 +2946,7 @@ function OptionRow({ label, hint, icon, on, onClick }: {
           difference that disappears in sunlight, and about one man in twelve cannot use
           colour to tell two states apart at all. */}
       <Box aria-hidden sx={{
-        flexShrink: 0, fontSize: '0.95rem', fontWeight: 800,
+        flexShrink: 0, fontSize: TYPE_SCALE.title, fontWeight: 800,
         color: 'var(--wpbl-accent-fg)', opacity: on ? 1 : 0,
       }}>✓</Box>
     </Box>
@@ -2963,7 +2963,7 @@ function SheetDone({ onClose }: { onClose: () => void }) {
       ...FOCUS_RING,
       minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
       borderRadius: 2, cursor: 'pointer', userSelect: 'none',
-      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: '0.9rem',
+      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: TYPE_SCALE.title,
     }}>Done</Box>
   )
 }

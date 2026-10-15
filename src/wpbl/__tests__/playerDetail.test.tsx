@@ -72,6 +72,11 @@ vi.mock('../api', async (importOriginal) => {
     fetchWpblPlayerLines: () => Promise.resolve(lines),
     fetchWpblPitcherLocations: () => Promise.resolve([]),
     fetchWpblAllLines: () => Promise.resolve({ batting: lines.batting, pitching: lines.pitching }),
+    // The WPA / BsR strip's read. Left real, it went to the placeholder Supabase, and whether it
+    // had settled by the time a test looked depended on the machine's load: under three parallel
+    // runs BsR printed a third "1st of 1" and the rank test failed on a change that touched nothing.
+    fetchWpblAllRunValuePlays: () => Promise.resolve([]),
+    getCachedWpblAllRunValuePlays: () => null,
     fetchWpblArticles: () => Promise.resolve([]),
     getCachedWpblArticles: () => [],
   }
@@ -330,7 +335,9 @@ describe('PlayerDetail: league ranks', () => {
     // A field of one, so she is 1st in every rate. The headline's two rates carry their field, at
     // every width; OBP and SLG are columns of the standard line and carry the line's bare ordinal,
     // each under its own column. AVG and OPS are ranked once, in the headline, not again below.
-    await waitFor(() => expect(screen.getAllByText('1st of 1')).toHaveLength(2))
+    // The third is BsR's, in the strip under the line, which ranks her on the bases; waiting for
+    // all three is waiting for the card to finish loading.
+    await waitFor(() => expect(screen.getAllByText('1st of 1')).toHaveLength(3))
     const heads = Array.from(lineTable()?.querySelectorAll('th') ?? []).map(th => th.textContent)
     const ranksBy = Object.fromEntries(heads.map((h, i) => [h, rankRow()[i] ?? '']))
     expect(ranksBy.OBP).toBe('1st')

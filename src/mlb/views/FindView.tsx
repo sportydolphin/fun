@@ -19,6 +19,7 @@ import { TEAM_ABBR, TEAM_NICKNAME } from '../constants'
 import { MLB_CLUBS } from '../routes'
 import { seasonScopeOf, MLB_LINES_SEASONS } from '../seasonLines'
 import { useMlbSeasonLines, LinesBoardControls, NotMirrored, type MlbLinesBoardProps } from './BestsView'
+import { TYPE_SCALE } from '../../ui/card'
 
 // THE FIND BOARD: every MLB game line that matches what you asked for. The shared board
 // (src/ui/finderBoard.tsx) on the shared engine (src/league/finder.ts), over MLB's mirrored box scores:
@@ -113,7 +114,7 @@ export function MlbFindView({
       </StatsBar>
 
       {!mirrored ? <NotMirrored season={vizSeason} /> : failed ? (
-        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
           Couldn’t load the {vizSeason} box scores. Try again in a moment.
         </Typography>
       ) : (

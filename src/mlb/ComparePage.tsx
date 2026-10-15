@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Box, Typography } from '@mui/material'
 import StandalonePage from '../ui/StandalonePage'
-import { SectionCard, TextGhost } from '../ui/card'
+import { SectionCard, TextGhost, TYPE_SCALE } from '../ui/card'
 import { chromePx } from '../ui/scale'
 import {
   CompareHead, CompareHeadSkeleton, CompareBlocksCard, CompareBlocksSkeleton, HeadToHeadCard, HeadToHeadSkeleton,
@@ -390,7 +390,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
               : <HeadToHeadSkeleton labels={duelSkeleton(season)} />)}
             {groups.map(g => <CompareBlocksCard key={g.key} title={g.label} blocks={g.blocks} />)}
             {groups.length === 0 && (
-              <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
                 Neither has a regular-season line in {season}, so there is nothing to compare yet.
               </Typography>
             )}

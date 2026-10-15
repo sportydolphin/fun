@@ -19,6 +19,7 @@ import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT
 
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 import { PlayerHeadshot } from '../components/leaderboards'
+import { TYPE_SCALE } from '../../ui/card'
 
 export interface LeaderboardViewProps {
   /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
@@ -100,7 +101,7 @@ export function LeaderboardView({
               sx={{ ...filterChipSx(!!lbPickerAnchor || !lbIsDefault), gap: 0.4 }}
             >
               Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
-              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+              <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
             </Box>
           )}
         </Box>
@@ -118,7 +119,7 @@ export function LeaderboardView({
               sx={controlPill(filtersSet || (canPick && !lbIsDefault))}>
               Filters
               {(filtersSet || (canPick && !lbIsDefault)) && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
-              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+              <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
             </Box>
           </Box>
         </Box>
@@ -152,12 +153,12 @@ export function LeaderboardView({
           const allLbSelected = allLbKeys.length > 0 && allLbKeys.every(k => lbSelectedKeys.includes(k))
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                 Leaderboard stats
               </Typography>
               <Box
                 {...pressable(() => setLbSelectedKeys(allLbSelected ? [...lbFeatured] : allLbKeys))}
-                sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}
+                sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}
               >
                 {allLbSelected ? 'Reset' : 'All'}
               </Box>
@@ -188,7 +189,7 @@ export function LeaderboardView({
         {!lbIsDefault && (
           <Box
             {...pressable(() => setLbSelectedKeys([...lbFeatured]))}
-            sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.7rem', color: 'text.disabled', cursor: 'pointer', fontWeight: 600, '&:hover': { color: ACCENT_TEXT } }}
+            sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider', fontSize: TYPE_SCALE.micro, color: 'text.disabled', cursor: 'pointer', fontWeight: 600, '&:hover': { color: ACCENT_TEXT } }}
           >
             ↩ Reset to featured
           </Box>
@@ -212,7 +213,7 @@ export function LeaderboardView({
       )}
 
       {!fielding && !loadingLb && lbData && lbData.length === 0 && gameScope === 'post' && (
-        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: '0.9rem' }}>
+        <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
           No playoff games in {vizSeason}{vizSeason >= CURRENT_SEASON ? ' yet' : ''}.
         </Typography>
       )}
